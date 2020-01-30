@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloud-provider-config
+  namespace: {{ .Release.Namespace }}
+data:
+  cloudprovider.conf: |
+    [Global]
+    VPC="{{ .Values.vpcID }}"
+    SubnetID="{{ .Values.subnetID }}"
+    DisableSecurityGroupIngress=true
+    KubernetesClusterTag="{{ .Values.clusterName }}"
+    KubernetesClusterID="{{ .Values.clusterName }}"
+    Zone="{{ .Values.zone }}"

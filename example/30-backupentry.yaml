@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backupprovider
+  namespace: shoot--foobar--aws
+type: Opaque
+data:
+# accessKeyID: base64(access-key-id)
+# secretAccessKey: base64(secret-access-key)
+---
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: BackupEntry
+metadata:
+  name: shoot--foobar--aws--sd34f
+spec:
+  type: aws
+  region: eu-west-1
+  bucketName: cloud--aws--fg2d6
+  secretRef:
+    name: backupprovider
+    namespace: garden

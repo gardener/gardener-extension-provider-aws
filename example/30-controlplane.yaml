@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shoot--foobar--aws
+  labels:
+#    backup.gardener.cloud/provider: aws
+#    seed.gardener.cloud/provider: aws
+    shoot.gardener.cloud/provider: aws
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudprovider
+  namespace: shoot--foobar--aws
+type: Opaque
+data:
+  accessKeyID: Zm9v # foo
+  secretAccessKey: YmFy # bar
+---
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: Cluster
+metadata:
+  name: shoot--foobar--aws
+spec:
+  cloudProfile:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: CloudProfile
+  seed:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: Seed
+  shoot:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: Shoot
+    spec:
+      networking:
+        pods: 10.250.0.0/19
+      kubernetes:
+        version: 1.13.4
+      hibernation:
+        enabled: false
+    status:
+      lastOperation:
+        state: Succeeded
+---
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: ControlPlane
+metadata:
+  name: control-plane
+  namespace: shoot--foobar--aws
+spec:
+  type: aws
+  region: eu-west-1
+  secretRef:
+    name: cloudprovider
+    namespace: shoot--foobar--aws
+  providerConfig:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: ControlPlaneConfig
+    cloudControllerManager:
+      featureGates:
+        CustomResourceValidation: true
+  infrastructureProviderStatus:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: InfrastructureStatus
+    vpc:
+      id: vpc-1234
+      subnets:
+      - id: subnet-acbd1234
+        purpose: public
+        zone: eu-west-1a

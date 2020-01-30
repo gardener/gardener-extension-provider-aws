@@ -1,0 +1,20 @@
+global:
+  image:
+    repository: eu.gcr.io/gardener-project/gardener/gardener-extension-hyper
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources: {}
+  webhookConfig:
+    serverPort: 443
+    tls:
+      crt: |
+        -----BEGIN CERTIFICATE-----
+        ...
+        -----END CERTIFICATE-----
+      key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        ...
+        -----END RSA PRIVATE KEY-----  
+  # Kubeconfig to the target cluster. In-cluster configuration will be used if not specified.
+  kubeconfig:

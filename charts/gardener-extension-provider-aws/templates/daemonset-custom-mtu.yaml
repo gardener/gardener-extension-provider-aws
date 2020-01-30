@@ -1,0 +1,39 @@
+{{ if eq .Values.gardener.seed.provider "aws" }}
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: mtu-customizer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: mtu-customizer
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ''
+spec:
+  selector:
+    matchLabels:
+      k8s-app: mtu-customizer
+  template:
+    metadata:
+      labels:
+        k8s-app: mtu-customizer
+    spec:
+      hostNetwork: true
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      initContainers:
+      - name: mtu-customizer
+        image: {{ include "image.alpine" . }}
+        command: ["ip", "link", "set", "dev", "eth0", "mtu", "1460"]
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "SYS_TIME"]
+      containers:
+        - name: pause
+          image: {{ include "image.pause" .  }}
+      terminationGracePeriodSeconds: 2
+{{end}}

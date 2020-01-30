@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backupprovider
+  namespace: garden
+type: Opaque
+data:
+# accessKeyID: base64(access-key-id)
+# secretAccessKey: base64(secret-access-key)
+---
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: BackupBucket
+metadata:
+  name: cloud--aws--fg2d6
+spec:
+  type: aws
+  region: eu-west-1
+  secretRef:
+    name: backupprovider
+    namespace: garden

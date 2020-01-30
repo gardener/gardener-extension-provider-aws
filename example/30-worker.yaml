@@ -1,0 +1,106 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudprovider
+  namespace: shoot--foobar--aws
+type: Opaque
+data:
+  accessKeyID: ZGF0YQo=
+  secretAccessKey: ZGF0YQo=
+---
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: Cluster
+metadata:
+  name: shoot--foobar--aws
+spec:
+  cloudProfile:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: CloudProfile
+    spec:
+      providerConfig:
+        apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+        kind: CloudProfileConfig
+        machineImages:
+          - name: coreos
+            versions:
+              - version: 2135.6.0
+                regions:
+                - name: eu-west-1
+                  ami: awsami-eu-west-1
+                - name: eu-east-1
+                  ami: awsami-eu-east-1
+  seed:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: Seed
+  shoot:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: Shoot
+    spec:
+      kubernetes:
+        version: 1.13.4
+    status:
+      lastOperation:
+        state: Succeeded
+---
+# This resource does result in the deployment of the machine-controller-manager, the machine classes,
+# and the desired MachineDeployments. However, it does not create actual virtual machines because the
+# provided infrastructure status data (subnet id, etc.) is not valid/does not exist.
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: Worker
+metadata:
+  name: worker
+  namespace: shoot--foobar--aws
+  annotations:
+    gardener.cloud/operation: reconcile
+spec:
+  type: aws
+  region: eu-west-1
+  secretRef:
+    name: cloudprovider
+    namespace: shoot--foobar--aws
+  infrastructureProviderStatus:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: InfrastructureStatus
+    ec2:
+      keyName: my-shoot
+    iam:
+      instanceProfiles:
+      - purpose: nodes
+        name: nodes-my-shoot
+      roles:
+      - purpose: nodes
+        arn: arn://my-shoot
+    vpc:
+      id: vpc-1234
+      subnets:
+      - purpose: nodes
+        id: subnet-4567
+        zone: eu-west-1a
+      securityGroups:
+      - purpose: nodes
+        id: sg-35a44
+  pools:
+  - name: cpu-worker
+    machineType: m4.large
+    machineImage:
+      name: coreos
+      version: 2135.6.0
+    minimum: 1
+    maximum: 1
+    maxSurge: 1
+    maxUnavailable: 0
+  # labels:
+  #   key: value
+  # annotations:
+  #   key: value
+  # taints: # See also https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  # - key: foo
+  #   value: bar
+  #   effect: NoSchedule
+    userData: IyEvYmluL2Jhc2gKCmVjaG8gImhlbGxvIHdvcmxkIgo=
+    volume:
+      type: gp2
+      size: 20Gi
+    zones:
+    - eu-west-1a

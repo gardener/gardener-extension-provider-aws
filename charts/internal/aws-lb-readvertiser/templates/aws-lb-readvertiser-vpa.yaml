@@ -1,0 +1,12 @@
+apiVersion: "autoscaling.k8s.io/v1beta2"
+kind: VerticalPodAutoscaler
+metadata:
+    name: aws-lb-readvertiser-vpa
+    namespace: {{ .Release.Namespace }}
+spec:
+    targetRef:
+        apiVersion: {{ include "deploymentversion" . }}
+        kind: Deployment
+        name: aws-lb-readvertiser
+    updatePolicy:
+        updateMode: "Auto"
