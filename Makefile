@@ -97,10 +97,10 @@ revendor:
 	@GO111MODULE=on go mod vendor
 	@GO111MODULE=on go mod tidy
 	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener-extensions/hack/*
-	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener-extensions/.ci/*
+	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener-extensions/hack/.ci/*
 
 .PHONY: start
-start-provider-aws:
+start:
 	@LEADER_ELECTION_NAMESPACE=garden GO111MODULE=on go run \
 		-mod=vendor \
 		-ldflags $(LD_FLAGS) \
