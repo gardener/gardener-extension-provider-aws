@@ -1,8 +1,1 @@
-global:
-  virtualGarden:
-    enabled: false  
-  webhookConfig:
-    caBundle: |
-      -----BEGIN CERTIFICATE-----
-      ...
-      -----END CERTIFICATE-------
+../../values.yaml
