@@ -91,6 +91,9 @@ type VPC struct {
 	// CIDR is the VPC CIDR.
 	// +optional
 	CIDR *string `json:"cidr,omitempty"`
+	// GatewayEndpoints service names to configure as gateway endpoints in the VPC.
+	// +optional
+	GatewayEndpoints []string `json:"gatewayEndpoints,omitempty"`
 }
 
 // VPCStatus contains information about a generated VPC or resources inside an existing VPC.

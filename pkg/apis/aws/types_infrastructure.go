@@ -87,6 +87,8 @@ type VPC struct {
 	ID *string
 	// CIDR is the VPC CIDR.
 	CIDR *string
+	// GatewayEndpoints service names to configure as gateway endpoints in the VPC.
+	GatewayEndpoints []string
 }
 
 // VPCStatus contains information about a generated VPC or resources inside an existing VPC.

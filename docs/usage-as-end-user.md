@@ -37,6 +37,8 @@ networks:
   vpc: # specify either 'id' or 'cidr'
   # id: vpc-123456
     cidr: 10.250.0.0/16
+  # gatewayEndpoints:
+  # - s3
   zones:
   - name: eu-west-1a
     internal: 10.250.112.0/22
@@ -54,6 +56,7 @@ Please make sure that the VPC has attached an internet gateway - the AWS control
 * If `networks.vpc.cidr` is given then you have to specify the VPC CIDR of a new VPC that will be created during shoot creation.
 You can freely choose a private CIDR range.
 * Either `networks.vpc.id` or `networks.vpc.cidr` must be present, but not both at the same time.
+* `networks.vpc.gatewayEndpoints` is optional. If specified then each item is used as service name in a corresponding Gateway VPC Endpoint.
 
 The `networks.zones` section describes which subnets you want to create in availability zones.
 For every zone, the AWS extension creates three subnets:
@@ -64,6 +67,22 @@ For every zone, the AWS extension creates three subnets:
 
 For every subnet, you have to specify a CIDR range contained in the VPC CIDR specified above, or the VPC CIDR of your already existing VPC.
 You can freely choose these CIDR and it is your responsibility to properly design the network layout to suit your needs.
+
+You can configure [Gateway VPC Endpoints](https://docs.aws.amazon.com/vpc/latest/userguide/vpce-gateway.html) by adding items in the optional list `networks.vpc.gatewayEndpoints`. Each item in the list is used as a service name and a corresponding endpoint is created for it. All created endpoints point to the service within the cluster's region. For example, consider this (partial) shoot config:
+```yaml
+spec:
+  region: eu-central-1
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          gatewayEndpoints:
+          - s3
+```
+The service name of the S3 Gateway VPC Endpoint in this example is `com.amazonaws.eu-central-1.s3`.
 
 If you want to use multiple availability zones then add a second, third, ... entry to the `networks.zones[]` list and properly specify the AZ name in `networks.zones[].name`.
 

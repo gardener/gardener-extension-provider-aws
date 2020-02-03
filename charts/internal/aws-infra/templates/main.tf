@@ -24,6 +24,15 @@ resource "aws_vpc" "vpc" {
 {{ include "aws-infra.common-tags" .Values | indent 2 }}
 }
 
+{{ range $ep := .Values.vpc.gatewayEndpoints }}
+resource "aws_vpc_endpoint" "vpc_gwep_{{ $ep }}" {
+  vpc_id       = "${aws_vpc.vpc.id}"
+  service_name = "com.amazonaws.{{ .Values.aws.region }}.{{ $ep }}"
+
+{{ include "aws-infra.tags-with-suffix" (set $.Values "suffix" (print "gw-" $ep)) | indent 2 }}
+}
+{{ end }}
+
 resource "aws_vpc_dhcp_options_association" "vpc_dhcp_options_association" {
   vpc_id          = "${aws_vpc.vpc.id}"
   dhcp_options_id = "${aws_vpc_dhcp_options.vpc_dhcp_options.id}"
@@ -379,4 +388,3 @@ tags = {
   "kubernetes.io/cluster/{{ required "clusterName is required" .clusterName }}" = "1"
 }
 {{- end -}}
-

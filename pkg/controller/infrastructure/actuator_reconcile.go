@@ -149,6 +149,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			"cidr":              vpcCIDR,
 			"dhcpDomainName":    dhcpDomainName,
 			"internetGatewayID": internetGatewayID,
+			"gatewayEndpoints":  infrastructureConfig.Networks.VPC.GatewayEndpoints,
 		},
 		"clusterName": infrastructure.Namespace,
 		"zones":       zones,

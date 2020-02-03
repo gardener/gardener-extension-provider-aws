@@ -331,6 +331,28 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				}))
 			})
 		})
+
+		Context("gatewayEndpoints", func() {
+			It("should accept empty list", func() {
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+			It("should reject non-alpthanumeric endpoints", func() {
+				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"s3", "my-endpoint"}
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":     Equal(field.ErrorTypeInvalid),
+					"Field":    Equal("networks.vpc.gatewayEndpoints[1]"),
+					"BadValue": Equal("my-endpoint"),
+					"Detail":   Equal("must be alphanumeric"),
+				}))
+			})
+			It("should accept all-valid lists", func() {
+				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"myservice", "s3"}
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+		})
 	})
 
 	Describe("#ValidateInfrastructureConfigUpdate", func() {

@@ -16,6 +16,7 @@ package validation
 
 import (
 	"fmt"
+	"regexp"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -83,6 +84,16 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 	networksPath := field.NewPath("networks")
 	if len(infra.Networks.Zones) == 0 {
 		allErrs = append(allErrs, field.Required(networksPath.Child("zones"), "must specify at least the networks for one zone"))
+	}
+
+	if len(infra.Networks.VPC.GatewayEndpoints) > 0 {
+		epsPath := networksPath.Child("vpc", "gatewayEndpoints")
+		re := regexp.MustCompile(`^\w+$`)
+		for i, svc := range infra.Networks.VPC.GatewayEndpoints {
+			if !re.MatchString(svc) {
+				allErrs = append(allErrs, field.Invalid(epsPath.Index(i), svc, "must be alphanumeric"))
+			}
+		}
 	}
 
 	var (
