@@ -83,7 +83,7 @@ const (
 
 var (
 	// ChartsPath is the path to the charts
-	ChartsPath = filepath.Join("controllers", Name, "charts")
+	ChartsPath = filepath.Join("charts")
 	// InternalChartsPath is the path to the internal charts
 	InternalChartsPath = filepath.Join(ChartsPath, "internal")
 )
