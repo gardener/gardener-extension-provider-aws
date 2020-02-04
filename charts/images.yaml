@@ -19,7 +19,7 @@ images:
 - name: etcd-backup-restore
   sourceRepository: github.com/gardener/etcd-backup-restore
   repository: eu.gcr.io/gardener-project/gardener/etcdbrctl
-  tag: "0.7.3"
+  tag: "0.8.0"
 - name: aws-lb-readvertiser
   sourceRepository: github.com/gardener/aws-lb-readvertiser
   repository: eu.gcr.io/gardener-project/gardener/aws-lb-readvertiser
