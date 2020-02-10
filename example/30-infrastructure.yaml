@@ -47,6 +47,10 @@ spec:
       vpc: # specify either 'id' or 'cidr'
       # id: vpc-123456
         cidr: 10.250.0.0/16
+      # you can define custom service names for adding Gateway VPC Endpoints
+      # gatewayEndpoints:
+      # - s3
+      #   given the region above, this translates to service name com.amazonaws.eu-west-1.s3
       zones:
       - name: eu-west-1a
         internal: 10.250.112.0/22

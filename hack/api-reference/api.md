@@ -868,6 +868,18 @@ string
 <p>CIDR is the VPC CIDR.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>gatewayEndpoints</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GatewayEndpoints service names to configure as gateway endpoints in the VPC.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.VPCStatus">VPCStatus

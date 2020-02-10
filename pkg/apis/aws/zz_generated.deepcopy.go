@@ -385,6 +385,11 @@ func (in *VPC) DeepCopyInto(out *VPC) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.GatewayEndpoints != nil {
+		in, out := &in.GatewayEndpoints, &out.GatewayEndpoints
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

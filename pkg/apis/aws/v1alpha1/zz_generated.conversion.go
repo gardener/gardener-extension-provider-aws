@@ -631,6 +631,7 @@ func Convert_aws_Subnet_To_v1alpha1_Subnet(in *aws.Subnet, out *Subnet, s conver
 func autoConvert_v1alpha1_VPC_To_aws_VPC(in *VPC, out *aws.VPC, s conversion.Scope) error {
 	out.ID = (*string)(unsafe.Pointer(in.ID))
 	out.CIDR = (*string)(unsafe.Pointer(in.CIDR))
+	out.GatewayEndpoints = *(*[]string)(unsafe.Pointer(&in.GatewayEndpoints))
 	return nil
 }
 
@@ -642,6 +643,7 @@ func Convert_v1alpha1_VPC_To_aws_VPC(in *VPC, out *aws.VPC, s conversion.Scope) 
 func autoConvert_aws_VPC_To_v1alpha1_VPC(in *aws.VPC, out *VPC, s conversion.Scope) error {
 	out.ID = (*string)(unsafe.Pointer(in.ID))
 	out.CIDR = (*string)(unsafe.Pointer(in.CIDR))
+	out.GatewayEndpoints = *(*[]string)(unsafe.Pointer(&in.GatewayEndpoints))
 	return nil
 }
 
