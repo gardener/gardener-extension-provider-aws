@@ -57,7 +57,7 @@ func (v *Shoot) Handle(ctx context.Context, req admission.Request) admission.Res
 		}
 	case admissionv1beta1.Update:
 		oldShoot := &core.Shoot{}
-		if err := util.Decode(v.decoder, req.Object.Raw, oldShoot); err != nil {
+		if err := util.Decode(v.decoder, req.OldObject.Raw, oldShoot); err != nil {
 			v.Logger.Error(err, "failed to decode old shoot", string(req.OldObject.Raw))
 			return admission.Errored(http.StatusBadRequest, err)
 		}
