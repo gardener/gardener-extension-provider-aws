@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("Shoot validation", func() {
@@ -31,7 +32,7 @@ var _ = Describe("Shoot validation", func() {
 
 		It("should return no error because nodes CIDR was provided", func() {
 			networking := core.Networking{
-				Nodes: makeStringPointer("1.2.3.4/5"),
+				Nodes: pointer.StringPtr("1.2.3.4/5"),
 			}
 
 			errorList := ValidateNetworking(networking, networkingPath)
@@ -62,8 +63,9 @@ var _ = Describe("Shoot validation", func() {
 		BeforeEach(func() {
 			workers = []core.Worker{
 				{
+					Name: "worker1",
 					Volume: &core.Volume{
-						Type: makeStringPointer("Volume"),
+						Type: pointer.StringPtr("Volume"),
 						Size: "30G",
 					},
 					Zones: []string{
@@ -72,8 +74,9 @@ var _ = Describe("Shoot validation", func() {
 					},
 				},
 				{
+					Name: "worker2",
 					Volume: &core.Volume{
-						Type: makeStringPointer("Volume"),
+						Type: pointer.StringPtr("Volume"),
 						Size: "20G",
 					},
 					Zones: []string{
@@ -165,10 +168,85 @@ var _ = Describe("Shoot validation", func() {
 				))
 			})
 		})
+
+		Describe("#ValidateWorkersUpdate", func() {
+			It("should pass because workers are unchanged", func() {
+				newWorkers := copyWorkers(workers)
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
+
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow adding workers", func() {
+				newWorkers := append(workers[:0:0], workers...)
+				workers = workers[:1]
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
+
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow adding a zone to a worker", func() {
+				newWorkers := copyWorkers(workers)
+				newWorkers[0].Zones = append(newWorkers[0].Zones, "another-zone")
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
+
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should forbid removing a zone from a worker", func() {
+				newWorkers := copyWorkers(workers)
+				newWorkers[1].Zones = newWorkers[1].Zones[1:]
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
+
+				Expect(errorList).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("workers[1].zones"),
+					})),
+				))
+			})
+
+			It("should forbid changing the zone order", func() {
+				newWorkers := copyWorkers(workers)
+				newWorkers[0].Zones[0] = workers[0].Zones[1]
+				newWorkers[0].Zones[1] = workers[0].Zones[0]
+				newWorkers[1].Zones[0] = workers[1].Zones[1]
+				newWorkers[1].Zones[1] = workers[1].Zones[0]
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
+
+				Expect(errorList).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("workers[0].zones"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("workers[1].zones"),
+					})),
+				))
+			})
+
+			It("should forbid adding a zone while changing an existing one", func() {
+				newWorkers := copyWorkers(workers)
+				newWorkers = append(newWorkers, core.Worker{Name: "worker3", Zones: []string{"zone1"}})
+				newWorkers[1].Zones[0] = workers[1].Zones[1]
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
+
+				Expect(errorList).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("workers[1].zones"),
+					})),
+				))
+			})
+		})
 	})
 })
 
-func makeStringPointer(s string) *string {
-	ptr := s
-	return &ptr
+func copyWorkers(workers []core.Worker) []core.Worker {
+	copy := append(workers[:0:0], workers...)
+	for i := range copy {
+		copy[i].Zones = append(workers[i].Zones[:0:0], workers[i].Zones...)
+	}
+	return copy
 }

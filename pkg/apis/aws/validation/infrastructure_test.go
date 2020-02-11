@@ -339,7 +339,6 @@ var _ = Describe("InfrastructureConfig validation", func() {
 		})
 
 		It("should allow adding a zone", func() {
-
 			newInfrastructureConfig := infrastructureConfig.DeepCopy()
 			newInfrastructureConfig.Networks.Zones = append(newInfrastructureConfig.Networks.Zones, awsZone2)
 
@@ -398,18 +397,19 @@ var _ = Describe("InfrastructureConfig validation", func() {
 		})
 
 		It("should forbid removing a zone", func() {
+			infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, awsZone2)
 			newInfrastructureConfig := infrastructureConfig.DeepCopy()
-			newInfrastructureConfig.Networks.Zones[0] = awsZone2
+			newInfrastructureConfig.Networks.Zones = newInfrastructureConfig.Networks.Zones[:1]
 
 			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type":  Equal(field.ErrorTypeInvalid),
+				"Type":  Equal(field.ErrorTypeForbidden),
 				"Field": Equal("networks.zones"),
 			}))))
 		})
 
-		It("should allow adding a zone but forbid removing a zone", func() {
+		It("should allow adding a zone but forbid changing one", func() {
 			newInfrastructureConfig := infrastructureConfig.DeepCopy()
 			newInfrastructureConfig.Networks.Zones = append(newInfrastructureConfig.Networks.Zones, awsZone2)
 			newInfrastructureConfig.Networks.Zones[0].Name = "zone3"
@@ -418,8 +418,28 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeInvalid),
-				"Field": Equal("networks.zones"),
+				"Field": Equal("networks.zones[0]"),
 			}))))
+		})
+
+		It("should forbid changing the order of zones", func() {
+			infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, awsZone2)
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newInfrastructureConfig.Networks.Zones[0] = infrastructureConfig.Networks.Zones[1]
+			newInfrastructureConfig.Networks.Zones[1] = infrastructureConfig.Networks.Zones[0]
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[1]"),
+				})),
+			))
 		})
 	})
 })

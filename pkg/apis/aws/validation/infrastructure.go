@@ -145,23 +145,17 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.VPC, oldConfig.Networks.VPC, field.NewPath("networks.vpc"))...)
 
 	var (
-		oldZones     = oldConfig.Networks.Zones
-		newZones     = newConfig.Networks.Zones
-		missingZones = sets.NewString()
+		oldZones = oldConfig.Networks.Zones
+		newZones = newConfig.Networks.Zones
 	)
 
-	for i, oldZone := range oldZones {
-		missingZones.Insert(oldZone.Name)
-		for j, newZone := range newZones {
-			if newZone.Name == oldZone.Name {
-				missingZones.Delete(newZone.Name)
-				allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[j], oldConfig.Networks.Zones[j], field.NewPath("networks.zones").Index(i))...)
-			}
-		}
+	if len(oldZones) > len(newZones) {
+		allErrs = append(allErrs, field.Forbidden(field.NewPath("networks.zones"), "removing zones is not allowed"))
+		return allErrs
 	}
 
-	for zone := range missingZones {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("networks.zones"), zone, "zone is missing - removing a zone is not supported"))
+	for i, oldZone := range oldZones {
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone, newConfig.Networks.Zones[i], field.NewPath("networks.zones").Index(i))...)
 	}
 
 	return allErrs

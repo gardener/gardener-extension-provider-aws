@@ -28,6 +28,7 @@ require (
 	k8s.io/gengo v0.0.0-20190826232639-a874a240740c
 	k8s.io/klog v1.0.0
 	k8s.io/kubelet v0.0.0-20190918162654-250a1838aa2c
+	k8s.io/utils v0.0.0-20190801114015-581e00157fb1
 	sigs.k8s.io/controller-runtime v0.4.0
 )
 
