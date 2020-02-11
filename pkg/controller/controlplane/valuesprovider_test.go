@@ -55,14 +55,16 @@ var _ = Describe("ValuesProvider", func() {
 				Namespace: namespace,
 			},
 			Spec: extensionsv1alpha1.ControlPlaneSpec{
-				ProviderConfig: &runtime.RawExtension{
-					Raw: encode(&apisaws.ControlPlaneConfig{
-						CloudControllerManager: &apisaws.CloudControllerManagerConfig{
-							FeatureGates: map[string]bool{
-								"CustomResourceValidation": true,
+				DefaultSpec: extensionsv1alpha1.DefaultSpec{
+					ProviderConfig: &runtime.RawExtension{
+						Raw: encode(&apisaws.ControlPlaneConfig{
+							CloudControllerManager: &apisaws.CloudControllerManagerConfig{
+								FeatureGates: map[string]bool{
+									"CustomResourceValidation": true,
+								},
 							},
-						},
-					}),
+						}),
+					},
 				},
 				InfrastructureProviderStatus: &runtime.RawExtension{
 					Raw: encode(&apisaws.InfrastructureStatus{
