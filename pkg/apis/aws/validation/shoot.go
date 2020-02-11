@@ -20,6 +20,9 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/gardener/gardener/pkg/apis/core/validation"
+
+	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -59,6 +62,22 @@ func ValidateWorkers(workers []core.Worker, zones []apisaws.Zone, fldPath *field
 		allErrs = append(allErrs, validateZones(worker.Zones, awsZones, fldPath.Index(i).Child("zones"))...)
 	}
 
+	return allErrs
+}
+
+// ValidateWorkersUpdate validates updates on `workers`
+func ValidateWorkersUpdate(oldWorkers, newWorkers []core.Worker, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	for i, newWorker := range newWorkers {
+		for _, oldWorker := range oldWorkers {
+			if newWorker.Name == oldWorker.Name {
+				if validation.ShouldEnforceImmutability(newWorker.Zones, oldWorker.Zones) {
+					allErrs = append(allErrs, apivalidation.ValidateImmutableField(newWorker.Zones, oldWorker.Zones, fldPath.Index(i).Child("zones"))...)
+				}
+				break
+			}
+		}
+	}
 	return allErrs
 }
 
