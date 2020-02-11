@@ -19,6 +19,7 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -51,15 +52,6 @@ func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 	}
 
 	if errList := awsvalidation.ValidateInfrastructureConfig(infraConfig, shoot.Spec.Networking.Nodes, shoot.Spec.Networking.Pods, shoot.Spec.Networking.Services); len(errList) != 0 {
-		return errList.ToAggregate()
-	}
-
-	cloudProfile := &gardencorev1beta1.CloudProfile{}
-	if err := v.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
-		return err
-	}
-
-	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(infraConfig, shoot, cloudProfile, infraConfigFldPath); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 
@@ -99,23 +91,26 @@ func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 }
 
 func (v *Shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.Shoot) error {
-	fldPath := field.NewPath("spec", "provider")
+	var (
+		fldPath            = field.NewPath("spec", "provider")
+		infraConfigFldPath = fldPath.Child("infrastructureConfig")
+	)
 
 	// InfrastructureConfig update
 	if shoot.Spec.Provider.InfrastructureConfig == nil {
 		return field.Required(fldPath.Child("infrastructureConfig"), "InfrastructureConfig must be set for AWS shoots")
 	}
 
-	infraConfig, err := decodeInfrastructureConfig(v.decoder, shoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
+	infraConfig, err := decodeInfrastructureConfig(v.decoder, shoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
 	if err != nil {
 		return err
 	}
 
 	if oldShoot.Spec.Provider.InfrastructureConfig == nil {
-		return field.InternalError(fldPath.Child("infrastructureConfig"), errors.New("InfrastructureConfig is not available on old shoot"))
+		return field.InternalError(infraConfigFldPath, errors.New("InfrastructureConfig is not available on old shoot"))
 	}
 
-	oldInfraConfig, err := decodeInfrastructureConfig(v.decoder, oldShoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
+	oldInfraConfig, err := decodeInfrastructureConfig(v.decoder, oldShoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
 	if err != nil {
 		return err
 	}
@@ -126,9 +121,44 @@ func (v *Shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		}
 	}
 
+	// Only validate against cloud profile when zones are updated.
+	// This ensures that already running shoots won't break after a zone is removed from a cloud profile.
+	if len(infraConfig.Networks.Zones) > len(oldInfraConfig.Networks.Zones) {
+		if err := v.validateAgainstCloudProfile(ctx, shoot, infraConfig, infraConfigFldPath); err != nil {
+			return err
+		}
+	}
+
 	if errList := awsvalidation.ValidateWorkersUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, fldPath.Child("workers")); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 
 	return v.validateShoot(ctx, shoot)
+}
+
+func (v *Shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) error {
+	fldPath := field.NewPath("spec", "provider")
+	infraConfig, err := decodeInfrastructureConfig(v.decoder, shoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
+	if err != nil {
+		return err
+	}
+
+	if err := v.validateAgainstCloudProfile(ctx, shoot, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
+		return err
+	}
+
+	return v.validateShoot(ctx, shoot)
+}
+
+func (v *Shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, infraConfig *aws.InfrastructureConfig, fldPath *field.Path) error {
+	cloudProfile := &gardencorev1beta1.CloudProfile{}
+	if err := v.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
+		return err
+	}
+
+	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
+		return errList.ToAggregate()
+	}
+
+	return nil
 }
