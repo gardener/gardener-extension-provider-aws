@@ -51,7 +51,7 @@ func (v *Shoot) Handle(ctx context.Context, req admission.Request) admission.Res
 
 	switch req.Operation {
 	case admissionv1beta1.Create:
-		if err := v.validateShoot(ctx, shoot); err != nil {
+		if err := v.validateShootCreation(ctx, shoot); err != nil {
 			v.Logger.Error(err, "denied request")
 			return admission.Errored(http.StatusBadRequest, err)
 		}
