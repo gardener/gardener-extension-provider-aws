@@ -142,17 +142,13 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			})
 
-			It("should forbid adding a zone", func() {
+			It("should allow adding the same zone", func() {
 				infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, awsZone2)
 				infrastructureConfig.Networks.Zones[1].Name = zone
 
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[1].name"),
-					"Detail": Equal("each zone may only be specified once"),
-				}))
+				Expect(errorList).To(BeEmpty())
 			})
 		})
 
