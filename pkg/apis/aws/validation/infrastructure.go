@@ -101,12 +101,8 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 		workerCIDRs = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones))
 	)
 
-	validatedZones := sets.NewString()
 	for i, zone := range infra.Networks.Zones {
 		zonePath := networksPath.Child("zones").Index(i)
-		if validatedZones.Has(zone.Name) {
-			allErrs = append(allErrs, field.Invalid(zonePath.Child("name"), zone.Name, "each zone may only be specified once"))
-		}
 
 		internalPath := zonePath.Child("internal")
 		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
@@ -120,8 +116,6 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
 		workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
-
-		validatedZones.Insert(zone.Name)
 	}
 
 	allErrs = append(allErrs, cidrvalidation.ValidateCIDRParse(cidrs...)...)
