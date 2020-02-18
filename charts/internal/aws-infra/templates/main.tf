@@ -202,6 +202,10 @@ resource "aws_route" "private_utility_z{{ $index }}_nat" {
   route_table_id         = "${aws_route_table.routetable_private_utility_z{{ $index }}.id}"
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = "${aws_nat_gateway.natgw_z{{ $index }}.id}"
+
+  timeouts {
+    create = "5m"
+  }
 }
 
 resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}_association_private_utility_z{{ $index }}" {
