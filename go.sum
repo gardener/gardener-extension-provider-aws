@@ -114,10 +114,10 @@ github.com/gardener/controller-manager-library v0.1.1-0.20191212112146-917449ad7
 github.com/gardener/controller-manager-library v0.1.1-0.20191212112146-917449ad760c/go.mod h1:v6cbldxmpL2fYBEB2lSnq3LSEPwIHus9En6iIhwNE1k=
 github.com/gardener/external-dns-management v0.7.3 h1:SAW9ur2mjZ+x89xbmcplJgqNUmFGYIZLI2E+PaBhhG0=
 github.com/gardener/external-dns-management v0.7.3/go.mod h1:Y3om11E865x4aQ7cmcHjknb8RMgCO153huRb/SvP+9o=
-github.com/gardener/gardener v1.0.1 h1:ta6JH/dg2RS0ffZtLm9zOSneMeUC1wEmSaSpVKJBhkQ=
-github.com/gardener/gardener v1.0.1/go.mod h1:CP9I0tCDVXTLPkJv/jUtXVUh948kSNKEGUg0haLz9gk=
-github.com/gardener/gardener-extensions v1.3.1-0.20200210193219-b03f0bceb23f h1:U9gmfvX5M0CnzSZKvvAaOOvRdBhat5LSxpCpaKnJk+s=
-github.com/gardener/gardener-extensions v1.3.1-0.20200210193219-b03f0bceb23f/go.mod h1:rJtUQCRoi4zYkBR3Q5Sz/bpS4LWL5JiYXA3deFV1rpI=
+github.com/gardener/gardener v1.0.1-0.20200213093126-7a6123b6ae21 h1:RuGhuc4SdfS6q20u2slVPofigoto36i1b5LHRKTkqgo=
+github.com/gardener/gardener v1.0.1-0.20200213093126-7a6123b6ae21/go.mod h1:CP9I0tCDVXTLPkJv/jUtXVUh948kSNKEGUg0haLz9gk=
+github.com/gardener/gardener-extensions v1.3.1-0.20200219155613-f5f526846320 h1:Lxb53AlrUXRmQ9Ep7HhVrr+vYN7afDSogm6BHKUKhOA=
+github.com/gardener/gardener-extensions v1.3.1-0.20200219155613-f5f526846320/go.mod h1:gc/w5HEt5DRRsc/rT3jn2m7xqmntPQEX+aHfWLYWgNM=
 github.com/gardener/gardener-resource-manager v0.10.0 h1:6OUKoWI3oha42F0oJN8OEo3UR+D3onOCel4Th+zgotU=
 github.com/gardener/gardener-resource-manager v0.10.0/go.mod h1:0pKTHOhvU91eQB0EYr/6Ymd7lXc/5Hi8P8tF/gpV0VQ=
 github.com/gardener/hvpa-controller v0.0.0-20191014062307-fad3bdf06a25 h1:nOFITmV7vt4fcYPEXgj66Qs83FdDEMvL/LQcR0diRRE=
