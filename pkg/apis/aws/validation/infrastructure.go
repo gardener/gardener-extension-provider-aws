@@ -147,7 +147,11 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.InfrastructureConfig) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.VPC, oldConfig.Networks.VPC, field.NewPath("networks.vpc"))...)
+	vpcPath := field.NewPath("networks.vpc")
+	oldVPC := oldConfig.Networks.VPC
+	newVPC := newConfig.Networks.VPC
+	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newVPC.ID, oldVPC.ID, vpcPath.Child("id"))...)
+	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newVPC.CIDR, oldVPC.CIDR, vpcPath.Child("cidr"))...)
 
 	var (
 		oldZones = oldConfig.Networks.Zones
