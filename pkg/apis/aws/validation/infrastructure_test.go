@@ -365,7 +365,26 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			Expect(errorList).To(BeEmpty())
 		})
 
-		It("should forbid changing the VPC", func() {
+		It("should allow changing gateway endpoints inside vpc", func() {
+			newInfraConfig := infrastructureConfig.DeepCopy()
+			newInfraConfig.Networks.VPC.GatewayEndpoints = []string{"myep"}
+			Expect(ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)).To(BeEmpty())
+		})
+
+		It("should forbid changing the VPC ID", func() {
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newid := "the-new-id"
+			newInfrastructureConfig.Networks.VPC.ID = &newid
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeInvalid),
+				"Field": Equal("networks.vpc.id"),
+			}))))
+		})
+
+		It("should forbid changing the VPC CIDR", func() {
 			newInfrastructureConfig := infrastructureConfig.DeepCopy()
 			newCIDR := "1.2.3.4/5"
 			newInfrastructureConfig.Networks.VPC.CIDR = &newCIDR
@@ -374,7 +393,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeInvalid),
-				"Field": Equal("networks.vpc"),
+				"Field": Equal("networks.vpc.cidr"),
 			}))))
 		})
 
