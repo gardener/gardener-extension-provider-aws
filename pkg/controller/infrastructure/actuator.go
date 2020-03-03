@@ -25,6 +25,7 @@ import (
 	"github.com/gardener/gardener-extensions/pkg/terraformer"
 	glogger "github.com/gardener/gardener/pkg/logger"
 	"github.com/go-logr/logr"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -42,8 +43,8 @@ func NewActuator() infrastructure.Actuator {
 
 // Helper functions
 
-func (a *actuator) newTerraformer(purpose, namespace, name string) (terraformer.Terraformer, error) {
-	tf, err := terraformer.NewForConfig(glogger.NewLogger("info"), a.RESTConfig(), purpose, namespace, name, imagevector.TerraformerImage())
+func newTerraformer(restConfig *rest.Config, purpose, namespace, name string) (terraformer.Terraformer, error) {
+	tf, err := terraformer.NewForConfig(glogger.NewLogger("info"), restConfig, purpose, namespace, name, imagevector.TerraformerImage())
 	if err != nil {
 		return nil, err
 	}

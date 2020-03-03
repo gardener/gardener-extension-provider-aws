@@ -29,11 +29,25 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	glogger "github.com/gardener/gardener/pkg/logger"
 	"github.com/gardener/gardener/pkg/utils/flow"
+	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
-	tf, err := a.newTerraformer(aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
+func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+	return Delete(ctx, a.logger, a.RESTConfig(), a.Client(), infrastructure)
+}
+
+// Delete deletes the given Infrastructure.
+func Delete(
+	ctx context.Context,
+	logger logr.Logger,
+	restConfig *rest.Config,
+	c client.Client,
+	infrastructure *extensionsv1alpha1.Infrastructure,
+) error {
+	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
 	if err != nil {
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
@@ -42,7 +56,7 @@ func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha
 	// created configmaps/secrets related to the Terraformer.
 	stateIsEmpty := tf.IsStateEmpty()
 	if stateIsEmpty {
-		a.logger.Info("exiting early as infrastructure state is empty - nothing to do")
+		logger.Info("exiting early as infrastructure state is empty - nothing to do")
 		return tf.CleanupConfiguration(ctx)
 	}
 
@@ -51,7 +65,17 @@ func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha
 		return fmt.Errorf("error while checking whether terraform config exists: %+v", err)
 	}
 
-	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.Client(), infrastructure.Spec.SecretRef)
+	stateVariables, err := tf.GetStateOutputVariables(aws.VPCIDKey)
+	if err != nil {
+		if apierrors.IsNotFound(err) || terraformer.IsVariablesNotFoundError(err) {
+			logger.Info("Skipping explicit AWS load balancer and security group deletion because not all variables have been found in the Terraform state.")
+			return nil
+		}
+		return err
+	}
+	vpcID := stateVariables[aws.VPCIDKey]
+
+	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c, infrastructure.Spec.SecretRef)
 	if err != nil {
 		return err
 	}
@@ -67,16 +91,7 @@ func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha
 		destroyKubernetesLoadBalancersAndSecurityGroups = g.Add(flow.Task{
 			Name: "Destroying Kubernetes load balancers and security groups",
 			Fn: flow.TaskFn(func(ctx context.Context) error {
-				stateVariables, err := tf.GetStateOutputVariables(aws.VPCIDKey)
-				if err != nil {
-					if apierrors.IsNotFound(err) || terraformer.IsVariablesNotFoundError(err) {
-						a.logger.Info("Skipping explicit AWS load balancer and security group deletion because not all variables have been found in the Terraform state.")
-						return nil
-					}
-					return err
-				}
-
-				if err := a.destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, stateVariables[aws.VPCIDKey], infrastructure.Namespace); err != nil {
+				if err := destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
 					return gardencorev1beta1helper.DetermineError(fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
 				}
 				return nil
@@ -102,7 +117,7 @@ func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha
 	return nil
 }
 
-func (a *actuator) destroyKubernetesLoadBalancersAndSecurityGroups(ctx context.Context, awsClient awsclient.Interface, vpcID, clusterName string) error {
+func destroyKubernetesLoadBalancersAndSecurityGroups(ctx context.Context, awsClient awsclient.Interface, vpcID, clusterName string) error {
 	// first get a list of v1 loadbalancers (Classic)
 	loadBalancersV1, err := awsClient.ListKubernetesELBs(ctx, vpcID, clusterName)
 	if err != nil {
