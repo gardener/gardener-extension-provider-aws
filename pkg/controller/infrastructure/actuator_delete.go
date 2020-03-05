@@ -21,28 +21,34 @@ import (
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+
 	extensionscontroller "github.com/gardener/gardener-extensions/pkg/controller"
 	controllererrors "github.com/gardener/gardener-extensions/pkg/controller/error"
 	"github.com/gardener/gardener-extensions/pkg/terraformer"
-
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	glogger "github.com/gardener/gardener/pkg/logger"
 	"github.com/gardener/gardener/pkg/utils/flow"
-	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (a *actuator) delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
+func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
 	tf, err := a.newTerraformer(aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
 	if err != nil {
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
 
+	// If the Terraform state is empty then we can exit early as we didn't create anything. Though, we clean up potentially
+	// created configmaps/secrets related to the Terraformer.
+	stateIsEmpty := tf.IsStateEmpty()
+	if stateIsEmpty {
+		a.logger.Info("exiting early as infrastructure state is empty - nothing to do")
+		return tf.CleanupConfiguration(ctx)
+	}
+
 	configExists, err := tf.ConfigExists()
 	if err != nil {
-		return fmt.Errorf("terraform configuration was not found: %+v", err)
+		return fmt.Errorf("error while checking whether terraform config exists: %+v", err)
 	}
 
 	stateVariables, err := tf.GetStateOutputVariables(aws.VPCIDKey)
@@ -55,12 +61,12 @@ func (a *actuator) delete(ctx context.Context, infrastructure *extensionsv1alpha
 	}
 	vpcID := stateVariables[aws.VPCIDKey]
 
-	providerSecret := &corev1.Secret{}
-	if err := a.Client().Get(ctx, kutil.Key(infrastructure.Spec.SecretRef.Namespace, infrastructure.Spec.SecretRef.Name), providerSecret); err != nil {
+	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.Client(), infrastructure.Spec.SecretRef)
+	if err != nil {
 		return err
 	}
 
-	awsClient, err := awsclient.NewClient(string(providerSecret.Data[aws.AccessKeyID]), string(providerSecret.Data[aws.SecretAccessKey]), infrastructure.Spec.Region)
+	awsClient, err := awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), infrastructure.Spec.Region)
 	if err != nil {
 		return err
 	}
@@ -75,12 +81,12 @@ func (a *actuator) delete(ctx context.Context, infrastructure *extensionsv1alpha
 					return gardencorev1beta1helper.DetermineError(fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
 				}
 				return nil
-			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists),
+			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists && !stateIsEmpty),
 		})
 
 		_ = g.Add(flow.Task{
 			Name:         "Destroying Shoot infrastructure",
-			Fn:           flow.SimpleTaskFn(tf.SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(providerSecret)).Destroy),
+			Fn:           flow.SimpleTaskFn(tf.SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(credentials)).Destroy),
 			Dependencies: flow.NewTaskIDs(destroyKubernetesLoadBalancersAndSecurityGroups),
 		})
 

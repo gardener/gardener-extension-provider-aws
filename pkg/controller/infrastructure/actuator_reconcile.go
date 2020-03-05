@@ -26,30 +26,28 @@ import (
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+
 	extensionscontroller "github.com/gardener/gardener-extensions/pkg/controller"
 	controllererrors "github.com/gardener/gardener-extensions/pkg/controller/error"
 	"github.com/gardener/gardener-extensions/pkg/terraformer"
-
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 )
 
-func (a *actuator) reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
+func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
+	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.Client(), infrastructure.Spec.SecretRef)
+	if err != nil {
+		return err
+	}
+
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
 	if _, _, err := a.Decoder().Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
 		return fmt.Errorf("could not decode provider config: %+v", err)
 	}
 
-	providerSecret := &corev1.Secret{}
-	if err := a.Client().Get(ctx, kutil.Key(infrastructure.Spec.SecretRef.Namespace, infrastructure.Spec.SecretRef.Name), providerSecret); err != nil {
-		return err
-	}
-
-	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, providerSecret)
+	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, credentials)
 	if err != nil {
 		return fmt.Errorf("failed to generate Terraform config: %+v", err)
 	}
@@ -70,14 +68,14 @@ func (a *actuator) reconcile(ctx context.Context, infrastructure *extensionsv1al
 	}
 
 	if err := tf.
-		SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(providerSecret)).
+		SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(credentials)).
 		InitializeWith(terraformer.DefaultInitializer(
 			a.Client(),
 			release.FileContent("main.tf"),
 			release.FileContent("variables.tf"),
 			[]byte(release.FileContent("terraform.tfvars")),
-			terraformState.Data),
-		).
+			terraformState.Data,
+		)).
 		Apply(); err != nil {
 
 		a.logger.Error(err, "failed to apply the terraform config", "infrastructure", infrastructure.Name)
@@ -90,7 +88,7 @@ func (a *actuator) reconcile(ctx context.Context, infrastructure *extensionsv1al
 	return a.updateProviderStatus(ctx, tf, infrastructure, infrastructureConfig)
 }
 
-func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig, providerSecret *corev1.Secret) (map[string]interface{}, error) {
+func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig, credentials *aws.Credentials) (map[string]interface{}, error) {
 	var (
 		dhcpDomainName    = "ec2.internal"
 		createVPC         = true
@@ -107,7 +105,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	case infrastructureConfig.Networks.VPC.ID != nil:
 		createVPC = false
 		vpcID = *infrastructureConfig.Networks.VPC.ID
-		awsClient, err := client.NewClient(string(providerSecret.Data[aws.AccessKeyID]), string(providerSecret.Data[aws.SecretAccessKey]), infrastructure.Spec.Region)
+		awsClient, err := client.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), infrastructure.Spec.Region)
 		if err != nil {
 			return nil, err
 		}

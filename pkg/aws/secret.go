@@ -25,6 +25,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// GetCredentialsFromSecretRef reads the secret given by the the secret reference and returns the read Credentials
+// object.
+func GetCredentialsFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference) (*Credentials, error) {
+	secret, err := extensionscontroller.GetSecretByReference(ctx, client, &secretRef)
+	if err != nil {
+		return nil, err
+	}
+	return ReadCredentialsSecret(secret)
+}
+
 // ReadCredentialsSecret reads a secret containing credentials.
 func ReadCredentialsSecret(secret *corev1.Secret) (*Credentials, error) {
 	if secret.Data == nil {
@@ -50,15 +60,9 @@ func ReadCredentialsSecret(secret *corev1.Secret) (*Credentials, error) {
 // NewClientFromSecretRef creates a new Client for the given AWS credentials from given k8s <secretRef> and
 // the AWS region <region>.
 func NewClientFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, region string) (awsclient.Interface, error) {
-	secret, err := extensionscontroller.GetSecretByReference(ctx, client, &secretRef)
+	credentials, err := GetCredentialsFromSecretRef(ctx, client, secretRef)
 	if err != nil {
 		return nil, err
 	}
-
-	credentials, err := ReadCredentialsSecret(secret)
-	if err != nil {
-		return nil, err
-	}
-
 	return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), region)
 }

@@ -15,6 +15,14 @@
 package aws_test
 
 import (
+	"context"
+	"errors"
+
+	mockclient "github.com/gardener/gardener-extensions/pkg/mock/controller-runtime/client"
+	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
+	"github.com/golang/mock/gomock"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	. "github.com/onsi/ginkgo"
@@ -27,6 +35,66 @@ var _ = Describe("Secret", func() {
 
 	BeforeEach(func() {
 		secret = &corev1.Secret{}
+	})
+
+	Describe("#GetCredentialsFromSecretRef", func() {
+		var (
+			ctrl *gomock.Controller
+			c    *mockclient.MockClient
+
+			ctx       = context.TODO()
+			namespace = "namespace"
+			name      = "name"
+
+			secretRef = corev1.SecretReference{
+				Name:      name,
+				Namespace: namespace,
+			}
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+
+			c = mockclient.NewMockClient(ctrl)
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		It("should return an error because secret could not be read", func() {
+			fakeErr := errors.New("error")
+
+			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
+
+			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef)
+
+			Expect(credentials).To(BeNil())
+			Expect(err).To(Equal(fakeErr))
+		})
+
+		It("should return the correct credentials object", func() {
+			var (
+				accessKeyID     = []byte("foo")
+				secretAccessKey = []byte("bar")
+			)
+
+			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+				secret.Data = map[string][]byte{
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+				}
+				return nil
+			})
+
+			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef)
+
+			Expect(credentials).To(Equal(&Credentials{
+				AccessKeyID:     accessKeyID,
+				SecretAccessKey: secretAccessKey,
+			}))
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 
 	Describe("#ReadCredentialsSecret", func() {

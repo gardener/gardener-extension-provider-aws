@@ -15,10 +15,14 @@
 package validation
 
 import (
+	"strings"
+
 	"github.com/gardener/gardener/pkg/apis/core"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
+	"k8s.io/apimachinery/pkg/api/validation/path"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -61,8 +65,22 @@ func ValidateProjectUpdate(newProject, oldProject *core.Project) field.ErrorList
 func ValidateProjectSpec(projectSpec *core.ProjectSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
+	ownerFound := false
+
 	for i, member := range projectSpec.Members {
-		allErrs = append(allErrs, ValidateSubject(member.Subject, fldPath.Child("members").Index(i))...)
+		idxPath := fldPath.Child("members").Index(i)
+
+		allErrs = append(allErrs, ValidateProjectMember(member, idxPath)...)
+
+		for j, role := range member.Roles {
+			if role == core.ProjectMemberOwner {
+				if ownerFound {
+					allErrs = append(allErrs, field.Forbidden(idxPath.Child("roles").Index(j), "cannot have more than one member having the owner role"))
+				} else {
+					ownerFound = true
+				}
+			}
+		}
 	}
 	if createdBy := projectSpec.CreatedBy; createdBy != nil {
 		allErrs = append(allErrs, ValidateSubject(*createdBy, fldPath.Child("createdBy"))...)
@@ -73,7 +91,7 @@ func ValidateProjectSpec(projectSpec *core.ProjectSpec, fldPath *field.Path) fie
 	if description := projectSpec.Description; description != nil && len(*description) == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("description"), "must provide a description when key is present"))
 	}
-	if purpose := projectSpec.Description; purpose != nil && len(*purpose) == 0 {
+	if purpose := projectSpec.Purpose; purpose != nil && len(*purpose) == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("purpose"), "must provide a purpose when key is present"))
 	}
 
@@ -109,6 +127,50 @@ func ValidateSubject(subject rbacv1.Subject, fldPath *field.Path) field.ErrorLis
 
 	default:
 		allErrs = append(allErrs, field.NotSupported(fldPath.Child("kind"), subject.Kind, []string{rbacv1.ServiceAccountKind, rbacv1.UserKind, rbacv1.GroupKind}))
+	}
+
+	return allErrs
+}
+
+var supportedRoles = sets.NewString(
+	core.ProjectMemberAdmin,
+	core.ProjectMemberViewer,
+	core.ProjectMemberOwner,
+)
+
+const extensionRoleMaxLength = 20
+
+// ValidateProjectMember validates the specification of a Project member.
+func ValidateProjectMember(member core.ProjectMember, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allErrs = append(allErrs, ValidateSubject(member.Subject, fldPath)...)
+
+	foundRoles := map[string]struct{}{}
+	for i, role := range member.Roles {
+		rolesPath := fldPath.Child("roles").Index(i)
+
+		if _, ok := foundRoles[role]; ok {
+			allErrs = append(allErrs, field.Duplicate(rolesPath, role))
+		}
+		foundRoles[role] = struct{}{}
+
+		if !supportedRoles.Has(role) && !strings.HasPrefix(role, core.ProjectMemberExtensionPrefix) {
+			allErrs = append(allErrs, field.NotSupported(rolesPath, role, append(supportedRoles.List(), core.ProjectMemberExtensionPrefix+"*")))
+		}
+
+		if strings.HasPrefix(role, core.ProjectMemberExtensionPrefix) {
+			extensionRoleName := strings.TrimPrefix(role, core.ProjectMemberExtensionPrefix)
+
+			if len(extensionRoleName) > extensionRoleMaxLength {
+				allErrs = append(allErrs, field.TooLong(rolesPath, role, extensionRoleMaxLength))
+			}
+
+			// the extension role name will be used as part of a ClusterRole name
+			if errs := path.IsValidPathSegmentName(extensionRoleName); len(errs) > 0 {
+				allErrs = append(allErrs, field.Invalid(rolesPath, role, strings.Join(errs, ", ")))
+			}
+		}
 	}
 
 	return allErrs
