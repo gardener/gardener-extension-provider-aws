@@ -15,20 +15,16 @@
 package infrastructure
 
 import (
-	"context"
-	"github.com/gardener/gardener-extensions/pkg/controller/common"
 	"time"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
-	extensionscontroller "github.com/gardener/gardener-extensions/pkg/controller"
+
+	"github.com/gardener/gardener-extensions/pkg/controller/common"
 	"github.com/gardener/gardener-extensions/pkg/controller/infrastructure"
 	"github.com/gardener/gardener-extensions/pkg/terraformer"
-
-	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	glogger "github.com/gardener/gardener/pkg/logger"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -44,14 +40,6 @@ func NewActuator() infrastructure.Actuator {
 	}
 }
 
-func (a *actuator) Reconcile(ctx context.Context, config *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
-	return a.reconcile(ctx, config, cluster)
-}
-
-func (a *actuator) Delete(ctx context.Context, config *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
-	return a.delete(ctx, config, cluster)
-}
-
 // Helper functions
 
 func (a *actuator) newTerraformer(purpose, namespace, name string) (terraformer.Terraformer, error) {
@@ -61,14 +49,14 @@ func (a *actuator) newTerraformer(purpose, namespace, name string) (terraformer.
 	}
 
 	return tf.
-		SetActiveDeadlineSeconds(630).
+		SetTerminationGracePeriodSeconds(630).
 		SetDeadlineCleaning(5 * time.Minute).
 		SetDeadlinePod(15 * time.Minute), nil
 }
 
-func generateTerraformInfraVariablesEnvironment(secret *corev1.Secret) map[string]string {
-	return terraformer.GenerateVariablesEnvironment(secret, map[string]string{
-		"ACCESS_KEY_ID":     aws.AccessKeyID,
-		"SECRET_ACCESS_KEY": aws.SecretAccessKey,
-	})
+func generateTerraformInfraVariablesEnvironment(credentials *aws.Credentials) map[string]string {
+	return map[string]string{
+		"TF_VAR_ACCESS_KEY_ID":     string(credentials.AccessKeyID),
+		"TF_VAR_SECRET_ACCESS_KEY": string(credentials.SecretAccessKey),
+	}
 }
