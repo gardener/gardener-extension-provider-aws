@@ -33,6 +33,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
@@ -77,6 +79,7 @@ func validateFlags() {
 type awsClient struct {
 	EC2 ec2iface.EC2API
 	IAM iamiface.IAMAPI
+	STS stsiface.STSAPI
 }
 
 func newAWSClient(accessKeyID, secretAccessKey, region string) *awsClient {
@@ -93,6 +96,7 @@ func newAWSClient(accessKeyID, secretAccessKey, region string) *awsClient {
 	return &awsClient{
 		EC2: ec2.New(s, regionConfig),
 		IAM: iam.New(s, regionConfig),
+		STS: sts.New(s, regionConfig),
 	}
 }
 
@@ -109,6 +113,7 @@ var _ = Describe("Infrastructure tests", func() {
 		logger = log.Log.WithName("test")
 
 		awsClient *awsClient
+		accountID string
 
 		restConfig *rest.Config
 		c          client.Client
@@ -121,10 +126,15 @@ var _ = Describe("Infrastructure tests", func() {
 	BeforeEach(func() {
 		awsClient = newAWSClient(*accessKeyID, *secretAccessKey, *region)
 
+		getCallerIdentityOutput, err := awsClient.STS.GetCallerIdentityWithContext(ctx, &sts.GetCallerIdentityInput{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(getCallerIdentityOutput.Account).NotTo(BeNil())
+		Expect(getCallerIdentityOutput.Account).NotTo(PointTo(BeEmpty()))
+		accountID = *getCallerIdentityOutput.Account
+
 		k8sClient, err := kubernetes.NewClientFromFile("", *kubeconfig)
-		if err != nil {
-			panic(err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+
 		restConfig = k8sClient.RESTConfig()
 		c = k8sClient.Client()
 
@@ -373,3 +383,4 @@ var _ = Describe("Infrastructure tests", func() {
 		})
 	})
 })
+
