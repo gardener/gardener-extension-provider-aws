@@ -27,7 +27,7 @@ resource "aws_vpc" "vpc" {
 {{ range $ep := .Values.vpc.gatewayEndpoints }}
 resource "aws_vpc_endpoint" "vpc_gwep_{{ $ep }}" {
   vpc_id       = "${aws_vpc.vpc.id}"
-  service_name = "com.amazonaws.{{ .Values.aws.region }}.{{ $ep }}"
+  service_name = "com.amazonaws.{{ required "aws.region is required" $.Values.aws.region }}.{{ $ep }}"
 
 {{ include "aws-infra.tags-with-suffix" (set $.Values "suffix" (print "gw-" $ep)) | indent 2 }}
 }
