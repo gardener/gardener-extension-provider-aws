@@ -145,22 +145,23 @@ var _ = Describe("Infrastructure tests", func() {
 		It("should correctly create and delete the expected AWS resources", func() {
 			namespace := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "provider-aws-test-",
+					// GenerateName: "provider-aws-test-",
+					Name: "provider-aws-test-12345",
 				},
 			}
-			Expect(c.Create(ctx, namespace)).NotTo(HaveOccurred())
+			// Expect(c.Create(ctx, namespace)).NotTo(HaveOccurred())
 
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secretName,
-					Namespace: namespace.Name,
-				},
-				Data: map[string][]byte{
-					aws.AccessKeyID:     []byte(*accessKeyID),
-					aws.SecretAccessKey: []byte(*secretAccessKey),
-				},
-			}
-			Expect(c.Create(ctx, secret)).NotTo(HaveOccurred())
+			// secret := &corev1.Secret{
+			// 	ObjectMeta: metav1.ObjectMeta{
+			// 		Name:      secretName,
+			// 		Namespace: namespace.Name,
+			// 	},
+			// 	Data: map[string][]byte{
+			// 		aws.AccessKeyID:     []byte(*accessKeyID),
+			// 		aws.SecretAccessKey: []byte(*secretAccessKey),
+			// 	},
+			// }
+			// Expect(c.Create(ctx, secret)).NotTo(HaveOccurred())
 
 			providerConfig := apiv1alpha1.InfrastructureConfig{
 				TypeMeta: metav1.TypeMeta{
@@ -205,10 +206,10 @@ var _ = Describe("Infrastructure tests", func() {
 				},
 			}
 
-			defer func() {
-				Expect(infrastructure.Delete(ctx, logger, restConfig, c, infra)).NotTo(HaveOccurred())
-				Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).NotTo(HaveOccurred())
-			}()
+			// defer func() {
+			// 	Expect(infrastructure.Delete(ctx, logger, restConfig, c, infra)).NotTo(HaveOccurred())
+			// 	Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).NotTo(HaveOccurred())
+			// }()
 
 			infraStatus, _, err := infrastructure.Reconcile(ctx, logger, restConfig, c, decoder, chartRenderer, infra)
 			Expect(err).NotTo(HaveOccurred())

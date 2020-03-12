@@ -17,10 +17,8 @@ package infrastructure
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -28,7 +26,6 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	extensionscontroller "github.com/gardener/gardener-extensions/pkg/controller"
-	controllererrors "github.com/gardener/gardener-extensions/pkg/controller/error"
 	"github.com/gardener/gardener-extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
@@ -62,53 +59,53 @@ func Reconcile(
 	*terraformer.RawState,
 	error,
 ) {
-	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c, infrastructure.Spec.SecretRef)
-	if err != nil {
-		return nil, nil, err
-	}
+	// credentials, err := aws.GetCredentialsFromSecretRef(ctx, c, infrastructure.Spec.SecretRef)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
 	if _, _, err := decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
 		return nil, nil, fmt.Errorf("could not decode provider config: %+v", err)
 	}
 
-	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, credentials)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
-	}
-
-	terraformState, err := terraformer.UnmarshalRawState(infrastructure.Status.State)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	release, err := chartRenderer.Render(filepath.Join(aws.InternalChartsPath, "aws-infra"), "aws-infra", infrastructure.Namespace, terraformConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not render Terraform chart: %+v", err)
-	}
+	// terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, credentials)
+	// if err != nil {
+	// 	return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
+	// }
+	//
+	// terraformState, err := terraformer.UnmarshalRawState(infrastructure.Status.State)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+	//
+	// release, err := chartRenderer.Render(filepath.Join(aws.InternalChartsPath, "aws-infra"), "aws-infra", infrastructure.Namespace, terraformConfig)
+	// if err != nil {
+	// 	return nil, nil, fmt.Errorf("could not render Terraform chart: %+v", err)
+	// }
 
 	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create terraformer object: %+v", err)
 	}
 
-	if err := tf.
-		SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(credentials)).
-		InitializeWith(terraformer.DefaultInitializer(
-			c,
-			release.FileContent("main.tf"),
-			release.FileContent("variables.tf"),
-			[]byte(release.FileContent("terraform.tfvars")),
-			terraformState.Data,
-		)).
-		Apply(); err != nil {
-
-		logger.Error(err, "failed to apply the terraform config", "infrastructure", infrastructure.Name)
-		return nil, nil, &controllererrors.RequeueAfterError{
-			Cause:        err,
-			RequeueAfter: 30 * time.Second,
-		}
-	}
+	// if err := tf.
+	// 	SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(credentials)).
+	// 	InitializeWith(terraformer.DefaultInitializer(
+	// 		c,
+	// 		release.FileContent("main.tf"),
+	// 		release.FileContent("variables.tf"),
+	// 		[]byte(release.FileContent("terraform.tfvars")),
+	// 		terraformState.Data,
+	// 	)).
+	// 	Apply(); err != nil {
+	//
+	// 	logger.Error(err, "failed to apply the terraform config", "infrastructure", infrastructure.Name)
+	// 	return nil, nil, &controllererrors.RequeueAfterError{
+	// 		Cause:        err,
+	// 		RequeueAfter: 30 * time.Second,
+	// 	}
+	// }
 
 	return computeProviderStatus(ctx, tf, infrastructureConfig)
 }
