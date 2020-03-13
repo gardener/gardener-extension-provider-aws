@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"reflect"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -139,20 +140,41 @@ var _ = Describe("Infrastructure tests", func() {
 		c = k8sClient.Client()
 
 		scheme = runtime.NewScheme()
-		_ = api.AddToScheme(scheme)
-		_ = apiv1alpha1.AddToScheme(scheme)
+		Expect(api.AddToScheme(scheme)).To(Succeed())
+		Expect(apiv1alpha1.AddToScheme(scheme)).To(Succeed())
 		decoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
 		chartRenderer = chartrenderer.New(engine.New(), &chartutil.Capabilities{})
 	})
 
 	Describe("#Reconcile, #Delete", func() {
-		var (
-			cidr               = pointer.StringPtr("10.250.0.0/16")
+		const (
+			kubernetesTagPrefix     = "kubernetes.io/cluster/"
+			kubernetesRoleTagPrefix = "kubernetes.io/role/"
+
+			privateUtilitySuffix = "-private-utility-z0"
+			publicUtilitySuffix  = "-public-utility-z0"
+			nodesSuffix          = "-nodes-z0"
+
+			secretName = "cloudprovider"
+
 			gatewayEndpoint    = "s3"
-			sshPublicKey       = []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDcSZKq0lM9w+ElLp9I9jFvqEFbOV1+iOBX7WEe66GvPLOWl9ul03ecjhOf06+FhPsWFac1yaxo2xj+SJ+FVZ3DdSn4fjTpS9NGyQVPInSZveetRw0TV0rbYCFBTJuVqUFu6yPEgdcWq8dlUjLqnRNwlelHRcJeBfACBZDLNSxjj0oUz7ANRNCEne1ecySwuJUAz3IlNLPXFexRT0alV7Nl9hmJke3dD73nbeGbQtwvtu8GNFEoO4Eu3xOCKsLw6ILLo4FBiFcYQOZqvYZgCb4ncKM52bnABagG54upgBMZBRzOJvWp0ol+jK3Em7Vb6ufDTTVNiQY78U6BAlNZ8Xg+LUVeyk1C6vWjzAQf02eRvMdfnRCFvmwUpzbHWaVMsQm8gf3AgnTUuDR0ev1nQH/5892wZA86uLYW/wLiiSbvQsqtY1jSn9BAGFGdhXgWLAkGsd/E1vOT+vDcor6/6KjHBm0rG697A3TDBRkbXQ/1oFxcM9m17RteCaXuTiAYWMqGKDoJvTMDc4L+Uvy544pEfbOH39zfkIYE76WLAFPFsUWX6lXFjQrX3O7vEV73bCHoJnwzaNd03PSdJOw+LCzrTmxVezwli3F9wUDiBRB0HkQxIXQmncc1HSecCKALkogIK+1e1OumoWh6gPdkF4PlTMUxRitrwPWSaiUIlPfCpQ== your_email@example.com")
 			sshPublicKeyDigest = "46:ca:46:0e:8e:1d:bc:0c:45:31:ee:0f:43:5f:9b:f1"
-			secretName         = "cloudprovider"
+			internalCIDR       = "10.250.112.0/22"
+			publicCIDR         = "10.250.96.0/22"
+			workersCIDR        = "10.250.0.0/19"
 		)
+
+		var (
+			availabilityZone string
+			cidr             *string
+			sshPublicKey     []byte
+		)
+
+		BeforeEach(func() {
+			availabilityZone = *region + "a"
+			cidr = pointer.StringPtr("10.250.0.0/16")
+			sshPublicKey = []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDcSZKq0lM9w+ElLp9I9jFvqEFbOV1+iOBX7WEe66GvPLOWl9ul03ecjhOf06+FhPsWFac1yaxo2xj+SJ+FVZ3DdSn4fjTpS9NGyQVPInSZveetRw0TV0rbYCFBTJuVqUFu6yPEgdcWq8dlUjLqnRNwlelHRcJeBfACBZDLNSxjj0oUz7ANRNCEne1ecySwuJUAz3IlNLPXFexRT0alV7Nl9hmJke3dD73nbeGbQtwvtu8GNFEoO4Eu3xOCKsLw6ILLo4FBiFcYQOZqvYZgCb4ncKM52bnABagG54upgBMZBRzOJvWp0ol+jK3Em7Vb6ufDTTVNiQY78U6BAlNZ8Xg+LUVeyk1C6vWjzAQf02eRvMdfnRCFvmwUpzbHWaVMsQm8gf3AgnTUuDR0ev1nQH/5892wZA86uLYW/wLiiSbvQsqtY1jSn9BAGFGdhXgWLAkGsd/E1vOT+vDcor6/6KjHBm0rG697A3TDBRkbXQ/1oFxcM9m17RteCaXuTiAYWMqGKDoJvTMDc4L+Uvy544pEfbOH39zfkIYE76WLAFPFsUWX6lXFjQrX3O7vEV73bCHoJnwzaNd03PSdJOw+LCzrTmxVezwli3F9wUDiBRB0HkQxIXQmncc1HSecCKALkogIK+1e1OumoWh6gPdkF4PlTMUxRitrwPWSaiUIlPfCpQ== your_email@example.com")
+		})
 
 		It("should correctly create and delete the expected AWS resources", func() {
 			namespace := &corev1.Namespace{
@@ -187,10 +209,10 @@ var _ = Describe("Infrastructure tests", func() {
 					},
 					Zones: []apiv1alpha1.Zone{
 						{
-							Name:     *region + "a",
-							Internal: "10.250.112.0/22",
-							Public:   "10.250.96.0/22",
-							Workers:  "10.250.0.0/19",
+							Name:     availabilityZone,
+							Internal: internalCIDR,
+							Public:   publicCIDR,
+							Workers:  workersCIDR,
 						},
 					},
 				},
@@ -235,6 +257,14 @@ var _ = Describe("Infrastructure tests", func() {
 						},
 					},
 				}
+				kubernetesTagFilter = []*ec2.Filter{
+					{
+						Name: awssdk.String("tag:kubernetes.io/cluster/provider-aws-test-12345"),
+						Values: []*string{
+							awssdk.String("1"),
+						},
+					},
+				}
 				vpcIDFilter = []*ec2.Filter{
 					{
 						Name: awssdk.String("vpc-id"),
@@ -246,7 +276,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 				defaultTags = []*ec2.Tag{
 					{
-						Key:   awssdk.String("kubernetes.io/cluster/" + infra.Namespace),
+						Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
 					{
@@ -294,7 +324,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(describeVpcEndpointsOutput.VpcEndpoints[0].ServiceName).To(PointTo(Equal(fmt.Sprintf("com.amazonaws.%s.%s", *region, gatewayEndpoint))))
 			Expect(describeVpcEndpointsOutput.VpcEndpoints[0].Tags).To(ConsistOf([]*ec2.Tag{
 				{
-					Key:   awssdk.String("kubernetes.io/cluster/" + infra.Namespace),
+					Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
 					Value: awssdk.String("1"),
 				},
 				{
@@ -349,8 +379,8 @@ var _ = Describe("Infrastructure tests", func() {
 							IpProtocol: awssdk.String("-1"),
 							UserIdGroupPairs: []*ec2.UserIdGroupPair{
 								{
-									GroupId: awssdk.String("sg-0be00e025bdb333e3"),
-									UserId:  awssdk.String("802691470131"),
+									GroupId: securityGroup.GroupId,
+									UserId:  awssdk.String(accountID),
 								},
 							},
 						},
@@ -391,7 +421,126 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(describeKeyPairsOutput.KeyPairs[0].KeyFingerprint).To(PointTo(Equal(sshPublicKeyDigest)))
 
+			// subnets
+
+			describeSubnetsOutput, err := awsClient.EC2.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{Filters: vpcIDFilter})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(describeSubnetsOutput.Subnets).To(HaveLen(3))
+			var (
+				foundExpectedSubnets int
+				workersSubnetID      string
+				publicSubnetID       string
+				internalSubnetID     string
+			)
+			for _, subnet := range describeSubnetsOutput.Subnets {
+				for _, tag := range subnet.Tags {
+					if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+nodesSuffix)) {
+						foundExpectedSubnets++
+						workersSubnetID = *subnet.SubnetId
+						Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
+						Expect(subnet.CidrBlock).To(PointTo(Equal(workersCIDR)))
+						Expect(subnet.State).To(PointTo(Equal("available")))
+						Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
+							{
+								Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+								Value: awssdk.String("1"),
+							},
+							{
+								Key:   awssdk.String("Name"),
+								Value: awssdk.String(infra.Namespace + nodesSuffix),
+							},
+						}))
+					}
+					if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+publicUtilitySuffix)) {
+						foundExpectedSubnets++
+						publicSubnetID = *subnet.SubnetId
+						Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
+						Expect(subnet.CidrBlock).To(PointTo(Equal(publicCIDR)))
+						Expect(subnet.State).To(PointTo(Equal("available")))
+						Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
+							{
+								Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
+								Value: awssdk.String("use"),
+							},
+							{
+								Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+								Value: awssdk.String("1"),
+							},
+							{
+								Key:   awssdk.String("Name"),
+								Value: awssdk.String(infra.Namespace + publicUtilitySuffix),
+							},
+						}))
+					}
+					if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+privateUtilitySuffix)) {
+						foundExpectedSubnets++
+						internalSubnetID = *subnet.SubnetId
+						Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
+						Expect(subnet.CidrBlock).To(PointTo(Equal(internalCIDR)))
+						Expect(subnet.State).To(PointTo(Equal("available")))
+						Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
+							{
+								Key:   awssdk.String(kubernetesRoleTagPrefix + "internal-elb"),
+								Value: awssdk.String("use"),
+							},
+							{
+								Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+								Value: awssdk.String("1"),
+							},
+							{
+								Key:   awssdk.String("Name"),
+								Value: awssdk.String(infra.Namespace + privateUtilitySuffix),
+							},
+						}))
+					}
+				}
+			}
+			Expect(foundExpectedSubnets).To(Equal(3))
+
+			// elastic ips
+
+			describeAddressesOutput, err := awsClient.EC2.DescribeAddressesWithContext(ctx, &ec2.DescribeAddressesInput{Filters: kubernetesTagFilter})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(describeAddressesOutput.Addresses).To(HaveLen(1))
+			Expect(describeAddressesOutput.Addresses[0].Tags).To(ConsistOf([]*ec2.Tag{
+				{
+					Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+					Value: awssdk.String("1"),
+				},
+				{
+					Key:   awssdk.String("Name"),
+					Value: awssdk.String(infra.Namespace + "-eip-natgw-z0"),
+				},
+			}))
+
+			// nat gateways
+
+			describeNatGatewaysOutput, err := awsClient.EC2.DescribeNatGatewaysWithContext(ctx, &ec2.DescribeNatGatewaysInput{Filter: vpcIDFilter})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(describeNatGatewaysOutput.NatGateways).To(HaveLen(1))
+			Expect(describeNatGatewaysOutput.NatGateways[0].NatGatewayAddresses).To(ConsistOf([]*ec2.NatGatewayAddress{
+				{
+					AllocationId:       describeAddressesOutput.Addresses[0].AllocationId,
+					NetworkInterfaceId: describeAddressesOutput.Addresses[0].NetworkInterfaceId,
+					PrivateIp:          describeAddressesOutput.Addresses[0].PrivateIpAddress,
+					PublicIp:           describeAddressesOutput.Addresses[0].PublicIp,
+				},
+			}))
+			Expect(describeNatGatewaysOutput.NatGateways[0].SubnetId).To(PointTo(Equal(publicSubnetID)))
+			Expect(describeNatGatewaysOutput.NatGateways[0].Tags).To(ConsistOf([]*ec2.Tag{
+				{
+					Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+					Value: awssdk.String("1"),
+				},
+				{
+					Key:   awssdk.String("Name"),
+					Value: awssdk.String(infra.Namespace + "-natgw-z0"),
+				},
+			}))
+
+			fmt.Println(workersSubnetID)
+			fmt.Println(publicSubnetID)
+			fmt.Println(internalSubnetID)
 		})
 	})
 })
-
