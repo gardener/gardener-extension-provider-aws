@@ -25,6 +25,7 @@ import (
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -260,7 +261,7 @@ var _ = Describe("Infrastructure tests", func() {
 				}
 				kubernetesTagFilter = []*ec2.Filter{
 					{
-						Name: awssdk.String("tag:kubernetes.io/cluster/provider-aws-test-12345"),
+						Name: awssdk.String("tag:kubernetes.io/cluster/" + infra.Namespace),
 						Values: []*string{
 							awssdk.String("1"),
 						},
@@ -358,8 +359,8 @@ var _ = Describe("Infrastructure tests", func() {
 					Expect(securityGroup.IpPermissions).To(BeEmpty())
 					Expect(securityGroup.IpPermissionsEgress).To(BeEmpty())
 					Expect(securityGroup.Tags).To(BeEmpty())
-				} else {
-					Expect(securityGroup.IpPermissions).To(Equal([]*ec2.IpPermission{
+				} else if *securityGroup.GroupName == infra.Namespace+"-nodes" {
+					Expect(securityGroup.IpPermissions).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
 						{
 							FromPort:   awssdk.Int64(30000),
 							IpProtocol: awssdk.String("tcp"),
@@ -402,7 +403,7 @@ var _ = Describe("Infrastructure tests", func() {
 							ToPort: awssdk.Int64(32767),
 						},
 					}))
-					Expect(securityGroup.IpPermissionsEgress).To(Equal([]*ec2.IpPermission{
+					Expect(securityGroup.IpPermissionsEgress).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
 						{
 							IpProtocol: awssdk.String("-1"),
 							IpRanges: []*ec2.IpRange{
@@ -410,7 +411,16 @@ var _ = Describe("Infrastructure tests", func() {
 							},
 						},
 					}))
-					Expect(securityGroup.Tags).To(ConsistOf(defaultTags))
+					Expect(securityGroup.Tags).To(ConsistOf([]*ec2.Tag{
+						{
+							Key:   awssdk.String("kubernetes.io/cluster/" + infra.Namespace),
+							Value: awssdk.String("1"),
+						},
+						{
+							Key:   awssdk.String("Name"),
+							Value: awssdk.String(infra.Namespace + "-nodes"),
+						},
+					}))
 				}
 			}
 
