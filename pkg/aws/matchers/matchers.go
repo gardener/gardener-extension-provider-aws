@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/iam"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 )
@@ -34,6 +35,10 @@ func BeSemanticallyEqualTo(expected interface{}) types.GomegaMatcher {
 	case ec2.IpPermission, *ec2.IpPermission:
 		return beSemanticallyEqualToIpPermission(expected)
 	case []ec2.IpPermission, []*ec2.IpPermission:
+		return genericConsistOfSemanticallyEqual(expected)
+	case iam.Role, *iam.Role:
+		return beSemanticallyEqualToIamRole(expected)
+	case []iam.Role, []*iam.Role:
 		return genericConsistOfSemanticallyEqual(expected)
 	default:
 		panic(fmt.Errorf("unknown type for aws matcher BeSemanticallyEqualTo(): %T", expected))

@@ -15,12 +15,15 @@
 package infrastructure_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"reflect"
+	"text/template"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -204,6 +207,7 @@ var _ = Describe("Infrastructure tests", func() {
 					APIVersion: apiv1alpha1.SchemeGroupVersion.String(),
 					Kind:       "InfrastructureConfig",
 				},
+				EnableECRAccess: pointer.BoolPtr(true),
 				Networks: apiv1alpha1.Networks{
 					VPC: apiv1alpha1.VPC{
 						CIDR:             cidr,
@@ -219,7 +223,8 @@ var _ = Describe("Infrastructure tests", func() {
 					},
 				},
 			}
-			providerConfigJSON, _ := json.Marshal(providerConfig)
+			providerConfigJSON, err := json.Marshal(providerConfig)
+			Expect(err).NotTo(HaveOccurred())
 
 			infra := &extensionsv1alpha1.Infrastructure{
 				ObjectMeta: metav1.ObjectMeta{
@@ -411,7 +416,16 @@ var _ = Describe("Infrastructure tests", func() {
 							},
 						},
 					}))
-					Expect(securityGroup.Tags).To(Equal(defaultTags))
+					Expect(securityGroup.Tags).To(ConsistOf([]*ec2.Tag{
+						{
+							Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+							Value: awssdk.String("1"),
+						},
+						{
+							Key:   awssdk.String("Name"),
+							Value: awssdk.String(infra.Namespace + "-nodes"),
+						},
+					}))
 				}
 			}
 
@@ -626,6 +640,133 @@ var _ = Describe("Infrastructure tests", func() {
 				}
 			}
 			Expect(foundExpectedRouteTables).To(Equal(3))
+
+			// IAM resources bastions
+
+			getRoleOutputBastions, err := awsClient.IAM.GetRoleWithContext(ctx, &iam.GetRoleInput{RoleName: awssdk.String(infra.Namespace + "-bastions")})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getRoleOutputBastions.Role).To(BeSemanticallyEqualTo(&iam.Role{
+				Path: awssdk.String("/"),
+				AssumeRolePolicyDocument: awssdk.String(`
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}`),
+			}))
+
+			getInstanceProfileOutputBastions, err := awsClient.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: awssdk.String(infra.Namespace + "-bastions")})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getInstanceProfileOutputBastions.InstanceProfile).NotTo(BeNil())
+			iamInstanceProfileBastions := *getInstanceProfileOutputBastions.InstanceProfile
+			Expect(iamInstanceProfileBastions.Path).To(Equal(awssdk.String("/")))
+			Expect(iamInstanceProfileBastions.Roles).To(BeSemanticallyEqualTo([]*iam.Role{getRoleOutputBastions.Role}))
+
+			getRolePolicyOutputBastions, err := awsClient.IAM.GetRolePolicyWithContext(ctx, &iam.GetRolePolicyInput{PolicyName: awssdk.String(infra.Namespace + "-bastions"), RoleName: awssdk.String(infra.Namespace + "-bastions")})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getRolePolicyOutputBastions.RoleName).NotTo(BeNil())
+			Expect(getRolePolicyOutputBastions.RoleName).To(Equal(awssdk.String(infra.Namespace + "-bastions")))
+			Expect(getRolePolicyOutputBastions.PolicyName).NotTo(BeNil())
+			Expect(getRolePolicyOutputBastions.PolicyName).To(Equal(awssdk.String(infra.Namespace + "-bastions")))
+			iamRolePolicyDocumentBastions, err := url.QueryUnescape(*getRolePolicyOutputBastions.PolicyDocument)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(iamRolePolicyDocumentBastions).To(MatchJSON(`
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeRegions"
+      ],
+      "Resource": [
+        "*"
+      ]
+    }
+  ]
+}`))
+
+			// IAM resources nodes
+
+			getRoleOutputNodes, err := awsClient.IAM.GetRoleWithContext(ctx, &iam.GetRoleInput{RoleName: awssdk.String(infra.Namespace + "-nodes")})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getRoleOutputNodes.Role).To(BeSemanticallyEqualTo(&iam.Role{
+				Path: awssdk.String("/"),
+				AssumeRolePolicyDocument: awssdk.String(`
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}`),
+			}))
+
+			getInstanceProfileOutputNodes, err := awsClient.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: awssdk.String(infra.Namespace + "-nodes")})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getInstanceProfileOutputNodes.InstanceProfile).NotTo(BeNil())
+			iamInstanceProfileNodes := *getInstanceProfileOutputNodes.InstanceProfile
+			Expect(iamInstanceProfileNodes.Path).To(Equal(awssdk.String("/")))
+			Expect(iamInstanceProfileNodes.Roles).To(BeSemanticallyEqualTo([]*iam.Role{getRoleOutputNodes.Role}))
+
+			getRolePolicyOutputNodes, err := awsClient.IAM.GetRolePolicyWithContext(ctx, &iam.GetRolePolicyInput{PolicyName: awssdk.String(infra.Namespace + "-nodes"), RoleName: awssdk.String(infra.Namespace + "-nodes")})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getRolePolicyOutputNodes.RoleName).NotTo(BeNil())
+			Expect(getRolePolicyOutputNodes.RoleName).To(Equal(awssdk.String(infra.Namespace + "-nodes")))
+			Expect(getRolePolicyOutputNodes.PolicyName).NotTo(BeNil())
+			Expect(getRolePolicyOutputNodes.PolicyName).To(Equal(awssdk.String(infra.Namespace + "-nodes")))
+			iamRolePolicyDocumentNodes, err := url.QueryUnescape(*getRolePolicyOutputNodes.PolicyDocument)
+			Expect(err).NotTo(HaveOccurred())
+			templateIAMRolePolicyDocumentNodes, err := template.New("policy").Parse(`
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances"
+      ],
+      "Resource": [
+        "*"
+      ]
+    }{{ if .EnableECRAccess }},
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:GetRepositoryPolicy",
+        "ecr:DescribeRepositories",
+        "ecr:ListImages",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": [
+        "*"
+      ]
+    }{{ end }}
+  ]
+}`)
+			Expect(err).NotTo(HaveOccurred())
+			var writer bytes.Buffer
+			if err = templateIAMRolePolicyDocumentNodes.Execute(&writer, struct{ EnableECRAccess *bool }{EnableECRAccess: providerConfig.EnableECRAccess}); err != nil {
+				panic(fmt.Errorf("error rendering template: %v", err))
+			}
+			expectedIAMRolePolicyDocumentNodes := writer.String()
+			Expect(iamRolePolicyDocumentNodes).To(MatchJSON(expectedIAMRolePolicyDocumentNodes))
+
 		})
 	})
 })
