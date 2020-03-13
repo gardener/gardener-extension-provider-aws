@@ -162,6 +162,7 @@ var _ = Describe("Infrastructure tests", func() {
 			internalCIDR       = "10.250.112.0/22"
 			publicCIDR         = "10.250.96.0/22"
 			workersCIDR        = "10.250.0.0/19"
+			allCIDR            = "0.0.0.0/0"
 		)
 
 		var (
@@ -538,9 +539,92 @@ var _ = Describe("Infrastructure tests", func() {
 				},
 			}))
 
-			fmt.Println(workersSubnetID)
-			fmt.Println(publicSubnetID)
-			fmt.Println(internalSubnetID)
+			// route tables + routes
+
+			describeRouteTablesOutput, err := awsClient.EC2.DescribeRouteTablesWithContext(ctx, &ec2.DescribeRouteTablesInput{Filters: vpcIDFilter})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(describeRouteTablesOutput.RouteTables).To(HaveLen(3))
+			var (
+				foundExpectedRouteTables int
+			)
+			for _, routeTable := range describeRouteTablesOutput.RouteTables {
+				if len(routeTable.Tags) == 0 {
+					Expect(routeTable.Associations).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Main": PointTo(Equal(true)),
+					}))))
+					foundExpectedRouteTables++
+					Expect(routeTable.Routes).To(ConsistOf([]*ec2.Route{
+						{
+							DestinationCidrBlock: cidr,
+							GatewayId:            awssdk.String("local"),
+							Origin:               awssdk.String("CreateRouteTable"),
+							State:                awssdk.String("active"),
+						},
+					}))
+				}
+				for _, tag := range routeTable.Tags {
+					if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace)) {
+						foundExpectedRouteTables++
+						Expect(routeTable.Associations).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+							"Main":     PointTo(Equal(false)),
+							"SubnetId": PointTo(Equal(publicSubnetID)),
+						}))))
+						Expect(routeTable.Routes).To(ConsistOf([]*ec2.Route{
+							{
+								DestinationCidrBlock: cidr,
+								GatewayId:            awssdk.String("local"),
+								Origin:               awssdk.String("CreateRouteTable"),
+								State:                awssdk.String("active"),
+							},
+							{
+								DestinationCidrBlock: awssdk.String(allCIDR),
+								GatewayId:            describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId,
+								Origin:               awssdk.String("CreateRoute"),
+								State:                awssdk.String("active"),
+							},
+						}))
+						Expect(routeTable.Tags).To(Equal(defaultTags))
+					}
+					if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+"-private-"+availabilityZone)) {
+						foundExpectedRouteTables++
+						Expect(routeTable.Associations).To(ConsistOf(
+							PointTo(MatchFields(IgnoreExtras, Fields{
+								"Main":     PointTo(Equal(false)),
+								"SubnetId": PointTo(Equal(workersSubnetID)),
+							})),
+							PointTo(MatchFields(IgnoreExtras, Fields{
+								"Main":     PointTo(Equal(false)),
+								"SubnetId": PointTo(Equal(internalSubnetID)),
+							})),
+						))
+						Expect(routeTable.Routes).To(ConsistOf([]*ec2.Route{
+							{
+								DestinationCidrBlock: cidr,
+								GatewayId:            awssdk.String("local"),
+								Origin:               awssdk.String("CreateRouteTable"),
+								State:                awssdk.String("active"),
+							},
+							{
+								DestinationCidrBlock: awssdk.String(allCIDR),
+								NatGatewayId:         describeNatGatewaysOutput.NatGateways[0].NatGatewayId,
+								Origin:               awssdk.String("CreateRoute"),
+								State:                awssdk.String("active"),
+							},
+						}))
+						Expect(routeTable.Tags).To(ConsistOf([]*ec2.Tag{
+							{
+								Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+								Value: awssdk.String("1"),
+							},
+							{
+								Key:   awssdk.String("Name"),
+								Value: awssdk.String(infra.Namespace + "-private-" + availabilityZone),
+							},
+						}))
+					}
+				}
+			}
+			Expect(foundExpectedRouteTables).To(Equal(3))
 		})
 	})
 })
