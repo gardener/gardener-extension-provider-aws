@@ -261,7 +261,7 @@ var _ = Describe("Infrastructure tests", func() {
 				}
 				kubernetesTagFilter = []*ec2.Filter{
 					{
-						Name: awssdk.String("tag:kubernetes.io/cluster/" + infra.Namespace),
+						Name: awssdk.String("tag:" + kubernetesTagPrefix + infra.Namespace),
 						Values: []*string{
 							awssdk.String("1"),
 						},
@@ -366,13 +366,13 @@ var _ = Describe("Infrastructure tests", func() {
 							IpProtocol: awssdk.String("tcp"),
 							IpRanges: []*ec2.IpRange{
 								{
-									CidrIp: awssdk.String("10.250.96.0/22"),
+									CidrIp: awssdk.String(publicCIDR),
 								},
 								{
-									CidrIp: awssdk.String("0.0.0.0/0"),
+									CidrIp: awssdk.String(allCIDR),
 								},
 								{
-									CidrIp: awssdk.String("10.250.112.0/22"),
+									CidrIp: awssdk.String(internalCIDR),
 								},
 							},
 							ToPort: awssdk.Int64(32767),
@@ -391,13 +391,13 @@ var _ = Describe("Infrastructure tests", func() {
 							IpProtocol: awssdk.String("udp"),
 							IpRanges: []*ec2.IpRange{
 								{
-									CidrIp: awssdk.String("10.250.96.0/22"),
+									CidrIp: awssdk.String(publicCIDR),
 								},
 								{
-									CidrIp: awssdk.String("10.250.112.0/22"),
+									CidrIp: awssdk.String(internalCIDR),
 								},
 								{
-									CidrIp: awssdk.String("0.0.0.0/0"),
+									CidrIp: awssdk.String(allCIDR),
 								},
 							},
 							ToPort: awssdk.Int64(32767),
@@ -407,20 +407,11 @@ var _ = Describe("Infrastructure tests", func() {
 						{
 							IpProtocol: awssdk.String("-1"),
 							IpRanges: []*ec2.IpRange{
-								{CidrIp: awssdk.String("0.0.0.0/0")},
+								{CidrIp: awssdk.String(allCIDR)},
 							},
 						},
 					}))
-					Expect(securityGroup.Tags).To(ConsistOf([]*ec2.Tag{
-						{
-							Key:   awssdk.String("kubernetes.io/cluster/" + infra.Namespace),
-							Value: awssdk.String("1"),
-						},
-						{
-							Key:   awssdk.String("Name"),
-							Value: awssdk.String(infra.Namespace + "-nodes"),
-						},
-					}))
+					Expect(securityGroup.Tags).To(Equal(defaultTags))
 				}
 			}
 
