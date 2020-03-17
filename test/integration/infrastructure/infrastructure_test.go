@@ -61,7 +61,9 @@ import (
 )
 
 var (
-	// TODO: validate why --kubeconfig gets registered from `controller/cmd/options.go`
+	// `kubecfg` is a workaround:
+	// --kubeconfig gets registered from `sigs.k8s.io/controller-runtime/pkg/client/config/config.go`
+	// see https://github.com/kubernetes-sigs/controller-runtime/blob/d286bb5db482ae03591f5af79570adfa2b4011b0/pkg/client/config/config.go#L38
 	kubeconfig      = flag.String("kubecfg", "", "the path to the kubeconfig that shall be used for the test")
 	accessKeyID     = flag.String("access-key-id", "", "AWS access key id")
 	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
@@ -197,8 +199,7 @@ var _ = Describe("Infrastructure tests", func() {
 		It("should correctly create and delete the expected AWS resources", func() {
 			namespace := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					// GenerateName: "provider-aws-test-",
-					Name: "provider-aws-test-tim",
+					GenerateName: "provider-aws-test-",
 				},
 			}
 			Expect(c.Create(ctx, namespace)).NotTo(HaveOccurred())
@@ -665,7 +666,7 @@ func testReconciliation(
 						State:                awssdk.String("active"),
 					},
 				}))
-				Expect(routeTable.Tags).To(Equal(defaultTags))
+				Expect(routeTable.Tags).To(ConsistOf(defaultTags))
 				infrastructureIdentifier.routeTableIDs = append(infrastructureIdentifier.routeTableIDs, routeTable.RouteTableId)
 			}
 			if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+"-private-"+availabilityZone)) {

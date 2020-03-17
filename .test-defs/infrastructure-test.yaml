@@ -1,0 +1,19 @@
+kind: TestDefinition
+metadata:
+  name: infrastructure-test
+spec:
+  owner: gardener-oq@listserv.sap.com
+  description: Integration test for infrastructure reconciliation and deletion
+  activeDeadlineSeconds: 1800
+
+  command: [bash, -c]
+  args:
+  - >-
+    go test -timeout=0 -mod=vendor ./test/integration/infrastructure
+    --v -ginkgo.v -ginkgo.progress -ginkgo.noColor
+    --kubecfg=$TM_KUBECONFIG_PATH/testmachinery.config
+    --access-key-id=$ACCESS_KEY_ID
+    --secret-access-key=$SECRET_ACCESS_KEY
+    --region=$REGION
+
+  image: golang:1.14
