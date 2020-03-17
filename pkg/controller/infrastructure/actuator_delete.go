@@ -51,16 +51,6 @@ func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha
 		return fmt.Errorf("error while checking whether terraform config exists: %+v", err)
 	}
 
-	stateVariables, err := tf.GetStateOutputVariables(aws.VPCIDKey)
-	if err != nil {
-		if apierrors.IsNotFound(err) || terraformer.IsVariablesNotFoundError(err) {
-			a.logger.Info("Skipping explicit AWS load balancer and security group deletion because not all variables have been found in the Terraform state.")
-			return nil
-		}
-		return err
-	}
-	vpcID := stateVariables[aws.VPCIDKey]
-
 	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.Client(), infrastructure.Spec.SecretRef)
 	if err != nil {
 		return err
@@ -77,7 +67,16 @@ func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha
 		destroyKubernetesLoadBalancersAndSecurityGroups = g.Add(flow.Task{
 			Name: "Destroying Kubernetes load balancers and security groups",
 			Fn: flow.TaskFn(func(ctx context.Context) error {
-				if err := a.destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
+				stateVariables, err := tf.GetStateOutputVariables(aws.VPCIDKey)
+				if err != nil {
+					if apierrors.IsNotFound(err) || terraformer.IsVariablesNotFoundError(err) {
+						a.logger.Info("Skipping explicit AWS load balancer and security group deletion because not all variables have been found in the Terraform state.")
+						return nil
+					}
+					return err
+				}
+
+				if err := a.destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, stateVariables[aws.VPCIDKey], infrastructure.Namespace); err != nil {
 					return gardencorev1beta1helper.DetermineError(fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
 				}
 				return nil
