@@ -17,12 +17,17 @@ package controlplane
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"regexp"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extensions/pkg/controller/operatingsystemconfig/oscommon/cloudinit"
+	"github.com/gardener/gardener-extensions/pkg/util"
 	extensionswebhook "github.com/gardener/gardener-extensions/pkg/webhook"
 	"github.com/gardener/gardener-extensions/pkg/webhook/controlplane"
 	"github.com/gardener/gardener-extensions/pkg/webhook/controlplane/genericmutator"
+	"github.com/pkg/errors"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	"github.com/coreos/go-systemd/unit"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -34,6 +39,8 @@ import (
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const mtuCustomizerPath = "/var/lib/mtu-customizer/mtu-customizer.sh"
 
 // NewEnsurer creates a new controlplane ensurer.
 func NewEnsurer(logger logr.Logger) genericmutator.Ensurer {
@@ -253,7 +260,6 @@ func (e *ensurer) EnsureKubernetesGeneralConfiguration(ctx context.Context, ectx
 	buf.WriteString("# AWS specific settings\n")
 	buf.WriteString("# See https://github.com/kubernetes/kubernetes/issues/23395\n")
 	buf.WriteString("net.ipv4.neigh.default.gc_thresh1 = 0")
-
 	*data = buf.String()
 	return nil
 }
@@ -263,14 +269,14 @@ func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, ectx genericmutator
 	var (
 		command              = "start"
 		trueVar              = true
-		customMTUUnitContent = `[Unit]
-    Description=Apply a custom MTU to eth0
+		customMTUUnitContent = fmt.Sprintf(`[Unit]
+    Description=Apply a custom MTU to the default network interface
     Requires=eth0.network
 
 [Service]
     Type=oneshot
     RemainAfterExit=yes
-    ExecStart=/usr/bin/ip link set dev eth0 mtu 1460`
+    ExecStart=%s`, mtuCustomizerPath)
 	)
 
 	extensionswebhook.AppendUniqueUnit(units, extensionsv1alpha1.Unit{
@@ -280,5 +286,48 @@ func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, ectx genericmutator
 		Content: &customMTUUnitContent,
 	})
 
+	return nil
+}
+
+// EnsureAdditionalFiles ensures that additional required system files are added.
+func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, ectx genericmutator.EnsurerContext, files *[]extensionsv1alpha1.File) error {
+	// remove already existing mtu customizer file
+	for i, f := range *files {
+		if f.Path == mtuCustomizerPath {
+			l := *files
+			*files = append(l[:i], l[i+1:]...)
+		}
+	}
+	var (
+		mtuCustomizer = `#!/bin/bash -eu
+
+MTU=1460
+DEFAULT_NETWORK_INTERFACE=$(ip route list | grep default | grep -E  'dev (\w+)' -o | awk '{print $2}')
+
+ip link set dev $DEFAULT_NETWORK_INTERFACE mtu 1460
+
+if [ $? -eq 0 ]
+then
+  echo "Successfully set MTU to $MTU for default network interface $DEFAULT_NETWORK_INTERFACE"
+else
+  echo "Failed to set MTU of $MTU to default network interface $DEFAULT_NETWORK_INTERFACE"
+fi`
+	)
+
+	// Write the content of the file.
+	fciCodec := controlplane.NewFileContentInlineCodec()
+	fci, err := fciCodec.Encode([]byte(mtuCustomizer), string(cloudinit.B64FileCodecID))
+	if err != nil {
+		return errors.Wrap(err, "could not encode mtu-customizer file")
+	}
+
+	// Add the new mtu-customizer file
+	*files = append(*files, extensionsv1alpha1.File{
+		Path:        mtuCustomizerPath,
+		Permissions: util.Int32Ptr(0755),
+		Content: extensionsv1alpha1.FileContent{
+			Inline: fci,
+		},
+	})
 	return nil
 }

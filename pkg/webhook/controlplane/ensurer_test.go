@@ -16,15 +16,19 @@ package controlplane
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	extensionscontroller "github.com/gardener/gardener-extensions/pkg/controller"
+	"github.com/gardener/gardener-extensions/pkg/controller/operatingsystemconfig/oscommon/cloudinit"
 	mockclient "github.com/gardener/gardener-extensions/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener-extensions/pkg/util"
 	extensionswebhook "github.com/gardener/gardener-extensions/pkg/webhook"
+	"github.com/gardener/gardener-extensions/pkg/webhook/controlplane"
 	"github.com/gardener/gardener-extensions/pkg/webhook/controlplane/genericmutator"
 	"github.com/gardener/gardener-extensions/pkg/webhook/controlplane/test"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	"github.com/coreos/go-systemd/unit"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -351,14 +355,14 @@ var _ = Describe("Ensurer", func() {
 	Describe("#EnsureAdditionalUnits", func() {
 		It("should add additional units to the current ones", func() {
 			var (
-				customMTUUnitContent = `[Unit]
-    Description=Apply a custom MTU to eth0
+				customMTUUnitContent = fmt.Sprintf(`[Unit]
+    Description=Apply a custom MTU to the default network interface
     Requires=eth0.network
 
 [Service]
     Type=oneshot
     RemainAfterExit=yes
-    ExecStart=/usr/bin/ip link set dev eth0 mtu 1460`
+    ExecStart=%s`, mtuCustomizerPath)
 
 				command = "start"
 				trueVar = true
@@ -376,6 +380,51 @@ var _ = Describe("Ensurer", func() {
 			err := ensurer.EnsureAdditionalUnits(context.TODO(), dummyContext, &units)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(units).To(ConsistOf(oldUnit, additionalUnit))
+		})
+	})
+
+	Describe("#EnsureAdditionalFiles", func() {
+		It("should add an additional mtu-customizer file to the current ones & override the existing file with the same path", func() {
+			var (
+				additionalFile = extensionsv1alpha1.File{Path: "var/lib/dummy"}
+				existingFile   = extensionsv1alpha1.File{Path: mtuCustomizerPath}
+				files          = []extensionsv1alpha1.File{additionalFile, existingFile}
+				mtuCustomizer  = `#!/bin/bash -eu
+
+MTU=1460
+DEFAULT_NETWORK_INTERFACE=$(ip route list | grep default | grep -E  'dev (\w+)' -o | awk '{print $2}')
+
+ip link set dev $DEFAULT_NETWORK_INTERFACE mtu 1460
+
+if [ $? -eq 0 ]
+then
+  echo "Successfully set MTU to $MTU for default network interface $DEFAULT_NETWORK_INTERFACE"
+else
+  echo "Failed to set MTU of $MTU to default network interface $DEFAULT_NETWORK_INTERFACE"
+fi`
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(logger)
+
+			// Call EnsureAdditionalFiles function
+			err := ensurer.EnsureAdditionalFiles(context.TODO(), dummyContext, &files)
+			Expect(err).To(Not(HaveOccurred()))
+
+			// check that the files contain the desired file
+			fciCodec := controlplane.NewFileContentInlineCodec()
+			fci, err := fciCodec.Encode([]byte(mtuCustomizer), string(cloudinit.B64FileCodecID))
+			Expect(err).To(Not(HaveOccurred()))
+			desiredFile := extensionsv1alpha1.File{
+				Path:        mtuCustomizerPath,
+				Permissions: util.Int32Ptr(0755),
+				Content: extensionsv1alpha1.FileContent{
+					Inline: fci,
+				},
+			}
+
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(files).To(ConsistOf(desiredFile, additionalFile))
 		})
 	})
 
