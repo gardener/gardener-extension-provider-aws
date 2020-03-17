@@ -14,6 +14,8 @@ spec:
       k8s-app: mtu-customizer
   template:
     metadata:
+      annotations:
+        checksum/configmap-custom-mtu: {{ include (print $.Template.BasePath "/configmap-custom-mtu.yaml") . | sha256sum }}
       labels:
         k8s-app: mtu-customizer
     spec:
@@ -28,12 +30,21 @@ spec:
       initContainers:
       - name: mtu-customizer
         image: {{ include "image.alpine" . }}
-        command: ["ip", "link", "set", "dev", "eth0", "mtu", "1460"]
+        command:
+        - /mtu-customizer/mtu-customizer.sh
         securityContext:
           capabilities:
             add: ["NET_ADMIN", "SYS_TIME"]
+        volumeMounts:
+          - name: mtu-customizer
+            mountPath: /mtu-customizer
       containers:
         - name: pause
           image: {{ include "image.pause" .  }}
       terminationGracePeriodSeconds: 2
+      volumes:
+        - name: mtu-customizer
+          configMap:
+            name: custom-mtu-configmap
+            defaultMode: 0755
 {{end}}
