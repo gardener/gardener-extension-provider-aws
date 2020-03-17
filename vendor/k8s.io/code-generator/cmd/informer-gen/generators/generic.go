@@ -17,6 +17,7 @@ limitations under the License.
 package generators
 
 import (
+	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -114,6 +115,8 @@ func (g *genericGenerator) GenerateType(c *generator.Context, t *types.Type, w i
 				Resources: orderer.OrderTypes(g.typesForGroupVersion[gv]),
 			}
 			func() {
+				fmt.Printf("%#v", gv)
+				fmt.Printf("%#v", g.typesForGroupVersion[gv])
 				schemeGVs[version] = c.Universe.Variable(types.Name{Package: g.typesForGroupVersion[gv][0].Name.Package, Name: "SchemeGroupVersion"})
 			}()
 			group.Versions = append(group.Versions, version)
