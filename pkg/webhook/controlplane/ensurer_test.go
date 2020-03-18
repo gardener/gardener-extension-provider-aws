@@ -352,13 +352,18 @@ var _ = Describe("Ensurer", func() {
 		It("should add additional units to the current ones", func() {
 			var (
 				customMTUUnitContent = `[Unit]
-    Description=Apply a custom MTU to eth0
-    Requires=eth0.network
+Description=Apply a custom MTU to network interfaces
+After=network.target
+Wants=network.target
+
+[Install]
+WantedBy=kubelet.service
 
 [Service]
-    Type=oneshot
-    RemainAfterExit=yes
-    ExecStart=/usr/bin/ip link set dev eth0 mtu 1460`
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/bin/mtu-customizer.sh
+`
 
 				command = "start"
 				trueVar = true
@@ -376,6 +381,101 @@ var _ = Describe("Ensurer", func() {
 			err := ensurer.EnsureAdditionalUnits(context.TODO(), dummyContext, &units)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(units).To(ConsistOf(oldUnit, additionalUnit))
+		})
+	})
+
+	Describe("#EnsureAdditionalFiles", func() {
+		It("should add additional files to the current ones", func() {
+			var (
+				permissions       int32 = 0755
+				customFileContent       = `#!/bin/sh
+
+for interface_path in $(find /sys/class/net  -type l -print)
+do
+	interface=$(basename ${interface_path})
+
+	if ls -l ${interface_path} | grep -q virtual
+	then
+		echo skipping virtual interface: ${interface}
+		continue
+	fi
+
+	echo changing mtu of non-virtual interface: ${interface}
+	ip link set dev ${interface} mtu 1460
+done
+`
+
+				filePath = "/opt/bin/mtu-customizer.sh"
+
+				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
+				additionalFile = extensionsv1alpha1.File{
+					Path:        filePath,
+					Permissions: &permissions,
+					Content: extensionsv1alpha1.FileContent{
+						Inline: &extensionsv1alpha1.FileContentInline{
+							Encoding: "",
+							Data:     customFileContent,
+						},
+					},
+				}
+
+				files = []extensionsv1alpha1.File{oldFile}
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(logger)
+
+			// Call EnsureAdditionalFiles method and check the result
+			err := ensurer.EnsureAdditionalFiles(context.TODO(), dummyContext, &files)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(files).To(ConsistOf(oldFile, additionalFile))
+		})
+
+		It("should overwrite existing files of the current ones", func() {
+			var (
+				permissions       int32 = 0755
+				customFileContent       = `#!/bin/sh
+
+for interface_path in $(find /sys/class/net  -type l -print)
+do
+	interface=$(basename ${interface_path})
+
+	if ls -l ${interface_path} | grep -q virtual
+	then
+		echo skipping virtual interface: ${interface}
+		continue
+	fi
+
+	echo changing mtu of non-virtual interface: ${interface}
+	ip link set dev ${interface} mtu 1460
+done
+`
+
+				filePath = "/opt/bin/mtu-customizer.sh"
+
+				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
+				additionalFile = extensionsv1alpha1.File{
+					Path:        filePath,
+					Permissions: &permissions,
+					Content: extensionsv1alpha1.FileContent{
+						Inline: &extensionsv1alpha1.FileContentInline{
+							Encoding: "",
+							Data:     customFileContent,
+						},
+					},
+				}
+
+				files = []extensionsv1alpha1.File{oldFile, additionalFile}
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(logger)
+
+			// Call EnsureAdditionalFiles method and check the result
+			err := ensurer.EnsureAdditionalFiles(context.TODO(), dummyContext, &files)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(files).To(ConsistOf(oldFile, additionalFile))
+			Expect(files).To(HaveLen(2))
 		})
 	})
 

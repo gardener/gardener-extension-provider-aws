@@ -264,13 +264,18 @@ func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, ectx genericmutator
 		command              = "start"
 		trueVar              = true
 		customMTUUnitContent = `[Unit]
-    Description=Apply a custom MTU to eth0
-    Requires=eth0.network
+Description=Apply a custom MTU to network interfaces
+After=network.target
+Wants=network.target
+
+[Install]
+WantedBy=kubelet.service
 
 [Service]
-    Type=oneshot
-    RemainAfterExit=yes
-    ExecStart=/usr/bin/ip link set dev eth0 mtu 1460`
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/bin/mtu-customizer.sh
+`
 	)
 
 	extensionswebhook.AppendUniqueUnit(units, extensionsv1alpha1.Unit{
@@ -279,6 +284,52 @@ func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, ectx genericmutator
 		Command: &command,
 		Content: &customMTUUnitContent,
 	})
-
 	return nil
+}
+
+// EnsureAdditionalFiles ensures that additional required system files are added.
+func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, ectx genericmutator.EnsurerContext, files *[]extensionsv1alpha1.File) error {
+	var (
+		permissions       int32 = 0755
+		customFileContent       = `#!/bin/sh
+
+for interface_path in $(find /sys/class/net  -type l -print)
+do
+	interface=$(basename ${interface_path})
+
+	if ls -l ${interface_path} | grep -q virtual
+	then
+		echo skipping virtual interface: ${interface}
+		continue
+	fi
+
+	echo changing mtu of non-virtual interface: ${interface}
+	ip link set dev ${interface} mtu 1460
+done
+`
+	)
+
+	appendUniqueFile(files, extensionsv1alpha1.File{
+		Path:        "/opt/bin/mtu-customizer.sh",
+		Permissions: &permissions,
+		Content: extensionsv1alpha1.FileContent{
+			Inline: &extensionsv1alpha1.FileContentInline{
+				Encoding: "",
+				Data:     customFileContent,
+			},
+		},
+	})
+	return nil
+}
+
+// appendUniqueFile appends a unit file only if it does not exist, otherwise overwrite content of previous files
+func appendUniqueFile(files *[]extensionsv1alpha1.File, file extensionsv1alpha1.File) {
+	resFiles := make([]extensionsv1alpha1.File, 0, len(*files))
+
+	for _, f := range *files {
+		if f.Path != file.Path {
+			resFiles = append(resFiles, f)
+		}
+	}
+	*files = append(resFiles, file)
 }
