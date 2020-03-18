@@ -1,0 +1,32 @@
+apiVersion: testmachinery.sapcloud.io/v1beta1
+kind: Testrun
+metadata:
+  generateName: tm-extension-aws-
+  namespace: default
+spec:
+
+  ttlSecondsAfterFinished: 172800 # 2 days
+
+  config:
+  - name: ACCESS_KEY_ID
+    type: env
+    valueFrom:
+      secretKeyRef:
+        name: shoot-operator-aws
+        key: accessKeyID
+  - name: SECRET_ACCESS_KEY
+    type: env
+    valueFrom:
+      secretKeyRef:
+        name: shoot-operator-aws
+        key: secretAccessKey
+
+  testflow:
+  - name: infrastructure-test
+    definition:
+      name: infrastructure-test
+      config:
+      - name: REGION
+        type: env
+        value: eu-west-1
+
