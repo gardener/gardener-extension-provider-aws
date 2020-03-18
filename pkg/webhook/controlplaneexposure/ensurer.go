@@ -23,6 +23,7 @@ import (
 	"github.com/gardener/gardener-extensions/pkg/webhook/controlplane/genericmutator"
 
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +46,10 @@ type ensurer struct {
 
 // EnsureKubeAPIServerService ensures that the kube-apiserver service conforms to the provider requirements.
 func (e *ensurer) EnsureKubeAPIServerService(ctx context.Context, ectx genericmutator.EnsurerContext, svc *corev1.Service) error {
+	if v1beta1helper.IsAPIServerExposureManaged(svc) {
+		return nil
+	}
+
 	if svc.Annotations == nil {
 		svc.Annotations = make(map[string]string)
 	}
@@ -61,6 +66,10 @@ func (e *ensurer) EnsureKubeAPIServerService(ctx context.Context, ectx genericmu
 
 // EnsureKubeAPIServerDeployment ensures that the kube-apiserver deployment conforms to the provider requirements.
 func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, dep *appsv1.Deployment) error {
+	if v1beta1helper.IsAPIServerExposureManaged(dep) {
+		return nil
+	}
+
 	if c := extensionswebhook.ContainerWithName(dep.Spec.Template.Spec.Containers, "kube-apiserver"); c != nil {
 		c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--endpoint-reconciler-type=", "none")
 	}

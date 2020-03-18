@@ -49,19 +49,32 @@ var _ = Describe("Ensurer", func() {
 	)
 
 	Describe("#EnsureKubeAPIServerService", func() {
-		It("should add annotations to kube-apiserver service", func() {
-			var (
-				svc = &corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{Name: "kube-apiserver"},
-				}
-			)
+		var (
+			svc     *corev1.Service
+			ensurer genericmutator.Ensurer
+		)
 
-			// Create ensurer
-			ensurer := NewEnsurer(etcdStorage, logger)
+		BeforeEach(func() {
+			svc = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "kube-apiserver"},
+			}
+			ensurer = NewEnsurer(etcdStorage, logger)
+		})
 
-			// Call EnsureKubeAPIServerService method and check the result
+		It("should not modify kube-apiserver service if SNI is enabled", func() {
+			svc.Labels = map[string]string{"core.gardener.cloud/apiserver-exposure": "gardener-managed"}
+			svcCopy := svc.DeepCopy()
+
 			err := ensurer.EnsureKubeAPIServerService(context.TODO(), dummyContext, svc)
 			Expect(err).To(Not(HaveOccurred()))
+
+			Expect(svc).To(Equal(svcCopy))
+		})
+
+		It("should add annotations to kube-apiserver service", func() {
+			err := ensurer.EnsureKubeAPIServerService(context.TODO(), dummyContext, svc)
+			Expect(err).To(Not(HaveOccurred()))
+
 			Expect(svc.Annotations).To(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout", "3600"))
 			Expect(svc.Annotations).To(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "ssl"))
 			Expect(svc.Annotations).To(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-ssl-ports", "443"))
@@ -74,6 +87,37 @@ var _ = Describe("Ensurer", func() {
 	})
 
 	Describe("#EnsureKubeAPIServerDeployment", func() {
+		It("should not modify kube-apiserver deployment if SNI is enabled", func() {
+			var (
+				dep = &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   v1beta1constants.DeploymentNameKubeAPIServer,
+						Labels: map[string]string{"core.gardener.cloud/apiserver-exposure": "gardener-managed"},
+					},
+					Spec: appsv1.DeploymentSpec{
+						Template: corev1.PodTemplateSpec{
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name: "kube-apiserver",
+									},
+								},
+							},
+						},
+					},
+				}
+				depCopy = dep.DeepCopy()
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(etcdStorage, logger)
+
+			err := ensurer.EnsureKubeAPIServerDeployment(context.TODO(), dummyContext, dep)
+			Expect(err).To(Not(HaveOccurred()))
+
+			Expect(dep).To(Equal(depCopy))
+		})
+
 		It("should add missing elements to kube-apiserver deployment", func() {
 			var (
 				dep = &appsv1.Deployment{
