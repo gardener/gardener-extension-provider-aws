@@ -10,7 +10,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.17.0"
+  tag: "v1.17.4"
   targetVersion: ">= 1.17"
 - name: machine-controller-manager
   sourceRepository: github.com/gardener/machine-controller-manager
