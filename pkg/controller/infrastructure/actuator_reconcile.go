@@ -25,52 +25,77 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	extensionscontroller "github.com/gardener/gardener-extensions/pkg/controller"
 	controllererrors "github.com/gardener/gardener-extensions/pkg/controller/error"
 	"github.com/gardener/gardener-extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	"github.com/gardener/gardener/pkg/chartrenderer"
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
-	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.Client(), infrastructure.Spec.SecretRef)
+func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+	infrastructureStatus, state, err := Reconcile(ctx, a.logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure)
 	if err != nil {
 		return err
 	}
+	return updateProviderStatus(ctx, a.Client(), infrastructure, infrastructureStatus, state)
+}
+
+// Reconcile reconciles the given Infrastructure object. It returns the provider specific status and the Terraform state.
+func Reconcile(
+	ctx context.Context,
+	logger logr.Logger,
+	restConfig *rest.Config,
+	c client.Client,
+	decoder runtime.Decoder,
+	chartRenderer chartrenderer.Interface,
+	infrastructure *extensionsv1alpha1.Infrastructure,
+) (
+	*awsv1alpha1.InfrastructureStatus,
+	*terraformer.RawState,
+	error,
+) {
+	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c, infrastructure.Spec.SecretRef)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
-	if _, _, err := a.Decoder().Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
-		return fmt.Errorf("could not decode provider config: %+v", err)
+	if _, _, err := decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
+		return nil, nil, fmt.Errorf("could not decode provider config: %+v", err)
 	}
 
 	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, credentials)
 	if err != nil {
-		return fmt.Errorf("failed to generate Terraform config: %+v", err)
+		return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
 	}
 
 	terraformState, err := terraformer.UnmarshalRawState(infrastructure.Status.State)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	release, err := a.ChartRenderer().Render(filepath.Join(aws.InternalChartsPath, "aws-infra"), "aws-infra", infrastructure.Namespace, terraformConfig)
+	release, err := chartRenderer.Render(filepath.Join(aws.InternalChartsPath, "aws-infra"), "aws-infra", infrastructure.Namespace, terraformConfig)
 	if err != nil {
-		return fmt.Errorf("could not render Terraform chart: %+v", err)
+		return nil, nil, fmt.Errorf("could not render Terraform chart: %+v", err)
 	}
 
-	tf, err := a.newTerraformer(aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
+	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
 	if err != nil {
-		return fmt.Errorf("could not create terraformer object: %+v", err)
+		return nil, nil, fmt.Errorf("could not create terraformer object: %+v", err)
 	}
 
 	if err := tf.
 		SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(credentials)).
 		InitializeWith(terraformer.DefaultInitializer(
-			a.Client(),
+			c,
 			release.FileContent("main.tf"),
 			release.FileContent("variables.tf"),
 			[]byte(release.FileContent("terraform.tfvars")),
@@ -78,14 +103,14 @@ func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1al
 		)).
 		Apply(); err != nil {
 
-		a.logger.Error(err, "failed to apply the terraform config", "infrastructure", infrastructure.Name)
-		return &controllererrors.RequeueAfterError{
+		logger.Error(err, "failed to apply the terraform config", "infrastructure", infrastructure.Name)
+		return nil, nil, &controllererrors.RequeueAfterError{
 			Cause:        err,
 			RequeueAfter: 30 * time.Second,
 		}
 	}
 
-	return a.updateProviderStatus(ctx, tf, infrastructure, infrastructureConfig)
+	return computeProviderStatus(ctx, tf, infrastructureConfig)
 }
 
 func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig, credentials *aws.Credentials) (map[string]interface{}, error) {
@@ -105,7 +130,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	case infrastructureConfig.Networks.VPC.ID != nil:
 		createVPC = false
 		vpcID = *infrastructureConfig.Networks.VPC.ID
-		awsClient, err := client.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), infrastructure.Spec.Region)
+		awsClient, err := awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), infrastructure.Spec.Region)
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +190,25 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	}, nil
 }
 
-func (a *actuator) updateProviderStatus(ctx context.Context, tf terraformer.Terraformer, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig) error {
+func updateProviderStatus(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, state *terraformer.RawState) error {
+	stateByte, err := state.Marshal()
+	if err != nil {
+		return err
+	}
+
+	return extensionscontroller.TryUpdateStatus(ctx, retry.DefaultBackoff, c, infrastructure, func() error {
+		infrastructure.Status.ProviderStatus = &runtime.RawExtension{Object: infrastructureStatus}
+		infrastructure.Status.State = &runtime.RawExtension{Raw: stateByte}
+		return nil
+	})
+}
+
+func computeProviderStatus(ctx context.Context, tf terraformer.Terraformer, infrastructureConfig *awsapi.InfrastructureConfig) (*awsv1alpha1.InfrastructureStatus, *terraformer.RawState, error) {
+	state, err := tf.GetRawState(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	outputVarKeys := []string{
 		aws.VPCIDKey,
 		aws.SSHKeyName,
@@ -181,62 +224,47 @@ func (a *actuator) updateProviderStatus(ctx context.Context, tf terraformer.Terr
 
 	output, err := tf.GetStateOutputVariables(outputVarKeys...)
 	if err != nil {
-		return err
-	}
-
-	state, err := tf.GetRawState(ctx)
-	if err != nil {
-		return err
-	}
-	stateByte, err := state.Marshal()
-	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	subnets, err := computeProviderStatusSubnets(infrastructureConfig, output)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	return extensionscontroller.TryUpdateStatus(ctx, retry.DefaultBackoff, a.Client(), infrastructure, func() error {
-		infrastructure.Status.ProviderStatus = &runtime.RawExtension{
-			Object: &awsv1alpha1.InfrastructureStatus{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
-					Kind:       "InfrastructureStatus",
-				},
-				VPC: awsv1alpha1.VPCStatus{
-					ID:      output[aws.VPCIDKey],
-					Subnets: subnets,
-					SecurityGroups: []awsv1alpha1.SecurityGroup{
-						{
-							Purpose: awsapi.PurposeNodes,
-							ID:      output[aws.SecurityGroupsNodes],
-						},
-					},
-				},
-				EC2: awsv1alpha1.EC2{
-					KeyName: output[aws.SSHKeyName],
-				},
-				IAM: awsv1alpha1.IAM{
-					InstanceProfiles: []awsv1alpha1.InstanceProfile{
-						{
-							Purpose: awsapi.PurposeNodes,
-							Name:    output[aws.IAMInstanceProfileNodes],
-						},
-					},
-					Roles: []awsv1alpha1.Role{
-						{
-							Purpose: awsapi.PurposeNodes,
-							ARN:     output[aws.NodesRole],
-						},
-					},
+	return &awsv1alpha1.InfrastructureStatus{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "InfrastructureStatus",
+		},
+		VPC: awsv1alpha1.VPCStatus{
+			ID:      output[aws.VPCIDKey],
+			Subnets: subnets,
+			SecurityGroups: []awsv1alpha1.SecurityGroup{
+				{
+					Purpose: awsapi.PurposeNodes,
+					ID:      output[aws.SecurityGroupsNodes],
 				},
 			},
-		}
-		infrastructure.Status.State = &runtime.RawExtension{Raw: stateByte}
-		return nil
-	})
+		},
+		EC2: awsv1alpha1.EC2{
+			KeyName: output[aws.SSHKeyName],
+		},
+		IAM: awsv1alpha1.IAM{
+			InstanceProfiles: []awsv1alpha1.InstanceProfile{
+				{
+					Purpose: awsapi.PurposeNodes,
+					Name:    output[aws.IAMInstanceProfileNodes],
+				},
+			},
+			Roles: []awsv1alpha1.Role{
+				{
+					Purpose: awsapi.PurposeNodes,
+					ARN:     output[aws.NodesRole],
+				},
+			},
+		},
+	}, state, nil
 }
 
 func computeProviderStatusSubnets(infrastructure *awsapi.InfrastructureConfig, values map[string]string) ([]awsv1alpha1.Subnet, error) {

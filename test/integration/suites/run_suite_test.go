@@ -54,5 +54,5 @@ func TestMain(m *testing.M) {
 }
 
 func TestGardenerSuite(t *testing.T) {
-	RunSpecsWithDefaultAndCustomReporters(t, "Provider-aws Test Suite", []Reporter{reporter.NewGardenerESReporter(*reportFilePath, *esIndex)})
+	RunSpecsWithDefaultAndCustomReporters(t, "AWS Test Suite", []Reporter{reporter.NewGardenerESReporter(*reportFilePath, *esIndex)})
 }

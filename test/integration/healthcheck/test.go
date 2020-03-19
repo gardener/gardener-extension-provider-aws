@@ -65,11 +65,10 @@ const (
 	setupContextTimeout   = 2 * time.Minute
 )
 
-var _ = ginkgo.Describe("Provider-aws integration test: health checks", func() {
+var _ = ginkgo.Describe("AWS integration test: health checks", func() {
 	f := createShootFramework()
 
 	ginkgo.Context("ControlPlane", func() {
-
 		ginkgo.Context("Condition type: ShootControlPlaneHealthy", func() {
 			f.Serial().Release().CIt(fmt.Sprintf("ControlPlane CRD should contain unhealthy condition because the deployment '%s' cannot be found in the shoot namespace in the seed", aws.CloudControllerManagerName), func(ctx context.Context) {
 				err := healthcheckoperation.ControlPlaneHealthCheckDeleteSeedDeployment(ctx, f, f.Shoot.GetName(), aws.CloudControllerManagerName, gardencorev1beta1.ShootControlPlaneHealthy)
@@ -86,7 +85,6 @@ var _ = ginkgo.Describe("Provider-aws integration test: health checks", func() {
 	})
 
 	ginkgo.Context("ControlPlane-exposure", func() {
-
 		ginkgo.Context("Condition type: ShootControlPlaneHealthy", func() {
 			f.Serial().Release().CIt(fmt.Sprintf("ControlPlane CRD should contain unhealthy condition because the deployment '%s' cannot be found in the shoot namespace in the seed", aws.LBReadvertiserDeploymentName), func(ctx context.Context) {
 				err := healthcheckoperation.ControlPlaneHealthCheckDeleteSeedDeployment(ctx, f, fmt.Sprintf("%s-exposure", f.Shoot.GetName()), aws.LBReadvertiserDeploymentName, gardencorev1beta1.ShootControlPlaneHealthy)
@@ -96,7 +94,6 @@ var _ = ginkgo.Describe("Provider-aws integration test: health checks", func() {
 	})
 
 	ginkgo.Context("Worker", func() {
-
 		ginkgo.Context("Condition type: ShootControlPlaneHealthy", func() {
 			f.Serial().Release().CIt(fmt.Sprintf("Worker CRD should contain unhealthy condition because the deployment '%s' cannot be found in the shoot namespace in the seed", aws.MachineControllerManagerName), func(ctx context.Context) {
 				err := healthcheckoperation.WorkerHealthCheckDeleteSeedDeployment(ctx, f, f.Shoot.GetName(), aws.MachineControllerManagerName, gardencorev1beta1.ShootControlPlaneHealthy)
