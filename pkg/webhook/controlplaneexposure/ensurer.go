@@ -45,43 +45,43 @@ type ensurer struct {
 }
 
 // EnsureKubeAPIServerService ensures that the kube-apiserver service conforms to the provider requirements.
-func (e *ensurer) EnsureKubeAPIServerService(ctx context.Context, ectx genericmutator.EnsurerContext, svc *corev1.Service) error {
-	if v1beta1helper.IsAPIServerExposureManaged(svc) {
+func (e *ensurer) EnsureKubeAPIServerService(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *corev1.Service) error {
+	if v1beta1helper.IsAPIServerExposureManaged(new) {
 		return nil
 	}
 
-	if svc.Annotations == nil {
-		svc.Annotations = make(map[string]string)
+	if new.Annotations == nil {
+		new.Annotations = make(map[string]string)
 	}
-	svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"] = "3600"
-	svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-backend-protocol"] = "ssl"
-	svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "443"
-	svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout"] = "5"
-	svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval"] = "30"
-	svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold"] = "2"
-	svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold"] = "2"
-	svc.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy"] = "ELBSecurityPolicy-TLS-1-2-2017-01"
+	new.Annotations["service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"] = "3600"
+	new.Annotations["service.beta.kubernetes.io/aws-load-balancer-backend-protocol"] = "ssl"
+	new.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-ports"] = "443"
+	new.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout"] = "5"
+	new.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval"] = "30"
+	new.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold"] = "2"
+	new.Annotations["service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold"] = "2"
+	new.Annotations["service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy"] = "ELBSecurityPolicy-TLS-1-2-2017-01"
 	return nil
 }
 
 // EnsureKubeAPIServerDeployment ensures that the kube-apiserver deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, dep *appsv1.Deployment) error {
-	if v1beta1helper.IsAPIServerExposureManaged(dep) {
+func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *appsv1.Deployment) error {
+	if v1beta1helper.IsAPIServerExposureManaged(new) {
 		return nil
 	}
 
-	if c := extensionswebhook.ContainerWithName(dep.Spec.Template.Spec.Containers, "kube-apiserver"); c != nil {
+	if c := extensionswebhook.ContainerWithName(new.Spec.Template.Spec.Containers, "kube-apiserver"); c != nil {
 		c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--endpoint-reconciler-type=", "none")
 	}
 	return nil
 }
 
 // EnsureETCD ensures that the etcd conform to the provider requirements.
-func (e *ensurer) EnsureETCD(ctx context.Context, ectx genericmutator.EnsurerContext, etcd *druidv1alpha1.Etcd) error {
+func (e *ensurer) EnsureETCD(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *druidv1alpha1.Etcd) error {
 	capacity := resource.MustParse("10Gi")
 	class := ""
 
-	if etcd.Name == v1beta1constants.ETCDMain && e.etcdStorage != nil {
+	if new.Name == v1beta1constants.ETCDMain && e.etcdStorage != nil {
 		if e.etcdStorage.Capacity != nil {
 			capacity = *e.etcdStorage.Capacity
 		}
@@ -90,8 +90,8 @@ func (e *ensurer) EnsureETCD(ctx context.Context, ectx genericmutator.EnsurerCon
 		}
 	}
 
-	etcd.Spec.StorageClass = &class
-	etcd.Spec.StorageCapacity = &capacity
+	new.Spec.StorageClass = &class
+	new.Spec.StorageCapacity = &capacity
 
 	return nil
 }

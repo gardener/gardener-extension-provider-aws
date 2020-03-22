@@ -65,14 +65,14 @@ var _ = Describe("Ensurer", func() {
 			svc.Labels = map[string]string{"core.gardener.cloud/apiserver-exposure": "gardener-managed"}
 			svcCopy := svc.DeepCopy()
 
-			err := ensurer.EnsureKubeAPIServerService(context.TODO(), dummyContext, svc)
+			err := ensurer.EnsureKubeAPIServerService(context.TODO(), dummyContext, svc, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
 			Expect(svc).To(Equal(svcCopy))
 		})
 
 		It("should add annotations to kube-apiserver service", func() {
-			err := ensurer.EnsureKubeAPIServerService(context.TODO(), dummyContext, svc)
+			err := ensurer.EnsureKubeAPIServerService(context.TODO(), dummyContext, svc, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
 			Expect(svc.Annotations).To(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout", "3600"))
@@ -112,7 +112,7 @@ var _ = Describe("Ensurer", func() {
 			// Create ensurer
 			ensurer := NewEnsurer(etcdStorage, logger)
 
-			err := ensurer.EnsureKubeAPIServerDeployment(context.TODO(), dummyContext, dep)
+			err := ensurer.EnsureKubeAPIServerDeployment(context.TODO(), dummyContext, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
 			Expect(dep).To(Equal(depCopy))
@@ -140,7 +140,7 @@ var _ = Describe("Ensurer", func() {
 			ensurer := NewEnsurer(etcdStorage, logger)
 
 			// Call EnsureKubeAPIServerDeployment method and check the result
-			err := ensurer.EnsureKubeAPIServerDeployment(context.TODO(), dummyContext, dep)
+			err := ensurer.EnsureKubeAPIServerDeployment(context.TODO(), dummyContext, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			checkKubeAPIServerDeployment(dep)
 		})
@@ -168,7 +168,7 @@ var _ = Describe("Ensurer", func() {
 			ensurer := NewEnsurer(etcdStorage, logger)
 
 			// Call EnsureKubeAPIServerDeployment method and check the result
-			err := ensurer.EnsureKubeAPIServerDeployment(context.TODO(), dummyContext, dep)
+			err := ensurer.EnsureKubeAPIServerDeployment(context.TODO(), dummyContext, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			checkKubeAPIServerDeployment(dep)
 		})
@@ -186,7 +186,7 @@ var _ = Describe("Ensurer", func() {
 			ensurer := NewEnsurer(etcdStorage, logger)
 
 			// Call EnsureETCDStatefulSet method and check the result
-			err := ensurer.EnsureETCD(context.TODO(), dummyContext, etcd)
+			err := ensurer.EnsureETCD(context.TODO(), dummyContext, etcd, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			checkETCDMain(etcd)
 		})
@@ -206,7 +206,7 @@ var _ = Describe("Ensurer", func() {
 			ensurer := NewEnsurer(etcdStorage, logger)
 
 			// Call EnsureETCDStatefulSet method and check the result
-			err := ensurer.EnsureETCD(context.TODO(), dummyContext, etcd)
+			err := ensurer.EnsureETCD(context.TODO(), dummyContext, etcd, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			checkETCDMain(etcd)
 		})
@@ -222,7 +222,7 @@ var _ = Describe("Ensurer", func() {
 			ensurer := NewEnsurer(etcdStorage, logger)
 
 			// Call EnsureETCDStatefulSet method and check the result
-			err := ensurer.EnsureETCD(context.TODO(), dummyContext, etcd)
+			err := ensurer.EnsureETCD(context.TODO(), dummyContext, etcd, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			checkETCDEvents(etcd)
 		})
@@ -242,7 +242,7 @@ var _ = Describe("Ensurer", func() {
 			ensurer := NewEnsurer(etcdStorage, logger)
 
 			// Call EnsureETCDStatefulSet method and check the result
-			err := ensurer.EnsureETCD(context.TODO(), dummyContext, etcd)
+			err := ensurer.EnsureETCD(context.TODO(), dummyContext, etcd, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			checkETCDEvents(etcd)
 		})

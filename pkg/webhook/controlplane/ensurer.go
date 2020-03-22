@@ -55,8 +55,8 @@ func (e *ensurer) InjectClient(client client.Client) error {
 }
 
 // EnsureKubeAPIServerDeployment ensures that the kube-apiserver deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, dep *appsv1.Deployment) error {
-	template := &dep.Spec.Template
+func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *appsv1.Deployment) error {
+	template := &new.Spec.Template
 	ps := &template.Spec
 
 	cluster, err := ectx.GetCluster(ctx)
@@ -70,12 +70,12 @@ func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx generi
 		ensureVolumeMounts(c, cluster.Shoot.Spec.Kubernetes.Version)
 	}
 	ensureVolumes(ps, cluster.Shoot.Spec.Kubernetes.Version)
-	return e.ensureChecksumAnnotations(ctx, &dep.Spec.Template, dep.Namespace)
+	return e.ensureChecksumAnnotations(ctx, &new.Spec.Template, new.Namespace)
 }
 
 // EnsureKubeControllerManagerDeployment ensures that the kube-controller-manager deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, dep *appsv1.Deployment) error {
-	template := &dep.Spec.Template
+func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *appsv1.Deployment) error {
+	template := &new.Spec.Template
 	ps := &template.Spec
 
 	cluster, err := ectx.GetCluster(ctx)
@@ -90,7 +90,7 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, ect
 	}
 	ensureKubeControllerManagerAnnotations(template)
 	ensureVolumes(ps, cluster.Shoot.Spec.Kubernetes.Version)
-	return e.ensureChecksumAnnotations(ctx, &dep.Spec.Template, dep.Namespace)
+	return e.ensureChecksumAnnotations(ctx, &new.Spec.Template, new.Namespace)
 }
 
 func ensureKubeAPIServerCommandLineArgs(c *corev1.Container) {
@@ -206,18 +206,18 @@ func (e *ensurer) ensureChecksumAnnotations(ctx context.Context, template *corev
 }
 
 // EnsureKubeletServiceUnitOptions ensures that the kubelet.service unit options conform to the provider requirements.
-func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, ectx genericmutator.EnsurerContext, opts []*unit.UnitOption) ([]*unit.UnitOption, error) {
-	if opt := extensionswebhook.UnitOptionWithSectionAndName(opts, "Service", "ExecStart"); opt != nil {
+func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, ectx genericmutator.EnsurerContext, new, old []*unit.UnitOption) ([]*unit.UnitOption, error) {
+	if opt := extensionswebhook.UnitOptionWithSectionAndName(new, "Service", "ExecStart"); opt != nil {
 		command := extensionswebhook.DeserializeCommandLine(opt.Value)
 		command = ensureKubeletCommandLineArgs(command)
 		opt.Value = extensionswebhook.SerializeCommandLine(command, 1, " \\\n    ")
 	}
-	opts = extensionswebhook.EnsureUnitOption(opts, &unit.UnitOption{
+	new = extensionswebhook.EnsureUnitOption(new, &unit.UnitOption{
 		Section: "Service",
 		Name:    "ExecStartPre",
 		Value:   `/bin/sh -c 'hostnamectl set-hostname $(hostname -f)'`,
 	})
-	return opts, nil
+	return new, nil
 }
 
 func ensureKubeletCommandLineArgs(command []string) []string {
@@ -226,40 +226,40 @@ func ensureKubeletCommandLineArgs(command []string) []string {
 }
 
 // EnsureKubeletConfiguration ensures that the kubelet configuration conforms to the provider requirements.
-func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, ectx genericmutator.EnsurerContext, kubeletConfig *kubeletconfigv1beta1.KubeletConfiguration) error {
+func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *kubeletconfigv1beta1.KubeletConfiguration) error {
 	// Make sure CSI-related feature gates are not enabled
 	// TODO Leaving these enabled shouldn't do any harm, perhaps remove this code when properly tested?
-	delete(kubeletConfig.FeatureGates, "VolumeSnapshotDataSource")
-	delete(kubeletConfig.FeatureGates, "CSINodeInfo")
-	delete(kubeletConfig.FeatureGates, "CSIDriverRegistry")
+	delete(new.FeatureGates, "VolumeSnapshotDataSource")
+	delete(new.FeatureGates, "CSINodeInfo")
+	delete(new.FeatureGates, "CSIDriverRegistry")
 	return nil
 }
 
 var regexFindProperty = regexp.MustCompile("net.ipv4.neigh.default.gc_thresh1[[:space:]]*=[[:space:]]*([[:alnum:]]+)")
 
 // EnsureKubernetesGeneralConfiguration ensures that the kubernetes general configuration conforms to the provider requirements.
-func (e *ensurer) EnsureKubernetesGeneralConfiguration(ctx context.Context, ectx genericmutator.EnsurerContext, data *string) error {
+func (e *ensurer) EnsureKubernetesGeneralConfiguration(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *string) error {
 	// If the needed property exists, ensure the correct value
-	if regexFindProperty.MatchString(*data) {
-		res := regexFindProperty.ReplaceAll([]byte(*data), []byte("net.ipv4.neigh.default.gc_thresh1 = 0"))
-		*data = string(res)
+	if regexFindProperty.MatchString(*new) {
+		res := regexFindProperty.ReplaceAll([]byte(*new), []byte("net.ipv4.neigh.default.gc_thresh1 = 0"))
+		*new = string(res)
 		return nil
 	}
 
 	// If the property do not exist, append it in the end of the string
 	buf := bytes.Buffer{}
-	buf.WriteString(*data)
+	buf.WriteString(*new)
 	buf.WriteString("\n")
 	buf.WriteString("# AWS specific settings\n")
 	buf.WriteString("# See https://github.com/kubernetes/kubernetes/issues/23395\n")
 	buf.WriteString("net.ipv4.neigh.default.gc_thresh1 = 0")
 
-	*data = buf.String()
+	*new = buf.String()
 	return nil
 }
 
 // EnsureAdditionalUnits ensures that additional required system units are added.
-func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, ectx genericmutator.EnsurerContext, units *[]extensionsv1alpha1.Unit) error {
+func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *[]extensionsv1alpha1.Unit) error {
 	var (
 		command              = "start"
 		trueVar              = true
@@ -278,7 +278,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 `
 	)
 
-	extensionswebhook.AppendUniqueUnit(units, extensionsv1alpha1.Unit{
+	extensionswebhook.AppendUniqueUnit(new, extensionsv1alpha1.Unit{
 		Name:    "custom-mtu.service",
 		Enable:  &trueVar,
 		Command: &command,
@@ -288,7 +288,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 }
 
 // EnsureAdditionalFiles ensures that additional required system files are added.
-func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, ectx genericmutator.EnsurerContext, files *[]extensionsv1alpha1.File) error {
+func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, ectx genericmutator.EnsurerContext, new, old *[]extensionsv1alpha1.File) error {
 	var (
 		permissions       int32 = 0755
 		customFileContent       = `#!/bin/sh
@@ -309,7 +309,7 @@ done
 `
 	)
 
-	appendUniqueFile(files, extensionsv1alpha1.File{
+	appendUniqueFile(new, extensionsv1alpha1.File{
 		Path:        "/opt/bin/mtu-customizer.sh",
 		Permissions: &permissions,
 		Content: extensionsv1alpha1.FileContent{
