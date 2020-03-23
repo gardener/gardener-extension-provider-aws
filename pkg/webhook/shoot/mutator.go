@@ -39,8 +39,8 @@ func NewMutator() extensionswebhook.Mutator {
 }
 
 // Mutate mutates resources.
-func (m *mutator) Mutate(ctx context.Context, obj runtime.Object) error {
-	acc, err := meta.Accessor(obj)
+func (m *mutator) Mutate(ctx context.Context, new, old runtime.Object) error {
+	acc, err := meta.Accessor(new)
 	if err != nil {
 		return errors.Wrapf(err, "could not create accessor during webhook")
 	}
@@ -49,7 +49,7 @@ func (m *mutator) Mutate(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
-	switch x := obj.(type) {
+	switch x := new.(type) {
 	case *corev1.ConfigMap:
 		switch x.Name {
 		case "addons-nginx-ingress-controller":
