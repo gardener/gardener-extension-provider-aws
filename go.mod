@@ -7,8 +7,8 @@ require (
 	github.com/aws/aws-sdk-go v1.21.10
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f
 	github.com/gardener/etcd-druid v0.1.3
-	github.com/gardener/gardener v1.1.1-0.20200311075931-7f7e52b986e7
-	github.com/gardener/gardener-extensions v1.4.1-0.20200320072314-dca664f2c2ca
+	github.com/gardener/gardener v1.1.1-0.20200323102039-58593d8be86a
+	github.com/gardener/gardener-extensions v1.5.0
 	github.com/gardener/machine-controller-manager v0.26.2
 	github.com/go-logr/logr v0.1.0
 	github.com/gobuffalo/packr/v2 v2.1.0
