@@ -99,7 +99,7 @@ github.com/gardener/etcd-druid/api/v1alpha1
 github.com/gardener/external-dns-management/pkg/apis/dns
 github.com/gardener/external-dns-management/pkg/apis/dns/v1alpha1
 github.com/gardener/external-dns-management/pkg/client/dns/clientset/versioned/scheme
-# github.com/gardener/gardener v1.2.1-0.20200407112824-e915bd8e38f6
+# github.com/gardener/gardener v1.2.1-0.20200407133554-24668c790158
 github.com/gardener/gardener/extensions/hack
 github.com/gardener/gardener/extensions/pkg/controller
 github.com/gardener/gardener/extensions/pkg/controller/backupbucket
@@ -109,6 +109,7 @@ github.com/gardener/gardener/extensions/pkg/controller/cmd
 github.com/gardener/gardener/extensions/pkg/controller/common
 github.com/gardener/gardener/extensions/pkg/controller/controlplane
 github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator
+github.com/gardener/gardener/extensions/pkg/controller/csimigration
 github.com/gardener/gardener/extensions/pkg/controller/error
 github.com/gardener/gardener/extensions/pkg/controller/healthcheck
 github.com/gardener/gardener/extensions/pkg/controller/healthcheck/config

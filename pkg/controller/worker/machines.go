@@ -147,6 +147,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 
 		for zoneIndex, zone := range pool.Zones {
 			zoneIdx := int32(zoneIndex)
+
 			nodesSubnet, err := awsapihelper.FindSubnetForPurposeAndZone(infrastructureStatus.VPC.Subnets, awsapi.PurposeNodes, zone)
 			if err != nil {
 				return err
