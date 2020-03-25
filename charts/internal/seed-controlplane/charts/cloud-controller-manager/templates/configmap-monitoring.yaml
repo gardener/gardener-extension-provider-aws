@@ -58,4 +58,4 @@ data:
 
   dashboard_users: |
     cloud-controller-manager-dashboard.json: |-
- {{- .Files.Get "ccm-monitoring-dashboard.json" | nindent 6 }}
+{{- .Files.Get "ccm-monitoring-dashboard.json" | nindent 6 }}
