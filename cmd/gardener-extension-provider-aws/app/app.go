@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 
-	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awscmd "github.com/gardener/gardener-extension-provider-aws/pkg/cmd"
@@ -32,6 +31,7 @@ import (
 	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
 	awscontrolplaneexposure "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
 
+	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
@@ -40,6 +40,7 @@ import (
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	autoscalingv1beta2 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -146,12 +147,13 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if err := controller.AddToScheme(scheme); err != nil {
 				controllercmd.LogErrAndExit(err, "Could not update manager scheme")
 			}
-
 			if err := awsinstall.AddToScheme(scheme); err != nil {
 				controllercmd.LogErrAndExit(err, "Could not update manager scheme")
 			}
-
 			if err := druidv1alpha1.AddToScheme(scheme); err != nil {
+				controllercmd.LogErrAndExit(err, "Could not update manager scheme")
+			}
+			if err := autoscalingv1beta2.AddToScheme(scheme); err != nil {
 				controllercmd.LogErrAndExit(err, "Could not update manager scheme")
 			}
 
