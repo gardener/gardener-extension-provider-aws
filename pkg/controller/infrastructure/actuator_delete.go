@@ -91,7 +91,7 @@ func Delete(
 				}
 
 				if err := destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, stateVariables[aws.VPCIDKey], infrastructure.Namespace); err != nil {
-					return gardencorev1beta1helper.DetermineError(fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
+					return gardencorev1beta1helper.DetermineError(err, fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
 				}
 				return nil
 			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists && !stateIsEmpty),

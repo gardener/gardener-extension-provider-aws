@@ -107,7 +107,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 	}
 
 	for _, pool := range w.worker.Spec.Pools {
-		zoneLen := len(pool.Zones)
+		zoneLen := int32(len(pool.Zones))
 
 		workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster)
 		if err != nil {
@@ -146,6 +146,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 		}
 
 		for zoneIndex, zone := range pool.Zones {
+			zoneIdx := int32(zoneIndex)
 			nodesSubnet, err := awsapihelper.FindSubnetForPurposeAndZone(infrastructureStatus.VPC.Subnets, awsapi.PurposeNodes, zone)
 			if err != nil {
 				return err
@@ -186,10 +187,10 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				Name:           deploymentName,
 				ClassName:      className,
 				SecretName:     className,
-				Minimum:        worker.DistributeOverZones(zoneIndex, pool.Minimum, zoneLen),
-				Maximum:        worker.DistributeOverZones(zoneIndex, pool.Maximum, zoneLen),
-				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIndex, pool.MaxSurge, zoneLen, pool.Maximum),
-				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIndex, pool.MaxUnavailable, zoneLen, pool.Minimum),
+				Minimum:        worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
+				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
+				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
+				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
 				Labels:         pool.Labels,
 				Annotations:    pool.Annotations,
 				Taints:         pool.Taints,
