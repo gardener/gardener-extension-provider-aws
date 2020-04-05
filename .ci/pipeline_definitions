@@ -17,7 +17,6 @@ gardener-extension-provider-aws:
             image: 'eu.gcr.io/gardener-project/gardener/extensions/validator-aws'
             dockerfile: 'Dockerfile'
             target: gardener-extension-validator-aws
-    steps: ~
   jobs:
     head-update:
       traits:

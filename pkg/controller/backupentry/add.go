@@ -16,8 +16,8 @@ package backupentry
 
 import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"github.com/gardener/gardener-extensions/pkg/controller/backupentry"
-	"github.com/gardener/gardener-extensions/pkg/controller/backupentry/genericactuator"
+	"github.com/gardener/gardener/extensions/pkg/controller/backupentry"
+	"github.com/gardener/gardener/extensions/pkg/controller/backupentry/genericactuator"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"

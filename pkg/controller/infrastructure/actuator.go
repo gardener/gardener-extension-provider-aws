@@ -20,9 +20,9 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
 
-	"github.com/gardener/gardener-extensions/pkg/controller/common"
-	"github.com/gardener/gardener-extensions/pkg/controller/infrastructure"
-	"github.com/gardener/gardener-extensions/pkg/terraformer"
+	"github.com/gardener/gardener/extensions/pkg/controller/common"
+	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
+	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	glogger "github.com/gardener/gardener/pkg/logger"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/rest"

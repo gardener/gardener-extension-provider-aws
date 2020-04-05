@@ -96,7 +96,7 @@ func validateVolume(vol *core.Volume, fldPath *field.Path) field.ErrorList {
 	if vol.Type == nil {
 		allErrs = append(allErrs, field.Required(fldPath.Child("type"), "must not be empty"))
 	}
-	if vol.Size == "" {
+	if vol.VolumeSize == "" {
 		allErrs = append(allErrs, field.Required(fldPath.Child("size"), "must not be empty"))
 	}
 	return allErrs
