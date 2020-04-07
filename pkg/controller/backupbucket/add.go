@@ -16,7 +16,7 @@ package backupbucket
 
 import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"github.com/gardener/gardener-extensions/pkg/controller/backupbucket"
+	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"

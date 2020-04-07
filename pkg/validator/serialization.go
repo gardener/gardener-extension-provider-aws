@@ -16,7 +16,7 @@ package validator
 
 import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	"github.com/gardener/gardener-extensions/pkg/util"
+	"github.com/gardener/gardener/extensions/pkg/util"
 
 	"github.com/gardener/gardener/pkg/apis/core"
 	"k8s.io/apimachinery/pkg/runtime"

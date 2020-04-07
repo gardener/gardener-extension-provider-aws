@@ -20,9 +20,9 @@ import (
 
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
-	"github.com/gardener/gardener-extensions/pkg/util"
-	extensionswebhook "github.com/gardener/gardener-extensions/pkg/webhook"
-	"github.com/gardener/gardener-extensions/pkg/webhook/controlplane/genericmutator"
+	"github.com/gardener/gardener/extensions/pkg/util"
+	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	. "github.com/onsi/ginkgo"

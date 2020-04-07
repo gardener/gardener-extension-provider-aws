@@ -27,9 +27,9 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
-	extensionscontroller "github.com/gardener/gardener-extensions/pkg/controller"
-	controllererrors "github.com/gardener/gardener-extensions/pkg/controller/error"
-	"github.com/gardener/gardener-extensions/pkg/terraformer"
+	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
+	controllererrors "github.com/gardener/gardener/extensions/pkg/controller/error"
+	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
 	"github.com/go-logr/logr"

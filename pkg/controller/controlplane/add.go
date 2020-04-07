@@ -17,10 +17,10 @@ package controlplane
 import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
-	extensionscontroller "github.com/gardener/gardener-extensions/pkg/controller"
-	"github.com/gardener/gardener-extensions/pkg/controller/controlplane"
-	"github.com/gardener/gardener-extensions/pkg/controller/controlplane/genericactuator"
-	"github.com/gardener/gardener-extensions/pkg/util"
+	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
+	"github.com/gardener/gardener/extensions/pkg/controller/controlplane"
+	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
+	"github.com/gardener/gardener/extensions/pkg/util"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
