@@ -4,7 +4,7 @@ The [`core.gardener.cloud/v1beta1.Shoot` resource](https://github.com/gardener/g
 
 In this document we are describing how this configuration looks like for AWS and provide an example `Shoot` manifest with minimal configuration that you can use to create an AWS cluster (modulo the landscape-specific information like cloud profile names, secret binding names, etc.).
 
-## Provider secret data
+## Provider Secret Data
 
 Every shoot cluster references a `SecretBinding` which itself references a `Secret`, and this `Secret` contains the provider credentials of your AWS account.
 This `Secret` must look as follows:
@@ -69,6 +69,7 @@ For every subnet, you have to specify a CIDR range contained in the VPC CIDR spe
 You can freely choose these CIDR and it is your responsibility to properly design the network layout to suit your needs.
 
 You can configure [Gateway VPC Endpoints](https://docs.aws.amazon.com/vpc/latest/userguide/vpce-gateway.html) by adding items in the optional list `networks.vpc.gatewayEndpoints`. Each item in the list is used as a service name and a corresponding endpoint is created for it. All created endpoints point to the service within the cluster's region. For example, consider this (partial) shoot config:
+
 ```yaml
 spec:
   region: eu-central-1
@@ -82,6 +83,7 @@ spec:
           gatewayEndpoints:
           - s3
 ```
+
 The service name of the S3 Gateway VPC Endpoint in this example is `com.amazonaws.eu-central-1.s3`.
 
 If you want to use multiple availability zones then add a second, third, ... entry to the `networks.zones[]` list and properly specify the AZ name in `networks.zones[].name`.
@@ -230,3 +232,10 @@ spec:
     nginx-ingress:
       enabled: true
 ```
+
+## CSI volume provisioners
+
+Every AWS shoot cluster that has at least Kubernetes v1.18 will be deployed with the AWS EBS CSI driver.
+It is compatible with the legacy in-tree volume provisioner that was deprecated by the Kubernetes community and will be removed in future versions of Kubernetes.
+End-users might want to update their custom `StorageClass`es to the new `ebs.csi.aws.com` provisioner.
+Shoot clusters with Kubernetes v1.17 or less will use the in-tree `kubernetes.io/aws-ebs` volume provisioner in the kube-controller-manager and the kubelet.
