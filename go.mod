@@ -8,7 +8,7 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f
 	github.com/frankban/quicktest v1.9.0 // indirect
 	github.com/gardener/etcd-druid v0.1.12
-	github.com/gardener/gardener v1.3.1-0.20200423115721-07c09fe6cf3e
+	github.com/gardener/gardener v1.3.1-0.20200424112810-331bbbf46108
 	github.com/gardener/machine-controller-manager v0.27.0
 	github.com/go-logr/logr v0.1.0
 	github.com/gobuffalo/packr/v2 v2.8.0
