@@ -198,16 +198,17 @@ func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, csiEnabled, csiMigr
 }
 
 func ensureKubeControllerManagerLabels(t *corev1.PodTemplateSpec, csiEnabled, csiMigrationComplete bool) {
+	// make sure to always remove this label
+	delete(t.Labels, v1beta1constants.LabelNetworkPolicyToBlockedCIDRs)
+
 	if csiEnabled && csiMigrationComplete {
 		delete(t.Labels, v1beta1constants.LabelNetworkPolicyToPublicNetworks)
 		delete(t.Labels, v1beta1constants.LabelNetworkPolicyToPrivateNetworks)
-		delete(t.Labels, v1beta1constants.LabelNetworkPolicyToBlockedCIDRs)
 		return
 	}
 
 	t.Labels = extensionswebhook.EnsureAnnotationOrLabel(t.Labels, v1beta1constants.LabelNetworkPolicyToPublicNetworks, v1beta1constants.LabelNetworkPolicyAllowed)
 	t.Labels = extensionswebhook.EnsureAnnotationOrLabel(t.Labels, v1beta1constants.LabelNetworkPolicyToPrivateNetworks, v1beta1constants.LabelNetworkPolicyAllowed)
-	t.Labels = extensionswebhook.EnsureAnnotationOrLabel(t.Labels, v1beta1constants.LabelNetworkPolicyToBlockedCIDRs, v1beta1constants.LabelNetworkPolicyAllowed)
 }
 
 var (

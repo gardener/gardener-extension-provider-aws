@@ -127,7 +127,6 @@ var _ = Describe("Ensurer", func() {
 		kubeControllerManagerLabels = map[string]string{
 			v1beta1constants.LabelNetworkPolicyToPublicNetworks:  v1beta1constants.LabelNetworkPolicyAllowed,
 			v1beta1constants.LabelNetworkPolicyToPrivateNetworks: v1beta1constants.LabelNetworkPolicyAllowed,
-			v1beta1constants.LabelNetworkPolicyToBlockedCIDRs:    v1beta1constants.LabelNetworkPolicyAllowed,
 		}
 	)
 
@@ -259,6 +258,11 @@ var _ = Describe("Ensurer", func() {
 				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeControllerManager},
 				Spec: appsv1.DeploymentSpec{
 					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								v1beta1constants.LabelNetworkPolicyToBlockedCIDRs: v1beta1constants.LabelNetworkPolicyAllowed,
+							},
+						},
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
@@ -319,6 +323,11 @@ var _ = Describe("Ensurer", func() {
 					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeControllerManager},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels: map[string]string{
+									v1beta1constants.LabelNetworkPolicyToBlockedCIDRs: v1beta1constants.LabelNetworkPolicyAllowed,
+								},
+							},
 							Spec: corev1.PodSpec{
 								Containers: []corev1.Container{
 									{
@@ -778,7 +787,7 @@ func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, annotations, l
 		Expect(c.Command).NotTo(ContainElement("--external-cloud-volume-plugin=aws"))
 		Expect(c.Env).NotTo(ContainElement(accessKeyIDEnvVar))
 		Expect(c.Env).NotTo(ContainElement(secretAccessKeyEnvVar))
-		Expect(dep.Spec.Template.Labels).To(BeNil())
+		Expect(dep.Spec.Template.Labels).To(BeEmpty())
 		Expect(dep.Spec.Template.Spec.Volumes).To(BeNil())
 		Expect(c.VolumeMounts).NotTo(ContainElement(cloudProviderConfigVolumeMount))
 		Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(cloudProviderConfigVolume))
