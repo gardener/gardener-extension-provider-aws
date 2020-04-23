@@ -17,8 +17,8 @@ package validation_test
 import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-	"github.com/gardener/gardener/pkg/apis/core"
 
+	"github.com/gardener/gardener/pkg/apis/core"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -117,6 +117,28 @@ var _ = Describe("Shoot validation", func() {
 						"Field": Equal("workers[1].volume"),
 					})),
 				))
+			})
+
+			It("should forbid because volume type io1 is used but no worker config provided", func() {
+				workers[1].Volume.Type = pointer.StringPtr(string(apisaws.VolumeTypeIO1))
+
+				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+
+				Expect(errorList).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeRequired),
+						"Field": Equal("workers[1].providerConfig"),
+					})),
+				))
+			})
+
+			It("should allow because volume type io1 and worker config provided", func() {
+				workers[1].Volume.Type = pointer.StringPtr(string(apisaws.VolumeTypeIO1))
+				workers[1].ProviderConfig = &core.ProviderConfig{}
+
+				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+
+				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should forbid because volume type and size are not configured", func() {
