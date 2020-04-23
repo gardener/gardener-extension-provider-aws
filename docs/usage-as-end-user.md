@@ -109,6 +109,25 @@ The `cloudControllerManager.featureGates` contains a map of explicitly enabled o
 For production usage it's not recommend to use this field at all as you can enable alpha features or disable beta/stable features, potentially impacting the cluster stability.
 If you don't want to configure anything for the `cloudControllerManager` simply omit the key in the YAML specification.
 
+## `WorkerConfig`
+
+The worker configuration contains AWS-specific value for configuring the worker pools.
+It can be provided in `.spec.provider.workers[].providerConfig` and is evaluated by the AWS worker controller when it reconciles the shoot machines.
+
+An example `WorkerConfig` for the AWS extension looks as follows:
+
+```yaml
+apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkerConfig
+volume:
+  iops: 10000
+```
+
+The `.volume.iops` is the number of I/O operations per second (IOPS) that the volume supports.
+For `io1` volume type, this represents the number of IOPS that are provisioned for the volume.
+For `gp2` volume type, this represents the baseline performance of the volume and the rate at which the volume accumulates I/O credits for bursting. For more information about General Purpose SSD baseline performance, I/O credits, and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the Amazon Elastic Compute Cloud User Guide.\
+Constraint: Range is 100-20000 IOPS for `io1` volumes and 100-10000 IOPS for `gp2` volumes.
+
 ## Example `Shoot` manifest (one availability zone)
 
 Please find below an example `Shoot` manifest for one availability zone:
@@ -148,6 +167,12 @@ spec:
       volume:
         size: 50Gi
         type: gp2
+    # The following provider config is only valid if the volume type is `io1`.
+    # providerConfig:
+    #   apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    #   kind: WorkerConfig
+    #   volume:
+    #     iops: 10000
       zones:
       - eu-central-1a
   networking:
