@@ -27,10 +27,11 @@ import (
 var _ = Describe("ValidateWorkerConfig", func() {
 	Describe("#ValidateWorkerConfig", func() {
 		var (
-			io1type       = "io1"
+			io1type       = string(apisaws.VolumeTypeIO1)
 			io1iops int64 = 200
-			gp2type       = "gp2"
+			gp2type       = string(apisaws.VolumeTypeGP2)
 			gp2iops int64 = 400
+			footype       = "foo"
 
 			worker *apisaws.WorkerConfig
 		)
@@ -52,6 +53,17 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			Expect(ValidateWorkerConfig(worker, &gp2type)).To(BeEmpty())
 		})
 
+		It("should enforce that IOPS are provided for io1 volumes", func() {
+			worker.Volume.IOPS = nil
+
+			errorList := ValidateWorkerConfig(worker, &io1type)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeRequired),
+				"Field": Equal("volume.iops"),
+			}))))
+		})
+
 		It("should enforce that the IOPS for gp2 volumes is within the allowed range", func() {
 			var tooLarge int64 = 123123123
 			worker.Volume.IOPS = &tooLarge
@@ -69,6 +81,15 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			worker.Volume.IOPS = &tooLarge
 
 			errorList := ValidateWorkerConfig(worker, &io1type)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("volume.iops"),
+			}))))
+		})
+
+		It("should return an error if iops is set for a non-supported volume type", func() {
+			errorList := ValidateWorkerConfig(worker, &footype)
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeForbidden),

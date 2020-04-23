@@ -21,7 +21,6 @@ import (
 
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/gardener/gardener/pkg/apis/core/validation"
-
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -52,6 +51,10 @@ func ValidateWorkers(workers []core.Worker, zones []apisaws.Zone, fldPath *field
 			allErrs = append(allErrs, field.Required(fldPath.Index(i).Child("volume"), "must not be nil"))
 		} else {
 			allErrs = append(allErrs, validateVolume(worker.Volume, fldPath.Index(i).Child("volume"))...)
+
+			if worker.Volume.Type != nil && *worker.Volume.Type == string(apisaws.VolumeTypeIO1) && worker.ProviderConfig == nil {
+				allErrs = append(allErrs, field.Required(fldPath.Index(i).Child("providerConfig"), fmt.Sprintf("WorkerConfig must be set if volume type is %s", apisaws.VolumeTypeIO1)))
+			}
 		}
 
 		if len(worker.Zones) == 0 {

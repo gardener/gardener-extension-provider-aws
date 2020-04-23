@@ -979,6 +979,11 @@ it is not used in requests to create gp2, st1, sc1, or standard volumes.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.VolumeType">VolumeType
+(<code>string</code> alias)</p></h3>
+<p>
+<p>VolumeType is a constant for volume types.</p>
+</p>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Zone">Zone
 </h3>
 <p>
