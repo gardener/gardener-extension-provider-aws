@@ -8,6 +8,7 @@ images:
   csi-snapshotter: image-repository:image-tag
   csi-resizer: image-repository:image-tag
   csi-liveness-probe: image-repository:image-tag
+  csi-snapshot-controller: image-repository:image-tag
 
 socketPath: /var/lib/csi/sockets/pluginproxy
 region: region
@@ -42,6 +43,16 @@ resources:
       cpu: 30m
       memory: 50Mi
   resizer:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 30m
+      memory: 50Mi
+
+csiSnapshotController:
+  podAnnotations: {}
+  resources:
     requests:
       cpu: 10m
       memory: 32Mi
