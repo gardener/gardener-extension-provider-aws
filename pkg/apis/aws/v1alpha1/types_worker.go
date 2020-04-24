@@ -74,3 +74,13 @@ type MachineImage struct {
 	// AMI is the AMI for the machine image.
 	AMI string `json:"ami"`
 }
+
+// VolumeType is a constant for volume types.
+type VolumeType string
+
+const (
+	// VolumeTypeIO1 is a constant for the io1 volume type.
+	VolumeTypeIO1 VolumeType = "io1"
+	// VolumeTypeGP2 is a constant for the gp2 volume type.
+	VolumeTypeGP2 VolumeType = "gp2"
+)

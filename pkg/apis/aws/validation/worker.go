@@ -15,6 +15,8 @@
 package validation
 
 import (
+	"fmt"
+
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -24,15 +26,25 @@ import (
 func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volumeType *string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if workerConfig.Volume != nil && workerConfig.Volume.IOPS != nil && volumeType != nil {
-		switch *volumeType {
-		case "gp2":
-			if *workerConfig.Volume.IOPS < 100 || *workerConfig.Volume.IOPS > 10000 {
-				allErrs = append(allErrs, field.Forbidden(field.NewPath("volume", "iops"), "range is 100-10000 iops for gp2 volumes"))
-			}
-		case "io1":
-			if *workerConfig.Volume.IOPS < 100 || *workerConfig.Volume.IOPS > 20000 {
-				allErrs = append(allErrs, field.Forbidden(field.NewPath("volume", "iops"), "range is 100-20000 iops for io1 volumes"))
+	if volumeType != nil {
+		if *volumeType == string(apisaws.VolumeTypeIO1) && (workerConfig.Volume == nil || workerConfig.Volume.IOPS == nil) {
+			allErrs = append(allErrs, field.Required(field.NewPath("volume", "iops"), fmt.Sprintf("iops must be provided when using %s volumes", apisaws.VolumeTypeIO1)))
+		}
+
+		if workerConfig.Volume != nil && workerConfig.Volume.IOPS != nil {
+			iopsPath := field.NewPath("volume", "iops")
+
+			switch *volumeType {
+			case string(apisaws.VolumeTypeGP2):
+				if *workerConfig.Volume.IOPS < 100 || *workerConfig.Volume.IOPS > 10000 {
+					allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("range is 100-10000 iops for %s volumes", apisaws.VolumeTypeGP2)))
+				}
+			case string(apisaws.VolumeTypeIO1):
+				if *workerConfig.Volume.IOPS < 100 || *workerConfig.Volume.IOPS > 20000 {
+					allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("range is 100-20000 iops for %s volumes", apisaws.VolumeTypeIO1)))
+				}
+			default:
+				allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("setting iops is only allowed if volume type is %q or %q", apisaws.VolumeTypeGP2, apisaws.VolumeTypeIO1)))
 			}
 		}
 	}
