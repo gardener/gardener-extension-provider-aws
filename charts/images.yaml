@@ -47,6 +47,10 @@ images:
   sourceRepository: github.com/kubernetes-csi/external-resizer
   repository: quay.io/k8scsi/csi-resizer
   tag: "v0.5.0"
+- name: csi-snapshot-controller
+  sourceRepository: github.com/kubernetes-csi/external-snapshotter
+  repository: quay.io/k8scsi/snapshot-controller
+  tag: "v2.1.0"
 - name: csi-node-driver-registrar
   sourceRepository: github.com/kubernetes-csi/node-driver-registrar
   repository: quay.io/k8scsi/csi-node-driver-registrar

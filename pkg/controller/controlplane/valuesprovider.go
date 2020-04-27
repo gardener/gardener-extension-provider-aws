@@ -133,6 +133,18 @@ var (
 						APIServerURL: v1beta1constants.DeploymentNameKubeAPIServer,
 					},
 				},
+				&secrets.ControlPlaneSecretConfig{
+					CertificateSecretConfig: &secrets.CertificateSecretConfig{
+						Name:       aws.CSISnapshotControllerName,
+						CommonName: aws.UsernamePrefix + aws.CSISnapshotControllerName,
+						CertType:   secrets.ClientCert,
+						SigningCA:  cas[v1beta1constants.SecretNameCACluster],
+					},
+					KubeConfigRequest: &secrets.KubeConfigRequest{
+						ClusterName:  clusterName,
+						APIServerURL: v1beta1constants.DeploymentNameKubeAPIServer,
+					},
+				},
 			}
 		},
 	}
@@ -199,10 +211,15 @@ var (
 					aws.CSISnapshotterImageName,
 					aws.CSIResizerImageName,
 					aws.CSILivenessProbeImageName,
+					aws.CSISnapshotControllerImageName,
 				},
 				Objects: []*chart.Object{
+					// csi-driver-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSIControllerName},
 					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
+					// csi-snapshot-controller
+					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotControllerName},
+					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
 				},
 			},
 		},
@@ -245,6 +262,11 @@ var (
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIAttacherName},
 					{Type: &rbacv1.Role{}, Name: aws.UsernamePrefix + aws.CSIAttacherName},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIAttacherName},
+					// csi-snapshot-controller
+					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSISnapshotControllerName},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSISnapshotControllerName},
+					{Type: &rbacv1.Role{}, Name: aws.UsernamePrefix + aws.CSISnapshotControllerName},
+					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSISnapshotControllerName},
 					// csi-snapshotter
 					{Type: &apiextensionsv1beta1.CustomResourceDefinition{}, Name: "volumesnapshotclasses.snapshot.storage.k8s.io"},
 					{Type: &apiextensionsv1beta1.CustomResourceDefinition{}, Name: "volumesnapshotcontents.snapshot.storage.k8s.io"},
@@ -485,6 +507,11 @@ func getCSIControllerChartValues(
 			"checksum/secret-" + aws.CSISnapshotterName:                   checksums[aws.CSISnapshotterName],
 			"checksum/secret-" + aws.CSIResizerName:                       checksums[aws.CSIResizerName],
 			"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+		},
+		"csiSnapshotController": map[string]interface{}{
+			"podAnnotations": map[string]interface{}{
+				"checksum/secret-" + aws.CSISnapshotControllerName: checksums[aws.CSISnapshotControllerName],
+			},
 		},
 	}, nil
 }

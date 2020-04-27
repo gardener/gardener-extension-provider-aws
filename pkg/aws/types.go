@@ -38,6 +38,8 @@ const (
 	CSISnapshotterImageName = "csi-snapshotter"
 	// CSIResizerImageName is the name of the csi-resizer image.
 	CSIResizerImageName = "csi-resizer"
+	// CSISnapshotControllerImageName is the name of the csi-snapshot-controller image.
+	CSISnapshotControllerImageName = "csi-snapshot-controller"
 	// CSINodeDriverRegistrarImageName is the name of the csi-node-driver-registrar image.
 	CSINodeDriverRegistrarImageName = "csi-node-driver-registrar"
 	// CSILivenessProbeImageName is the name of the csi-liveness-probe image.
@@ -54,10 +56,6 @@ const (
 	SecretAccessKey = "secretAccessKey"
 	// Region is a constant for the key in a backup secret that holds the AWS region.
 	Region = "region"
-	// BucketName is a constant for the key in a backup secret that holds the bucket name.
-	// The bucket name is written to the backup secret by Gardener as a temporary solution.
-	// TODO In the future, the bucket name should come from a BackupBucket resource (see https://github.com/gardener/gardener/blob/master/docs/proposals/02-backupinfra.md)
-	BucketName = "bucketName"
 	// TerraformerPurposeInfra is a constant for the complete Terraform setup with purpose 'infrastructure'.
 	TerraformerPurposeInfra = "infra"
 	// VPCIDKey is the vpc_id tf state key
@@ -104,6 +102,8 @@ const (
 	CSISnapshotterName = "csi-snapshotter"
 	// CSIResizerName is a constant for the name of the csi-resizer component.
 	CSIResizerName = "csi-resizer"
+	// CSISnapshotControllerName is a constant for the name of the csi-snapshot-controller component.
+	CSISnapshotControllerName = "csi-snapshot-controller"
 	// CSINodeDriverRegistrarName is a constant for the name of the csi-node-driver-registrar component.
 	CSINodeDriverRegistrarName = "csi-node-driver-registrar"
 	// CSILivenessProbeName is a constant for the name of the csi-liveness-probe component.
