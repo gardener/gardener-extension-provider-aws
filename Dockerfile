@@ -1,12 +1,12 @@
 ############# builder
-FROM golang:1.13.10 AS builder
+FROM golang:1.14.2 AS builder
 
 WORKDIR /go/src/github.com/gardener/gardener-extension-provider-aws
 COPY . .
 RUN make install
 
 ############# base
-FROM alpine:3.11.3 AS base
+FROM alpine:3.11.6 AS base
 
 ############# gardener-extension-provider-aws
 FROM base AS gardener-extension-provider-aws
