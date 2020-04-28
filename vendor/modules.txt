@@ -99,7 +99,7 @@ github.com/gardener/etcd-druid/api/v1alpha1
 github.com/gardener/external-dns-management/pkg/apis/dns
 github.com/gardener/external-dns-management/pkg/apis/dns/v1alpha1
 github.com/gardener/external-dns-management/pkg/client/dns/clientset/versioned/scheme
-# github.com/gardener/gardener v1.3.1-0.20200423115721-07c09fe6cf3e
+# github.com/gardener/gardener v1.3.1-0.20200424112810-331bbbf46108
 github.com/gardener/gardener/extensions/hack
 github.com/gardener/gardener/extensions/pkg/controller
 github.com/gardener/gardener/extensions/pkg/controller/backupbucket
@@ -143,6 +143,7 @@ github.com/gardener/gardener/extensions/test/tm/generator
 github.com/gardener/gardener/hack
 github.com/gardener/gardener/hack/.ci
 github.com/gardener/gardener/hack/api-reference/template
+github.com/gardener/gardener/pkg/api/core
 github.com/gardener/gardener/pkg/api/extensions
 github.com/gardener/gardener/pkg/apis/core
 github.com/gardener/gardener/pkg/apis/core/helper
@@ -571,7 +572,7 @@ golang.org/x/text/unicode/norm
 golang.org/x/text/width
 # golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20200422022333-3d57cf2e726e
+# golang.org/x/tools v0.0.0-20200422205258-72e4a01eba43
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/analysis/passes/inspect
 golang.org/x/tools/go/ast/astutil

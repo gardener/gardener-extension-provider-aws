@@ -41,6 +41,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
+	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
@@ -260,7 +261,7 @@ var _ = Describe("Infrastructure tests", func() {
 			}()
 
 			By("reconcile infrastructure")
-			infraStatus, _, err := infrastructure.Reconcile(ctx, logger, restConfig, c, decoder, chartRenderer, infra)
+			infraStatus, _, err := infrastructure.Reconcile(ctx, logger, restConfig, c, decoder, chartRenderer, infra, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
 			Expect(err).NotTo(HaveOccurred())
 
 			By("test infrastructure reconciliation")

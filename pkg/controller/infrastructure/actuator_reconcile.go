@@ -41,7 +41,7 @@ import (
 )
 
 func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	infrastructureStatus, state, err := Reconcile(ctx, a.logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure)
+	infrastructureStatus, state, err := Reconcile(ctx, a.logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
 	if err != nil {
 		return err
 	}
@@ -57,11 +57,13 @@ func Reconcile(
 	decoder runtime.Decoder,
 	chartRenderer chartrenderer.Interface,
 	infrastructure *extensionsv1alpha1.Infrastructure,
+	stateInitializer terraformer.StateConfigMapInitializer,
 ) (
 	*awsv1alpha1.InfrastructureStatus,
 	*terraformer.RawState,
 	error,
 ) {
+
 	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c, infrastructure.Spec.SecretRef)
 	if err != nil {
 		return nil, nil, err
@@ -75,11 +77,6 @@ func Reconcile(
 	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, credentials)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
-	}
-
-	terraformState, err := terraformer.UnmarshalRawState(infrastructure.Status.State)
-	if err != nil {
-		return nil, nil, err
 	}
 
 	release, err := chartRenderer.Render(filepath.Join(aws.InternalChartsPath, "aws-infra"), "aws-infra", infrastructure.Namespace, terraformConfig)
@@ -99,7 +96,7 @@ func Reconcile(
 			release.FileContent("main.tf"),
 			release.FileContent("variables.tf"),
 			[]byte(release.FileContent("terraform.tfvars")),
-			terraformState.Data,
+			stateInitializer,
 		)).
 		Apply(); err != nil {
 

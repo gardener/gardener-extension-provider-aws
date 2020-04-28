@@ -131,8 +131,8 @@ github.com/gardener/external-dns-management v0.7.3/go.mod h1:Y3om11E865x4aQ7cmcH
 github.com/gardener/external-dns-management v0.7.7 h1:J0CEkjPqGCvDtHxOCDLAvTa/1I/6GPjjavb6028lMOY=
 github.com/gardener/external-dns-management v0.7.7/go.mod h1:egCe/FPOsUbXA4WV0ne3h7nAD/nLT09hNt/FQQXK+ec=
 github.com/gardener/gardener v1.1.2/go.mod h1:CP9I0tCDVXTLPkJv/jUtXVUh948kSNKEGUg0haLz9gk=
-github.com/gardener/gardener v1.3.1-0.20200423115721-07c09fe6cf3e h1:hh6bfB9+PuSBdFvM8J4GIVITPT2qTCu/BgWFBiECywA=
-github.com/gardener/gardener v1.3.1-0.20200423115721-07c09fe6cf3e/go.mod h1:w85Gf6FTO0bGDMBnoQ07lFW+CC1gaTcmODZDII9BmVQ=
+github.com/gardener/gardener v1.3.1-0.20200424112810-331bbbf46108 h1:dcHaT9MSLXv5FtApiDqNWbcJxZDHm98Kjk4dLqsh1Mc=
+github.com/gardener/gardener v1.3.1-0.20200424112810-331bbbf46108/go.mod h1:Dm/N+A0NYbqknLgYLG1zvgpKGhlLRani86OdmSzzBl8=
 github.com/gardener/gardener-resource-manager v0.10.0 h1:6OUKoWI3oha42F0oJN8OEo3UR+D3onOCel4Th+zgotU=
 github.com/gardener/gardener-resource-manager v0.10.0/go.mod h1:0pKTHOhvU91eQB0EYr/6Ymd7lXc/5Hi8P8tF/gpV0VQ=
 github.com/gardener/hvpa-controller v0.0.0-20191014062307-fad3bdf06a25 h1:nOFITmV7vt4fcYPEXgj66Qs83FdDEMvL/LQcR0diRRE=
@@ -696,8 +696,8 @@ golang.org/x/tools v0.0.0-20191216173652-a0e659d51361/go.mod h1:TB2adYChydJhpapK
 golang.org/x/tools v0.0.0-20191230220329-2aa90c603ae3 h1:2+KluhQfJ1YhW+TB1KrISS2SfiG1pLEoseB0D4VF/bo=
 golang.org/x/tools v0.0.0-20191230220329-2aa90c603ae3/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
 golang.org/x/tools v0.0.0-20200308013534-11ec41452d41/go.mod h1:o4KQGtdN14AW+yjsvvwRTJJuXz8XRtIHtEnmAXLyFUw=
-golang.org/x/tools v0.0.0-20200422022333-3d57cf2e726e h1:3Dzrrxi54Io7Aoyb0PYLsI47K2TxkRQg+cqUn+m04do=
-golang.org/x/tools v0.0.0-20200422022333-3d57cf2e726e/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
+golang.org/x/tools v0.0.0-20200422205258-72e4a01eba43 h1:Lcsc5ErIWemp8qAbYffG5vPrqjJ0zk82RTFGifeS1Pc=
+golang.org/x/tools v0.0.0-20200422205258-72e4a01eba43/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 h1:E7g+9GITq07hpfrRu66IVDexMakfv52eLZ2CXBWiKr4=
