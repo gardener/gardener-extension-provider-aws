@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -28,9 +31,7 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
-	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
@@ -368,25 +369,25 @@ var _ = Describe("Machines", func() {
 					}
 
 					var (
-						machineClassPool1Zone1 = useDefaultMachineClass(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassPool1Zone1 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone1,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
-						machineClassPool1Zone2 = useDefaultMachineClass(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassPool1Zone2 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone2,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
-						machineClassPool2Zone1 = useDefaultMachineClass(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassPool2Zone1 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone1,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
-						machineClassPool2Zone2 = useDefaultMachineClass(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassPool2Zone2 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone2,
 								"securityGroupIDs": []string{securityGroupID},
@@ -406,6 +407,11 @@ var _ = Describe("Machines", func() {
 
 					machineClassPool1Zone1["blockDevices"] = machineClassPool1BlockDevices
 					machineClassPool1Zone2["blockDevices"] = machineClassPool1BlockDevices
+
+					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
+					machineClassPool1Zone2 = addKeyValueToMap(machineClassPool1Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
+					machineClassPool2Zone1 = addKeyValueToMap(machineClassPool2Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
+					machineClassPool2Zone2 = addKeyValueToMap(machineClassPool2Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
 
 					var (
 						machineClassNamePool1Zone1 = fmt.Sprintf("%s-%s-z1", namespace, namePool1)
@@ -665,10 +671,10 @@ func expectGetSecretCallToWork(c *mockclient.MockClient, awsAccessKeyID, awsSecr
 		})
 }
 
-func useDefaultMachineClass(def map[string]interface{}, key string, value interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(def)+1)
+func addKeyValueToMap(class map[string]interface{}, key string, value interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(class)+1)
 
-	for k, v := range def {
+	for k, v := range class {
 		out[k] = v
 	}
 
@@ -678,9 +684,7 @@ func useDefaultMachineClass(def map[string]interface{}, key string, value interf
 
 func addNameAndSecretToMachineClass(class map[string]interface{}, awsAccessKeyID, awsSecretAccessKey, name string) {
 	class["name"] = name
-	class["labels"] = map[string]string{
-		v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass,
-	}
 	class["secret"].(map[string]interface{})[aws.AccessKeyID] = awsAccessKeyID
 	class["secret"].(map[string]interface{})[aws.SecretAccessKey] = awsSecretAccessKey
+	class["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass}
 }

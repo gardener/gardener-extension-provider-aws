@@ -19,6 +19,8 @@ machineClasses:
     accessKeyID: ABCD
     secretAccessKey: ABCD
     cloudConfig: base64(abc)
+  # labels:
+  #   foo: bar
   blockDevices:
   - ebs:
       volumeSize: 50

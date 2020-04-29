@@ -5,9 +5,9 @@ kind: Secret
 metadata:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}
-{{- if $machineClass.labels }}
+{{- if $machineClass.secret.labels }}
   labels:
-{{ toYaml $machineClass.labels | indent 4 }}
+{{ toYaml $machineClass.secret.labels | indent 4 }}
 {{- end }}
 type: Opaque
 data:
@@ -20,6 +20,10 @@ kind: AWSMachineClass
 metadata:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}
+{{- if $machineClass.labels }}
+  labels:
+{{ toYaml $machineClass.labels | indent 4 }}
+{{- end }}
 spec:
   ami: {{ $machineClass.ami }}
   region: {{ $machineClass.region }}
