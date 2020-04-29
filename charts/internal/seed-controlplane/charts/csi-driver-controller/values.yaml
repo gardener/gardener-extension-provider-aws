@@ -51,6 +51,7 @@ resources:
       memory: 50Mi
 
 csiSnapshotController:
+  replicas: 1
   podAnnotations: {}
   resources:
     requests:
