@@ -204,6 +204,7 @@ var _ = Describe("ValuesProvider", func() {
 						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 					},
 					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
 						"podAnnotations": map[string]interface{}{
 							"checksum/secret-" + aws.CSISnapshotControllerName: checksums[aws.CSISnapshotControllerName],
 						},

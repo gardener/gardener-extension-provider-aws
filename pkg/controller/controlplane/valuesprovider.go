@@ -509,6 +509,7 @@ func getCSIControllerChartValues(
 			"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 		},
 		"csiSnapshotController": map[string]interface{}{
+			"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 			"podAnnotations": map[string]interface{}{
 				"checksum/secret-" + aws.CSISnapshotControllerName: checksums[aws.CSISnapshotControllerName],
 			},
