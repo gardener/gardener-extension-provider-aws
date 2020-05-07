@@ -146,6 +146,14 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			ebs["iops"] = *workerConfig.Volume.IOPS
 		}
 
+		ec2InstanceTags := map[string]string{
+			fmt.Sprintf("kubernetes.io/cluster/%s", w.worker.Namespace): "1",
+			"kubernetes.io/role/node":                                   "1",
+		}
+		for k, v := range pool.Labels {
+			ec2InstanceTags[k] = v
+		}
+
 		for zoneIndex, zone := range pool.Zones {
 			zoneIdx := int32(zoneIndex)
 
@@ -166,10 +174,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 						"securityGroupIDs": []string{nodesSecurityGroup.ID},
 					},
 				},
-				"tags": map[string]string{
-					fmt.Sprintf("kubernetes.io/cluster/%s", w.worker.Namespace): "1",
-					"kubernetes.io/role/node":                                   "1",
-				},
+				"tags": ec2InstanceTags,
 				"secret": map[string]interface{}{
 					"cloudConfig": string(pool.UserData),
 				},
