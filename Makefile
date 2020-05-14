@@ -114,8 +114,12 @@ check:
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/check-charts.sh ./charts
 
 .PHONY: generate
-generate:
+generate: generate-netpols
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/generate.sh ./charts/... ./cmd/... ./pkg/... ./test/...
+
+.PHONY: generate-netpols
+generate-netpols:
+	@go run $(REPO_ROOT)/test/e2e/netpol-gen/netpol-gen.go --v 5 --output-base $(REPO_ROOT)/test/e2e/networkpolicies
 
 .PHONY: format
 format:
