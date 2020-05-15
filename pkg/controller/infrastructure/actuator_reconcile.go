@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -28,7 +27,6 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
-	controllererrors "github.com/gardener/gardener/extensions/pkg/controller/error"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
@@ -63,7 +61,6 @@ func Reconcile(
 	*terraformer.RawState,
 	error,
 ) {
-
 	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c, infrastructure.Spec.SecretRef)
 	if err != nil {
 		return nil, nil, err
@@ -101,10 +98,7 @@ func Reconcile(
 		Apply(); err != nil {
 
 		logger.Error(err, "failed to apply the terraform config", "infrastructure", infrastructure.Name)
-		return nil, nil, &controllererrors.RequeueAfterError{
-			Cause:        err,
-			RequeueAfter: 30 * time.Second,
-		}
+		return nil, nil, err
 	}
 
 	return computeProviderStatus(ctx, tf, infrastructureConfig)
