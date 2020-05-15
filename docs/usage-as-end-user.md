@@ -52,7 +52,7 @@ If the flag is not provided it is defaulted to `true`.
 The `networks.vpc` section describes whether you want to create the shoot cluster in an already existing VPC or whether to create a new one:
 
 * If `networks.vpc.id` is given then you have to specify the VPC ID of the existing VPC that was created by other means (manually, other tooling, ...).
-Please make sure that the VPC has attached an internet gateway - the AWS controller won't create one automatically for existing VPCs.
+Please make sure that the VPC has attached an internet gateway - the AWS controller won't create one automatically for existing VPCs. To make sure the nodes are able to join and operate in your cluster properly, please make sure that your VPC has enabled [DNS Support](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-dns.html), explicitly the attributes `enableDnsHostnames` and `enableDnsSupport` must be set to `true`.
 * If `networks.vpc.cidr` is given then you have to specify the VPC CIDR of a new VPC that will be created during shoot creation.
 You can freely choose a private CIDR range.
 * Either `networks.vpc.id` or `networks.vpc.cidr` must be present, but not both at the same time.
