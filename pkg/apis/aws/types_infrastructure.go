@@ -55,7 +55,7 @@ type Networks struct {
 	Zones []Zone
 }
 
-// Zone describes the properties of a zone
+// Zone describes the properties of a zone.
 type Zone struct {
 	// Name is the name for this zone.
 	Name string
@@ -63,8 +63,15 @@ type Zone struct {
 	Internal string
 	// Public is the public subnet range to create (used for bastion and load balancers).
 	Public string
-	// Workers isis the workers subnet range to create  (used for the VMs).
+	// Workers is the workers subnet range to create (used for the VMs).
 	Workers string
+	// ElasticIPAllocationID contains the allocation ID of an Elastic IP that will be attached to the NAT gateway in
+	// this zone (e.g., `eipalloc-123456`). If it's not provided then a new Elastic IP will be automatically created
+	// and attached.
+	// Important: If this field is changed then the already attached Elastic IP will be disassociated from the NAT gateway
+	// (and potentially removed if it was created by this extension). Also, the NAT gateway will be deleted. This will
+	// disrupt egress traffic for a while.
+	ElasticIPAllocationID *string
 }
 
 // EC2 contains information about the AWS EC2 resources.

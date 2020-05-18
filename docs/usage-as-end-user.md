@@ -44,6 +44,7 @@ networks:
     internal: 10.250.112.0/22
     public: 10.250.96.0/22
     workers: 10.250.0.0/19
+  # elasticIPAllocationID: eipalloc-123456
 ```
 
 The `enableECRAccess` flag specifies whether the AWS IAM role policy attached to all worker nodes of the cluster shall contain permissions to access the Elastic Container Registry of the respective AWS account.
@@ -58,7 +59,7 @@ You can freely choose a private CIDR range.
 * Either `networks.vpc.id` or `networks.vpc.cidr` must be present, but not both at the same time.
 * `networks.vpc.gatewayEndpoints` is optional. If specified then each item is used as service name in a corresponding Gateway VPC Endpoint.
 
-The `networks.zones` section describes which subnets you want to create in availability zones.
+The `networks.zones` section contains configuration for resources you want to create or use in availability zones.
 For every zone, the AWS extension creates three subnets:
 
 * The `internal` subnet is used for [internal AWS load balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-internal-load-balancers.html).
@@ -66,7 +67,16 @@ For every zone, the AWS extension creates three subnets:
 * The `workers` subnet is used for all shoot worker nodes, i.e., VMs which later run your applications.
 
 For every subnet, you have to specify a CIDR range contained in the VPC CIDR specified above, or the VPC CIDR of your already existing VPC.
-You can freely choose these CIDR and it is your responsibility to properly design the network layout to suit your needs.
+You can freely choose these CIDRs and it is your responsibility to properly design the network layout to suit your needs.
+
+Also, the AWS extension creates a dedicated NAT gateway for each zone.
+By default, it also creates a corresponding Elastic IP that it attaches to this NAT gateway and which is used for egress traffic.
+The `elasticIPAllocationID` field allows you to specify the ID of an existing Elastic IP allocation in case you want to bring your own.
+If provided, no new Elastic IP will be created and, instead, the Elastic IP specified by you will be used.
+
+⚠️ If you change this field for an already existing infrastructure then it will disrupt egress traffic while AWS applies this change.
+The reason is that the NAT gateway must be recreated with the new Elastic IP association.
+Also, please note that the existing Elastic IP will be permanently deleted if it was earlier created by the AWS extension. 
 
 You can configure [Gateway VPC Endpoints](https://docs.aws.amazon.com/vpc/latest/userguide/vpce-gateway.html) by adding items in the optional list `networks.vpc.gatewayEndpoints`. Each item in the list is used as a service name and a corresponding endpoint is created for it. All created endpoints point to the service within the cluster's region. For example, consider this (partial) shoot config:
 

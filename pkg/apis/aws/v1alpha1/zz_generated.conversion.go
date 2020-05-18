@@ -741,6 +741,7 @@ func autoConvert_v1alpha1_Zone_To_aws_Zone(in *Zone, out *aws.Zone, s conversion
 	out.Internal = in.Internal
 	out.Public = in.Public
 	out.Workers = in.Workers
+	out.ElasticIPAllocationID = (*string)(unsafe.Pointer(in.ElasticIPAllocationID))
 	return nil
 }
 
@@ -754,6 +755,7 @@ func autoConvert_aws_Zone_To_v1alpha1_Zone(in *aws.Zone, out *Zone, s conversion
 	out.Internal = in.Internal
 	out.Public = in.Public
 	out.Workers = in.Workers
+	out.ElasticIPAllocationID = (*string)(unsafe.Pointer(in.ElasticIPAllocationID))
 	return nil
 }
 

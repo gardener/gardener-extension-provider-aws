@@ -17,14 +17,15 @@ package validation_test
 import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
+
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/gardener/gardener/pkg/utils/validation/gomega"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("InfrastructureConfig validation", func() {
@@ -139,7 +140,6 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Field":  Equal("networks.zones"),
 					"Detail": Equal("must specify at least the networks for one zone"),
 				}))
-
 			})
 
 			It("should allow adding the same zone", func() {
@@ -150,181 +150,194 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 				Expect(errorList).To(BeEmpty())
 			})
-		})
 
-		Context("CIDR", func() {
-			It("should forbid invalid VPC CIDRs", func() {
-				infrastructureConfig.Networks.VPC.CIDR = &invalidCIDR
+			Context("CIDR", func() {
+				It("should forbid invalid VPC CIDRs", func() {
+					infrastructureConfig.Networks.VPC.CIDR = &invalidCIDR
 
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.vpc.cidr"),
+						"Detail": Equal("invalid CIDR address: invalid-cidr"),
+					}))
+				})
+
+				It("should forbid invalid internal CIDR", func() {
+					infrastructureConfig.Networks.Zones[0].Internal = invalidCIDR
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].internal"),
+						"Detail": Equal("invalid CIDR address: invalid-cidr"),
+					}))
+				})
+
+				It("should forbid invalid public CIDR", func() {
+					infrastructureConfig.Networks.Zones[0].Public = invalidCIDR
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].public"),
+						"Detail": Equal("invalid CIDR address: invalid-cidr"),
+					}))
+				})
+
+				It("should forbid invalid workers CIDR", func() {
+					infrastructureConfig.Networks.Zones[0].Workers = invalidCIDR
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].workers"),
+						"Detail": Equal("invalid CIDR address: invalid-cidr"),
+					}))
+				})
+
+				It("should forbid internal CIDR which is not in VPC CIDR", func() {
+					infrastructureConfig.Networks.Zones[0].Internal = "1.1.1.1/32"
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].internal"),
+						"Detail": Equal(`must be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
+					}))
+				})
+
+				It("should forbid public CIDR which is not in VPC CIDR", func() {
+					infrastructureConfig.Networks.Zones[0].Public = "1.1.1.1/32"
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].public"),
+						"Detail": Equal(`must be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
+					}))
+				})
+
+				It("should forbid workers CIDR which are not in VPC and Nodes CIDR", func() {
+					infrastructureConfig.Networks.Zones[0].Workers = "1.1.1.1/32"
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].workers"),
+						"Detail": Equal(`must be a subset of "" ("10.250.0.0/16")`),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].workers"),
+						"Detail": Equal(`must be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
+					}))
+				})
+
+				It("should forbid Pod CIDR to overlap with VPC CIDR", func() {
+					podCIDR := "10.0.0.1/32"
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &podCIDR, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Detail": Equal(`must not be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
+					}))
+				})
+
+				It("should forbid Services CIDR to overlap with VPC CIDR", func() {
+					servicesCIDR := "10.0.0.1/32"
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &servicesCIDR)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Detail": Equal(`must not be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
+					}))
+				})
+
+				It("should forbid VPC CIDRs to overlap with other VPC CIDRs", func() {
+					overlappingCIDR := "10.250.0.1/32"
+					infrastructureConfig.Networks.Zones[0].Internal = overlappingCIDR
+					infrastructureConfig.Networks.Zones[0].Public = overlappingCIDR
+					infrastructureConfig.Networks.Zones[0].Workers = overlappingCIDR
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &overlappingCIDR, &pods, &services)
+
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].public"),
+						"Detail": Equal(`must not be a subset of "networks.zones[0].internal" ("10.250.0.1/32")`),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].workers"),
+						"Detail": Equal(`must not be a subset of "networks.zones[0].internal" ("10.250.0.1/32")`),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].internal"),
+						"Detail": Equal(`must not be a subset of "networks.zones[0].public" ("10.250.0.1/32")`),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].workers"),
+						"Detail": Equal(`must not be a subset of "networks.zones[0].public" ("10.250.0.1/32")`),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].internal"),
+						"Detail": Equal(`must not be a subset of "networks.zones[0].workers" ("10.250.0.1/32")`),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].public"),
+						"Detail": Equal(`must not be a subset of "networks.zones[0].workers" ("10.250.0.1/32")`),
+					}))
+				})
+
+				It("should forbid non canonical CIDRs", func() {
+					vpcCIDR := "10.0.0.3/8"
+					infrastructureConfig.Networks.Zones[0].Public = "10.250.2.7/24"
+					infrastructureConfig.Networks.Zones[0].Internal = "10.250.1.6/24"
+					infrastructureConfig.Networks.Zones[0].Workers = "10.250.3.8/24"
+					infrastructureConfig.Networks.VPC = apisaws.VPC{CIDR: &vpcCIDR}
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+
+					Expect(errorList).To(HaveLen(4))
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.vpc.cidr"),
+						"Detail": Equal("must be valid canonical CIDR"),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].internal"),
+						"Detail": Equal("must be valid canonical CIDR"),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].public"),
+						"Detail": Equal("must be valid canonical CIDR"),
+					}, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.zones[0].workers"),
+						"Detail": Equal("must be valid canonical CIDR"),
+					}))
+				})
+			})
+
+			It("should ensure that the elastic IP allocation id starts with `eipalloc-`", func() {
+				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.StringPtr("foo")
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
-
 				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.vpc.cidr"),
-					"Detail": Equal("invalid CIDR address: invalid-cidr"),
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0].elasticIPAllocationID"),
 				}))
-			})
 
-			It("should forbid invalid internal CIDR", func() {
-				infrastructureConfig.Networks.Zones[0].Internal = invalidCIDR
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].internal"),
-					"Detail": Equal("invalid CIDR address: invalid-cidr"),
-				}))
-			})
-
-			It("should forbid invalid public CIDR", func() {
-				infrastructureConfig.Networks.Zones[0].Public = invalidCIDR
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].public"),
-					"Detail": Equal("invalid CIDR address: invalid-cidr"),
-				}))
-			})
-
-			It("should forbid invalid workers CIDR", func() {
-				infrastructureConfig.Networks.Zones[0].Workers = invalidCIDR
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].workers"),
-					"Detail": Equal("invalid CIDR address: invalid-cidr"),
-				}))
-			})
-
-			It("should forbid internal CIDR which is not in VPC CIDR", func() {
-				infrastructureConfig.Networks.Zones[0].Internal = "1.1.1.1/32"
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].internal"),
-					"Detail": Equal(`must be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
-				}))
-			})
-
-			It("should forbid public CIDR which is not in VPC CIDR", func() {
-				infrastructureConfig.Networks.Zones[0].Public = "1.1.1.1/32"
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].public"),
-					"Detail": Equal(`must be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
-				}))
-			})
-
-			It("should forbid workers CIDR which are not in VPC and Nodes CIDR", func() {
-				infrastructureConfig.Networks.Zones[0].Workers = "1.1.1.1/32"
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].workers"),
-					"Detail": Equal(`must be a subset of "" ("10.250.0.0/16")`),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].workers"),
-					"Detail": Equal(`must be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
-				}))
-			})
-
-			It("should forbid Pod CIDR to overlap with VPC CIDR", func() {
-				podCIDR := "10.0.0.1/32"
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &podCIDR, &services)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Detail": Equal(`must not be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
-				}))
-			})
-
-			It("should forbid Services CIDR to overlap with VPC CIDR", func() {
-				servicesCIDR := "10.0.0.1/32"
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &servicesCIDR)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Detail": Equal(`must not be a subset of "networks.vpc.cidr" ("10.0.0.0/8")`),
-				}))
-			})
-
-			It("should forbid VPC CIDRs to overlap with other VPC CIDRs", func() {
-				overlappingCIDR := "10.250.0.1/32"
-				infrastructureConfig.Networks.Zones[0].Internal = overlappingCIDR
-				infrastructureConfig.Networks.Zones[0].Public = overlappingCIDR
-				infrastructureConfig.Networks.Zones[0].Workers = overlappingCIDR
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &overlappingCIDR, &pods, &services)
-
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].public"),
-					"Detail": Equal(`must not be a subset of "networks.zones[0].internal" ("10.250.0.1/32")`),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].workers"),
-					"Detail": Equal(`must not be a subset of "networks.zones[0].internal" ("10.250.0.1/32")`),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].internal"),
-					"Detail": Equal(`must not be a subset of "networks.zones[0].public" ("10.250.0.1/32")`),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].workers"),
-					"Detail": Equal(`must not be a subset of "networks.zones[0].public" ("10.250.0.1/32")`),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].internal"),
-					"Detail": Equal(`must not be a subset of "networks.zones[0].workers" ("10.250.0.1/32")`),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].public"),
-					"Detail": Equal(`must not be a subset of "networks.zones[0].workers" ("10.250.0.1/32")`),
-				}))
-			})
-
-			It("should forbid non canonical CIDRs", func() {
-				vpcCIDR := "10.0.0.3/8"
-				infrastructureConfig.Networks.Zones[0].Public = "10.250.2.7/24"
-				infrastructureConfig.Networks.Zones[0].Internal = "10.250.1.6/24"
-				infrastructureConfig.Networks.Zones[0].Workers = "10.250.3.8/24"
-				infrastructureConfig.Networks.VPC = apisaws.VPC{CIDR: &vpcCIDR}
-
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
-
-				Expect(errorList).To(HaveLen(4))
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.vpc.cidr"),
-					"Detail": Equal("must be valid canonical CIDR"),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].internal"),
-					"Detail": Equal("must be valid canonical CIDR"),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].public"),
-					"Detail": Equal("must be valid canonical CIDR"),
-				}, Fields{
-					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("networks.zones[0].workers"),
-					"Detail": Equal("must be valid canonical CIDR"),
-				}))
+				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.StringPtr("eipalloc-123456")
+				errorList = ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
 			})
 		})
 
@@ -333,7 +346,8 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
-			It("should reject non-alpthanumeric endpoints", func() {
+
+			It("should reject non-alphanumeric endpoints", func() {
 				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"s3", "my-endpoint"}
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 				Expect(errorList).To(ConsistOfFields(Fields{
@@ -343,6 +357,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Detail":   Equal("must be alphanumeric"),
 				}))
 			})
+
 			It("should accept all-valid lists", func() {
 				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"myservice", "s3"}
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)

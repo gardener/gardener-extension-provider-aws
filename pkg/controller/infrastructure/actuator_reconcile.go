@@ -137,10 +137,11 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	var zones []map[string]interface{}
 	for _, zone := range infrastructureConfig.Networks.Zones {
 		zones = append(zones, map[string]interface{}{
-			"name":     zone.Name,
-			"worker":   zone.Workers,
-			"public":   zone.Public,
-			"internal": zone.Internal,
+			"name":                  zone.Name,
+			"worker":                zone.Workers,
+			"public":                zone.Public,
+			"internal":              zone.Internal,
+			"elasticIPAllocationID": zone.ElasticIPAllocationID,
 		})
 	}
 

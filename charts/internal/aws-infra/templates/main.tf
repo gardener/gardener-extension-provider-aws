@@ -206,6 +206,7 @@ resource "aws_security_group_rule" "nodes_udp_public_z{{ $index }}" {
   security_group_id = "${aws_security_group.nodes.id}"
 }
 
+{{- if not $zone.elasticIPAllocationID }}
 resource "aws_eip" "eip_natgw_z{{ $index }}" {
   vpc = true
 
@@ -214,9 +215,10 @@ resource "aws_eip" "eip_natgw_z{{ $index }}" {
     "kubernetes.io/cluster/{{ required "clusterName is required" $.Values.clusterName }}"  = "1"
   }
 }
+{{- end }}
 
 resource "aws_nat_gateway" "natgw_z{{ $index }}" {
-  allocation_id = "${aws_eip.eip_natgw_z{{ $index }}.id}"
+  allocation_id = "{{ if not $zone.elasticIPAllocationID }}${aws_eip.eip_natgw_z{{ $index }}.id}{{ else }}{{ $zone.elasticIPAllocationID }}{{ end }}"
   subnet_id     = "${aws_subnet.public_utility_z{{ $index }}.id}"
 
   tags = {

@@ -17,6 +17,7 @@ package validation
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -116,6 +117,10 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
 		workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+
+		if zone.ElasticIPAllocationID != nil && !strings.HasPrefix(*zone.ElasticIPAllocationID, "eipalloc-") {
+			allErrs = append(allErrs, field.Invalid(zonePath.Child("elasticIPAllocationID"), *zone.ElasticIPAllocationID, "must start with eipalloc-"))
+		}
 	}
 
 	allErrs = append(allErrs, cidrvalidation.ValidateCIDRParse(cidrs...)...)

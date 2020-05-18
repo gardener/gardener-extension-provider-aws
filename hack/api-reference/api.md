@@ -991,7 +991,7 @@ it is not used in requests to create gp2, st1, sc1, or standard volumes.</p>
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Networks">Networks</a>)
 </p>
 <p>
-<p>Zone describes the properties of a zone</p>
+<p>Zone describes the properties of a zone.</p>
 </p>
 <table>
 <thead>
@@ -1020,7 +1020,7 @@ string
 </em>
 </td>
 <td>
-<p>Internal is  the  private subnet range to create (used for internal load balancers).</p>
+<p>Internal is the private subnet range to create (used for internal load balancers).</p>
 </td>
 </tr>
 <tr>
@@ -1031,7 +1031,7 @@ string
 </em>
 </td>
 <td>
-<p>Public is the  public subnet range to create (used for bastion and load balancers).</p>
+<p>Public is the public subnet range to create (used for bastion and load balancers).</p>
 </td>
 </tr>
 <tr>
@@ -1042,7 +1042,24 @@ string
 </em>
 </td>
 <td>
-<p>Workers is the  workers  subnet range  to create (used for the VMs).</p>
+<p>Workers is the workers subnet range to create (used for the VMs).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>elasticIPAllocationID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ElasticIPAllocationID contains the allocation ID of an Elastic IP that will be attached to the NAT gateway in
+this zone (e.g., <code>eipalloc-123456</code>). If it&rsquo;s not provided then a new Elastic IP will be automatically created
+and attached.
+Important: If this field is changed then the already attached Elastic IP will be disassociated from the NAT gateway
+(and potentially removed if it was created by this extension). Also, the NAT gateway will be deleted. This will
+disrupt egress traffic for a while.</p>
 </td>
 </tr>
 </tbody>

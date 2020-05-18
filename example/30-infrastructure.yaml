@@ -47,13 +47,12 @@ spec:
       vpc: # specify either 'id' or 'cidr'
       # id: vpc-123456
         cidr: 10.250.0.0/16
-      # you can define custom service names for adding Gateway VPC Endpoints
-      # gatewayEndpoints:
-      # - s3
-      #   given the region above, this translates to service name com.amazonaws.eu-west-1.s3
+      # gatewayEndpoints: # custom service names for adding gateway VPC endpoints
+      # - s3 # given the region above, this translates to service name com.amazonaws.eu-west-1.s3
       zones:
       - name: eu-west-1a
         internal: 10.250.112.0/22
         public: 10.250.96.0/22
         workers: 10.250.0.0/19
+      # elasticIPAllocationID: eipalloc-123456 # Allocation ID of the Elastic IP that will be attached to the NAT gateway in this zone
   sshPublicKey: c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFDQVFEbk5rZkkxSWhBdGMyUXlrQ2sxTXNEMGpyNHQwUTR3OG9ZQkk0M215eElGc1hTRWFoQlhGSlBEeGl3akQ2KzQ1dHVHa0x2Y2d1WVZYcnFIOTl5eFM3eHpRUGZmdU5kelBhTWhIVjBHRFZIVDkyK2J5MTdtUDRVZDBFQTlVR29KeU1VeUVxZG45b1k1aURSUktRVHFzdW5QR0hpWVVnQ3ZPMElJT0kySTNtM0FIdlpWN2lhSVhKVE53eGE3ZVFTVTFjNVMzS2lseHhHTXJ5Y3hkNW83QWRtVTNqc3JhMVdqN2tjSFlseTVINkppVExsY0FxNVJQYzVXOUhnTHhlODZnUXNzN2pZN2t5NXJ1elBZV3ppdS94QlZBNGJQRXhVY2dIL3ZZTnl0aWg4OTBHWGRlcm1IOW5QSXpRZWlSWUlMdzJsaEMrdzBMdjM3QXdBYVNWRFlnY3NWNkdENllKaXN3VFV5ZStXdU9iZm1nWlFqaUppbUkwWWlrY2U2d3l2MFRHUW1BM3lnVDE1MDBoMnZMWXNMdWJJRjZGNkJRcTlKcDZ0M0w2RENoMmgvY3RSZEl2SXE2SWRPQnpOeGl4V2trbHJQbkhwS3B3eFEzVVJDRDRHMHhBK3dWZmtML05ueVhDSGM2Qk0zVUNhVDBpdExycjkwRGFTNWFvYVVGVHJuS2tDN1JxUWlwU3ZYVUcrQ1RqWnljLzRsblFOOSt6WmwvVE05QmxTYTQ3VGc1Myt6NjcxSmhRZXNBNUIrNVRtSFNGdHgwbXFzWnRJSng4dEtyR1VPeG1tTTVVb2J4VGp2TXBrMWpJWU4vWFJOdCt4R2VSbFVEZW9xalJMZnJOdjljZFF4Z0hzZXhmd3VUeERHYjlnb21RR0hRSjQrMW1kYjVUK2NmV0pUUTNCQXc9PQ==
