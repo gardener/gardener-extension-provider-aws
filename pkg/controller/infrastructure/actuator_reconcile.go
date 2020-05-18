@@ -30,7 +30,6 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -39,7 +38,7 @@ import (
 )
 
 func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	infrastructureStatus, state, err := Reconcile(ctx, a.logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
+	infrastructureStatus, state, err := Reconcile(ctx, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
 	if err != nil {
 		return err
 	}
@@ -49,7 +48,6 @@ func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1al
 // Reconcile reconciles the given Infrastructure object. It returns the provider specific status and the Terraform state.
 func Reconcile(
 	ctx context.Context,
-	logger logr.Logger,
 	restConfig *rest.Config,
 	c client.Client,
 	decoder runtime.Decoder,
@@ -97,8 +95,7 @@ func Reconcile(
 		)).
 		Apply(); err != nil {
 
-		logger.Error(err, "failed to apply the terraform config", "infrastructure", infrastructure.Name)
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to apply the terraform config: %+v", err)
 	}
 
 	return computeProviderStatus(ctx, tf, infrastructureConfig)

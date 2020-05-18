@@ -261,7 +261,7 @@ var _ = Describe("Infrastructure tests", func() {
 			}()
 
 			By("reconcile infrastructure")
-			infraStatus, _, err := infrastructure.Reconcile(ctx, logger, restConfig, c, decoder, chartRenderer, infra, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
+			infraStatus, _, err := infrastructure.Reconcile(ctx, restConfig, c, decoder, chartRenderer, infra, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
 			Expect(err).NotTo(HaveOccurred())
 
 			By("test infrastructure reconciliation")
