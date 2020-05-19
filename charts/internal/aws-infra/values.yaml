@@ -21,10 +21,12 @@ zones:
   worker: 10.250.0.0/19
   public: 10.250.96.0/22
   internal: 10.250.112.0/22
+# elasticIPAllocationID: eipalloc-123456
 - name: eu-west-1b
   worker: 10.250.0.0/19
   public: 10.250.96.0/22
   internal: 10.250.112.0/22
+# elasticIPAllocationID: eipalloc-789456
 
 outputKeys:
   vpcIdKey: vpc_id
