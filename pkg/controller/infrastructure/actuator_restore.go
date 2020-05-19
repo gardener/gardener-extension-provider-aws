@@ -29,7 +29,7 @@ func (a *actuator) Restore(ctx context.Context, infrastructure *extensionsv1alph
 		return err
 	}
 
-	infrastructureStatus, state, err := Reconcile(ctx, a.logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.CreateOrUpdateState{State: &terraformState.Data})
+	infrastructureStatus, state, err := Reconcile(ctx, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.CreateOrUpdateState{State: &terraformState.Data})
 	if err != nil {
 		return err
 	}
