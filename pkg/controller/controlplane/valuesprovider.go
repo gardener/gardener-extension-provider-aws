@@ -66,7 +66,7 @@ var (
 				&secrets.ControlPlaneSecretConfig{
 					CertificateSecretConfig: &secrets.CertificateSecretConfig{
 						Name:         aws.CloudControllerManagerName,
-						CommonName:   "system:cloud-controller-manager",
+						CommonName:   "system:" + aws.CloudControllerManagerName,
 						Organization: []string{user.SystemPrivilegedGroup},
 						CertType:     secrets.ClientCert,
 						SigningCA:    cas[v1beta1constants.SecretNameCACluster],
@@ -196,10 +196,10 @@ var (
 				Name:   aws.CloudControllerManagerName,
 				Images: []string{aws.CloudControllerManagerImageName},
 				Objects: []*chart.Object{
-					{Type: &corev1.Service{}, Name: "cloud-controller-manager"},
-					{Type: &appsv1.Deployment{}, Name: "cloud-controller-manager"},
-					{Type: &corev1.ConfigMap{}, Name: "cloud-controller-manager-monitoring-config"},
-					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: "cloud-controller-manager-vpa"},
+					{Type: &corev1.Service{}, Name: aws.CloudControllerManagerName},
+					{Type: &appsv1.Deployment{}, Name: aws.CloudControllerManagerName},
+					{Type: &corev1.ConfigMap{}, Name: aws.CloudControllerManagerName + "-monitoring-config"},
+					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
 				},
 			},
 			{
