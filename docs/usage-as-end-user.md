@@ -138,6 +138,31 @@ For `io1` volume type, this represents the number of IOPS that are provisioned f
 For `gp2` volume type, this represents the baseline performance of the volume and the rate at which the volume accumulates I/O credits for bursting. For more information about General Purpose SSD baseline performance, I/O credits, and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the Amazon Elastic Compute Cloud User Guide.\
 Constraint: Range is 100-20000 IOPS for `io1` volumes and 100-10000 IOPS for `gp2` volumes.
 
+Apart from this configuration, the AWS extension supports encryption for volumes plus support for additional data volumes per machine.
+By default (if not stated otherwise), all the disks are unencrypted.
+For each data volume, you have to specify a name.
+The following YAML is a snippet of a `Shoot` resource:
+
+```yaml
+spec:
+  provider:
+    workers:
+    - name: cpu-worker
+      ...
+      volume:
+        type: gp2
+        size: 20Gi
+        encrypted: true
+      dataVolumes:
+      - name: kubelet-dir
+        type: gp2
+        size: 25Gi
+        encrypted: true
+```
+
+Please note that the IOPS you might have configured only apply to the root disk (`.spec.provider.workers[].volume`) for now.
+In the future it will be possible to configure IOPS individually per disk (i.e., also for the data volumes). 
+
 ## Example `Shoot` manifest (one availability zone)
 
 Please find below an example `Shoot` manifest for one availability zone:

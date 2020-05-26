@@ -22,6 +22,7 @@ import (
 
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	"github.com/gardener/gardener/pkg/utils"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -101,9 +102,19 @@ var _ = Describe("Machines", func() {
 				securityGroupID     string
 				keyName             string
 
-				volumeType string
-				volumeSize int
-				iops       int64
+				volumeType           string
+				volumeSize           int
+				volumeEncrypted      bool
+				dataVolume1Name      string
+				dataVolume1Type      string
+				dataVolume1Size      int
+				dataVolume1Encrypted bool
+				dataVolume2Name      string
+				dataVolume2Type      string
+				dataVolume2Size      int
+				dataVolume2Encrypted bool
+
+				iops int64
 
 				namePool1           string
 				minPool1            int32
@@ -157,6 +168,17 @@ var _ = Describe("Machines", func() {
 
 				volumeType = "normal"
 				volumeSize = 20
+				volumeEncrypted = true
+
+				dataVolume1Name = "vol-1"
+				dataVolume1Type = "foo"
+				dataVolume1Size = 42
+				dataVolume1Encrypted = true
+				dataVolume2Name = "vol-2"
+				dataVolume2Type = "bar"
+				dataVolume2Size = 43
+				dataVolume2Encrypted = false
+
 				iops = 400
 
 				namePool1 = "pool-1"
@@ -297,8 +319,23 @@ var _ = Describe("Machines", func() {
 								},
 								UserData: userData,
 								Volume: &extensionsv1alpha1.Volume{
-									Type: &volumeType,
-									Size: fmt.Sprintf("%dGi", volumeSize),
+									Type:      &volumeType,
+									Size:      fmt.Sprintf("%dGi", volumeSize),
+									Encrypted: &volumeEncrypted,
+								},
+								DataVolumes: []extensionsv1alpha1.Volume{
+									{
+										Name:      &dataVolume1Name,
+										Type:      &dataVolume1Type,
+										Size:      fmt.Sprintf("%dGi", dataVolume1Size),
+										Encrypted: &dataVolume1Encrypted,
+									},
+									{
+										Name:      &dataVolume2Name,
+										Type:      &dataVolume2Type,
+										Size:      fmt.Sprintf("%dGi", dataVolume2Size),
+										Encrypted: &dataVolume2Encrypted,
+									},
 								},
 								Zones: []string{
 									zone1,
@@ -351,13 +388,13 @@ var _ = Describe("Machines", func() {
 				)
 
 				BeforeEach(func() {
-					ec2InstanceTags := map[string]string{
-						fmt.Sprintf("kubernetes.io/cluster/%s", namespace): "1",
-						"kubernetes.io/role/node":                          "1",
-					}
-					for k, v := range labels {
-						ec2InstanceTags[k] = v
-					}
+					ec2InstanceTags := utils.MergeStringMaps(
+						map[string]string{
+							fmt.Sprintf("kubernetes.io/cluster/%s", namespace): "1",
+							"kubernetes.io/role/node":                          "1",
+						},
+						labels,
+					)
 					defaultMachineClass = map[string]interface{}{
 						"secret": map[string]interface{}{
 							"cloudConfig": string(userData),
@@ -371,8 +408,10 @@ var _ = Describe("Machines", func() {
 						"blockDevices": []map[string]interface{}{
 							{
 								"ebs": map[string]interface{}{
-									"volumeSize": volumeSize,
-									"volumeType": volumeType,
+									"volumeSize":          volumeSize,
+									"volumeType":          volumeType,
+									"deleteOnTermination": true,
+									"encrypted":           false,
 								},
 							},
 						},
@@ -406,10 +445,31 @@ var _ = Describe("Machines", func() {
 
 						machineClassPool1BlockDevices = []map[string]interface{}{
 							{
+								"deviceName": "/root",
 								"ebs": map[string]interface{}{
-									"volumeSize": volumeSize,
-									"volumeType": volumeType,
-									"iops":       iops,
+									"volumeSize":          volumeSize,
+									"volumeType":          volumeType,
+									"iops":                iops,
+									"deleteOnTermination": true,
+									"encrypted":           volumeEncrypted,
+								},
+							},
+							{
+								"deviceName": "/dev/sdf",
+								"ebs": map[string]interface{}{
+									"volumeSize":          dataVolume1Size,
+									"volumeType":          dataVolume1Type,
+									"deleteOnTermination": true,
+									"encrypted":           dataVolume1Encrypted,
+								},
+							},
+							{
+								"deviceName": "/dev/sdg",
+								"ebs": map[string]interface{}{
+									"volumeSize":          dataVolume2Size,
+									"volumeType":          dataVolume2Type,
+									"deleteOnTermination": true,
+									"encrypted":           dataVolume2Encrypted,
 								},
 							},
 						}
@@ -493,7 +553,6 @@ var _ = Describe("Machines", func() {
 				})
 
 				It("should return the expected machine deployments for profile image types", func() {
-
 					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
 					expectGetSecretCallToWork(c, awsAccessKeyID, awsSecretAccessKey)

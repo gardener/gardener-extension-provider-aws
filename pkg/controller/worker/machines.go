@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -28,8 +29,11 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
+	"github.com/gardener/gardener/pkg/utils"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -125,33 +129,9 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			AMI:     ami,
 		})
 
-		workerConfig := &awsapi.WorkerConfig{}
-		if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
-			if _, _, err := w.Decoder().Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
-				return fmt.Errorf("could not decode provider config: %+v", err)
-			}
-		}
-
-		volumeSize, err := worker.DiskSize(pool.Volume.Size)
+		blockDevices, err := w.computeBlockDevices(pool)
 		if err != nil {
 			return err
-		}
-		ebs := map[string]interface{}{
-			"volumeSize": volumeSize,
-		}
-		if pool.Volume.Type != nil {
-			ebs["volumeType"] = *pool.Volume.Type
-		}
-		if workerConfig.Volume != nil && workerConfig.Volume.IOPS != nil {
-			ebs["iops"] = *workerConfig.Volume.IOPS
-		}
-
-		ec2InstanceTags := map[string]string{
-			fmt.Sprintf("kubernetes.io/cluster/%s", w.worker.Namespace): "1",
-			"kubernetes.io/role/node":                                   "1",
-		}
-		for k, v := range pool.Labels {
-			ec2InstanceTags[k] = v
 		}
 
 		for zoneIndex, zone := range pool.Zones {
@@ -174,15 +154,17 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 						"securityGroupIDs": []string{nodesSecurityGroup.ID},
 					},
 				},
-				"tags": ec2InstanceTags,
+				"tags": utils.MergeStringMaps(
+					map[string]string{
+						fmt.Sprintf("kubernetes.io/cluster/%s", w.worker.Namespace): "1",
+						"kubernetes.io/role/node":                                   "1",
+					},
+					pool.Labels,
+				),
 				"secret": map[string]interface{}{
 					"cloudConfig": string(pool.UserData),
 				},
-				"blockDevices": []map[string]interface{}{
-					{
-						"ebs": ebs,
-					},
-				},
+				"blockDevices": blockDevices,
 			}
 
 			var (
@@ -218,4 +200,89 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 	w.machineImages = machineImages
 
 	return nil
+}
+
+func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool) ([]map[string]interface{}, error) {
+	var blockDevices []map[string]interface{}
+
+	workerConfig := &awsapi.WorkerConfig{}
+	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
+		if _, _, err := w.Decoder().Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
+			return nil, fmt.Errorf("could not decode provider config: %+v", err)
+		}
+	}
+
+	// handle root disk
+	rootDisk, err := computeEBSForVolume(*pool.Volume)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error when computing EBS for root disk")
+	}
+	if workerConfig.Volume != nil && workerConfig.Volume.IOPS != nil {
+		rootDisk["iops"] = *workerConfig.Volume.IOPS
+	}
+	blockDevices = append(blockDevices, map[string]interface{}{"ebs": rootDisk})
+
+	// handle data disks
+	if dataVolumes := pool.DataVolumes; len(dataVolumes) > 0 {
+		blockDevices[0]["deviceName"] = "/root"
+
+		// sort data volumes for consistent device naming
+		sort.Slice(dataVolumes, func(i, j int) bool {
+			return *dataVolumes[i].Name < *dataVolumes[j].Name
+		})
+
+		for i, vol := range dataVolumes {
+			dataDisk, err := computeEBSForVolume(vol)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error when computing EBS for %v", vol)
+			}
+			deviceName, err := computeEBSDeviceNameForIndex(i)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error when computing EBS device name for %v", vol)
+			}
+			blockDevices = append(blockDevices, map[string]interface{}{
+				"deviceName": deviceName,
+				"ebs":        dataDisk,
+			})
+		}
+	}
+
+	return blockDevices, nil
+}
+
+func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
+	volumeSize, err := worker.DiskSize(volume.Size)
+	if err != nil {
+		return nil, err
+	}
+
+	ebs := map[string]interface{}{
+		"volumeSize":          volumeSize,
+		"encrypted":           false,
+		"deleteOnTermination": true,
+	}
+
+	if volume.Type != nil {
+		ebs["volumeType"] = *volume.Type
+	}
+
+	if volume.Encrypted != nil {
+		ebs["encrypted"] = *volume.Encrypted
+	}
+
+	return ebs, nil
+}
+
+// AWS device naming https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
+func computeEBSDeviceNameForIndex(index int) (string, error) {
+	var (
+		deviceNamePrefix = "/dev/sd"
+		deviceNameSuffix = "fghijklmnop"
+	)
+
+	if index >= len(deviceNameSuffix) {
+		return "", fmt.Errorf("unsupported data volume number")
+	}
+
+	return deviceNamePrefix + deviceNameSuffix[index:index+1], nil
 }

@@ -102,5 +102,11 @@ spec:
     volume:
       type: gp2
       size: 20Gi
+  #   encrypted: false
+  # dataVolumes:
+  # - name: kubelet-dir
+  #   type: gp2
+  #   size: 21Gi
+  #   encrypted: true
     zones:
     - eu-west-1a
