@@ -30,6 +30,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
+	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -95,7 +96,7 @@ func Reconcile(
 		)).
 		Apply(); err != nil {
 
-		return nil, nil, fmt.Errorf("failed to apply the terraform config: %+v", err)
+		return nil, nil, errors.Wrap(err, "failed to apply the terraform config")
 	}
 
 	return computeProviderStatus(ctx, tf, infrastructureConfig)
