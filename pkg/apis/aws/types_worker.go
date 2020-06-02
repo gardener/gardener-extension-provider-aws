@@ -27,6 +27,8 @@ type WorkerConfig struct {
 
 	// Volume contains configuration for the root disks attached to VMs.
 	Volume *Volume
+	// DataVolumes contains configuration for the additional disks attached to VMs.
+	DataVolumes []DataVolume
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -45,6 +47,16 @@ type Volume struct {
 	// Condition: This parameter is required for requests to create io1 volumes;
 	// it is not used in requests to create gp2, st1, sc1, or standard volumes.
 	IOPS *int64
+}
+
+// DataVolume contains configuration for data volumes attached to VMs.
+type DataVolume struct {
+	// Name is the name of the data volume this configuration applies to.
+	Name string
+	// Volume contains configuration for the volume.
+	Volume
+	// SnapshotID is the ID of the snapshot.
+	SnapshotID *string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

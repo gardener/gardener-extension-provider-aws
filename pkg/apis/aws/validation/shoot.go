@@ -37,8 +37,8 @@ func ValidateNetworking(networking core.Networking, fldPath *field.Path) field.E
 	return allErrs
 }
 
-// ValidateWorkers validates the workers of a Shoot.
-func ValidateWorkers(workers []core.Worker, zones []apisaws.Zone, fldPath *field.Path) field.ErrorList {
+// ValidateWorker validates a worker of a Shoot.
+func ValidateWorker(worker core.Worker, zones []apisaws.Zone, workerConfig *apisaws.WorkerConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	awsZones := sets.NewString()
@@ -46,35 +46,41 @@ func ValidateWorkers(workers []core.Worker, zones []apisaws.Zone, fldPath *field
 		awsZones.Insert(awsZone.Name)
 	}
 
-	for i, worker := range workers {
-		if worker.Volume == nil {
-			allErrs = append(allErrs, field.Required(fldPath.Index(i).Child("volume"), "must not be nil"))
-		} else {
-			allErrs = append(allErrs, validateVolume(worker.Volume, fldPath.Index(i).Child("volume"))...)
+	if worker.Volume == nil {
+		allErrs = append(allErrs, field.Required(fldPath.Child("volume"), "must not be nil"))
+	} else {
+		allErrs = append(allErrs, validateVolume(worker.Volume, fldPath.Child("volume"))...)
 
-			if length := len(worker.DataVolumes); length > 11 {
-				allErrs = append(allErrs, field.TooMany(fldPath.Index(i).Child("dataVolumes"), length, 11))
-			}
-			for j, volume := range worker.DataVolumes {
-				dataVolPath := fldPath.Index(i).Child("dataVolumes").Index(j)
-				if volume.Name == nil {
-					allErrs = append(allErrs, field.Required(dataVolPath.Child("name"), "must not be empty"))
-				}
-				allErrs = append(allErrs, validateVolume(volume.DeepCopy(), dataVolPath)...)
-			}
-
-			if worker.Volume.Type != nil && *worker.Volume.Type == string(apisaws.VolumeTypeIO1) && worker.ProviderConfig == nil {
-				allErrs = append(allErrs, field.Required(fldPath.Index(i).Child("providerConfig"), fmt.Sprintf("WorkerConfig must be set if volume type is %s", apisaws.VolumeTypeIO1)))
-			}
+		if worker.Volume.Type != nil && *worker.Volume.Type == string(apisaws.VolumeTypeIO1) && worker.ProviderConfig == nil {
+			allErrs = append(allErrs, field.Required(fldPath.Child("providerConfig"), fmt.Sprintf("WorkerConfig must be set if volume type is %s", apisaws.VolumeTypeIO1)))
 		}
 
-		if len(worker.Zones) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Index(i).Child("zones"), "at least one zone must be configured"))
-			continue
+		if length := len(worker.DataVolumes); length > 11 {
+			allErrs = append(allErrs, field.TooMany(fldPath.Child("dataVolumes"), length, 11))
 		}
 
-		allErrs = append(allErrs, validateZones(worker.Zones, awsZones, fldPath.Index(i).Child("zones"))...)
+		for j, volume := range worker.DataVolumes {
+			dataVolPath := fldPath.Child("dataVolumes").Index(j)
+
+			if volume.Name == nil {
+				allErrs = append(allErrs, field.Required(dataVolPath.Child("name"), "must not be empty"))
+			}
+
+			allErrs = append(allErrs, validateVolume(volume.DeepCopy(), dataVolPath)...)
+
+			if volume.Type != nil && *volume.Type == string(apisaws.VolumeTypeIO1) && worker.ProviderConfig == nil {
+				allErrs = append(allErrs, field.Required(fldPath.Child("providerConfig"), fmt.Sprintf("WorkerConfig must be set if data volume type is %s (%s)", apisaws.VolumeTypeIO1, dataVolPath.Child("type"))))
+			}
+		}
 	}
+
+	if len(worker.Zones) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("zones"), "at least one zone must be configured"))
+	} else {
+		allErrs = append(allErrs, validateZones(worker.Zones, awsZones, fldPath.Child("zones"))...)
+	}
+
+	allErrs = append(allErrs, ValidateWorkerConfig(workerConfig, worker.Volume, worker.DataVolumes, fldPath.Child("providerConfig"))...)
 
 	return allErrs
 }

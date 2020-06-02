@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strconv"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -89,7 +89,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 	var (
 		machineDeployments = worker.MachineDeployments{}
 		machineClasses     []map[string]interface{}
-		machineImages      []apisaws.MachineImage
+		machineImages      []awsapi.MachineImage
 	)
 
 	machineClassSecretData, err := w.generateMachineClassSecretData(ctx)
@@ -114,7 +114,14 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 	for _, pool := range w.worker.Spec.Pools {
 		zoneLen := int32(len(pool.Zones))
 
-		workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster)
+		workerConfig := &awsapi.WorkerConfig{}
+		if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
+			if _, _, err := w.Decoder().Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
+				return fmt.Errorf("could not decode provider config: %+v", err)
+			}
+		}
+
+		workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashData(pool, workerConfig)...)
 		if err != nil {
 			return err
 		}
@@ -123,13 +130,13 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		machineImages = appendMachineImage(machineImages, apisaws.MachineImage{
+		machineImages = appendMachineImage(machineImages, awsapi.MachineImage{
 			Name:    pool.MachineImage.Name,
 			Version: pool.MachineImage.Version,
 			AMI:     ami,
 		})
 
-		blockDevices, err := w.computeBlockDevices(pool)
+		blockDevices, err := w.computeBlockDevices(pool, workerConfig)
 		if err != nil {
 			return err
 		}
@@ -202,15 +209,8 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 	return nil
 }
 
-func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool) ([]map[string]interface{}, error) {
+func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]map[string]interface{}, error) {
 	var blockDevices []map[string]interface{}
-
-	workerConfig := &awsapi.WorkerConfig{}
-	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
-		if _, _, err := w.Decoder().Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
-			return nil, fmt.Errorf("could not decode provider config: %+v", err)
-		}
-	}
 
 	// handle root disk
 	rootDisk, err := computeEBSForVolume(*pool.Volume)
@@ -235,6 +235,14 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool)
 			dataDisk, err := computeEBSForVolume(vol)
 			if err != nil {
 				return nil, errors.Wrapf(err, "error when computing EBS for %v", vol)
+			}
+			if dvConfig := awsapihelper.FindDataVolumeByName(workerConfig.DataVolumes, *vol.Name); dvConfig != nil {
+				if dvConfig.IOPS != nil {
+					dataDisk["iops"] = *dvConfig.IOPS
+				}
+				if dvConfig.SnapshotID != nil {
+					dataDisk["snapshotID"] = *dvConfig.SnapshotID
+				}
 			}
 			deviceName, err := computeEBSDeviceNameForIndex(i)
 			if err != nil {
@@ -285,4 +293,26 @@ func computeEBSDeviceNameForIndex(index int) (string, error) {
 	}
 
 	return deviceNamePrefix + deviceNameSuffix[index:index+1], nil
+}
+
+func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) []string {
+	var additionalData []string
+
+	if pool.Volume != nil && pool.Volume.Encrypted != nil {
+		additionalData = append(additionalData, strconv.FormatBool(*pool.Volume.Encrypted))
+	}
+
+	for _, dv := range pool.DataVolumes {
+		additionalData = append(additionalData, dv.Size)
+
+		if dv.Type != nil {
+			additionalData = append(additionalData, *dv.Type)
+		}
+
+		if dv.Encrypted != nil {
+			additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
+		}
+	}
+
+	return additionalData
 }

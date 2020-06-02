@@ -28,6 +28,9 @@ type WorkerConfig struct {
 	// Volume contains configuration for the root disks attached to VMs.
 	// +optional
 	Volume *Volume `json:"volume,omitempty"`
+	// DataVolumes contains configuration for the additional disks attached to VMs.
+	// +optional
+	DataVolumes []DataVolume `json:"dataVolumes,omitempty"`
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -47,6 +50,17 @@ type Volume struct {
 	// it is not used in requests to create gp2, st1, sc1, or standard volumes.
 	// +optional
 	IOPS *int64 `json:"iops,omitempty"`
+}
+
+// DataVolume contains configuration for data volumes attached to VMs.
+type DataVolume struct {
+	// Name is the name of the data volume this configuration applies to.
+	Name string `json:"name"`
+	// Volume contains configuration for the volume.
+	Volume `json:",inline"`
+	// SnapshotID is the ID of the snapshot.
+	// +optional
+	SnapshotID *string `json:"snapshotID,omitempty"`
 }
 
 // +genclient

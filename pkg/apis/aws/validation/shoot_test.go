@@ -15,6 +15,8 @@
 package validation_test
 
 import (
+	"fmt"
+
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 
@@ -56,33 +58,21 @@ var _ = Describe("Shoot validation", func() {
 
 	Describe("#ValidateWorkerConfig", func() {
 		var (
-			workers  []core.Worker
+			worker   core.Worker
 			awsZones []apisaws.Zone
+			iops     int64 = 1234
 		)
 
 		BeforeEach(func() {
-			workers = []core.Worker{
-				{
-					Name: "worker1",
-					Volume: &core.Volume{
-						Type:       pointer.StringPtr("Volume"),
-						VolumeSize: "30G",
-					},
-					Zones: []string{
-						"zone1",
-						"zone2",
-					},
+			worker = core.Worker{
+				Name: "worker1",
+				Volume: &core.Volume{
+					Type:       pointer.StringPtr("Volume"),
+					VolumeSize: "30G",
 				},
-				{
-					Name: "worker2",
-					Volume: &core.Volume{
-						Type:       pointer.StringPtr("Volume"),
-						VolumeSize: "20G",
-					},
-					Zones: []string{
-						"zone2",
-						"zone3",
-					},
+				Zones: []string{
+					"zone1",
+					"zone2",
 				},
 			}
 
@@ -99,54 +89,58 @@ var _ = Describe("Shoot validation", func() {
 			}
 		})
 
-		Describe("#ValidateWorkers", func() {
-			It("should pass because workers are configured correctly", func() {
-				errorList := ValidateWorkers(workers, awsZones, field.NewPath(""))
+		Describe("#ValidateWorke", func() {
+			It("should pass because the worker is configured correctly", func() {
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath(""))
 
 				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should forbid because volume is not configured", func() {
-				workers[1].Volume = nil
+				worker.Volume = nil
 
-				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":  Equal(field.ErrorTypeRequired),
-						"Field": Equal("workers[1].volume"),
+						"Field": Equal("workers[0].volume"),
 					})),
 				))
 			})
 
 			It("should forbid because volume type io1 is used but no worker config provided", func() {
-				workers[1].Volume.Type = pointer.StringPtr(string(apisaws.VolumeTypeIO1))
+				worker.Volume.Type = pointer.StringPtr(string(apisaws.VolumeTypeIO1))
 
-				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":  Equal(field.ErrorTypeRequired),
-						"Field": Equal("workers[1].providerConfig"),
+						"Field": Equal("workers[0].providerConfig"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeRequired),
+						"Field": Equal("workers[0].providerConfig.volume.iops"),
 					})),
 				))
 			})
 
 			It("should allow because volume type io1 and worker config provided", func() {
-				workers[1].Volume.Type = pointer.StringPtr(string(apisaws.VolumeTypeIO1))
-				workers[1].ProviderConfig = &core.ProviderConfig{}
+				worker.Volume.Type = pointer.StringPtr(string(apisaws.VolumeTypeIO1))
+				worker.ProviderConfig = &core.ProviderConfig{}
 
-				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{Volume: &apisaws.Volume{IOPS: &iops}}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should forbid because volume type and size are not configured", func() {
-				workers[0].Volume.Type = nil
-				workers[0].Volume.VolumeSize = ""
-				workers[0].DataVolumes = []core.Volume{{}}
+				worker.Volume.Type = nil
+				worker.Volume.VolumeSize = ""
+				worker.DataVolumes = []core.Volume{{}}
 
-				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -174,14 +168,14 @@ var _ = Describe("Shoot validation", func() {
 
 			It("should forbid because of too many data volumes", func() {
 				for i := 0; i <= 11; i++ {
-					workers[0].DataVolumes = append(workers[0].DataVolumes, core.Volume{
-						Name:       pointer.StringPtr("foo"),
+					worker.DataVolumes = append(worker.DataVolumes, core.Volume{
+						Name:       pointer.StringPtr(fmt.Sprintf("foo%d", i)),
 						VolumeSize: "20Gi",
 						Type:       pointer.StringPtr("foo"),
 					})
 				}
 
-				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -192,9 +186,9 @@ var _ = Describe("Shoot validation", func() {
 			})
 
 			It("should forbid because worker does not specify a zone", func() {
-				workers[0].Zones = nil
+				worker.Zones = nil
 
-				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -205,10 +199,10 @@ var _ = Describe("Shoot validation", func() {
 			})
 
 			It("should forbid because worker use zones which are not available", func() {
-				workers[0].Zones[0] = ""
-				workers[1].Zones[1] = "not-available"
+				worker.Zones[0] = ""
+				worker.Zones[1] = "not-available"
 
-				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -217,13 +211,19 @@ var _ = Describe("Shoot validation", func() {
 					})),
 					PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":  Equal(field.ErrorTypeInvalid),
-						"Field": Equal("workers[1].zones[1]"),
+						"Field": Equal("workers[0].zones[1]"),
 					})),
 				))
 			})
 		})
 
 		Describe("#ValidateWorkersUpdate", func() {
+			var workers []core.Worker
+
+			BeforeEach(func() {
+				workers = []core.Worker{worker, worker}
+			})
+
 			It("should pass because workers are unchanged", func() {
 				newWorkers := copyWorkers(workers)
 				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))

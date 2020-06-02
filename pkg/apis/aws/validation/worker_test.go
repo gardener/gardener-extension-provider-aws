@@ -18,10 +18,12 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 
+	"github.com/gardener/gardener/pkg/apis/core"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("ValidateWorkerConfig", func() {
@@ -33,67 +35,159 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			gp2iops int64 = 400
 			footype       = "foo"
 
-			worker *apisaws.WorkerConfig
+			rootVolumeIO1 = &core.Volume{Type: &io1type}
+			rootVolumeGP2 = &core.Volume{Type: &gp2type}
+
+			dataVolume1Name = "foo"
+			dataVolume2Name = "bar"
+			dataVolumes     []core.Volume
+
+			worker  *apisaws.WorkerConfig
+			fldPath = field.NewPath("config")
 		)
 
 		BeforeEach(func() {
+			dataVolumes = []core.Volume{
+				{
+					Name: &dataVolume1Name,
+					Type: &io1type,
+				},
+				{
+					Name: &dataVolume2Name,
+					Type: &gp2type,
+				},
+			}
+
 			worker = &apisaws.WorkerConfig{
 				Volume: &apisaws.Volume{
 					IOPS: &io1iops,
 				},
+				DataVolumes: []apisaws.DataVolume{
+					{
+						Name: dataVolume1Name,
+						Volume: apisaws.Volume{
+							IOPS: &io1iops,
+						},
+					},
+				},
 			}
 		})
 
-		It("should return no errors for a valid configuration", func() {
-			Expect(ValidateWorkerConfig(worker, &io1type)).To(BeEmpty())
+		It("should return no errors for a valid io1 configuration", func() {
+			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty())
 		})
 
-		It("should return no errors for a valid configuration", func() {
+		It("should return no errors for a valid gp2 configuration", func() {
 			worker.Volume.IOPS = &gp2iops
-			Expect(ValidateWorkerConfig(worker, &gp2type)).To(BeEmpty())
+			Expect(ValidateWorkerConfig(worker, &core.Volume{Type: &gp2type}, dataVolumes, fldPath)).To(BeEmpty())
 		})
 
 		It("should enforce that IOPS are provided for io1 volumes", func() {
 			worker.Volume.IOPS = nil
+			worker.DataVolumes[0].IOPS = nil
 
-			errorList := ValidateWorkerConfig(worker, &io1type)
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
-			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type":  Equal(field.ErrorTypeRequired),
-				"Field": Equal("volume.iops"),
-			}))))
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("config.volume.iops"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("config.dataVolumes[0].iops"),
+				})),
+			))
 		})
 
 		It("should enforce that the IOPS for gp2 volumes is within the allowed range", func() {
 			var tooLarge int64 = 123123123
 			worker.Volume.IOPS = &tooLarge
+			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{
+				Name: dataVolume2Name,
+				Volume: apisaws.Volume{
+					IOPS: &tooLarge,
+				},
+			})
 
-			errorList := ValidateWorkerConfig(worker, &gp2type)
+			errorList := ValidateWorkerConfig(worker, rootVolumeGP2, dataVolumes, fldPath)
 
-			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type":  Equal(field.ErrorTypeForbidden),
-				"Field": Equal("volume.iops"),
-			}))))
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("config.volume.iops"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("config.dataVolumes[1].iops"),
+				})),
+			))
 		})
 
 		It("should enforce that the IOPS for io1 volumes is within the allowed range", func() {
 			var tooLarge int64 = 123123123
 			worker.Volume.IOPS = &tooLarge
+			worker.DataVolumes[0].IOPS = &tooLarge
 
-			errorList := ValidateWorkerConfig(worker, &io1type)
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("config.volume.iops"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("config.dataVolumes[0].iops"),
+				})),
+			))
+		})
+
+		It("should return an error if IOPS is set for a non-supported volume type", func() {
+			dataVolumes = append(dataVolumes, core.Volume{
+				Name: pointer.StringPtr("broken"),
+				Type: &footype,
+			})
+			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{
+				Name: "broken",
+				Volume: apisaws.Volume{
+					IOPS: &io1iops,
+				},
+			})
+
+			errorList := ValidateWorkerConfig(worker, &core.Volume{Type: &footype}, dataVolumes, fldPath)
+
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("config.volume.iops"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("config.dataVolumes[2].iops"),
+				})),
+			))
+		})
+
+		It("should prevent duplicate entries for data volumes in workerconfig", func() {
+			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{Name: dataVolume1Name})
+
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type":  Equal(field.ErrorTypeForbidden),
-				"Field": Equal("volume.iops"),
+				"Type":  Equal(field.ErrorTypeDuplicate),
+				"Field": Equal("config.dataVolumes[1].name"),
 			}))))
 		})
 
-		It("should return an error if iops is set for a non-supported volume type", func() {
-			errorList := ValidateWorkerConfig(worker, &footype)
+		It("should prevent data volume entries in workerconfig for non-existing data volumes shoot", func() {
+			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{Name: "broken"})
+
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type":  Equal(field.ErrorTypeForbidden),
-				"Field": Equal("volume.iops"),
+				"Type":  Equal(field.ErrorTypeInvalid),
+				"Field": Equal("config.dataVolumes[1].name"),
 			}))))
 		})
 	})

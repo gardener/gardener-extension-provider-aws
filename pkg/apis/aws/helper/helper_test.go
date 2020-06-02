@@ -108,6 +108,18 @@ var _ = Describe("Helper", func() {
 		Entry("profile entry", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234"), "ubuntu", "1", "europe", "ami-1234"),
 		Entry("profile non matching region", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234"), "ubuntu", "1", "china", ""),
 	)
+
+	DescribeTable("#FindDataVolumeByName",
+		func(dataVolumes []api.DataVolume, name string, expectedDataVolume *api.DataVolume) {
+			Expect(FindDataVolumeByName(dataVolumes, name)).To(Equal(expectedDataVolume))
+		},
+
+		Entry("list is nil", nil, "foo", nil),
+		Entry("list is empty", []api.DataVolume{}, "foo", nil),
+		Entry("volume not found", []api.DataVolume{{Name: "bar"}}, "foo", nil),
+		Entry("volume found (single entry)", []api.DataVolume{{Name: "foo"}}, "foo", &api.DataVolume{Name: "foo"}),
+		Entry("volume found (multiple entries)", []api.DataVolume{{Name: "bar"}, {Name: "foo"}, {Name: "baz"}}, "foo", &api.DataVolume{Name: "foo"}),
+	)
 })
 
 func makeProfileMachineImages(name, version, region, ami string) []api.MachineImages {

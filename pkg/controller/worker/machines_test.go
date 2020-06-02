@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strconv"
 
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -102,19 +103,22 @@ var _ = Describe("Machines", func() {
 				securityGroupID     string
 				keyName             string
 
-				volumeType           string
-				volumeSize           int
-				volumeEncrypted      bool
+				volumeType      string
+				volumeSize      int
+				volumeEncrypted bool
+				volumeIOPS      int64
+
 				dataVolume1Name      string
 				dataVolume1Type      string
 				dataVolume1Size      int
+				dataVolume1IOPS      int64
 				dataVolume1Encrypted bool
-				dataVolume2Name      string
-				dataVolume2Type      string
-				dataVolume2Size      int
-				dataVolume2Encrypted bool
 
-				iops int64
+				dataVolume2Name       string
+				dataVolume2Type       string
+				dataVolume2Size       int
+				dataVolume2Encrypted  bool
+				dataVolume2SnapshotID string
 
 				namePool1           string
 				minPool1            int32
@@ -169,17 +173,19 @@ var _ = Describe("Machines", func() {
 				volumeType = "normal"
 				volumeSize = 20
 				volumeEncrypted = true
+				volumeIOPS = 400
 
 				dataVolume1Name = "vol-1"
 				dataVolume1Type = "foo"
 				dataVolume1Size = 42
+				dataVolume1IOPS = 567
 				dataVolume1Encrypted = true
+
 				dataVolume2Name = "vol-2"
 				dataVolume2Type = "bar"
 				dataVolume2Size = 43
 				dataVolume2Encrypted = false
-
-				iops = 400
+				dataVolume2SnapshotID = "snap-shot"
 
 				namePool1 = "pool-1"
 				minPool1 = 5
@@ -313,7 +319,19 @@ var _ = Describe("Machines", func() {
 								ProviderConfig: &runtime.RawExtension{
 									Raw: encode(&api.WorkerConfig{
 										Volume: &api.Volume{
-											IOPS: &iops,
+											IOPS: &volumeIOPS,
+										},
+										DataVolumes: []api.DataVolume{
+											{
+												Name: dataVolume1Name,
+												Volume: api.Volume{
+													IOPS: &dataVolume1IOPS,
+												},
+											},
+											{
+												Name:       dataVolume2Name,
+												SnapshotID: &dataVolume2SnapshotID,
+											},
 										},
 									}),
 								},
@@ -374,7 +392,7 @@ var _ = Describe("Machines", func() {
 				_ = apiv1alpha1.AddToScheme(scheme)
 				decoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
 
-				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster)
+				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted))
 				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, clusterWithoutImages)
@@ -449,7 +467,7 @@ var _ = Describe("Machines", func() {
 								"ebs": map[string]interface{}{
 									"volumeSize":          volumeSize,
 									"volumeType":          volumeType,
-									"iops":                iops,
+									"iops":                volumeIOPS,
 									"deleteOnTermination": true,
 									"encrypted":           volumeEncrypted,
 								},
@@ -461,6 +479,7 @@ var _ = Describe("Machines", func() {
 									"volumeType":          dataVolume1Type,
 									"deleteOnTermination": true,
 									"encrypted":           dataVolume1Encrypted,
+									"iops":                dataVolume1IOPS,
 								},
 							},
 							{
@@ -470,6 +489,7 @@ var _ = Describe("Machines", func() {
 									"volumeType":          dataVolume2Type,
 									"deleteOnTermination": true,
 									"encrypted":           dataVolume2Encrypted,
+									"snapshotID":          dataVolume2SnapshotID,
 								},
 							},
 						}

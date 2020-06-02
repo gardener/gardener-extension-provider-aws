@@ -116,3 +116,14 @@ func FindAMIForRegionFromCloudProfile(cloudProfileConfig *api.CloudProfileConfig
 
 	return "", fmt.Errorf("could not find an AMI for region %q and name %q in version %q", regionName, imageName, imageVersion)
 }
+
+// FindDataVolumeByName takes a list of data volumes and a data volume name. It tries to find the data volume entry for
+// the given name. If it cannot find it then `nil` will be returned.
+func FindDataVolumeByName(dataVolumes []api.DataVolume, name string) *api.DataVolume {
+	for _, dv := range dataVolumes {
+		if dv.Name == name {
+			return &dv
+		}
+	}
+	return nil
+}
