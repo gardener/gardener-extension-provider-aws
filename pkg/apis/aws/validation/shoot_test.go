@@ -144,6 +144,7 @@ var _ = Describe("Shoot validation", func() {
 			It("should forbid because volume type and size are not configured", func() {
 				workers[0].Volume.Type = nil
 				workers[0].Volume.VolumeSize = ""
+				workers[0].DataVolumes = []core.Volume{{}}
 
 				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
 
@@ -155,6 +156,37 @@ var _ = Describe("Shoot validation", func() {
 					PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":  Equal(field.ErrorTypeRequired),
 						"Field": Equal("workers[0].volume.size"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeRequired),
+						"Field": Equal("workers[0].dataVolumes[0].name"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeRequired),
+						"Field": Equal("workers[0].dataVolumes[0].type"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeRequired),
+						"Field": Equal("workers[0].dataVolumes[0].size"),
+					})),
+				))
+			})
+
+			It("should forbid because of too many data volumes", func() {
+				for i := 0; i <= 11; i++ {
+					workers[0].DataVolumes = append(workers[0].DataVolumes, core.Volume{
+						Name:       pointer.StringPtr("foo"),
+						VolumeSize: "20Gi",
+						Type:       pointer.StringPtr("foo"),
+					})
+				}
+
+				errorList := ValidateWorkers(workers, awsZones, field.NewPath("workers"))
+
+				Expect(errorList).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeTooMany),
+						"Field": Equal("workers[0].dataVolumes"),
 					})),
 				))
 			})

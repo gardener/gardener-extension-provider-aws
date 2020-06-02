@@ -52,6 +52,17 @@ func ValidateWorkers(workers []core.Worker, zones []apisaws.Zone, fldPath *field
 		} else {
 			allErrs = append(allErrs, validateVolume(worker.Volume, fldPath.Index(i).Child("volume"))...)
 
+			if length := len(worker.DataVolumes); length > 11 {
+				allErrs = append(allErrs, field.TooMany(fldPath.Index(i).Child("dataVolumes"), length, 11))
+			}
+			for j, volume := range worker.DataVolumes {
+				dataVolPath := fldPath.Index(i).Child("dataVolumes").Index(j)
+				if volume.Name == nil {
+					allErrs = append(allErrs, field.Required(dataVolPath.Child("name"), "must not be empty"))
+				}
+				allErrs = append(allErrs, validateVolume(volume.DeepCopy(), dataVolPath)...)
+			}
+
 			if worker.Volume.Type != nil && *worker.Volume.Type == string(apisaws.VolumeTypeIO1) && worker.ProviderConfig == nil {
 				allErrs = append(allErrs, field.Required(fldPath.Index(i).Child("providerConfig"), fmt.Sprintf("WorkerConfig must be set if volume type is %s", apisaws.VolumeTypeIO1)))
 			}
