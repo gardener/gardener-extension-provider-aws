@@ -1,6 +1,6 @@
 provider "aws" {
-  access_key = "${var.ACCESS_KEY_ID}"
-  secret_key = "${var.SECRET_ACCESS_KEY}"
+  access_key = var.ACCESS_KEY_ID
+  secret_key = var.SECRET_ACCESS_KEY
   region     = "{{ required "aws.region is required" .Values.aws.region }}"
 }
 
@@ -26,7 +26,7 @@ resource "aws_vpc" "vpc" {
 
 {{ range $ep := .Values.vpc.gatewayEndpoints }}
 resource "aws_vpc_endpoint" "vpc_gwep_{{ $ep }}" {
-  vpc_id       = "${aws_vpc.vpc.id}"
+  vpc_id       = aws_vpc.vpc.id
   service_name = "com.amazonaws.{{ required "aws.region is required" $.Values.aws.region }}.{{ $ep }}"
 
 {{ include "aws-infra.tags-with-suffix" (set $.Values "suffix" (print "gw-" $ep)) | indent 2 }}
@@ -34,31 +34,31 @@ resource "aws_vpc_endpoint" "vpc_gwep_{{ $ep }}" {
 {{ end }}
 
 resource "aws_vpc_dhcp_options_association" "vpc_dhcp_options_association" {
-  vpc_id          = "${aws_vpc.vpc.id}"
-  dhcp_options_id = "${aws_vpc_dhcp_options.vpc_dhcp_options.id}"
+  vpc_id          = aws_vpc.vpc.id
+  dhcp_options_id = aws_vpc_dhcp_options.vpc_dhcp_options.id
 }
 
 resource "aws_default_security_group" "default" {
-  vpc_id = "${aws_vpc.vpc.id}"
+  vpc_id = aws_vpc.vpc.id
 }
 
 resource "aws_internet_gateway" "igw" {
-  vpc_id = "{{ required "vpc.id is required" .Values.vpc.id }}"
+  vpc_id = {{ required "vpc.id is required" .Values.vpc.id }}
 
 {{ include "aws-infra.common-tags" .Values | indent 2 }}
 }
 {{- end}}
 
 resource "aws_route_table" "routetable_main" {
-  vpc_id = "{{ required "vpc.id is required" .Values.vpc.id }}"
+  vpc_id = {{ required "vpc.id is required" .Values.vpc.id }}
 
 {{ include "aws-infra.common-tags" .Values | indent 2 }}
 }
 
 resource "aws_route" "public" {
-  route_table_id         = "${aws_route_table.routetable_main.id}"
+  route_table_id         = aws_route_table.routetable_main.id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = "{{ required "vpc.internetGatewayID is required" .Values.vpc.internetGatewayID }}"
+  gateway_id             = {{ required "vpc.internetGatewayID is required" .Values.vpc.internetGatewayID }}
 
   timeouts {
     create = "5m"
@@ -68,7 +68,7 @@ resource "aws_route" "public" {
 resource "aws_security_group" "nodes" {
   name        = "{{ required "clusterName is required" .Values.clusterName }}-nodes"
   description = "Security group for nodes"
-  vpc_id      = "{{ required "vpc.id is required" .Values.vpc.id }}"
+  vpc_id      = {{ required "vpc.id is required" .Values.vpc.id }}
 
   timeouts {
     create = "5m"
@@ -84,7 +84,7 @@ resource "aws_security_group_rule" "nodes_self" {
   to_port           = 0
   protocol          = "-1"
   self              = true
-  security_group_id = "${aws_security_group.nodes.id}"
+  security_group_id = aws_security_group.nodes.id
 }
 
 resource "aws_security_group_rule" "nodes_tcp_all" {
@@ -93,7 +93,7 @@ resource "aws_security_group_rule" "nodes_tcp_all" {
   to_port           = 32767
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = "${aws_security_group.nodes.id}"
+  security_group_id = aws_security_group.nodes.id
 }
 
 resource "aws_security_group_rule" "nodes_udp_all" {
@@ -102,7 +102,7 @@ resource "aws_security_group_rule" "nodes_udp_all" {
   to_port           = 32767
   protocol          = "udp"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = "${aws_security_group.nodes.id}"
+  security_group_id = aws_security_group.nodes.id
 }
 
 resource "aws_security_group_rule" "nodes_egress_all" {
@@ -111,12 +111,12 @@ resource "aws_security_group_rule" "nodes_egress_all" {
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = "${aws_security_group.nodes.id}"
+  security_group_id = aws_security_group.nodes.id
 }
 
 {{ range $index, $zone := .Values.zones }}
 resource "aws_subnet" "nodes_z{{ $index }}" {
-  vpc_id            = "{{ required "vpc.id is required" $.Values.vpc.id }}"
+  vpc_id            = {{ required "vpc.id is required" $.Values.vpc.id }}
   cidr_block        = "{{ required "zone.worker is required" $zone.worker }}"
   availability_zone = "{{ required "zone.name is required" $zone.name }}"
 
@@ -129,11 +129,11 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
 }
 
 output "{{ $.Values.outputKeys.subnetsNodesPrefix }}{{ $index }}" {
-  value = "${aws_subnet.nodes_z{{ $index }}.id}"
+  value = aws_subnet.nodes_z{{ $index }}.id
 }
 
 resource "aws_subnet" "private_utility_z{{ $index }}" {
-  vpc_id            = "{{ required "vpc.id is required" $.Values.vpc.id }}"
+  vpc_id            = {{ required "vpc.id is required" $.Values.vpc.id }}
   cidr_block        = "{{ required "zone.internal is required" $zone.internal }}"
   availability_zone = "{{ required "zone.name is required" $zone.name }}"
 
@@ -155,7 +155,7 @@ resource "aws_security_group_rule" "nodes_tcp_internal_z{{ $index }}" {
   to_port           = 32767
   protocol          = "tcp"
   cidr_blocks       = ["{{ required "zone.internal is required" $zone.internal }}"]
-  security_group_id = "${aws_security_group.nodes.id}"
+  security_group_id = aws_security_group.nodes.id
 }
 
 resource "aws_security_group_rule" "nodes_udp_internal_z{{ $index }}" {
@@ -164,11 +164,11 @@ resource "aws_security_group_rule" "nodes_udp_internal_z{{ $index }}" {
   to_port           = 32767
   protocol          = "udp"
   cidr_blocks       = ["{{ required "zone.internal is required" $zone.internal }}"]
-  security_group_id = "${aws_security_group.nodes.id}"
+  security_group_id = aws_security_group.nodes.id
 }
 
 resource "aws_subnet" "public_utility_z{{ $index }}" {
-  vpc_id            = "{{ required "vpc.id is required" $.Values.vpc.id }}"
+  vpc_id            = {{ required "vpc.id is required" $.Values.vpc.id }}
   cidr_block        = "{{ required "zone.public is required" $zone.public }}"
   availability_zone = "{{ required "zone.name is required" $zone.name }}"
 
@@ -185,7 +185,7 @@ resource "aws_subnet" "public_utility_z{{ $index }}" {
 }
 
 output "{{ $.Values.outputKeys.subnetsPublicPrefix }}{{ $index }}" {
-  value = "${aws_subnet.public_utility_z{{ $index }}.id}"
+  value = aws_subnet.public_utility_z{{ $index }}.id
 }
 
 resource "aws_security_group_rule" "nodes_tcp_public_z{{ $index }}" {
@@ -194,7 +194,7 @@ resource "aws_security_group_rule" "nodes_tcp_public_z{{ $index }}" {
   to_port           = 32767
   protocol          = "tcp"
   cidr_blocks       = ["{{ required "zone.public is required" $zone.public }}"]
-  security_group_id = "${aws_security_group.nodes.id}"
+  security_group_id = aws_security_group.nodes.id
 }
 
 resource "aws_security_group_rule" "nodes_udp_public_z{{ $index }}" {
@@ -203,7 +203,7 @@ resource "aws_security_group_rule" "nodes_udp_public_z{{ $index }}" {
   to_port           = 32767
   protocol          = "udp"
   cidr_blocks       = ["{{ required "zone.public is required" $zone.public }}"]
-  security_group_id = "${aws_security_group.nodes.id}"
+  security_group_id = aws_security_group.nodes.id
 }
 
 {{- if not $zone.elasticIPAllocationID }}
@@ -218,8 +218,12 @@ resource "aws_eip" "eip_natgw_z{{ $index }}" {
 {{- end }}
 
 resource "aws_nat_gateway" "natgw_z{{ $index }}" {
-  allocation_id = "{{ if not $zone.elasticIPAllocationID }}${aws_eip.eip_natgw_z{{ $index }}.id}{{ else }}{{ $zone.elasticIPAllocationID }}{{ end }}"
-  subnet_id     = "${aws_subnet.public_utility_z{{ $index }}.id}"
+  {{ if not $zone.elasticIPAllocationID -}}
+  allocation_id = aws_eip.eip_natgw_z{{ $index }}.id
+  {{- else -}}
+  allocation_id = "{{ $zone.elasticIPAllocationID }}"
+  {{- end }}
+  subnet_id     = aws_subnet.public_utility_z{{ $index }}.id
 
   tags = {
     Name = "{{ required "clusterName is required" $.Values.clusterName }}-natgw-z{{ $index }}"
@@ -228,15 +232,15 @@ resource "aws_nat_gateway" "natgw_z{{ $index }}" {
 }
 
 resource "aws_route_table" "routetable_private_utility_z{{ $index }}" {
-  vpc_id = "{{ required "vpc.id is required" $.Values.vpc.id }}"
+  vpc_id = {{ required "vpc.id is required" $.Values.vpc.id }}
 
 {{ include "aws-infra.tags-with-suffix" (set $.Values "suffix" (print "private-" $zone.name)) | indent 2 }}
 }
 
 resource "aws_route" "private_utility_z{{ $index }}_nat" {
-  route_table_id         = "${aws_route_table.routetable_private_utility_z{{ $index }}.id}"
+  route_table_id         = aws_route_table.routetable_private_utility_z{{ $index }}.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = "${aws_nat_gateway.natgw_z{{ $index }}.id}"
+  nat_gateway_id         = aws_nat_gateway.natgw_z{{ $index }}.id
 
   timeouts {
     create = "5m"
@@ -244,18 +248,18 @@ resource "aws_route" "private_utility_z{{ $index }}_nat" {
 }
 
 resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}_association_private_utility_z{{ $index }}" {
-  subnet_id      = "${aws_subnet.private_utility_z{{ $index }}.id}"
-  route_table_id = "${aws_route_table.routetable_private_utility_z{{ $index }}.id}"
+  subnet_id      = aws_subnet.private_utility_z{{ $index }}.id
+  route_table_id = aws_route_table.routetable_private_utility_z{{ $index }}.id
 }
 
 resource "aws_route_table_association" "routetable_main_association_public_utility_z{{ $index }}" {
-  subnet_id      = "${aws_subnet.public_utility_z{{ $index }}.id}"
-  route_table_id = "${aws_route_table.routetable_main.id}"
+  subnet_id      = aws_subnet.public_utility_z{{ $index }}.id
+  route_table_id = aws_route_table.routetable_main.id
 }
 
 resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}_association_nodes_z{{ $index }}" {
-  subnet_id      = "${aws_subnet.nodes_z{{ $index }}.id}"
-  route_table_id = "${aws_route_table.routetable_private_utility_z{{ $index }}.id}"
+  subnet_id      = aws_subnet.nodes_z{{ $index }}.id
+  route_table_id = aws_route_table.routetable_private_utility_z{{ $index }}.id
 }
 {{end}}
 
@@ -285,12 +289,12 @@ EOF
 
 resource "aws_iam_instance_profile" "bastions" {
   name = "{{ required "clusterName is required" .Values.clusterName }}-bastions"
-  role = "${aws_iam_role.bastions.name}"
+  role = aws_iam_role.bastions.name
 }
 
 resource "aws_iam_role_policy" "bastions" {
   name = "{{ required "clusterName is required" .Values.clusterName }}-bastions"
-  role = "${aws_iam_role.bastions.id}"
+  role = aws_iam_role.bastions.id
 
   policy = <<EOF
 {
@@ -332,12 +336,12 @@ EOF
 
 resource "aws_iam_instance_profile" "nodes" {
   name = "{{ required "clusterName is required" .Values.clusterName }}-nodes"
-  role = "${aws_iam_role.nodes.name}"
+  role = aws_iam_role.nodes.name
 }
 
 resource "aws_iam_role_policy" "nodes" {
   name = "{{ required "clusterName is required" .Values.clusterName }}-nodes"
-  role = "${aws_iam_role.nodes.id}"
+  role = aws_iam_role.nodes.id
 
   policy = <<EOF
 {
@@ -386,23 +390,23 @@ resource "aws_key_pair" "kubernetes" {
 //=====================================================================
 
 output "{{ .Values.outputKeys.vpcIdKey }}" {
-  value = "{{ required "vpc.id is required" .Values.vpc.id }}"
+  value = {{ required "vpc.id is required" .Values.vpc.id }}
 }
 
 output "{{ .Values.outputKeys.iamInstanceProfileNodes }}" {
-  value = "${aws_iam_instance_profile.nodes.name}"
+  value = aws_iam_instance_profile.nodes.name
 }
 
 output "{{ .Values.outputKeys.sshKeyName }}" {
-  value = "${aws_key_pair.kubernetes.key_name}"
+  value = aws_key_pair.kubernetes.key_name
 }
 
 output "{{ .Values.outputKeys.securityGroupsNodes }}" {
-  value = "${aws_security_group.nodes.id}"
+  value = aws_security_group.nodes.id
 }
 
 output "{{ .Values.outputKeys.nodesRole }}" {
-  value = "${aws_iam_role.nodes.arn}"
+  value = aws_iam_role.nodes.arn
 }
 
 

@@ -106,9 +106,9 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	var (
 		dhcpDomainName    = "ec2.internal"
 		createVPC         = true
-		vpcID             = "${aws_vpc.vpc.id}"
+		vpcID             = "aws_vpc.vpc.id"
 		vpcCIDR           = ""
-		internetGatewayID = "${aws_internet_gateway.igw.id}"
+		internetGatewayID = "aws_internet_gateway.igw.id"
 	)
 
 	if infrastructure.Spec.Region != "us-east-1" {
@@ -118,16 +118,17 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	switch {
 	case infrastructureConfig.Networks.VPC.ID != nil:
 		createVPC = false
-		vpcID = *infrastructureConfig.Networks.VPC.ID
 		awsClient, err := awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), infrastructure.Spec.Region)
 		if err != nil {
 			return nil, err
 		}
-		igwID, err := awsClient.GetInternetGateway(ctx, vpcID)
+		existingVpcID := *infrastructureConfig.Networks.VPC.ID
+		existingInternetGatewayID, err := awsClient.GetInternetGateway(ctx, existingVpcID)
 		if err != nil {
 			return nil, err
 		}
-		internetGatewayID = igwID
+		vpcID = strconv.Quote(existingVpcID)
+		internetGatewayID = strconv.Quote(existingInternetGatewayID)
 	case infrastructureConfig.Networks.VPC.CIDR != nil:
 		vpcCIDR = string(*infrastructureConfig.Networks.VPC.CIDR)
 	}
