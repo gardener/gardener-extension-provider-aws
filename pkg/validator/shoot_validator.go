@@ -30,9 +30,7 @@ import (
 
 func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 	// Network validation
-	networkPath := field.NewPath("spec", "networking")
-
-	if errList := awsvalidation.ValidateNetworking(shoot.Spec.Networking, networkPath); len(errList) != 0 {
+	if errList := awsvalidation.ValidateNetworking(shoot.Spec.Networking, field.NewPath("spec", "networking")); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 
@@ -40,13 +38,11 @@ func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 	fldPath := field.NewPath("spec", "provider")
 
 	// InfrastructureConfig
-	infraConfigFldPath := fldPath.Child("infrastructureConfig")
-
 	if shoot.Spec.Provider.InfrastructureConfig == nil {
-		return field.Required(infraConfigFldPath, "InfrastructureConfig must be set for AWS shoots")
+		return field.Required(fldPath.Child("infrastructureConfig"), "InfrastructureConfig must be set for AWS shoots")
 	}
 
-	infraConfig, err := decodeInfrastructureConfig(v.decoder, shoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
+	infraConfig, err := decodeInfrastructureConfig(v.decoder, shoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
 	if err != nil {
 		return err
 	}
@@ -62,29 +58,21 @@ func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 		}
 	}
 
-	// WorkerConfig
+	// WorkerConfig and Shoot workers
 	fldPath = fldPath.Child("workers")
 	for i, worker := range shoot.Spec.Provider.Workers {
+		var workerConfig *aws.WorkerConfig
 		if worker.ProviderConfig != nil {
-			workerConfig, err := decodeWorkerConfig(v.decoder, worker.ProviderConfig, fldPath.Index(i).Child("providerConfig"))
+			wc, err := decodeWorkerConfig(v.decoder, worker.ProviderConfig, fldPath.Index(i).Child("providerConfig"))
 			if err != nil {
 				return err
 			}
-
-			var volumeType *string
-			if worker.Volume != nil {
-				volumeType = worker.Volume.Type
-			}
-
-			if errList := awsvalidation.ValidateWorkerConfig(workerConfig, volumeType); len(errList) != 0 {
-				return errList.ToAggregate()
-			}
+			workerConfig = wc
 		}
-	}
 
-	// Shoot workers
-	if errList := awsvalidation.ValidateWorkers(shoot.Spec.Provider.Workers, infraConfig.Networks.Zones, fldPath); len(errList) != 0 {
-		return errList.ToAggregate()
+		if errList := awsvalidation.ValidateWorker(worker, infraConfig.Networks.Zones, workerConfig, fldPath.Index(i)); len(errList) != 0 {
+			return errList.ToAggregate()
+		}
 	}
 
 	return nil

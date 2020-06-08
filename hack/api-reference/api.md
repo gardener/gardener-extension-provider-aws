@@ -216,6 +216,20 @@ Volume
 <p>Volume contains configuration for the root disks attached to VMs.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>dataVolumes</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.DataVolume">
+[]DataVolume
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DataVolumes contains configuration for the additional disks attached to VMs.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus
@@ -295,6 +309,64 @@ map[string]bool
 <td>
 <em>(Optional)</em>
 <p>FeatureGates contains information about enabled feature gates.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.DataVolume">DataVolume
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+</p>
+<p>
+<p>DataVolume contains configuration for data volumes attached to VMs.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the name of the data volume this configuration applies to.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>Volume</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Volume">
+Volume
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>Volume</code> are embedded into this type.)
+</p>
+<p>Volume contains configuration for the volume.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>snapshotID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SnapshotID is the ID of the snapshot.</p>
 </td>
 </tr>
 </tbody>
@@ -942,7 +1014,8 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>, 
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.DataVolume">DataVolume</a>)
 </p>
 <p>
 <p>Volume contains configuration for the root disks attached to VMs.</p>

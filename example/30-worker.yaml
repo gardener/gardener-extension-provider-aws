@@ -110,3 +110,11 @@ spec:
   #   encrypted: true
     zones:
     - eu-west-1a
+  # providerConfig:
+  #   apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+  #   kind: WorkerConfig
+  #   volume:
+  #     iops: 10000
+  #   dataVolumes:
+  #   - name: kubelet-dir
+  #     snapshotID: snap-13234

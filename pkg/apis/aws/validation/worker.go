@@ -18,34 +18,77 @@ import (
 	"fmt"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	apisawshelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 
+	"github.com/gardener/gardener/pkg/apis/core"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // ValidateWorkerConfig validates a WorkerConfig object.
-func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volumeType *string) field.ErrorList {
+func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volume, dataVolumes []core.Volume, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if volumeType != nil {
-		if *volumeType == string(apisaws.VolumeTypeIO1) && (workerConfig.Volume == nil || workerConfig.Volume.IOPS == nil) {
-			allErrs = append(allErrs, field.Required(field.NewPath("volume", "iops"), fmt.Sprintf("iops must be provided when using %s volumes", apisaws.VolumeTypeIO1)))
+	if volume != nil && volume.Type != nil {
+		allErrs = append(allErrs, validateVolumeConfig(workerConfig.Volume, *volume.Type, fldPath.Child("volume"))...)
+	}
+
+	var (
+		dataVolumeNames       = sets.NewString()
+		dataVolumeConfigNames = sets.NewString()
+	)
+
+	for i, dv := range dataVolumes {
+		if dv.Name != nil && dv.Type != nil {
+			dataVolumeNames.Insert(*dv.Name)
+
+			var vol *apisaws.Volume
+			if dvConfig := apisawshelper.FindDataVolumeByName(workerConfig.DataVolumes, *dv.Name); dvConfig != nil {
+				vol = &dvConfig.Volume
+			}
+
+			allErrs = append(allErrs, validateVolumeConfig(vol, *dv.Type, fldPath.Child("dataVolumes").Index(i))...)
+		}
+	}
+
+	for i, dv := range workerConfig.DataVolumes {
+		idxPath := fldPath.Child("dataVolumes").Index(i)
+
+		if !dataVolumeNames.Has(dv.Name) {
+			allErrs = append(allErrs, field.Invalid(idxPath.Child("name"), dv.Name, fmt.Sprintf("%s not found in data volumes configured in worker pool", dv.Name)))
 		}
 
-		if workerConfig.Volume != nil && workerConfig.Volume.IOPS != nil {
-			iopsPath := field.NewPath("volume", "iops")
+		if dataVolumeConfigNames.Has(dv.Name) {
+			allErrs = append(allErrs, field.Duplicate(idxPath.Child("name"), dv.Name))
+		} else {
+			dataVolumeConfigNames.Insert(dv.Name)
+		}
+	}
 
-			switch *volumeType {
-			case string(apisaws.VolumeTypeGP2):
-				if *workerConfig.Volume.IOPS < 100 || *workerConfig.Volume.IOPS > 10000 {
-					allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("range is 100-10000 iops for %s volumes", apisaws.VolumeTypeGP2)))
-				}
-			case string(apisaws.VolumeTypeIO1):
-				if *workerConfig.Volume.IOPS < 100 || *workerConfig.Volume.IOPS > 20000 {
-					allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("range is 100-20000 iops for %s volumes", apisaws.VolumeTypeIO1)))
-				}
-			default:
-				allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("setting iops is only allowed if volume type is %q or %q", apisaws.VolumeTypeGP2, apisaws.VolumeTypeIO1)))
+	return allErrs
+}
+
+func validateVolumeConfig(volume *apisaws.Volume, volumeType string, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if volumeType == string(apisaws.VolumeTypeIO1) && (volume == nil || volume.IOPS == nil) {
+		allErrs = append(allErrs, field.Required(fldPath.Child("iops"), fmt.Sprintf("iops must be provided when using %s volumes", apisaws.VolumeTypeIO1)))
+	}
+
+	if volume != nil && volume.IOPS != nil {
+		iopsPath := fldPath.Child("iops")
+
+		switch volumeType {
+		case string(apisaws.VolumeTypeGP2):
+			if *volume.IOPS < 100 || *volume.IOPS > 10000 {
+				allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("range is 100-10000 iops for %s volumes", apisaws.VolumeTypeGP2)))
 			}
+		case string(apisaws.VolumeTypeIO1):
+			if *volume.IOPS < 100 || *volume.IOPS > 20000 {
+				allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("range is 100-20000 iops for %s volumes", apisaws.VolumeTypeIO1)))
+			}
+		default:
+			allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("setting iops is only allowed if volume type is %q or %q", apisaws.VolumeTypeGP2, apisaws.VolumeTypeIO1)))
 		}
 	}
 
