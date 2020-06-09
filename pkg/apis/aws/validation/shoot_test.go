@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
 )
@@ -134,7 +135,7 @@ var _ = Describe("Shoot validation", func() {
 
 			It("should allow because volume type io1 and worker config provided", func() {
 				worker.Volume.Type = pointer.StringPtr(string(apisaws.VolumeTypeIO1))
-				worker.ProviderConfig = &core.ProviderConfig{}
+				worker.ProviderConfig = &runtime.RawExtension{}
 
 				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{Volume: &apisaws.Volume{IOPS: &iops}}, field.NewPath("workers").Index(0))
 

@@ -53,8 +53,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/engine"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -147,6 +145,8 @@ var _ = Describe("Infrastructure tests", func() {
 
 		restConfig = k8sClient.RESTConfig()
 		c = k8sClient.Client()
+
+		chartRenderer = k8sClient.ChartRenderer()
 	})
 
 	AfterSuite(func() {
@@ -158,7 +158,6 @@ var _ = Describe("Infrastructure tests", func() {
 		Expect(awsinternal.AddToScheme(scheme)).To(Succeed())
 		Expect(awsv1alpha1.AddToScheme(scheme)).To(Succeed())
 		decoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
-		chartRenderer = chartrenderer.New(engine.New(), &chartutil.Capabilities{})
 	})
 
 	Describe("#Reconcile, #Delete", func() {
