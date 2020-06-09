@@ -89,7 +89,13 @@ var _ = Describe("Shoot validation", func() {
 			}
 		})
 
-		Describe("#ValidateWorke", func() {
+		Describe("#ValidateWorker", func() {
+			It("should pass when the workerConfig is nil", func() {
+				errorList := ValidateWorker(worker, awsZones, nil, field.NewPath(""))
+
+				Expect(errorList).To(BeEmpty())
+			})
+
 			It("should pass because the worker is configured correctly", func() {
 				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath(""))
 

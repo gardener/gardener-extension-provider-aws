@@ -80,7 +80,9 @@ func ValidateWorker(worker core.Worker, zones []apisaws.Zone, workerConfig *apis
 		allErrs = append(allErrs, validateZones(worker.Zones, awsZones, fldPath.Child("zones"))...)
 	}
 
-	allErrs = append(allErrs, ValidateWorkerConfig(workerConfig, worker.Volume, worker.DataVolumes, fldPath.Child("providerConfig"))...)
+	if workerConfig != nil {
+		allErrs = append(allErrs, ValidateWorkerConfig(workerConfig, worker.Volume, worker.DataVolumes, fldPath.Child("providerConfig"))...)
+	}
 
 	return allErrs
 }
