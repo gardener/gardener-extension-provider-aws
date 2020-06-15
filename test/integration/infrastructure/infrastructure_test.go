@@ -24,8 +24,6 @@ import (
 	"reflect"
 	"text/template"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-
 	awsinternal "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -33,6 +31,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -123,6 +122,10 @@ var _ = Describe("Infrastructure tests", func() {
 		chartRenderer chartrenderer.Interface
 
 		internalChartsPath string
+
+		namespace                 *corev1.Namespace
+		infra                     *extensionsv1alpha1.Infrastructure
+		infrastructureIdentifiers infrastructureIdentifiers
 	)
 
 	BeforeSuite(func() {
@@ -150,6 +153,13 @@ var _ = Describe("Infrastructure tests", func() {
 	})
 
 	AfterSuite(func() {
+		By("delete infrastructure")
+		Expect(infrastructure.Delete(ctx, logger, restConfig, c, infra)).NotTo(HaveOccurred())
+		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).NotTo(HaveOccurred())
+
+		By("verify infrastructure deletion")
+		verifyDeletion(ctx, awsClient, infrastructureIdentifiers)
+
 		aws.InternalChartsPath = internalChartsPath
 	})
 
@@ -171,10 +181,9 @@ var _ = Describe("Infrastructure tests", func() {
 		)
 
 		var (
-			availabilityZone          string
-			cidr                      *string
-			sshPublicKey              []byte
-			infrastructureIdentifiers infrastructureIdentifiers
+			availabilityZone string
+			cidr             *string
+			sshPublicKey     []byte
 		)
 
 		BeforeEach(func() {
@@ -184,15 +193,15 @@ var _ = Describe("Infrastructure tests", func() {
 		})
 
 		It("should correctly create and delete the expected AWS resources", func() {
-			By("creating namespace for test execution")
-			namespace := &corev1.Namespace{
+			By("create namespace for test execution")
+			namespace = &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "provider-aws-test-",
 				},
 			}
 			Expect(c.Create(ctx, namespace)).NotTo(HaveOccurred())
 
-			By("deploying cloudprovider secret into namespace")
+			By("deploy cloudprovider secret into namespace")
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
@@ -229,7 +238,7 @@ var _ = Describe("Infrastructure tests", func() {
 			providerConfigJSON, err := json.Marshal(providerConfig)
 			Expect(err).NotTo(HaveOccurred())
 
-			infra := &extensionsv1alpha1.Infrastructure{
+			infra = &extensionsv1alpha1.Infrastructure{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "infrastructure",
 					Namespace: namespace.Name,
@@ -250,21 +259,12 @@ var _ = Describe("Infrastructure tests", func() {
 				},
 			}
 
-			defer func() {
-				By("delete infrastructure")
-				Expect(infrastructure.Delete(ctx, logger, restConfig, c, infra)).NotTo(HaveOccurred())
-				Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).NotTo(HaveOccurred())
-
-				By("test infrastructure deletion")
-				testDeletion(ctx, awsClient, infrastructureIdentifiers)
-			}()
-
 			By("reconcile infrastructure")
 			infraStatus, _, err := infrastructure.Reconcile(ctx, restConfig, c, decoder, chartRenderer, infra, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
 			Expect(err).NotTo(HaveOccurred())
 
-			By("test infrastructure reconciliation")
-			infrastructureIdentifiers = testReconciliation(ctx, awsClient, infra, infraStatus, providerConfig, accountID,
+			By("verify infrastructure reconciliation")
+			infrastructureIdentifiers = verifyReconciliation(ctx, awsClient, infra, infraStatus, providerConfig, accountID,
 				availabilityZone, cidr, internalCIDR, workersCIDR, publicCIDR, gatewayEndpoint)
 		})
 	})
@@ -289,7 +289,7 @@ type infrastructureIdentifiers struct {
 	nodesRolePolicyName         *string
 }
 
-func testReconciliation(
+func verifyReconciliation(
 	ctx context.Context,
 	awsClient *awsClient,
 	infra *extensionsv1alpha1.Infrastructure,
@@ -845,7 +845,7 @@ func testReconciliation(
 	return
 }
 
-func testDeletion(
+func verifyDeletion(
 	ctx context.Context,
 	awsClient *awsClient,
 	infrastructureIdentifier infrastructureIdentifiers,
