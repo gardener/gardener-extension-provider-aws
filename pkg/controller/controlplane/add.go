@@ -15,6 +15,7 @@
 package controlplane
 
 import (
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
@@ -43,6 +44,8 @@ type AddOptions struct {
 	IgnoreOperationAnnotation bool
 	// ShootWebhooks specifies the list of desired Shoot MutatingWebhooks.
 	ShootWebhooks []admissionregistrationv1beta1.MutatingWebhook
+	// ShootStorageClass configures the storage classes of the Shoot cluster.
+	ShootStorageClass config.StorageClass
 }
 
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
@@ -50,7 +53,7 @@ type AddOptions struct {
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 	return controlplane.Add(mgr, controlplane.AddArgs{
 		Actuator: genericactuator.NewActuator(aws.Name, controlPlaneSecrets, controlPlaneExposureSecrets, configChart, controlPlaneChart, controlPlaneShootChart,
-			storageClassChart, cpExposureChart, NewValuesProvider(logger), extensionscontroller.ChartRendererFactoryFunc(util.NewChartRendererForShoot),
+			storageClassChart, cpExposureChart, NewValuesProvider(logger, &opts.ShootStorageClass), extensionscontroller.ChartRendererFactoryFunc(util.NewChartRendererForShoot),
 			imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhooks, mgr.GetWebhookServer().Port, logger),
 		ControllerOptions: opts.Controller,
 		Predicates:        controlplane.DefaultPredicates(opts.IgnoreOperationAnnotation),

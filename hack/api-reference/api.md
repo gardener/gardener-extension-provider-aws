@@ -111,6 +111,22 @@ CloudControllerManagerConfig
 <p>CloudControllerManager contains configuration settings for the cloud-controller-manager.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>shootStorageClassConfig</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.StorageClass">
+StorageClass
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ShootStorageClassConfig is the config for the StorageClasses deployed
+in the Shoot clusters.
+Overrides the configuration set in gardener-extension-provider-aws.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig
@@ -843,6 +859,37 @@ string
 </td>
 <td>
 <p>ID is the subnet id.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.StorageClass">StorageClass
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
+</p>
+<p>
+<p>StorageClass is the config for the StorageClass.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>encrypted</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Encrypted enables encryption of StorageClasses.</p>
 </td>
 </tr>
 </tbody>

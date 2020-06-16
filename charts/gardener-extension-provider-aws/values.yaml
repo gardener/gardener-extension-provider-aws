@@ -60,6 +60,9 @@ config:
       className: gardener.cloud-fast
       capacity: 80Gi
       provisioner: kubernetes.io/aws-ebs
+      encrypted: false
+  shootStorageClassConfig:
+    encrypted: false
 
 gardener:
   seed:

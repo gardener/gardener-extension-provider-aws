@@ -10,13 +10,25 @@ allowVolumeExpansion: true
 provisioner: kubernetes.io/aws-ebs
 parameters:
   type: gp2
+    resources.gardener.cloud/delete-on-invalid-update: "true"
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+{{- if .Values.encrypt }}
+  encrypted: "true"
+{{- end }}
 ---
 apiVersion: {{ include "storageclassversion" . }}
 kind: StorageClass
 metadata:
   name: gp2
+  annotations:
+    resources.gardener.cloud/delete-on-invalid-update: "true"
 allowVolumeExpansion: true
 provisioner: kubernetes.io/aws-ebs
 parameters:
   type: gp2
+{{- if .Values.encrypt }}
+  encrypted: "true"
+{{- end }}
 {{- end }}

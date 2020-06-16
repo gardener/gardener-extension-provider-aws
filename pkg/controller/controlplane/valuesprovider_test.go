@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -28,12 +28,14 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener/pkg/utils"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
@@ -50,10 +52,37 @@ var _ = Describe("ValuesProvider", func() {
 		scheme = runtime.NewScheme()
 		_      = apisaws.AddToScheme(scheme)
 
+		sc *config.StorageClass
 		vp genericactuator.ValuesProvider
 
 		region = "europe"
-		cp     = &extensionsv1alpha1.ControlPlane{
+		cp     *extensionsv1alpha1.ControlPlane
+
+		cidr                  = "10.250.0.0/19"
+		clusterK8sLessThan118 *extensionscontroller.Cluster
+		clusterK8sAtLeast118  *extensionscontroller.Cluster
+
+		checksums = map[string]string{
+			v1beta1constants.SecretNameCloudProvider:   "8bafb35ff1ac60275d62e1cbd495aceb511fb354f74a20f7d06ecb48b3a68432",
+			aws.CloudProviderConfigName:                "08a7bc7fe8f59b055f173145e211760a83f02cf89635cef26ebb351378635606",
+			aws.CloudControllerManagerName:             "3d791b164a808638da9a8df03924be2a41e34cd664e42231c00fe369e3588272",
+			aws.CloudControllerManagerName + "-server": "6dff2a2e6f14444b66d8e4a351c049f7e89ee24ba3eaab95dbec40ba6bdebb52",
+			aws.LBReadvertiserDeploymentName:           "599aeee0cbbfdab4ea29c642cb04a6c9a3eb90ec21b41570efb987958f99d4b1",
+			aws.CSIProvisionerName:                     "65b1dac6b50673535cff480564c2e5c71077ed19b1b6e0e2291207225bdf77d4",
+			aws.CSIAttacherName:                        "3f22909841cdbb80e5382d689d920309c0a7d995128e52c79773f9608ed7c289",
+			aws.CSISnapshotterName:                     "6a5bfc847638c499062f7fb44e31a30a9760bf4179e1dbf85e0ff4b4f162cd68",
+			aws.CSIResizerName:                         "a77e663ba1af340fb3dd7f6f8a1be47c7aa9e658198695480641e6b934c0b9ed",
+			aws.CSISnapshotControllerName:              "84cba346d2e2cf96c3811b55b01f57bdd9b9bcaed7065760470942d267984eaf",
+		}
+
+		enabledTrue  = map[string]interface{}{"enabled": true}
+		enabledFalse = map[string]interface{}{"enabled": false}
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+
+		cp = &extensionsv1alpha1.ControlPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "control-plane",
 				Namespace: namespace,
@@ -88,7 +117,6 @@ var _ = Describe("ValuesProvider", func() {
 			},
 		}
 
-		cidr                  = "10.250.0.0/19"
 		clusterK8sLessThan118 = &extensionscontroller.Cluster{
 			Shoot: &gardencorev1beta1.Shoot{
 				Spec: gardencorev1beta1.ShootSpec{
@@ -101,6 +129,7 @@ var _ = Describe("ValuesProvider", func() {
 				},
 			},
 		}
+
 		clusterK8sAtLeast118 = &extensionscontroller.Cluster{
 			Shoot: &gardencorev1beta1.Shoot{
 				Spec: gardencorev1beta1.ShootSpec{
@@ -117,27 +146,11 @@ var _ = Describe("ValuesProvider", func() {
 			},
 		}
 
-		checksums = map[string]string{
-			v1beta1constants.SecretNameCloudProvider:   "8bafb35ff1ac60275d62e1cbd495aceb511fb354f74a20f7d06ecb48b3a68432",
-			aws.CloudProviderConfigName:                "08a7bc7fe8f59b055f173145e211760a83f02cf89635cef26ebb351378635606",
-			aws.CloudControllerManagerName:             "3d791b164a808638da9a8df03924be2a41e34cd664e42231c00fe369e3588272",
-			aws.CloudControllerManagerName + "-server": "6dff2a2e6f14444b66d8e4a351c049f7e89ee24ba3eaab95dbec40ba6bdebb52",
-			aws.LBReadvertiserDeploymentName:           "599aeee0cbbfdab4ea29c642cb04a6c9a3eb90ec21b41570efb987958f99d4b1",
-			aws.CSIProvisionerName:                     "65b1dac6b50673535cff480564c2e5c71077ed19b1b6e0e2291207225bdf77d4",
-			aws.CSIAttacherName:                        "3f22909841cdbb80e5382d689d920309c0a7d995128e52c79773f9608ed7c289",
-			aws.CSISnapshotterName:                     "6a5bfc847638c499062f7fb44e31a30a9760bf4179e1dbf85e0ff4b4f162cd68",
-			aws.CSIResizerName:                         "a77e663ba1af340fb3dd7f6f8a1be47c7aa9e658198695480641e6b934c0b9ed",
-			aws.CSISnapshotControllerName:              "84cba346d2e2cf96c3811b55b01f57bdd9b9bcaed7065760470942d267984eaf",
-		}
+		sc = &config.StorageClass{}
+	})
 
-		enabledTrue  = map[string]interface{}{"enabled": true}
-		enabledFalse = map[string]interface{}{"enabled": false}
-	)
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-
-		vp = NewValuesProvider(logger)
+	JustBeforeEach(func() {
+		vp = NewValuesProvider(logger, sc)
 		err := vp.(inject.Scheme).InjectScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -242,16 +255,75 @@ var _ = Describe("ValuesProvider", func() {
 	})
 
 	Describe("#GetStorageClassesChartValues()", func() {
-		It("should return correct storage class chart values (k8s < 1.18)", func() {
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{"useLegacyProvisioner": true}))
+		var (
+			encrypt      bool
+			assertValues = func() {
+				It("should return correct storage class chart values (k8s < 1.18)", func() {
+					values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(values).To(Equal(map[string]interface{}{
+						"useLegacyProvisioner": true,
+						"encrypt":              encrypt,
+					}))
+				})
+
+				It("should return correct storage class chart values (k8s >= 1.18)", func() {
+					values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast118)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(values).To(Equal(map[string]interface{}{
+						"useLegacyProvisioner": false,
+						"encrypt":              encrypt,
+					}))
+				})
+			}
+		)
+
+		Context("encrypt volumes set by controller", func() {
+			BeforeEach(func() {
+				encrypt = true
+				sc.Encrypted = pointer.BoolPtr(encrypt)
+			})
+
+			assertValues()
 		})
 
-		It("should return correct storage class chart values (k8s >= 1.18)", func() {
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast118)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{"useLegacyProvisioner": false}))
+		Context("encrypt volumes set by controller, overwritten by controlplane", func() {
+			BeforeEach(func() {
+				encrypt = false
+				sc.Encrypted = pointer.BoolPtr(true)
+
+				cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisaws.ControlPlaneConfig{
+					ShootStorageClassConfig: &apisaws.StorageClass{
+						Encrypted: pointer.BoolPtr(false),
+					},
+				})
+			})
+
+			assertValues()
+		})
+
+		Context("no encrypt volumes set by controller", func() {
+			BeforeEach(func() {
+				encrypt = false
+				sc.Encrypted = pointer.BoolPtr(encrypt)
+			})
+
+			assertValues()
+		})
+
+		Context("no encrypt volumes set by controller, overwritten by controlplane", func() {
+			BeforeEach(func() {
+				encrypt = true
+				sc.Encrypted = pointer.BoolPtr(false)
+
+				cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisaws.ControlPlaneConfig{
+					ShootStorageClassConfig: &apisaws.StorageClass{
+						Encrypted: pointer.BoolPtr(true),
+					},
+				})
+			})
+
+			assertValues()
 		})
 	})
 
@@ -276,7 +348,9 @@ var _ = Describe("ValuesProvider", func() {
 
 		BeforeEach(func() {
 			c = mockclient.NewMockClient(ctrl)
+		})
 
+		JustBeforeEach(func() {
 			err := vp.(inject.Client).InjectClient(c)
 			Expect(err).NotTo(HaveOccurred())
 		})

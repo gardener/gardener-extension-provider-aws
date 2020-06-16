@@ -94,3 +94,10 @@ func (c *Config) ApplyHealthCheckConfig(config *healthcheckconfig.HealthCheckCon
 		*config = *c.Config.HealthCheckConfig
 	}
 }
+
+// ApplyStorageClassConfig applies the StorageClass to the config
+func (c *Config) ApplyStorageClassConfig(config *config.StorageClass) {
+	if c.Config.ShootStorageClassConfig != nil {
+		*config = *c.Config.ShootStorageClassConfig
+	}
+}

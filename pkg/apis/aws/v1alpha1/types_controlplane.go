@@ -28,6 +28,12 @@ type ControlPlaneConfig struct {
 	// CloudControllerManager contains configuration settings for the cloud-controller-manager.
 	// +optional
 	CloudControllerManager *CloudControllerManagerConfig `json:"cloudControllerManager,omitempty"`
+
+	// ShootStorageClassConfig is the config for the StorageClasses deployed
+	// in the Shoot clusters.
+	// Overrides the configuration set in gardener-extension-provider-aws.
+	// +optional
+	ShootStorageClassConfig *StorageClass `json:"shootStorageClassConfig,omitempty"`
 }
 
 // CloudControllerManagerConfig contains configuration settings for the cloud-controller-manager.
@@ -35,4 +41,11 @@ type CloudControllerManagerConfig struct {
 	// FeatureGates contains information about enabled feature gates.
 	// +optional
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
+}
+
+// StorageClass is the config for the StorageClass.
+type StorageClass struct {
+	// Encrypted enables encryption of StorageClasses.
+	// +optional
+	Encrypted *bool `json:"encrypted,omitempty"`
 }

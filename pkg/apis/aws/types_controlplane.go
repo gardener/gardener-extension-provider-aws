@@ -26,10 +26,21 @@ type ControlPlaneConfig struct {
 
 	// CloudControllerManager contains configuration settings for the cloud-controller-manager.
 	CloudControllerManager *CloudControllerManagerConfig
+
+	// ShootStorageClassConfig is the config for the StorageClasses deployed
+	// in the Shoot clusters.
+	// Overrides the configuration set in gardener-extension-provider-aws.
+	ShootStorageClassConfig *StorageClass
 }
 
 // CloudControllerManagerConfig contains configuration settings for the cloud-controller-manager.
 type CloudControllerManagerConfig struct {
 	// FeatureGates contains information about enabled feature gates.
 	FeatureGates map[string]bool
+}
+
+// StorageClass is the config for the StorageClass.
+type StorageClass struct {
+	// Encrypted enables encryption of StorageClasses.
+	Encrypted *bool
 }

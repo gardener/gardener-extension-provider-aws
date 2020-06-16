@@ -21,3 +21,16 @@ import (
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
 	return RegisterDefaults(scheme)
 }
+
+// SetDefaults_ControllerConfiguration sets default values for ControllerConfiguration objects.
+func SetDefaults_ControllerConfiguration(obj *ControllerConfiguration) {
+	if obj.ShootStorageClassConfig == nil {
+		obj.ShootStorageClassConfig = &StorageClass{}
+	}
+
+	defaultEncrypt := false
+
+	if obj.ShootStorageClassConfig.Encrypted == nil {
+		obj.ShootStorageClassConfig.Encrypted = &defaultEncrypt
+	}
+}

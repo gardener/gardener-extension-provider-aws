@@ -21,8 +21,8 @@ import (
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
@@ -304,9 +304,10 @@ var (
 )
 
 // NewValuesProvider creates a new ValuesProvider for the generic actuator.
-func NewValuesProvider(logger logr.Logger) genericactuator.ValuesProvider {
+func NewValuesProvider(logger logr.Logger, storageClass *config.StorageClass) genericactuator.ValuesProvider {
 	return &valuesProvider{
-		logger: logger.WithName("aws-values-provider"),
+		logger:       logger.WithName("aws-values-provider"),
+		storageClass: storageClass,
 	}
 }
 
@@ -314,7 +315,8 @@ func NewValuesProvider(logger logr.Logger) genericactuator.ValuesProvider {
 type valuesProvider struct {
 	genericactuator.NoopValuesProvider
 	common.ClientContext
-	logger logr.Logger
+	logger       logr.Logger
+	storageClass *config.StorageClass
 }
 
 // GetConfigChartValues returns the values for the config chart applied by the generic actuator.
@@ -367,7 +369,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 // GetStorageClassesChartValues returns the values for the storage classes chart applied by the generic actuator.
 func (vp *valuesProvider) GetStorageClassesChartValues(
 	_ context.Context,
-	_ *extensionsv1alpha1.ControlPlane,
+	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
 	k8sVersionLessThan118, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, "<", "1.18")
@@ -375,8 +377,27 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 		return nil, err
 	}
 
+	// Decode providerConfig
+	cpConfig := &apisaws.ControlPlaneConfig{}
+
+	if cp.Spec.ProviderConfig != nil {
+		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
+			return nil, errors.Wrapf(err, "could not decode providerConfig of controlplane '%s'", util.ObjectName(cp))
+		}
+	}
+
+	encrypt := false
+
+	// User-provided encryption overrides the one set in the controller.
+	if cpConfig.ShootStorageClassConfig != nil && cpConfig.ShootStorageClassConfig.Encrypted != nil {
+		encrypt = *cpConfig.ShootStorageClassConfig.Encrypted
+	} else if vp.storageClass != nil && vp.storageClass.Encrypted != nil {
+		encrypt = *vp.storageClass.Encrypted
+	}
+
 	return map[string]interface{}{
 		"useLegacyProvisioner": k8sVersionLessThan118,
+		"encrypt":              encrypt,
 	}, nil
 }
 

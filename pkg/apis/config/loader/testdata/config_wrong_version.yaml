@@ -1,0 +1,2 @@
+apiVersion: aws.provider.extensions.config.gardener.cloud/v1000
+kind: ControllerConfiguration

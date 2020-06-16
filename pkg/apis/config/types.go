@@ -35,6 +35,10 @@ type ControllerConfiguration struct {
 	ETCD ETCD
 	// HealthCheckConfig is the config for the health check controller
 	HealthCheckConfig *healthcheckconfig.HealthCheckConfig
+	// ShootStorageClassConfig is the config for the StorageClasses deployed
+	// in the Shoot clusters. ETCD StorageClass configuration is
+	// configured in ETCD.
+	ShootStorageClassConfig *StorageClass
 }
 
 // ETCD is an etcd configuration.
@@ -57,4 +61,10 @@ type ETCDStorage struct {
 type ETCDBackup struct {
 	// Schedule is the etcd backup schedule.
 	Schedule *string
+}
+
+// StorageClass is the config for the StorageClass.
+type StorageClass struct {
+	// Encrypted enables encryption of StorageClasses.
+	Encrypted *bool
 }

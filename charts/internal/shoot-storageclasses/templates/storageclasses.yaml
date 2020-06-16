@@ -6,16 +6,27 @@ metadata:
   name: default
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
+    resources.gardener.cloud/delete-on-invalid-update: "true"
 allowVolumeExpansion: true
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
+{{- if .Values.encrypt }}
+parameters:
+  encrypted: "true"
+{{- end }}
 
 ---
 apiVersion: {{ include "storageclassversion" . }}
 kind: StorageClass
 metadata:
   name: gp2
+  annotations:
+    resources.gardener.cloud/delete-on-invalid-update: "true"
 allowVolumeExpansion: true
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
+{{- if .Values.encrypt }}
+parameters:
+  encrypted: "true"
+{{- end }}
 {{- end }}

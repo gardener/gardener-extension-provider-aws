@@ -38,6 +38,10 @@ type ControllerConfiguration struct {
 	// HealthCheckConfig is the config for the health check controller
 	// +optional
 	HealthCheckConfig *healthcheckconfigv1alpha1.HealthCheckConfig `json:"healthCheckConfig,omitempty"`
+	// ShootStorageClassConfig is the config for the StorageClasses deployed
+	// in the Shoot clusters. configured in gardener-extension-provider-aws chart.
+	// +optional
+	ShootStorageClassConfig *StorageClass `json:"shootStorageClassConfig,omitempty"`
 }
 
 // ETCD is an etcd configuration.
@@ -63,4 +67,12 @@ type ETCDBackup struct {
 	// Schedule is the etcd backup schedule.
 	// +optional
 	Schedule *string `json:"schedule,omitempty"`
+}
+
+// StorageClass is the config for the StorageClass.
+type StorageClass struct {
+	// Encrypted enables encryption of StorageClasses.
+	// Defaults to false.
+	// +optional
+	Encrypted *bool `json:"encrypted,omitempty"`
 }
