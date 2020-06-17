@@ -357,6 +357,22 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 		}
 	}
 
+	// Enable default server side encryption using AES256 algorithm. Key will be managed by S3
+	if _, err := c.S3.PutBucketEncryptionWithContext(ctx, &s3.PutBucketEncryptionInput{
+		Bucket: aws.String(bucket),
+		ServerSideEncryptionConfiguration: &s3.ServerSideEncryptionConfiguration{
+			Rules: []*s3.ServerSideEncryptionRule{
+				{
+					ApplyServerSideEncryptionByDefault: &s3.ServerSideEncryptionByDefault{
+						SSEAlgorithm: aws.String("AES256"),
+					},
+				},
+			},
+		},
+	}); err != nil {
+		return err
+	}
+
 	// Set lifecycle rule to purge incomplete multipart upload orphaned because of force shutdown or rescheduling or networking issue with etcd-backup-restore.
 	putBucketLifecycleConfigurationInput := &s3.PutBucketLifecycleConfigurationInput{
 		Bucket: aws.String(bucket),
