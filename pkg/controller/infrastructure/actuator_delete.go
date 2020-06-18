@@ -51,10 +51,14 @@ func Delete(
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
 
+	// terraform pod from previous reconciliation might still be running, ensure they are gone before doing any operations
+	if err := tf.WaitForCleanEnvironment(ctx); err != nil {
+		return err
+	}
+
 	// If the Terraform state is empty then we can exit early as we didn't create anything. Though, we clean up potentially
 	// created configmaps/secrets related to the Terraformer.
-	stateIsEmpty := tf.IsStateEmpty()
-	if stateIsEmpty {
+	if tf.IsStateEmpty() {
 		logger.Info("exiting early as infrastructure state is empty - nothing to do")
 		return tf.CleanupConfiguration(ctx)
 	}
@@ -93,7 +97,7 @@ func Delete(
 					return gardencorev1beta1helper.DetermineError(err, fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
 				}
 				return nil
-			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists && !stateIsEmpty),
+			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists),
 		})
 
 		_ = g.Add(flow.Task{
