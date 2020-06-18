@@ -274,7 +274,7 @@ func computeEBS(size string, volumeType *string, encrypted *bool) (map[string]in
 
 	ebs := map[string]interface{}{
 		"volumeSize":          volumeSize,
-		"encrypted":           false,
+		"encrypted":           true,
 		"deleteOnTermination": true,
 	}
 
