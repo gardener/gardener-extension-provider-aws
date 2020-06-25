@@ -26,7 +26,7 @@ import (
 )
 
 // ValidateWorkerConfig validates a WorkerConfig object.
-func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volume, dataVolumes []core.Volume, fldPath *field.Path) field.ErrorList {
+func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volume, dataVolumes []core.DataVolume, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if volume != nil && volume.Type != nil {
@@ -39,11 +39,11 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	)
 
 	for i, dv := range dataVolumes {
-		if dv.Name != nil && dv.Type != nil {
-			dataVolumeNames.Insert(*dv.Name)
+		if dv.Type != nil {
+			dataVolumeNames.Insert(dv.Name)
 
 			var vol *apisaws.Volume
-			if dvConfig := apisawshelper.FindDataVolumeByName(workerConfig.DataVolumes, *dv.Name); dvConfig != nil {
+			if dvConfig := apisawshelper.FindDataVolumeByName(workerConfig.DataVolumes, dv.Name); dvConfig != nil {
 				vol = &dvConfig.Volume
 			}
 

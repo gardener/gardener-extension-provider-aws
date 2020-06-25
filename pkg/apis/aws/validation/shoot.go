@@ -62,11 +62,7 @@ func ValidateWorker(worker core.Worker, zones []apisaws.Zone, workerConfig *apis
 		for j, volume := range worker.DataVolumes {
 			dataVolPath := fldPath.Child("dataVolumes").Index(j)
 
-			if volume.Name == nil {
-				allErrs = append(allErrs, field.Required(dataVolPath.Child("name"), "must not be empty"))
-			}
-
-			allErrs = append(allErrs, validateVolume(volume.DeepCopy(), dataVolPath)...)
+			allErrs = append(allErrs, validateDataVolume(volume.DeepCopy(), dataVolPath)...)
 
 			if volume.Type != nil && *volume.Type == string(apisaws.VolumeTypeIO1) && worker.ProviderConfig == nil {
 				allErrs = append(allErrs, field.Required(fldPath.Child("providerConfig"), fmt.Sprintf("WorkerConfig must be set if data volume type is %s (%s)", apisaws.VolumeTypeIO1, dataVolPath.Child("type"))))
@@ -114,12 +110,20 @@ func validateZones(zones []string, allowedZones sets.String, fldPath *field.Path
 }
 
 func validateVolume(vol *core.Volume, fldPath *field.Path) field.ErrorList {
+	return validateVolumeFunc(vol.VolumeSize, vol.Type, fldPath)
+}
+
+func validateDataVolume(vol *core.DataVolume, fldPath *field.Path) field.ErrorList {
+	return validateVolumeFunc(vol.VolumeSize, vol.Type, fldPath)
+}
+
+func validateVolumeFunc(size string, volumeType *string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
-	if vol.Type == nil {
-		allErrs = append(allErrs, field.Required(fldPath.Child("type"), "must not be empty"))
-	}
-	if vol.VolumeSize == "" {
+	if size == "" {
 		allErrs = append(allErrs, field.Required(fldPath.Child("size"), "must not be empty"))
+	}
+	if volumeType == nil {
+		allErrs = append(allErrs, field.Required(fldPath.Child("type"), "must not be empty"))
 	}
 	return allErrs
 }

@@ -726,7 +726,7 @@ var _ = Describe("Network Policy Testing", func() {
 		}
 		f.CommonFramework.BeforeEach()
 		f.GardenerFramework.BeforeEach()
-		f.BeforeEach()
+		f.BeforeEach(ctx)
 
 		By("Getting Seed Cloud Provider")
 		sharedResources.SeedCloudProvider = f.Seed.Spec.Provider.Type

@@ -145,7 +145,7 @@ var _ = Describe("Shoot validation", func() {
 			It("should forbid because volume type and size are not configured", func() {
 				worker.Volume.Type = nil
 				worker.Volume.VolumeSize = ""
-				worker.DataVolumes = []core.Volume{{}}
+				worker.DataVolumes = []core.DataVolume{{}}
 
 				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
@@ -160,10 +160,6 @@ var _ = Describe("Shoot validation", func() {
 					})),
 					PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":  Equal(field.ErrorTypeRequired),
-						"Field": Equal("workers[0].dataVolumes[0].name"),
-					})),
-					PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeRequired),
 						"Field": Equal("workers[0].dataVolumes[0].type"),
 					})),
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -175,8 +171,8 @@ var _ = Describe("Shoot validation", func() {
 
 			It("should forbid because of too many data volumes", func() {
 				for i := 0; i <= 11; i++ {
-					worker.DataVolumes = append(worker.DataVolumes, core.Volume{
-						Name:       pointer.StringPtr(fmt.Sprintf("foo%d", i)),
+					worker.DataVolumes = append(worker.DataVolumes, core.DataVolume{
+						Name:       fmt.Sprintf("foo%d", i),
 						VolumeSize: "20Gi",
 						Type:       pointer.StringPtr("foo"),
 					})
