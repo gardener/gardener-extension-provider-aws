@@ -52,7 +52,7 @@ func Delete(
 	}
 
 	// terraform pod from previous reconciliation might still be running, ensure they are gone before doing any operations
-	if err := tf.WaitForCleanEnvironment(ctx); err != nil {
+	if err := tf.EnsureCleanedUp(ctx); err != nil {
 		return err
 	}
 
