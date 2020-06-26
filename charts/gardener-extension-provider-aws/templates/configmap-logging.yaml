@@ -9,14 +9,14 @@ data:
   filter-kubernetes.conf: |
     [FILTER]
         Name                parser
-        Match               kubernetes.cloud-controller-manager*aws-cloud-controller-manager*
+        Match               kubernetes.*cloud-controller-manager*aws-cloud-controller-manager*
         Key_Name            log
         Parser              kubeapiserverParser
         Reserve_Data        True
 
     [FILTER]
         Name                parser
-        Match               kubernetes.machine-controller-manager*aws-machine-controller-manager*
+        Match               kubernetes.*machine-controller-manager*aws-machine-controller-manager*
         Key_Name            log
         Parser              kubeapiserverParser
         Reserve_Data        True
@@ -28,10 +28,6 @@ data:
         Parser              lbReadvertiserParser
         Reserve_Data        True
 {{- end}}
-    [FILTER]
-        Name record_modifier
-        Match *aws-cloud-controller-manager*
-        Record type user
 {{ if eq .Values.gardener.seed.provider "aws" }}
   parsers.conf: |
     [PARSER]
