@@ -30,8 +30,10 @@ This extension controller supports the following Kubernetes versions:
 | Kubernetes 1.14 | 1.14.0+, except 1.14.7 | [![Gardener v1.14 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.14%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.14%20AWS) |
 | Kubernetes 1.13 | 1.13.0+     | [![Gardener v1.13 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.13%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.13%20AWS) |
 | Kubernetes 1.12 | 1.12.1+     | [![Gardener v1.12 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.12%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.12%20AWS) |
-| Kubernetes 1.11 | 1.11.0+     | [![Gardener v1.11 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.11%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.11%20AWS) |
-| Kubernetes 1.10 | 1.10.0+     | [![Gardener v1.10 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.10%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.10%20AWS) |
+| Kubernetes 1.11 | 1.11.0+     | [1] |
+| Kubernetes 1.10 | 1.10.0+     | [1] |
+
+[1] Version is technically supported but no longer actively tested. Regressions will go unnoticed.
 
 Please take a look [here](https://github.com/gardener/gardener/blob/master/docs/usage/supported_k8s_versions.md) to see which versions are supported by Gardener in general.
 
@@ -41,7 +43,7 @@ Please take a look [here](https://github.com/gardener/gardener/blob/master/docs/
 
 You can run the controller locally on your machine by executing `make start`.
 
-Static code checks and tests can be executed by running `VERIFY=true make all`. We are using Go modules for Golang package dependency management and [Ginkgo](https://github.com/onsi/ginkgo)/[Gomega](https://github.com/onsi/gomega) for testing.
+Static code checks and tests can be executed by running `make verify`. We are using Go modules for Golang package dependency management and [Ginkgo](https://github.com/onsi/ginkgo)/[Gomega](https://github.com/onsi/gomega) for testing.
 
 ## Feedback and Support
 
