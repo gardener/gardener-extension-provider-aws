@@ -4,6 +4,7 @@ images:
   csi-liveness-probe: image-repository:image-tag
 
 socketPath: /csi/csi.sock
+vpaEnabled: false
 
 resources:
   driver:

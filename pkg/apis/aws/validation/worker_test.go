@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("ValidateWorkerConfig", func() {
@@ -40,20 +39,20 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			dataVolume1Name = "foo"
 			dataVolume2Name = "bar"
-			dataVolumes     []core.Volume
+			dataVolumes     []core.DataVolume
 
 			worker  *apisaws.WorkerConfig
 			fldPath = field.NewPath("config")
 		)
 
 		BeforeEach(func() {
-			dataVolumes = []core.Volume{
+			dataVolumes = []core.DataVolume{
 				{
-					Name: &dataVolume1Name,
+					Name: dataVolume1Name,
 					Type: &io1type,
 				},
 				{
-					Name: &dataVolume2Name,
+					Name: dataVolume2Name,
 					Type: &gp2type,
 				},
 			}
@@ -144,8 +143,8 @@ var _ = Describe("ValidateWorkerConfig", func() {
 		})
 
 		It("should return an error if IOPS is set for a non-supported volume type", func() {
-			dataVolumes = append(dataVolumes, core.Volume{
-				Name: pointer.StringPtr("broken"),
+			dataVolumes = append(dataVolumes, core.DataVolume{
+				Name: "broken",
 				Type: &footype,
 			})
 			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{

@@ -109,6 +109,9 @@ var _ = Describe("ValuesProvider", func() {
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
 						Version: "1.18.1",
+						VerticalPodAutoscaler: &gardencorev1beta1.VerticalPodAutoscaler{
+							Enabled: true,
+						},
 					},
 				},
 			},
@@ -220,7 +223,9 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				aws.CloudControllerManagerName: enabledTrue,
-				aws.CSINodeName:                enabledFalse,
+				aws.CSINodeName: utils.MergeMaps(enabledFalse, map[string]interface{}{
+					"vpaEnabled": false,
+				}),
 			}))
 		})
 
@@ -229,7 +234,9 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				aws.CloudControllerManagerName: enabledTrue,
-				aws.CSINodeName:                enabledTrue,
+				aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"vpaEnabled": true,
+				}),
 			}))
 		})
 	})

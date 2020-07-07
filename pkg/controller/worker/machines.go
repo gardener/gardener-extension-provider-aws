@@ -228,15 +228,15 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 
 		// sort data volumes for consistent device naming
 		sort.Slice(dataVolumes, func(i, j int) bool {
-			return *dataVolumes[i].Name < *dataVolumes[j].Name
+			return dataVolumes[i].Name < dataVolumes[j].Name
 		})
 
 		for i, vol := range dataVolumes {
-			dataDisk, err := computeEBSForVolume(vol)
+			dataDisk, err := computeEBSForDataVolume(vol)
 			if err != nil {
 				return nil, errors.Wrapf(err, "error when computing EBS for %v", vol)
 			}
-			if dvConfig := awsapihelper.FindDataVolumeByName(workerConfig.DataVolumes, *vol.Name); dvConfig != nil {
+			if dvConfig := awsapihelper.FindDataVolumeByName(workerConfig.DataVolumes, vol.Name); dvConfig != nil {
 				if dvConfig.IOPS != nil {
 					dataDisk["iops"] = *dvConfig.IOPS
 				}
@@ -259,7 +259,15 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
-	volumeSize, err := worker.DiskSize(volume.Size)
+	return computeEBS(volume.Size, volume.Type, volume.Encrypted)
+}
+
+func computeEBSForDataVolume(volume extensionsv1alpha1.DataVolume) (map[string]interface{}, error) {
+	return computeEBS(volume.Size, volume.Type, volume.Encrypted)
+}
+
+func computeEBS(size string, volumeType *string, encrypted *bool) (map[string]interface{}, error) {
+	volumeSize, err := worker.DiskSize(size)
 	if err != nil {
 		return nil, err
 	}
@@ -270,12 +278,12 @@ func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface
 		"deleteOnTermination": true,
 	}
 
-	if volume.Type != nil {
-		ebs["volumeType"] = *volume.Type
+	if volumeType != nil {
+		ebs["volumeType"] = *volumeType
 	}
 
-	if volume.Encrypted != nil {
-		ebs["encrypted"] = *volume.Encrypted
+	if encrypted != nil {
+		ebs["encrypted"] = *encrypted
 	}
 
 	return ebs, nil
