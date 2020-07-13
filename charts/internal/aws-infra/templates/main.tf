@@ -267,53 +267,6 @@ resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}
 //= IAM instance profiles
 //=====================================================================
 
-resource "aws_iam_role" "bastions" {
-  name = "{{ required "clusterName is required" .Values.clusterName }}-bastions"
-  path = "/"
-
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_iam_instance_profile" "bastions" {
-  name = "{{ required "clusterName is required" .Values.clusterName }}-bastions"
-  role = aws_iam_role.bastions.name
-}
-
-resource "aws_iam_role_policy" "bastions" {
-  name = "{{ required "clusterName is required" .Values.clusterName }}-bastions"
-  role = aws_iam_role.bastions.id
-
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeRegions"
-      ],
-      "Resource": [
-        "*"
-      ]
-    }
-  ]
-}
-EOF
-}
-
 resource "aws_iam_role" "nodes" {
   name = "{{ required "clusterName is required" .Values.clusterName }}-nodes"
   path = "/"
