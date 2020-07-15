@@ -6,6 +6,7 @@ metadata:
   name: default
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
+allowVolumeExpansion: true
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
 
@@ -14,6 +15,7 @@ apiVersion: {{ include "storageclassversion" . }}
 kind: StorageClass
 metadata:
   name: gp2
+allowVolumeExpansion: true
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
 {{- end }}

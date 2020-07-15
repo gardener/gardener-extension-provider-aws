@@ -5,8 +5,8 @@ metadata:
   name: {{ .Values.config.etcd.storage.className }}
   labels:
 {{ include "labels" . | indent 4 }}
-provisioner: {{ .Values.config.etcd.storage.provisioner }}
 allowVolumeExpansion: true
+provisioner: {{ .Values.config.etcd.storage.provisioner }}
 parameters:
   type: gp2
 {{- end }}
