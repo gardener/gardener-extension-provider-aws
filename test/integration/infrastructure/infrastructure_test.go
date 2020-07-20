@@ -271,22 +271,19 @@ var _ = Describe("Infrastructure tests", func() {
 })
 
 type infrastructureIdentifiers struct {
-	vpcID                       *string
-	dhcpOptionsID               *string
-	vpcEndpointID               *string
-	internetGatewayID           *string
-	securityGroupIDs            []*string
-	keyPairName                 *string
-	subnetIDs                   []*string
-	elasticIPAllocationID       *string
-	natGatewayID                *string
-	routeTableIDs               []*string
-	bastionsRoleName            *string
-	nodesRoleName               *string
-	bastionsInstanceProfileName *string
-	nodesInstanceProfileName    *string
-	bastionsRolePolicyName      *string
-	nodesRolePolicyName         *string
+	vpcID                    *string
+	dhcpOptionsID            *string
+	vpcEndpointID            *string
+	internetGatewayID        *string
+	securityGroupIDs         []*string
+	keyPairName              *string
+	subnetIDs                []*string
+	elasticIPAllocationID    *string
+	natGatewayID             *string
+	routeTableIDs            []*string
+	nodesRoleName            *string
+	nodesInstanceProfileName *string
+	nodesRolePolicyName      *string
 }
 
 func verifyReconciliation(
@@ -719,57 +716,6 @@ func verifyReconciliation(
 	}
 	Expect(foundExpectedRouteTables).To(Equal(3))
 
-	// IAM resources bastions
-
-	getRoleOutputBastions, err := awsClient.IAM.GetRoleWithContext(ctx, &iam.GetRoleInput{RoleName: awssdk.String(infra.Namespace + "-bastions")})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(getRoleOutputBastions.Role).To(BeSemanticallyEqualTo(&iam.Role{
-		Path: awssdk.String("/"),
-		AssumeRolePolicyDocument: awssdk.String(`
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}`),
-	}))
-	infrastructureIdentifier.bastionsRoleName = getRoleOutputBastions.Role.RoleName
-
-	getInstanceProfileOutputBastions, err := awsClient.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: awssdk.String(infra.Namespace + "-bastions")})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(getInstanceProfileOutputBastions.InstanceProfile).NotTo(BeNil())
-	iamInstanceProfileBastions := *getInstanceProfileOutputBastions.InstanceProfile
-	Expect(iamInstanceProfileBastions.Path).To(Equal(awssdk.String("/")))
-	Expect(iamInstanceProfileBastions.Roles).To(BeSemanticallyEqualTo([]*iam.Role{getRoleOutputBastions.Role}))
-	infrastructureIdentifier.bastionsInstanceProfileName = getInstanceProfileOutputBastions.InstanceProfile.InstanceProfileName
-
-	getRolePolicyOutputBastions, err := awsClient.IAM.GetRolePolicyWithContext(ctx, &iam.GetRolePolicyInput{PolicyName: awssdk.String(infra.Namespace + "-bastions"), RoleName: awssdk.String(infra.Namespace + "-bastions")})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(getRolePolicyOutputBastions.RoleName).To(Equal(awssdk.String(infra.Namespace + "-bastions")))
-	Expect(getRolePolicyOutputBastions.PolicyName).To(Equal(awssdk.String(infra.Namespace + "-bastions")))
-	Expect(getRolePolicyOutputBastions.PolicyDocument).To(BeSemanticallyEqualToRolePolicyDocument(`
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeRegions"
-      ],
-      "Resource": [
-        "*"
-      ]
-    }
-  ]
-}`))
-	infrastructureIdentifier.bastionsRolePolicyName = getRolePolicyOutputBastions.PolicyName
-
 	// IAM resources nodes
 
 	getRoleOutputNodes, err := awsClient.IAM.GetRoleWithContext(ctx, &iam.GetRoleInput{RoleName: awssdk.String(infra.Namespace + "-nodes")})
@@ -790,7 +736,7 @@ func verifyReconciliation(
   ]
 }`),
 	}))
-	infrastructureIdentifier.nodesRoleName = getRoleOutputBastions.Role.RoleName
+	infrastructureIdentifier.nodesRoleName = getRoleOutputNodes.Role.RoleName
 
 	getInstanceProfileOutputNodes, err := awsClient.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: awssdk.String(infra.Namespace + "-nodes")})
 	Expect(err).NotTo(HaveOccurred())
@@ -953,32 +899,6 @@ func verifyDeletion(
 		awsErr, _ := err.(awserr.Error)
 		Expect(awsErr.Code()).To(Equal("InvalidRouteTableID.NotFound"))
 		Expect(describeRouteTablesOutput.RouteTables).To(BeEmpty())
-	}
-
-	// IAM resources bastions
-
-	if infrastructureIdentifier.bastionsRoleName != nil {
-		getRoleOutputBastions, err := awsClient.IAM.GetRoleWithContext(ctx, &iam.GetRoleInput{RoleName: infrastructureIdentifier.bastionsRoleName})
-		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("NoSuchEntity"))
-		Expect(getRoleOutputBastions.Role).To(BeNil())
-	}
-
-	if infrastructureIdentifier.bastionsInstanceProfileName != nil {
-		getInstanceProfileOutputBastions, err := awsClient.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: infrastructureIdentifier.bastionsInstanceProfileName})
-		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("NoSuchEntity"))
-		Expect(getInstanceProfileOutputBastions.InstanceProfile).To(BeNil())
-	}
-
-	if infrastructureIdentifier.bastionsRolePolicyName != nil {
-		getRolePolicyOutputBastions, err := awsClient.IAM.GetRolePolicyWithContext(ctx, &iam.GetRolePolicyInput{PolicyName: infrastructureIdentifier.bastionsRolePolicyName, RoleName: infrastructureIdentifier.bastionsRoleName})
-		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("NoSuchEntity"))
-		Expect(getRolePolicyOutputBastions.PolicyDocument).To(BeNil())
 	}
 
 	// IAM resources nodes
