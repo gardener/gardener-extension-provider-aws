@@ -18,4 +18,13 @@ metadata:
 allowVolumeExpansion: true
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: snapshot.storage.k8s.io/v1beta1
+kind: VolumeSnapshotClass
+metadata:
+  name: default
+  annotations:
+    snapshot.storage.kubernetes.io/is-default-class: “true”
+driver: ebs.csi.aws.com
+deletionPolicy: Delete
 {{- end }}
