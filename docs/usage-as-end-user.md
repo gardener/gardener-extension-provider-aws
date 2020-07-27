@@ -121,9 +121,12 @@ If you don't want to configure anything for the `cloudControllerManager` simply 
 
 ## `WorkerConfig`
 
-The AWS extension supports encryption for volumes plus support for additional data volumes per machine.
-By default (if not stated otherwise), all the disks are unencrypted.
+The AWS extension supports encryption for volumes plus support for additional data volumes per machine. 
 For each data volume, you have to specify a name.
+By default (if not stated otherwise), all the disks (root & data volumes) are encrypted. 
+Please make sure that your [instance-type supports encryption](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html). 
+If your instance-type doesn't support encryption, you will have to disable encryption (which is enabled by default) by setting `volume.encrpyted` to `false` (refer below shown YAML snippet).
+
 The following YAML is a snippet of a `Shoot` resource:
 
 ```yaml
@@ -135,7 +138,7 @@ spec:
       volume:
         type: gp2
         size: 20Gi
-        encrypted: true
+        encrypted: false
       dataVolumes:
       - name: kubelet-dir
         type: gp2

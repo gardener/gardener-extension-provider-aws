@@ -427,7 +427,7 @@ var _ = Describe("Machines", func() {
 									"volumeSize":          volumeSize,
 									"volumeType":          volumeType,
 									"deleteOnTermination": true,
-									"encrypted":           false,
+									"encrypted":           true,
 								},
 							},
 						},
