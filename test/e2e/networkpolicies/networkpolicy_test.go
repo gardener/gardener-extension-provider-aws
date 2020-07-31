@@ -223,50 +223,6 @@ var _ = Describe("Network Policy Testing", func() {
 			Port: networkpolicies.Port{
 				Port: 10258,
 				Name: ""}}
-		ElasticsearchLogging = &networkpolicies.SourcePod{
-			Pod: networkpolicies.Pod{
-				Name: "elasticsearch-logging",
-				Labels: labels.Set{
-					"app":                     "elasticsearch-logging",
-					"garden.sapcloud.io/role": "logging",
-					"role":                    "logging"},
-				ShootVersionConstraint: "",
-				SeedClusterConstraints: sets.String(nil)},
-			Ports: []networkpolicies.Port{
-				networkpolicies.Port{
-					Port: 9200,
-					Name: "http"},
-				networkpolicies.Port{
-					Port: 9114,
-					Name: "metrics"}},
-			ExpectedPolicies: sets.String{
-				"allow-elasticsearch":   sets.Empty{},
-				"allow-from-prometheus": sets.Empty{},
-				"deny-all":              sets.Empty{}}}
-		ElasticsearchLogging9114 = &networkpolicies.TargetPod{
-			Pod: networkpolicies.Pod{
-				Name: "elasticsearch-logging",
-				Labels: labels.Set{
-					"app":                     "elasticsearch-logging",
-					"garden.sapcloud.io/role": "logging",
-					"role":                    "logging"},
-				ShootVersionConstraint: "",
-				SeedClusterConstraints: sets.String(nil)},
-			Port: networkpolicies.Port{
-				Port: 9114,
-				Name: "metrics"}}
-		ElasticsearchLogging9200 = &networkpolicies.TargetPod{
-			Pod: networkpolicies.Pod{
-				Name: "elasticsearch-logging",
-				Labels: labels.Set{
-					"app":                     "elasticsearch-logging",
-					"garden.sapcloud.io/role": "logging",
-					"role":                    "logging"},
-				ShootVersionConstraint: "",
-				SeedClusterConstraints: sets.String(nil)},
-			Port: networkpolicies.Port{
-				Port: 9200,
-				Name: "http"}}
 		EtcdEvents = &networkpolicies.SourcePod{
 			Pod: networkpolicies.Pod{
 				Name: "etcd-events",
@@ -388,36 +344,6 @@ var _ = Describe("Network Policy Testing", func() {
 				SeedClusterConstraints: sets.String(nil)},
 			Port: networkpolicies.Port{
 				Port: 3000,
-				Name: ""}}
-		KibanaLogging = &networkpolicies.SourcePod{
-			Pod: networkpolicies.Pod{
-				Name: "kibana-logging",
-				Labels: labels.Set{
-					"app":                     "kibana-logging",
-					"garden.sapcloud.io/role": "logging",
-					"role":                    "logging"},
-				ShootVersionConstraint: "",
-				SeedClusterConstraints: sets.String(nil)},
-			Ports: []networkpolicies.Port{
-				networkpolicies.Port{
-					Port: 5601,
-					Name: ""}},
-			ExpectedPolicies: sets.String{
-				"allow-kibana":           sets.Empty{},
-				"allow-to-dns":           sets.Empty{},
-				"allow-to-elasticsearch": sets.Empty{},
-				"deny-all":               sets.Empty{}}}
-		KibanaLogging5601 = &networkpolicies.TargetPod{
-			Pod: networkpolicies.Pod{
-				Name: "kibana-logging",
-				Labels: labels.Set{
-					"app":                     "kibana-logging",
-					"garden.sapcloud.io/role": "logging",
-					"role":                    "logging"},
-				ShootVersionConstraint: "",
-				SeedClusterConstraints: sets.String(nil)},
-			Port: networkpolicies.Port{
-				Port: 5601,
 				Name: ""}}
 		KubeApiserver = &networkpolicies.SourcePod{
 			Pod: networkpolicies.Pod{
@@ -636,6 +562,35 @@ var _ = Describe("Network Policy Testing", func() {
 			Port: networkpolicies.Port{
 				Port: 8080,
 				Name: ""}}
+		Loki = &networkpolicies.SourcePod{
+			Pod: networkpolicies.Pod{
+				Name: "loki",
+				Labels: labels.Set{
+					"app":                 "loki",
+					"gardener.cloud/role": "logging",
+					"role":                "logging"},
+				ShootVersionConstraint: "",
+				SeedClusterConstraints: sets.String(nil)},
+			Ports: []networkpolicies.Port{
+				networkpolicies.Port{
+					Port: 3100,
+					Name: "metrics"}},
+			ExpectedPolicies: sets.String{
+				"allow-from-prometheus": sets.Empty{},
+				"allow-loki":            sets.Empty{},
+				"deny-all":              sets.Empty{}}}
+		Loki3100 = &networkpolicies.TargetPod{
+			Pod: networkpolicies.Pod{
+				Name: "loki",
+				Labels: labels.Set{
+					"app":                 "loki",
+					"gardener.cloud/role": "logging",
+					"role":                "logging"},
+				ShootVersionConstraint: "",
+				SeedClusterConstraints: sets.String(nil)},
+			Port: networkpolicies.Port{
+				Port: 3100,
+				Name: "metrics"}}
 		MachineControllerManager = &networkpolicies.SourcePod{
 			Pod: networkpolicies.Pod{
 				Name: "machine-controller-manager",
@@ -846,11 +801,10 @@ var _ = Describe("Network Policy Testing", func() {
 			AwsLbReadvertiser,
 			CloudControllerManagerHttp,
 			CloudControllerManagerHttps,
-			ElasticsearchLogging,
+			Loki,
 			EtcdEvents,
 			EtcdMain,
 			Grafana,
-			KibanaLogging,
 			KubeApiserver,
 			KubeControllerManagerHttp,
 			KubeControllerManagerHttps,
@@ -962,7 +916,6 @@ var _ = Describe("Network Policy Testing", func() {
 			deprecatedKubeAPIServerPolicy = "kube-apiserver-default"
 			deprecatedMetadataAppPolicy   = "cloud-metadata-service-deny-blacklist-app"
 			deprecatedMetadataRolePolicy  = "cloud-metadata-service-deny-blacklist-role"
-			deprecatedKibanaLogging       = "kibana-logging"
 		)
 
 		var (
@@ -980,7 +933,6 @@ var _ = Describe("Network Policy Testing", func() {
 		DefaultCIt(deprecatedKubeAPIServerPolicy, assertPolicyIsGone(deprecatedKubeAPIServerPolicy))
 		DefaultCIt(deprecatedMetadataAppPolicy, assertPolicyIsGone(deprecatedMetadataAppPolicy))
 		DefaultCIt(deprecatedMetadataRolePolicy, assertPolicyIsGone(deprecatedMetadataRolePolicy))
-		DefaultCIt(deprecatedMetadataRolePolicy, assertPolicyIsGone(deprecatedKibanaLogging))
 	})
 
 	Context("components are selected by correct policies", func() {
@@ -1020,9 +972,8 @@ var _ = Describe("Network Policy Testing", func() {
 		DefaultCIt(`etcd-events`, assertHasNetworkPolicy(EtcdEvents))
 		DefaultCIt(`cloud-controller-manager-http`, assertHasNetworkPolicy(CloudControllerManagerHttp))
 		DefaultCIt(`cloud-controller-manager-https`, assertHasNetworkPolicy(CloudControllerManagerHttps))
-		DefaultCIt(`elasticsearch-logging`, assertHasNetworkPolicy(ElasticsearchLogging))
+		DefaultCIt(`loki`, assertHasNetworkPolicy(Loki))
 		DefaultCIt(`grafana`, assertHasNetworkPolicy(Grafana))
-		DefaultCIt(`kibana-logging`, assertHasNetworkPolicy(KibanaLogging))
 		DefaultCIt(`gardener-resource-manager`, assertHasNetworkPolicy(GardenerResourceManager))
 		DefaultCIt(`kube-controller-manager-http`, assertHasNetworkPolicy(KubeControllerManagerHttp))
 		DefaultCIt(`kube-controller-manager-https`, assertHasNetworkPolicy(KubeControllerManagerHttps))
@@ -1049,12 +1000,10 @@ var _ = Describe("Network Policy Testing", func() {
 		DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertBlockIngress(AwsLbReadvertiser8080, false))
 		DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertBlockIngress(CloudControllerManagerHttp10253, false))
 		DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertBlockIngress(CloudControllerManagerHttps10258, false))
-		DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertBlockIngress(ElasticsearchLogging9200, false))
-		DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertBlockIngress(ElasticsearchLogging9114, false))
+		DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertBlockIngress(Loki3100, false))
 		DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertBlockIngress(EtcdEvents2379, false))
 		DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertBlockIngress(EtcdMain2379, false))
 		DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertBlockIngress(Grafana3000, false))
-		DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertBlockIngress(KibanaLogging5601, false))
 		DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertBlockIngress(KubeApiserver443, true))
 		DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertBlockIngress(KubeControllerManagerHttp10252, false))
 		DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertBlockIngress(KubeControllerManagerHttps10257, false))
@@ -1081,9 +1030,8 @@ var _ = Describe("Network Policy Testing", func() {
 		DefaultCIt(`should block connectivity from etcd-events to busybox`, assertBlockEgresss(EtcdEvents))
 		DefaultCIt(`should block connectivity from cloud-controller-manager-http to busybox`, assertBlockEgresss(CloudControllerManagerHttp))
 		DefaultCIt(`should block connectivity from cloud-controller-manager-https to busybox`, assertBlockEgresss(CloudControllerManagerHttps))
-		DefaultCIt(`should block connectivity from elasticsearch-logging to busybox`, assertBlockEgresss(ElasticsearchLogging))
+		DefaultCIt(`should block connectivity from loki to busybox`, assertBlockEgresss(Loki))
 		DefaultCIt(`should block connectivity from grafana to busybox`, assertBlockEgresss(Grafana))
-		DefaultCIt(`should block connectivity from kibana-logging to busybox`, assertBlockEgresss(KibanaLogging))
 		DefaultCIt(`should block connectivity from gardener-resource-manager to busybox`, assertBlockEgresss(GardenerResourceManager))
 		DefaultCIt(`should block connectivity from kube-controller-manager-http to busybox`, assertBlockEgresss(KubeControllerManagerHttp))
 		DefaultCIt(`should block connectivity from kube-controller-manager-https to busybox`, assertBlockEgresss(KubeControllerManagerHttps))
@@ -1111,9 +1059,8 @@ var _ = Describe("Network Policy Testing", func() {
 		DefaultCIt(`should block connectivity from etcd-events`, assertBlockToSeedNodes(EtcdEvents))
 		DefaultCIt(`should block connectivity from cloud-controller-manager-http`, assertBlockToSeedNodes(CloudControllerManagerHttp))
 		DefaultCIt(`should block connectivity from cloud-controller-manager-https`, assertBlockToSeedNodes(CloudControllerManagerHttps))
-		DefaultCIt(`should block connectivity from elasticsearch-logging`, assertBlockToSeedNodes(ElasticsearchLogging))
+		DefaultCIt(`should block connectivity from loki`, assertBlockToSeedNodes(Loki))
 		DefaultCIt(`should block connectivity from grafana`, assertBlockToSeedNodes(Grafana))
-		DefaultCIt(`should block connectivity from kibana-logging`, assertBlockToSeedNodes(KibanaLogging))
 		DefaultCIt(`should block connectivity from gardener-resource-manager`, assertBlockToSeedNodes(GardenerResourceManager))
 		DefaultCIt(`should block connectivity from kube-controller-manager-http`, assertBlockToSeedNodes(KubeControllerManagerHttp))
 		DefaultCIt(`should block connectivity from kube-controller-manager-https`, assertBlockToSeedNodes(KubeControllerManagerHttps))
@@ -1154,12 +1101,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should allow connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, true))
 			DefaultCIt(`should allow connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, true))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
 			DefaultCIt(`should block connection to Pod "kube-scheduler-http" at port 10251`, assertEgresssToMirroredPod(KubeSchedulerHttp10251, false))
@@ -1184,11 +1129,9 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should block connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1213,11 +1156,9 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should block connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1241,12 +1182,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "gardener-resource-manager" at port 8080`, assertEgresssToMirroredPod(GardenerResourceManager8080, false))
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1270,12 +1209,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "gardener-resource-manager" at port 8080`, assertEgresssToMirroredPod(GardenerResourceManager8080, false))
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1290,10 +1227,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to "Garden Prometheus" prometheus-web.garden:80`, assertEgresssToHost(GardenPrometheusPort80, false))
 		})
 
-		Context("elasticsearch-logging", func() {
+		Context("loki", func() {
 
 			BeforeEach(func() {
-				from = networkpolicies.NewNamespacedSourcePod(ElasticsearchLogging, sharedResources.Mirror)
+				from = networkpolicies.NewNamespacedSourcePod(Loki, sharedResources.Mirror)
 			})
 
 			DefaultCIt(`should block connection to Pod "gardener-resource-manager" at port 8080`, assertEgresssToMirroredPod(GardenerResourceManager8080, false))
@@ -1303,7 +1240,6 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should block connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1328,11 +1264,9 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should allow connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, true))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should block connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1347,35 +1281,6 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to "Garden Prometheus" prometheus-web.garden:80`, assertEgresssToHost(GardenPrometheusPort80, false))
 		})
 
-		Context("kibana-logging", func() {
-
-			BeforeEach(func() {
-				from = networkpolicies.NewNamespacedSourcePod(KibanaLogging, sharedResources.Mirror)
-			})
-
-			DefaultCIt(`should block connection to Pod "gardener-resource-manager" at port 8080`, assertEgresssToMirroredPod(GardenerResourceManager8080, false))
-			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
-			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
-			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should allow connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, true))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
-			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
-			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
-			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, false))
-			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
-			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
-			DefaultCIt(`should block connection to Pod "kube-scheduler-http" at port 10251`, assertEgresssToMirroredPod(KubeSchedulerHttp10251, false))
-			DefaultCIt(`should block connection to Pod "kube-scheduler-https" at port 10259`, assertEgresssToMirroredPod(KubeSchedulerHttps10259, false))
-			DefaultCIt(`should block connection to Pod "kube-state-metrics-seed" at port 8080`, assertEgresssToMirroredPod(KubeStateMetricsSeed8080, false))
-			DefaultCIt(`should block connection to Pod "kube-state-metrics-shoot" at port 8080`, assertEgresssToMirroredPod(KubeStateMetricsShoot8080, false))
-			DefaultCIt(`should block connection to Pod "machine-controller-manager" at port 10258`, assertEgresssToMirroredPod(MachineControllerManager10258, false))
-			DefaultCIt(`should block connection to Pod "prometheus" at port 9090`, assertEgresssToMirroredPod(Prometheus9090, false))
-			DefaultCIt(`should block connection to "Metadata service" 169.254.169.254:80`, assertEgresssToHost(MetadataservicePort80, false))
-			DefaultCIt(`should block connection to "External host" 8.8.8.8:53`, assertEgresssToHost(ExternalhostPort53, false))
-			DefaultCIt(`should block connection to "Garden Prometheus" prometheus-web.garden:80`, assertEgresssToHost(GardenPrometheusPort80, false))
-		})
-
 		Context("gardener-resource-manager", func() {
 
 			BeforeEach(func() {
@@ -1385,12 +1290,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1416,12 +1319,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
 			DefaultCIt(`should block connection to Pod "kube-scheduler-http" at port 10251`, assertEgresssToMirroredPod(KubeSchedulerHttp10251, false))
@@ -1445,12 +1346,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-scheduler-http" at port 10251`, assertEgresssToMirroredPod(KubeSchedulerHttp10251, false))
@@ -1474,12 +1373,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1503,12 +1400,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1532,12 +1427,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1561,12 +1454,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should block connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1591,12 +1482,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1620,12 +1509,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "gardener-resource-manager" at port 8080`, assertEgresssToMirroredPod(GardenerResourceManager8080, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, false))
 			DefaultCIt(`should block connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, false))
+			DefaultCIt(`should block connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, false))
 			DefaultCIt(`should block connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, false))
 			DefaultCIt(`should block connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, false))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, false))
 			DefaultCIt(`should block connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, false))
@@ -1651,12 +1538,10 @@ var _ = Describe("Network Policy Testing", func() {
 			DefaultCIt(`should block connection to Pod "aws-lb-readvertiser" at port 8080`, assertEgresssToMirroredPod(AwsLbReadvertiser8080, false))
 			DefaultCIt(`should allow connection to Pod "cloud-controller-manager-http" at port 10253`, assertEgresssToMirroredPod(CloudControllerManagerHttp10253, true))
 			DefaultCIt(`should allow connection to Pod "cloud-controller-manager-https" at port 10258`, assertEgresssToMirroredPod(CloudControllerManagerHttps10258, true))
-			DefaultCIt(`should block connection to Pod "elasticsearch-logging" at port 9200`, assertEgresssToMirroredPod(ElasticsearchLogging9200, false))
-			DefaultCIt(`should allow connection to Pod "elasticsearch-logging" at port 9114`, assertEgresssToMirroredPod(ElasticsearchLogging9114, true))
+			DefaultCIt(`should allow connection to Pod "loki" at port 3100`, assertEgresssToMirroredPod(Loki3100, true))
 			DefaultCIt(`should allow connection to Pod "etcd-events" at port 2379`, assertEgresssToMirroredPod(EtcdEvents2379, true))
 			DefaultCIt(`should allow connection to Pod "etcd-main" at port 2379`, assertEgresssToMirroredPod(EtcdMain2379, true))
 			DefaultCIt(`should block connection to Pod "grafana" at port 3000`, assertEgresssToMirroredPod(Grafana3000, false))
-			DefaultCIt(`should block connection to Pod "kibana-logging" at port 5601`, assertEgresssToMirroredPod(KibanaLogging5601, false))
 			DefaultCIt(`should allow connection to Pod "kube-apiserver" at port 443`, assertEgresssToMirroredPod(KubeApiserver443, true))
 			DefaultCIt(`should allow connection to Pod "kube-controller-manager-http" at port 10252`, assertEgresssToMirroredPod(KubeControllerManagerHttp10252, true))
 			DefaultCIt(`should allow connection to Pod "kube-controller-manager-https" at port 10257`, assertEgresssToMirroredPod(KubeControllerManagerHttps10257, true))
