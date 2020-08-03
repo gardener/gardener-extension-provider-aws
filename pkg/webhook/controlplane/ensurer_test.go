@@ -19,11 +19,8 @@ import (
 	"testing"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
-	"github.com/coreos/go-systemd/unit"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/csimigration"
-	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/test"
@@ -32,6 +29,8 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener/pkg/utils/version"
+
+	"github.com/coreos/go-systemd/unit"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 )
@@ -674,7 +674,7 @@ done
 
 		It("should modify existing elements of kubernetes general configuration", func() {
 			var (
-				modifiedData = util.StringPtr("# Default Socket Send Buffer\n" +
+				modifiedData = pointer.StringPtr("# Default Socket Send Buffer\n" +
 					"net.core.wmem_max = 16777216\n" +
 					"# AWS specific settings\n" +
 					"# See https://github.com/kubernetes/kubernetes/issues/23395\n" +
@@ -697,7 +697,7 @@ done
 
 		It("should add needed elements of kubernetes general configuration", func() {
 			var (
-				data   = util.StringPtr("# Default Socket Send Buffer\nnet.core.wmem_max = 16777216")
+				data   = pointer.StringPtr("# Default Socket Send Buffer\nnet.core.wmem_max = 16777216")
 				result = "# Default Socket Send Buffer\n" +
 					"net.core.wmem_max = 16777216\n" +
 					"# AWS specific settings\n" +

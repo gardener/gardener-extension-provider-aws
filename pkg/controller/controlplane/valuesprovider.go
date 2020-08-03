@@ -22,13 +22,10 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
-	"github.com/gardener/gardener/extensions/pkg/controller/controlplane"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
-	"github.com/gardener/gardener/extensions/pkg/util"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -36,6 +33,7 @@ import (
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/secrets"
 	"github.com/gardener/gardener/pkg/utils/version"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -81,7 +79,7 @@ var (
 					CertificateSecretConfig: &secrets.CertificateSecretConfig{
 						Name:       cloudControllerManagerServerName,
 						CommonName: aws.CloudControllerManagerName,
-						DNSNames:   controlplane.DNSNamesForService(aws.CloudControllerManagerName, clusterName),
+						DNSNames:   kutil.DNSNamesForService(aws.CloudControllerManagerName, clusterName),
 						CertType:   secrets.ServerCert,
 						SigningCA:  cas[v1beta1constants.SecretNameCACluster],
 					},
@@ -327,7 +325,7 @@ func (vp *valuesProvider) GetConfigChartValues(
 	infraStatus := &apisaws.InfrastructureStatus{}
 	if cp.Spec.InfrastructureProviderStatus != nil {
 		if _, _, err := vp.Decoder().Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
-			return nil, errors.Wrapf(err, "could not decode infrastructureProviderStatus of controlplane '%s'", util.ObjectName(cp))
+			return nil, errors.Wrapf(err, "could not decode infrastructureProviderStatus of controlplane '%s'", kutil.ObjectName(cp))
 		}
 	}
 
@@ -347,7 +345,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
 		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, errors.Wrapf(err, "could not decode providerConfig of controlplane '%s'", util.ObjectName(cp))
+			return nil, errors.Wrapf(err, "could not decode providerConfig of controlplane '%s'", kutil.ObjectName(cp))
 		}
 	}
 
@@ -415,7 +413,7 @@ func getConfigChartValues(
 	// Get the first subnet with purpose "public"
 	subnet, err := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposePublic)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not determine subnet from infrastructureProviderStatus of controlplane '%s'", util.ObjectName(cp))
+		return nil, errors.Wrapf(err, "could not determine subnet from infrastructureProviderStatus of controlplane '%s'", kutil.ObjectName(cp))
 	}
 
 	// Collect config chart values
