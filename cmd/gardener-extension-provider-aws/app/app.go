@@ -34,8 +34,8 @@ import (
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
+	genericcontrolplaneactuator "github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
-	"github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
@@ -184,19 +184,17 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			}
 			awscontrolplane.DefaultAddOptions.ShootWebhooks = shootWebhooks
 
-			if err := controllerSwitches.Completed().AddToManager(mgr); err != nil {
-				controllercmd.LogErrAndExit(err, "Could not add controllers to manager")
-			}
-
-			// Cleanup leaked ClusterRoles from worker controller.
-			// See https://github.com/gardener-attic/gardener-extensions/pull/378/files and https://github.com/gardener/gardener/issues/2144.
-			// TODO: This code can be removed in a future version.
+			// Update shoot webhook configuration in case the webhook server port has changed.
 			c, err := client.New(restOpts.Completed().Config, client.Options{})
 			if err != nil {
-				controllercmd.LogErrAndExit(err, "Error creating client for orphaned ClusterRole cleanup")
+				controllercmd.LogErrAndExit(err, "Error creating client for startup tasks")
 			}
-			if err := genericactuator.CleanupLeakedClusterRoles(ctx, c, aws.Name); err != nil {
-				controllercmd.LogErrAndExit(err, "Error cleaning up leaked worker controller ClusterRoles")
+			if err := genericcontrolplaneactuator.ReconcileShootWebhooksForAllNamespaces(ctx, c, aws.Name, aws.Type, mgr.GetWebhookServer().Port, shootWebhooks); err != nil {
+				controllercmd.LogErrAndExit(err, "Error ensuring shoot webhooks in all namespaces")
+			}
+
+			if err := controllerSwitches.Completed().AddToManager(mgr); err != nil {
+				controllercmd.LogErrAndExit(err, "Could not add controllers to manager")
 			}
 
 			if err := mgr.Start(ctx.Done()); err != nil {
