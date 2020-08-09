@@ -23,54 +23,52 @@ import (
 	"path/filepath"
 	"reflect"
 	"text/template"
-
-	awsinternal "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
+	. "github.com/gardener/gardener-extension-provider-aws/test/integration/infrastructure"
+
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/iam/iamiface"
-	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/aws/aws-sdk-go/service/sts/stsiface"
-	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/chartrenderer"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
+	"github.com/gardener/gardener/pkg/operation/common"
+	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/rest"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+)
+
+const (
+	s3GatewayEndpoint = "s3"
+	vpcCIDR           = "10.250.0.0/16"
 )
 
 var (
-	// `kubecfg` is a workaround:
-	// --kubeconfig gets registered from `sigs.k8s.io/controller-runtime/pkg/client/config/config.go`
-	// see https://github.com/kubernetes-sigs/controller-runtime/blob/d286bb5db482ae03591f5af79570adfa2b4011b0/pkg/client/config/config.go#L38
-	kubeconfig      = flag.String("kubecfg", "", "the path to the kubeconfig that shall be used for the test")
 	accessKeyID     = flag.String("access-key-id", "", "AWS access key id")
 	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
 	region          = flag.String("region", "", "AWS region")
 )
 
 func validateFlags() {
-	if len(*kubeconfig) == 0 {
-		panic("need a path to a kubeconfig in order to execute terraformer pod")
-	}
 	if len(*accessKeyID) == 0 {
 		panic("need an AWS access key id")
 	}
@@ -82,193 +80,519 @@ func validateFlags() {
 	}
 }
 
-type awsClient struct {
-	EC2 ec2iface.EC2API
-	IAM iamiface.IAMAPI
-	STS stsiface.STSAPI
-}
-
-func newAWSClient(accessKeyID, secretAccessKey, region string) *awsClient {
-	var (
-		awsConfig    = &awssdk.Config{Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, "")}
-		regionConfig = &awssdk.Config{Region: &region}
-	)
-
-	s, err := session.NewSession(awsConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	return &awsClient{
-		EC2: ec2.New(s, regionConfig),
-		IAM: iam.New(s, regionConfig),
-		STS: sts.New(s, regionConfig),
-	}
-}
-
 var _ = Describe("Infrastructure tests", func() {
 	var (
 		ctx    = context.Background()
-		logger = log.Log.WithName("test")
+		logger *logrus.Entry
 
-		awsClient *awsClient
-		accountID string
+		testEnv   *envtest.Environment
+		mgrCancel context.CancelFunc
+		c         client.Client
+		decoder   runtime.Decoder
 
-		restConfig *rest.Config
-		c          client.Client
-
-		scheme        *runtime.Scheme
-		decoder       runtime.Decoder
-		chartRenderer chartrenderer.Interface
+		awsClient *awsclient.Client
 
 		internalChartsPath string
-
-		namespace                 *corev1.Namespace
-		infra                     *extensionsv1alpha1.Infrastructure
-		infrastructureIdentifiers infrastructureIdentifiers
 	)
 
 	BeforeSuite(func() {
+		internalChartsPath = aws.InternalChartsPath
+		repoRoot := filepath.Join("..", "..", "..")
+		aws.InternalChartsPath = filepath.Join(repoRoot, aws.InternalChartsPath)
+
+		// enable manager logs
+		logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+
+		log := logrus.New()
+		log.SetOutput(GinkgoWriter)
+		logger = logrus.NewEntry(log)
+
+		By("starting test environment")
+		testEnv = &envtest.Environment{
+			UseExistingCluster: pointer.BoolPtr(true),
+			CRDInstallOptions: envtest.CRDInstallOptions{
+				Paths: []string{
+					filepath.Join(repoRoot, "example", "20-crd-cluster.yaml"),
+					filepath.Join(repoRoot, "example", "20-crd-infrastructure.yaml"),
+				},
+			},
+		}
+
+		cfg, err := testEnv.Start()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(cfg).ToNot(BeNil())
+
+		By("setup manager")
+		mgr, err := manager.New(cfg, manager.Options{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
+		Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
+
+		Expect(infrastructure.AddToManager(mgr)).To(Succeed())
+
+		var mgrContext context.Context
+		mgrContext, mgrCancel = context.WithCancel(ctx)
+
+		By("start manager")
+		go func() {
+			err := mgr.Start(mgrContext.Done())
+			Expect(err).NotTo(HaveOccurred())
+		}()
+
+		c = mgr.GetClient()
+		Expect(c).ToNot(BeNil())
+		decoder = serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder()
+
 		flag.Parse()
 		validateFlags()
 
-		internalChartsPath = aws.InternalChartsPath
-		aws.InternalChartsPath = filepath.Join("..", "..", "..", aws.InternalChartsPath)
-
-		awsClient = newAWSClient(*accessKeyID, *secretAccessKey, *region)
-
-		getCallerIdentityOutput, err := awsClient.STS.GetCallerIdentityWithContext(ctx, &sts.GetCallerIdentityInput{})
+		awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(getCallerIdentityOutput.Account).NotTo(BeNil())
-		Expect(getCallerIdentityOutput.Account).NotTo(PointTo(BeEmpty()))
-		accountID = *getCallerIdentityOutput.Account
-
-		k8sClient, err := kubernetes.NewClientFromFile("", *kubeconfig)
-		Expect(err).NotTo(HaveOccurred())
-
-		restConfig = k8sClient.RESTConfig()
-		c = k8sClient.Client()
-
-		chartRenderer = k8sClient.ChartRenderer()
 	})
 
 	AfterSuite(func() {
-		By("delete infrastructure")
-		Expect(infrastructure.Delete(ctx, logger, restConfig, c, infra)).NotTo(HaveOccurred())
-		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).NotTo(HaveOccurred())
+		defer func() {
+			By("stopping manager")
+			mgrCancel()
+		}()
 
-		By("verify infrastructure deletion")
-		verifyDeletion(ctx, awsClient, infrastructureIdentifiers)
+		By("running cleanup actions")
+		RunCleanupActions()
+
+		By("stopping test environment")
+		Expect(testEnv.Stop()).To(Succeed())
 
 		aws.InternalChartsPath = internalChartsPath
 	})
 
-	BeforeEach(func() {
-		scheme = runtime.NewScheme()
-		Expect(awsinternal.AddToScheme(scheme)).To(Succeed())
-		Expect(awsv1alpha1.AddToScheme(scheme)).To(Succeed())
-		decoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
+	Context("with infrastructure that requests new vpc (networks.vpc.cidr)", func() {
+		It("should successfully create and delete", func() {
+			providerConfig, err := newProviderConfig(awsv1alpha1.VPC{
+				CIDR:             pointer.StringPtr(vpcCIDR),
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = runTest(ctx, logger, c, namespace, providerConfig, decoder, awsClient)
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 
-	Describe("#Reconcile, #Delete", func() {
-		const (
-			secretName = "cloudprovider"
+	Context("with infrastructure that uses existing vpc (networks.vpc.id)", func() {
+		It("should fail to create when required vpc attribute is not enabled", func() {
+			enableDnsHostnames := false
+			vpcID, err := prepareNewVPC(ctx, logger, awsClient, vpcCIDR, enableDnsHostnames)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vpcID).NotTo(BeEmpty())
 
-			gatewayEndpoint = "s3"
-			internalCIDR    = "10.250.112.0/22"
-			publicCIDR      = "10.250.96.0/22"
-			workersCIDR     = "10.250.0.0/19"
-		)
+			providerConfig, err := newProviderConfig(awsv1alpha1.VPC{
+				ID:               &vpcID,
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			})
+			Expect(err).NotTo(HaveOccurred())
 
-		var (
-			availabilityZone string
-			cidr             *string
-			sshPublicKey     []byte
-		)
+			AddCleanupAction(func() {
+				err := teardownVPC(ctx, logger, awsClient, vpcID)
+				Expect(err).NotTo(HaveOccurred())
+			})
 
-		BeforeEach(func() {
-			availabilityZone = *region + "a"
-			cidr = pointer.StringPtr("10.250.0.0/16")
-			sshPublicKey = []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDcSZKq0lM9w+ElLp9I9jFvqEFbOV1+iOBX7WEe66GvPLOWl9ul03ecjhOf06+FhPsWFac1yaxo2xj+SJ+FVZ3DdSn4fjTpS9NGyQVPInSZveetRw0TV0rbYCFBTJuVqUFu6yPEgdcWq8dlUjLqnRNwlelHRcJeBfACBZDLNSxjj0oUz7ANRNCEne1ecySwuJUAz3IlNLPXFexRT0alV7Nl9hmJke3dD73nbeGbQtwvtu8GNFEoO4Eu3xOCKsLw6ILLo4FBiFcYQOZqvYZgCb4ncKM52bnABagG54upgBMZBRzOJvWp0ol+jK3Em7Vb6ufDTTVNiQY78U6BAlNZ8Xg+LUVeyk1C6vWjzAQf02eRvMdfnRCFvmwUpzbHWaVMsQm8gf3AgnTUuDR0ev1nQH/5892wZA86uLYW/wLiiSbvQsqtY1jSn9BAGFGdhXgWLAkGsd/E1vOT+vDcor6/6KjHBm0rG697A3TDBRkbXQ/1oFxcM9m17RteCaXuTiAYWMqGKDoJvTMDc4L+Uvy544pEfbOH39zfkIYE76WLAFPFsUWX6lXFjQrX3O7vEV73bCHoJnwzaNd03PSdJOw+LCzrTmxVezwli3F9wUDiBRB0HkQxIXQmncc1HSecCKALkogIK+1e1OumoWh6gPdkF4PlTMUxRitrwPWSaiUIlPfCpQ== your_email@example.com")
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = runTest(ctx, logger, c, namespace, providerConfig, decoder, awsClient)
+			Expect(err).To(HaveOccurred())
+
+			By("verify infrastructure status")
+			infra := &extensionsv1alpha1.Infrastructure{}
+			err = c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: "infrastructure"}, infra)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(infra.Status.LastError).NotTo(BeNil())
+			Expect(infra.Status.LastError.Description).To(ContainSubstring("invalid VPC attributes: `enableDnsHostnames` must be set to `true`"))
 		})
 
-		It("should correctly create and delete the expected AWS resources", func() {
-			By("create namespace for test execution")
-			namespace = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "provider-aws-test-",
-				},
-			}
-			Expect(c.Create(ctx, namespace)).NotTo(HaveOccurred())
+		It("should successfully create and delete", func() {
+			enableDnsHostnames := true
+			vpcID, err := prepareNewVPC(ctx, logger, awsClient, vpcCIDR, enableDnsHostnames)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vpcID).NotTo(BeEmpty())
 
-			By("deploy cloudprovider secret into namespace")
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secretName,
-					Namespace: namespace.Name,
-				},
-				Data: map[string][]byte{
-					aws.AccessKeyID:     []byte(*accessKeyID),
-					aws.SecretAccessKey: []byte(*secretAccessKey),
-				},
-			}
-			Expect(c.Create(ctx, secret)).NotTo(HaveOccurred())
-
-			providerConfig := awsv1alpha1.InfrastructureConfig{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
-					Kind:       "InfrastructureConfig",
-				},
-				EnableECRAccess: pointer.BoolPtr(true),
-				Networks: awsv1alpha1.Networks{
-					VPC: awsv1alpha1.VPC{
-						CIDR:             cidr,
-						GatewayEndpoints: []string{gatewayEndpoint},
-					},
-					Zones: []awsv1alpha1.Zone{
-						{
-							Name:     availabilityZone,
-							Internal: internalCIDR,
-							Public:   publicCIDR,
-							Workers:  workersCIDR,
-						},
-					},
-				},
-			}
-			providerConfigJSON, err := json.Marshal(providerConfig)
+			providerConfig, err := newProviderConfig(awsv1alpha1.VPC{
+				ID:               &vpcID,
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			})
 			Expect(err).NotTo(HaveOccurred())
 
-			infra = &extensionsv1alpha1.Infrastructure{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "infrastructure",
-					Namespace: namespace.Name,
-				},
-				Spec: extensionsv1alpha1.InfrastructureSpec{
-					DefaultSpec: extensionsv1alpha1.DefaultSpec{
-						Type: aws.Type,
-						ProviderConfig: &runtime.RawExtension{
-							Raw: providerConfigJSON,
-						},
-					},
-					SecretRef: corev1.SecretReference{
-						Name:      secretName,
-						Namespace: namespace.Name,
-					},
-					Region:       *region,
-					SSHPublicKey: sshPublicKey,
-				},
-			}
+			AddCleanupAction(func() {
+				err := teardownVPC(ctx, logger, awsClient, vpcID)
+				Expect(err).NotTo(HaveOccurred())
+			})
 
-			By("reconcile infrastructure")
-			infraStatus, _, err := infrastructure.Reconcile(ctx, restConfig, c, decoder, chartRenderer, infra, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
+			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			By("verify infrastructure reconciliation")
-			infrastructureIdentifiers = verifyReconciliation(ctx, awsClient, infra, infraStatus, providerConfig, accountID,
-				availabilityZone, cidr, internalCIDR, workersCIDR, publicCIDR, gatewayEndpoint)
+			err = runTest(ctx, logger, c, namespace, providerConfig, decoder, awsClient)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })
+
+func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespaceName string, providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client) error {
+	var (
+		namespace                 *corev1.Namespace
+		cluster                   *extensionsv1alpha1.Cluster
+		infra                     *extensionsv1alpha1.Infrastructure
+		infrastructureIdentifiers infrastructureIdentifiers
+	)
+
+	AddCleanupAction(func() {
+		By("delete infrastructure")
+		Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
+
+		By("wait until infrastructure is deleted")
+		err := common.WaitUntilExtensionCRDeleted(
+			ctx,
+			c,
+			logger,
+			func() extensionsv1alpha1.Object { return &extensionsv1alpha1.Infrastructure{} },
+			"Infrastructure",
+			infra.Namespace,
+			infra.Name,
+			10*time.Second,
+			16*time.Minute,
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify infrastructure deletion")
+		verifyDeletion(ctx, awsClient, infrastructureIdentifiers)
+
+		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
+		Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
+	})
+
+	By("create namespace for test execution")
+	namespace = &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespaceName,
+		},
+	}
+	if err := c.Create(ctx, namespace); err != nil {
+		return err
+	}
+
+	By("create cluster")
+	cluster = &extensionsv1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespaceName,
+		},
+	}
+	if err := c.Create(ctx, cluster); err != nil {
+		return err
+	}
+
+	By("deploy cloudprovider secret into namespace")
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloudprovider",
+			Namespace: namespaceName,
+		},
+		Data: map[string][]byte{
+			aws.AccessKeyID:     []byte(*accessKeyID),
+			aws.SecretAccessKey: []byte(*secretAccessKey),
+		},
+	}
+	if err := c.Create(ctx, secret); err != nil {
+		return err
+	}
+
+	By("create infrastructure")
+	infra, err := newInfrastructure(namespaceName, providerConfig)
+	if err != nil {
+		return err
+	}
+
+	if err := c.Create(ctx, infra); err != nil {
+		return err
+	}
+
+	By("wait until infrastructure is created")
+	if err := common.WaitUntilExtensionCRReady(
+		ctx,
+		c,
+		logger,
+		func() runtime.Object { return &extensionsv1alpha1.Infrastructure{} },
+		"Infrastucture",
+		infra.Namespace,
+		infra.Name,
+		10*time.Second,
+		30*time.Second,
+		16*time.Minute,
+		nil,
+	); err != nil {
+		return err
+	}
+
+	By("decode infrastucture status")
+	if err := c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra); err != nil {
+		return err
+	}
+
+	providerStatus := &awsv1alpha1.InfrastructureStatus{}
+	if _, _, err := decoder.Decode(infra.Status.ProviderStatus.Raw, nil, providerStatus); err != nil {
+		return err
+	}
+
+	By("verify infrastructure creation")
+	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, pointer.StringPtr(vpcCIDR), s3GatewayEndpoint)
+
+	return nil
+}
+
+func newProviderConfig(vpc awsv1alpha1.VPC) (*awsv1alpha1.InfrastructureConfig, error) {
+	availabilityZone := *region + "a"
+
+	return &awsv1alpha1.InfrastructureConfig{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "InfrastructureConfig",
+		},
+		EnableECRAccess: pointer.BoolPtr(true),
+		Networks: awsv1alpha1.Networks{
+			VPC: vpc,
+			Zones: []awsv1alpha1.Zone{
+				{
+					Name:     availabilityZone,
+					Internal: "10.250.112.0/22",
+					Public:   "10.250.96.0/22",
+					Workers:  "10.250.0.0/19",
+				},
+			},
+		},
+	}, nil
+}
+
+func newInfrastructure(namespace string, providerConfig *awsv1alpha1.InfrastructureConfig) (*extensionsv1alpha1.Infrastructure, error) {
+	const sshPublicKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDcSZKq0lM9w+ElLp9I9jFvqEFbOV1+iOBX7WEe66GvPLOWl9ul03ecjhOf06+FhPsWFac1yaxo2xj+SJ+FVZ3DdSn4fjTpS9NGyQVPInSZveetRw0TV0rbYCFBTJuVqUFu6yPEgdcWq8dlUjLqnRNwlelHRcJeBfACBZDLNSxjj0oUz7ANRNCEne1ecySwuJUAz3IlNLPXFexRT0alV7Nl9hmJke3dD73nbeGbQtwvtu8GNFEoO4Eu3xOCKsLw6ILLo4FBiFcYQOZqvYZgCb4ncKM52bnABagG54upgBMZBRzOJvWp0ol+jK3Em7Vb6ufDTTVNiQY78U6BAlNZ8Xg+LUVeyk1C6vWjzAQf02eRvMdfnRCFvmwUpzbHWaVMsQm8gf3AgnTUuDR0ev1nQH/5892wZA86uLYW/wLiiSbvQsqtY1jSn9BAGFGdhXgWLAkGsd/E1vOT+vDcor6/6KjHBm0rG697A3TDBRkbXQ/1oFxcM9m17RteCaXuTiAYWMqGKDoJvTMDc4L+Uvy544pEfbOH39zfkIYE76WLAFPFsUWX6lXFjQrX3O7vEV73bCHoJnwzaNd03PSdJOw+LCzrTmxVezwli3F9wUDiBRB0HkQxIXQmncc1HSecCKALkogIK+1e1OumoWh6gPdkF4PlTMUxRitrwPWSaiUIlPfCpQ== your_email@example.com"
+
+	providerConfigJSON, err := json.Marshal(&providerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &extensionsv1alpha1.Infrastructure{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "infrastructure",
+			Namespace: namespace,
+		},
+		Spec: extensionsv1alpha1.InfrastructureSpec{
+			DefaultSpec: extensionsv1alpha1.DefaultSpec{
+				Type: aws.Type,
+				ProviderConfig: &runtime.RawExtension{
+					Raw: providerConfigJSON,
+				},
+			},
+			SecretRef: corev1.SecretReference{
+				Name:      "cloudprovider",
+				Namespace: namespace,
+			},
+			Region:       *region,
+			SSHPublicKey: []byte(sshPublicKey),
+		},
+	}, nil
+}
+
+func generateNamespaceName() (string, error) {
+	suffix, err := gardenerutils.GenerateRandomStringFromCharset(5, "0123456789abcdefghijklmnopqrstuvwxyz")
+	if err != nil {
+		return "", err
+	}
+
+	return "shoot--it--" + suffix, nil
+}
+
+func prepareNewVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames bool) (string, error) {
+	entry := logger.WithField("test", "existing-vpc")
+
+	createVpcOutput, err := awsClient.EC2.CreateVpc(&ec2.CreateVpcInput{
+		CidrBlock: awssdk.String(vpcCIDR),
+	})
+	if err != nil {
+		return "", err
+	}
+	vpcID := createVpcOutput.Vpc.VpcId
+
+	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+		entry.Infof("Waiting until vpc '%s' is avaiable...", *vpcID)
+
+		describeVpcOutput, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
+			VpcIds: []*string{vpcID},
+		})
+		if err != nil {
+			return false, err
+		}
+
+		vpc := describeVpcOutput.Vpcs[0]
+		if *vpc.State != "available" {
+			return false, nil
+		}
+
+		return true, nil
+	}, ctx.Done()); err != nil {
+		return "", err
+	}
+
+	if enableDnsHostnames {
+		_, err = awsClient.EC2.ModifyVpcAttribute(&ec2.ModifyVpcAttributeInput{
+			EnableDnsHostnames: &ec2.AttributeBooleanValue{
+				Value: awssdk.Bool(true),
+			},
+			VpcId: vpcID,
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+
+	createIgwOutput, err := awsClient.EC2.CreateInternetGateway(&ec2.CreateInternetGatewayInput{})
+	if err != nil {
+		return "", err
+	}
+	igwID := createIgwOutput.InternetGateway.InternetGatewayId
+
+	_, err = awsClient.EC2.AttachInternetGateway(&ec2.AttachInternetGatewayInput{
+		InternetGatewayId: igwID,
+		VpcId:             vpcID,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+		entry.Infof("Waiting until internet gateway '%s' is attached to vpc '%s'...", *igwID, *vpcID)
+
+		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
+			InternetGatewayIds: []*string{igwID},
+		})
+		if err != nil {
+			return false, err
+		}
+
+		igw := describeIgwOutput.InternetGateways[0]
+		if len(igw.Attachments) == 0 {
+			return false, nil
+		}
+		if *igw.Attachments[0].State != "available" {
+			return false, nil
+		}
+
+		return true, nil
+	}, ctx.Done()); err != nil {
+		return "", err
+	}
+
+	return *vpcID, nil
+}
+
+func teardownVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcID string) error {
+	entry := logger.WithField("test", "existing-vpc")
+
+	describeInternetGatewaysOutput, err := awsClient.EC2.DescribeInternetGatewaysWithContext(ctx, &ec2.DescribeInternetGatewaysInput{Filters: []*ec2.Filter{
+		{
+			Name: awssdk.String("attachment.vpc-id"),
+			Values: []*string{
+				awssdk.String(vpcID),
+			},
+		},
+	}})
+	if err != nil {
+		return err
+	}
+	igwID := describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId
+
+	_, err = awsClient.EC2.DetachInternetGateway(&ec2.DetachInternetGatewayInput{
+		InternetGatewayId: igwID,
+		VpcId:             awssdk.String(vpcID),
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+		entry.Infof("Waiting until internet gateway '%s' is detached from vpc '%s'...", *igwID, vpcID)
+
+		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
+			InternetGatewayIds: []*string{igwID},
+		})
+		if err != nil {
+			return false, err
+		}
+		igw := describeIgwOutput.InternetGateways[0]
+
+		return len(igw.Attachments) == 0, nil
+	}, ctx.Done()); err != nil {
+		return err
+	}
+
+	_, err = awsClient.EC2.DeleteInternetGateway(&ec2.DeleteInternetGatewayInput{
+		InternetGatewayId: igwID,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+		entry.Infof("Waiting until internet gateway '%s' is deleted...", *igwID)
+
+		_, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
+			InternetGatewayIds: []*string{igwID},
+		})
+		if err != nil {
+			ec2err, ok := err.(awserr.Error)
+			if ok && ec2err.Code() == "InvalidInternetGatewayID.NotFound" {
+				return true, nil
+			}
+
+			return true, err
+		}
+
+		return false, nil
+	}, ctx.Done()); err != nil {
+		return err
+	}
+
+	_, err = awsClient.EC2.DeleteVpc(&ec2.DeleteVpcInput{
+		VpcId: &vpcID,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+		entry.Infof("Waiting until vpc '%s' is deleted...", vpcID)
+
+		_, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
+			VpcIds: []*string{&vpcID},
+		})
+		if err != nil {
+			ec2err, ok := err.(awserr.Error)
+			if ok && ec2err.Code() == "InvalidVpcID.NotFound" {
+				return true, nil
+			}
+
+			return true, err
+		}
+
+		return false, nil
+	}, ctx.Done()); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 type infrastructureIdentifiers struct {
 	vpcID                    *string
@@ -286,18 +610,13 @@ type infrastructureIdentifiers struct {
 	nodesRolePolicyName      *string
 }
 
-func verifyReconciliation(
+func verifyCreation(
 	ctx context.Context,
-	awsClient *awsClient,
+	awsClient *awsclient.Client,
 	infra *extensionsv1alpha1.Infrastructure,
 	infraStatus *awsv1alpha1.InfrastructureStatus,
-	providerConfig awsv1alpha1.InfrastructureConfig,
-	accountID string,
-	availabilityZone string,
+	providerConfig *awsv1alpha1.InfrastructureConfig,
 	cidr *string,
-	internalCIDR string,
-	workersCIDR string,
-	publicCIDR string,
 	gatewayEndpoint string,
 ) (
 	infrastructureIdentifier infrastructureIdentifiers,
@@ -315,14 +634,6 @@ func verifyReconciliation(
 	)
 
 	var (
-		nameFilter = []*ec2.Filter{
-			{
-				Name: awssdk.String("tag:Name"),
-				Values: []*string{
-					awssdk.String(infra.Namespace),
-				},
-			},
-		}
 		kubernetesTagFilter = []*ec2.Filter{
 			{
 				Name: awssdk.String("tag:" + kubernetesTagPrefix + infra.Namespace),
@@ -359,12 +670,14 @@ func verifyReconciliation(
 	Expect(describeVpcsOutput.Vpcs).To(HaveLen(1))
 	Expect(describeVpcsOutput.Vpcs[0].VpcId).To(PointTo(Equal(infraStatus.VPC.ID)))
 	Expect(describeVpcsOutput.Vpcs[0].CidrBlock).To(Equal(cidr))
-	Expect(describeVpcsOutput.Vpcs[0].Tags).To(ConsistOf(defaultTags))
-	infrastructureIdentifier.vpcID = describeVpcsOutput.Vpcs[0].VpcId
+	if providerConfig.Networks.VPC.CIDR != nil {
+		Expect(describeVpcsOutput.Vpcs[0].Tags).To(ConsistOf(defaultTags))
+		infrastructureIdentifier.vpcID = describeVpcsOutput.Vpcs[0].VpcId
+	}
 
 	// dhcp options + dhcp options attachment
 
-	describeDhcpOptionsOutput, err := awsClient.EC2.DescribeDhcpOptionsWithContext(ctx, &ec2.DescribeDhcpOptionsInput{Filters: nameFilter})
+	describeDhcpOptionsOutput, err := awsClient.EC2.DescribeDhcpOptionsWithContext(ctx, &ec2.DescribeDhcpOptionsInput{DhcpOptionsIds: []*string{describeVpcsOutput.Vpcs[0].DhcpOptionsId}})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeDhcpOptionsOutput.DhcpOptions).To(HaveLen(1))
 	Expect(describeVpcsOutput.Vpcs[0].DhcpOptionsId).To(Equal(describeDhcpOptionsOutput.DhcpOptions[0].DhcpOptionsId))
@@ -381,8 +694,10 @@ func verifyReconciliation(
 			},
 		},
 	}))
-	Expect(describeDhcpOptionsOutput.DhcpOptions[0].Tags).To(ConsistOf(defaultTags))
-	infrastructureIdentifier.dhcpOptionsID = describeDhcpOptionsOutput.DhcpOptions[0].DhcpOptionsId
+	if providerConfig.Networks.VPC.CIDR != nil {
+		Expect(describeDhcpOptionsOutput.DhcpOptions[0].Tags).To(ConsistOf(defaultTags))
+		infrastructureIdentifier.dhcpOptionsID = describeDhcpOptionsOutput.DhcpOptions[0].DhcpOptionsId
+	}
 
 	// vpc gateway endpoints
 
@@ -414,17 +729,28 @@ func verifyReconciliation(
 	}})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeInternetGatewaysOutput.InternetGateways).To(HaveLen(1))
-	Expect(describeInternetGatewaysOutput.InternetGateways[0].Tags).To(ConsistOf(defaultTags))
-	infrastructureIdentifier.internetGatewayID = describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId
+	if providerConfig.Networks.VPC.CIDR != nil {
+		Expect(describeInternetGatewaysOutput.InternetGateways[0].Tags).To(ConsistOf(defaultTags))
+		infrastructureIdentifier.internetGatewayID = describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId
+	}
 
 	// security groups + security group rules
+
+	var (
+		internalCIDR = providerConfig.Networks.Zones[0].Internal
+		workersCIDR  = providerConfig.Networks.Zones[0].Workers
+		publicCIDR   = providerConfig.Networks.Zones[0].Public
+	)
+
+	accountID, err := awsClient.GetAccountID(ctx)
+	Expect(err).NotTo(HaveOccurred())
 
 	infrastructureIdentifier.securityGroupIDs = []*string{}
 	describeSecurityGroupsOutput, err := awsClient.EC2.DescribeSecurityGroupsWithContext(ctx, &ec2.DescribeSecurityGroupsInput{Filters: vpcIDFilter})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeSecurityGroupsOutput.SecurityGroups).To(HaveLen(2))
 	for _, securityGroup := range describeSecurityGroupsOutput.SecurityGroups {
-		if securityGroup.GroupName != nil && *securityGroup.GroupName == "default" {
+		if securityGroup.GroupName != nil && *securityGroup.GroupName == "default" && providerConfig.Networks.VPC.CIDR != nil {
 			Expect(securityGroup.IpPermissions).To(BeEmpty())
 			Expect(securityGroup.IpPermissionsEgress).To(BeEmpty())
 			Expect(securityGroup.Tags).To(BeEmpty())
@@ -505,6 +831,8 @@ func verifyReconciliation(
 	infrastructureIdentifier.keyPairName = describeKeyPairsOutput.KeyPairs[0].KeyName
 
 	// subnets
+
+	availabilityZone := providerConfig.Networks.Zones[0].Name
 
 	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{Filters: vpcIDFilter})
 	Expect(err).NotTo(HaveOccurred())
@@ -793,7 +1121,7 @@ func verifyReconciliation(
 
 func verifyDeletion(
 	ctx context.Context,
-	awsClient *awsClient,
+	awsClient *awsclient.Client,
 	infrastructureIdentifier infrastructureIdentifiers,
 ) {
 	// vpc

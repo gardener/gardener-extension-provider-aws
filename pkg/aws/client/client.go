@@ -28,6 +28,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
+	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -38,12 +40,14 @@ import (
 // Client is a struct containing several clients for the different AWS services it needs to interact with.
 // * EC2 is the standard client for the EC2 service.
 // * STS is the standard client for the STS service.
+// * IAM is the standard client for the IAM service.
 // * S3 is the standard client for the S3 service.
 // * ELB is the standard client for the ELB service.
 // * ELBv2 is the standard client for the ELBv2 service.
 type Client struct {
 	EC2 ec2iface.EC2API
 	STS stsiface.STSAPI
+	IAM iamiface.IAMAPI
 	S3  s3iface.S3API
 
 	ELB   elbiface.ELBAPI
@@ -60,7 +64,7 @@ type LoadBalancer struct {
 // NewClient creates a new Client for the given AWS credentials <accessKeyID>, <secretAccessKey>, and
 // the AWS region <region>.
 // It initializes the clients for the various services like EC2, ELB, etc.
-func NewClient(accessKeyID, secretAccessKey, region string) (Interface, error) {
+func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
 	var (
 		awsConfig = &aws.Config{
 			Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
@@ -77,6 +81,7 @@ func NewClient(accessKeyID, secretAccessKey, region string) (Interface, error) {
 		EC2:   ec2.New(s, config),
 		ELB:   elb.New(s, config),
 		ELBv2: elbv2.New(s, config),
+		IAM:   iam.New(s, config),
 		STS:   sts.New(s, config),
 		S3:    s3.New(s, config),
 	}, nil
