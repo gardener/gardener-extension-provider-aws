@@ -118,6 +118,27 @@ func (c *Client) GetInternetGateway(ctx context.Context, vpcID string) (string, 
 	return "", fmt.Errorf("no attached internet gateway found for vpc %s", vpcID)
 }
 
+// VerifyVPCAttributes checks whether the VPC attributes are correct.
+func (c *Client) VerifyVPCAttributes(ctx context.Context, vpcID string) error {
+	vpcAttribute, err := c.EC2.DescribeVpcAttributeWithContext(ctx, &ec2.DescribeVpcAttributeInput{VpcId: &vpcID, Attribute: aws.String("enableDnsSupport")})
+	if err != nil {
+		return err
+	}
+	if vpcAttribute.EnableDnsSupport == nil || vpcAttribute.EnableDnsSupport.Value == nil || !*vpcAttribute.EnableDnsSupport.Value {
+		return fmt.Errorf("invalid VPC attributes: `enableDnsSupport` must be set to `true`")
+	}
+
+	vpcAttribute, err = c.EC2.DescribeVpcAttributeWithContext(ctx, &ec2.DescribeVpcAttributeInput{VpcId: &vpcID, Attribute: aws.String("enableDnsHostnames")})
+	if err != nil {
+		return err
+	}
+	if vpcAttribute.EnableDnsHostnames == nil || vpcAttribute.EnableDnsHostnames.Value == nil || !*vpcAttribute.EnableDnsHostnames.Value {
+		return fmt.Errorf("invalid VPC attributes: `enableDnsHostnames` must be set to `true`")
+	}
+
+	return nil
+}
+
 // The following functions are only temporary needed due to https://github.com/gardener/gardener/issues/129.
 
 // ListKubernetesELBs returns the list of ELB loadbalancers in the given <vpcID> tagged with <clusterName>.

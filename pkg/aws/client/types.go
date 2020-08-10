@@ -33,6 +33,7 @@ const (
 type Interface interface {
 	GetAccountID(ctx context.Context) (string, error)
 	GetInternetGateway(ctx context.Context, vpcID string) (string, error)
+	VerifyVPCAttributes(ctx context.Context, vpcID string) error
 
 	// S3 wrappers
 	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
