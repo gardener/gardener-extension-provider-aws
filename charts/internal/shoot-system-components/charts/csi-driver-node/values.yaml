@@ -6,6 +6,9 @@ images:
 socketPath: /csi/csi.sock
 vpaEnabled: false
 
+driver: {}
+  # volumeAttachLimit: -1
+
 resources:
   driver:
     requests:

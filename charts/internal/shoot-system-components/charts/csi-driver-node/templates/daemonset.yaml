@@ -34,6 +34,9 @@ spec:
         args:
         - node
         - --endpoint=$(CSI_ENDPOINT)
+        {{- if .Values.driver.volumeAttachLimit }}
+        - --volume-attach-limit={{ .Values.driver.volumeAttachLimit }}
+        {{- end }}
         - --logtostderr
         - --v=5
         env:
