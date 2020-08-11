@@ -123,14 +123,18 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			return nil, err
 		}
 		existingVpcID := *infrastructureConfig.Networks.VPC.ID
+		if err := awsClient.VerifyVPCAttributes(ctx, existingVpcID); err != nil {
+			return nil, err
+		}
 		existingInternetGatewayID, err := awsClient.GetInternetGateway(ctx, existingVpcID)
 		if err != nil {
 			return nil, err
 		}
 		vpcID = strconv.Quote(existingVpcID)
 		internetGatewayID = strconv.Quote(existingInternetGatewayID)
+
 	case infrastructureConfig.Networks.VPC.CIDR != nil:
-		vpcCIDR = string(*infrastructureConfig.Networks.VPC.CIDR)
+		vpcCIDR = *infrastructureConfig.Networks.VPC.CIDR
 	}
 
 	var zones []map[string]interface{}
