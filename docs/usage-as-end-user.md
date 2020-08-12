@@ -23,6 +23,68 @@ data:
 
 Please look up https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys as well.
 
+### Permissions
+
+Please make sure that the provided credentials have the correct privileges. You can use the following AWS IAM policy document and attach it to the IAM user backed by the credentials you provided (please check the [official AWS documentation](http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html) as well):
+
+<details>
+  <summary>Click to expand the AWS IAM policy document!</summary>
+
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": "autoscaling:*",
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": "ec2:*",
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": "elasticloadbalancing:*",
+        "Resource": "*"
+      },
+      {
+        "Action": [
+          "iam:GetInstanceProfile",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:GetRole",
+          "iam:GetRolePolicy",
+          "iam:ListPolicyVersions",
+          "iam:ListAttachedRolePolicies",
+          "iam:ListInstanceProfilesForRole",
+          "iam:CreateInstanceProfile",
+          "iam:CreatePolicy",
+          "iam:CreatePolicyVersion",
+          "iam:CreateRole",
+          "iam:CreateServiceLinkedRole",
+          "iam:AddRoleToInstanceProfile",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:DeletePolicy",
+          "iam:DeletePolicyVersion",
+          "iam:DeleteRole",
+          "iam:DeleteRolePolicy",
+          "iam:DeleteInstanceProfile",
+          "iam:PutRolePolicy",
+          "iam:PassRole",
+          "iam:UpdateAssumeRolePolicy"
+        ],
+        "Effect": "Allow",
+        "Resource": "*"
+      }
+    ]
+  }
+  ```
+</details>
+
 ## `InfrastructureConfig`
 
 The infrastructure configuration mainly describes how the network layout looks like in order to create the shoot worker nodes in a later step, thus, prepares everything relevant to create VMs, load balancers, volumes, etc.
@@ -76,7 +138,7 @@ If provided, no new Elastic IP will be created and, instead, the Elastic IP spec
 
 ⚠️ If you change this field for an already existing infrastructure then it will disrupt egress traffic while AWS applies this change.
 The reason is that the NAT gateway must be recreated with the new Elastic IP association.
-Also, please note that the existing Elastic IP will be permanently deleted if it was earlier created by the AWS extension. 
+Also, please note that the existing Elastic IP will be permanently deleted if it was earlier created by the AWS extension.
 
 You can configure [Gateway VPC Endpoints](https://docs.aws.amazon.com/vpc/latest/userguide/vpce-gateway.html) by adding items in the optional list `networks.vpc.gatewayEndpoints`. Each item in the list is used as a service name and a corresponding endpoint is created for it. All created endpoints point to the service within the cluster's region. For example, consider this (partial) shoot config:
 
@@ -121,10 +183,10 @@ If you don't want to configure anything for the `cloudControllerManager` simply 
 
 ## `WorkerConfig`
 
-The AWS extension supports encryption for volumes plus support for additional data volumes per machine. 
+The AWS extension supports encryption for volumes plus support for additional data volumes per machine.
 For each data volume, you have to specify a name.
-By default (if not stated otherwise), all the disks (root & data volumes) are encrypted. 
-Please make sure that your [instance-type supports encryption](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html). 
+By default (if not stated otherwise), all the disks (root & data volumes) are encrypted.
+Please make sure that your [instance-type supports encryption](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html).
 If your instance-type doesn't support encryption, you will have to disable encryption (which is enabled by default) by setting `volume.encrpyted` to `false` (refer below shown YAML snippet).
 
 The following YAML is a snippet of a `Shoot` resource:
