@@ -169,7 +169,11 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 	}
 
 	for i, oldZone := range oldZones {
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone, newConfig.Networks.Zones[i], field.NewPath("networks.zones").Index(i))...)
+		idxPath := field.NewPath("networks.zones").Index(i)
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Name, newConfig.Networks.Zones[i].Name, idxPath.Child("name"))...)
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Public, newConfig.Networks.Zones[i].Public, idxPath.Child("public"))...)
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Internal, newConfig.Networks.Zones[i].Internal, idxPath.Child("internal"))...)
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Workers, newConfig.Networks.Zones[i].Workers, idxPath.Child("workers"))...)
 	}
 
 	return allErrs
