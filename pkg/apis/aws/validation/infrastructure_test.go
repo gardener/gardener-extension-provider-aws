@@ -420,7 +420,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeInvalid),
-				"Field": Equal("networks.zones[0]"),
+				"Field": Equal("networks.zones[0].internal"),
 			}))))
 		})
 
@@ -432,7 +432,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeInvalid),
-				"Field": Equal("networks.zones[0]"),
+				"Field": Equal("networks.zones[0].public"),
 			}))))
 		})
 
@@ -444,8 +444,17 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeInvalid),
-				"Field": Equal("networks.zones[0]"),
+				"Field": Equal("networks.zones[0].workers"),
 			}))))
+		})
+
+		It("should allow changing the elastic IP allocation ID of a zone", func() {
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newInfrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.StringPtr("some-id")
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(BeEmpty())
 		})
 
 		It("should forbid removing a zone", func() {
@@ -470,7 +479,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":  Equal(field.ErrorTypeInvalid),
-				"Field": Equal("networks.zones[0]"),
+				"Field": Equal("networks.zones[0].name"),
 			}))))
 		})
 
@@ -485,11 +494,35 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			Expect(errorList).To(ConsistOf(
 				PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("networks.zones[0]"),
+					"Field": Equal("networks.zones[0].name"),
 				})),
 				PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("networks.zones[1]"),
+					"Field": Equal("networks.zones[0].public"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0].internal"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0].workers"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[1].name"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[1].public"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[1].internal"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[1].workers"),
 				})),
 			))
 		})
