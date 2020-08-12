@@ -103,6 +103,11 @@ var _ = Describe("ValuesProvider", func() {
 		}
 		clusterK8sAtLeast118 = &extensionscontroller.Cluster{
 			Shoot: &gardencorev1beta1.Shoot{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						aws.VolumeAttachLimit: "42",
+					},
+				},
 				Spec: gardencorev1beta1.ShootSpec{
 					Networking: gardencorev1beta1.Networking{
 						Pods: &cidr,
@@ -236,6 +241,9 @@ var _ = Describe("ValuesProvider", func() {
 				aws.CloudControllerManagerName: enabledTrue,
 				aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"vpaEnabled": true,
+					"driver": map[string]interface{}{
+						"volumeAttachLimit": "42",
+					},
 				}),
 			}))
 		})

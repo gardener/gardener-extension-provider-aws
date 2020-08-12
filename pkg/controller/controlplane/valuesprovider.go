@@ -526,11 +526,19 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
+	csiDriverNodeValues := map[string]interface{}{
+		"enabled":    !k8sVersionLessThan118,
+		"vpaEnabled": gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
+	}
+
+	if value, ok := cluster.Shoot.Annotations[aws.VolumeAttachLimit]; ok {
+		csiDriverNodeValues["driver"] = map[string]interface{}{
+			"volumeAttachLimit": value,
+		}
+	}
+
 	return map[string]interface{}{
 		aws.CloudControllerManagerName: map[string]interface{}{"enabled": true},
-		aws.CSINodeName: map[string]interface{}{
-			"enabled":    !k8sVersionLessThan118,
-			"vpaEnabled": gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
-		},
+		aws.CSINodeName:                csiDriverNodeValues,
 	}, nil
 }

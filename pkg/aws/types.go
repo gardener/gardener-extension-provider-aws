@@ -24,6 +24,10 @@ const (
 	// Name is the name of the AWS provider.
 	Name = "provider-aws"
 
+	// VolumeAttachLimit is the key for an annotation on a Shoot object whose value
+	// represents the maximum number of volumes attachable for all nodes.
+	VolumeAttachLimit = "aws.provider.extensions.gardener.cloud/volume-attach-limit"
+
 	// AWSLBReadvertiserImageName is the name of the AWSLBReadvertiser image.
 	AWSLBReadvertiserImageName = "aws-lb-readvertiser"
 	// CloudControllerManagerImageName is the name of the cloud-controller-manager image.
