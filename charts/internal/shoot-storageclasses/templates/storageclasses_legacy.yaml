@@ -5,6 +5,7 @@ kind: StorageClass
 metadata:
   name: default
   annotations:
+    resources.gardener.cloud/delete-on-invalid-update: "true"
     storageclass.kubernetes.io/is-default-class: "true"
 allowVolumeExpansion: true
 provisioner: kubernetes.io/aws-ebs
@@ -14,6 +15,8 @@ parameters:
 apiVersion: {{ include "storageclassversion" . }}
 kind: StorageClass
 metadata:
+  annotations:
+    resources.gardener.cloud/delete-on-invalid-update: "true"
   name: gp2
 allowVolumeExpansion: true
 provisioner: kubernetes.io/aws-ebs
