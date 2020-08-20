@@ -168,11 +168,10 @@ var _ = Describe("Infrastructure tests", func() {
 
 	Context("with infrastructure that requests new vpc (networks.vpc.cidr)", func() {
 		It("should successfully create and delete", func() {
-			providerConfig, err := newProviderConfig(awsv1alpha1.VPC{
+			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR:             pointer.StringPtr(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
-			Expect(err).NotTo(HaveOccurred())
 
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
@@ -189,15 +188,14 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 
-			providerConfig, err := newProviderConfig(awsv1alpha1.VPC{
-				ID:               &vpcID,
-				GatewayEndpoints: []string{s3GatewayEndpoint},
-			})
-			Expect(err).NotTo(HaveOccurred())
-
 			AddCleanupAction(func() {
 				err := teardownVPC(ctx, logger, awsClient, vpcID)
 				Expect(err).NotTo(HaveOccurred())
+			})
+
+			providerConfig := newProviderConfig(awsv1alpha1.VPC{
+				ID:               &vpcID,
+				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 
 			namespace, err := generateNamespaceName()
@@ -221,15 +219,14 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 
-			providerConfig, err := newProviderConfig(awsv1alpha1.VPC{
-				ID:               &vpcID,
-				GatewayEndpoints: []string{s3GatewayEndpoint},
-			})
-			Expect(err).NotTo(HaveOccurred())
-
 			AddCleanupAction(func() {
 				err := teardownVPC(ctx, logger, awsClient, vpcID)
 				Expect(err).NotTo(HaveOccurred())
+			})
+
+			providerConfig := newProviderConfig(awsv1alpha1.VPC{
+				ID:               &vpcID,
+				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 
 			namespace, err := generateNamespaceName()
@@ -352,7 +349,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	return nil
 }
 
-func newProviderConfig(vpc awsv1alpha1.VPC) (*awsv1alpha1.InfrastructureConfig, error) {
+func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 	availabilityZone := *region + "a"
 
 	return &awsv1alpha1.InfrastructureConfig{
@@ -372,7 +369,7 @@ func newProviderConfig(vpc awsv1alpha1.VPC) (*awsv1alpha1.InfrastructureConfig, 
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func newInfrastructure(namespace string, providerConfig *awsv1alpha1.InfrastructureConfig) (*extensionsv1alpha1.Infrastructure, error) {
