@@ -32,7 +32,6 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
-	. "github.com/gardener/gardener-extension-provider-aws/test/integration/infrastructure"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -40,6 +39,7 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/operation/common"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
+	"github.com/gardener/gardener/test/framework"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -158,7 +158,7 @@ var _ = Describe("Infrastructure tests", func() {
 		}()
 
 		By("running cleanup actions")
-		RunCleanupActions()
+		framework.RunCleanupActions()
 
 		By("stopping test environment")
 		Expect(testEnv.Stop()).To(Succeed())
@@ -188,7 +188,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 
-			AddCleanupAction(func() {
+			framework.AddCleanupAction(func() {
 				err := teardownVPC(ctx, logger, awsClient, vpcID)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -219,7 +219,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 
-			AddCleanupAction(func() {
+			framework.AddCleanupAction(func() {
 				err := teardownVPC(ctx, logger, awsClient, vpcID)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -246,7 +246,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 		infrastructureIdentifiers infrastructureIdentifiers
 	)
 
-	AddCleanupAction(func() {
+	framework.AddCleanupAction(func() {
 		By("delete infrastructure")
 		Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
 
