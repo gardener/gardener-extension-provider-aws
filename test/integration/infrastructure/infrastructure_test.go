@@ -408,7 +408,7 @@ func generateNamespaceName() (string, error) {
 		return "", err
 	}
 
-	return "shoot--it--" + suffix, nil
+	return "aws-infrastructure-it--" + suffix, nil
 }
 
 func prepareNewVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames bool) (string, error) {

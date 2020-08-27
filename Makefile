@@ -34,6 +34,10 @@ ifeq ($(WEBHOOK_CONFIG_MODE), service)
   WEBHOOK_PARAM := --webhook-config-namespace=$(EXTENSION_NAMESPACE)
 endif
 
+REGION                 := eu-west-1
+ACCESS_KEY_ID_FILE     := .kube-secrets/aws/access_key_id.secret
+SECRET_ACCESS_KEY_FILE := .kube-secrets/aws/secret_access_key.secret
+
 #########################################
 # Rules for local development scenarios #
 #########################################
@@ -139,3 +143,12 @@ verify: check format test
 
 .PHONY: verify-extended
 verify-extended: install-requirements check-generate check format test-cov test-clean
+
+.PHONY: integration-test-infra
+integration-test-infra:
+	@go test -timeout=0 -mod=vendor ./test/integration/infrastructure \
+		--v -ginkgo.v -ginkgo.progress \
+		--kubeconfig=${KUBECONFIG} \
+		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
+		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
+		--region=$(REGION)
