@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+
+	"github.com/coreos/go-systemd/unit"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/csimigration"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -29,8 +31,6 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener/pkg/utils/version"
-
-	"github.com/coreos/go-systemd/unit"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -776,6 +776,8 @@ func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, annotations, l
 		if !k8sVersionLessThan117 {
 			Expect(c.VolumeMounts).To(ContainElement(etcSSLVolumeMount))
 			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(etcSSLVolume))
+			Expect(c.VolumeMounts).To(ContainElement(usrShareCaCertsVolumeMount))
+			Expect(dep.Spec.Template.Spec.Volumes).To(ContainElement(usrShareCaCertsVolume))
 		}
 		if k8sVersionAtLeast118 {
 			Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true"))
