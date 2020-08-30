@@ -246,6 +246,23 @@ var (
 		},
 	}
 
+	usrShareCaCerts            = "usr-share-cacerts"
+	directoryOrCreate          = corev1.HostPathDirectoryOrCreate
+	usrShareCaCertsVolumeMount = corev1.VolumeMount{
+		Name:      usrShareCaCerts,
+		MountPath: "/usr/share/ca-certificates",
+		ReadOnly:  true,
+	}
+	usrShareCaCertsVolume = corev1.Volume{
+		Name: usrShareCaCerts,
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/usr/share/ca-certificates",
+				Type: &directoryOrCreate,
+			},
+		},
+	}
+
 	cloudProviderConfigVolumeMount = corev1.VolumeMount{
 		Name:      aws.CloudProviderConfigName,
 		MountPath: "/etc/kubernetes/cloudprovider",
@@ -281,6 +298,8 @@ func ensureVolumeMounts(c *corev1.Container, version string, csiEnabled, csiMigr
 	c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, cloudProviderConfigVolumeMount)
 	if mustMountEtcSSLFolder(version) {
 		c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, etcSSLVolumeMount)
+		// some distros have symlinks from /etc/ssl/certs to /usr/share/ca-certificates
+		c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, usrShareCaCertsVolumeMount)
 	}
 }
 
@@ -294,6 +313,8 @@ func ensureVolumes(ps *corev1.PodSpec, version string, csiEnabled, csiMigrationC
 	ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, cloudProviderConfigVolume)
 	if mustMountEtcSSLFolder(version) {
 		ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, etcSSLVolume)
+		// some distros have symlinks from /etc/ssl/certs to /usr/share/ca-certificates
+		ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, usrShareCaCertsVolume)
 	}
 }
 
