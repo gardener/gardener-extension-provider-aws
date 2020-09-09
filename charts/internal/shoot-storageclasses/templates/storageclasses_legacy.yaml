@@ -9,6 +9,11 @@ metadata:
     storageclass.kubernetes.io/is-default-class: "true"
 allowVolumeExpansion: true
 provisioner: kubernetes.io/aws-ebs
+{{- if semverCompare ">= 1.12-0" .Capabilities.KubeVersion.GitVersion }}
+volumeBindingMode: WaitForFirstConsumer
+{{- else }}
+volumeBindingMode: Immediate
+{{- end }}
 parameters:
   type: gp2
 ---
@@ -20,6 +25,11 @@ metadata:
   name: gp2
 allowVolumeExpansion: true
 provisioner: kubernetes.io/aws-ebs
+{{- if semverCompare ">= 1.12-0" .Capabilities.KubeVersion.GitVersion }}
+volumeBindingMode: WaitForFirstConsumer
+{{- else }}
+volumeBindingMode: Immediate
+{{- end }}
 parameters:
   type: gp2
 {{- end }}
