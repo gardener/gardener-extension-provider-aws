@@ -76,10 +76,10 @@ func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx generi
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-apiserver"); c != nil {
 		ensureKubeAPIServerCommandLineArgs(c, csiEnabled, csiMigrationComplete)
 		ensureEnvVars(c, csiEnabled, csiMigrationComplete)
-		ensureVolumeMounts(c, cluster.Shoot.Spec.Kubernetes.Version, csiEnabled, csiMigrationComplete)
+		ensureKubeAPIServerVolumeMounts(c, csiEnabled, csiMigrationComplete)
 	}
 
-	ensureVolumes(ps, cluster.Shoot.Spec.Kubernetes.Version, csiEnabled, csiMigrationComplete)
+	ensureKubeAPIServerVolumes(ps, csiEnabled, csiMigrationComplete)
 	return e.ensureChecksumAnnotations(ctx, &new.Spec.Template, new.Namespace, csiEnabled, csiMigrationComplete)
 }
 
@@ -101,11 +101,11 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, ect
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-controller-manager"); c != nil {
 		ensureKubeControllerManagerCommandLineArgs(c, csiEnabled, csiMigrationComplete)
 		ensureEnvVars(c, csiEnabled, csiMigrationComplete)
-		ensureVolumeMounts(c, cluster.Shoot.Spec.Kubernetes.Version, csiEnabled, csiMigrationComplete)
+		ensureKubeControllerManagerVolumeMounts(c, cluster.Shoot.Spec.Kubernetes.Version, csiEnabled, csiMigrationComplete)
 	}
 
 	ensureKubeControllerManagerLabels(template, csiEnabled, csiMigrationComplete)
-	ensureVolumes(ps, cluster.Shoot.Spec.Kubernetes.Version, csiEnabled, csiMigrationComplete)
+	ensureKubeControllerManagerVolumes(ps, cluster.Shoot.Spec.Kubernetes.Version, csiEnabled, csiMigrationComplete)
 	return e.ensureChecksumAnnotations(ctx, &new.Spec.Template, new.Namespace, csiEnabled, csiMigrationComplete)
 }
 
@@ -242,6 +242,7 @@ var (
 		VolumeSource: corev1.VolumeSource{
 			HostPath: &corev1.HostPathVolumeSource{
 				Path: "/etc/ssl",
+				Type: &directoryOrCreate,
 			},
 		},
 	}
@@ -288,10 +289,20 @@ func ensureEnvVars(c *corev1.Container, csiEnabled, csiMigrationComplete bool) {
 	c.Env = extensionswebhook.EnsureEnvVarWithName(c.Env, secretAccessKeyEnvVar)
 }
 
-func ensureVolumeMounts(c *corev1.Container, version string, csiEnabled, csiMigrationComplete bool) {
+func ensureKubeAPIServerVolumeMounts(c *corev1.Container, csiEnabled, csiMigrationComplete bool) {
+	if csiEnabled && csiMigrationComplete {
+		c.VolumeMounts = extensionswebhook.EnsureNoVolumeMountWithName(c.VolumeMounts, cloudProviderConfigVolumeMount.Name)
+		return
+	}
+
+	c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, cloudProviderConfigVolumeMount)
+}
+
+func ensureKubeControllerManagerVolumeMounts(c *corev1.Container, version string, csiEnabled, csiMigrationComplete bool) {
 	if csiEnabled && csiMigrationComplete {
 		c.VolumeMounts = extensionswebhook.EnsureNoVolumeMountWithName(c.VolumeMounts, cloudProviderConfigVolumeMount.Name)
 		c.VolumeMounts = extensionswebhook.EnsureNoVolumeMountWithName(c.VolumeMounts, etcSSLVolumeMount.Name)
+		c.VolumeMounts = extensionswebhook.EnsureNoVolumeMountWithName(c.VolumeMounts, usrShareCaCertsVolumeMount.Name)
 		return
 	}
 
@@ -303,10 +314,20 @@ func ensureVolumeMounts(c *corev1.Container, version string, csiEnabled, csiMigr
 	}
 }
 
-func ensureVolumes(ps *corev1.PodSpec, version string, csiEnabled, csiMigrationComplete bool) {
+func ensureKubeAPIServerVolumes(ps *corev1.PodSpec, csiEnabled, csiMigrationComplete bool) {
+	if csiEnabled && csiMigrationComplete {
+		ps.Volumes = extensionswebhook.EnsureNoVolumeWithName(ps.Volumes, cloudProviderConfigVolume.Name)
+		return
+	}
+
+	ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, cloudProviderConfigVolume)
+}
+
+func ensureKubeControllerManagerVolumes(ps *corev1.PodSpec, version string, csiEnabled, csiMigrationComplete bool) {
 	if csiEnabled && csiMigrationComplete {
 		ps.Volumes = extensionswebhook.EnsureNoVolumeWithName(ps.Volumes, cloudProviderConfigVolume.Name)
 		ps.Volumes = extensionswebhook.EnsureNoVolumeWithName(ps.Volumes, etcSSLVolume.Name)
+		ps.Volumes = extensionswebhook.EnsureNoVolumeWithName(ps.Volumes, usrShareCaCertsVolume.Name)
 		return
 	}
 
