@@ -38,6 +38,13 @@ This extension controller supports the following Kubernetes versions:
 
 Please take a look [here](https://github.com/gardener/gardener/blob/master/docs/usage/supported_k8s_versions.md) to see which versions are supported by Gardener in general.
 
+# Compatibility
+
+The following lists known compatibility issues of this extension controller with other Gardener components.
+
+| AWS Extension | Gardener | Action | Notes |
+| ------------- | -------- | ------ |  --- |
+| `<= v1.15.0` | `>v1.10.0` | Please update the provider version to `> v1.15.0` or disable the feature gate `MountHostCADirectories` in the Gardenlet. | Applies if feature flag `MountHostCADirectories` in the Gardenlet is enabled. Shoots with CSI enabled (Kubernetes version >= 1.18) miss a mount to the directory `/etc/ssl` in the Shoot API Server. This can lead to not trusting external Root CAs when the API Server makes requests via webhooks or OIDC.  |
 ----
 
 ## How to start using or developing this extension controller locally
