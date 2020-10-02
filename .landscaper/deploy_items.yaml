@@ -1,0 +1,65 @@
+deployItems:
+- name: registration
+  type: Helm
+  target:
+    name: {{ .imports.cluster.metadata.name }}
+    namespace: {{ .imports.cluster.metadata.namespace }}
+  config:
+    apiVersion: helm.deployer.landscaper.gardener.cloud/v1alpha1
+    kind: ProviderConfiguration
+    chart:
+      ref: {{ index .cd.component.localResources "provider-aws" | .access.imageReference }}
+    name: gardener-extension-provider-aws
+    namespace: garden
+    values:
+      controllerRegistration:
+        deployment:
+          chart: {{ resolve(index .cd.component.localResources "provider-aws-chart" | .access) | b64enc }}
+          values:
+            image:
+              repository: {{ ociRefRepo ( index .cd.component.localResources "provider-aws" | .access.imageReference ) }}
+              tag: {{ ociRefVersion ( index .cd.component.localResources "provider-aws" | .access.imageReference ) }}
+            replicaCount: 3
+            resources:
+              requests:
+                cpu: {{ .imports.controllerRegistration.resources.requests.cpu }}
+                memory: {{ .imports.controllerRegistration.resources.requests.memory }}
+              limits:
+                cpu: {{ .imports.controllerRegistration.resources.limits.cpu }}
+                memory: {{ .imports.controllerRegistration.resources.limits.memory }}
+            vpa:
+              enabled: true
+              updatePolicy:
+                updateMode: Auto
+            controllers:
+              backupentry:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              controlplane:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              infrastructure:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              worker:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+            config:
+              etcd:
+                storage:
+                  className: gardener.cloud-fast
+                  capacity: 80Gi
+{{- if .imports.controllerRegistration.imageVectorOverwrite }}
+            imageVectorOverwrite: |
+{{ toYaml .imports.controllerRegistration.imageVectorOverwrite | indent 14 }}
+{{- end }}
+      cloudProfile:
+{{ toYaml .imports.cloudProfile | indent 8 }}
+{{- if .imports.secrets }}
+      secrets:
+{{- range $i, $secret := range .imports.secrets }}
+      - name: {{ $secret.name }}
+        namespace: {{ $secret.namespace }}
+        labels:
+          cloudprofile.garden.sapcloud.io/name: aws
+        data:
+          accessKeyID: {{ $secret.data.accessKeyID }}
+          secretAccessKey: {{ $secret.data.secretAccessKey }}
+{{- end }}
+{{- end }}

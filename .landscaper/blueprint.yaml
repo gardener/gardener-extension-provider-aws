@@ -1,0 +1,49 @@
+apiVersion: landscaper.gardener.cloud/v1alpha1
+kind: Blueprint
+jsonSchema: "https://json-schema.org/draft/2019-09/schema" # required
+
+imports:
+- name: cluster
+  targetType: landscaper.gardener.cloud/kubernetes-cluster
+- name: controllerRegistration
+  type: object
+  properties:
+    chart:
+      type: string
+    values:
+      type: object
+- name: cloudProfile
+  type: object
+  properties:
+    kubernetes:
+      type: object
+    machineImages:
+      type: object
+    machineTypes:
+      type: object
+    regions:
+      type: object
+    volumeTypes:
+      type: object
+- name: secrets
+  type: array
+  items:
+    type: object
+    properties:
+      name:
+        type: string
+      namespace:
+        type: string
+      labels:
+        type: object
+      data:
+        type: object
+        properties:
+          accessKeyID:
+            type: string
+          secretAccessKey:
+            type: string
+
+deployExecutions:
+- type: GoTemplate
+  file: deploy_items.yaml
