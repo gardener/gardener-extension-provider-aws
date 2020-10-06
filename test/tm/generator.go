@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	"github.com/go-logr/logr"
 
 	"github.com/gardener/gardener/extensions/test/tm/generator"
 	"github.com/pkg/errors"
@@ -29,22 +30,44 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	infrastructureProviderConfigPath = flag.String("infrastructure-provider-config-filepath", "", "filepath to the provider specific infrastructure config")
-	controlplaneProviderConfigPath   = flag.String("controlplane-provider-config-filepath", "", "filepath to the provider specific controlplane config")
-
-	networkVPCCidr      = flag.String("network-vpc-cidr", "10.250.0.0/16", "vpc network cidr")
-	networkInternalCidr = flag.String("network-internal-cidr", "10.250.112.0/22", "internal network cidr")
-	networkPublicCidr   = flag.String("network-public-cidr", "10.250.96.0/22", "public network cidr")
-	networkWorkerCidr   = flag.String("network-worker-cidr", "10.250.0.0/19", "worker network cidr")
-
-	zone = flag.String("zone", "", "cloudprovider zone fo the shoot")
+const (
+	defaultNetworkVPCCIDR      = "10.250.0.0/16"
+	defaultNetworkInternalCidr = "10.250.112.0/22"
+	defaultNetworkPublicCidr   = "10.250.96.0/22"
+	defaultNetworkWorkerCidr   = "10.250.0.0/19"
 )
 
+var (
+	cfg    *GeneratorConfig
+	logger logr.Logger
+)
+
+type GeneratorConfig struct {
+	networkVPCCidr                   string
+	networkInternalCidr              string
+	networkPublicCidr                string
+	networkWorkerCidr                string
+	infrastructureProviderConfigPath string
+	controlplaneProviderConfigPath   string
+	zone                             string
+}
+
+func addFlags() {
+	cfg = &GeneratorConfig{}
+	flag.StringVar(&cfg.zone, "zone", "", "cloudprovider zone fo the shoot")
+	flag.StringVar(&cfg.infrastructureProviderConfigPath, "infrastructure-provider-config-filepath", "", "filepath to the provider specific infrastructure config")
+	flag.StringVar(&cfg.controlplaneProviderConfigPath, "controlplane-provider-config-filepath", "", "filepath to the provider specific controlplane config")
+	flag.StringVar(&cfg.networkVPCCidr, "network-vpc-cidr", defaultNetworkVPCCIDR, "vpc network cidr")
+	flag.StringVar(&cfg.networkInternalCidr, "network-internal-cidr", defaultNetworkInternalCidr, "internal network cidr")
+	flag.StringVar(&cfg.networkPublicCidr, "network-public-cidr", defaultNetworkPublicCidr, "public network cidr")
+	flag.StringVar(&cfg.networkWorkerCidr, "network-worker-cidr", defaultNetworkWorkerCidr, "worker network cidr")
+}
+
 func main() {
-	log.SetLogger(zap.Logger(false))
-	logger := log.Log.WithName("aws-generator")
+	addFlags()
 	flag.Parse()
+	log.SetLogger(zap.Logger(false))
+	logger = log.Log.WithName("aws-generator")
 	if err := validate(); err != nil {
 		logger.Error(err, "error validating input flags")
 		os.Exit(1)
@@ -57,14 +80,14 @@ func main() {
 		},
 		Networks: v1alpha1.Networks{
 			VPC: v1alpha1.VPC{
-				CIDR: networkVPCCidr,
+				CIDR: &cfg.networkVPCCidr,
 			},
 			Zones: []v1alpha1.Zone{
 				{
-					Name:     *zone,
-					Internal: *networkInternalCidr,
-					Public:   *networkPublicCidr,
-					Workers:  *networkWorkerCidr,
+					Name:     cfg.zone,
+					Internal: cfg.networkInternalCidr,
+					Public:   cfg.networkPublicCidr,
+					Workers:  cfg.networkWorkerCidr,
 				},
 			},
 		},
@@ -77,38 +100,43 @@ func main() {
 		},
 	}
 
-	if err := generator.MarshalAndWriteConfig(*infrastructureProviderConfigPath, infra); err != nil {
+	if err := generator.MarshalAndWriteConfig(cfg.infrastructureProviderConfigPath, infra); err != nil {
 		logger.Error(err, "unable to write infrastructure config")
 		os.Exit(1)
 	}
-	if err := generator.MarshalAndWriteConfig(*controlplaneProviderConfigPath, cp); err != nil {
+	if err := generator.MarshalAndWriteConfig(cfg.controlplaneProviderConfigPath, cp); err != nil {
 		logger.Error(err, "unable to write infrastructure config")
 		os.Exit(1)
 	}
-	logger.Info("successfully written aws provider configuration", "infra", *infrastructureProviderConfigPath, "controlplane", *controlplaneProviderConfigPath)
+	logger.Info("successfully written aws provider configuration", "infra", cfg.infrastructureProviderConfigPath, "controlplane", cfg.controlplaneProviderConfigPath)
 }
 
 func validate() error {
-	if err := generator.ValidateString(infrastructureProviderConfigPath); err != nil {
+	if err := generator.ValidateString(&cfg.infrastructureProviderConfigPath); err != nil {
 		return errors.Wrap(err, "error validating infrastructure provider config path")
 	}
-	if err := generator.ValidateString(controlplaneProviderConfigPath); err != nil {
+	if err := generator.ValidateString(&cfg.controlplaneProviderConfigPath); err != nil {
 		return errors.Wrap(err, "error validating controlplane provider config path")
 	}
-	if err := generator.ValidateString(networkVPCCidr); err != nil {
-		return errors.Wrap(err, "error validating vpc CIDR")
-	}
-	if err := generator.ValidateString(networkPublicCidr); err != nil {
-		return errors.Wrap(err, "error validating public CIDR")
-	}
-	if err := generator.ValidateString(networkInternalCidr); err != nil {
-		return errors.Wrap(err, "error validating internal CIDR")
-	}
-	if err := generator.ValidateString(networkWorkerCidr); err != nil {
-		return errors.Wrap(err, "error validating worker CIDR")
-	}
-	if err := generator.ValidateString(zone); err != nil {
+	if err := generator.ValidateString(&cfg.zone); err != nil {
 		return errors.Wrap(err, "error validating zone")
+	}
+	//Optional Parameters
+	if err := generator.ValidateString(&cfg.networkVPCCidr); err != nil {
+		logger.Info("Parameter network-vpc-cidr is not set, using default.", "value", defaultNetworkVPCCIDR)
+		cfg.networkVPCCidr = defaultNetworkVPCCIDR
+	}
+	if err := generator.ValidateString(&cfg.networkPublicCidr); err != nil {
+		logger.Info("Parameter network-public-cidr is not set, using default.", "value", defaultNetworkPublicCidr)
+		cfg.networkPublicCidr = defaultNetworkPublicCidr
+	}
+	if err := generator.ValidateString(&cfg.networkInternalCidr); err != nil {
+		logger.Info("Parameter network-internal-cidr is not set, using default.", "value", defaultNetworkInternalCidr)
+		cfg.networkInternalCidr = defaultNetworkInternalCidr
+	}
+	if err := generator.ValidateString(&cfg.networkWorkerCidr); err != nil {
+		logger.Info("Parameter network-worker-cidr is not set, using default.", "value", defaultNetworkWorkerCidr)
+		cfg.networkWorkerCidr = defaultNetworkWorkerCidr
 	}
 	return nil
 }
