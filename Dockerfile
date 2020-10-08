@@ -1,5 +1,5 @@
 ############# builder
-FROM golang:1.14.7 AS builder
+FROM golang:1.14.9 AS builder
 
 WORKDIR /go/src/github.com/gardener/gardener-extension-provider-aws
 COPY . .
