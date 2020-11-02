@@ -1,0 +1,521 @@
+---
+apiVersion: core.gardener.cloud/v1beta1
+kind: CloudProfile
+metadata:
+  name: aws
+spec:
+  type: aws
+  providerConfig:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: CloudProfileConfig
+    machineImages:
+{{- range $i, $machineImage := .Values.cloudProfile.machineImages }}
+    - name: {{ $machineImage.name }}
+      versions:
+{{- range $i, $version := $machineImage.versions }}
+      - version: {{ $version.version }}
+        regions:
+{{ toYaml $version.regions | indent 8 }}
+{{- end }}
+{{- end }}
+  machineImages:
+{{- range $i, $machineImage := .Values.cloudProfile.machineImages }}
+  - name: {{ $machineImage.name }}
+    versions:
+{{- range $i, $version := $machineImage.versions }}
+    - version: {{ $version.version }}
+{{- if $version.classification }}
+      classification: {{ $version.classification }}
+{{- end }}
+{{- if $version.expirationDate }}
+      expirationDate: {{ $version.expirationDate }}
+{{- end }}
+{{- if $version.cri }}
+      cri:
+{{ toYaml $version.cri | indent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}
+  kubernetes:
+    versions:
+{{ toYaml .Values.cloudProfile.kubernetes.versions | indent 4 }}
+  machineTypes:
+{{- if .Values.cloudProfile.machineTypes.overrides }}
+{{ toYaml .Values.cloudProfile.machineTypes.overrides | indent 2 }}
+{{- else }}
+  - name: m5.large
+    cpu: "2"
+    gpu: "0"
+    memory: 8Gi
+  - name: m5.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 16Gi
+  - name: m5.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 32Gi
+  - name: m5.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 64Gi
+  - name: m5.12xlarge
+    cpu: "48"
+    gpu: "0"
+    memory: 192Gi
+  - name: m5.24xlarge
+    cpu: "96"
+    gpu: "0"
+    memory: 384Gi
+  - name: m5d.metal
+    cpu: "96"
+    gpu: "0"
+    memory: 384Gi
+  - name: m4.large
+    cpu: "2"
+    gpu: "0"
+    memory: 8Gi
+  - name: m4.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 16Gi
+  - name: m4.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 32Gi
+  - name: m4.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 64Gi
+  - name: m4.10xlarge
+    cpu: "40"
+    gpu: "0"
+    memory: 160Gi
+  - name: m4.16xlarge
+    cpu: "64"
+    gpu: "0"
+    memory: 256Gi
+  - name: c5.large
+    cpu: "2"
+    gpu: "0"
+    memory: 4Gi
+  - name: c5.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 8Gi
+  - name: c5.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 16Gi
+  - name: c5.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 32Gi
+  - name: c5.9xlarge
+    cpu: "36"
+    gpu: "0"
+    memory: 72Gi
+  - name: c5.12xlarge
+    cpu: "48"
+    gpu: "0"
+    memory: 96Gi
+  - name: c5.18xlarge
+    cpu: "72"
+    gpu: "0"
+    memory: 144Gi
+  - name: c5.24xlarge
+    cpu: "96"
+    gpu: "0"
+    memory: 192Gi
+  - name: c5d.large
+    cpu: "2"
+    gpu: "0"
+    memory: 4Gi
+  - name: c5d.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 8Gi
+  - name: c5d.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 16Gi
+  - name: c5d.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 32Gi
+  - name: c5d.9xlarge
+    cpu: "36"
+    gpu: "0"
+    memory: 72Gi
+  - name: c5d.12xlarge
+    cpu: "48"
+    gpu: "0"
+    memory: 96Gi
+  - name: c5d.18xlarge
+    cpu: "72"
+    gpu: "0"
+    memory: 144Gi
+  - name: c5d.24xlarge
+    cpu: "96"
+    gpu: "0"
+    memory: 192Gi
+  - name: c5d.metal
+    cpu: "96"
+    gpu: "0"
+    memory: 192Gi
+  - name: c5n.large
+    cpu: "2"
+    gpu: "0"
+    memory: 5.25Gi
+  - name: c5n.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 21Gi
+  - name: c5n.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 42Gi
+  - name: c5n.9xlarge
+    cpu: "36"
+    gpu: "0"
+    memory: 96Gi
+  - name: c5n.18xlarge
+    cpu: "72"
+    gpu: "0"
+    memory: 192Gi
+  - name: p3.2xlarge
+    cpu: "8"
+    gpu: "1"
+    memory: 61Gi
+  - cpu: "2"
+    gpu: "0"
+    memory: 15.25Gi
+    name: i3.large
+    usable: true
+  - cpu: "4"
+    gpu: "0"
+    memory: 30.5Gi
+    name: i3.xlarge
+    usable: true
+  - cpu: "8"
+    gpu: "0"
+    memory: 61Gi
+    name: i3.2xlarge
+    usable: true
+  - cpu: "16"
+    gpu: "0"
+    memory: 122Gi
+    name: i3.4xlarge
+    usable: true
+  - cpu: "32"
+    gpu: "0"
+    memory: 244Gi
+    name: i3.8xlarge
+    usable: true
+  - cpu: "64"
+    gpu: "0"
+    memory: 488Gi
+    name: i3.16xlarge
+    usable: true
+  - name: i3.metal
+    cpu: "72"
+    gpu: "0"
+    memory: 512Gi
+  - name: i3en.metal
+    cpu: "96"
+    gpu: "0"
+    memory: 768Gi
+  - name: p3.8xlarge
+    cpu: "32"
+    gpu: "4"
+    memory: 244Gi
+  - name: p3.16xlarge
+    cpu: "64"
+    gpu: "8"
+    memory: 488Gi
+  - name: p2.xlarge
+    cpu: "4"
+    gpu: "1"
+    memory: 61Gi
+  - name: p2.8xlarge
+    cpu: "32"
+    gpu: "8"
+    memory: 488Gi
+  - name: p2.16xlarge
+    cpu: "64"
+    gpu: "16"
+    memory: 732Gi
+  - name: r4.large
+    cpu: "2"
+    gpu: "0"
+    memory: 15.25Gi
+  - name: r4.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 30.5Gi
+  - name: r4.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 61Gi
+  - name: r4.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 122Gi
+  - name: r4.8xlarge
+    cpu: "32"
+    gpu: "0"
+    memory: 244Gi
+  - name: r4.16xlarge
+    cpu: "64"
+    gpu: "0"
+    memory: 488Gi
+  - name: r5.large
+    cpu: "2"
+    gpu: "0"
+    memory: 16Gi
+  - name: r5.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 32Gi
+  - name: r5.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 64Gi
+  - name: r5.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 128Gi
+  - name: r5.8xlarge
+    cpu: "32"
+    gpu: "0"
+    memory: 256Gi
+  - name: r5.16xlarge
+    cpu: "64"
+    gpu: "0"
+    memory: 512Gi
+  - name: r5.24xlarge
+    cpu: "96"
+    gpu: "0"
+    memory: 768Gi
+  - name: r5a.large
+    cpu: "2"
+    gpu: "0"
+    memory: 16Gi
+  - name: r5a.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 32Gi
+  - name: r5a.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 64Gi
+  - name: r5a.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 128Gi
+  - name: r5a.16xlarge
+    cpu: "64"
+    gpu: "0"
+    memory: 512Gi
+  - name: r5d.large
+    cpu: "2"
+    gpu: "0"
+    memory: 16Gi
+  - name: r5d.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 32Gi
+  - name: r5d.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 64Gi
+  - name: r5d.4xlarge
+    cpu: "16"
+    gpu: "0"
+    memory: 128Gi
+  - name: r5d.metal
+    cpu: "96"
+    gpu: "0"
+    memory: 768Gi
+  - name: x1.16xlarge
+    cpu: "64"
+    gpu: "0"
+    memory: 976Gi
+  - name: x1.32xlarge
+    cpu: "128"
+    gpu: "0"
+    memory: 1952Gi
+  - name: x1e.16xlarge
+    cpu: "64"
+    gpu: "0"
+    memory: 1952Gi
+  - name: x1e.32xlarge
+    cpu: "128"
+    gpu: "0"
+    memory: 3904Gi
+  - name: t3.small
+    cpu: "2"
+    gpu: "0"
+    memory: 2Gi
+  - name: t3.medium
+    cpu: "2"
+    gpu: "0"
+    memory: 4Gi
+  - name: t3.large
+    cpu: "2"
+    gpu: "0"
+    memory: 8Gi
+  - name: t3.xlarge
+    cpu: "4"
+    gpu: "0"
+    memory: 16Gi
+  - name: t3.2xlarge
+    cpu: "8"
+    gpu: "0"
+    memory: 32Gi
+  - name: z1d.metal
+    cpu: "48"
+    gpu: "0"
+    memory: 384Gi
+  - name: g4dn.xlarge
+    cpu: "4"
+    gpu: "1"
+    memory: 16Gi
+  - name: g4dn.2xlarge
+    cpu: "8"
+    gpu: "1"
+    memory: 32Gi
+  - name: g4dn.4xlarge
+    cpu: "16"
+    gpu: "1"
+    memory: 64Gi
+  - name: g4dn.8xlarge
+    cpu: "32"
+    gpu: "1"
+    memory: 128Gi
+  - name: g4dn.16xlarge
+    cpu: "64"
+    gpu: "1"
+    memory: 256Gi
+  - name: g4dn.12xlarge
+    cpu: "48"
+    gpu: "4"
+    memory: 192Gi
+{{- if .Values.cloudProfile.machineTypes.additional }}
+{{ toYaml .Values.cloudProfile.machineTypes.additional | indent 2 }}
+{{- end }}
+{{- end }}
+  volumeTypes:
+{{- if .Values.cloudProfile.volumeTypes.overrides }}
+{{ toYaml .Values.cloudProfile.volumeTypes.overrides | indent 2 }}
+{{- else }}
+  - name: gp2
+    class: standard
+    usable: true
+  - name: io1
+    class: standard
+    usable: true
+{{- if .Values.cloudProfile.volumeTypes.additional }}
+{{ toYaml .Values.cloudProfile.volumeTypes.additional | indent 2 }}
+{{- end }}
+{{- end }}
+  regions:
+{{- if .Values.cloudProfile.regions.overrides }}
+{{ toYaml .Values.cloudProfile.regions.overrides | indent 2 }}
+{{- else }}
+  - name: ap-northeast-1
+    zones:
+    - name: ap-northeast-1a
+    - name: ap-northeast-1c
+    - name: ap-northeast-1d
+  - name: ap-northeast-2
+    zones:
+    - name: ap-northeast-2a
+    - name: ap-northeast-2c
+  - name: ap-south-1
+    zones:
+    - name: ap-south-1a
+    - name: ap-south-1b
+  - name: ap-southeast-1
+    zones:
+    - name: ap-southeast-1a
+    - name: ap-southeast-1b
+    - name: ap-southeast-1c
+  - name: ap-southeast-2
+    zones:
+    - name: ap-southeast-2a
+    - name: ap-southeast-2b
+    - name: ap-southeast-2c
+  - name: ca-central-1
+    zones:
+    - name: ca-central-1a
+    - name: ca-central-1b
+    - name: ca-central-1d
+  - name: eu-central-1
+    zones:
+    - name: eu-central-1a
+    - name: eu-central-1b
+    - name: eu-central-1c
+    labels:
+      seed.gardener.cloud/eu-access: "true"
+  - name: eu-north-1
+    zones:
+    - name: eu-north-1a
+    - name: eu-north-1b
+    - name: eu-north-1c
+    labels:
+      seed.gardener.cloud/eu-access: "true"
+  - name: eu-west-1
+    zones:
+    - name: eu-west-1a
+    - name: eu-west-1b
+    - name: eu-west-1c
+    labels:
+      seed.gardener.cloud/eu-access: "true"
+  - name: eu-west-2
+    zones:
+    - name: eu-west-2a
+    - name: eu-west-2b
+    - name: eu-west-2c
+    labels:
+      seed.gardener.cloud/eu-access: "true"
+  - name: eu-west-3
+    zones:
+    - name: eu-west-3a
+    - name: eu-west-3b
+    - name: eu-west-3c
+    labels:
+      seed.gardener.cloud/eu-access: "true"
+  - name: sa-east-1
+    zones:
+    - name: sa-east-1a
+    - name: sa-east-1b
+    - name: sa-east-1c
+  - name: us-east-1
+    zones:
+    - name: us-east-1a
+    - name: us-east-1b
+    - name: us-east-1c
+    - name: us-east-1d
+    - name: us-east-1e
+    - name: us-east-1f
+  - name: us-east-2
+    zones:
+    - name: us-east-2a
+    - name: us-east-2b
+    - name: us-east-2c
+  - name: us-west-1
+    zones:
+    - name: us-west-1a
+    - name: us-west-1b
+    - name: us-west-1c
+  - name: us-west-2
+    zones:
+    - name: us-west-2a
+    - name: us-west-2b
+    - name: us-west-2c
+    - name: us-west-2d
+{{- if .Values.cloudProfile.regions.additional }}
+{{ toYaml .Values.cloudProfile.regions.additional | indent 2 }}
+{{- end }}
+{{- end }}
