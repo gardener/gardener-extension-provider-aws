@@ -264,7 +264,7 @@ github.com/gobuffalo/logger
 # github.com/gobuffalo/packd v1.0.0
 github.com/gobuffalo/packd
 github.com/gobuffalo/packd/internal/takeon/github.com/markbates/errx
-# github.com/gobuffalo/packr/v2 v2.8.0
+# github.com/gobuffalo/packr/v2 v2.8.1
 ## explicit
 github.com/gobuffalo/packr/v2
 github.com/gobuffalo/packr/v2/file
@@ -372,7 +372,7 @@ github.com/inconshreveable/mousetrap
 github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v1.1.10
 github.com/json-iterator/go
-# github.com/karrick/godirwalk v1.15.3
+# github.com/karrick/godirwalk v1.15.8
 github.com/karrick/godirwalk
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
