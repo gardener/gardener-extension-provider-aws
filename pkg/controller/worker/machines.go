@@ -48,6 +48,11 @@ func (w *workerDelegate) MachineClassList() runtime.Object {
 	return &machinev1alpha1.AWSMachineClassList{}
 }
 
+// MachineClass yields a newly initialized AWSMachineClass object.
+func (w *workerDelegate) MachineClass() runtime.Object {
+	return &machinev1alpha1.AWSMachineClass{}
+}
+
 // DeployMachineClasses generates and creates the AWS specific machine classes.
 func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 	if w.machineClasses == nil {
