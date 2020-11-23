@@ -39,7 +39,7 @@ func migrate(
 	c client.Client,
 	infrastructure *extensionsv1alpha1.Infrastructure,
 ) error {
-	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
+	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}

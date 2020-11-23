@@ -17,16 +17,18 @@ package infrastructure
 import (
 	"time"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
-
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	glogger "github.com/gardener/gardener/pkg/logger"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
 )
 
 type actuator struct {
@@ -43,8 +45,8 @@ func NewActuator() infrastructure.Actuator {
 
 // Helper functions
 
-func newTerraformer(restConfig *rest.Config, purpose, namespace, name string) (terraformer.Terraformer, error) {
-	tf, err := terraformer.NewForConfig(glogger.NewLogger("info"), restConfig, purpose, namespace, name, imagevector.TerraformerImage())
+func newTerraformer(restConfig *rest.Config, purpose string, infra *extensionsv1alpha1.Infrastructure) (terraformer.Terraformer, error) {
+	tf, err := terraformer.NewForConfig(glogger.NewLogger("info"), restConfig, purpose, infra.Namespace, infra.Name, imagevector.TerraformerImage())
 	if err != nil {
 		return nil, err
 	}
@@ -55,9 +57,22 @@ func newTerraformer(restConfig *rest.Config, purpose, namespace, name string) (t
 		SetDeadlinePod(15 * time.Minute), nil
 }
 
-func generateTerraformInfraVariablesEnvironment(credentials *aws.Credentials) map[string]string {
-	return map[string]string{
-		"TF_VAR_ACCESS_KEY_ID":     string(credentials.AccessKeyID),
-		"TF_VAR_SECRET_ACCESS_KEY": string(credentials.SecretAccessKey),
-	}
+func generateTerraformerEnvVars(secretRef corev1.SecretReference) []corev1.EnvVar {
+	return []corev1.EnvVar{{
+		Name: "TF_VAR_ACCESS_KEY_ID",
+		ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: secretRef.Name,
+			},
+			Key: aws.AccessKeyID,
+		}},
+	}, {
+		Name: "TF_VAR_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: secretRef.Name,
+			},
+			Key: aws.SecretAccessKey,
+		}},
+	}}
 }

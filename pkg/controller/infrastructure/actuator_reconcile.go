@@ -80,13 +80,13 @@ func Reconcile(
 		return nil, nil, fmt.Errorf("could not render Terraform chart: %+v", err)
 	}
 
-	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
+	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create terraformer object: %+v", err)
 	}
 
 	if err := tf.
-		SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(credentials)).
+		SetEnvVars(generateTerraformerEnvVars(infrastructure.Spec.SecretRef)...).
 		InitializeWith(terraformer.DefaultInitializer(
 			c,
 			release.FileContent("main.tf"),

@@ -46,7 +46,7 @@ func Delete(
 	c client.Client,
 	infrastructure *extensionsv1alpha1.Infrastructure,
 ) error {
-	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure.Namespace, infrastructure.Name)
+	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
@@ -102,7 +102,7 @@ func Delete(
 
 		_ = g.Add(flow.Task{
 			Name:         "Destroying Shoot infrastructure",
-			Fn:           flow.SimpleTaskFn(tf.SetVariablesEnvironment(generateTerraformInfraVariablesEnvironment(credentials)).Destroy),
+			Fn:           flow.SimpleTaskFn(tf.SetEnvVars(generateTerraformerEnvVars(infrastructure.Spec.SecretRef)...).Destroy),
 			Dependencies: flow.NewTaskIDs(destroyKubernetesLoadBalancersAndSecurityGroups),
 		})
 
