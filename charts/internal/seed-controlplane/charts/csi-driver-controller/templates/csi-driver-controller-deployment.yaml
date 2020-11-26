@@ -33,7 +33,7 @@ spec:
         networking.gardener.cloud/to-shoot-apiserver: allowed
     spec:
       containers:
-      - name: csi-driver
+      - name: aws-csi-driver
         image: {{ index .Values.images "csi-driver" }}
         imagePullPolicy: IfNotPresent
         args :
@@ -76,7 +76,7 @@ spec:
         - name: socket-dir
           mountPath: {{ .Values.socketPath }}
 
-      - name: csi-provisioner
+      - name: aws-csi-provisioner
         image: {{ index .Values.images "csi-provisioner" }}
         imagePullPolicy: IfNotPresent
         args:
@@ -101,7 +101,7 @@ spec:
         - name: csi-provisioner
           mountPath: /var/lib/csi-provisioner
 
-      - name: csi-attacher
+      - name: aws-csi-attacher
         image: {{ index .Values.images "csi-attacher" }}
         imagePullPolicy: IfNotPresent
         args:
@@ -123,7 +123,7 @@ spec:
         - name: csi-attacher
           mountPath: /var/lib/csi-attacher
 
-      - name: csi-snapshotter
+      - name: aws-csi-snapshotter
         image: {{ index .Values.images "csi-snapshotter" }}
         imagePullPolicy: IfNotPresent
         args:
@@ -145,7 +145,7 @@ spec:
         - name: csi-snapshotter
           mountPath: /var/lib/csi-snapshotter
 
-      - name: csi-resizer
+      - name: aws-csi-resizer
         image: {{ index .Values.images "csi-resizer" }}
         imagePullPolicy: IfNotPresent
         args:
@@ -167,7 +167,7 @@ spec:
         - name: csi-resizer
           mountPath: /var/lib/csi-resizer
 
-      - name: csi-liveness-probe
+      - name: aws-csi-liveness-probe
         image: {{ index .Values.images "csi-liveness-probe" }}
         args:
         - --csi-address=/csi/csi.sock

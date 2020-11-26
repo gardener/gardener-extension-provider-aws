@@ -20,6 +20,20 @@ data:
         Key_Name            log
         Parser              kubeapiserverParser
         Reserve_Data        True
+
+    [FILTER]
+        Name                parser
+        Match               kubernetes.*csi-driver-controller*aws-csi*
+        Key_Name            log
+        Parser              kubeapiserverParser
+        Reserve_Data        True
+
+    [FILTER]
+        Name                rewrite_tag
+        Match               kubernetes.*
+        Rule                $tag ^kubernetes\.var\.log\.containers\.(cloud-controller-manager-.+?_.+?_aws-cloud-controller-manager|csi-driver-controller-.+?_.+?_aws-csi) user-exposed.$TAG true
+        Emitter_Name        re_emitted-provider-aws
+
 {{ if eq .Values.gardener.seed.provider "aws" }}
     [FILTER]
         Name                parser

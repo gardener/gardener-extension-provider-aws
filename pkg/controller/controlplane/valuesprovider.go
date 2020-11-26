@@ -197,7 +197,7 @@ var (
 				Objects: []*chart.Object{
 					{Type: &corev1.Service{}, Name: aws.CloudControllerManagerName},
 					{Type: &appsv1.Deployment{}, Name: aws.CloudControllerManagerName},
-					{Type: &corev1.ConfigMap{}, Name: aws.CloudControllerManagerName + "-monitoring-config"},
+					{Type: &corev1.ConfigMap{}, Name: aws.CloudControllerManagerName + "-observability-config"},
 					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
 				},
 			},
@@ -216,6 +216,7 @@ var (
 					// csi-driver-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSIControllerName},
 					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
+					{Type: &corev1.ConfigMap{}, Name: aws.CSIControllerName + "-observability-config"},
 					// csi-snapshot-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotControllerName},
 					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
@@ -335,7 +336,7 @@ func (vp *valuesProvider) GetConfigChartValues(
 
 // GetControlPlaneChartValues returns the values for the control plane chart applied by the generic actuator.
 func (vp *valuesProvider) GetControlPlaneChartValues(
-	_ context.Context,
+	ctx context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 	checksums map[string]string,
@@ -347,6 +348,11 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
 			return nil, errors.Wrapf(err, "could not decode providerConfig of controlplane '%s'", kutil.ObjectName(cp))
 		}
+	}
+
+	// TODO: Remove this code in next version. Delete old config
+	if err := vp.deleteCCMMonitoringConfig(ctx, cp.Namespace); err != nil {
+		return nil, err
 	}
 
 	return getControlPlaneChartValues(cpConfig, cp, cluster, checksums, scaledDown)

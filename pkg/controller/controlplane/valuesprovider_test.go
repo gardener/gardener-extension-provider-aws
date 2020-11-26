@@ -44,6 +44,7 @@ const namespace = "test"
 var _ = Describe("ValuesProvider", func() {
 	var (
 		ctrl   *gomock.Controller
+		c      *mockclient.MockClient
 		ctx    = context.TODO()
 		logger = log.Log.WithName("test")
 
@@ -122,6 +123,14 @@ var _ = Describe("ValuesProvider", func() {
 			},
 		}
 
+		// TODO remove cpMap in next version
+		ccmMonitoringConfigmap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "cloud-controller-manager-monitoring-config",
+			},
+		}
+
 		checksums = map[string]string{
 			v1beta1constants.SecretNameCloudProvider:   "8bafb35ff1ac60275d62e1cbd495aceb511fb354f74a20f7d06ecb48b3a68432",
 			aws.CloudProviderConfigName:                "08a7bc7fe8f59b055f173145e211760a83f02cf89635cef26ebb351378635606",
@@ -141,7 +150,6 @@ var _ = Describe("ValuesProvider", func() {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-
 		vp = NewValuesProvider(logger)
 		err := vp.(inject.Scheme).InjectScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
@@ -181,6 +189,14 @@ var _ = Describe("ValuesProvider", func() {
 			"featureGates": map[string]bool{
 				"CustomResourceValidation": true,
 			},
+		})
+
+		BeforeEach(func() {
+			c = mockclient.NewMockClient(ctrl)
+			c.EXPECT().Delete(context.TODO(), ccmMonitoringConfigmap).DoAndReturn(clientDeleteSuccess())
+
+			err := vp.(inject.Client).InjectClient(c)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should return correct control plane chart values (k8s < 1.18)", func() {
@@ -317,6 +333,12 @@ func clientGet(result runtime.Object) interface{} {
 		case *corev1.Service:
 			*obj.(*corev1.Service) = *result.(*corev1.Service)
 		}
+		return nil
+	}
+}
+
+func clientDeleteSuccess() interface{} {
+	return func(ctx context.Context, cm runtime.Object) error {
 		return nil
 	}
 }
