@@ -38,8 +38,7 @@ func NewCloudAware() np.CloudAware {
 			Pod: np.Pod{
 				Name: "aws-lb-readvertiser",
 				Labels: labels.Set{
-					"app":                     "aws-lb-readvertiser",
-					"garden.sapcloud.io/role": "controlplane",
+					"app": "aws-lb-readvertiser",
 				},
 				SeedClusterConstraints: sets.NewString("aws"),
 			},
