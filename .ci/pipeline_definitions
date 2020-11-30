@@ -31,6 +31,13 @@ gardener-extension-provider-aws:
         options:
           public_build_logs: true
     release:
+      steps:
+        test-integration:
+          execute:
+          - test-integration.sh
+          depends:
+          - publish
+          image: 'eu.gcr.io/gardener-project/gardener/testmachinery/testmachinery-run:stable'
       traits:
         version:
           preprocess: 'finalize'
