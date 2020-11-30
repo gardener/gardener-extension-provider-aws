@@ -293,7 +293,7 @@ var _ = Describe("ValuesProvider", func() {
 			serviceKey := client.ObjectKey{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}
 			c.EXPECT().Get(ctx, serviceKey, &corev1.Service{}).DoAndReturn(clientGet(cpService))
 
-			values, err := vp.GetControlPlaneExposureChartValues(context.TODO(), cp, clusterK8sLessThan118, checksums)
+			values, err := vp.GetControlPlaneExposureChartValues(ctx, cp, clusterK8sLessThan118, checksums)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"domain":   "10.10.10.1",

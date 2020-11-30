@@ -22,6 +22,7 @@ import (
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	kutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +30,8 @@ import (
 
 // Migrate deletes only the ConfigMaps and Secrets of the Terraformer.
 func (a *actuator) Migrate(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	return migrate(ctx, a.logger, a.RESTConfig(), a.Client(), infrastructure)
+	logger := a.logger.WithValues("infrastructure", kutils.KeyFromObject(infrastructure), "operation", "migrate")
+	return migrate(ctx, logger, a.RESTConfig(), a.Client(), infrastructure)
 }
 
 func migrate(
@@ -39,7 +41,7 @@ func migrate(
 	c client.Client,
 	infrastructure *extensionsv1alpha1.Infrastructure,
 ) error {
-	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure)
+	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
