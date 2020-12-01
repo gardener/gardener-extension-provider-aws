@@ -52,6 +52,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	ctx = context.TODO()
+)
+
 var _ = Describe("Machines", func() {
 	var (
 		ctrl         *gomock.Controller
@@ -592,7 +596,7 @@ var _ = Describe("Machines", func() {
 					chartApplier.
 						EXPECT().
 						Apply(
-							context.TODO(),
+							ctx,
 							filepath.Join(aws.InternalChartsPath, "machineclass"),
 							namespace,
 							"machineclass",
@@ -600,7 +604,7 @@ var _ = Describe("Machines", func() {
 						).
 						Return(nil)
 
-					err := workerDelegate.DeployMachineClasses(context.TODO())
+					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
 					// Test workerDelegate.UpdateMachineDeployments()
@@ -623,7 +627,6 @@ var _ = Describe("Machines", func() {
 						Object: expectedImages,
 					}
 
-					ctx := context.TODO()
 					c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Worker{})).Return(nil)
 					c.EXPECT().Status().Return(statusWriter)
 					statusWriter.EXPECT().Update(ctx, workerWithExpectedImages).Return(nil)
@@ -633,7 +636,7 @@ var _ = Describe("Machines", func() {
 
 					// Test workerDelegate.GenerateMachineDeployments()
 
-					result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(result).To(Equal(machineDeployments))
 				})
@@ -641,10 +644,10 @@ var _ = Describe("Machines", func() {
 
 			It("should fail because the secret cannot be read", func() {
 				c.EXPECT().
-					Get(context.TODO(), gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
+					Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
 					Return(fmt.Errorf("error"))
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
@@ -655,7 +658,7 @@ var _ = Describe("Machines", func() {
 				clusterWithoutImages.Shoot.Spec.Kubernetes.Version = "invalid"
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
@@ -667,7 +670,7 @@ var _ = Describe("Machines", func() {
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
@@ -681,7 +684,7 @@ var _ = Describe("Machines", func() {
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
@@ -704,7 +707,7 @@ var _ = Describe("Machines", func() {
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
@@ -716,7 +719,7 @@ var _ = Describe("Machines", func() {
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
@@ -748,7 +751,7 @@ var _ = Describe("Machines", func() {
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
@@ -760,7 +763,7 @@ var _ = Describe("Machines", func() {
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
 			})
@@ -783,7 +786,7 @@ var _ = Describe("Machines", func() {
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				resultSettings := result[0].MachineConfiguration
 				resultNodeConditions := strings.Join(testNodeConditions, ",")
 
@@ -805,7 +808,7 @@ func encode(obj runtime.Object) []byte {
 
 func expectGetSecretCallToWork(c *mockclient.MockClient, awsAccessKeyID, awsSecretAccessKey string) {
 	c.EXPECT().
-		Get(context.TODO(), gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
+		Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).
 		DoAndReturn(func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
 			secret.Data = map[string][]byte{
 				aws.AccessKeyID:     []byte(awsAccessKeyID),

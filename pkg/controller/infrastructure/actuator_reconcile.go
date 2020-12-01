@@ -30,6 +30,8 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
+	kutils "github.com/gardener/gardener/pkg/utils/kubernetes"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,7 +41,8 @@ import (
 )
 
 func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	infrastructureStatus, state, err := Reconcile(ctx, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
+	logger := a.logger.WithValues("infrastructure", kutils.KeyFromObject(infrastructure), "operation", "reconcile")
+	infrastructureStatus, state, err := Reconcile(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
 	if err != nil {
 		return err
 	}
@@ -49,6 +52,7 @@ func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1al
 // Reconcile reconciles the given Infrastructure object. It returns the provider specific status and the Terraform state.
 func Reconcile(
 	ctx context.Context,
+	logger logr.Logger,
 	restConfig *rest.Config,
 	c client.Client,
 	decoder runtime.Decoder,
@@ -80,21 +84,23 @@ func Reconcile(
 		return nil, nil, fmt.Errorf("could not render Terraform chart: %+v", err)
 	}
 
-	tf, err := newTerraformer(restConfig, aws.TerraformerPurposeInfra, infrastructure)
+	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create terraformer object: %+v", err)
 	}
 
 	if err := tf.
 		SetEnvVars(generateTerraformerEnvVars(infrastructure.Spec.SecretRef)...).
-		InitializeWith(terraformer.DefaultInitializer(
-			c,
-			release.FileContent("main.tf"),
-			release.FileContent("variables.tf"),
-			[]byte(release.FileContent("terraform.tfvars")),
-			stateInitializer,
-		)).
-		Apply(); err != nil {
+		InitializeWith(
+			ctx,
+			terraformer.DefaultInitializer(
+				c,
+				release.FileContent("main.tf"),
+				release.FileContent("variables.tf"),
+				[]byte(release.FileContent("terraform.tfvars")),
+				stateInitializer,
+			)).
+		Apply(ctx); err != nil {
 
 		return nil, nil, errors.Wrap(err, "failed to apply the terraform config")
 	}
@@ -217,7 +223,7 @@ func computeProviderStatus(ctx context.Context, tf terraformer.Terraformer, infr
 		outputVarKeys = append(outputVarKeys, fmt.Sprintf("%s%d", aws.SubnetPublicPrefix, zoneIndex))
 	}
 
-	output, err := tf.GetStateOutputVariables(outputVarKeys...)
+	output, err := tf.GetStateOutputVariables(ctx, outputVarKeys...)
 	if err != nil {
 		return nil, nil, err
 	}
