@@ -14,4 +14,4 @@ mkdir -p /tm
     --testrun-prefix tm-extension-aws- \
     --timeout=1800 \
     --testruns-chart-path=.ci/testruns/default \
-    --set revision="$(cat ./VERSION)"
+    --set revision="$(git rev-parse HEAD)"
