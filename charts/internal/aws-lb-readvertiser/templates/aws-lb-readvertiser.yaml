@@ -4,7 +4,6 @@ metadata:
   name: aws-lb-readvertiser
   namespace: {{ .Release.Namespace }}
   labels:
-    garden.sapcloud.io/role: controlplane
     app: aws-lb-readvertiser
 spec:
   revisionHistoryLimit: 0
@@ -16,6 +15,7 @@ spec:
     metadata:
       labels:
         garden.sapcloud.io/role: controlplane
+        gardener.cloud/role: controlplane
         app: aws-lb-readvertiser
         networking.gardener.cloud/to-dns: allowed
         networking.gardener.cloud/to-shoot-apiserver: allowed

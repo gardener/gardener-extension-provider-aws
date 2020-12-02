@@ -138,8 +138,7 @@ var _ = Describe("Network Policy Testing", func() {
 			Pod: networkpolicies.Pod{
 				Name: "aws-lb-readvertiser",
 				Labels: labels.Set{
-					"app":                     "aws-lb-readvertiser",
-					"garden.sapcloud.io/role": "controlplane"},
+					"app": "aws-lb-readvertiser"},
 				ShootVersionConstraint: "",
 				SeedClusterConstraints: sets.String{
 					"aws": sets.Empty{}}},
@@ -153,8 +152,7 @@ var _ = Describe("Network Policy Testing", func() {
 			Pod: networkpolicies.Pod{
 				Name: "aws-lb-readvertiser",
 				Labels: labels.Set{
-					"app":                     "aws-lb-readvertiser",
-					"garden.sapcloud.io/role": "controlplane"},
+					"app": "aws-lb-readvertiser"},
 				ShootVersionConstraint: "",
 				SeedClusterConstraints: sets.String{
 					"aws": sets.Empty{}}},
