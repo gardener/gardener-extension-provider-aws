@@ -26,6 +26,7 @@ import (
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -80,13 +81,13 @@ var _ = Describe("Machines", func() {
 
 		Describe("#MachineClassKind", func() {
 			It("should return the correct kind of the machine class", func() {
-				Expect(workerDelegate.MachineClassKind()).To(Equal("AWSMachineClass"))
+				Expect(workerDelegate.MachineClassKind()).To(Equal("MachineClass"))
 			})
 		})
 
 		Describe("#MachineClassList", func() {
 			It("should return the correct type for the machine class list", func() {
-				Expect(workerDelegate.MachineClassList()).To(Equal(&machinev1alpha1.AWSMachineClassList{}))
+				Expect(workerDelegate.MachineClassList()).To(Equal(&machinev1alpha1.MachineClassList{}))
 			})
 		})
 
@@ -585,16 +586,19 @@ var _ = Describe("Machines", func() {
 
 					// Test workerDelegate.DeployMachineClasses()
 
-					chartApplier.
-						EXPECT().
-						Apply(
-							ctx,
-							filepath.Join(aws.InternalChartsPath, "machineclass"),
-							namespace,
-							"machineclass",
-							kubernetes.Values(machineClasses),
-						).
-						Return(nil)
+					gomock.InOrder(
+						c.EXPECT().
+							DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)),
+						chartApplier.
+							EXPECT().
+							Apply(
+								ctx,
+								filepath.Join(aws.InternalChartsPath, "machineclass"),
+								namespace,
+								"machineclass",
+								kubernetes.Values(machineClasses),
+							),
+					)
 
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
@@ -631,6 +635,46 @@ var _ = Describe("Machines", func() {
 					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(result).To(Equal(machineDeployments))
+				})
+
+				It("should delete the all old AWSMachineClasses", func() {
+					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
+					gomock.InOrder(
+						c.EXPECT().
+							DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)),
+						chartApplier.
+							EXPECT().
+							Apply(
+								ctx,
+								filepath.Join(aws.InternalChartsPath, "machineclass"),
+								namespace,
+								"machineclass",
+								kubernetes.Values(machineClasses),
+							),
+					)
+
+					err := workerDelegate.DeployMachineClasses(context.TODO())
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("should return err when the infrastructure provider status cannot be decoded", func() {
+					// Deliberately setting InfrastructureProviderStatus to empty
+					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
+					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
+
+					err := workerDelegate.DeployMachineClasses(context.TODO())
+					Expect(err).To(HaveOccurred())
+				})
+
+				It("should not delete the any of old AWSMachineClasses as DeleteAll call returns error", func() {
+					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
+
+					c.EXPECT().
+						DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)).
+						Return(fmt.Errorf("fake error"))
+
+					err := workerDelegate.DeployMachineClasses(context.TODO())
+					Expect(err).To(HaveOccurred())
 				})
 			})
 
