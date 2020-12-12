@@ -11,18 +11,23 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.17.13"
+  tag: "v1.17.15"
   targetVersion: "1.17.x"
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.18.10"
+  tag: "v1.18.13"
   targetVersion: "1.18.x"
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.19.3"
-  targetVersion: ">= 1.19"
+  tag: "v1.19.5"
+  targetVersion: "1.19.x"
+- name: cloud-controller-manager
+  sourceRepository: github.com/gardener/cloud-provider-aws
+  repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
+  tag: "v1.20.0"
+  targetVersion: ">= 1.20"
 - name: machine-controller-manager
   sourceRepository: github.com/gardener/machine-controller-manager
   repository: eu.gcr.io/gardener-project/gardener/machine-controller-manager
