@@ -21,11 +21,12 @@ import (
 	"sort"
 	"strconv"
 
+	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
+
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
-	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -96,11 +97,6 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 		machineClasses     []map[string]interface{}
 		machineImages      []awsapi.MachineImage
 	)
-
-	machineClassSecretData, err := w.generateMachineClassSecretData(ctx)
-	if err != nil {
-		return err
-	}
 
 	infrastructureStatus := &awsapi.InfrastructureStatus{}
 	if _, _, err := w.Decoder().Decode(w.worker.Spec.InfrastructureProviderStatus.Raw, nil, infrastructureStatus); err != nil {
@@ -173,6 +169,10 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 					},
 					pool.Labels,
 				),
+				"credentialsSecretRef": map[string]interface{}{
+					"name":      w.worker.Spec.SecretRef.Name,
+					"namespace": w.worker.Spec.SecretRef.Namespace,
+				},
 				"secret": map[string]interface{}{
 					"cloudConfig": string(pool.UserData),
 				},
@@ -200,8 +200,6 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 
 			machineClassSpec["name"] = className
 			machineClassSpec["labels"] = map[string]string{corev1.LabelZoneFailureDomain: zone}
-			machineClassSpec["secret"].(map[string]interface{})[aws.AccessKeyID] = string(machineClassSecretData[machinev1alpha1.AWSAccessKeyID])
-			machineClassSpec["secret"].(map[string]interface{})[aws.SecretAccessKey] = string(machineClassSecretData[machinev1alpha1.AWSSecretAccessKey])
 			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass}
 
 			machineClasses = append(machineClasses, machineClassSpec)
