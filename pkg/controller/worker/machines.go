@@ -21,8 +21,6 @@ import (
 	"sort"
 	"strconv"
 
-	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
-
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -72,23 +70,6 @@ func (w *workerDelegate) GenerateMachineDeployments(ctx context.Context) (worker
 		}
 	}
 	return w.machineDeployments, nil
-}
-
-func (w *workerDelegate) generateMachineClassSecretData(ctx context.Context) (map[string][]byte, error) {
-	secret, err := extensionscontroller.GetSecretByReference(ctx, w.Client(), &w.worker.Spec.SecretRef)
-	if err != nil {
-		return nil, err
-	}
-
-	credentials, err := aws.ReadCredentialsSecret(secret)
-	if err != nil {
-		return nil, err
-	}
-
-	return map[string][]byte{
-		machinev1alpha1.AWSAccessKeyID:     credentials.AccessKeyID,
-		machinev1alpha1.AWSSecretAccessKey: credentials.SecretAccessKey,
-	}, nil
 }
 
 func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
