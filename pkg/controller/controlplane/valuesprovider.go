@@ -371,7 +371,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 // GetStorageClassesChartValues returns the values for the storage classes chart applied by the generic actuator.
 func (vp *valuesProvider) GetStorageClassesChartValues(
 	_ context.Context,
-	_ *extensionsv1alpha1.ControlPlane,
+	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
 	k8sVersionLessThan118, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, "<", "1.18")
@@ -379,8 +379,26 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 		return nil, err
 	}
 
+	managedDefaultClass := true
+
+	if cp.Spec.ProviderConfig != nil {
+		cpConfig := &apisaws.ControlPlaneConfig{}
+		_, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not decode providerConfig of controlplane '%s'", kutil.ObjectName(cp))
+		}
+
+		// internal types should NOT be used when embeding.
+		// There should not be any defaulting for internal types.
+		// This checks is to be 100% sure that we won't hit nil dereference.
+		if cpConfig.Storage != nil && cpConfig.Storage.ManagedDefaultClass != nil {
+			managedDefaultClass = *cpConfig.Storage.ManagedDefaultClass
+		}
+	}
+
 	return map[string]interface{}{
 		"useLegacyProvisioner": k8sVersionLessThan118,
+		"managedDefaultClass":  managedDefaultClass,
 	}, nil
 }
 

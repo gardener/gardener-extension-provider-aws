@@ -21,3 +21,21 @@ import (
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
 	return RegisterDefaults(scheme)
 }
+
+// SetDefaults_ControlPlaneConfig sets
+// .storage to empty object.
+func SetDefaults_ControlPlaneConfig(obj *ControlPlaneConfig) {
+	if obj.Storage == nil {
+		obj.Storage = &Storage{}
+	}
+}
+
+// SetDefaults_Storage sets
+// managedDefaultClass to true.
+func SetDefaults_Storage(obj *Storage) {
+	defaultManagedDefaultClass := true
+
+	if obj.ManagedDefaultClass == nil {
+		obj.ManagedDefaultClass = &defaultManagedDefaultClass
+	}
+}

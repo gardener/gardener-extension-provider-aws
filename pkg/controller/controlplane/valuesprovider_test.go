@@ -15,12 +15,13 @@
 package controlplane
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"io/ioutil"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -28,12 +29,17 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener/pkg/utils"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
@@ -43,18 +49,52 @@ const namespace = "test"
 
 var _ = Describe("ValuesProvider", func() {
 	var (
-		ctrl   *gomock.Controller
-		c      *mockclient.MockClient
-		ctx    = context.TODO()
+		ctrl                   *gomock.Controller
+		c                      *mockclient.MockClient
+		encoder                runtime.Encoder
+		ctx                    context.Context
+		logger                 logr.Logger
+		scheme                 *runtime.Scheme
+		vp                     genericactuator.ValuesProvider
+		region                 string
+		cp                     *extensionsv1alpha1.ControlPlane
+		cidr                   string
+		clusterK8sLessThan118  *extensionscontroller.Cluster
+		clusterK8sAtLeast118   *extensionscontroller.Cluster
+		ccmMonitoringConfigmap *corev1.ConfigMap // TODO remove cpMap in next version
+		checksums              map[string]string
+		enabledTrue            map[string]interface{}
+		enabledFalse           map[string]interface{}
+		encode                 = func(obj runtime.Object) []byte {
+			b := &bytes.Buffer{}
+			Expect(encoder.Encode(obj, b)).To(Succeed())
+
+			data, err := ioutil.ReadAll(b)
+			Expect(err).ToNot(HaveOccurred())
+
+			return data
+		}
+	)
+
+	BeforeEach(func() {
+		ctx = context.TODO()
 		logger = log.Log.WithName("test")
-
 		scheme = runtime.NewScheme()
-		_      = apisaws.AddToScheme(scheme)
 
-		vp genericactuator.ValuesProvider
+		Expect(apisaws.AddToScheme(scheme)).To(Succeed())
+		Expect(apisawsv1alpha1.AddToScheme(scheme)).To(Succeed())
+
+		codec := serializer.NewCodecFactory(scheme, serializer.EnableStrict)
+
+		info, found := runtime.SerializerInfoForMediaType(codec.SupportedMediaTypes(), runtime.ContentTypeJSON)
+		Expect(found).To(BeTrue(), "should be able to decode")
+
+		encoder = codec.EncoderForVersion(info.Serializer, apisawsv1alpha1.SchemeGroupVersion)
 
 		region = "europe"
-		cp     = &extensionsv1alpha1.ControlPlane{
+		cidr = "10.250.0.0/19"
+
+		cp = &extensionsv1alpha1.ControlPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "control-plane",
 				Namespace: namespace,
@@ -62,8 +102,8 @@ var _ = Describe("ValuesProvider", func() {
 			Spec: extensionsv1alpha1.ControlPlaneSpec{
 				DefaultSpec: extensionsv1alpha1.DefaultSpec{
 					ProviderConfig: &runtime.RawExtension{
-						Raw: encode(&apisaws.ControlPlaneConfig{
-							CloudControllerManager: &apisaws.CloudControllerManagerConfig{
+						Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
+							CloudControllerManager: &apisawsv1alpha1.CloudControllerManagerConfig{
 								FeatureGates: map[string]bool{
 									"CustomResourceValidation": true,
 								},
@@ -72,10 +112,10 @@ var _ = Describe("ValuesProvider", func() {
 					},
 				},
 				InfrastructureProviderStatus: &runtime.RawExtension{
-					Raw: encode(&apisaws.InfrastructureStatus{
-						VPC: apisaws.VPCStatus{
+					Raw: encode(&apisawsv1alpha1.InfrastructureStatus{
+						VPC: apisawsv1alpha1.VPCStatus{
 							ID: "vpc-1234",
-							Subnets: []apisaws.Subnet{
+							Subnets: []apisawsv1alpha1.Subnet{
 								{
 									ID:      "subnet-acbd1234",
 									Purpose: "public",
@@ -89,7 +129,6 @@ var _ = Describe("ValuesProvider", func() {
 			},
 		}
 
-		cidr                  = "10.250.0.0/19"
 		clusterK8sLessThan118 = &extensionscontroller.Cluster{
 			Shoot: &gardencorev1beta1.Shoot{
 				Spec: gardencorev1beta1.ShootSpec{
@@ -102,6 +141,7 @@ var _ = Describe("ValuesProvider", func() {
 				},
 			},
 		}
+
 		clusterK8sAtLeast118 = &extensionscontroller.Cluster{
 			Shoot: &gardencorev1beta1.Shoot{
 				ObjectMeta: metav1.ObjectMeta{
@@ -144,15 +184,13 @@ var _ = Describe("ValuesProvider", func() {
 			aws.CSISnapshotControllerName:              "84cba346d2e2cf96c3811b55b01f57bdd9b9bcaed7065760470942d267984eaf",
 		}
 
-		enabledTrue  = map[string]interface{}{"enabled": true}
+		enabledTrue = map[string]interface{}{"enabled": true}
 		enabledFalse = map[string]interface{}{"enabled": false}
-	)
 
-	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		vp = NewValuesProvider(logger)
-		err := vp.(inject.Scheme).InjectScheme(scheme)
-		Expect(err).NotTo(HaveOccurred())
+
+		Expect(vp.(inject.Scheme).InjectScheme(scheme)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -173,25 +211,26 @@ var _ = Describe("ValuesProvider", func() {
 	})
 
 	Describe("#GetControlPlaneChartValues", func() {
-		ccmChartValues := utils.MergeMaps(enabledTrue, map[string]interface{}{
-			"replicas":    1,
-			"clusterName": namespace,
-			"podNetwork":  cidr,
-			"podLabels": map[string]interface{}{
-				"maintenance.gardener.cloud/restart": "true",
-			},
-			"podAnnotations": map[string]interface{}{
-				"checksum/secret-" + aws.CloudControllerManagerName:             checksums[aws.CloudControllerManagerName],
-				"checksum/secret-" + aws.CloudControllerManagerName + "-server": checksums[aws.CloudControllerManagerName+"-server"],
-				"checksum/secret-" + v1beta1constants.SecretNameCloudProvider:   checksums[v1beta1constants.SecretNameCloudProvider],
-				"checksum/configmap-" + aws.CloudProviderConfigName:             checksums[aws.CloudProviderConfigName],
-			},
-			"featureGates": map[string]bool{
-				"CustomResourceValidation": true,
-			},
-		})
+		var ccmChartValues map[string]interface{}
 
 		BeforeEach(func() {
+			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
+				"replicas":    1,
+				"clusterName": namespace,
+				"podNetwork":  cidr,
+				"podLabels": map[string]interface{}{
+					"maintenance.gardener.cloud/restart": "true",
+				},
+				"podAnnotations": map[string]interface{}{
+					"checksum/secret-" + aws.CloudControllerManagerName:             checksums[aws.CloudControllerManagerName],
+					"checksum/secret-" + aws.CloudControllerManagerName + "-server": checksums[aws.CloudControllerManagerName+"-server"],
+					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider:   checksums[v1beta1constants.SecretNameCloudProvider],
+					"checksum/configmap-" + aws.CloudProviderConfigName:             checksums[aws.CloudProviderConfigName],
+				},
+				"featureGates": map[string]bool{
+					"CustomResourceValidation": true,
+				},
+			})
 			c = mockclient.NewMockClient(ctrl)
 			c.EXPECT().Delete(context.TODO(), ccmMonitoringConfigmap).DoAndReturn(clientDeleteSuccess())
 
@@ -269,13 +308,92 @@ var _ = Describe("ValuesProvider", func() {
 		It("should return correct storage class chart values (k8s < 1.18)", func() {
 			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{"useLegacyProvisioner": true}))
+			Expect(values).To(Equal(map[string]interface{}{
+				"useLegacyProvisioner": true,
+				"managedDefaultClass":  true,
+			}))
+		})
+
+		It("should return correct storage class chart values (k8s < 1.18) and default is set to true", func() {
+			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
+				Storage: &apisawsv1alpha1.Storage{
+					ManagedDefaultClass: pointer.BoolPtr(true),
+				},
+			})
+
+			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"useLegacyProvisioner": true,
+				"managedDefaultClass":  true,
+			}))
+		})
+
+		It("should return correct storage class chart values (k8s < 1.18) and default is set to false", func() {
+			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
+				Storage: &apisawsv1alpha1.Storage{
+					ManagedDefaultClass: pointer.BoolPtr(false),
+				},
+			})
+
+			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"useLegacyProvisioner": true,
+				"managedDefaultClass":  false,
+			}))
 		})
 
 		It("should return correct storage class chart values (k8s >= 1.18)", func() {
 			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast118)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{"useLegacyProvisioner": false}))
+			Expect(values).To(Equal(map[string]interface{}{
+				"useLegacyProvisioner": false,
+				"managedDefaultClass":  true,
+			}))
+		})
+
+		It("should return correct storage class chart values (k8s >= 1.18) and default is set to true", func() {
+			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
+				Storage: &apisawsv1alpha1.Storage{
+					ManagedDefaultClass: pointer.BoolPtr(true),
+				},
+			})
+
+			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast118)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"useLegacyProvisioner": false,
+				"managedDefaultClass":  true,
+			}))
+		})
+
+		It("should return correct storage class chart values (k8s >= 1.18) and default is set to false", func() {
+			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
+				Storage: &apisawsv1alpha1.Storage{
+					ManagedDefaultClass: pointer.BoolPtr(false),
+				},
+			})
+
+			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast118)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"useLegacyProvisioner": false,
+				"managedDefaultClass":  false,
+			}))
+		})
+
+		It("should have managedDefaultClass to true when using internal resource", func() {
+			internal := `{"kind":"ControlPlaneConfig","apiVersion":"aws.provider.extensions.gardener.cloud/__internal"}`
+
+			cp.Spec.DefaultSpec.ProviderConfig.Raw = []byte(internal)
+
+			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"useLegacyProvisioner": true,
+				"managedDefaultClass":  true,
+			}))
 		})
 	})
 
@@ -321,11 +439,6 @@ var _ = Describe("ValuesProvider", func() {
 		})
 	})
 })
-
-func encode(obj runtime.Object) []byte {
-	data, _ := json.Marshal(obj)
-	return data
-}
 
 func clientGet(result runtime.Object) interface{} {
 	return func(ctx context.Context, key client.ObjectKey, obj runtime.Object) error {
