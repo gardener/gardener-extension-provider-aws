@@ -54,6 +54,11 @@ Please make sure that the provided credentials have the correct privileges. You 
         "Resource": "*"
       },
       {
+        "Effect": "Allow",
+        "Action": "s3:*",
+        "Resource": "*"
+      },
+      {
         "Action": [
           "iam:GetInstanceProfile",
           "iam:GetPolicy",
