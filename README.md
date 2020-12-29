@@ -29,9 +29,9 @@ This extension controller supports the following Kubernetes versions:
 | Kubernetes 1.17 | 1.17.0+     | [![Gardener v1.17 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.17%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.17%20AWS) |
 | Kubernetes 1.16 | 1.16.0+     | [![Gardener v1.16 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.16%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.16%20AWS) |
 | Kubernetes 1.15 | 1.15.0+     | [2] |
-| Kubernetes 1.14 | 1.14.0+, except 1.14.7 | [2] |
-| Kubernetes 1.13 | 1.13.0+     | [2] |
-| Kubernetes 1.12 | 1.12.1+     | [2] |
+| Kubernetes 1.14 | 1.14.0+, except 1.14.7 | [1] |
+| Kubernetes 1.13 | 1.13.0+     | [1] |
+| Kubernetes 1.12 | 1.12.1+     | [1] |
 | Kubernetes 1.11 | 1.11.0+     | [1] |
 | Kubernetes 1.10 | 1.10.0+     | [1] |
 
