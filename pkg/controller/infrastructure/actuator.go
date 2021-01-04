@@ -53,8 +53,8 @@ func newTerraformer(logger logr.Logger, restConfig *rest.Config, purpose string,
 		UseV2(true).
 		SetLogLevel("debug").
 		SetTerminationGracePeriodSeconds(630).
-		SetDeadlineCleaning(5 * time.Minute).
-		SetDeadlinePod(15 * time.Minute), nil
+		SetDeadlineCleaning(30 * time.Minute).
+		SetDeadlinePod(30 * time.Minute), nil
 }
 
 func generateTerraformerEnvVars(secretRef corev1.SecretReference) []corev1.EnvVar {
