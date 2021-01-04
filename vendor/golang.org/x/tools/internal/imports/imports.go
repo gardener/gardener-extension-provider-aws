@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/internal/gocommand"
 )
 
 // Options is golang.org/x/tools/imports.Options with extra internal-only options.
@@ -154,10 +153,6 @@ func initialize(filename string, src []byte, opt *Options) ([]byte, *Options, er
 			GOPROXY:     os.Getenv("GOPROXY"),
 			GOSUMDB:     os.Getenv("GOSUMDB"),
 		}
-	}
-	// Set the gocmdRunner if the user has not provided it.
-	if opt.Env.GocmdRunner == nil {
-		opt.Env.GocmdRunner = &gocommand.Runner{}
 	}
 	if src == nil {
 		b, err := ioutil.ReadFile(filename)

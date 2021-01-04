@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.21.10
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.1.0
+	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/frankban/quicktest v1.9.0 // indirect
 	github.com/gardener/etcd-druid v0.3.0
 	github.com/gardener/gardener v1.15.0
@@ -25,6 +26,7 @@ require (
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
 	github.com/ulikunitz/xz v0.5.7 // indirect
+	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	k8s.io/api v0.18.10
 	k8s.io/apiextensions-apiserver v0.18.10
 	k8s.io/apimachinery v0.18.10
@@ -41,6 +43,7 @@ require (
 )
 
 replace (
+	github.com/gardener/gardener => github.com/rfranzke/gardener v0.0.0-20210104171158-e39ac8ebda04
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 	k8s.io/api => k8s.io/api v0.18.10
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.10

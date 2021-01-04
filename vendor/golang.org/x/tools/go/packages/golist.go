@@ -25,7 +25,6 @@ import (
 	"golang.org/x/tools/go/internal/packagesdriver"
 	"golang.org/x/tools/internal/gocommand"
 	"golang.org/x/tools/internal/packagesinternal"
-	"golang.org/x/xerrors"
 )
 
 // debug controls verbose logging.
@@ -143,7 +142,7 @@ func goListDriver(cfg *Config, patterns ...string) (*driverResponse, error) {
 		sizeswg.Add(1)
 		go func() {
 			var sizes types.Sizes
-			sizes, sizeserr = packagesdriver.GetSizesGolist(ctx, cfg.BuildFlags, cfg.Env, cfg.gocmdRunner, cfg.Dir)
+			sizes, sizeserr = packagesdriver.GetSizesGolist(ctx, cfg.BuildFlags, cfg.Env, cfg.Dir, usesExportData(cfg))
 			// types.SizesFor always returns nil or a *types.StdSizes.
 			response.dr.Sizes, _ = sizes.(*types.StdSizes)
 			sizeswg.Done()
@@ -503,19 +502,10 @@ func (state *golistState) createDriverResponse(words ...string) (*driverResponse
 					errkind = "use of internal package not allowed"
 				}
 				if errkind != "" {
-					if len(old.Error.ImportStack) < 1 {
-						return nil, fmt.Errorf(`internal error: go list gave a %q error with empty import stack`, errkind)
+					if len(old.Error.ImportStack) < 2 {
+						return nil, fmt.Errorf(`internal error: go list gave a %q error with an import stack with fewer than two elements`, errkind)
 					}
-					importingPkg := old.Error.ImportStack[len(old.Error.ImportStack)-1]
-					if importingPkg == old.ImportPath {
-						// Using an older version of Go which put this package itself on top of import
-						// stack, instead of the importer. Look for importer in second from top
-						// position.
-						if len(old.Error.ImportStack) < 2 {
-							return nil, fmt.Errorf(`internal error: go list gave a %q error with an import stack without importing package`, errkind)
-						}
-						importingPkg = old.Error.ImportStack[len(old.Error.ImportStack)-2]
-					}
+					importingPkg := old.Error.ImportStack[len(old.Error.ImportStack)-2]
 					additionalErrors[importingPkg] = append(additionalErrors[importingPkg], Error{
 						Pos:  old.Error.Pos,
 						Msg:  old.Error.Err,
@@ -717,7 +707,7 @@ func golistargs(cfg *Config, words []string) []string {
 func (state *golistState) invokeGo(verb string, args ...string) (*bytes.Buffer, error) {
 	cfg := state.cfg
 
-	inv := gocommand.Invocation{
+	inv := &gocommand.Invocation{
 		Verb:       verb,
 		Args:       args,
 		BuildFlags: cfg.BuildFlags,
@@ -725,11 +715,8 @@ func (state *golistState) invokeGo(verb string, args ...string) (*bytes.Buffer, 
 		Logf:       cfg.Logf,
 		WorkingDir: cfg.Dir,
 	}
-	gocmdRunner := cfg.gocmdRunner
-	if gocmdRunner == nil {
-		gocmdRunner = &gocommand.Runner{}
-	}
-	stdout, stderr, _, err := gocmdRunner.RunRaw(cfg.Context, inv)
+
+	stdout, stderr, _, err := inv.RunRaw(cfg.Context)
 	if err != nil {
 		// Check for 'go' executable not being found.
 		if ee, ok := err.(*exec.Error); ok && ee.Err == exec.ErrNotFound {
@@ -740,7 +727,7 @@ func (state *golistState) invokeGo(verb string, args ...string) (*bytes.Buffer, 
 		if !ok {
 			// Catastrophic error:
 			// - context cancellation
-			return nil, xerrors.Errorf("couldn't run 'go': %w", err)
+			return nil, fmt.Errorf("couldn't run 'go': %v", err)
 		}
 
 		// Old go version?

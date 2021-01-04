@@ -19,7 +19,8 @@ import (
 
 var debug = false
 
-func GetSizes(ctx context.Context, buildFlags, env []string, gocmdRunner *gocommand.Runner, dir string) (types.Sizes, error) {
+// GetSizes returns the sizes used by the underlying driver with the given parameters.
+func GetSizes(ctx context.Context, buildFlags, env []string, dir string, usesExportData bool) (types.Sizes, error) {
 	// TODO(matloob): Clean this up. This code is mostly a copy of packages.findExternalDriver.
 	const toolPrefix = "GOPACKAGESDRIVER="
 	tool := ""
@@ -39,7 +40,7 @@ func GetSizes(ctx context.Context, buildFlags, env []string, gocmdRunner *gocomm
 	}
 
 	if tool == "off" {
-		return GetSizesGolist(ctx, buildFlags, env, gocmdRunner, dir)
+		return GetSizesGolist(ctx, buildFlags, env, dir, usesExportData)
 	}
 
 	req, err := json.Marshal(struct {
@@ -75,7 +76,7 @@ func GetSizes(ctx context.Context, buildFlags, env []string, gocmdRunner *gocomm
 	return response.Sizes, nil
 }
 
-func GetSizesGolist(ctx context.Context, buildFlags, env []string, gocmdRunner *gocommand.Runner, dir string) (types.Sizes, error) {
+func GetSizesGolist(ctx context.Context, buildFlags, env []string, dir string, usesExportData bool) (types.Sizes, error) {
 	inv := gocommand.Invocation{
 		Verb:       "list",
 		Args:       []string{"-f", "{{context.GOARCH}} {{context.Compiler}}", "--", "unsafe"},
@@ -83,7 +84,7 @@ func GetSizesGolist(ctx context.Context, buildFlags, env []string, gocmdRunner *
 		BuildFlags: buildFlags,
 		WorkingDir: dir,
 	}
-	stdout, stderr, friendlyErr, rawErr := gocmdRunner.RunRaw(ctx, inv)
+	stdout, stderr, friendlyErr, rawErr := inv.RunRaw(ctx)
 	var goarch, compiler string
 	if rawErr != nil {
 		if strings.Contains(rawErr.Error(), "cannot find main module") {
@@ -95,7 +96,7 @@ func GetSizesGolist(ctx context.Context, buildFlags, env []string, gocmdRunner *
 				Env:        env,
 				WorkingDir: dir,
 			}
-			envout, enverr := gocmdRunner.Run(ctx, inv)
+			envout, enverr := inv.Run(ctx)
 			if enverr != nil {
 				return nil, enverr
 			}
