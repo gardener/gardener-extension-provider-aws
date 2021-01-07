@@ -111,6 +111,20 @@ CloudControllerManagerConfig
 <p>CloudControllerManager contains configuration settings for the cloud-controller-manager.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>storage</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Storage">
+Storage
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Storage contains configuration for storage in the cluster.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig
@@ -843,6 +857,40 @@ string
 </td>
 <td>
 <p>ID is the subnet id.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Storage">Storage
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
+</p>
+<p>
+<p>Storage contains configuration for storage in the cluster.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>managedDefaultClass</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ManagedDefaultClass controls if the &lsquo;default&rsquo; StorageClass and &lsquo;default&rsquo; VolumeSnapshotClass
+would be marked as default. Set to false to manually set the default to another class not
+managed by Gardener.
+Defaults to true.</p>
 </td>
 </tr>
 </tbody>

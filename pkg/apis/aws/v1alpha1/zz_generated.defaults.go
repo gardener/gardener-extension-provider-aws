@@ -28,5 +28,13 @@ import (
 // Public to allow building arbitrary schemes.
 // All generated defaulters are covering - they call all nested defaulters.
 func RegisterDefaults(scheme *runtime.Scheme) error {
+	scheme.AddTypeDefaultingFunc(&ControlPlaneConfig{}, func(obj interface{}) { SetObjectDefaults_ControlPlaneConfig(obj.(*ControlPlaneConfig)) })
 	return nil
+}
+
+func SetObjectDefaults_ControlPlaneConfig(in *ControlPlaneConfig) {
+	SetDefaults_ControlPlaneConfig(in)
+	if in.Storage != nil {
+		SetDefaults_Storage(in.Storage)
+	}
 }

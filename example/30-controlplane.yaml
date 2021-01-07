@@ -60,6 +60,8 @@ spec:
     cloudControllerManager:
       featureGates:
         CustomResourceValidation: true
+    storage:
+      managedDefaultClass: false
   infrastructureProviderStatus:
     apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
     kind: InfrastructureStatus
