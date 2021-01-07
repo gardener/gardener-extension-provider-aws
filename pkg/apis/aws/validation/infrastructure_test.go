@@ -111,17 +111,38 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			})
 
 			It("should pass because zone is configured in CloudProfile", func() {
-				errorList := ValidateInfrastructureConfigAgainstCloudProfile(infrastructureConfig, shoot, cloudProfile, &field.Path{})
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(nil, infrastructureConfig, shoot, cloudProfile, &field.Path{})
 
 				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should forbid because zone is not specified in CloudProfile", func() {
 				infrastructureConfig.Networks.Zones[0].Name = "not-available"
-				errorList := ValidateInfrastructureConfigAgainstCloudProfile(infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(nil, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
+					"Type":  Equal(field.ErrorTypeNotSupported),
+					"Field": Equal("spec.network.zones[0].name"),
+				}))))
+			})
+
+			It("should pass because zone is not specified in CloudProfile but was not changed", func() {
+				infrastructureConfig.Networks.Zones[0].Name = "not-available"
+				oldInfrastructureConfig := infrastructureConfig.DeepCopy()
+
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfrastructureConfig, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should fail because zone is not specified in CloudProfile and was changed", func() {
+				oldInfrastructureConfig := infrastructureConfig.DeepCopy()
+				infrastructureConfig.Networks.Zones[0].Name = "not-available"
+
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfrastructureConfig, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeNotSupported),
 					"Field": Equal("spec.network.zones[0].name"),
 				}))))
 			})
