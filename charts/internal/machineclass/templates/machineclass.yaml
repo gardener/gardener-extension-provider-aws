@@ -12,8 +12,6 @@ metadata:
 type: Opaque
 data:
   userData: {{ $machineClass.secret.cloudConfig | b64enc }}
-  providerAccessKeyId: {{ $machineClass.secret.accessKeyID | b64enc }}
-  providerSecretAccessKey: {{ $machineClass.secret.secretAccessKey | b64enc }}
 ---
 apiVersion: machine.sapcloud.io/v1alpha1
 kind: AWSMachineClass
@@ -40,6 +38,9 @@ spec:
   secretRef:
     name: {{ $machineClass.name }}
     namespace: {{ $.Release.Namespace }}
+  credentialsSecretRef:
+    name: {{ $machineClass.credentialsSecretRef.name }}
+    namespace: {{ $machineClass.credentialsSecretRef.namespace }}
   blockDevices:
 {{ toYaml $machineClass.blockDevices | indent 2 }}
 {{- end }}

@@ -16,9 +16,10 @@ machineClasses:
     kubernetes.io/cluster/shoot-crazy-botany: "1"
     kubernetes.io/role/node: "1"
   secret:
-    accessKeyID: ABCD
-    secretAccessKey: ABCD
     cloudConfig: base64(abc)
+  credentialsSecretRef:
+    name: cloudprovider
+    namespace: shoot-namespace
   # labels:
   #   foo: bar
   blockDevices:
