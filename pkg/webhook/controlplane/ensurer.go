@@ -24,6 +24,7 @@ import (
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/gardener/gardener/extensions/pkg/controller/csimigration"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -59,11 +60,11 @@ func (e *ensurer) InjectClient(client client.Client) error {
 }
 
 // EnsureKubeAPIServerDeployment ensures that the kube-apiserver deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, new, _ *appsv1.Deployment) error {
+func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, gctx gcontext.GardenContext, new, _ *appsv1.Deployment) error {
 	template := &new.Spec.Template
 	ps := &template.Spec
 
-	cluster, err := ectx.GetCluster(ctx)
+	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
 		return err
 	}
@@ -84,11 +85,11 @@ func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, ectx generi
 }
 
 // EnsureKubeControllerManagerDeployment ensures that the kube-controller-manager deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, new, _ *appsv1.Deployment) error {
+func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gctx gcontext.GardenContext, new, _ *appsv1.Deployment) error {
 	template := &new.Spec.Template
 	ps := &template.Spec
 
-	cluster, err := ectx.GetCluster(ctx)
+	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
 		return err
 	}
@@ -110,11 +111,11 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, ect
 }
 
 // EnsureKubeSchedulerDeployment ensures that the kube-scheduler deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeSchedulerDeployment(ctx context.Context, ectx genericmutator.EnsurerContext, new, _ *appsv1.Deployment) error {
+func (e *ensurer) EnsureKubeSchedulerDeployment(ctx context.Context, gctx gcontext.GardenContext, new, _ *appsv1.Deployment) error {
 	template := &new.Spec.Template
 	ps := &template.Spec
 
-	cluster, err := ectx.GetCluster(ctx)
+	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
 		return err
 	}
@@ -364,8 +365,8 @@ func (e *ensurer) ensureChecksumAnnotations(ctx context.Context, template *corev
 }
 
 // EnsureKubeletServiceUnitOptions ensures that the kubelet.service unit options conform to the provider requirements.
-func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, ectx genericmutator.EnsurerContext, new, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
-	cluster, err := ectx.GetCluster(ctx)
+func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcontext.GardenContext, new, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
+	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -401,8 +402,8 @@ func ensureKubeletCommandLineArgs(command []string, csiEnabled bool) []string {
 }
 
 // EnsureKubeletConfiguration ensures that the kubelet configuration conforms to the provider requirements.
-func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, ectx genericmutator.EnsurerContext, new, _ *kubeletconfigv1beta1.KubeletConfiguration) error {
-	cluster, err := ectx.GetCluster(ctx)
+func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, gctx gcontext.GardenContext, new, _ *kubeletconfigv1beta1.KubeletConfiguration) error {
+	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
 		return err
 	}
@@ -429,7 +430,7 @@ func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, ectx genericmu
 var regexFindProperty = regexp.MustCompile("net.ipv4.neigh.default.gc_thresh1[[:space:]]*=[[:space:]]*([[:alnum:]]+)")
 
 // EnsureKubernetesGeneralConfiguration ensures that the kubernetes general configuration conforms to the provider requirements.
-func (e *ensurer) EnsureKubernetesGeneralConfiguration(ctx context.Context, ectx genericmutator.EnsurerContext, new, _ *string) error {
+func (e *ensurer) EnsureKubernetesGeneralConfiguration(ctx context.Context, gctx gcontext.GardenContext, new, _ *string) error {
 	// If the needed property exists, ensure the correct value
 	if regexFindProperty.MatchString(*new) {
 		res := regexFindProperty.ReplaceAll([]byte(*new), []byte("net.ipv4.neigh.default.gc_thresh1 = 0"))
@@ -450,7 +451,7 @@ func (e *ensurer) EnsureKubernetesGeneralConfiguration(ctx context.Context, ectx
 }
 
 // EnsureAdditionalUnits ensures that additional required system units are added.
-func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, ectx genericmutator.EnsurerContext, new, _ *[]extensionsv1alpha1.Unit) error {
+func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, gctx gcontext.GardenContext, new, _ *[]extensionsv1alpha1.Unit) error {
 	var (
 		command              = "start"
 		trueVar              = true
@@ -479,7 +480,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 }
 
 // EnsureAdditionalFiles ensures that additional required system files are added.
-func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, ectx genericmutator.EnsurerContext, new, _ *[]extensionsv1alpha1.File) error {
+func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.GardenContext, new, _ *[]extensionsv1alpha1.File) error {
 	var (
 		permissions       int32 = 0755
 		customFileContent       = `#!/bin/sh
