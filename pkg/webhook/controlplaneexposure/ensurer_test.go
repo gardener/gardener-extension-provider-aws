@@ -18,9 +18,11 @@ import (
 	"context"
 	"testing"
 
-	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
+
+	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils"
@@ -50,7 +52,7 @@ var _ = Describe("Ensurer", func() {
 			Capacity:  utils.QuantityPtr(resource.MustParse("80Gi")),
 		}
 
-		dummyContext = genericmutator.NewEnsurerContext(nil, nil)
+		dummyContext = gcontext.NewGardenContext(nil, nil)
 	)
 
 	Describe("#EnsureKubeAPIServerService", func() {
