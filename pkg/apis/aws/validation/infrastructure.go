@@ -15,7 +15,6 @@
 package validation
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -30,13 +29,13 @@ import (
 )
 
 // ValidateInfrastructureConfigAgainstCloudProfile validates the given `InfrastructureConfig` against the given `CloudProfile`.
-func ValidateInfrastructureConfigAgainstCloudProfile(infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfile *gardencorev1beta1.CloudProfile, fldPath *field.Path) field.ErrorList {
+func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfile *gardencorev1beta1.CloudProfile, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	shootRegion := shoot.Spec.Region
 	for _, region := range cloudProfile.Spec.Regions {
 		if region.Name == shootRegion {
-			allErrs = append(allErrs, validateInfrastructureConfigZones(infra, region.Zones, fldPath.Child("network"))...)
+			allErrs = append(allErrs, validateInfrastructureConfigZones(oldInfra, infra, region.Zones, fldPath.Child("network"))...)
 			break
 		}
 	}
@@ -45,7 +44,7 @@ func ValidateInfrastructureConfigAgainstCloudProfile(infra *apisaws.Infrastructu
 }
 
 // validateInfrastructureConfigZones validates the given `InfrastructureConfig` against the given `Zones`.
-func validateInfrastructureConfigZones(infra *apisaws.InfrastructureConfig, zones []gardencorev1beta1.AvailabilityZone, fldPath *field.Path) field.ErrorList {
+func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureConfig, zones []gardencorev1beta1.AvailabilityZone, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	awsZones := sets.NewString()
@@ -54,8 +53,12 @@ func validateInfrastructureConfigZones(infra *apisaws.InfrastructureConfig, zone
 	}
 
 	for i, zone := range infra.Networks.Zones {
+		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && oldInfra.Networks.Zones[i] == zone {
+			continue
+		}
+
 		if !awsZones.Has(zone.Name) {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("zones").Index(i).Child("name"), zone.Name, fmt.Sprintf("supported values: %v", awsZones.UnsortedList())))
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("zones").Index(i).Child("name"), zone.Name, awsZones.UnsortedList()))
 		}
 	}
 

@@ -109,12 +109,8 @@ func (v *Shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		}
 	}
 
-	// Only validate against cloud profile when zones are updated.
-	// This ensures that already running shoots won't break after a zone is removed from a cloud profile.
-	if len(infraConfig.Networks.Zones) > len(oldInfraConfig.Networks.Zones) {
-		if err := v.validateAgainstCloudProfile(ctx, shoot, infraConfig, infraConfigFldPath); err != nil {
-			return err
-		}
+	if err := v.validateAgainstCloudProfile(ctx, shoot, oldInfraConfig, infraConfig, infraConfigFldPath); err != nil {
+		return err
 	}
 
 	if errList := awsvalidation.ValidateWorkersUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, fldPath.Child("workers")); len(errList) != 0 {
@@ -131,20 +127,20 @@ func (v *Shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 		return err
 	}
 
-	if err := v.validateAgainstCloudProfile(ctx, shoot, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
+	if err := v.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
 		return err
 	}
 
 	return v.validateShoot(ctx, shoot)
 }
 
-func (v *Shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, infraConfig *aws.InfrastructureConfig, fldPath *field.Path) error {
+func (v *Shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *aws.InfrastructureConfig, fldPath *field.Path) error {
 	cloudProfile := &gardencorev1beta1.CloudProfile{}
 	if err := v.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
 		return err
 	}
 
-	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
+	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 
