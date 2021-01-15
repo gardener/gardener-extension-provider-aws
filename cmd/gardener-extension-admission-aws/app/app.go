@@ -18,40 +18,43 @@ import (
 	"context"
 	"fmt"
 
+	admissioncmd "github.com/gardener/gardener-extension-provider-aws/pkg/admission/cmd"
 	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	provideraws "github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/validator"
 
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 	"github.com/gardener/gardener/pkg/apis/core/install"
 	"github.com/spf13/cobra"
 	componentbaseconfig "k8s.io/component-base/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-var log = logf.Log.WithName("gardener-extensions-validator-aws")
+var log = logf.Log.WithName("gardener-extension-admission-aws")
 
-// NewValidatorCommand creates a new command for running an AWS validator.
-func NewValidatorCommand(ctx context.Context) *cobra.Command {
+// NewAdmissionCommand creates a new command for running an AWS admission webhook.
+func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 	var (
 		restOpts = &controllercmd.RESTOptions{}
 		mgrOpts  = &controllercmd.ManagerOptions{
 			WebhookServerPort: 443,
 		}
+		webhookSwitches = admissioncmd.GardenWebhookSwitchOptions()
+		webhookOptions  = webhookcmd.NewAddToManagerSimpleOptions(webhookSwitches)
 
 		aggOption = controllercmd.NewOptionAggregator(
 			restOpts,
 			mgrOpts,
+			webhookOptions,
 		)
 	)
 
 	cmd := &cobra.Command{
-		Use: fmt.Sprintf("validator-%s", provideraws.Type),
+		Use: fmt.Sprintf("admission-%s", provideraws.Type),
 
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := aggOption.Complete(); err != nil {
 				controllercmd.LogErrAndExit(err, "Error completing options")
 			}
@@ -73,14 +76,11 @@ func NewValidatorCommand(ctx context.Context) *cobra.Command {
 			}
 
 			log.Info("Setting up webhook server")
-			hookServer := mgr.GetWebhookServer()
-
-			log.Info("Registering webhooks")
-			hookServer.Register("/webhooks/validate-shoot-aws", &webhook.Admission{Handler: &validator.Shoot{Logger: log.WithName("shoot-validator")}})
-
-			if err := mgr.Start(ctx.Done()); err != nil {
-				controllercmd.LogErrAndExit(err, "Error running manager")
+			if err := webhookOptions.Completed().AddToManager(mgr); err != nil {
+				return err
 			}
+
+			return mgr.Start(ctx.Done())
 		},
 	}
 

@@ -23,10 +23,10 @@ import (
 )
 
 // ValidateCloudProfileConfig validates a CloudProfileConfig object.
-func ValidateCloudProfileConfig(cloudProfile *apisaws.CloudProfileConfig) field.ErrorList {
+func ValidateCloudProfileConfig(cloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	machineImagesPath := field.NewPath("machineImages")
+	machineImagesPath := fldPath.Child("machineImages")
 	if len(cloudProfile.MachineImages) == 0 {
 		allErrs = append(allErrs, field.Required(machineImagesPath, "must provide at least one machine image"))
 	}

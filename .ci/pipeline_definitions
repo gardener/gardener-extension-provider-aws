@@ -12,11 +12,11 @@ gardener-extension-provider-aws:
             image: 'eu.gcr.io/gardener-project/gardener/extensions/provider-aws'
             dockerfile: 'Dockerfile'
             target: gardener-extension-provider-aws
-          gardener-extension-validator-aws:
+          gardener-extension-admission-aws:
             registry: 'gcr-readwrite'
-            image: 'eu.gcr.io/gardener-project/gardener/extensions/validator-aws'
+            image: 'eu.gcr.io/gardener-project/gardener/extensions/admission-aws'
             dockerfile: 'Dockerfile'
-            target: gardener-extension-validator-aws
+            target: gardener-extension-admission-aws
   jobs:
     head-update:
       traits:
@@ -56,5 +56,5 @@ gardener-extension-provider-aws:
           dockerimages:
             gardener-extension-provider-aws:
               tag_as_latest: true
-            gardener-extension-validator-aws:
+            gardener-extension-admission-aws:
               tag_as_latest: true

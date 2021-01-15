@@ -1,5 +1,5 @@
 {{- define "name" -}}
-gardener-extensions-validator-aws
+gardener-extension-admission-aws
 {{- end -}}
 
 {{- define "labels.app.key" -}}

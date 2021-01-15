@@ -14,6 +14,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
+    - cloudprofiles
     - shoots
   failurePolicy: Fail
   objectSelector: {}
@@ -21,11 +22,11 @@ webhooks:
   sideEffects: None
   clientConfig:
     {{- if .Values.global.virtualGarden.enabled }}
-    url: {{ printf "https://gardener-extensions-validator-aws.%s/webhooks/validate-shoot-aws" .Release.Namespace }}
+    url: {{ printf "https://%s.%s/webhooks/validate" (include "name" .) (.Release.Namespace) }}
     {{- else }}
     service:
       namespace: {{ .Release.Namespace }}
       name: {{ include "name" . }}
-      path: /webhooks/validate-shoot-aws
+      path: /webhooks/validate
     {{- end }}
     caBundle: {{ required ".Values.webhookConfig.caBundle is required" (b64enc .Values.global.webhookConfig.caBundle) }}

@@ -2,7 +2,7 @@ global:
   virtualGarden:
     enabled: false
   image:
-    repository: eu.gcr.io/gardener-project/gardener/extensions/validator-aws
+    repository: eu.gcr.io/gardener-project/gardener/extensions/admission-aws
     tag: latest
     pullPolicy: IfNotPresent
   replicaCount: 1
