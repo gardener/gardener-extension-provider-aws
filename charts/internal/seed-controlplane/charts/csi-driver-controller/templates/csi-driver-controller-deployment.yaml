@@ -39,6 +39,7 @@ spec:
         args :
         - controller
         - --endpoint=$(CSI_ENDPOINT)
+        - --k8s-tag-cluster-id={{ .Release.Namespace }}
         - --logtostderr
         - --v=5
         env:
@@ -84,6 +85,7 @@ spec:
         - --kubeconfig=/var/lib/csi-provisioner/kubeconfig
         - --feature-gates=Topology=true
         - --volume-name-prefix=pv-{{ .Release.Namespace }}
+        - --extra-create-metadata=true
         - --enable-leader-election
         - --leader-election-type=leases
         - --leader-election-namespace=kube-system
