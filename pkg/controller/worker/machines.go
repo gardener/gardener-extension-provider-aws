@@ -24,6 +24,7 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
@@ -37,19 +38,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// MachineClassKind yields the name of the AWS machine class.
+// MachineClassKind yields the name of the machine class kind used by AWS provider.
 func (w *workerDelegate) MachineClassKind() string {
-	return "AWSMachineClass"
+	return "MachineClass"
 }
 
-// MachineClassList yields a newly initialized AWSMachineClassList object.
+// MachineClassList yields a newly initialized MachineClassList object.
 func (w *workerDelegate) MachineClassList() runtime.Object {
-	return &machinev1alpha1.AWSMachineClassList{}
+	return &machinev1alpha1.MachineClassList{}
 }
 
-// MachineClass yields a newly initialized AWSMachineClass object.
+// MachineClass yields a newly initialized MachineClass object.
 func (w *workerDelegate) MachineClass() runtime.Object {
-	return &machinev1alpha1.AWSMachineClass{}
+	return &machinev1alpha1.MachineClass{}
 }
 
 // DeployMachineClasses generates and creates the AWS specific machine classes.
@@ -59,6 +60,12 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 			return err
 		}
 	}
+
+	// Delete any older version of AWSMachineClass CRs.
+	if err := w.Client().DeleteAllOf(ctx, &machinev1alpha1.AWSMachineClass{}, client.InNamespace(w.worker.Namespace)); err != nil {
+		return errors.Wrapf(err, "cleaning up older version of AWS machine class CRs failed")
+	}
+
 	return w.seedChartApplier.Apply(ctx, filepath.Join(aws.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 

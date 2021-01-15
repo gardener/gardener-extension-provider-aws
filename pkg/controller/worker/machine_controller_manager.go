@@ -34,7 +34,7 @@ var (
 	mcmChart = &chart.Chart{
 		Name:   aws.MachineControllerManagerName,
 		Path:   filepath.Join(aws.InternalChartsPath, aws.MachineControllerManagerName, "seed"),
-		Images: []string{aws.MachineControllerManagerImageName},
+		Images: []string{aws.MachineControllerManagerImageName, aws.MachineControllerManagerProviderAWSImageName},
 		Objects: []*chart.Object{
 			{Type: &appsv1.Deployment{}, Name: aws.MachineControllerManagerName},
 			{Type: &corev1.Service{}, Name: aws.MachineControllerManagerName},

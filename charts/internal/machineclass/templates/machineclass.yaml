@@ -14,7 +14,7 @@ data:
   userData: {{ $machineClass.secret.cloudConfig | b64enc }}
 ---
 apiVersion: machine.sapcloud.io/v1alpha1
-kind: AWSMachineClass
+kind: MachineClass
 metadata:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}
@@ -22,7 +22,7 @@ metadata:
   labels:
 {{ toYaml $machineClass.labels | indent 4 }}
 {{- end }}
-spec:
+providerSpec:
   ami: {{ $machineClass.ami }}
   region: {{ $machineClass.region }}
   machineType: {{ $machineClass.machineType }}
@@ -35,12 +35,13 @@ spec:
   tags:
 {{ toYaml $machineClass.tags | indent 4 }}
 {{- end }}
-  secretRef:
-    name: {{ $machineClass.name }}
-    namespace: {{ $.Release.Namespace }}
-  credentialsSecretRef:
-    name: {{ $machineClass.credentialsSecretRef.name }}
-    namespace: {{ $machineClass.credentialsSecretRef.namespace }}
   blockDevices:
 {{ toYaml $machineClass.blockDevices | indent 2 }}
+secretRef:
+  name: {{ $machineClass.name }}
+  namespace: {{ $.Release.Namespace }}
+credentialsSecretRef:
+  name: {{ $machineClass.credentialsSecretRef.name }}
+  namespace: {{ $machineClass.credentialsSecretRef.namespace }}
+provider: "AWS"
 {{- end }}
