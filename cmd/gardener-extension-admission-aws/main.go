@@ -17,15 +17,15 @@ package main
 import (
 	"github.com/gardener/gardener-extension-provider-aws/cmd/gardener-extension-admission-aws/app"
 
-	"github.com/gardener/gardener/extensions/pkg/controller"
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/log"
 	runtimelog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 func main() {
 	runtimelog.SetLogger(log.ZapLogger(false))
-	cmd := app.NewAdmissionCommand(controller.SetupSignalHandlerContext())
+	cmd := app.NewAdmissionCommand(signals.SetupSignalHandler())
 
 	if err := cmd.Execute(); err != nil {
 		controllercmd.LogErrAndExit(err, "error executing the main command")

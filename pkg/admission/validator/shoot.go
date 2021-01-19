@@ -56,7 +56,7 @@ func (s *shoot) InjectClient(client client.Client) error {
 }
 
 // Validate validates the given shoot object.
-func (s *shoot) Validate(ctx context.Context, new, old runtime.Object) error {
+func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
 	shoot, ok := new.(*core.Shoot)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", new)
@@ -73,7 +73,7 @@ func (s *shoot) Validate(ctx context.Context, new, old runtime.Object) error {
 	return s.validateShootCreation(ctx, shoot)
 }
 
-func (s *shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
+func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 	// Network validation
 	if errList := awsvalidation.ValidateNetworking(shoot.Spec.Networking, field.NewPath("spec", "networking")); len(errList) != 0 {
 		return errList.ToAggregate()

@@ -80,7 +80,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			return mgr.Start(ctx.Done())
+			return mgr.Start(ctx)
 		},
 	}
 
