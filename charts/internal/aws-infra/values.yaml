@@ -28,6 +28,10 @@ zones:
   internal: 10.250.112.0/22
 # elasticIPAllocationID: eipalloc-789456
 
+ignoreTags:
+  keys: []
+  keyPrefixes: []
+
 outputKeys:
   vpcIdKey: vpc_id
   subnetsPublicPrefix: subnet_public_utility_z
