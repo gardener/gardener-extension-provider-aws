@@ -17,18 +17,63 @@ package validator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 
+	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
+// NewShootValidator returns a new instance of a shoot validator.
+func NewShootValidator() extensionswebhook.Validator {
+	return &shoot{}
+}
+
+type shoot struct {
+	client  client.Client
+	decoder runtime.Decoder
+}
+
+// InjectScheme injects the given scheme into the validator.
+func (s *shoot) InjectScheme(scheme *runtime.Scheme) error {
+	s.decoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
+	return nil
+}
+
+// InjectClient injects the given client into the validator.
+func (s *shoot) InjectClient(client client.Client) error {
+	s.client = client
+	return nil
+}
+
+// Validate validates the given shoot object.
+func (s *shoot) Validate(ctx context.Context, new, old runtime.Object) error {
+	shoot, ok := new.(*core.Shoot)
+	if !ok {
+		return fmt.Errorf("wrong object type %T", new)
+	}
+
+	if old != nil {
+		oldShoot, ok := old.(*core.Shoot)
+		if !ok {
+			return fmt.Errorf("wrong object type %T for old object", old)
+		}
+		return s.validateShootUpdate(ctx, oldShoot, shoot)
+	}
+
+	return s.validateShootCreation(ctx, shoot)
+}
+
+func (s *shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 	// Network validation
 	if errList := awsvalidation.ValidateNetworking(shoot.Spec.Networking, field.NewPath("spec", "networking")); len(errList) != 0 {
 		return errList.ToAggregate()
@@ -42,7 +87,7 @@ func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 		return field.Required(fldPath.Child("infrastructureConfig"), "InfrastructureConfig must be set for AWS shoots")
 	}
 
-	infraConfig, err := decodeInfrastructureConfig(v.decoder, shoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
+	infraConfig, err := decodeInfrastructureConfig(s.decoder, shoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
 	if err != nil {
 		return err
 	}
@@ -53,7 +98,7 @@ func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 
 	// ControlPlaneConfig
 	if shoot.Spec.Provider.ControlPlaneConfig != nil {
-		if _, err := decodeControlPlaneConfig(v.decoder, shoot.Spec.Provider.ControlPlaneConfig, fldPath.Child("controlPlaneConfig")); err != nil {
+		if _, err := decodeControlPlaneConfig(s.decoder, shoot.Spec.Provider.ControlPlaneConfig, fldPath.Child("controlPlaneConfig")); err != nil {
 			return err
 		}
 	}
@@ -63,7 +108,7 @@ func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 	for i, worker := range shoot.Spec.Provider.Workers {
 		var workerConfig *aws.WorkerConfig
 		if worker.ProviderConfig != nil {
-			wc, err := decodeWorkerConfig(v.decoder, worker.ProviderConfig, fldPath.Index(i).Child("providerConfig"))
+			wc, err := decodeWorkerConfig(s.decoder, worker.ProviderConfig, fldPath.Index(i).Child("providerConfig"))
 			if err != nil {
 				return err
 			}
@@ -78,7 +123,7 @@ func (v *Shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 	return nil
 }
 
-func (v *Shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.Shoot) error {
+func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.Shoot) error {
 	var (
 		fldPath            = field.NewPath("spec", "provider")
 		infraConfigFldPath = fldPath.Child("infrastructureConfig")
@@ -89,7 +134,7 @@ func (v *Shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return field.Required(fldPath.Child("infrastructureConfig"), "InfrastructureConfig must be set for AWS shoots")
 	}
 
-	infraConfig, err := decodeInfrastructureConfig(v.decoder, shoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
+	infraConfig, err := decodeInfrastructureConfig(s.decoder, shoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
 	if err != nil {
 		return err
 	}
@@ -98,7 +143,7 @@ func (v *Shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return field.InternalError(infraConfigFldPath, errors.New("InfrastructureConfig is not available on old shoot"))
 	}
 
-	oldInfraConfig, err := decodeInfrastructureConfig(v.decoder, oldShoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
+	oldInfraConfig, err := decodeInfrastructureConfig(s.decoder, oldShoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
 	if err != nil {
 		return err
 	}
@@ -109,7 +154,7 @@ func (v *Shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		}
 	}
 
-	if err := v.validateAgainstCloudProfile(ctx, shoot, oldInfraConfig, infraConfig, infraConfigFldPath); err != nil {
+	if err := s.validateAgainstCloudProfile(ctx, shoot, oldInfraConfig, infraConfig, infraConfigFldPath); err != nil {
 		return err
 	}
 
@@ -117,26 +162,26 @@ func (v *Shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return errList.ToAggregate()
 	}
 
-	return v.validateShoot(ctx, shoot)
+	return s.validateShoot(ctx, shoot)
 }
 
-func (v *Shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) error {
+func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) error {
 	fldPath := field.NewPath("spec", "provider")
-	infraConfig, err := decodeInfrastructureConfig(v.decoder, shoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
+	infraConfig, err := decodeInfrastructureConfig(s.decoder, shoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
 	if err != nil {
 		return err
 	}
 
-	if err := v.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
+	if err := s.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
 		return err
 	}
 
-	return v.validateShoot(ctx, shoot)
+	return s.validateShoot(ctx, shoot)
 }
 
-func (v *Shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *aws.InfrastructureConfig, fldPath *field.Path) error {
+func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *aws.InfrastructureConfig, fldPath *field.Path) error {
 	cloudProfile := &gardencorev1beta1.CloudProfile{}
-	if err := v.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
+	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
 		return err
 	}
 

@@ -53,25 +53,25 @@ var _ = Describe("CloudProfileConfig validation", func() {
 			It("should enforce that at least one machine image has been defined", func() {
 				cloudProfileConfig.MachineImages = []apisaws.MachineImages{}
 
-				errorList := ValidateCloudProfileConfig(cloudProfileConfig)
+				errorList := ValidateCloudProfileConfig(cloudProfileConfig, field.NewPath("root"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("machineImages"),
+					"Field": Equal("root.machineImages"),
 				}))))
 			})
 
 			It("should forbid unsupported machine image configuration", func() {
 				cloudProfileConfig.MachineImages = []apisaws.MachineImages{{}}
 
-				errorList := ValidateCloudProfileConfig(cloudProfileConfig)
+				errorList := ValidateCloudProfileConfig(cloudProfileConfig, field.NewPath("root"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("machineImages[0].name"),
+					"Field": Equal("root.machineImages[0].name"),
 				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("machineImages[0].versions"),
+					"Field": Equal("root.machineImages[0].versions"),
 				}))))
 			})
 
@@ -83,14 +83,14 @@ var _ = Describe("CloudProfileConfig validation", func() {
 					},
 				}
 
-				errorList := ValidateCloudProfileConfig(cloudProfileConfig)
+				errorList := ValidateCloudProfileConfig(cloudProfileConfig, field.NewPath("root"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("machineImages[0].versions[0].version"),
+					"Field": Equal("root.machineImages[0].versions[0].version"),
 				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("machineImages[0].versions[0].regions"),
+					"Field": Equal("root.machineImages[0].versions[0].regions"),
 				}))))
 			})
 
@@ -107,14 +107,14 @@ var _ = Describe("CloudProfileConfig validation", func() {
 					},
 				}
 
-				errorList := ValidateCloudProfileConfig(cloudProfileConfig)
+				errorList := ValidateCloudProfileConfig(cloudProfileConfig, field.NewPath("root"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("machineImages[0].versions[0].regions[0].name"),
+					"Field": Equal("root.machineImages[0].versions[0].regions[0].name"),
 				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("machineImages[0].versions[0].regions[0].ami"),
+					"Field": Equal("root.machineImages[0].versions[0].regions[0].ami"),
 				}))))
 			})
 		})

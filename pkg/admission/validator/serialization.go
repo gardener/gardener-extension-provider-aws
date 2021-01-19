@@ -17,7 +17,6 @@ package validator
 import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener/extensions/pkg/util"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -47,4 +46,12 @@ func decodeInfrastructureConfig(decoder runtime.Decoder, infra *runtime.RawExten
 	}
 
 	return infraConfig, nil
+}
+
+func decodeCloudProfileConfig(decoder runtime.Decoder, config *runtime.RawExtension) (*aws.CloudProfileConfig, error) {
+	cloudProfileConfig := &aws.CloudProfileConfig{}
+	if err := util.Decode(decoder, config.Raw, cloudProfileConfig); err != nil {
+		return nil, err
+	}
+	return cloudProfileConfig, nil
 }
