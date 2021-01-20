@@ -22,17 +22,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"text/template"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
-	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
-
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -55,11 +49,24 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 )
 
 const (
 	s3GatewayEndpoint = "s3"
 	vpcCIDR           = "10.250.0.0/16"
+
+	kubernetesTagPrefix        = "kubernetes.io/"
+	kubernetesClusterTagPrefix = kubernetesTagPrefix + "cluster/"
+	kubernetesRoleTagPrefix    = kubernetesTagPrefix + "role/"
+	ignoredTagKey              = "SomeIgnoredTag"
+	ignoredTagKeyPrefix        = "ignored-tag/prefix/"
 )
 
 var (
@@ -142,8 +149,13 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		}()
 
-		c = mgr.GetClient()
-		Expect(c).ToNot(BeNil())
+		// test client should be uncached and independent from the tested manager
+		c, err = client.New(cfg, client.Options{
+			Scheme: mgr.GetScheme(),
+			Mapper: mgr.GetRESTMapper(),
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c).NotTo(BeNil())
 		decoder = serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder()
 
 		flag.Parse()
@@ -348,6 +360,36 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	By("verify infrastructure creation")
 	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, pointer.StringPtr(vpcCIDR), s3GatewayEndpoint)
 
+	By("add tags to subnet")
+	// add some ignored and not ignored tags to subnet and verify that ignored tags are not removed in the next reconciliation
+	taggedSubnetID := infrastructureIdentifiers.subnetIDs[0]
+	Expect(createTagsSubnet(ctx, awsClient, taggedSubnetID)).To(Succeed())
+
+	By("triggering infrastructure reconciliation")
+	infraCopy := infra.DeepCopy()
+	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, "gardener.cloud/operation", "reconcile")
+	Expect(c.Patch(ctx, infra, client.MergeFrom(infraCopy))).To(Succeed())
+
+	By("wait until infrastructure is reconciled")
+	if err := common.WaitUntilExtensionCRReady(
+		ctx,
+		c,
+		logger,
+		func() client.Object { return &extensionsv1alpha1.Infrastructure{} },
+		"Infrastucture",
+		infra.Namespace,
+		infra.Name,
+		10*time.Second,
+		30*time.Second,
+		16*time.Minute,
+		nil,
+	); err != nil {
+		return err
+	}
+
+	By("verify tags on subnet")
+	verifyTagsSubnet(ctx, awsClient, taggedSubnetID)
+
 	return nil
 }
 
@@ -370,6 +412,10 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 					Workers:  "10.250.0.0/19",
 				},
 			},
+		},
+		IgnoreTags: &awsv1alpha1.IgnoreTags{
+			Keys:        []string{ignoredTagKey},
+			KeyPrefixes: []string{ignoredTagKeyPrefix},
 		},
 	}
 }
@@ -494,6 +540,26 @@ func prepareNewVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclie
 	}
 
 	return *vpcID, nil
+}
+
+func createTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID *string) error {
+	_, err := awsClient.EC2.CreateTagsWithContext(ctx, &ec2.CreateTagsInput{
+		Resources: []*string{subnetID},
+		Tags: []*ec2.Tag{{
+			Key:   awssdk.String(ignoredTagKey),
+			Value: awssdk.String("foo"),
+		}, {
+			Key:   awssdk.String(ignoredTagKeyPrefix + "key"),
+			Value: awssdk.String("bar"),
+		}, {
+			Key:   awssdk.String("not-ignored-key"),
+			Value: awssdk.String("foo"),
+		}, {
+			Key:   awssdk.String("not-ignored-prefix/key"),
+			Value: awssdk.String("bar"),
+		}},
+	})
+	return err
 }
 
 func teardownVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcID string) error {
@@ -621,9 +687,6 @@ func verifyCreation(
 	infrastructureIdentifier infrastructureIdentifiers,
 ) {
 	const (
-		kubernetesTagPrefix     = "kubernetes.io/cluster/"
-		kubernetesRoleTagPrefix = "kubernetes.io/role/"
-
 		privateUtilitySuffix = "-private-utility-z0"
 		publicUtilitySuffix  = "-public-utility-z0"
 		nodesSuffix          = "-nodes-z0"
@@ -635,7 +698,7 @@ func verifyCreation(
 	var (
 		kubernetesTagFilter = []*ec2.Filter{
 			{
-				Name: awssdk.String("tag:" + kubernetesTagPrefix + infra.Namespace),
+				Name: awssdk.String("tag:" + kubernetesClusterTagPrefix + infra.Namespace),
 				Values: []*string{
 					awssdk.String("1"),
 				},
@@ -652,7 +715,7 @@ func verifyCreation(
 
 		defaultTags = []*ec2.Tag{
 			{
-				Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+				Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 				Value: awssdk.String("1"),
 			},
 			{
@@ -706,7 +769,7 @@ func verifyCreation(
 	Expect(describeVpcEndpointsOutput.VpcEndpoints[0].ServiceName).To(PointTo(Equal(fmt.Sprintf("com.amazonaws.%s.%s", *region, gatewayEndpoint))))
 	Expect(describeVpcEndpointsOutput.VpcEndpoints[0].Tags).To(ConsistOf([]*ec2.Tag{
 		{
-			Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 			Value: awssdk.String("1"),
 		},
 		{
@@ -808,7 +871,7 @@ func verifyCreation(
 			}))
 			Expect(securityGroup.Tags).To(ConsistOf([]*ec2.Tag{
 				{
-					Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+					Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 					Value: awssdk.String("1"),
 				},
 				{
@@ -852,7 +915,7 @@ func verifyCreation(
 				Expect(subnet.State).To(PointTo(Equal("available")))
 				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
 					{
-						Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
 					{
@@ -874,7 +937,7 @@ func verifyCreation(
 						Value: awssdk.String("use"),
 					},
 					{
-						Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
 					{
@@ -896,7 +959,7 @@ func verifyCreation(
 						Value: awssdk.String("use"),
 					},
 					{
-						Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
 					{
@@ -917,7 +980,7 @@ func verifyCreation(
 	Expect(describeAddressesOutput.Addresses).To(HaveLen(1))
 	Expect(describeAddressesOutput.Addresses[0].Tags).To(ConsistOf([]*ec2.Tag{
 		{
-			Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 			Value: awssdk.String("1"),
 		},
 		{
@@ -943,7 +1006,7 @@ func verifyCreation(
 	Expect(describeNatGatewaysOutput.NatGateways[0].SubnetId).To(PointTo(Equal(publicSubnetID)))
 	Expect(describeNatGatewaysOutput.NatGateways[0].Tags).To(ConsistOf([]*ec2.Tag{
 		{
-			Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 			Value: awssdk.String("1"),
 		},
 		{
@@ -1029,7 +1092,7 @@ func verifyCreation(
 				}))
 				Expect(routeTable.Tags).To(ConsistOf([]*ec2.Tag{
 					{
-						Key:   awssdk.String(kubernetesTagPrefix + infra.Namespace),
+						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
 					{
@@ -1116,6 +1179,23 @@ func verifyCreation(
 	infrastructureIdentifier.nodesRolePolicyName = getRolePolicyOutputNodes.PolicyName
 
 	return
+}
+
+func verifyTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID *string) {
+	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []*string{subnetID}})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeSubnetsOutput.Subnets).To(HaveLen(1))
+
+	for _, tag := range describeSubnetsOutput.Subnets[0].Tags {
+		switch {
+		case *tag.Key == "Name":
+		case strings.HasPrefix(*tag.Key, kubernetesTagPrefix):
+		case *tag.Key == ignoredTagKey:
+		case strings.HasPrefix(*tag.Key, ignoredTagKeyPrefix):
+		default:
+			Fail(fmt.Sprintf("unexpected key %q found on subnet %s", *tag.Key, *subnetID))
+		}
+	}
 }
 
 func verifyDeletion(
