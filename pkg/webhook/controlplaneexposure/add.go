@@ -15,16 +15,16 @@
 package controlplaneexposure
 
 import (
-	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+
+	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -48,7 +48,7 @@ func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) (*extensionsw
 	return controlplane.New(mgr, controlplane.Args{
 		Kind:     controlplane.KindSeed,
 		Provider: aws.Type,
-		Types:    []runtime.Object{&corev1.Service{}, &appsv1.Deployment{}, &druidv1alpha1.Etcd{}},
+		Types:    []client.Object{&corev1.Service{}, &appsv1.Deployment{}, &druidv1alpha1.Etcd{}},
 		Mutator:  genericmutator.NewMutator(NewEnsurer(&opts.ETCDStorage, logger), nil, nil, nil, logger),
 	})
 }

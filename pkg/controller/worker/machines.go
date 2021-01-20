@@ -24,7 +24,6 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
@@ -35,7 +34,7 @@ import (
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
@@ -44,12 +43,12 @@ func (w *workerDelegate) MachineClassKind() string {
 }
 
 // MachineClassList yields a newly initialized MachineClassList object.
-func (w *workerDelegate) MachineClassList() runtime.Object {
+func (w *workerDelegate) MachineClassList() client.ObjectList {
 	return &machinev1alpha1.MachineClassList{}
 }
 
 // MachineClass yields a newly initialized MachineClass object.
-func (w *workerDelegate) MachineClass() runtime.Object {
+func (w *workerDelegate) MachineClass() client.Object {
 	return &machinev1alpha1.MachineClass{}
 }
 
