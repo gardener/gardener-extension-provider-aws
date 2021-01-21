@@ -162,8 +162,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		enableECRAccess = *v
 	}
 
-	if infrastructureConfig.IgnoreTags != nil {
-		tags := infrastructureConfig.IgnoreTags.DeepCopy()
+	if tags := infrastructureConfig.IgnoreTags; tags != nil {
 		ignoreTagKeys = tags.Keys
 		ignoreTagKeyPrefixes = tags.KeyPrefixes
 	}

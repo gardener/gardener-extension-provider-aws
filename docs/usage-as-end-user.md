@@ -172,12 +172,10 @@ If you want to use multiple availability zones then add a second, third, ... ent
 
 Apart from the VPC and the subnets the AWS extension will also create DHCP options and an internet gateway (only if a new VPC is created), routing tables, security groups, elastic IPs, NAT gateways, EC2 key pairs, IAM roles, and IAM instance profiles.
 
-The `ignoreTags` section allows to configure which resource tags on resources managed by Gardener should be ignored during
-infrastructure reconciliation. By default, all tags that are added outside of Gardener's / terraform's
+The `ignoreTags` section allows to configure which resource tags on AWS resources managed by Gardener should be ignored during
+infrastructure reconciliation. By default, all tags that are added outside of Gardener's
 reconciliation will be removed during the next reconciliation. This field allows users and automation to add
-custom tags on resources created and managed by Gardener without loosing them on the next reconciliation.
-See [this document](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources)
-for details of the underlying terraform implementation.
+custom tags on AWS resources created and managed by Gardener without loosing them on the next reconciliation.
 Tags can ignored either by specifying exact key values (`ignoreTags.keys`) or key prefixes (`ignoreTags.keyPrefixes`).
 In both cases it is forbidden to ignore the `Name` tag or any tag starting with `kubernetes.io` or `gardener.cloud`.  
 Please note though, that the tags are only ignored on resources created on behalf of the `Infrastructure` CR (i.e. VPC,
