@@ -385,6 +385,17 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				Expect(errorList).To(BeEmpty())
 			})
 		})
+
+		Context("ignoreTags", func() {
+			It("should forbid ignoring reserved tags", func() {
+				infrastructureConfig.IgnoreTags = &apisaws.IgnoreTags{
+					Keys:        []string{"Name"},
+					KeyPrefixes: []string{"kubernetes.io/", "gardener.cloud/"},
+				}
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).NotTo(BeEmpty())
+			})
+		})
 	})
 
 	Describe("#ValidateInfrastructureConfigUpdate", func() {
@@ -544,6 +555,133 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("networks.zones[1].workers"),
+				})),
+			))
+		})
+	})
+
+	Describe("#ValidateIgnoreTags", func() {
+		var (
+			fldPath *field.Path
+		)
+
+		BeforeEach(func() {
+			fldPath = field.NewPath("ignoreTags")
+		})
+
+		It("should accept empty ignoreTags", func() {
+			errorList := ValidateIgnoreTags(fldPath, nil)
+			Expect(errorList).To(BeEmpty())
+		})
+
+		It("should accept valid ignoreTags", func() {
+			errorList := ValidateIgnoreTags(fldPath, &apisaws.IgnoreTags{
+				Keys:        []string{"foo", "bar"},
+				KeyPrefixes: []string{"custom/prefix", "another-prefix-"},
+			})
+			Expect(errorList).To(BeEmpty())
+		})
+
+		It("should forbid empty values", func() {
+			errorList := ValidateIgnoreTags(fldPath, &apisaws.IgnoreTags{
+				Keys:        []string{"foo", ""},
+				KeyPrefixes: []string{"custom/prefix", ""},
+			})
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keys[1]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[1]"),
+				})),
+			))
+		})
+
+		It("should forbid ignoring Name tag", func() {
+			errorList := ValidateIgnoreTags(fldPath, &apisaws.IgnoreTags{
+				Keys:        []string{"Name"},
+				KeyPrefixes: []string{"Na", "Name", "NameFooIsAllowed"},
+			})
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keys[0]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[0]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[1]"),
+				})),
+			))
+		})
+
+		It("should forbid ignoring tags starting with kubernetes.io", func() {
+			errorList := ValidateIgnoreTags(fldPath, &apisaws.IgnoreTags{
+				Keys:        []string{"kube", "kubernetes.io", "kubernetes.io/cluster/name"},
+				KeyPrefixes: []string{"kube", "kubernetes.io", "kubernetes.io/", "kubernetes.io/cluster/"},
+			})
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keys[1]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keys[2]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[0]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[1]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[2]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[3]"),
+				})),
+			))
+		})
+
+		It("should forbid ignoring tags starting with gardener.cloud", func() {
+			errorList := ValidateIgnoreTags(fldPath, &apisaws.IgnoreTags{
+				Keys:        []string{"garden", "gardener.cloud", "gardener.cloud/cluster/name"},
+				KeyPrefixes: []string{"garden", "gardener.cloud", "gardener.cloud/", "gardener.cloud/cluster/"},
+			})
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keys[1]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keys[2]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[0]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[1]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[2]"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("ignoreTags.keyPrefixes[3]"),
 				})),
 			))
 		})

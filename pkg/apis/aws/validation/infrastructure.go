@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -148,6 +149,8 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 	allErrs = append(allErrs, cidrvalidation.ValidateCIDROverlap(cidrs, cidrs, false)...)
 	allErrs = append(allErrs, cidrvalidation.ValidateCIDROverlap([]cidrvalidation.CIDR{pods, services}, cidrs, false)...)
 
+	allErrs = append(allErrs, ValidateIgnoreTags(field.NewPath("ignoreTags"), infra.IgnoreTags)...)
+
 	return allErrs
 }
 
@@ -179,5 +182,96 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Workers, newConfig.Networks.Zones[i].Workers, idxPath.Child("workers"))...)
 	}
 
+	return allErrs
+}
+
+var (
+	reservedTagKeys        = []string{"Name"}
+	reservedTagKeyPrefixes = []string{
+		"kubernetes.io",
+		// not used yet. forbid it nevertheless, so we don't need to introduce any incompatible change, when we reserve it
+		// sometime in the future
+		"gardener.cloud",
+	}
+)
+
+// ValidateIgnoreTags validates that a given IgnoreTags value doesn't ignore any reserved tag keys and prefixes.
+func ValidateIgnoreTags(fldPath *field.Path, ignoreTags *apisaws.IgnoreTags) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if ignoreTags == nil {
+		return allErrs
+	}
+
+	keysPath := fldPath.Child("keys")
+	for i, key := range ignoreTags.Keys {
+		idxPath := keysPath.Index(i)
+		if key == "" {
+			allErrs = append(allErrs, field.Invalid(idxPath, key, "ignored key must not be empty"))
+			continue
+		}
+		allErrs = append(allErrs, validateKeyIsReserved(idxPath, key)...)
+		allErrs = append(allErrs, validateKeyHasReservedPrefix(idxPath, key)...)
+	}
+
+	prefixesPath := fldPath.Child("keyPrefixes")
+	for i, prefix := range ignoreTags.KeyPrefixes {
+		idxPath := prefixesPath.Index(i)
+		if prefix == "" {
+			allErrs = append(allErrs, field.Invalid(idxPath, prefix, "ignored key prefix must not be empty"))
+			continue
+		}
+		allErrs = append(allErrs, validatePrefixIncludesReservedKey(idxPath, prefix)...)
+		allErrs = append(allErrs, validatePrefixMatchesReservedPrefix(idxPath, prefix)...)
+	}
+
+	return allErrs
+}
+
+func validateKeyIsReserved(fldPath *field.Path, key string) field.ErrorList {
+	allErrs := field.ErrorList{}
+	for _, reserved := range reservedTagKeys {
+		if key == reserved {
+			allErrs = append(allErrs, field.Invalid(fldPath, key, fmt.Sprintf("must not ignore reserved key %q", reserved)))
+			break
+		}
+	}
+	return allErrs
+}
+
+func validateKeyHasReservedPrefix(fldPath *field.Path, key string) field.ErrorList {
+	allErrs := field.ErrorList{}
+	for _, reserved := range reservedTagKeyPrefixes {
+		if strings.HasPrefix(key, reserved) {
+			allErrs = append(allErrs, field.Invalid(fldPath, key, fmt.Sprintf("must not ignore key with reserved prefix %q", reserved)))
+			break
+		}
+	}
+	return allErrs
+}
+
+func validatePrefixIncludesReservedKey(fldPath *field.Path, prefix string) field.ErrorList {
+	allErrs := field.ErrorList{}
+	for _, reserved := range reservedTagKeys {
+		if strings.HasPrefix(reserved, prefix) {
+			allErrs = append(allErrs, field.Invalid(fldPath, prefix, fmt.Sprintf("must not include reserved key %q", reserved)))
+			break
+		}
+	}
+	return allErrs
+}
+
+func validatePrefixMatchesReservedPrefix(fldPath *field.Path, prefix string) field.ErrorList {
+	allErrs := field.ErrorList{}
+	for _, reserved := range reservedTagKeyPrefixes {
+		if strings.HasPrefix(prefix, reserved) {
+			allErrs = append(allErrs, field.Invalid(fldPath, prefix, fmt.Sprintf("must not include reserved key prefix %q", reserved)))
+			break
+		}
+		if strings.HasPrefix(reserved, prefix) {
+			allErrs = append(allErrs, field.Invalid(fldPath, prefix, fmt.Sprintf("must not have reserved key prefix %q", reserved)))
+			break
+		}
+	}
 	return allErrs
 }

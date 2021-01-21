@@ -31,6 +31,14 @@ type InfrastructureConfig struct {
 
 	// Networks is the AWS specific network configuration (VPC, subnets, etc.)
 	Networks Networks
+
+	// IgnoreTags allows to configure which resource tags on resources managed by Gardener should be ignored during
+	// infrastructure reconciliation. By default, all tags that are added outside of Gardener's / terraform's
+	// reconciliation will be removed during the next reconciliation. This field allows users and automation to add
+	// custom tags on resources created and managed by Gardener without loosing them on the next reconciliation.
+	// See https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources
+	// for details of the underlying terraform implementation.
+	IgnoreTags *IgnoreTags
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -53,6 +61,14 @@ type Networks struct {
 	VPC VPC
 	// Zones belonging to the same region
 	Zones []Zone
+}
+
+// IgnoreTags holds information about ignored resource tags.
+type IgnoreTags struct {
+	// Keys is a list of individual tag keys, that should be ignored during infrastructure reconciliation.
+	Keys []string
+	// KeyPrefixes is a list of tag key prefixes, that should be ignored during infrastructure reconciliation.
+	KeyPrefixes []string
 }
 
 // Zone describes the properties of a zone.

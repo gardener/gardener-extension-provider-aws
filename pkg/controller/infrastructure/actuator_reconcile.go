@@ -115,6 +115,9 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		vpcID             = "aws_vpc.vpc.id"
 		vpcCIDR           = ""
 		internetGatewayID = "aws_internet_gateway.igw.id"
+
+		ignoreTagKeys        []string
+		ignoreTagKeyPrefixes []string
 	)
 
 	if infrastructure.Spec.Region != "us-east-1" {
@@ -159,6 +162,11 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		enableECRAccess = *v
 	}
 
+	if tags := infrastructureConfig.IgnoreTags; tags != nil {
+		ignoreTagKeys = tags.Keys
+		ignoreTagKeyPrefixes = tags.KeyPrefixes
+	}
+
 	return map[string]interface{}{
 		"aws": map[string]interface{}{
 			"region": infrastructure.Spec.Region,
@@ -177,6 +185,10 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		},
 		"clusterName": infrastructure.Namespace,
 		"zones":       zones,
+		"ignoreTags": map[string]interface{}{
+			"keys":        ignoreTagKeys,
+			"keyPrefixes": ignoreTagKeyPrefixes,
+		},
 		"outputKeys": map[string]interface{}{
 			"vpcIdKey":                   aws.VPCIDKey,
 			"subnetsPublicPrefix":        aws.SubnetPublicPrefix,

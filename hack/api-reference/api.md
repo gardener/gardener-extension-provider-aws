@@ -184,6 +184,25 @@ Networks
 <p>Networks is the AWS specific network configuration (VPC, subnets, etc.)</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>ignoreTags</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IgnoreTags">
+IgnoreTags
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IgnoreTags allows to configure which resource tags on resources managed by Gardener should be ignored during
+infrastructure reconciliation. By default, all tags that are added outside of Gardener&rsquo;s / terraform&rsquo;s
+reconciliation will be removed during the next reconciliation. This field allows users and automation to add
+custom tags on resources created and managed by Gardener without loosing them on the next reconciliation.
+See <a href="https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources">https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources</a>
+for details of the underlying terraform implementation.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig
@@ -456,6 +475,49 @@ string
 </td>
 <td>
 <p>Roles is a list of AWS IAM roles.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IgnoreTags">IgnoreTags
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
+</p>
+<p>
+<p>IgnoreTags holds information about ignored resource tags.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>keys</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Keys is a list of individual tag keys, that should be ignored during infrastructure reconciliation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keyPrefixes</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>KeyPrefixes is a list of tag key prefixes, that should be ignored during infrastructure reconciliation.</p>
 </td>
 </tr>
 </tbody>

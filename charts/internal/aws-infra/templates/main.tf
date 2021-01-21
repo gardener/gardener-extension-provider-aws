@@ -2,6 +2,16 @@ provider "aws" {
   access_key = var.ACCESS_KEY_ID
   secret_key = var.SECRET_ACCESS_KEY
   region     = "{{ required "aws.region is required" .Values.aws.region }}"
+  {{- if or .Values.ignoreTags.keys .Values.ignoreTags.keyPrefixes }}
+  ignore_tags {
+    {{- if .Values.ignoreTags.keys }}
+    keys         = [{{ include "join-quotes" .Values.ignoreTags.keys }}]
+    {{- end }}
+    {{- if .Values.ignoreTags.keyPrefixes }}
+    key_prefixes = [{{ include "join-quotes" .Values.ignoreTags.keyPrefixes }}]
+    {{- end }}
+  }
+  {{- end }}
 }
 
 //=====================================================================
