@@ -413,7 +413,9 @@ func BootstrapCluster(ctx context.Context, k8sGardenClient, k8sSeedClient kubern
 			// shoot system components
 			metricsserver.CentralLoggingConfiguration,
 		}
-		userAllowedComponents := []string{v1beta1constants.DeploymentNameKubeAPIServer}
+		userAllowedComponents := []string{v1beta1constants.DeploymentNameKubeAPIServer,
+			v1beta1constants.DeploymentNameVPAExporter, v1beta1constants.DeploymentNameVPARecommender,
+			v1beta1constants.DeploymentNameVPAAdmissionController}
 
 		// Fetch component specific logging configurations
 		for _, componentFn := range componentsFunctions {
@@ -469,7 +471,7 @@ func BootstrapCluster(ctx context.Context, k8sGardenClient, k8sSeedClient kubern
 			}
 		}
 	} else {
-		if err := common.DeleteLoggingStack(ctx, k8sSeedClient.Client(), v1beta1constants.GardenNamespace); client.IgnoreNotFound(err) != nil {
+		if err := common.DeleteSeedLoggingStack(ctx, k8sSeedClient.Client()); err != nil {
 			return err
 		}
 	}
@@ -883,21 +885,18 @@ func bootstrapComponents(c kubernetes.Interface, namespace string, imageVector i
 	}
 	components = append(components, seedadmission.New(c.Client(), namespace, gsacImage.String(), kubernetesVersion))
 
-	// gardener-seed-scheduler.
+	// kube-scheduler for shoot control plane pods
 	var schedulerImage *imagevector.Image
-
 	if imageVector != nil {
 		schedulerImage, err = imageVector.FindImage(common.KubeSchedulerImageName, imagevector.TargetVersion(kubernetesVersion.String()))
 		if err != nil {
 			return nil, err
 		}
 	}
-
 	sched, err := scheduler.Bootstrap(c.DirectClient(), namespace, schedulerImage, kubernetesVersion)
 	if err != nil {
 		return nil, err
 	}
-
 	components = append(components, sched)
 
 	return components, nil

@@ -180,8 +180,8 @@ github.com/gardener/gardener v1.1.2/go.mod h1:CP9I0tCDVXTLPkJv/jUtXVUh948kSNKEGU
 github.com/gardener/gardener v1.3.1/go.mod h1:936P5tQbg6ViiW8BVC9ELM95sFrk4DgobKrxMNtn/LU=
 github.com/gardener/gardener v1.4.1-0.20200519155656-a8ccc6cc779a/go.mod h1:t9oESM37bAMIuezi9I0H0I8+++8jy8BUPitcf4ERRXY=
 github.com/gardener/gardener v1.11.3/go.mod h1:5DzqfOm+G8UftKu5zUbYJ+9Cnfd4XrvRNDabkM9AIp4=
-github.com/gardener/gardener v1.15.1-0.20210118135118-1c2defb1ce0b h1:hW+xPy3T15bisBXG2B8CjCPUjZZJAijv5BU4OtIwAbA=
-github.com/gardener/gardener v1.15.1-0.20210118135118-1c2defb1ce0b/go.mod h1:nEATFWChfH+AD88X70hZ1uI/Wg0uiwScwD0kTc0PFMY=
+github.com/gardener/gardener v1.16.0 h1:wfN3K2ldW4WzQ/VkUd94oZerE/pyOdo0vFi/FCaH+FY=
+github.com/gardener/gardener v1.16.0/go.mod h1:NkMsWMePTbyPbJzflHGCLzdep9s0ooETSSq7i8uyrkU=
 github.com/gardener/gardener-resource-manager v0.10.0/go.mod h1:0pKTHOhvU91eQB0EYr/6Ymd7lXc/5Hi8P8tF/gpV0VQ=
 github.com/gardener/gardener-resource-manager v0.13.1/go.mod h1:0No/XttYRUwDn5lSppq9EqlKdo/XJQ44aCZz5BVu3Vw=
 github.com/gardener/gardener-resource-manager v0.18.0 h1:bNB0yKhSqe8DnsvIp3xZr9nsFB4fm+AUAqj1EoIvWU8=
@@ -1018,8 +1018,6 @@ k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29 h1:NeQXVJ2XFSkRoPzRo8AId0
 k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29/go.mod h1:F+5wygcW0wmRTnM3cOgIqGivxkwSWIWT5YdsDbeAOaU=
 k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6 h1:+WnxoVtG8TMiudHBSEtrVL1egv36TkkJm+bA8AxicmQ=
 k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6/go.mod h1:UuqjUnNftUyPE5H64/qeyjQoUZhGpeFDVdxjTeEVN2o=
-k8s.io/kube-scheduler v0.19.6 h1:pxIm1wcluoi1xquPJOvqj/M8Pc+zpb1ltkpZ7I+Pges=
-k8s.io/kube-scheduler v0.19.6/go.mod h1:Z+BYHsgR340yFzs2UJS/H0wSEqrN4mDFvq3VGzhq78U=
 k8s.io/kubelet v0.16.8/go.mod h1:mzDpnryQg2dlB6V3/WAgb1baIamiICtWpXMFrPOFh6I=
 k8s.io/kubelet v0.18.8/go.mod h1:6z1jHCk0NPE6WshFStfqcgQ1bnD3tetcPmhC2915aio=
 k8s.io/kubelet v0.19.6 h1:hVc1WLXnUBLGvweX1PAJZxsGHwawf2be7rK7M0h0KY8=
