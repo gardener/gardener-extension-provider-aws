@@ -19,18 +19,6 @@ import (
 	"fmt"
 	"os"
 
-	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awscmd "github.com/gardener/gardener-extension-provider-aws/pkg/cmd"
-	awsbackupbucket "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
-	awsbackupentry "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
-	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
-	awscsimigration "github.com/gardener/gardener-extension-provider-aws/pkg/controller/csimigration"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
-	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
-	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
-	awscontrolplaneexposure "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
-
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
@@ -42,8 +30,21 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1beta2 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1beta2"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awscmd "github.com/gardener/gardener-extension-provider-aws/pkg/cmd"
+	awsbackupbucket "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
+	awsbackupentry "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
+	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
+	awscsimigration "github.com/gardener/gardener-extension-provider-aws/pkg/controller/csimigration"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
+	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
+	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
+	awscontrolplaneexposure "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
 )
 
 // NewControllerManagerCommand creates a new command for running a AWS provider controller.
@@ -51,11 +52,15 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 	var (
 		restOpts = &controllercmd.RESTOptions{}
 		mgrOpts  = &controllercmd.ManagerOptions{
-			LeaderElection:          true,
-			LeaderElectionID:        controllercmd.LeaderElectionNameID(aws.Name),
-			LeaderElectionNamespace: os.Getenv("LEADER_ELECTION_NAMESPACE"),
-			WebhookServerPort:       443,
-			WebhookCertDir:          "/tmp/gardener-extensions-cert",
+			LeaderElection: true,
+			// TODO: migrate default to `leases` in one of the next releases
+			// `configmapsleases` has been default since v1.20 (but was not configurable via flags)
+			// maybe consider changing the default in v1.22?
+			LeaderElectionResourceLock: resourcelock.ConfigMapsLeasesResourceLock,
+			LeaderElectionID:           controllercmd.LeaderElectionNameID(aws.Name),
+			LeaderElectionNamespace:    os.Getenv("LEADER_ELECTION_NAMESPACE"),
+			WebhookServerPort:          443,
+			WebhookCertDir:             "/tmp/gardener-extensions-cert",
 		}
 		configFileOpts = &awscmd.ConfigOptions{}
 
