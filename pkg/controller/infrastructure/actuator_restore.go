@@ -20,7 +20,7 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	kutils "github.com/gardener/gardener/pkg/utils/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Restore takes the infrastructure state and deploys it as terraform state ConfigMap before calling the terraformer
@@ -30,7 +30,7 @@ func (a *actuator) Restore(ctx context.Context, infrastructure *extensionsv1alph
 		return err
 	}
 
-	logger := a.logger.WithValues("infrastructure", kutils.KeyFromObject(infrastructure), "operation", "restore")
+	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "restore")
 	infrastructureStatus, state, err := Reconcile(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.CreateOrUpdateState{State: &terraformState.Data})
 	if err != nil {
 		return err

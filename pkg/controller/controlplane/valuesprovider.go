@@ -19,9 +19,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
@@ -33,6 +30,11 @@ import (
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/secrets"
 	"github.com/gardener/gardener/pkg/utils/version"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -414,7 +416,7 @@ func (vp *valuesProvider) GetControlPlaneExposureChartValues(
 	if !controller.IsHibernated(cluster) {
 		// Get load balancer address of the kube-apiserver service
 		var err error
-		address, err = kutil.GetLoadBalancerIngress(ctx, vp.Client(), cp.Namespace, v1beta1constants.DeploymentNameKubeAPIServer)
+		address, err = kutil.GetLoadBalancerIngress(ctx, vp.Client(), &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: cp.Namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}})
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get kube-apiserver service load balancer address")
 		}
