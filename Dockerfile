@@ -20,10 +20,3 @@ FROM base as gardener-extension-admission-aws
 
 COPY --from=builder /go/bin/gardener-extension-admission-aws /gardener-extension-admission-aws
 ENTRYPOINT ["/gardener-extension-admission-aws"]
-
-# Duplicate {admission,validator} targets due to https://github.com/gardener/gardener-extension-provider-gcp/pull/69/files#r421264085
-############# gardener-extension-validator-aws
-FROM base AS gardener-extension-validator-aws
-
-COPY --from=builder /go/bin/gardener-extension-admission-aws /gardener-extension-admission-aws
-ENTRYPOINT ["/gardener-extension-admission-aws"]
