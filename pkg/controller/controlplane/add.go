@@ -21,8 +21,10 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	"github.com/gardener/gardener/pkg/utils/version"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -48,10 +50,23 @@ type AddOptions struct {
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
 // The opts.Reconciler is being set with a newly instantiated actuator.
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
+	objectKeys := []client.ObjectKey{
+		{Name: "volumesnapshots.snapshot.storage.k8s.io"},
+		{Name: "volumesnapshotcontents.snapshot.storage.k8s.io"},
+		{Name: "volumesnapshotclasses.snapshot.storage.k8s.io"},
+	}
+	needsMigrationFunc := func(cluster *extensionscontroller.Cluster) bool {
+		csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", "1.18")
+		if err != nil {
+			return false
+		}
+		return csiEnabled
+	}
+
 	return controlplane.Add(mgr, controlplane.AddArgs{
-		Actuator: genericactuator.NewActuator(aws.Name, controlPlaneSecrets, controlPlaneExposureSecrets, configChart, controlPlaneChart, controlPlaneShootChart,
+		Actuator: genericactuator.NewShootCRDsMigrator(genericactuator.NewActuator(aws.Name, controlPlaneSecrets, controlPlaneExposureSecrets, configChart, controlPlaneChart, controlPlaneShootChart, controlPlaneShootCRDsChart,
 			storageClassChart, cpExposureChart, NewValuesProvider(logger), extensionscontroller.ChartRendererFactoryFunc(util.NewChartRendererForShoot),
-			imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhooks, mgr.GetWebhookServer().Port, logger),
+			imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhooks, mgr.GetWebhookServer().Port, logger), objectKeys, needsMigrationFunc, logger),
 		ControllerOptions: opts.Controller,
 		Predicates:        controlplane.DefaultPredicates(opts.IgnoreOperationAnnotation),
 		Type:              aws.Type,

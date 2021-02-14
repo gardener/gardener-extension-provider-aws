@@ -202,6 +202,19 @@ func RemoveAnnotation(ctx context.Context, c client.Client, obj client.Object, a
 	return c.Patch(ctx, obj, client.MergeFrom(withAnnotation))
 }
 
+func AddAnnotation(ctx context.Context, c client.Client, obj client.Object, key, value string) error {
+	withoutAnnotation := obj.DeepCopyObject()
+
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[key] = value
+	obj.SetAnnotations(annotations)
+
+	return c.Patch(ctx, obj, client.MergeFrom(withoutAnnotation))
+}
+
 // IsMigrated checks if an extension object has been migrated
 func IsMigrated(obj extensionsv1alpha1.Object) bool {
 	lastOp := obj.GetExtensionStatus().GetLastOperation()

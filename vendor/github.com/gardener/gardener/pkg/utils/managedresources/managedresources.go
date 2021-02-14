@@ -26,6 +26,7 @@ import (
 	resourcesv1alpha1 "github.com/gardener/gardener-resource-manager/pkg/apis/resources/v1alpha1"
 	"github.com/gardener/gardener-resource-manager/pkg/manager"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sretry "k8s.io/client-go/util/retry"
@@ -129,6 +130,42 @@ func WaitUntilManagedResourceDeleted(ctx context.Context, client client.Client, 
 	return kutil.WaitUntilResourceDeleted(ctx, client, mr, IntervalWait)
 }
 
+// WaitUntilObjectsAreRemovedFromManagedResourceStatus waits until the given ref does no longer exist in the given managed resource' status.
+func WaitUntilObjectsAreRemovedFromManagedResourceStatus(ctx context.Context, c client.Client, namespace, name string, ref *corev1.ObjectReference) error {
+	key := client.ObjectKey{Namespace: namespace, Name: name}
+
+	return retry.Until(ctx, IntervalWait, func(ctx context.Context) (done bool, err error) {
+		mr := &resourcesv1alpha1.ManagedResource{}
+		if err := c.Get(ctx, key, mr); err != nil {
+			return retry.SevereError(err)
+		}
+
+		if ContainsResource(mr, ref) {
+			return retry.MinorError(fmt.Errorf("resource %s still exists in the ManagedResource status", objectKeyByReference(*ref)))
+		}
+
+		return retry.Ok()
+	})
+}
+
+// ContainsResource checks whether the given ManagedResource contains the given object reference in its status.
+func ContainsResource(mr *resourcesv1alpha1.ManagedResource, ref *corev1.ObjectReference) bool {
+	if mr.Status.Resources == nil {
+		return false
+	}
+
+	for _, current := range mr.Status.Resources {
+		if current.GroupVersionKind().Group == ref.GroupVersionKind().Group &&
+			current.Kind == ref.Kind &&
+			current.Namespace == ref.Namespace &&
+			current.Name == ref.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
 // KeepManagedResourceObjects updates the keepObjects field of the managed resource with the given name in the given namespace.
 func KeepManagedResourceObjects(ctx context.Context, c client.Client, namespace, name string, keepObjects bool) error {
 	resource := &resourcesv1alpha1.ManagedResource{
@@ -146,4 +183,15 @@ func KeepManagedResourceObjects(ctx context.Context, c client.Client, namespace,
 	}
 
 	return nil
+}
+
+func objectKeyByReference(ref corev1.ObjectReference) string {
+	return objectKey(ref.GroupVersionKind().Group, ref.Kind, ref.Namespace, ref.Name)
+}
+
+func objectKey(group, kind, namespace, name string) string {
+	if kind != "Namespace" && namespace == "" {
+		namespace = metav1.NamespaceDefault
+	}
+	return fmt.Sprintf("%s/%s/%s/%s", group, kind, namespace, name)
 }

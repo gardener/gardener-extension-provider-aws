@@ -54,6 +54,14 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 		}
 		return csiEnabled
 	}
+	shootCRDsPreCheckFunc := func(obj client.Object, _ *extensionscontroller.Cluster) bool {
+		cp, ok := obj.(*extensionsv1alpha1.ControlPlane)
+		if !ok {
+			return false
+		}
+
+		return metav1.HasAnnotation(cp.ObjectMeta, genericcontrolplaneactuator.HealthCheckShootCRDsManagedResourceAnnotationKey)
+	}
 
 	if err := healthcheck.DefaultRegistration(
 		aws.Type,
@@ -81,6 +89,11 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 			{
 				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
 				HealthCheck:   general.CheckManagedResource(genericcontrolplaneactuator.ControlPlaneShootChartResourceName),
+			},
+			{
+				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
+				HealthCheck:   general.CheckManagedResource(genericcontrolplaneactuator.ControlPlaneShootCRDsChartResourceName),
+				PreCheckFunc:  shootCRDsPreCheckFunc,
 			},
 			{
 				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
