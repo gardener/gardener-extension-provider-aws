@@ -30,7 +30,6 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/chartrenderer"
-	kutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +40,7 @@ import (
 )
 
 func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	logger := a.logger.WithValues("infrastructure", kutils.KeyFromObject(infrastructure), "operation", "reconcile")
+	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "reconcile")
 	infrastructureStatus, state, err := Reconcile(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
 	if err != nil {
 		return err

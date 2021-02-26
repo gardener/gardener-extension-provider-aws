@@ -27,7 +27,6 @@ import (
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils/flow"
-	kutils "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
@@ -35,7 +34,7 @@ import (
 )
 
 func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	logger := a.logger.WithValues("infrastructure", kutils.KeyFromObject(infrastructure), "operation", "delete")
+	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "delete")
 	return Delete(ctx, logger, a.RESTConfig(), a.Client(), infrastructure)
 }
 
