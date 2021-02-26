@@ -45,5 +45,8 @@ func migrate(
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
 
-	return tf.CleanupConfiguration(ctx)
+	if err := tf.CleanupConfiguration(ctx); err != nil {
+		return err
+	}
+	return tf.RemoveTerraformerFinalizerFromConfig(ctx)
 }
