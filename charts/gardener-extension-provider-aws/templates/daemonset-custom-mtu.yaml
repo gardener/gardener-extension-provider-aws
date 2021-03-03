@@ -19,6 +19,7 @@ spec:
       labels:
         k8s-app: mtu-customizer
     spec:
+      priorityClassName: gardener-extension-provider-aws
       hostNetwork: true
       tolerations:
         - effect: NoSchedule
