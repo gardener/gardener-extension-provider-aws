@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -255,24 +254,6 @@ var _ = Describe("Infrastructure tests", func() {
 })
 
 func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespaceName string, providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client) error {
-	scheme := runtime.NewScheme()
-	Expect(gardencorev1beta1.AddToScheme(scheme)).To(Succeed())
-	codec := serializer.NewCodecFactory(scheme, serializer.EnableStrict)
-
-	info, found := runtime.SerializerInfoForMediaType(codec.SupportedMediaTypes(), runtime.ContentTypeJSON)
-	Expect(found).To(BeTrue(), "should be able to decode")
-
-	encoder := codec.EncoderForVersion(info.Serializer, gardencorev1beta1.SchemeGroupVersion)
-	encode := func(obj runtime.Object) []byte {
-		b := &bytes.Buffer{}
-		Expect(encoder.Encode(obj, b)).To(Succeed())
-
-		data, err := ioutil.ReadAll(b)
-		Expect(err).ToNot(HaveOccurred())
-
-		return data
-	}
-
 	var (
 		namespace                 *corev1.Namespace
 		cluster                   *extensionsv1alpha1.Cluster
