@@ -44,7 +44,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: k8s.gcr.io/provider-aws/aws-ebs-csi-driver
-  tag: "v0.8.0"
+  tag: "v0.9.0"
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: quay.io/k8scsi/csi-provisioner
