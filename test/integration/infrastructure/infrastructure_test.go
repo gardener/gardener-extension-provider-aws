@@ -322,13 +322,17 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 		},
 		Spec: extensionsv1alpha1.ClusterSpec{
 			Shoot: runtime.RawExtension{
-				Raw: encode(&gardencorev1beta1.Shoot{
+				Object: &gardencorev1beta1.Shoot{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: gardencorev1beta1.SchemeGroupVersion.String(),
+						Kind:       "Shoot",
+					},
 					Spec: gardencorev1beta1.ShootSpec{
 						Kubernetes: gardencorev1beta1.Kubernetes{
 							Version: "1.15.5",
 						},
 					},
-				}),
+				},
 			},
 		},
 	}
