@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/operation/common"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
@@ -253,6 +255,24 @@ var _ = Describe("Infrastructure tests", func() {
 })
 
 func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespaceName string, providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client) error {
+	scheme := runtime.NewScheme()
+	Expect(gardencorev1beta1.AddToScheme(scheme)).To(Succeed())
+	codec := serializer.NewCodecFactory(scheme, serializer.EnableStrict)
+
+	info, found := runtime.SerializerInfoForMediaType(codec.SupportedMediaTypes(), runtime.ContentTypeJSON)
+	Expect(found).To(BeTrue(), "should be able to decode")
+
+	encoder := codec.EncoderForVersion(info.Serializer, gardencorev1beta1.SchemeGroupVersion)
+	encode := func(obj runtime.Object) []byte {
+		b := &bytes.Buffer{}
+		Expect(encoder.Encode(obj, b)).To(Succeed())
+
+		data, err := ioutil.ReadAll(b)
+		Expect(err).ToNot(HaveOccurred())
+
+		return data
+	}
+
 	var (
 		namespace                 *corev1.Namespace
 		cluster                   *extensionsv1alpha1.Cluster
@@ -299,6 +319,17 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	cluster = &extensionsv1alpha1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
+		},
+		Spec: extensionsv1alpha1.ClusterSpec{
+			Shoot: runtime.RawExtension{
+				Raw: encode(&gardencorev1beta1.Shoot{
+					Spec: gardencorev1beta1.ShootSpec{
+						Kubernetes: gardencorev1beta1.Kubernetes{
+							Version: "1.15.5",
+						},
+					},
+				}),
+			},
 		},
 	}
 	if err := c.Create(ctx, cluster); err != nil {
