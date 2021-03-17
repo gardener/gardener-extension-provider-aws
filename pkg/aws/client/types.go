@@ -42,9 +42,9 @@ type Interface interface {
 
 	// The following functions are only temporary needed due to https://github.com/gardener/gardener/issues/129.
 	ListKubernetesELBs(ctx context.Context, vpcID, clusterName string) ([]string, error)
-	ListKubernetesELBsV2(ctx context.Context, vpcID, clusterName string) ([]LoadBalancer, error)
+	ListKubernetesELBsV2(ctx context.Context, vpcID, clusterName string) ([]string, error)
 	ListKubernetesSecurityGroups(ctx context.Context, vpcID, clusterName string) ([]string, error)
 	DeleteELB(ctx context.Context, name string) error
-	DeleteELBV2(ctx context.Context, arn *string) error
+	DeleteELBV2(ctx context.Context, arn string) error
 	DeleteSecurityGroup(ctx context.Context, id string) error
 }

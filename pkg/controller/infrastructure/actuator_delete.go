@@ -81,7 +81,7 @@ func Delete(
 	var (
 		g = flow.NewGraph("AWS infrastructure destruction")
 
-		destroyKubernetesLoadBalancersAndSecurityGroups = g.Add(flow.Task{
+		destroyLoadBalancersAndSecurityGroups = g.Add(flow.Task{
 			Name: "Destroying Kubernetes load balancers and security groups",
 			Fn: flow.TaskFn(func(ctx context.Context) error {
 				stateVariables, err := tf.GetStateOutputVariables(ctx, aws.VPCIDKey)
@@ -103,7 +103,7 @@ func Delete(
 		_ = g.Add(flow.Task{
 			Name:         "Destroying Shoot infrastructure",
 			Fn:           tf.SetEnvVars(generateTerraformerEnvVars(infrastructure.Spec.SecretRef)...).Destroy,
-			Dependencies: flow.NewTaskIDs(destroyKubernetesLoadBalancersAndSecurityGroups),
+			Dependencies: flow.NewTaskIDs(destroyLoadBalancersAndSecurityGroups),
 		})
 
 		f = g.Compile()
@@ -117,44 +117,23 @@ func Delete(
 }
 
 func destroyKubernetesLoadBalancersAndSecurityGroups(ctx context.Context, awsClient awsclient.Interface, vpcID, clusterName string) error {
-	// first get a list of v1 loadbalancers (Classic)
-	loadBalancersV1, err := awsClient.ListKubernetesELBs(ctx, vpcID, clusterName)
-	if err != nil {
-		return err
-	}
-
-	// then get a list of v2 loadbalancers (Network and Application)
-	loadBalancersV2, err := awsClient.ListKubernetesELBsV2(ctx, vpcID, clusterName)
-	if err != nil {
-		return err
-	}
-
-	// get a list of security groups to delete
-	securityGroups, err := awsClient.ListKubernetesSecurityGroups(ctx, vpcID, clusterName)
-	if err != nil {
-		return err
-	}
-
-	// first delete v1 loadbalancers (Classic)
-	for _, loadBalancerName := range loadBalancersV1 {
-		if err := awsClient.DeleteELB(ctx, loadBalancerName); err != nil {
+	for _, v := range []struct {
+		listFn   func(context.Context, string, string) ([]string, error)
+		deleteFn func(context.Context, string) error
+	}{
+		{awsClient.ListKubernetesELBs, awsClient.DeleteELB},
+		{awsClient.ListKubernetesELBsV2, awsClient.DeleteELBV2},
+		{awsClient.ListKubernetesSecurityGroups, awsClient.DeleteSecurityGroup},
+	} {
+		results, err := v.listFn(ctx, vpcID, clusterName)
+		if err != nil {
 			return err
 		}
-	}
 
-	// then delete v2 loadbalancers (Network and Application)
-	for _, loadBalancer := range loadBalancersV2 {
-		if loadBalancer.Arn != nil {
-			if err := awsClient.DeleteELBV2(ctx, loadBalancer.Arn); err != nil {
+		for _, result := range results {
+			if err := v.deleteFn(ctx, result); err != nil {
 				return err
 			}
-		}
-	}
-
-	// finally delete security groups
-	for _, securityGroupID := range securityGroups {
-		if err := awsClient.DeleteSecurityGroup(ctx, securityGroupID); err != nil {
-			return err
 		}
 	}
 
