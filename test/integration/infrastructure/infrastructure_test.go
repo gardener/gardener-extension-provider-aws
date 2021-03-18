@@ -30,7 +30,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
-	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/operation/common"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
@@ -300,21 +299,6 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	cluster = &extensionsv1alpha1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
-		},
-		Spec: extensionsv1alpha1.ClusterSpec{
-			Shoot: runtime.RawExtension{
-				Object: &gardencorev1beta1.Shoot{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: gardencorev1beta1.SchemeGroupVersion.String(),
-						Kind:       "Shoot",
-					},
-					Spec: gardencorev1beta1.ShootSpec{
-						Kubernetes: gardencorev1beta1.Kubernetes{
-							Version: "1.15.5",
-						},
-					},
-				},
-			},
 		},
 	}
 	if err := c.Create(ctx, cluster); err != nil {

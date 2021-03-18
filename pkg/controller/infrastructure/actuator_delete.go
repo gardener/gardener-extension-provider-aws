@@ -27,35 +27,15 @@ import (
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils/flow"
-	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
+func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
 	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "delete")
-
-	// Prior to Kubernetes v1.16 there was no finalizer support for `Service` objects. This is especially painful for
-	// `Service`s of type `LoadBalancer` because infrastructure artefacts are created. An deletion of the `Service`
-	// object leads to immediate disappearance from the system/cluster while the service-controller is still processing
-	// the deletion of the infrastructure artefacts in the background. Consequently, as an end-user you cannot know when
-	// the service-controller finished its work and cleaned up properly.
-	// If it didn't finish the destruction fast enough then the infrastructure deletion (trying to destroy the subnets,
-	// VPC, etc.) will fail due to the fact that there are still resources (load balancers, security groups) that we
-	// are not aware of. As a result, manual intervention is required to cleanup those artefacts to allow our infrastructure
-	// deletion to properly proceed.
-	// To mitigate this, we are explicitly deletion load balancers and security groups for Kubernetes versions lower
-	// than v1.16 (in fact, we are duplicating the logic of the service-controller here (at least parts of it)).
-	// See more details: https://github.com/kubernetes/enhancements/issues/980
-	// TODO: Remove all this code when the extension does only support clusters with at least Kubernetes v1.16.
-	needsExplicitLoadBalancerDeletion, err := versionutils.CheckVersionMeetsConstraint(cluster.Shoot.Spec.Kubernetes.Version, "< 1.16")
-	if err != nil {
-		return err
-	}
-
-	return Delete(ctx, logger, a.RESTConfig(), a.Client(), infrastructure, needsExplicitLoadBalancerDeletion)
+	return Delete(ctx, logger, a.RESTConfig(), a.Client(), infrastructure)
 }
 
 // Delete deletes the given Infrastructure.
@@ -65,7 +45,6 @@ func Delete(
 	restConfig *rest.Config,
 	c client.Client,
 	infrastructure *extensionsv1alpha1.Infrastructure,
-	needsExplicitLoadBalancerDeletion bool,
 ) error {
 	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
@@ -89,23 +68,15 @@ func Delete(
 		return fmt.Errorf("error while checking whether terraform config exists: %+v", err)
 	}
 
-	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c, infrastructure.Spec.SecretRef)
+	awsClient, err := aws.NewClientFromSecretRef(ctx, c, infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
 	if err != nil {
-		return err
-	}
-
-	var awsClient *awsclient.Client
-	if needsExplicitLoadBalancerDeletion {
-		awsClient, err = awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), infrastructure.Spec.Region)
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("failed to create new AWS client: %+v", err)
 	}
 
 	var (
 		g = flow.NewGraph("AWS infrastructure destruction")
 
-		destroyKubernetesLoadBalancersAndSecurityGroups = g.Add(flow.Task{
+		destroyLoadBalancersAndSecurityGroups = g.Add(flow.Task{
 			Name: "Destroying Kubernetes load balancers and security groups",
 			Fn: flow.TaskFn(func(ctx context.Context) error {
 				stateVariables, err := tf.GetStateOutputVariables(ctx, aws.VPCIDKey)
@@ -121,13 +92,13 @@ func Delete(
 					return gardencorev1beta1helper.DetermineError(err, fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
 				}
 				return nil
-			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(needsExplicitLoadBalancerDeletion && configExists),
+			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists),
 		})
 
 		_ = g.Add(flow.Task{
 			Name:         "Destroying Shoot infrastructure",
 			Fn:           tf.SetEnvVars(generateTerraformerEnvVars(infrastructure.Spec.SecretRef)...).Destroy,
-			Dependencies: flow.NewTaskIDs(destroyKubernetesLoadBalancersAndSecurityGroups),
+			Dependencies: flow.NewTaskIDs(destroyLoadBalancersAndSecurityGroups),
 		})
 
 		f = g.Compile()
@@ -141,44 +112,23 @@ func Delete(
 }
 
 func destroyKubernetesLoadBalancersAndSecurityGroups(ctx context.Context, awsClient awsclient.Interface, vpcID, clusterName string) error {
-	// first get a list of v1 loadbalancers (Classic)
-	loadBalancersV1, err := awsClient.ListKubernetesELBs(ctx, vpcID, clusterName)
-	if err != nil {
-		return err
-	}
-
-	// then get a list of v2 loadbalancers (Network and Application)
-	loadBalancersV2, err := awsClient.ListKubernetesELBsV2(ctx, vpcID, clusterName)
-	if err != nil {
-		return err
-	}
-
-	// get a list of security groups to delete
-	securityGroups, err := awsClient.ListKubernetesSecurityGroups(ctx, vpcID, clusterName)
-	if err != nil {
-		return err
-	}
-
-	// first delete v1 loadbalancers (Classic)
-	for _, loadBalancerName := range loadBalancersV1 {
-		if err := awsClient.DeleteELB(ctx, loadBalancerName); err != nil {
+	for _, v := range []struct {
+		listFn   func(context.Context, string, string) ([]string, error)
+		deleteFn func(context.Context, string) error
+	}{
+		{awsClient.ListKubernetesELBs, awsClient.DeleteELB},
+		{awsClient.ListKubernetesELBsV2, awsClient.DeleteELBV2},
+		{awsClient.ListKubernetesSecurityGroups, awsClient.DeleteSecurityGroup},
+	} {
+		results, err := v.listFn(ctx, vpcID, clusterName)
+		if err != nil {
 			return err
 		}
-	}
 
-	// then delete v2 loadbalancers (Network and Application)
-	for _, loadBalancer := range loadBalancersV2 {
-		if loadBalancer.Arn != nil {
-			if err := awsClient.DeleteELBV2(ctx, loadBalancer.Arn); err != nil {
+		for _, result := range results {
+			if err := v.deleteFn(ctx, result); err != nil {
 				return err
 			}
-		}
-	}
-
-	// finally delete security groups
-	for _, securityGroupID := range securityGroups {
-		if err := awsClient.DeleteSecurityGroup(ctx, securityGroupID); err != nil {
-			return err
 		}
 	}
 

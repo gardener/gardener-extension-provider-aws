@@ -63,17 +63,17 @@ func Reconcile(
 	*terraformer.RawState,
 	error,
 ) {
-	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c, infrastructure.Spec.SecretRef)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
 	if _, _, err := decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
 		return nil, nil, fmt.Errorf("could not decode provider config: %+v", err)
 	}
 
-	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, credentials)
+	awsClient, err := aws.NewClientFromSecretRef(ctx, c, infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create new AWS client: %+v", err)
+	}
+
+	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, awsClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
 	}
@@ -107,7 +107,7 @@ func Reconcile(
 	return computeProviderStatus(ctx, tf, infrastructureConfig)
 }
 
-func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig, credentials *aws.Credentials) (map[string]interface{}, error) {
+func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig, awsClient awsclient.Interface) (map[string]interface{}, error) {
 	var (
 		dhcpDomainName    = "ec2.internal"
 		createVPC         = true
@@ -126,10 +126,6 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	switch {
 	case infrastructureConfig.Networks.VPC.ID != nil:
 		createVPC = false
-		awsClient, err := awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), infrastructure.Spec.Region)
-		if err != nil {
-			return nil, err
-		}
 		existingVpcID := *infrastructureConfig.Networks.VPC.ID
 		if err := awsClient.VerifyVPCAttributes(ctx, existingVpcID); err != nil {
 			return nil, err
