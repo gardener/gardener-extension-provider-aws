@@ -283,6 +283,10 @@ func (c *Client) ListKubernetesELBs(ctx context.Context, vpcID, clusterName stri
 		return nil, err
 	}
 
+	if len(loadBalancerNamesInVPC) == 0 {
+		return nil, nil
+	}
+
 	tags, err := c.ELB.DescribeTagsWithContext(ctx, &elb.DescribeTagsInput{LoadBalancerNames: loadBalancerNamesInVPC})
 	if err != nil {
 		return nil, err
@@ -325,6 +329,10 @@ func (c *Client) ListKubernetesELBsV2(ctx context.Context, vpcID, clusterName st
 		return !lastPage
 	}); err != nil {
 		return nil, err
+	}
+
+	if len(loadBalancerARNsInVPC) == 0 {
+		return nil, nil
 	}
 
 	tags, err := c.ELBv2.DescribeTagsWithContext(ctx, &elbv2.DescribeTagsInput{ResourceArns: loadBalancerARNsInVPC})
