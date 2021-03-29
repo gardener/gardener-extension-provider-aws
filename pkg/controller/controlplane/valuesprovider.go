@@ -338,7 +338,7 @@ func (vp *valuesProvider) GetConfigChartValues(
 
 // GetControlPlaneChartValues returns the values for the control plane chart applied by the generic actuator.
 func (vp *valuesProvider) GetControlPlaneChartValues(
-	ctx context.Context,
+	_ context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 	checksums map[string]string,
@@ -350,11 +350,6 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
 			return nil, errors.Wrapf(err, "could not decode providerConfig of controlplane '%s'", kutil.ObjectName(cp))
 		}
-	}
-
-	// TODO: Remove this code in next version. Delete old config
-	if err := vp.deleteCCMMonitoringConfig(ctx, cp.Namespace); err != nil {
-		return nil, err
 	}
 
 	return getControlPlaneChartValues(cpConfig, cp, cluster, checksums, scaledDown)
