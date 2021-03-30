@@ -49,23 +49,22 @@ const namespace = "test"
 
 var _ = Describe("ValuesProvider", func() {
 	var (
-		ctrl                   *gomock.Controller
-		c                      *mockclient.MockClient
-		encoder                runtime.Encoder
-		ctx                    context.Context
-		logger                 logr.Logger
-		scheme                 *runtime.Scheme
-		vp                     genericactuator.ValuesProvider
-		region                 string
-		cp                     *extensionsv1alpha1.ControlPlane
-		cidr                   string
-		clusterK8sLessThan118  *extensionscontroller.Cluster
-		clusterK8sAtLeast118   *extensionscontroller.Cluster
-		ccmMonitoringConfigmap *corev1.ConfigMap // TODO remove cpMap in next version
-		checksums              map[string]string
-		enabledTrue            map[string]interface{}
-		enabledFalse           map[string]interface{}
-		encode                 = func(obj runtime.Object) []byte {
+		ctrl                  *gomock.Controller
+		c                     *mockclient.MockClient
+		encoder               runtime.Encoder
+		ctx                   context.Context
+		logger                logr.Logger
+		scheme                *runtime.Scheme
+		vp                    genericactuator.ValuesProvider
+		region                string
+		cp                    *extensionsv1alpha1.ControlPlane
+		cidr                  string
+		clusterK8sLessThan118 *extensionscontroller.Cluster
+		clusterK8sAtLeast118  *extensionscontroller.Cluster
+		checksums             map[string]string
+		enabledTrue           map[string]interface{}
+		enabledFalse          map[string]interface{}
+		encode                = func(obj runtime.Object) []byte {
 			b := &bytes.Buffer{}
 			Expect(encoder.Encode(obj, b)).To(Succeed())
 
@@ -163,14 +162,6 @@ var _ = Describe("ValuesProvider", func() {
 			},
 		}
 
-		// TODO remove cpMap in next version
-		ccmMonitoringConfigmap = &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "cloud-controller-manager-monitoring-config",
-			},
-		}
-
 		checksums = map[string]string{
 			v1beta1constants.SecretNameCloudProvider:   "8bafb35ff1ac60275d62e1cbd495aceb511fb354f74a20f7d06ecb48b3a68432",
 			aws.CloudProviderConfigName:                "08a7bc7fe8f59b055f173145e211760a83f02cf89635cef26ebb351378635606",
@@ -232,7 +223,6 @@ var _ = Describe("ValuesProvider", func() {
 				},
 			})
 			c = mockclient.NewMockClient(ctrl)
-			c.EXPECT().Delete(context.TODO(), ccmMonitoringConfigmap).DoAndReturn(clientDeleteSuccess())
 
 			err := vp.(inject.Client).InjectClient(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -446,12 +436,6 @@ func clientGet(result runtime.Object) interface{} {
 		case *corev1.Service:
 			*obj.(*corev1.Service) = *result.(*corev1.Service)
 		}
-		return nil
-	}
-}
-
-func clientDeleteSuccess() interface{} {
-	return func(ctx context.Context, cm runtime.Object) error {
 		return nil
 	}
 }
