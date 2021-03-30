@@ -287,18 +287,22 @@ func (c *Client) ListKubernetesELBs(ctx context.Context, vpcID, clusterName stri
 		return nil, nil
 	}
 
-	tags, err := c.ELB.DescribeTagsWithContext(ctx, &elb.DescribeTagsInput{LoadBalancerNames: loadBalancerNamesInVPC})
-	if err != nil {
-		return nil, err
-	}
+	const chunkSize = 20
+	loadBalancerNamesChunks := chunkSlice(loadBalancerNamesInVPC, chunkSize)
+	for _, loadBalancerNamesChunk := range loadBalancerNamesChunks {
+		tags, err := c.ELB.DescribeTagsWithContext(ctx, &elb.DescribeTagsInput{LoadBalancerNames: loadBalancerNamesChunk})
+		if err != nil {
+			return nil, err
+		}
 
-	for _, description := range tags.TagDescriptions {
-		for _, tag := range description.Tags {
-			if tag.Key != nil && *tag.Key == fmt.Sprintf("kubernetes.io/cluster/%s", clusterName) &&
-				tag.Value != nil && *tag.Value == "owned" &&
-				description.LoadBalancerName != nil {
-				loadBalancerNamesForCluster = append(loadBalancerNamesForCluster, *description.LoadBalancerName)
-				break
+		for _, description := range tags.TagDescriptions {
+			for _, tag := range description.Tags {
+				if tag.Key != nil && *tag.Key == fmt.Sprintf("kubernetes.io/cluster/%s", clusterName) &&
+					tag.Value != nil && *tag.Value == "owned" &&
+					description.LoadBalancerName != nil {
+					loadBalancerNamesForCluster = append(loadBalancerNamesForCluster, *description.LoadBalancerName)
+					break
+				}
 			}
 		}
 	}
@@ -335,17 +339,21 @@ func (c *Client) ListKubernetesELBsV2(ctx context.Context, vpcID, clusterName st
 		return nil, nil
 	}
 
-	tags, err := c.ELBv2.DescribeTagsWithContext(ctx, &elbv2.DescribeTagsInput{ResourceArns: loadBalancerARNsInVPC})
-	if err != nil {
-		return nil, err
-	}
+	const chunkSize = 20
+	loadBalancerARNsChunks := chunkSlice(loadBalancerARNsInVPC, chunkSize)
+	for _, loadBalancerARNsChunk := range loadBalancerARNsChunks {
+		tags, err := c.ELBv2.DescribeTagsWithContext(ctx, &elbv2.DescribeTagsInput{ResourceArns: loadBalancerARNsChunk})
+		if err != nil {
+			return nil, err
+		}
 
-	for _, description := range tags.TagDescriptions {
-		for _, tag := range description.Tags {
-			if tag.Key != nil && *tag.Key == fmt.Sprintf("kubernetes.io/cluster/%s", clusterName) &&
-				tag.Value != nil && *tag.Value == "owned" &&
-				description.ResourceArn != nil {
-				loadBalancerARNsForCluster = append(loadBalancerARNsForCluster, *description.ResourceArn)
+		for _, description := range tags.TagDescriptions {
+			for _, tag := range description.Tags {
+				if tag.Key != nil && *tag.Key == fmt.Sprintf("kubernetes.io/cluster/%s", clusterName) &&
+					tag.Value != nil && *tag.Value == "owned" &&
+					description.ResourceArn != nil {
+					loadBalancerARNsForCluster = append(loadBalancerARNsForCluster, *description.ResourceArn)
+				}
 			}
 		}
 	}
@@ -418,4 +426,19 @@ func ignoreNotFound(err error) error {
 		return nil
 	}
 	return err
+}
+
+func chunkSlice(slice []*string, chunkSize int) [][]*string {
+	var chunks [][]*string
+	for i := 0; i < len(slice); i += chunkSize {
+		end := i + chunkSize
+
+		if end > len(slice) {
+			end = len(slice)
+		}
+
+		chunks = append(chunks, slice[i:end])
+	}
+
+	return chunks
 }
