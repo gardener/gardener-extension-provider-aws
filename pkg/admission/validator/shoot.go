@@ -39,13 +39,15 @@ func NewShootValidator() extensionswebhook.Validator {
 }
 
 type shoot struct {
-	client  client.Client
-	decoder runtime.Decoder
+	client         client.Client
+	decoder        runtime.Decoder
+	lenientDecoder runtime.Decoder
 }
 
 // InjectScheme injects the given scheme into the validator.
 func (s *shoot) InjectScheme(scheme *runtime.Scheme) error {
-	s.decoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
+	s.decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
+	s.lenientDecoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
 	return nil
 }
 
@@ -143,7 +145,7 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return field.InternalError(infraConfigFldPath, errors.New("InfrastructureConfig is not available on old shoot"))
 	}
 
-	oldInfraConfig, err := decodeInfrastructureConfig(s.decoder, oldShoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
+	oldInfraConfig, err := decodeInfrastructureConfig(s.lenientDecoder, oldShoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
 	if err != nil {
 		return err
 	}

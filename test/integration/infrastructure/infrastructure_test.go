@@ -156,7 +156,7 @@ var _ = Describe("Infrastructure tests", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(c).NotTo(BeNil())
-		decoder = serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder()
+		decoder = serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder()
 
 		flag.Parse()
 		validateFlags()
