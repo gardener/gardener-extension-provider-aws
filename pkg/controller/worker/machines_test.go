@@ -395,7 +395,7 @@ var _ = Describe("Machines", func() {
 				scheme = runtime.NewScheme()
 				_ = api.AddToScheme(scheme)
 				_ = apiv1alpha1.AddToScheme(scheme)
-				decoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
+				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 
 				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted))
 				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
