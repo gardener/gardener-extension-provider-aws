@@ -1,3 +1,27 @@
 #!/usr/bin/env bash
 
-"$(dirname $0)"/../vendor/github.com/gardener/gardener/hack/.ci/component_descriptor "$(dirname $0)"/..
+set -o errexit
+set -o nounset
+set -o pipefail
+
+SOURCE_PATH="$(dirname $0)/.."
+
+"$SOURCE_PATH"/vendor/github.com/gardener/gardener/hack/.ci/component_descriptor "$SOURCE_PATH"
+
+COMPONENT_NAME="provider-aws"
+
+printf "> Building component ${COMPONENT_NAME}\n"
+
+CA_PATH="$(mktemp -d)"
+
+mv "$COMPONENT_DESCRIPTOR_PATH" "$CA_PATH"
+
+component-cli component-archive resources add "${CA_PATH}" "$SOURCE_PATH"/.landscaper/resources.yaml
+
+printf "> Create ca archive\n"
+COMPONENT_ARCHIVE_ARTIFACT_PATH="$(mktemp -d)/ca.tar"
+component-cli ca export "${CA_PATH}" --format tar -o "${COMPONENT_ARCHIVE_ARTIFACT_PATH}"
+
+printf "> Add to ctf\n"
+component-cli ctf add "${CTF_PATH}" -f "${COMPONENT_ARCHIVE_ARTIFACT_PATH}"
+

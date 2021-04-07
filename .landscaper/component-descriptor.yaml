@@ -1,0 +1,12 @@
+component:
+  componentReferences: []
+  name: github.com/gardener/gardener-extension-provider-aws
+  provider: internal
+  repositoryContexts:
+  - baseUrl: eu.gcr.io/sap-gcp-cp-k8s-stable-hub/examples/landscaper/temp
+    type: ociRegistry
+  resources: []
+  sources: []
+  version: 1.0.0
+meta:
+  schemaVersion: v2
