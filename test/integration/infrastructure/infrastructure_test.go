@@ -31,7 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/operation/common"
+	"github.com/gardener/gardener/pkg/extensions"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/test/framework"
 	. "github.com/onsi/ginkgo"
@@ -265,7 +265,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 		Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
 
 		By("wait until infrastructure is deleted")
-		err := common.WaitUntilExtensionCRDeleted(
+		err := extensions.WaitUntilExtensionCRDeleted(
 			ctx,
 			c,
 			logger,
@@ -331,7 +331,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	}
 
 	By("wait until infrastructure is created")
-	if err := common.WaitUntilExtensionCRReady(
+	if err := extensions.WaitUntilExtensionCRReady(
 		ctx,
 		c,
 		logger,
@@ -371,7 +371,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	Expect(c.Patch(ctx, infra, client.MergeFrom(infraCopy))).To(Succeed())
 
 	By("wait until infrastructure is reconciled")
-	if err := common.WaitUntilExtensionCRReady(
+	if err := extensions.WaitUntilExtensionCRReady(
 		ctx,
 		c,
 		logger,
