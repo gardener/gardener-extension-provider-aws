@@ -36,8 +36,8 @@ gardener-extension-provider-aws:
         test-integration:
           execute:
           - test-integration.sh
-          depends:
-          - build_oci_image_gardener-extension-provider-aws
+          trait_depends:
+          - publish
           image: 'eu.gcr.io/gardener-project/gardener/testmachinery/testmachinery-run:stable'
       traits:
         version:
