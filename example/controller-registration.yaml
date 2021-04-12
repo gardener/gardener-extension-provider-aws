@@ -9,6 +9,8 @@ spec:
     type: aws
   - kind: BackupEntry
     type: aws
+  - kind: Bastion
+    type: aws
   - kind: ControlPlane
     type: aws
   - kind: Infrastructure
