@@ -27,7 +27,12 @@ images:
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
   tag: "v1.20.5"
-  targetVersion: ">= 1.20"
+  targetVersion: "1.20.x"
+- name: cloud-controller-manager
+  sourceRepository: github.com/gardener/cloud-provider-aws
+  repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
+  tag: "v1.21.0"
+  targetVersion: ">= 1.21"
 - name: machine-controller-manager
   sourceRepository: github.com/gardener/machine-controller-manager
   repository: eu.gcr.io/gardener-project/gardener/machine-controller-manager
