@@ -61,6 +61,10 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 		return errors.Wrap(err, "failed to ensure bastion instance")
 	}
 
+	if err := ensureWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
+		return errors.Wrap(err, "failed to authorize bastion host in worker security group")
+	}
+
 	// reconcile again if the instance has not all endpoints yet
 	if endpoints == nil || !ingressReady(endpoints.private) || !ingressReady(endpoints.public) {
 		return &ctrlerror.RequeueAfterError{
@@ -69,10 +73,6 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 			RequeueAfter: 5 * time.Second,
 			Cause:        errors.New("bastion instance has no public/private endpoints yet"),
 		}
-	}
-
-	if err := ensureWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
-		return errors.Wrap(err, "failed to authorize bastion host in worker security group")
 	}
 
 	// once a public endpoint is available, publish the endpoint on the
@@ -93,16 +93,28 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 		return "", err
 	}
 
-	// prepare ingress rules
-	permission, err := ingressPermissions(ctx, bastion)
+	// prepare rules
+	ingressPermission, err := ingressPermissions(ctx, bastion)
 	if err != nil {
 		return "", errors.Wrap(err, "invalid ingress rules configured for bastion")
 	}
 
+	egressPermission := &ec2.IpPermission{
+		FromPort:   awssdk.Int64(sshPort),
+		ToPort:     awssdk.Int64(sshPort),
+		IpProtocol: awssdk.String("tcp"),
+		UserIdGroupPairs: []*ec2.UserIdGroupPair{
+			{
+				GroupId: awssdk.String(opt.workerSecurityGroupID),
+			},
+		},
+	}
+
 	// create group if it doesn't exist yet
 	var (
-		groupID        *string
-		hasPermissions = false
+		groupID               *string
+		hasIngressPermissions = false
+		hasEgressPermissions  = false
 	)
 
 	if group == nil {
@@ -130,18 +142,56 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 		groupID = output.GroupId
 	} else {
 		groupID = group.GroupId
-		hasPermissions = securityGroupHasPermissions(group, permission)
+		hasIngressPermissions = securityGroupHasPermissions(group.IpPermissions, ingressPermission)
+		hasEgressPermissions = securityGroupHasPermissions(group.IpPermissionsEgress, egressPermission)
 	}
 
-	if !hasPermissions {
+	if !hasIngressPermissions {
 		logger.Info("Authorizing SSH ingress")
-		// ensure ingress rules
+
 		_, err = awsClient.EC2.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       groupID,
-			IpPermissions: []*ec2.IpPermission{permission},
+			IpPermissions: []*ec2.IpPermission{ingressPermission},
 		})
 		if err != nil {
 			return "", errors.Wrap(err, "failed to authorize ingress")
+		}
+	}
+
+	if !hasEgressPermissions {
+		logger.Info("Revoking bastion egress")
+
+		_, err = awsClient.EC2.AuthorizeSecurityGroupEgressWithContext(ctx, &ec2.AuthorizeSecurityGroupEgressInput{
+			GroupId:       groupID,
+			IpPermissions: []*ec2.IpPermission{egressPermission},
+		})
+		if err != nil {
+			return "", errors.Wrap(err, "failed to revoke egress")
+		}
+	}
+
+	// remove all additional egress rules (like the default "allow all" rule created by AWS)
+	group, err = getSecurityGroup(ctx, awsClient, opt.vpcID, opt.bastionSecurityGroupName)
+	if err != nil {
+		return "", err
+	}
+
+	permsToDelete := []*ec2.IpPermission{}
+	for i, perm := range group.IpPermissionsEgress {
+		if !ipPermissionsEqual(perm, egressPermission) {
+			permsToDelete = append(permsToDelete, group.IpPermissionsEgress[i])
+		}
+	}
+
+	if len(permsToDelete) > 0 {
+		logger.Info("Revoking default bastion egress")
+
+		_, err = awsClient.EC2.RevokeSecurityGroupEgressWithContext(ctx, &ec2.RevokeSecurityGroupEgressInput{
+			GroupId:       groupID,
+			IpPermissions: permsToDelete,
+		})
+		if err != nil {
+			return "", errors.Wrap(err, "failed to revoke egress")
 		}
 	}
 
@@ -330,7 +380,7 @@ func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 
 	permission := workerSecurityGroupPermission(opt)
 
-	if !securityGroupHasPermissions(workerSecurityGroup, permission) {
+	if !securityGroupHasPermissions(workerSecurityGroup.IpPermissions, permission) {
 		logger.Info("Authorizing SSH ingress to worker nodes")
 
 		_, err = awsClient.EC2.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{

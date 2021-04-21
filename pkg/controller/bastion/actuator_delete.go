@@ -100,7 +100,7 @@ func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 
 	permission := workerSecurityGroupPermission(opt)
 
-	if securityGroupHasPermissions(workerSecurityGroup, permission) {
+	if securityGroupHasPermissions(workerSecurityGroup.IpPermissions, permission) {
 		logger.Info("Removing SSH ingress from worker nodes")
 
 		_, err = awsClient.EC2.RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{

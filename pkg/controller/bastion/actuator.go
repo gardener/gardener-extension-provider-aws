@@ -71,49 +71,54 @@ func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1
 // securityGroupHasPermissions checks if the given group has at least
 // the desired permission, but possibly more. Comments on IP ranges
 // are not considered when comparing current and desired states.
-func securityGroupHasPermissions(group *ec2.SecurityGroup, desired *ec2.IpPermission) bool {
+func securityGroupHasPermissions(current []*ec2.IpPermission, desired *ec2.IpPermission) bool {
 	// find a matching permission in the security group
-	for _, perm := range group.IpPermissions {
-		// ports must match
-		if !equality.Semantic.DeepEqual(perm.FromPort, desired.FromPort) || !equality.Semantic.DeepEqual(perm.ToPort, desired.ToPort) {
-			continue
+	for _, perm := range current {
+		if ipPermissionsEqual(perm, desired) {
+			return true
 		}
-
-		// protocol must match
-		if !equality.Semantic.DeepEqual(perm.IpProtocol, desired.IpProtocol) {
-			continue
-		}
-
-		// check that the current IP ranges are a superset of the desired ranges;
-		// note that this are not just CIDR, but there can also be subnet names
-		// among the values
-		desiredIpRanges := getIpRangeCidrs(desired.IpRanges)
-		currentIpRanges := getIpRangeCidrs(perm.IpRanges)
-		if !currentIpRanges.IsSuperset(desiredIpRanges) {
-			continue
-		}
-
-		desiredIpRanges = getIpv6RangeCidrs(desired.Ipv6Ranges)
-		currentIpRanges = getIpv6RangeCidrs(perm.Ipv6Ranges)
-		if !currentIpRanges.IsSuperset(desiredIpRanges) {
-			continue
-		}
-
-		// compare assigned security groups (do not take the UserID into account,
-		// as it won't be set on the creation request and so would never be
-		// equal to the value reported by AWS)
-		desiredGroups := getSecurityGroupIDs(desired.UserIdGroupPairs)
-		currentGroups := getSecurityGroupIDs(perm.UserIdGroupPairs)
-		if !currentGroups.IsSuperset(desiredGroups) {
-			continue
-		}
-
-		// we have a match
-		return true
 	}
 
 	// no matching permissions found
 	return false
+}
+
+func ipPermissionsEqual(a *ec2.IpPermission, b *ec2.IpPermission) bool {
+	// ports must match
+	if !equality.Semantic.DeepEqual(a.FromPort, b.FromPort) || !equality.Semantic.DeepEqual(a.ToPort, b.ToPort) {
+		return false
+	}
+
+	// protocol must match
+	if !equality.Semantic.DeepEqual(a.IpProtocol, b.IpProtocol) {
+		return false
+	}
+
+	// check that the current IP ranges are a superset of the desired ranges;
+	// note that this are not just CIDR, but there can also be subnet names
+	// among the values
+	aIpRanges := getIpRangeCidrs(b.IpRanges)
+	bIpRanges := getIpRangeCidrs(a.IpRanges)
+	if !bIpRanges.IsSuperset(aIpRanges) {
+		return false
+	}
+
+	aIpRanges = getIpv6RangeCidrs(b.Ipv6Ranges)
+	bIpRanges = getIpv6RangeCidrs(a.Ipv6Ranges)
+	if !bIpRanges.IsSuperset(aIpRanges) {
+		return false
+	}
+
+	// compare assigned security groups (do not take the UserID into account,
+	// as it won't be set on the creation request and so would never be
+	// equal to the value reported by AWS)
+	aGroups := getSecurityGroupIDs(b.UserIdGroupPairs)
+	bGroups := getSecurityGroupIDs(a.UserIdGroupPairs)
+	if !bGroups.IsSuperset(aGroups) {
+		return false
+	}
+
+	return true
 }
 
 func getIpRangeCidrs(ipRanges []*ec2.IpRange) sets.String {

@@ -24,11 +24,7 @@ import (
 
 var _ = Describe("AWSUtilities", func() {
 	validator := func(current []*ec2.IpPermission, desired *ec2.IpPermission, expected bool) {
-		group := &ec2.SecurityGroup{
-			IpPermissions: current,
-		}
-
-		Expect(securityGroupHasPermissions(group, desired)).To(Equal(expected))
+		Expect(securityGroupHasPermissions(current, desired)).To(Equal(expected))
 	}
 
 	DescribeTable("securityGroupHasPermissions", validator,
