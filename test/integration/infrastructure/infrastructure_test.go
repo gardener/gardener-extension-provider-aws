@@ -270,7 +270,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 			c,
 			logger,
 			func() extensionsv1alpha1.Object { return &extensionsv1alpha1.Infrastructure{} },
-			"Infrastructure",
+			extensionsv1alpha1.InfrastructureResource,
 			infra.Namespace,
 			infra.Name,
 			10*time.Second,
@@ -471,7 +471,7 @@ func prepareNewVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclie
 	vpcID := createVpcOutput.Vpc.VpcId
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until vpc '%s' is avaiable...", *vpcID)
+		entry.Infof("Waiting until vpc '%s' is available...", *vpcID)
 
 		describeVpcOutput, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
 			VpcIds: []*string{vpcID},
