@@ -99,7 +99,7 @@ func Delete(
 					stateVariables, err := tf.GetStateOutputVariables(ctx, aws.VPCIDKey)
 					if err == nil {
 						vpcID = stateVariables[aws.VPCIDKey]
-					} else if err != nil && !apierrors.IsNotFound(err) && !terraformer.IsVariablesNotFoundError(err) {
+					} else if !apierrors.IsNotFound(err) && !terraformer.IsVariablesNotFoundError(err) {
 						return err
 					}
 				}
