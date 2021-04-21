@@ -88,24 +88,27 @@ func Delete(
 			Name: "Destroying Kubernetes load balancers and security groups",
 			Fn: flow.TaskFn(func(ctx context.Context) error {
 				var vpcID string
+
 				if id := infrastructureConfig.Networks.VPC.ID; id != nil {
 					vpcID = *id
 				} else {
 					stateVariables, err := tf.GetStateOutputVariables(ctx, aws.VPCIDKey)
-					if err != nil {
-						if apierrors.IsNotFound(err) || terraformer.IsVariablesNotFoundError(err) {
-							logger.Info("Skipping explicit AWS load balancer and security group deletion because not all variables have been found in the Terraform state.")
-							return nil
-						}
+					if err == nil {
+						vpcID = stateVariables[aws.VPCIDKey]
+					} else if err != nil && !apierrors.IsNotFound(err) && !terraformer.IsVariablesNotFoundError(err) {
 						return err
 					}
+				}
 
-					vpcID = stateVariables[aws.VPCIDKey]
+				if len(vpcID) == 0 {
+					logger.Info("Skipping explicit AWS load balancer and security group deletion because not all variables have been found in the Terraform state.")
+					return nil
 				}
 
 				if err := destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
 					return gardencorev1beta1helper.DetermineError(err, fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
 				}
+
 				return nil
 			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists),
 		})
