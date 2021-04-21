@@ -51,7 +51,11 @@ func Delete(
 ) error {
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
 	if _, _, err := decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
-		return fmt.Errorf("could not decode provider config: %+v", err)
+		// If we cannot decode the provider config, e.g. due to the recently introduced strict mode (see
+		// https://github.com/gardener/gardener-extension-provider-aws/pull/307), we don't return here and just log the
+		// error message.
+		logger.Error(err, "could not decode provider config")
+		infrastructureConfig = nil
 	}
 
 	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure)
@@ -89,8 +93,8 @@ func Delete(
 			Fn: flow.TaskFn(func(ctx context.Context) error {
 				var vpcID string
 
-				if id := infrastructureConfig.Networks.VPC.ID; id != nil {
-					vpcID = *id
+				if infrastructureConfig != nil && infrastructureConfig.Networks.VPC.ID != nil {
+					vpcID = *infrastructureConfig.Networks.VPC.ID
 				} else {
 					stateVariables, err := tf.GetStateOutputVariables(ctx, aws.VPCIDKey)
 					if err == nil {
