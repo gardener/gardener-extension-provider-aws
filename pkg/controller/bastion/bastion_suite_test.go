@@ -23,5 +23,5 @@ import (
 
 func TestBastion(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "AWSUtilities")
+	RunSpecs(t, "Controller Bastion Suite")
 }

@@ -19,10 +19,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	awsextensionsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/gardener/gardener/extensions/pkg/controller"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
@@ -47,7 +49,7 @@ type options struct {
 // determineOptions determines the required information like VPC ID and
 // instance type that are required to reconcile a Bastion on AWS. This
 // function does not create any IaaS resources.
-func determineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *extensions.Cluster, awsClient *awsclient.Client) (*options, error) {
+func determineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster, awsClient *awsclient.Client) (*options, error) {
 	name := cluster.ObjectMeta.Name
 	subnetName := name + "-public-utility-z0"
 	instanceName := fmt.Sprintf("%s-%s-bastion", name, bastion.Name)
@@ -70,12 +72,12 @@ func determineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		return nil, errors.New("security group for worker node does not exist yet")
 	}
 
-	providerConfig, err := getProviderConfig(cluster)
+	cloudProfileConfig, err := getCloudProfileConfig(cluster)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extract cloud provider config from cluster")
 	}
 
-	imageID, err := determineImageID(cluster.Shoot, providerConfig)
+	imageID, err := determineImageID(cluster.Shoot, cloudProfileConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to determine OS image for bastion host")
 	}
@@ -124,7 +126,7 @@ func resolveSubnetName(ctx context.Context, awsClient *awsclient.Client, subnetN
 	return
 }
 
-func getProviderConfig(cluster *extensions.Cluster) (*awsextensionsv1alpha1.CloudProfileConfig, error) {
+func getCloudProfileConfig(cluster *extensions.Cluster) (*awsextensionsv1alpha1.CloudProfileConfig, error) {
 	if cluster.CloudProfile.Spec.ProviderConfig.Raw == nil {
 		return nil, errors.New("no cloud provider config set in cluster's CloudProfile")
 	}

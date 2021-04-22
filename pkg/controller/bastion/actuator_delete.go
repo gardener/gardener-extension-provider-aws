@@ -18,24 +18,20 @@ import (
 	"context"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/gardener/gardener/extensions/pkg/controller"
 	ctrlerror "github.com/gardener/gardener/extensions/pkg/controller/error"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Bastion) error {
+func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
 	logger := a.logger.WithValues("bastion", client.ObjectKeyFromObject(bastion), "operation", "delete")
-
-	cluster, err := extensions.GetCluster(ctx, a.Client(), bastion.Namespace)
-	if err != nil {
-		return errors.Wrap(err, "failed to get shoot")
-	}
 
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
@@ -68,12 +64,12 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 		return errors.Wrap(err, "failed to remove bastion instance")
 	}
 
-	shuttingDown, err := instanceIsShuttingDown(ctx, awsClient, opt)
+	terminated, err := instanceIsTerminated(ctx, awsClient, opt)
 	if err != nil {
 		return errors.Wrap(err, "failed to check for bastion instance")
 	}
 
-	if shuttingDown {
+	if !terminated {
 		return &ctrlerror.RequeueAfterError{
 			RequeueAfter: 10 * time.Second,
 			Cause:        errors.New("bastion instance is still terminating"),
@@ -104,7 +100,7 @@ func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 		logger.Info("Removing SSH ingress from worker nodes")
 
 		_, err = awsClient.EC2.RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{
-			GroupId:       awssdk.String(opt.workerSecurityGroupID),
+			GroupId:       aws.String(opt.workerSecurityGroupID),
 			IpPermissions: []*ec2.IpPermission{permission},
 		})
 	}
@@ -112,13 +108,13 @@ func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 	return err
 }
 
-// instanceIsShuttingDown returns true if a machine is _not_ in Terminated state.
-func instanceIsShuttingDown(ctx context.Context, awsClient *awsclient.Client, opt *options) (bool, error) {
+// instanceIsTerminated returns true if a machine is in Terminated state.
+func instanceIsTerminated(ctx context.Context, awsClient *awsclient.Client, opt *options) (bool, error) {
 	instances, err := awsClient.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			{
-				Name:   awssdk.String("tag:Name"),
-				Values: []*string{awssdk.String(opt.instanceName)},
+				Name:   aws.String("tag:Name"),
+				Values: []*string{aws.String(opt.instanceName)},
 			},
 		},
 	})
@@ -128,7 +124,7 @@ func instanceIsShuttingDown(ctx context.Context, awsClient *awsclient.Client, op
 
 	for _, reservation := range instances.Reservations {
 		for _, instance := range reservation.Instances {
-			if *instance.State.Code != instanceStateTerminated {
+			if *instance.State.Code == instanceStateTerminated {
 				return true, nil
 			}
 		}
@@ -140,8 +136,8 @@ func instanceIsShuttingDown(ctx context.Context, awsClient *awsclient.Client, op
 func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *options) error {
 	instance, err := getFirstMatchingInstance(ctx, awsClient, []*ec2.Filter{
 		{
-			Name:   awssdk.String("tag:Name"),
-			Values: []*string{awssdk.String(opt.instanceName)},
+			Name:   aws.String("tag:Name"),
+			Values: []*string{aws.String(opt.instanceName)},
 		},
 	})
 	if err != nil {
@@ -156,7 +152,7 @@ func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *a
 	logger.Info("Terminating bastion instance")
 
 	_, err = awsClient.EC2.TerminateInstancesWithContext(ctx, &ec2.TerminateInstancesInput{
-		InstanceIds: awssdk.StringSlice([]string{*instance.InstanceId}),
+		InstanceIds: aws.StringSlice([]string{*instance.InstanceId}),
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to terminate instance")

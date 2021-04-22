@@ -19,13 +19,13 @@ import (
 	"net"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	ctrlerror "github.com/gardener/gardener/extensions/pkg/controller/error"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -33,13 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Bastion) error {
+func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
 	logger := a.logger.WithValues("bastion", client.ObjectKeyFromObject(bastion), "operation", "reconcile")
-
-	cluster, err := extensions.GetCluster(ctx, a.Client(), bastion.Namespace)
-	if err != nil {
-		return errors.Wrap(err, "failed to get shoot")
-	}
 
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
@@ -66,7 +61,7 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 	}
 
 	// reconcile again if the instance has not all endpoints yet
-	if endpoints == nil || !ingressReady(endpoints.private) || !ingressReady(endpoints.public) {
+	if !endpoints.Ready() {
 		return &ctrlerror.RequeueAfterError{
 			// requeue rather soon, so that the user (most likely gardenctl eventually)
 			// doesn't have to wait too long for the public endpoint to become available
@@ -77,12 +72,10 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 
 	// once a public endpoint is available, publish the endpoint on the
 	// Bastion resource to notify upstream about the ready instance
-	if ingressReady(endpoints.public) {
-		return controller.TryUpdateStatus(ctx, retry.DefaultBackoff, a.Client(), bastion, func() error {
-			bastion.Status.Ingress = *endpoints.public
-			return nil
-		})
-	}
+	return controller.TryUpdateStatus(ctx, retry.DefaultBackoff, a.Client(), bastion, func() error {
+		bastion.Status.Ingress = *endpoints.public
+		return nil
+	})
 
 	return nil
 }
@@ -100,12 +93,12 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 	}
 
 	egressPermission := &ec2.IpPermission{
-		FromPort:   awssdk.Int64(sshPort),
-		ToPort:     awssdk.Int64(sshPort),
-		IpProtocol: awssdk.String("tcp"),
+		FromPort:   aws.Int64(sshPort),
+		ToPort:     aws.Int64(sshPort),
+		IpProtocol: aws.String("tcp"),
 		UserIdGroupPairs: []*ec2.UserIdGroupPair{
 			{
-				GroupId: awssdk.String(opt.workerSecurityGroupID),
+				GroupId: aws.String(opt.workerSecurityGroupID),
 			},
 		},
 	}
@@ -120,16 +113,16 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 	if group == nil {
 		logger.Info("Creating security group")
 		output, err := awsClient.EC2.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
-			Description: awssdk.String("SSH access for Bastion"),
-			GroupName:   awssdk.String(opt.bastionSecurityGroupName),
-			VpcId:       awssdk.String(opt.vpcID),
+			Description: aws.String("SSH access for Bastion"),
+			GroupName:   aws.String(opt.bastionSecurityGroupName),
+			VpcId:       aws.String(opt.vpcID),
 			TagSpecifications: []*ec2.TagSpecification{
 				{
-					ResourceType: awssdk.String("security-group"),
+					ResourceType: aws.String("security-group"),
 					Tags: []*ec2.Tag{
 						{
-							Key:   awssdk.String("Name"),
-							Value: awssdk.String(opt.bastionSecurityGroupName),
+							Key:   aws.String("Name"),
+							Value: aws.String(opt.bastionSecurityGroupName),
 						},
 					},
 				},
@@ -202,9 +195,9 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 // IP permissions.
 func ingressPermissions(ctx context.Context, bastion *extensionsv1alpha1.Bastion) (*ec2.IpPermission, error) {
 	permission := &ec2.IpPermission{
-		FromPort:   awssdk.Int64(sshPort),
-		ToPort:     awssdk.Int64(sshPort),
-		IpProtocol: awssdk.String("tcp"),
+		FromPort:   aws.Int64(sshPort),
+		ToPort:     aws.Int64(sshPort),
+		IpProtocol: aws.String("tcp"),
 		// Do not set IpRanges and Ipv6Ranges to empty slices here,
 		// as AWS makes a distinction between empty slices and nil,
 		// and empty slices are invalid.
@@ -241,7 +234,7 @@ func ingressPermissions(ctx context.Context, bastion *extensionsv1alpha1.Bastion
 	return permission, nil
 }
 
-// bastionEndpoints collects the endpoints the bastion host providers; the
+// bastionEndpoints collects the endpoints the bastion host provides; the
 // private endpoint is important for opening a port on the worker node
 // security group to allow SSH from that node, the public endpoint is where
 // the enduser connects to to establish the SSH connection.
@@ -275,28 +268,28 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 
 	// prepare to create a new instance
 	input := &ec2.RunInstancesInput{
-		ImageId:      awssdk.String(opt.imageID),
-		InstanceType: awssdk.String(opt.instanceType),
-		UserData:     awssdk.String(bastion.Spec.UserData),
-		MinCount:     awssdk.Int64(1),
-		MaxCount:     awssdk.Int64(1),
+		ImageId:      aws.String(opt.imageID),
+		InstanceType: aws.String(opt.instanceType),
+		UserData:     aws.String(bastion.Spec.UserData),
+		MinCount:     aws.Int64(1),
+		MaxCount:     aws.Int64(1),
 		TagSpecifications: []*ec2.TagSpecification{
 			{
-				ResourceType: awssdk.String("instance"),
+				ResourceType: aws.String("instance"),
 				Tags: []*ec2.Tag{
 					{
-						Key:   awssdk.String("Name"),
-						Value: awssdk.String(opt.instanceName),
+						Key:   aws.String("Name"),
+						Value: aws.String(opt.instanceName),
 					},
 				},
 			},
 		},
 		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
 			{
-				DeviceIndex:              awssdk.Int64(0),
-				Groups:                   awssdk.StringSlice([]string{opt.bastionSecurityGroupID}),
-				SubnetId:                 awssdk.String(opt.subnetID),
-				AssociatePublicIpAddress: awssdk.Bool(true),
+				DeviceIndex:              aws.Int64(0),
+				Groups:                   aws.StringSlice([]string{opt.bastionSecurityGroupID}),
+				SubnetId:                 aws.String(opt.subnetID),
+				AssociatePublicIpAddress: aws.Bool(true),
 			},
 		},
 	}
@@ -322,8 +315,8 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 func getInstanceEndpoints(ctx context.Context, awsClient *awsclient.Client, instanceName string) (*bastionEndpoints, error) {
 	instance, err := getFirstMatchingInstance(ctx, awsClient, []*ec2.Filter{
 		{
-			Name:   awssdk.String("tag:Name"),
-			Values: []*string{awssdk.String(instanceName)},
+			Name:   aws.String("tag:Name"),
+			Values: []*string{aws.String(instanceName)},
 		},
 	})
 	if err != nil {
@@ -384,7 +377,7 @@ func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 		logger.Info("Authorizing SSH ingress to worker nodes")
 
 		_, err = awsClient.EC2.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
-			GroupId:       awssdk.String(opt.workerSecurityGroupID),
+			GroupId:       aws.String(opt.workerSecurityGroupID),
 			IpPermissions: []*ec2.IpPermission{permission},
 		})
 	}
@@ -421,12 +414,12 @@ func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, vpcID st
 	groups, err := awsClient.EC2.DescribeSecurityGroupsWithContext(ctx, &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
 			{
-				Name:   awssdk.String("vpc-id"),
-				Values: []*string{awssdk.String(vpcID)},
+				Name:   aws.String("vpc-id"),
+				Values: []*string{aws.String(vpcID)},
 			},
 			{
-				Name:   awssdk.String("group-name"),
-				Values: []*string{awssdk.String(groupName)},
+				Name:   aws.String("group-name"),
+				Values: []*string{aws.String(groupName)},
 			},
 		},
 	})
