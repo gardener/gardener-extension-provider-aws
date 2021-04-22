@@ -76,8 +76,6 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 		bastion.Status.Ingress = *endpoints.public
 		return nil
 	})
-
-	return nil
 }
 
 func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *options) (string, error) {
@@ -270,7 +268,7 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 	input := &ec2.RunInstancesInput{
 		ImageId:      aws.String(opt.imageID),
 		InstanceType: aws.String(opt.instanceType),
-		UserData:     aws.String(bastion.Spec.UserData),
+		UserData:     aws.String(string(bastion.Spec.UserData)),
 		MinCount:     aws.Int64(1),
 		MaxCount:     aws.Int64(1),
 		TagSpecifications: []*ec2.TagSpecification{
