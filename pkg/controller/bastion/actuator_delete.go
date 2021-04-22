@@ -49,15 +49,13 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 		return errors.Wrap(err, "failed to list security groups")
 	}
 
-	// if the security group doesn't exist anymore, everything else must also be gone already
-	if group == nil {
-		return nil
-	}
+	// if the security group still exists, remove it from the worker's security group
+	if group != nil {
+		opt.bastionSecurityGroupID = *group.GroupId
 
-	opt.bastionSecurityGroupID = *group.GroupId
-
-	if err := removeWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
-		return errors.Wrap(err, "failed to remove bastion host from worker security group")
+		if err := removeWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
+			return errors.Wrap(err, "failed to remove bastion host from worker security group")
+		}
 	}
 
 	if err := removeBastionInstance(ctx, logger, awsClient, opt); err != nil {
