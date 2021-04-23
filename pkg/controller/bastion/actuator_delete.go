@@ -38,20 +38,20 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 		return errors.Wrap(err, "failed to create AWS client")
 	}
 
-	opt, err := determineOptions(ctx, bastion, cluster, awsClient)
+	opt, err := DetermineOptions(ctx, bastion, cluster, awsClient)
 	if err != nil {
 		return errors.Wrap(err, "failed to setup AWS client options")
 	}
 
 	// resolve security group name to its ID
-	group, err := getSecurityGroup(ctx, awsClient, opt.vpcID, opt.bastionSecurityGroupName)
+	group, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.BastionSecurityGroupName)
 	if err != nil {
 		return errors.Wrap(err, "failed to list security groups")
 	}
 
 	// if the security group still exists, remove it from the worker's security group
 	if group != nil {
-		opt.bastionSecurityGroupID = *group.GroupId
+		opt.BastionSecurityGroupID = *group.GroupId
 
 		if err := removeWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
 			return errors.Wrap(err, "failed to remove bastion host from worker security group")
@@ -81,8 +81,8 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 	return nil
 }
 
-func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *options) error {
-	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opt.vpcID, opt.workerSecurityGroupName)
+func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
+	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.WorkerSecurityGroupName)
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch worker security group")
 	}
@@ -98,7 +98,7 @@ func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 		logger.Info("Removing SSH ingress from worker nodes")
 
 		_, err = awsClient.EC2.RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{
-			GroupId:       aws.String(opt.workerSecurityGroupID),
+			GroupId:       aws.String(opt.WorkerSecurityGroupID),
 			IpPermissions: []*ec2.IpPermission{permission},
 		})
 	}
@@ -107,12 +107,12 @@ func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 }
 
 // instanceIsTerminated returns true if a machine is in Terminated state.
-func instanceIsTerminated(ctx context.Context, awsClient *awsclient.Client, opt *options) (bool, error) {
+func instanceIsTerminated(ctx context.Context, awsClient *awsclient.Client, opt *Options) (bool, error) {
 	instances, err := awsClient.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			{
 				Name:   aws.String("tag:Name"),
-				Values: []*string{aws.String(opt.instanceName)},
+				Values: []*string{aws.String(opt.InstanceName)},
 			},
 		},
 	})
@@ -122,7 +122,7 @@ func instanceIsTerminated(ctx context.Context, awsClient *awsclient.Client, opt 
 
 	for _, reservation := range instances.Reservations {
 		for _, instance := range reservation.Instances {
-			if *instance.State.Code == instanceStateTerminated {
+			if *instance.State.Code == InstanceStateTerminated {
 				return true, nil
 			}
 		}
@@ -131,11 +131,11 @@ func instanceIsTerminated(ctx context.Context, awsClient *awsclient.Client, opt 
 	return false, nil
 }
 
-func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *options) error {
+func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
 	instance, err := getFirstMatchingInstance(ctx, awsClient, []*ec2.Filter{
 		{
 			Name:   aws.String("tag:Name"),
-			Values: []*string{aws.String(opt.instanceName)},
+			Values: []*string{aws.String(opt.InstanceName)},
 		},
 	})
 	if err != nil {
@@ -159,8 +159,8 @@ func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *a
 	return nil
 }
 
-func removeSecurityGroup(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *options) error {
-	group, err := getSecurityGroup(ctx, awsClient, opt.vpcID, opt.bastionSecurityGroupName)
+func removeSecurityGroup(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
+	group, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.BastionSecurityGroupName)
 	if err != nil {
 		return errors.Wrap(err, "failed to list security groups")
 	}

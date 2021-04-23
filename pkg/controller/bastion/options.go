@@ -31,25 +31,25 @@ import (
 	"github.com/pkg/errors"
 )
 
-type options struct {
-	shoot                    *gardencorev1beta1.Shoot
-	subnetID                 string
-	vpcID                    string
-	bastionSecurityGroupName string
-	workerSecurityGroupName  string
-	workerSecurityGroupID    string
-	instanceName             string
-	instanceType             string
-	imageID                  string
+type Options struct {
+	Shoot                    *gardencorev1beta1.Shoot
+	SubnetID                 string
+	VPCID                    string
+	BastionSecurityGroupName string
+	WorkerSecurityGroupName  string
+	WorkerSecurityGroupID    string
+	InstanceName             string
+	InstanceType             string
+	ImageID                  string
 
 	// set later during reconciling phase
-	bastionSecurityGroupID string
+	BastionSecurityGroupID string
 }
 
-// determineOptions determines the required information like VPC ID and
+// DetermineOptions determines the required information like VPC ID and
 // instance type that are required to reconcile a Bastion on AWS. This
 // function does not create any IaaS resources.
-func determineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster, awsClient *awsclient.Client) (*options, error) {
+func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster, awsClient *awsclient.Client) (*Options, error) {
 	name := cluster.ObjectMeta.Name
 	subnetName := name + "-public-utility-z0"
 	instanceName := fmt.Sprintf("%s-%s-bastion", name, bastion.Name)
@@ -87,16 +87,16 @@ func determineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		return nil, errors.Wrap(err, "failed to determine instance type")
 	}
 
-	return &options{
-		shoot:                    cluster.Shoot,
-		subnetID:                 subnetID,
-		vpcID:                    vpcID,
-		bastionSecurityGroupName: bastionSecurityGroupName,
-		workerSecurityGroupName:  workerSecurityGroupName,
-		workerSecurityGroupID:    *workerSecurityGroup.GroupId,
-		instanceName:             instanceName,
-		instanceType:             instanceType,
-		imageID:                  imageID,
+	return &Options{
+		Shoot:                    cluster.Shoot,
+		SubnetID:                 subnetID,
+		VPCID:                    vpcID,
+		BastionSecurityGroupName: bastionSecurityGroupName,
+		WorkerSecurityGroupName:  workerSecurityGroupName,
+		WorkerSecurityGroupID:    *workerSecurityGroup.GroupId,
+		InstanceName:             instanceName,
+		InstanceType:             instanceType,
+		ImageID:                  imageID,
 	}, nil
 }
 

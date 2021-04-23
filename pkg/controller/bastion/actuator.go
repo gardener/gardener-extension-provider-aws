@@ -36,9 +36,9 @@ import (
 )
 
 const (
-	sshPort                   = 22
-	instanceStateShuttingDown = 32
-	instanceStateTerminated   = 48
+	SSHPort                   = 22
+	InstanceStateShuttingDown = 32
+	InstanceStateTerminated   = 48
 )
 
 type actuator struct {
@@ -55,7 +55,7 @@ func newActuator() bastion.Actuator {
 
 func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1.Bastion, shoot *gardencorev1beta1.Shoot) (*awsclient.Client, error) {
 	secret := &corev1.Secret{}
-	key := kubernetes.Key(v1beta1constants.SecretNameCloudProvider, bastion.Namespace)
+	key := kubernetes.Key(bastion.Namespace, v1beta1constants.SecretNameCloudProvider)
 
 	if err := a.Client().Get(ctx, key, secret); err != nil {
 		return nil, errors.Wrapf(err, "failed to find %q Secret", v1beta1constants.SecretNameCloudProvider)
@@ -148,14 +148,14 @@ func getSecurityGroupIDs(userGroupPairs []*ec2.UserIdGroupPair) sets.String {
 
 // workerSecurityGroupPermission returns the set of permissions that need to be added
 // to the worker security group to allow SSH ingress from the bastion instance.
-func workerSecurityGroupPermission(opt *options) *ec2.IpPermission {
+func workerSecurityGroupPermission(opt *Options) *ec2.IpPermission {
 	return &ec2.IpPermission{
 		IpProtocol: awssdk.String("tcp"),
-		FromPort:   awssdk.Int64(sshPort),
-		ToPort:     awssdk.Int64(sshPort),
+		FromPort:   awssdk.Int64(SSHPort),
+		ToPort:     awssdk.Int64(SSHPort),
 		UserIdGroupPairs: []*ec2.UserIdGroupPair{
 			{
-				GroupId: awssdk.String(opt.bastionSecurityGroupID),
+				GroupId: awssdk.String(opt.BastionSecurityGroupID),
 			},
 		},
 	}

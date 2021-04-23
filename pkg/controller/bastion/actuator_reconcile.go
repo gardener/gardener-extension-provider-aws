@@ -41,12 +41,12 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 		return errors.Wrap(err, "failed to create AWS client")
 	}
 
-	opt, err := determineOptions(ctx, bastion, cluster, awsClient)
+	opt, err := DetermineOptions(ctx, bastion, cluster, awsClient)
 	if err != nil {
 		return errors.Wrap(err, "failed to setup AWS client options")
 	}
 
-	opt.bastionSecurityGroupID, err = ensureSecurityGroup(ctx, logger, bastion, awsClient, opt)
+	opt.BastionSecurityGroupID, err = ensureSecurityGroup(ctx, logger, bastion, awsClient, opt)
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure security group")
 	}
@@ -78,8 +78,8 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 	})
 }
 
-func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *options) (string, error) {
-	group, err := getSecurityGroup(ctx, awsClient, opt.vpcID, opt.bastionSecurityGroupName)
+func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *Options) (string, error) {
+	group, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.BastionSecurityGroupName)
 	if err != nil {
 		return "", err
 	}
@@ -91,12 +91,12 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 	}
 
 	egressPermission := &ec2.IpPermission{
-		FromPort:   aws.Int64(sshPort),
-		ToPort:     aws.Int64(sshPort),
+		FromPort:   aws.Int64(SSHPort),
+		ToPort:     aws.Int64(SSHPort),
 		IpProtocol: aws.String("tcp"),
 		UserIdGroupPairs: []*ec2.UserIdGroupPair{
 			{
-				GroupId: aws.String(opt.workerSecurityGroupID),
+				GroupId: aws.String(opt.WorkerSecurityGroupID),
 			},
 		},
 	}
@@ -112,15 +112,15 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 		logger.Info("Creating security group")
 		output, err := awsClient.EC2.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
 			Description: aws.String("SSH access for Bastion"),
-			GroupName:   aws.String(opt.bastionSecurityGroupName),
-			VpcId:       aws.String(opt.vpcID),
+			GroupName:   aws.String(opt.BastionSecurityGroupName),
+			VpcId:       aws.String(opt.VPCID),
 			TagSpecifications: []*ec2.TagSpecification{
 				{
 					ResourceType: aws.String("security-group"),
 					Tags: []*ec2.Tag{
 						{
 							Key:   aws.String("Name"),
-							Value: aws.String(opt.bastionSecurityGroupName),
+							Value: aws.String(opt.BastionSecurityGroupName),
 						},
 					},
 				},
@@ -162,7 +162,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 	}
 
 	// remove all additional egress rules (like the default "allow all" rule created by AWS)
-	group, err = getSecurityGroup(ctx, awsClient, opt.vpcID, opt.bastionSecurityGroupName)
+	group, err = getSecurityGroup(ctx, awsClient, opt.VPCID, opt.BastionSecurityGroupName)
 	if err != nil {
 		return "", err
 	}
@@ -193,8 +193,8 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 // IP permissions.
 func ingressPermissions(ctx context.Context, bastion *extensionsv1alpha1.Bastion) (*ec2.IpPermission, error) {
 	permission := &ec2.IpPermission{
-		FromPort:   aws.Int64(sshPort),
-		ToPort:     aws.Int64(sshPort),
+		FromPort:   aws.Int64(SSHPort),
+		ToPort:     aws.Int64(SSHPort),
 		IpProtocol: aws.String("tcp"),
 		// Do not set IpRanges and Ipv6Ranges to empty slices here,
 		// as AWS makes a distinction between empty slices and nil,
@@ -202,13 +202,19 @@ func ingressPermissions(ctx context.Context, bastion *extensionsv1alpha1.Bastion
 	}
 
 	for _, ingress := range bastion.Spec.Ingress {
-		ip, _, err := net.ParseCIDR(ingress.IPBlock.CIDR)
+		cidr := ingress.IPBlock.CIDR
+
+		ip, ipNet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			return nil, errors.Wrapf(err, "invalid ingress CIDR %q", ingress.IPBlock.CIDR)
+			return nil, errors.Wrapf(err, "invalid ingress CIDR %q", cidr)
 		}
 
 		// Make sure to not set a description, otherwise the equality checks in
 		// securityGroupHasPermissions() can lead to false negatives.
+		// Likewise, do not take the user-supplied CIDR, but the parsed in order
+		// to normalise the base address (i.e. turn "1.2.3.4/8" into "1.0.0.0/8");
+		// AWS performs the same normalisation internally.
+		normalisedCIDR := ipNet.String()
 
 		if ip.To4() != nil {
 			if permission.IpRanges == nil {
@@ -216,7 +222,7 @@ func ingressPermissions(ctx context.Context, bastion *extensionsv1alpha1.Bastion
 			}
 
 			permission.IpRanges = append(permission.IpRanges, &ec2.IpRange{
-				CidrIp: &ingress.IPBlock.CIDR,
+				CidrIp: &normalisedCIDR,
 			})
 		} else if ip.To16() != nil {
 			if permission.Ipv6Ranges == nil {
@@ -224,7 +230,7 @@ func ingressPermissions(ctx context.Context, bastion *extensionsv1alpha1.Bastion
 			}
 
 			permission.Ipv6Ranges = append(permission.Ipv6Ranges, &ec2.Ipv6Range{
-				CidrIpv6: &ingress.IPBlock.CIDR,
+				CidrIpv6: &normalisedCIDR,
 			})
 		}
 	}
@@ -244,17 +250,17 @@ type bastionEndpoints struct {
 // Ready returns true if both public and private interfaces each have either
 // an IP or a hostname or both.
 func (be *bastionEndpoints) Ready() bool {
-	return be != nil && ingressReady(be.private) && ingressReady(be.public)
+	return be != nil && IngressReady(be.private) && IngressReady(be.public)
 }
 
-// ingressReady returns true if either an IP or a hostname or both are set.
-func ingressReady(ingress *corev1.LoadBalancerIngress) bool {
+// IngressReady returns true if either an IP or a hostname or both are set.
+func IngressReady(ingress *corev1.LoadBalancerIngress) bool {
 	return ingress != nil && (ingress.Hostname != "" || ingress.IP != "")
 }
 
-func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *options) (*bastionEndpoints, error) {
+func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *Options) (*bastionEndpoints, error) {
 	// check if the instance already exists and has an IP
-	endpoints, err := getInstanceEndpoints(ctx, awsClient, opt.instanceName)
+	endpoints, err := getInstanceEndpoints(ctx, awsClient, opt.InstanceName)
 	if err != nil { // could not check for instance
 		return nil, errors.Wrap(err, "failed to check for EC2 instance")
 	}
@@ -266,8 +272,8 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 
 	// prepare to create a new instance
 	input := &ec2.RunInstancesInput{
-		ImageId:      aws.String(opt.imageID),
-		InstanceType: aws.String(opt.instanceType),
+		ImageId:      aws.String(opt.ImageID),
+		InstanceType: aws.String(opt.InstanceType),
 		UserData:     aws.String(string(bastion.Spec.UserData)),
 		MinCount:     aws.Int64(1),
 		MaxCount:     aws.Int64(1),
@@ -277,7 +283,7 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 				Tags: []*ec2.Tag{
 					{
 						Key:   aws.String("Name"),
-						Value: aws.String(opt.instanceName),
+						Value: aws.String(opt.InstanceName),
 					},
 				},
 			},
@@ -285,8 +291,8 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
 			{
 				DeviceIndex:              aws.Int64(0),
-				Groups:                   aws.StringSlice([]string{opt.bastionSecurityGroupID}),
-				SubnetId:                 aws.String(opt.subnetID),
+				Groups:                   aws.StringSlice([]string{opt.BastionSecurityGroupID}),
+				SubnetId:                 aws.String(opt.SubnetID),
 				AssociatePublicIpAddress: aws.Bool(true),
 			},
 		},
@@ -303,7 +309,7 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 	// (for new instances, they will most likely not be ready yet,
 	// so the caller should re-call this function until they get
 	// ready endpoints)
-	return getInstanceEndpoints(ctx, awsClient, opt.instanceName)
+	return getInstanceEndpoints(ctx, awsClient, opt.InstanceName)
 }
 
 // getInstanceEndpoints returns the public and private IPs/hostnames for the
@@ -360,8 +366,8 @@ func addressToIngress(dnsName *string, ipAddress *string) *corev1.LoadBalancerIn
 
 // ensureWorkerPermissions authorizes the bastion host's private IP to access
 // the worker nodes on port 22.
-func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *options) error {
-	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opt.vpcID, opt.workerSecurityGroupName)
+func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
+	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.WorkerSecurityGroupName)
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch worker security group")
 	}
@@ -375,7 +381,7 @@ func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 		logger.Info("Authorizing SSH ingress to worker nodes")
 
 		_, err = awsClient.EC2.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
-			GroupId:       aws.String(opt.workerSecurityGroupID),
+			GroupId:       aws.String(opt.WorkerSecurityGroupID),
 			IpPermissions: []*ec2.IpPermission{permission},
 		})
 	}
@@ -396,7 +402,7 @@ func getFirstMatchingInstance(ctx context.Context, awsClient *awsclient.Client, 
 		for _, instance := range reservation.Instances {
 			state := *instance.State.Code
 
-			if state == instanceStateShuttingDown || state == instanceStateTerminated {
+			if state == InstanceStateShuttingDown || state == InstanceStateTerminated {
 				continue
 			}
 
