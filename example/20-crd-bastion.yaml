@@ -16,12 +16,14 @@ spec:
     singular: bastion
     kind: Bastion
   additionalPrinterColumns:
-  - name: Bastion IP
+  - description: The public IP address of the temporary bastion host
+    JSONPath: .status.ingress.ip
+    name: IP
     type: string
-    JSONPath: .spec.bastionIP
-  - name: State
+  - description: The public hostname of the temporary bastion host
+    JSONPath: .status.ingress.hostname
+    name: Hostname
     type: string
-    JSONPath: .status.state
   - name: Age
     type: date
     JSONPath: .metadata.creationTimestamp

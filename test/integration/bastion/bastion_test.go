@@ -93,7 +93,6 @@ var _ = Describe("Bastion tests", func() {
 		testEnv   *envtest.Environment
 		mgrCancel context.CancelFunc
 		c         client.Client
-		// decoder   runtime.Decoder
 
 		internalChartsPath string
 	)
