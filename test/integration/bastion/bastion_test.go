@@ -58,8 +58,8 @@ import (
 )
 
 const (
-	cidrv4              = "1.2.3.4/24" // this is purposefully not normalised
-	cidrv6              = "2001:db8::/48"
+	cidrv4              = "172.16.15.14/12" // this is purposefully not normalised
+	cidrv6              = "fd12:3456:789a:1::/64"
 	vpcCIDR             = "10.250.0.0/16"
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
