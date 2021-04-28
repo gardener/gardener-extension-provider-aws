@@ -26,6 +26,7 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
+// CreateSubnet creates a new subnet and waits for it to become available.
 func CreateSubnet(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcID string, cidr string, name string) (string, error) {
 	output, err := awsClient.EC2.CreateSubnet(&ec2.CreateSubnetInput{
 		CidrBlock: awssdk.String(cidr),
@@ -71,6 +72,7 @@ func CreateSubnet(ctx context.Context, logger *logrus.Entry, awsClient *awsclien
 	return *subnetID, nil
 }
 
+// DestroySubnet deletes an existing subnet.
 func DestroySubnet(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, subnetID string) error {
 	_, err := awsClient.EC2.DeleteSubnet(&ec2.DeleteSubnetInput{
 		SubnetId: awssdk.String(subnetID),

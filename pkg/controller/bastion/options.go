@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	awsextensionsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -31,6 +31,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Options contains provider-related information required for setting up
+// a bastion instance. This struct combines precomputed values like the
+// bastion instance name with the IDs of pre-existing cloud provider
+// resources, like the VPC ID, subnet ID etc.
 type Options struct {
 	Shoot                    *gardencorev1beta1.Shoot
 	SubnetID                 string
@@ -126,13 +130,13 @@ func resolveSubnetName(ctx context.Context, awsClient *awsclient.Client, subnetN
 	return
 }
 
-func getCloudProfileConfig(cluster *extensions.Cluster) (*awsextensionsv1alpha1.CloudProfileConfig, error) {
+func getCloudProfileConfig(cluster *extensions.Cluster) (*awsv1alpha1.CloudProfileConfig, error) {
 	if cluster.CloudProfile.Spec.ProviderConfig.Raw == nil {
 		return nil, errors.New("no cloud provider config set in cluster's CloudProfile")
 	}
 
 	var (
-		cloudProfileConfig = &awsextensionsv1alpha1.CloudProfileConfig{}
+		cloudProfileConfig = &awsv1alpha1.CloudProfileConfig{}
 		decoder            = extensions.NewGardenDecoder()
 	)
 
@@ -145,7 +149,7 @@ func getCloudProfileConfig(cluster *extensions.Cluster) (*awsextensionsv1alpha1.
 
 // determineImageID finds the first AMI that is configured for the same region as the shoot cluster.
 // If no image is found, an error is returned.
-func determineImageID(shoot *gardencorev1beta1.Shoot, providerConfig *awsextensionsv1alpha1.CloudProfileConfig) (string, error) {
+func determineImageID(shoot *gardencorev1beta1.Shoot, providerConfig *awsv1alpha1.CloudProfileConfig) (string, error) {
 	for _, image := range providerConfig.MachineImages {
 		for _, version := range image.Versions {
 			for _, region := range version.Regions {

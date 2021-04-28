@@ -24,6 +24,7 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
+// CreateSecurityGroup creates a new security group.
 func CreateSecurityGroup(ctx context.Context, awsClient *awsclient.Client, groupName string, vpcID string) (string, error) {
 	output, err := awsClient.EC2.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
 		Description: awssdk.String("group for worker nodes"),
@@ -48,6 +49,7 @@ func CreateSecurityGroup(ctx context.Context, awsClient *awsclient.Client, group
 	return *output.GroupId, nil
 }
 
+// DestroySecurityGroup deletes an existing security group.
 func DestroySecurityGroup(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, securityGroupID string) error {
 	_, err := awsClient.EC2.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
 		GroupId: awssdk.String(securityGroupID),
