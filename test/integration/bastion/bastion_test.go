@@ -63,6 +63,7 @@ const (
 	vpcCIDR             = "10.250.0.0/16"
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
+	bastionAMI          = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20210223"
 )
 
 var (
@@ -90,6 +91,9 @@ var _ = Describe("Bastion tests", func() {
 		logger    *logrus.Entry
 		awsClient *awsclient.Client
 
+		extensionscluster *extensionsv1alpha1.Cluster
+		corecluster       *controller.Cluster
+
 		testEnv   *envtest.Environment
 		mgrCancel context.CancelFunc
 		c         client.Client
@@ -106,8 +110,6 @@ var _ = Describe("Bastion tests", func() {
 			Name: namespaceName,
 		},
 	}
-
-	extensionscluster, corecluster := newCluster(namespaceName)
 
 	BeforeSuite(func() {
 		internalChartsPath = aws.InternalChartsPath
@@ -169,6 +171,9 @@ var _ = Describe("Bastion tests", func() {
 
 		awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
 		Expect(err).NotTo(HaveOccurred())
+
+		amiID := determineBastionImage(ctx, awsClient)
+		extensionscluster, corecluster = newCluster(namespaceName, amiID)
 	})
 
 	AfterSuite(func() {
@@ -237,6 +242,21 @@ var _ = Describe("Bastion tests", func() {
 		verifyCreation(ctx, awsClient, options)
 	})
 })
+
+func determineBastionImage(ctx context.Context, awsClient *awsclient.Client) string {
+	output, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   awssdk.String("name"),
+				Values: awssdk.StringSlice([]string{"ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20210223"}),
+			},
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(output.Images).To(HaveLen(1))
+
+	return *output.Images[0].ImageId
+}
 
 func normaliseCIDR(cidr string) string {
 	_, ipnet, _ := net.ParseCIDR(cidr)
@@ -331,7 +351,7 @@ func teardownBastion(ctx context.Context, logger *logrus.Entry, c client.Client,
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func newCluster(name string) (*extensionsv1alpha1.Cluster, *controller.Cluster) {
+func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *controller.Cluster) {
 	providerConfig := &awsv1alpha1.CloudProfileConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "aws.provider.extensions.gardener.cloud/v1alpha1",
@@ -346,7 +366,7 @@ func newCluster(name string) (*extensionsv1alpha1.Cluster, *controller.Cluster) 
 						Regions: []awsv1alpha1.RegionAMIMapping{
 							{
 								Name: *region,
-								AMI:  "ami-08bac620dc84221eb",
+								AMI:  amiID,
 							},
 						},
 					},
