@@ -163,7 +163,6 @@ var _ = Describe("Bastion tests", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(c).NotTo(BeNil())
-		// decoder = serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder()
 
 		flag.Parse()
 		validateFlags()
