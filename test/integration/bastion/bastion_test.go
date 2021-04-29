@@ -63,6 +63,7 @@ const (
 	vpcCIDR             = "10.250.0.0/16"
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
+	bastionImageVersion = "20.04.20210223"
 	bastionAMI          = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20210223"
 )
 
@@ -248,7 +249,7 @@ func determineBastionImage(ctx context.Context, awsClient *awsclient.Client) str
 		Filters: []*ec2.Filter{
 			{
 				Name:   awssdk.String("name"),
-				Values: awssdk.StringSlice([]string{"ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20210223"}),
+				Values: awssdk.StringSlice([]string{bastionAMI}),
 			},
 		},
 	})
@@ -362,7 +363,7 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 				Name: "ubuntu",
 				Versions: []awsv1alpha1.MachineImageVersion{
 					{
-						Version: "20.04.20210223",
+						Version: bastionImageVersion,
 						Regions: []awsv1alpha1.RegionAMIMapping{
 							{
 								Name: *region,
