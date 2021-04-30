@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"path/filepath"
@@ -30,6 +31,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
@@ -248,6 +251,102 @@ var _ = Describe("Infrastructure tests", func() {
 
 			err = runTest(ctx, logger, c, namespace, providerConfig, decoder, awsClient)
 			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("with invalid credentials", func() {
+		It("should fail creation but succeed deletion", func() {
+			providerConfig := newProviderConfig(awsv1alpha1.VPC{
+				CIDR: pointer.StringPtr(vpcCIDR),
+			})
+
+			namespaceName, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			var (
+				namespace *corev1.Namespace
+				cluster   *extensionsv1alpha1.Cluster
+				infra     *extensionsv1alpha1.Infrastructure
+			)
+
+			framework.AddCleanupAction(func() {
+				By("cleaning up namespace and cluster")
+				Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
+				Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
+			})
+
+			defer func() {
+				By("delete infrastructure")
+				Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
+
+				By("wait until infrastructure is deleted")
+				// deletion should succeed even though creation failed with invalid credentials (no-op)
+				err := extensions.WaitUntilExtensionCRDeleted(
+					ctx,
+					c,
+					logger,
+					func() extensionsv1alpha1.Object { return &extensionsv1alpha1.Infrastructure{} },
+					extensionsv1alpha1.InfrastructureResource,
+					infra.Namespace,
+					infra.Name,
+					10*time.Second,
+					5*time.Minute,
+				)
+				Expect(err).NotTo(HaveOccurred())
+			}()
+
+			By("create namespace for test execution")
+			namespace = &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespaceName,
+				},
+			}
+			Expect(c.Create(ctx, namespace)).To(Succeed())
+
+			By("create cluster")
+			cluster = &extensionsv1alpha1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespaceName,
+				},
+			}
+			Expect(c.Create(ctx, cluster)).To(Succeed())
+
+			By("deploy invalid cloudprovider secret into namespace")
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloudprovider",
+					Namespace: namespaceName,
+				},
+				Data: map[string][]byte{
+					aws.AccessKeyID:     []byte("invalid"),
+					aws.SecretAccessKey: []byte("fake"),
+				},
+			}
+			Expect(c.Create(ctx, secret)).To(Succeed())
+
+			By("create infrastructure")
+			infra, err = newInfrastructure(namespaceName, providerConfig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(c.Create(ctx, infra)).To(Succeed())
+
+			By("wait until infrastructure creation has failed")
+			err = extensions.WaitUntilExtensionCRReady(
+				ctx,
+				c,
+				logger,
+				func() client.Object { return &extensionsv1alpha1.Infrastructure{} },
+				extensionsv1alpha1.InfrastructureResource,
+				infra.Namespace,
+				infra.Name,
+				10*time.Second,
+				30*time.Second,
+				5*time.Minute,
+				nil,
+			)
+			Expect(err).To(MatchError(ContainSubstring("error validating provider credentials")))
+			var errorWithCode *gardencorev1beta1helper.ErrorWithCodes
+			Expect(errors.As(err, &errorWithCode)).To(BeTrue())
+			Expect(errorWithCode.Codes()).To(ConsistOf(gardencorev1beta1.ErrorInfraUnauthorized))
 		})
 	})
 })
