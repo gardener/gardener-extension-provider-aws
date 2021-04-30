@@ -105,7 +105,7 @@ var _ = Describe("Bastion tests", func() {
 	randString, err := randomString()
 	Expect(err).NotTo(HaveOccurred())
 
-	namespaceName := fmt.Sprintf("shoot--%s", randString)
+	namespaceName := fmt.Sprintf("aws-bastion-it--%s", randString)
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
