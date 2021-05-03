@@ -115,11 +115,8 @@ func ipPermissionsEqual(a *ec2.IpPermission, b *ec2.IpPermission) bool {
 	// equal to the value reported by AWS)
 	aGroups := getSecurityGroupIDs(b.UserIdGroupPairs)
 	bGroups := getSecurityGroupIDs(a.UserIdGroupPairs)
-	if !bGroups.IsSuperset(aGroups) {
-		return false
-	}
 
-	return true
+	return bGroups.IsSuperset(aGroups)
 }
 
 func getIpRangeCidrs(ipRanges []*ec2.IpRange) sets.String {
