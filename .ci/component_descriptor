@@ -13,15 +13,7 @@ COMPONENT_NAME="provider-aws"
 printf "> Building component ${COMPONENT_NAME}\n"
 
 CA_PATH="$(mktemp -d)"
-
 mv "$COMPONENT_DESCRIPTOR_PATH" "$CA_PATH"
-
-component-cli component-archive resources add "${CA_PATH}" "$SOURCE_PATH"/.landscaper/resources.yaml
-
-printf "> Create ca archive\n"
-COMPONENT_ARCHIVE_ARTIFACT_PATH="$(mktemp -d)/ca.tar"
-component-cli ca export "${CA_PATH}" --format tar -o "${COMPONENT_ARCHIVE_ARTIFACT_PATH}"
-
-printf "> Add to ctf\n"
-component-cli ctf add "${CTF_PATH}" -f "${COMPONENT_ARCHIVE_ARTIFACT_PATH}"
-
+component-cli ca "${CA_PATH}" "${CTF_PATH}" \
+    -r  "$SOURCE_PATH"/.landscaper/resources.yaml \
+    VERSION=${VERSION}
