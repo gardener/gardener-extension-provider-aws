@@ -36,9 +36,14 @@ import (
 )
 
 const (
-	SSHPort                   = 22
+	// SSHPort is the default SSH port.
+	SSHPort = 22
+	// InstanceStateShuttingDown is the AWS status code for an EC2 instance that
+	// is currently shutting down.
 	InstanceStateShuttingDown = 32
-	InstanceStateTerminated   = 48
+	// InstanceStateTerminated is the AWS status code for an EC2 instance that
+	// has been terminated.
+	InstanceStateTerminated = 48
 )
 
 type actuator struct {
