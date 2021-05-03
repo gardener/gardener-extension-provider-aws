@@ -18,12 +18,12 @@ import (
 	"context"
 	"time"
 
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 // CreateSubnet creates a new subnet and waits for it to become available.
