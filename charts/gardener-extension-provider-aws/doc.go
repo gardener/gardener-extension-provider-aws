@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate ../../vendor/github.com/gardener/gardener/hack/generate-controller-registration.sh provider-aws . ../../VERSION ../../example/controller-registration.yaml BackupBucket:aws BackupEntry:aws ControlPlane:aws Infrastructure:aws Worker:aws
+//go:generate ../../vendor/github.com/gardener/gardener/hack/generate-controller-registration.sh provider-aws . ../../VERSION ../../example/controller-registration.yaml BackupBucket:aws BackupEntry:aws Bastion:aws ControlPlane:aws Infrastructure:aws Worker:aws
 
 // Package chart enables go:generate support for generating the correct controller registration.
 package chart

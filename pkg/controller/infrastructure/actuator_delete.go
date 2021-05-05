@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
@@ -29,13 +30,14 @@ import (
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
 	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "delete")
-	return Delete(ctx, logger, a.RESTConfig(), a.Client(), infrastructure)
+	return Delete(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure)
 }
 
 // Delete deletes the given Infrastructure.
@@ -44,8 +46,18 @@ func Delete(
 	logger logr.Logger,
 	restConfig *rest.Config,
 	c client.Client,
+	decoder runtime.Decoder,
 	infrastructure *extensionsv1alpha1.Infrastructure,
 ) error {
+	infrastructureConfig := &awsapi.InfrastructureConfig{}
+	if _, _, err := decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
+		// If we cannot decode the provider config, e.g. due to the recently introduced strict mode (see
+		// https://github.com/gardener/gardener-extension-provider-aws/pull/307), we don't return here and just log the
+		// error message.
+		logger.Error(err, "could not decode provider config")
+		infrastructureConfig = nil
+	}
+
 	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
@@ -79,18 +91,28 @@ func Delete(
 		destroyLoadBalancersAndSecurityGroups = g.Add(flow.Task{
 			Name: "Destroying Kubernetes load balancers and security groups",
 			Fn: flow.TaskFn(func(ctx context.Context) error {
-				stateVariables, err := tf.GetStateOutputVariables(ctx, aws.VPCIDKey)
-				if err != nil {
-					if apierrors.IsNotFound(err) || terraformer.IsVariablesNotFoundError(err) {
-						logger.Info("Skipping explicit AWS load balancer and security group deletion because not all variables have been found in the Terraform state.")
-						return nil
+				var vpcID string
+
+				if infrastructureConfig != nil && infrastructureConfig.Networks.VPC.ID != nil {
+					vpcID = *infrastructureConfig.Networks.VPC.ID
+				} else {
+					stateVariables, err := tf.GetStateOutputVariables(ctx, aws.VPCIDKey)
+					if err == nil {
+						vpcID = stateVariables[aws.VPCIDKey]
+					} else if !apierrors.IsNotFound(err) && !terraformer.IsVariablesNotFoundError(err) {
+						return err
 					}
-					return err
 				}
 
-				if err := destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, stateVariables[aws.VPCIDKey], infrastructure.Namespace); err != nil {
+				if len(vpcID) == 0 {
+					logger.Info("Skipping explicit AWS load balancer and security group deletion because not all variables have been found in the Terraform state.")
+					return nil
+				}
+
+				if err := destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
 					return gardencorev1beta1helper.DetermineError(err, fmt.Sprintf("Failed to destroy load balancers and security groups: %+v", err.Error()))
 				}
+
 				return nil
 			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists),
 		})

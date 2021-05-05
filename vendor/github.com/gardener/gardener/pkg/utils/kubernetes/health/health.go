@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
@@ -29,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -45,10 +47,9 @@ func requiredConditionMissing(conditionType string) error {
 	return fmt.Errorf("condition %q is missing", conditionType)
 }
 
-func checkConditionState(conditionType string, expected, actual, reason, message string) error {
+func checkConditionState(expected, actual, reason, message string) error {
 	if expected != actual {
-		return fmt.Errorf("condition %q has invalid status %s (expected %s) due to %s: %s",
-			conditionType, actual, expected, reason, message)
+		return fmt.Errorf("%s (%s)", strings.Trim(message, "."), reason)
 	}
 	return nil
 }
@@ -99,29 +100,27 @@ func CheckDeployment(deployment *appsv1.Deployment) error {
 		if condition == nil {
 			return requiredConditionMissing(conditionType)
 		}
-		if err := checkConditionState(conditionType, string(corev1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
+		if err := checkConditionState(string(corev1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
 			return err
 		}
 	}
 
 	for _, trueOptionalConditionType := range trueOptionalDeploymentConditionTypes {
-		conditionType := string(trueOptionalConditionType)
 		condition := getDeploymentCondition(deployment.Status.Conditions, trueOptionalConditionType)
 		if condition == nil {
 			continue
 		}
-		if err := checkConditionState(conditionType, string(corev1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
+		if err := checkConditionState(string(corev1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
 			return err
 		}
 	}
 
 	for _, falseOptionalConditionType := range falseOptionalDeploymentConditionTypes {
-		conditionType := string(falseOptionalConditionType)
 		condition := getDeploymentCondition(deployment.Status.Conditions, falseOptionalConditionType)
 		if condition == nil {
 			continue
 		}
-		if err := checkConditionState(conditionType, string(corev1.ConditionFalse), string(condition.Status), condition.Reason, condition.Message); err != nil {
+		if err := checkConditionState(string(corev1.ConditionFalse), string(condition.Status), condition.Reason, condition.Message); err != nil {
 			return err
 		}
 	}
@@ -153,7 +152,7 @@ func CheckStatefulSet(statefulSet *appsv1.StatefulSet) error {
 // A Etcd is considered healthy if its ready field in status is true.
 func CheckEtcd(etcd *druidv1alpha1.Etcd) error {
 	if !utils.IsTrue(etcd.Status.Ready) {
-		return fmt.Errorf("etcd %s is not ready yet", etcd.Name)
+		return fmt.Errorf("etcd %q is not ready yet", etcd.Name)
 	}
 	return nil
 }
@@ -192,11 +191,6 @@ func CheckDaemonSet(daemonSet *appsv1.DaemonSet) error {
 	return nil
 }
 
-// NodeOutOfDisk is deprecated NodeConditionType.
-// It is no longer reported by kubelet >= 1.13. See https://github.com/kubernetes/kubernetes/pull/70111.
-// +deprecated
-const NodeOutOfDisk = "OutOfDisk"
-
 var (
 	trueNodeConditionTypes = []corev1.NodeConditionType{
 		corev1.NodeReady,
@@ -207,7 +201,6 @@ var (
 		corev1.NodeMemoryPressure,
 		corev1.NodeNetworkUnavailable,
 		corev1.NodePIDPressure,
-		NodeOutOfDisk,
 	}
 )
 
@@ -221,23 +214,43 @@ func CheckNode(node *corev1.Node) error {
 		if condition == nil {
 			return requiredConditionMissing(conditionType)
 		}
-		if err := checkConditionState(conditionType, string(corev1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
+		if err := checkConditionState(string(corev1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
 			return err
 		}
 	}
 
 	for _, falseConditionType := range falseNodeConditionTypes {
-		conditionType := string(falseConditionType)
 		condition := getNodeCondition(node.Status.Conditions, falseConditionType)
 		if condition == nil {
 			continue
 		}
-		if err := checkConditionState(conditionType, string(corev1.ConditionFalse), string(condition.Status), condition.Reason, condition.Message); err != nil {
+		if err := checkConditionState(string(corev1.ConditionFalse), string(condition.Status), condition.Reason, condition.Message); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// CheckAPIService checks whether the given APIService is healthy.
+// An APIService is considered healthy if it has the `Available` condition and its status is `True`.
+func CheckAPIService(apiService *apiregistrationv1.APIService) error {
+	const (
+		requiredCondition       = apiregistrationv1.Available
+		requiredConditionStatus = apiregistrationv1.ConditionTrue
+	)
+
+	for _, condition := range apiService.Status.Conditions {
+		if condition.Type == requiredCondition {
+			return checkConditionState(
+				string(requiredConditionStatus),
+				string(condition.Status),
+				condition.Reason,
+				condition.Message,
+			)
+		}
+	}
+	return requiredConditionMissing(string(requiredCondition))
 }
 
 var (
@@ -277,7 +290,7 @@ func checkSeed(seed *gardencorev1beta1.Seed, identity *gardencorev1beta1.Gardene
 		if condition == nil {
 			return requiredConditionMissing(conditionType)
 		}
-		if err := checkConditionState(conditionType, string(gardencorev1beta1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
+		if err := checkConditionState(string(gardencorev1beta1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
 			return err
 		}
 	}
@@ -303,7 +316,7 @@ func CheckManagedSeed(managedSeed *seedmanagementv1alpha1.ManagedSeed) error {
 		if condition == nil {
 			return requiredConditionMissing(string(conditionType))
 		}
-		if err := checkConditionState(string(conditionType), string(gardencorev1beta1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
+		if err := checkConditionState(string(gardencorev1beta1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
 			return err
 		}
 	}
@@ -436,7 +449,7 @@ func CheckManagedResource(managedResource *resourcesv1alpha1.ManagedResource) er
 		if condition == nil {
 			return requiredConditionMissing(conditionType)
 		}
-		if err := checkConditionState(conditionType, string(corev1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
+		if err := checkConditionState(string(corev1.ConditionTrue), string(condition.Status), condition.Reason, condition.Message); err != nil {
 			return err
 		}
 	}

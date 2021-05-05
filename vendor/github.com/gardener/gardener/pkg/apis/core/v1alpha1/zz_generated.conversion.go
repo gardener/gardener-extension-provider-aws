@@ -1157,6 +1157,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*ShootAdvertisedAddress)(nil), (*core.ShootAdvertisedAddress)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_ShootAdvertisedAddress_To_core_ShootAdvertisedAddress(a.(*ShootAdvertisedAddress), b.(*core.ShootAdvertisedAddress), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*core.ShootAdvertisedAddress)(nil), (*ShootAdvertisedAddress)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_core_ShootAdvertisedAddress_To_v1alpha1_ShootAdvertisedAddress(a.(*core.ShootAdvertisedAddress), b.(*ShootAdvertisedAddress), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*ShootList)(nil), (*core.ShootList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_ShootList_To_core_ShootList(a.(*ShootList), b.(*core.ShootList), scope)
 	}); err != nil {
@@ -1777,6 +1787,7 @@ func autoConvert_v1alpha1_BackupEntryStatus_To_core_BackupEntryStatus(in *Backup
 	out.LastOperation = (*core.LastOperation)(unsafe.Pointer(in.LastOperation))
 	out.LastError = (*core.LastError)(unsafe.Pointer(in.LastError))
 	out.ObservedGeneration = in.ObservedGeneration
+	out.SeedName = (*string)(unsafe.Pointer(in.SeedName))
 	return nil
 }
 
@@ -1789,6 +1800,7 @@ func autoConvert_core_BackupEntryStatus_To_v1alpha1_BackupEntryStatus(in *core.B
 	out.LastOperation = (*LastOperation)(unsafe.Pointer(in.LastOperation))
 	out.LastError = (*LastError)(unsafe.Pointer(in.LastError))
 	out.ObservedGeneration = in.ObservedGeneration
+	out.SeedName = (*string)(unsafe.Pointer(in.SeedName))
 	return nil
 }
 
@@ -2559,12 +2571,10 @@ func Convert_core_HibernationSchedule_To_v1alpha1_HibernationSchedule(in *core.H
 
 func autoConvert_v1alpha1_HorizontalPodAutoscalerConfig_To_core_HorizontalPodAutoscalerConfig(in *HorizontalPodAutoscalerConfig, out *core.HorizontalPodAutoscalerConfig, s conversion.Scope) error {
 	out.CPUInitializationPeriod = (*metav1.Duration)(unsafe.Pointer(in.CPUInitializationPeriod))
-	out.DownscaleDelay = (*metav1.Duration)(unsafe.Pointer(in.DownscaleDelay))
 	out.DownscaleStabilization = (*metav1.Duration)(unsafe.Pointer(in.DownscaleStabilization))
 	out.InitialReadinessDelay = (*metav1.Duration)(unsafe.Pointer(in.InitialReadinessDelay))
 	out.SyncPeriod = (*metav1.Duration)(unsafe.Pointer(in.SyncPeriod))
 	out.Tolerance = (*float64)(unsafe.Pointer(in.Tolerance))
-	out.UpscaleDelay = (*metav1.Duration)(unsafe.Pointer(in.UpscaleDelay))
 	return nil
 }
 
@@ -2575,12 +2585,10 @@ func Convert_v1alpha1_HorizontalPodAutoscalerConfig_To_core_HorizontalPodAutosca
 
 func autoConvert_core_HorizontalPodAutoscalerConfig_To_v1alpha1_HorizontalPodAutoscalerConfig(in *core.HorizontalPodAutoscalerConfig, out *HorizontalPodAutoscalerConfig, s conversion.Scope) error {
 	out.CPUInitializationPeriod = (*metav1.Duration)(unsafe.Pointer(in.CPUInitializationPeriod))
-	out.DownscaleDelay = (*metav1.Duration)(unsafe.Pointer(in.DownscaleDelay))
 	out.DownscaleStabilization = (*metav1.Duration)(unsafe.Pointer(in.DownscaleStabilization))
 	out.InitialReadinessDelay = (*metav1.Duration)(unsafe.Pointer(in.InitialReadinessDelay))
 	out.SyncPeriod = (*metav1.Duration)(unsafe.Pointer(in.SyncPeriod))
 	out.Tolerance = (*float64)(unsafe.Pointer(in.Tolerance))
-	out.UpscaleDelay = (*metav1.Duration)(unsafe.Pointer(in.UpscaleDelay))
 	return nil
 }
 
@@ -2708,6 +2716,7 @@ func autoConvert_v1alpha1_KubeControllerManagerConfig_To_core_KubeControllerMana
 	out.HorizontalPodAutoscalerConfig = (*core.HorizontalPodAutoscalerConfig)(unsafe.Pointer(in.HorizontalPodAutoscalerConfig))
 	out.NodeCIDRMaskSize = (*int32)(unsafe.Pointer(in.NodeCIDRMaskSize))
 	out.PodEvictionTimeout = (*metav1.Duration)(unsafe.Pointer(in.PodEvictionTimeout))
+	out.NodeMonitorGracePeriod = (*metav1.Duration)(unsafe.Pointer(in.NodeMonitorGracePeriod))
 	return nil
 }
 
@@ -2723,6 +2732,7 @@ func autoConvert_core_KubeControllerManagerConfig_To_v1alpha1_KubeControllerMana
 	out.HorizontalPodAutoscalerConfig = (*HorizontalPodAutoscalerConfig)(unsafe.Pointer(in.HorizontalPodAutoscalerConfig))
 	out.NodeCIDRMaskSize = (*int32)(unsafe.Pointer(in.NodeCIDRMaskSize))
 	out.PodEvictionTimeout = (*metav1.Duration)(unsafe.Pointer(in.PodEvictionTimeout))
+	out.NodeMonitorGracePeriod = (*metav1.Duration)(unsafe.Pointer(in.NodeMonitorGracePeriod))
 	return nil
 }
 
@@ -3267,8 +3277,9 @@ func Convert_core_MachineType_To_v1alpha1_MachineType(in *core.MachineType, out 
 
 func autoConvert_v1alpha1_MachineTypeStorage_To_core_MachineTypeStorage(in *MachineTypeStorage, out *core.MachineTypeStorage, s conversion.Scope) error {
 	out.Class = in.Class
-	out.StorageSize = in.StorageSize
+	out.StorageSize = (*resource.Quantity)(unsafe.Pointer(in.StorageSize))
 	out.Type = in.Type
+	out.MinSize = (*resource.Quantity)(unsafe.Pointer(in.MinSize))
 	return nil
 }
 
@@ -3279,8 +3290,9 @@ func Convert_v1alpha1_MachineTypeStorage_To_core_MachineTypeStorage(in *MachineT
 
 func autoConvert_core_MachineTypeStorage_To_v1alpha1_MachineTypeStorage(in *core.MachineTypeStorage, out *MachineTypeStorage, s conversion.Scope) error {
 	out.Class = in.Class
-	out.StorageSize = in.StorageSize
+	out.StorageSize = (*resource.Quantity)(unsafe.Pointer(in.StorageSize))
 	out.Type = in.Type
+	out.MinSize = (*resource.Quantity)(unsafe.Pointer(in.MinSize))
 	return nil
 }
 
@@ -4541,6 +4553,28 @@ func Convert_core_Shoot_To_v1alpha1_Shoot(in *core.Shoot, out *Shoot, s conversi
 	return autoConvert_core_Shoot_To_v1alpha1_Shoot(in, out, s)
 }
 
+func autoConvert_v1alpha1_ShootAdvertisedAddress_To_core_ShootAdvertisedAddress(in *ShootAdvertisedAddress, out *core.ShootAdvertisedAddress, s conversion.Scope) error {
+	out.Name = in.Name
+	out.URL = in.URL
+	return nil
+}
+
+// Convert_v1alpha1_ShootAdvertisedAddress_To_core_ShootAdvertisedAddress is an autogenerated conversion function.
+func Convert_v1alpha1_ShootAdvertisedAddress_To_core_ShootAdvertisedAddress(in *ShootAdvertisedAddress, out *core.ShootAdvertisedAddress, s conversion.Scope) error {
+	return autoConvert_v1alpha1_ShootAdvertisedAddress_To_core_ShootAdvertisedAddress(in, out, s)
+}
+
+func autoConvert_core_ShootAdvertisedAddress_To_v1alpha1_ShootAdvertisedAddress(in *core.ShootAdvertisedAddress, out *ShootAdvertisedAddress, s conversion.Scope) error {
+	out.Name = in.Name
+	out.URL = in.URL
+	return nil
+}
+
+// Convert_core_ShootAdvertisedAddress_To_v1alpha1_ShootAdvertisedAddress is an autogenerated conversion function.
+func Convert_core_ShootAdvertisedAddress_To_v1alpha1_ShootAdvertisedAddress(in *core.ShootAdvertisedAddress, out *ShootAdvertisedAddress, s conversion.Scope) error {
+	return autoConvert_core_ShootAdvertisedAddress_To_v1alpha1_ShootAdvertisedAddress(in, out, s)
+}
+
 func autoConvert_v1alpha1_ShootList_To_core_ShootList(in *ShootList, out *core.ShootList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
@@ -4785,6 +4819,7 @@ func autoConvert_v1alpha1_ShootStatus_To_core_ShootStatus(in *ShootStatus, out *
 	out.TechnicalID = in.TechnicalID
 	out.UID = types.UID(in.UID)
 	out.ClusterIdentity = (*string)(unsafe.Pointer(in.ClusterIdentity))
+	out.AdvertisedAddresses = *(*[]core.ShootAdvertisedAddress)(unsafe.Pointer(&in.AdvertisedAddresses))
 	return nil
 }
 
@@ -4803,6 +4838,7 @@ func autoConvert_core_ShootStatus_To_v1alpha1_ShootStatus(in *core.ShootStatus, 
 	out.TechnicalID = in.TechnicalID
 	out.UID = types.UID(in.UID)
 	out.ClusterIdentity = (*string)(unsafe.Pointer(in.ClusterIdentity))
+	out.AdvertisedAddresses = *(*[]ShootAdvertisedAddress)(unsafe.Pointer(&in.AdvertisedAddresses))
 	return nil
 }
 
@@ -4892,6 +4928,7 @@ func autoConvert_v1alpha1_VolumeType_To_core_VolumeType(in *VolumeType, out *cor
 	out.Class = in.Class
 	out.Name = in.Name
 	out.Usable = (*bool)(unsafe.Pointer(in.Usable))
+	out.MinSize = (*resource.Quantity)(unsafe.Pointer(in.MinSize))
 	return nil
 }
 
@@ -4904,6 +4941,7 @@ func autoConvert_core_VolumeType_To_v1alpha1_VolumeType(in *core.VolumeType, out
 	out.Class = in.Class
 	out.Name = in.Name
 	out.Usable = (*bool)(unsafe.Pointer(in.Usable))
+	out.MinSize = (*resource.Quantity)(unsafe.Pointer(in.MinSize))
 	return nil
 }
 

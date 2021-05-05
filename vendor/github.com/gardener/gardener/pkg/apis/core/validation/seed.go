@@ -37,7 +37,7 @@ var (
 func ValidateSeed(seed *core.Seed) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	allErrs = append(allErrs, apivalidation.ValidateObjectMeta(&seed.ObjectMeta, false, ValidateName, field.NewPath("metadata"))...)
+	allErrs = append(allErrs, apivalidation.ValidateObjectMeta(&seed.ObjectMeta, false, apivalidation.NameIsDNSLabel, field.NewPath("metadata"))...)
 	allErrs = append(allErrs, ValidateSeedSpec(&seed.Spec, field.NewPath("spec"), false)...)
 
 	return allErrs
@@ -113,6 +113,10 @@ func ValidateSeedSpec(seedSpec *core.SeedSpec, fldPath *field.Path, inTemplate b
 
 	allErrs = append(allErrs, cidrvalidation.ValidateCIDRParse(networks...)...)
 	allErrs = append(allErrs, cidrvalidation.ValidateCIDROverlap(networks, networks, false)...)
+
+	vpnDefaultRanges := []cidrvalidation.CIDR{cidrvalidation.NewCIDR(v1beta1constants.DefaultVpnRange, field.NewPath(""))}
+	allErrs = append(allErrs, cidrvalidation.ValidateCIDROverlap(vpnDefaultRanges, networks, false)...)
+	allErrs = append(allErrs, cidrvalidation.ValidateCIDROverlap(networks, vpnDefaultRanges, false)...)
 
 	if seedSpec.Backup != nil {
 		if len(seedSpec.Backup.Provider) == 0 {

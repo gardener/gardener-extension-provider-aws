@@ -61,6 +61,7 @@ Please make sure that the provided credentials have the correct privileges. You 
           "iam:GetRole",
           "iam:GetRolePolicy",
           "iam:ListPolicyVersions",
+          "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
           "iam:ListInstanceProfilesForRole",
           "iam:CreateInstanceProfile",

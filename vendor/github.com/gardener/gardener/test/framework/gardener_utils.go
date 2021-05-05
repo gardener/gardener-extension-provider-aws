@@ -21,13 +21,13 @@ import (
 	"time"
 
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	gardencorev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	seedmanagementv1alpha1 "github.com/gardener/gardener/pkg/apis/seedmanagement/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
-	"github.com/gardener/gardener/pkg/operation/common"
 	"github.com/gardener/gardener/pkg/scheduler/apis/config"
 	schedulerconfigv1alpha1 "github.com/gardener/gardener/pkg/scheduler/apis/config/v1alpha1"
 	scheduler "github.com/gardener/gardener/pkg/scheduler/controller/shoot"
+	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/gardener/gardener/pkg/utils/kubernetes/health"
 	"github.com/gardener/gardener/pkg/utils/retry"
@@ -38,7 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -89,7 +89,7 @@ func (f *GardenerFramework) GetShootProject(ctx context.Context, shootNamespace 
 	if ns.Labels == nil {
 		return nil, fmt.Errorf("namespace %q does not have any labels", ns.Name)
 	}
-	projectName, ok := ns.Labels[common.ProjectName]
+	projectName, ok := ns.Labels[v1beta1constants.ProjectName]
 	if !ok {
 		return nil, fmt.Errorf("namespace %q did not contain a project label", ns.Name)
 	}
@@ -163,14 +163,14 @@ func (f *GardenerFramework) DeleteShootAndWaitForDeletion(ctx context.Context, s
 // DeleteShoot deletes the test shoot
 func (f *GardenerFramework) DeleteShoot(ctx context.Context, shoot *gardencorev1beta1.Shoot) error {
 	err := retry.UntilTimeout(ctx, 20*time.Second, 5*time.Minute, func(ctx context.Context) (done bool, err error) {
-		err = f.RemoveShootAnnotation(ctx, shoot, common.ShootIgnore)
+		err = f.RemoveShootAnnotation(ctx, shoot, v1beta1constants.ShootIgnore)
 		if err != nil {
 			return retry.MinorError(err)
 		}
 
 		// First we annotate the shoot to be deleted.
 		err = f.AnnotateShoot(ctx, shoot, map[string]string{
-			common.ConfirmationDeletion: "true",
+			gutil.ConfirmationDeletion: "true",
 		})
 		if err != nil {
 			return retry.MinorError(err)
@@ -230,22 +230,18 @@ func (f *GardenerFramework) HibernateShoot(ctx context.Context, shoot *gardencor
 	}
 
 	err := retry.UntilTimeout(ctx, 20*time.Second, 5*time.Minute, func(ctx context.Context) (done bool, err error) {
-		newShoot := shoot.DeepCopy()
-		setHibernation(newShoot, true)
-		patchedShoot, err := f.MergePatchShoot(ctx, shoot, newShoot)
-		if err != nil {
+		patch := client.MergeFrom(shoot.DeepCopy())
+		setHibernation(shoot, true)
+		if err := f.GardenClient.Client().Patch(ctx, shoot, patch); err != nil {
 			return retry.MinorError(err)
 		}
-		*shoot = *patchedShoot
-
 		return retry.Ok()
 	})
 	if err != nil {
 		return err
 	}
 
-	err = f.WaitForShootToBeReconciled(ctx, shoot)
-	if err != nil {
+	if err := f.WaitForShootToBeReconciled(ctx, shoot); err != nil {
 		return err
 	}
 
@@ -261,22 +257,18 @@ func (f *GardenerFramework) WakeUpShoot(ctx context.Context, shoot *gardencorev1
 	}
 
 	err := retry.UntilTimeout(ctx, 20*time.Second, 5*time.Minute, func(ctx context.Context) (done bool, err error) {
-		newShoot := shoot.DeepCopy()
-		setHibernation(newShoot, false)
-
-		patchedShoot, err := f.MergePatchShoot(ctx, shoot, newShoot)
-		if err != nil {
+		patch := client.MergeFrom(shoot.DeepCopy())
+		setHibernation(shoot, false)
+		if err := f.GardenClient.Client().Patch(ctx, shoot, patch); err != nil {
 			return retry.MinorError(err)
 		}
-		*shoot = *patchedShoot
 		return retry.Ok()
 	})
 	if err != nil {
 		return err
 	}
 
-	err = f.WaitForShootToBeReconciled(ctx, shoot)
-	if err != nil {
+	if err := f.WaitForShootToBeReconciled(ctx, shoot); err != nil {
 		return err
 	}
 
@@ -358,13 +350,13 @@ func (f *GardenerFramework) WaitForShootToBeReconciled(ctx context.Context, shoo
 
 // AnnotateShoot adds shoot annotation(s)
 func (f *GardenerFramework) AnnotateShoot(ctx context.Context, shoot *gardencorev1beta1.Shoot, annotations map[string]string) error {
-	shootCopy := shoot.DeepCopy()
+	patch := client.MergeFrom(shoot.DeepCopy())
 
 	for annotationKey, annotationValue := range annotations {
-		metav1.SetMetaDataAnnotation(&shootCopy.ObjectMeta, annotationKey, annotationValue)
+		metav1.SetMetaDataAnnotation(&shoot.ObjectMeta, annotationKey, annotationValue)
 	}
 
-	if _, err := f.MergePatchShoot(ctx, shoot, shootCopy); err != nil {
+	if err := f.GardenClient.Client().Patch(ctx, shoot, patch); err != nil {
 		return err
 	}
 
@@ -373,21 +365,17 @@ func (f *GardenerFramework) AnnotateShoot(ctx context.Context, shoot *gardencore
 
 // RemoveShootAnnotation removes an annotation with key <annotationKey> from a shoot object
 func (f *GardenerFramework) RemoveShootAnnotation(ctx context.Context, shoot *gardencorev1beta1.Shoot, annotationKey string) error {
-	shootCopy := shoot.DeepCopy()
-	if len(shootCopy.Annotations) == 0 {
+	if len(shoot.Annotations) == 0 {
 		return nil
 	}
-	if _, ok := shootCopy.Annotations[annotationKey]; !ok {
+	if _, ok := shoot.Annotations[annotationKey]; !ok {
 		return nil
 	}
 
-	// start the update process with Kubernetes
-	delete(shootCopy.Annotations, annotationKey)
+	patch := client.MergeFrom(shoot.DeepCopy())
+	delete(shoot.Annotations, annotationKey)
 
-	if _, err := f.MergePatchShoot(ctx, shoot, shootCopy); err != nil {
-		return err
-	}
-	return nil
+	return f.GardenClient.Client().Patch(ctx, shoot, patch)
 }
 
 // MigrateShoot changes the spec.Seed.Name of a shoot and waits for it to be migrated
@@ -479,20 +467,6 @@ func shootIsUnschedulable(events []corev1.Event) bool {
 		}
 	}
 	return false
-}
-
-// MergePatchShoot performs a two way merge patch operation on a shoot object
-func (f *GardenerFramework) MergePatchShoot(ctx context.Context, oldShoot, newShoot *gardencorev1beta1.Shoot) (*gardencorev1beta1.Shoot, error) {
-	patchBytes, err := kutil.CreateTwoWayMergePatch(oldShoot, newShoot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to patch bytes")
-	}
-
-	patchedShoot, err := f.GardenClient.GardenCore().CoreV1beta1().Shoots(oldShoot.GetNamespace()).Patch(ctx, oldShoot.GetName(), types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
-	if err == nil {
-		*oldShoot = *patchedShoot
-	}
-	return patchedShoot, err
 }
 
 // GetCloudProfile returns the cloudprofile from gardener with the give name
@@ -592,12 +566,12 @@ func ParseSchedulerConfiguration(configuration *corev1.ConfigMap) (*config.Sched
 
 // ScaleGardenerScheduler scales the gardener-scheduler to the desired replicas
 func ScaleGardenerScheduler(setupContextTimeout time.Duration, client client.Client, desiredReplicas *int32) (*int32, error) {
-	return ScaleDeployment(setupContextTimeout, client, desiredReplicas, "gardener-scheduler", gardencorev1beta1constants.GardenNamespace)
+	return ScaleDeployment(setupContextTimeout, client, desiredReplicas, "gardener-scheduler", v1beta1constants.GardenNamespace)
 }
 
 // ScaleGardenerControllerManager scales the gardener-controller-manager to the desired replicas
 func ScaleGardenerControllerManager(setupContextTimeout time.Duration, client client.Client, desiredReplicas *int32) (*int32, error) {
-	return ScaleDeployment(setupContextTimeout, client, desiredReplicas, "gardener-controller-manager", gardencorev1beta1constants.GardenNamespace)
+	return ScaleDeployment(setupContextTimeout, client, desiredReplicas, "gardener-controller-manager", v1beta1constants.GardenNamespace)
 }
 
 // CreateSeed creates a seed from a seed Object and waits until it is successfully reconciled
@@ -744,4 +718,33 @@ func (f *GardenerFramework) WaitForManagedSeedToBeDeleted(ctx context.Context, m
 		}
 		return retry.MinorError(fmt.Errorf("managed seed %s still exists", managedSeed.Name))
 	})
+}
+
+// BuildSeedSpecForTestrun builds a minimal seed spec to be used during testing
+func BuildSeedSpecForTestrun(name string, backupProvider *string) *gardencorev1beta1.SeedSpec {
+	seedSpec := &gardencorev1beta1.SeedSpec{
+		SecretRef: &corev1.SecretReference{
+			Name:      name,
+			Namespace: v1beta1constants.GardenNamespace,
+		},
+		Taints: []gardencorev1beta1.SeedTaint{
+			{
+				Key:   SeedTaintTestRun,
+				Value: pointer.StringPtr(GetTestRunID()),
+			},
+		},
+		Settings: &gardencorev1beta1.SeedSettings{
+			Scheduling: &gardencorev1beta1.SeedSettingScheduling{
+				Visible: false,
+			},
+		},
+	}
+
+	if backupProvider != nil {
+		seedSpec.Backup = &gardencorev1beta1.SeedBackup{
+			Provider: *backupProvider,
+		}
+	}
+
+	return seedSpec
 }
