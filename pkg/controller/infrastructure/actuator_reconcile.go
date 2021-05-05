@@ -183,15 +183,13 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			"keyPrefixes": ignoreTagKeyPrefixes,
 		},
 		"outputKeys": map[string]interface{}{
-			"vpcIdKey":                   aws.VPCIDKey,
-			"subnetsPublicPrefix":        aws.SubnetPublicPrefix,
-			"subnetsNodesPrefix":         aws.SubnetNodesPrefix,
-			"securityGroupsNodes":        aws.SecurityGroupsNodes,
-			"sshKeyName":                 aws.SSHKeyName,
-			"iamInstanceProfileNodes":    aws.IAMInstanceProfileNodes,
-			"iamInstanceProfileBastions": aws.IAMInstanceProfileBastions,
-			"nodesRole":                  aws.NodesRole,
-			"bastionsRole":               aws.BastionsRole,
+			"vpcIdKey":                aws.VPCIDKey,
+			"subnetsPublicPrefix":     aws.SubnetPublicPrefix,
+			"subnetsNodesPrefix":      aws.SubnetNodesPrefix,
+			"securityGroupsNodes":     aws.SecurityGroupsNodes,
+			"sshKeyName":              aws.SSHKeyName,
+			"iamInstanceProfileNodes": aws.IAMInstanceProfileNodes,
+			"nodesRole":               aws.NodesRole,
 		},
 	}, nil
 }
