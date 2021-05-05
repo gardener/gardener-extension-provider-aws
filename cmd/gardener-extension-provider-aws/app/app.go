@@ -39,6 +39,8 @@ import (
 	awscmd "github.com/gardener/gardener-extension-provider-aws/pkg/cmd"
 	awsbackupbucket "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
 	awsbackupentry "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
+	awsbastion "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
 	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
 	awscsimigration "github.com/gardener/gardener-extension-provider-aws/pkg/controller/csimigration"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
@@ -71,6 +73,11 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 
 		// options for the backupentry controller
 		backupEntryCtrlOpts = &controllercmd.ControllerOptions{
+			MaxConcurrentReconciles: 5,
+		}
+
+		// options for the bastion controller
+		bastionCtrlOpts = &controllercmd.ControllerOptions{
 			MaxConcurrentReconciles: 5,
 		}
 
@@ -118,6 +125,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			mgrOpts,
 			controllercmd.PrefixOption("backupbucket-", backupBucketCtrlOpts),
 			controllercmd.PrefixOption("backupentry-", backupEntryCtrlOpts),
+			controllercmd.PrefixOption("bastion-", bastionCtrlOpts),
 			controllercmd.PrefixOption("controlplane-", controlPlaneCtrlOpts),
 			controllercmd.PrefixOption("csimigration-", csiMigrationCtrlOpts),
 			controllercmd.PrefixOption("infrastructure-", infraCtrlOpts),
@@ -175,12 +183,16 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			healthCheckCtrlOpts.Completed().Apply(&healthcheck.DefaultAddOptions.Controller)
 			backupBucketCtrlOpts.Completed().Apply(&awsbackupbucket.DefaultAddOptions.Controller)
 			backupEntryCtrlOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.Controller)
+			bastionCtrlOpts.Completed().Apply(&awsbastion.DefaultAddOptions.Controller)
 			controlPlaneCtrlOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.Controller)
 			csiMigrationCtrlOpts.Completed().Apply(&awscsimigration.DefaultAddOptions.Controller)
 			infraCtrlOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.Controller)
 			reconcileOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awsworker.DefaultAddOptions.IgnoreOperationAnnotation)
+			reconcileOpts.Completed().Apply(&bastion.DefaultAddOptions.IgnoreOperationAnnotation)
+			reconcileOpts.Completed().Apply(&awsbackupbucket.DefaultAddOptions.IgnoreOperationAnnotation)
+			reconcileOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.IgnoreOperationAnnotation)
 			workerCtrlOpts.Completed().Apply(&awsworker.DefaultAddOptions.Controller)
 
 			_, shootWebhooks, err := webhookOptions.Completed().AddToManager(mgr)

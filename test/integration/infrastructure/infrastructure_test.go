@@ -45,7 +45,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -59,6 +58,7 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
+	"github.com/gardener/gardener-extension-provider-aws/test/integration"
 )
 
 const (
@@ -201,13 +201,13 @@ var _ = Describe("Infrastructure tests", func() {
 	Context("with infrastructure that uses existing vpc (networks.vpc.id)", func() {
 		It("should fail to create when required vpc attribute is not enabled", func() {
 			enableDnsHostnames := false
-			vpcID, err := prepareNewVPC(ctx, logger, awsClient, vpcCIDR, enableDnsHostnames)
+			vpcID, igwID, err := integration.CreateVPC(ctx, logger, awsClient, vpcCIDR, enableDnsHostnames)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
+			Expect(igwID).NotTo(BeEmpty())
 
 			framework.AddCleanupAction(func() {
-				err := teardownVPC(ctx, logger, awsClient, vpcID)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(integration.DestroyVPC(ctx, logger, awsClient, vpcID)).To(Succeed())
 			})
 
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
@@ -232,13 +232,13 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete", func() {
 			enableDnsHostnames := true
-			vpcID, err := prepareNewVPC(ctx, logger, awsClient, vpcCIDR, enableDnsHostnames)
+			vpcID, igwID, err := integration.CreateVPC(ctx, logger, awsClient, vpcCIDR, enableDnsHostnames)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
+			Expect(igwID).NotTo(BeEmpty())
 
 			framework.AddCleanupAction(func() {
-				err := teardownVPC(ctx, logger, awsClient, vpcID)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(integration.DestroyVPC(ctx, logger, awsClient, vpcID)).To(Succeed())
 			})
 
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
@@ -558,89 +558,6 @@ func generateNamespaceName() (string, error) {
 	return "aws-infrastructure-it--" + suffix, nil
 }
 
-func prepareNewVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames bool) (string, error) {
-	entry := logger.WithField("test", "existing-vpc")
-
-	createVpcOutput, err := awsClient.EC2.CreateVpc(&ec2.CreateVpcInput{
-		CidrBlock: awssdk.String(vpcCIDR),
-	})
-	if err != nil {
-		return "", err
-	}
-	vpcID := createVpcOutput.Vpc.VpcId
-
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until vpc '%s' is available...", *vpcID)
-
-		describeVpcOutput, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
-			VpcIds: []*string{vpcID},
-		})
-		if err != nil {
-			return false, err
-		}
-
-		vpc := describeVpcOutput.Vpcs[0]
-		if *vpc.State != "available" {
-			return false, nil
-		}
-
-		return true, nil
-	}, ctx.Done()); err != nil {
-		return "", err
-	}
-
-	if enableDnsHostnames {
-		_, err = awsClient.EC2.ModifyVpcAttribute(&ec2.ModifyVpcAttributeInput{
-			EnableDnsHostnames: &ec2.AttributeBooleanValue{
-				Value: awssdk.Bool(true),
-			},
-			VpcId: vpcID,
-		})
-		if err != nil {
-			return "", err
-		}
-	}
-
-	createIgwOutput, err := awsClient.EC2.CreateInternetGateway(&ec2.CreateInternetGatewayInput{})
-	if err != nil {
-		return "", err
-	}
-	igwID := createIgwOutput.InternetGateway.InternetGatewayId
-
-	_, err = awsClient.EC2.AttachInternetGateway(&ec2.AttachInternetGatewayInput{
-		InternetGatewayId: igwID,
-		VpcId:             vpcID,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until internet gateway '%s' is attached to vpc '%s'...", *igwID, *vpcID)
-
-		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
-			InternetGatewayIds: []*string{igwID},
-		})
-		if err != nil {
-			return false, err
-		}
-
-		igw := describeIgwOutput.InternetGateways[0]
-		if len(igw.Attachments) == 0 {
-			return false, nil
-		}
-		if *igw.Attachments[0].State != "available" {
-			return false, nil
-		}
-
-		return true, nil
-	}, ctx.Done()); err != nil {
-		return "", err
-	}
-
-	return *vpcID, nil
-}
-
 func createTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID *string) error {
 	_, err := awsClient.EC2.CreateTagsWithContext(ctx, &ec2.CreateTagsInput{
 		Resources: []*string{subnetID},
@@ -659,103 +576,6 @@ func createTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID
 		}},
 	})
 	return err
-}
-
-func teardownVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcID string) error {
-	entry := logger.WithField("test", "existing-vpc")
-
-	describeInternetGatewaysOutput, err := awsClient.EC2.DescribeInternetGatewaysWithContext(ctx, &ec2.DescribeInternetGatewaysInput{Filters: []*ec2.Filter{
-		{
-			Name: awssdk.String("attachment.vpc-id"),
-			Values: []*string{
-				awssdk.String(vpcID),
-			},
-		},
-	}})
-	if err != nil {
-		return err
-	}
-	igwID := describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId
-
-	_, err = awsClient.EC2.DetachInternetGateway(&ec2.DetachInternetGatewayInput{
-		InternetGatewayId: igwID,
-		VpcId:             awssdk.String(vpcID),
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until internet gateway '%s' is detached from vpc '%s'...", *igwID, vpcID)
-
-		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
-			InternetGatewayIds: []*string{igwID},
-		})
-		if err != nil {
-			return false, err
-		}
-		igw := describeIgwOutput.InternetGateways[0]
-
-		return len(igw.Attachments) == 0, nil
-	}, ctx.Done()); err != nil {
-		return err
-	}
-
-	_, err = awsClient.EC2.DeleteInternetGateway(&ec2.DeleteInternetGatewayInput{
-		InternetGatewayId: igwID,
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until internet gateway '%s' is deleted...", *igwID)
-
-		_, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
-			InternetGatewayIds: []*string{igwID},
-		})
-		if err != nil {
-			ec2err, ok := err.(awserr.Error)
-			if ok && ec2err.Code() == "InvalidInternetGatewayID.NotFound" {
-				return true, nil
-			}
-
-			return true, err
-		}
-
-		return false, nil
-	}, ctx.Done()); err != nil {
-		return err
-	}
-
-	_, err = awsClient.EC2.DeleteVpc(&ec2.DeleteVpcInput{
-		VpcId: &vpcID,
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until vpc '%s' is deleted...", vpcID)
-
-		_, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
-			VpcIds: []*string{&vpcID},
-		})
-		if err != nil {
-			ec2err, ok := err.(awserr.Error)
-			if ok && ec2err.Code() == "InvalidVpcID.NotFound" {
-				return true, nil
-			}
-
-			return true, err
-		}
-
-		return false, nil
-	}, ctx.Done()); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 type infrastructureIdentifiers struct {

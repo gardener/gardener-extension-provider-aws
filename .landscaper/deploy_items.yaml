@@ -34,6 +34,8 @@ deployItems:
             controllers:
               backupentry:
                 concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              bastion:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
               controlplane:
                 concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
               infrastructure:

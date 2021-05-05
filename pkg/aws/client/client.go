@@ -361,7 +361,7 @@ func (c *Client) ListKubernetesELBsV2(ctx context.Context, vpcID, clusterName st
 	return loadBalancerARNsForCluster, nil
 }
 
-// DeleteELBV2 deletes the loadbalancer (NLB or ALB) as well as its target groups with its Amazon Resource Name (ARN) . If it does not exist,
+// DeleteELBV2 deletes the loadbalancer (NLB or ALB) as well as its target groups with its Amazon Resource Name (ARN). If it does not exist,
 // no error is returned.
 func (c *Client) DeleteELBV2(ctx context.Context, arn string) error {
 	targetGroups, err := c.ELBv2.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{LoadBalancerArn: &arn})
