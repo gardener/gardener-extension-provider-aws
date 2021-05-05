@@ -14,4 +14,4 @@ CA_PATH="$(mktemp -d)"
 mv "$COMPONENT_DESCRIPTOR_PATH" "$CA_PATH"
 component-cli ca "${CA_PATH}" "${CTF_PATH}" \
     -r  "$SOURCE_PATH"/.landscaper/resources.yaml \
-    VERSION=${VERSION}
+    VERSION=${EFFECTIVE_VERSION}
