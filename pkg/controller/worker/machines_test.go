@@ -23,11 +23,6 @@ import (
 	"strings"
 	"time"
 
-	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
-	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	"github.com/gardener/gardener/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -36,11 +31,14 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
+	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	mockkubernetes "github.com/gardener/gardener/pkg/client/kubernetes/mock"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
+	"github.com/gardener/gardener/pkg/utils"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -50,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -422,12 +421,14 @@ var _ = Describe("Machines", func() {
 						"secret": map[string]interface{}{
 							"cloudConfig": string(userData),
 						},
-						"ami":                machineImageAMI,
-						"region":             region,
-						"machineType":        machineType,
-						"iamInstanceProfile": instanceProfileName,
-						"keyName":            keyName,
-						"tags":               ec2InstanceTags,
+						"ami":         machineImageAMI,
+						"region":      region,
+						"machineType": machineType,
+						"iamInstanceProfile": map[string]interface{}{
+							"name": instanceProfileName,
+						},
+						"keyName": keyName,
+						"tags":    ec2InstanceTags,
 						"blockDevices": []map[string]interface{}{
 							{
 								"ebs": map[string]interface{}{
@@ -655,6 +656,81 @@ var _ = Describe("Machines", func() {
 
 					err := workerDelegate.DeployMachineClasses(context.TODO())
 					Expect(err).NotTo(HaveOccurred())
+				})
+
+				Context("using workerConfig.iamInstanceProfile", func() {
+					modifyExpectedMachineClasses := func(expectedIamInstanceProfile map[string]interface{}) {
+						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
+						Expect(err).NotTo(HaveOccurred())
+
+						var (
+							machineClassNamePool2Zone1     = fmt.Sprintf("%s-%s-z1", namespace, namePool2)
+							machineClassNamePool2Zone2     = fmt.Sprintf("%s-%s-z2", namespace, namePool2)
+							machineClassWithHashPool2Zone1 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone1, newHash)
+							machineClassWithHashPool2Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, newHash)
+						)
+
+						machineClasses["machineClasses"].([]map[string]interface{})[2]["name"] = machineClassWithHashPool2Zone1
+						machineClasses["machineClasses"].([]map[string]interface{})[2]["iamInstanceProfile"] = expectedIamInstanceProfile
+						machineClasses["machineClasses"].([]map[string]interface{})[3]["name"] = machineClassWithHashPool2Zone2
+						machineClasses["machineClasses"].([]map[string]interface{})[3]["iamInstanceProfile"] = expectedIamInstanceProfile
+					}
+
+					It("should deploy the correct machine class when using iamInstanceProfile.Name", func() {
+						iamInstanceProfileName := "foo"
+						w.Spec.Pools[1].ProviderConfig = &runtime.RawExtension{Raw: encode(&api.WorkerConfig{
+							IAMInstanceProfile: &api.IAMInstanceProfile{
+								Name: &iamInstanceProfileName,
+							},
+						})}
+						modifyExpectedMachineClasses(map[string]interface{}{"name": iamInstanceProfileName})
+
+						workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
+
+						gomock.InOrder(
+							c.EXPECT().
+								DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)),
+							chartApplier.
+								EXPECT().
+								Apply(
+									ctx,
+									filepath.Join(aws.InternalChartsPath, "machineclass"),
+									namespace,
+									"machineclass",
+									kubernetes.Values(machineClasses),
+								),
+						)
+
+						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
+					})
+
+					It("should deploy the correct machine class when using iamInstanceProfile.ARN", func() {
+						iamInstanceProfileARN := "foo"
+						w.Spec.Pools[1].ProviderConfig = &runtime.RawExtension{Raw: encode(&api.WorkerConfig{
+							IAMInstanceProfile: &api.IAMInstanceProfile{
+								ARN: &iamInstanceProfileARN,
+							},
+						})}
+						modifyExpectedMachineClasses(map[string]interface{}{"arn": iamInstanceProfileARN})
+
+						workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
+
+						gomock.InOrder(
+							c.EXPECT().
+								DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)),
+							chartApplier.
+								EXPECT().
+								Apply(
+									ctx,
+									filepath.Join(aws.InternalChartsPath, "machineclass"),
+									namespace,
+									"machineclass",
+									kubernetes.Values(machineClasses),
+								),
+						)
+
+						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
+					})
 				})
 
 				It("should return err when the infrastructure provider status cannot be decoded", func() {

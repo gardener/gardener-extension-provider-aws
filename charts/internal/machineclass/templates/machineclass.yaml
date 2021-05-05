@@ -27,7 +27,12 @@ providerSpec:
   region: {{ $machineClass.region }}
   machineType: {{ $machineClass.machineType }}
   iam:
-    name: {{ $machineClass.iamInstanceProfile }}
+{{- if $machineClass.iamInstanceProfile.name }}
+    name: {{ $machineClass.iamInstanceProfile.name }}
+{{- end }}
+{{- if $machineClass.iamInstanceProfile.arn }}
+    arn: {{ $machineClass.iamInstanceProfile.arn }}
+{{- end }}
   keyName: {{ $machineClass.keyName }}
   networkInterfaces:
 {{ toYaml $machineClass.networkInterfaces | indent 2 }}
