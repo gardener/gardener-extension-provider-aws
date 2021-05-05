@@ -29,6 +29,9 @@ type WorkerConfig struct {
 	Volume *Volume
 	// DataVolumes contains configuration for the additional disks attached to VMs.
 	DataVolumes []DataVolume
+	// IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
+	// worker pool.
+	IAMInstanceProfile *IAMInstanceProfile
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -57,6 +60,15 @@ type DataVolume struct {
 	Volume
 	// SnapshotID is the ID of the snapshot.
 	SnapshotID *string
+}
+
+// IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
+// worker pool. Either 'Name" or 'ARN' must be specified.
+type IAMInstanceProfile struct {
+	// Name is the name of the instance profile.
+	Name *string
+	// ARN is the ARN of the instance profile.
+	ARN *string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -65,6 +65,18 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		}
 	}
 
+	if iam := workerConfig.IAMInstanceProfile; iam != nil {
+		if (iam.Name == nil && iam.ARN == nil) || (iam.Name != nil && iam.ARN != nil) {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("iamInstanceProfile"), iam, "either <name> or <arn> must be provided"))
+		}
+		if iam.Name != nil && len(*iam.Name) == 0 {
+			allErrs = append(allErrs, field.Required(fldPath.Child("iamInstanceProfile", "name"), "name must not be empty"))
+		}
+		if iam.ARN != nil && len(*iam.ARN) == 0 {
+			allErrs = append(allErrs, field.Required(fldPath.Child("iamInstanceProfile", "arn"), "arn must not be empty"))
+		}
+	}
+
 	return allErrs
 }
 

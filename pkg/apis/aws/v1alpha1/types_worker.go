@@ -31,6 +31,10 @@ type WorkerConfig struct {
 	// DataVolumes contains configuration for the additional disks attached to VMs.
 	// +optional
 	DataVolumes []DataVolume `json:"dataVolumes,omitempty"`
+	// IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
+	// worker pool.
+	// +optional
+	IAMInstanceProfile *IAMInstanceProfile `json:"iamInstanceProfile,omitempty"`
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -61,6 +65,17 @@ type DataVolume struct {
 	// SnapshotID is the ID of the snapshot.
 	// +optional
 	SnapshotID *string `json:"snapshotID,omitempty"`
+}
+
+// IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
+// worker pool. Either 'Name" or 'ARN' must be specified.
+type IAMInstanceProfile struct {
+	// Name is the name of the instance profile.
+	// +optional
+	Name *string `json:"name,omitempty"`
+	// ARN is the ARN of the instance profile.
+	// +optional
+	ARN *string `json:"arn,omitempty"`
 }
 
 // +genclient
