@@ -101,14 +101,10 @@ var _ = Describe("Infrastructure tests", func() {
 		decoder   runtime.Decoder
 
 		awsClient *awsclient.Client
-
-		internalChartsPath string
 	)
 
 	BeforeSuite(func() {
-		internalChartsPath = aws.InternalChartsPath
 		repoRoot := filepath.Join("..", "..", "..")
-		aws.InternalChartsPath = filepath.Join(repoRoot, aws.InternalChartsPath)
 
 		// enable manager logs
 		logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
@@ -179,8 +175,6 @@ var _ = Describe("Infrastructure tests", func() {
 
 		By("stopping test environment")
 		Expect(testEnv.Stop()).To(Succeed())
-
-		aws.InternalChartsPath = internalChartsPath
 	})
 
 	Context("with infrastructure that requests new vpc (networks.vpc.cidr)", func() {
