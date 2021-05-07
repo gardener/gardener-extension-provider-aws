@@ -66,7 +66,7 @@ func joinQuotes(data []string) string {
 	var out string
 
 	for _, v := range data {
-		out += fmt.Sprintf("%q", v)
+		out += fmt.Sprintf("%q,", v)
 	}
 
 	return strings.TrimSuffix(out, ",")

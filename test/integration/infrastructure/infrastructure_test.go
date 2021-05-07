@@ -68,8 +68,10 @@ const (
 	kubernetesTagPrefix        = "kubernetes.io/"
 	kubernetesClusterTagPrefix = kubernetesTagPrefix + "cluster/"
 	kubernetesRoleTagPrefix    = kubernetesTagPrefix + "role/"
-	ignoredTagKey              = "SomeIgnoredTag"
-	ignoredTagKeyPrefix        = "ignored-tag/prefix/"
+	ignoredTagKey1             = "SomeIgnoredTag"
+	ignoredTagKey2             = "SomeOtherIgnoredTag"
+	ignoredTagKeyPrefix1       = "ignored-tag/prefix/"
+	ignoredTagKeyPrefix2       = "ignored-tag/another-prefix/"
 )
 
 var (
@@ -507,8 +509,8 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 			},
 		},
 		IgnoreTags: &awsv1alpha1.IgnoreTags{
-			Keys:        []string{ignoredTagKey},
-			KeyPrefixes: []string{ignoredTagKeyPrefix},
+			Keys:        []string{ignoredTagKey1, ignoredTagKey2},
+			KeyPrefixes: []string{ignoredTagKeyPrefix1, ignoredTagKeyPrefix2},
 		},
 	}
 }
@@ -556,10 +558,16 @@ func createTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID
 	_, err := awsClient.EC2.CreateTagsWithContext(ctx, &ec2.CreateTagsInput{
 		Resources: []*string{subnetID},
 		Tags: []*ec2.Tag{{
-			Key:   awssdk.String(ignoredTagKey),
+			Key:   awssdk.String(ignoredTagKey1),
 			Value: awssdk.String("foo"),
 		}, {
-			Key:   awssdk.String(ignoredTagKeyPrefix + "key"),
+			Key:   awssdk.String(ignoredTagKey2),
+			Value: awssdk.String("foo"),
+		}, {
+			Key:   awssdk.String(ignoredTagKeyPrefix1 + "key"),
+			Value: awssdk.String("bar"),
+		}, {
+			Key:   awssdk.String(ignoredTagKeyPrefix2 + "key"),
 			Value: awssdk.String("bar"),
 		}, {
 			Key:   awssdk.String("not-ignored-key"),
@@ -1103,8 +1111,10 @@ func verifyTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID
 		switch {
 		case *tag.Key == "Name":
 		case strings.HasPrefix(*tag.Key, kubernetesTagPrefix):
-		case *tag.Key == ignoredTagKey:
-		case strings.HasPrefix(*tag.Key, ignoredTagKeyPrefix):
+		case *tag.Key == ignoredTagKey1:
+		case *tag.Key == ignoredTagKey2:
+		case strings.HasPrefix(*tag.Key, ignoredTagKeyPrefix1):
+		case strings.HasPrefix(*tag.Key, ignoredTagKeyPrefix2):
 		default:
 			Fail(fmt.Sprintf("unexpected key %q found on subnet %s", *tag.Key, *subnetID))
 		}
