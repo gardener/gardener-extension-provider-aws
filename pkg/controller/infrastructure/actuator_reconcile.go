@@ -15,9 +15,9 @@
 package infrastructure
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -29,7 +29,6 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/chartrenderer"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +40,7 @@ import (
 
 func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
 	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "reconcile")
-	infrastructureStatus, state, err := Reconcile(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), a.ChartRenderer(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
+	infrastructureStatus, state, err := Reconcile(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
 	if err != nil {
 		return err
 	}
@@ -55,7 +54,6 @@ func Reconcile(
 	restConfig *rest.Config,
 	c client.Client,
 	decoder runtime.Decoder,
-	chartRenderer chartrenderer.Interface,
 	infrastructure *extensionsv1alpha1.Infrastructure,
 	stateInitializer terraformer.StateConfigMapInitializer,
 ) (
@@ -78,9 +76,9 @@ func Reconcile(
 		return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
 	}
 
-	release, err := chartRenderer.Render(filepath.Join(aws.InternalChartsPath, "aws-infra"), "aws-infra", infrastructure.Namespace, terraformConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not render Terraform chart: %+v", err)
+	var mainTF bytes.Buffer
+	if err := tplMainTF.Execute(&mainTF, terraformConfig); err != nil {
+		return nil, nil, fmt.Errorf("could not render Terraform template: %+v", err)
 	}
 
 	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure)
@@ -94,9 +92,9 @@ func Reconcile(
 			ctx,
 			terraformer.DefaultInitializer(
 				c,
-				release.FileContent("main.tf"),
-				release.FileContent("variables.tf"),
-				[]byte(release.FileContent("terraform.tfvars")),
+				mainTF.String(),
+				variablesTF,
+				[]byte(terraformTFVars),
 				stateInitializer,
 			)).
 		Apply(ctx); err != nil {

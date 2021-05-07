@@ -98,8 +98,6 @@ var _ = Describe("Bastion tests", func() {
 		testEnv   *envtest.Environment
 		mgrCancel context.CancelFunc
 		c         client.Client
-
-		internalChartsPath string
 	)
 
 	randString, err := randomString()
@@ -113,9 +111,7 @@ var _ = Describe("Bastion tests", func() {
 	}
 
 	BeforeSuite(func() {
-		internalChartsPath = aws.InternalChartsPath
 		repoRoot := filepath.Join("..", "..", "..")
-		aws.InternalChartsPath = filepath.Join(repoRoot, aws.InternalChartsPath)
 
 		// enable manager logs
 		logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
@@ -188,8 +184,6 @@ var _ = Describe("Bastion tests", func() {
 
 		By("stopping test environment")
 		Expect(testEnv.Stop()).To(Succeed())
-
-		aws.InternalChartsPath = internalChartsPath
 	})
 
 	It("should successfully create and delete", func() {
