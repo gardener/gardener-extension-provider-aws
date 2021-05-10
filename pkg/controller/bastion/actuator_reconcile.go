@@ -16,6 +16,7 @@ package bastion
 
 import (
 	"context"
+	"encoding/base64"
 	"net"
 	"time"
 
@@ -274,7 +275,7 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 	input := &ec2.RunInstancesInput{
 		ImageId:      aws.String(opt.ImageID),
 		InstanceType: aws.String(opt.InstanceType),
-		UserData:     aws.String(string(bastion.Spec.UserData)),
+		UserData:     aws.String(base64.StdEncoding.EncodeToString(bastion.Spec.UserData)),
 		MinCount:     aws.Int64(1),
 		MaxCount:     aws.Int64(1),
 		TagSpecifications: []*ec2.TagSpecification{
