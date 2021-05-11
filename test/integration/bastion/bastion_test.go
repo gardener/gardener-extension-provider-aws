@@ -16,7 +16,6 @@ package bastion_test
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -437,7 +436,7 @@ func newBastion(namespace string) (*extensionsv1alpha1.Bastion, error) {
 			DefaultSpec: extensionsv1alpha1.DefaultSpec{
 				Type: aws.Type,
 			},
-			UserData: []byte(base64.StdEncoding.EncodeToString([]byte("echo hello world"))),
+			UserData: []byte("echo hello world"),
 			Ingress: []extensionsv1alpha1.BastionIngressPolicy{{
 				IPBlock: networkingv1.IPBlock{
 					CIDR: cidrv4,
