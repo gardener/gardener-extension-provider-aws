@@ -195,7 +195,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 		})
 
 		Context("iamInstanceProfile", func() {
-			It("should prevent not specifying both name and arn", func() {
+			It("should prevent not specifying both IAM name and arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
@@ -206,7 +206,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				}))))
 			})
 
-			It("should prevent specifying both name and arn", func() {
+			It("should prevent specifying both IAM name and arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
 					Name: &iamInstanceProfileName,
 					ARN:  &iamInstanceProfileARN,
@@ -220,7 +220,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				}))))
 			})
 
-			It("should forbid specifying an invalid name", func() {
+			It("should forbid specifying an invalid IAM name", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
 					Name: pointer.StringPtr(""),
 				}
@@ -233,7 +233,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				}))))
 			})
 
-			It("should forbid specifying an invalid arn", func() {
+			It("should forbid specifying an invalid IAM arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
 					ARN: pointer.StringPtr(""),
 				}
@@ -246,7 +246,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				}))))
 			})
 
-			It("should forbid specifying a valid name", func() {
+			It("should allow specifying a valid IAM name", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
 					Name: &iamInstanceProfileName,
 				}
@@ -256,7 +256,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				Expect(errorList).To(BeEmpty())
 			})
 
-			It("should forbid specifying a valid arn", func() {
+			It("should allow specifying a valid IAM arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
 					ARN: &iamInstanceProfileARN,
 				}
