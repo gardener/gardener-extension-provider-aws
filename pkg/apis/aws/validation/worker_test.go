@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("ValidateWorkerConfig", func() {
@@ -40,6 +41,9 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			dataVolume1Name = "foo"
 			dataVolume2Name = "bar"
 			dataVolumes     []core.DataVolume
+
+			iamInstanceProfileName = "name"
+			iamInstanceProfileARN  = "arn"
 
 			worker  *apisaws.WorkerConfig
 			fldPath = field.NewPath("config")
@@ -188,6 +192,79 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				"Type":  Equal(field.ErrorTypeInvalid),
 				"Field": Equal("config.dataVolumes[1].name"),
 			}))))
+		})
+
+		Context("iamInstanceProfile", func() {
+			It("should prevent not specifying both IAM name and arn", func() {
+				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{}
+
+				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("config.iamInstanceProfile"),
+				}))))
+			})
+
+			It("should prevent specifying both IAM name and arn", func() {
+				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
+					Name: &iamInstanceProfileName,
+					ARN:  &iamInstanceProfileARN,
+				}
+
+				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("config.iamInstanceProfile"),
+				}))))
+			})
+
+			It("should forbid specifying an invalid IAM name", func() {
+				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
+					Name: pointer.StringPtr(""),
+				}
+
+				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("config.iamInstanceProfile.name"),
+				}))))
+			})
+
+			It("should forbid specifying an invalid IAM arn", func() {
+				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
+					ARN: pointer.StringPtr(""),
+				}
+
+				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("config.iamInstanceProfile.arn"),
+				}))))
+			})
+
+			It("should allow specifying a valid IAM name", func() {
+				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
+					Name: &iamInstanceProfileName,
+				}
+
+				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow specifying a valid IAM arn", func() {
+				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
+					ARN: &iamInstanceProfileARN,
+				}
+
+				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+				Expect(errorList).To(BeEmpty())
+			})
 		})
 	})
 })

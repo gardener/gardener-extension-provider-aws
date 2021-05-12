@@ -118,3 +118,6 @@ spec:
   #   dataVolumes:
   #   - name: kubelet-dir
   #     snapshotID: snap-13234
+  #   iamInstanceProfile: # (specify either ARN or name)
+  #     name: my-profile
+  #     arn: my-instance-profile-arn

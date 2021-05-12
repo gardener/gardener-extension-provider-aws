@@ -122,6 +122,45 @@ ignoreTags:
 
 The `enableECRAccess` flag specifies whether the AWS IAM role policy attached to all worker nodes of the cluster shall contain permissions to access the Elastic Container Registry of the respective AWS account.
 If the flag is not provided it is defaulted to `true`.
+Please note that if the `iamInstanceProfile` is set for a worker pool in the `WorkerConfig` (see below) then `enableECRAccess` does not have any effect.
+It only applies for those worker pools whose `iamInstanceProfile` is not set.
+
+<details>
+  <summary>Click to expand the default AWS IAM policy document used for the instance profiles!</summary>
+
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ec2:DescribeInstances"
+        ],
+        "Resource": [
+          "*"
+        ]
+      },
+      // Only if `.enableECRAccess` is `true`.
+      {
+        "Effect": "Allow",
+        "Action": [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:GetRepositoryPolicy",
+          "ecr:DescribeRepositories",
+          "ecr:ListImages",
+          "ecr:BatchGetImage"
+        ],
+        "Resource": [
+          "*"
+        ]
+      }
+    ]
+  }
+  ```
+</details>
 
 The `networks.vpc` section describes whether you want to create the shoot cluster in an already existing VPC or whether to create a new one:
 
@@ -246,6 +285,9 @@ dataVolumes:
 - name: kubelet-dir
   iops: 12345
   snapshotID: snap-1234
+iamInstanceProfile: # (specify either ARN or name)
+  name: my-profile
+# arn: my-instance-profile-arn
 ```
 
 The `.volume.iops` is the number of I/O operations per second (IOPS) that the volume supports.
@@ -257,6 +299,9 @@ The `.dataVolumes` can optionally contain configurations for the data volumes st
 The `.name` must match to the name of the data volume in the shoot.
 Apart from the `.iops` (which, again, is only valid for `io1` or `gp2` volumes), it is also possible to provide a snapshot ID.
 It allows to [restore the data volume from an existing snapshot](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-restoring-volume.html).
+
+The `iamInstanceProfile` section allows to specify the IAM instance profile name xor ARN that should be used for this worker pool.
+If not specified, a dedicated IAM instance profile created by the infrastructure controller is used (see above).
 
 ## Example `Shoot` manifest (one availability zone)
 

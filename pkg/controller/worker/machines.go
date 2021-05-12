@@ -55,7 +55,7 @@ func (w *workerDelegate) MachineClass() client.Object {
 // DeployMachineClasses generates and creates the AWS specific machine classes.
 func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 	if w.machineClasses == nil {
-		if err := w.generateMachineConfig(ctx); err != nil {
+		if err := w.generateMachineConfig(); err != nil {
 			return err
 		}
 	}
@@ -71,14 +71,14 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 // GenerateMachineDeployments generates the configuration for the desired machine deployments.
 func (w *workerDelegate) GenerateMachineDeployments(ctx context.Context) (worker.MachineDeployments, error) {
 	if w.machineDeployments == nil {
-		if err := w.generateMachineConfig(ctx); err != nil {
+		if err := w.generateMachineConfig(); err != nil {
 			return nil, err
 		}
 	}
 	return w.machineDeployments, nil
 }
 
-func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
+func (w *workerDelegate) generateMachineConfig() error {
 	var (
 		machineDeployments = worker.MachineDeployments{}
 		machineClasses     []map[string]interface{}
@@ -90,10 +90,6 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 		return err
 	}
 
-	nodesInstanceProfile, err := awsapihelper.FindInstanceProfileForPurpose(infrastructureStatus.IAM.InstanceProfiles, awsapi.PurposeNodes)
-	if err != nil {
-		return err
-	}
 	nodesSecurityGroup, err := awsapihelper.FindSecurityGroupForPurpose(infrastructureStatus.VPC.SecurityGroups, awsapi.PurposeNodes)
 	if err != nil {
 		return err
@@ -109,7 +105,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 		}
 
-		workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashData(pool, workerConfig)...)
+		workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashData(pool)...)
 		if err != nil {
 			return err
 		}
@@ -129,6 +125,11 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			return err
 		}
 
+		iamInstanceProfile, err := computeIAMInstanceProfile(workerConfig, infrastructureStatus)
+		if err != nil {
+			return err
+		}
+
 		for zoneIndex, zone := range pool.Zones {
 			zoneIdx := int32(zoneIndex)
 
@@ -141,7 +142,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				"ami":                ami,
 				"region":             w.worker.Spec.Region,
 				"machineType":        pool.MachineType,
-				"iamInstanceProfile": nodesInstanceProfile.Name,
+				"iamInstanceProfile": iamInstanceProfile,
 				"keyName":            infrastructureStatus.EC2.KeyName,
 				"networkInterfaces": []map[string]interface{}{
 					{
@@ -294,7 +295,7 @@ func computeEBSDeviceNameForIndex(index int) (string, error) {
 	return deviceNamePrefix + deviceNameSuffix[index:index+1], nil
 }
 
-func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) []string {
+func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData []string
 
 	if pool.Volume != nil && pool.Volume.Encrypted != nil {
@@ -314,4 +315,25 @@ func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool, workerConfig 
 	}
 
 	return additionalData
+}
+
+func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructureStatus *awsapi.InfrastructureStatus) (map[string]interface{}, error) {
+	if workerConfig.IAMInstanceProfile == nil {
+		nodesInstanceProfile, err := awsapihelper.FindInstanceProfileForPurpose(infrastructureStatus.IAM.InstanceProfiles, awsapi.PurposeNodes)
+		if err != nil {
+			return nil, err
+		}
+
+		return map[string]interface{}{"name": nodesInstanceProfile.Name}, nil
+	}
+
+	if v := workerConfig.IAMInstanceProfile.Name; v != nil {
+		return map[string]interface{}{"name": *v}, nil
+	}
+
+	if v := workerConfig.IAMInstanceProfile.ARN; v != nil {
+		return map[string]interface{}{"arn": *v}, nil
+	}
+
+	return nil, fmt.Errorf("unable to compute IAM instance profile configuration")
 }

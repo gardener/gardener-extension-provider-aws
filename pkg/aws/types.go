@@ -76,12 +76,8 @@ const (
 	SSHKeyName = "keyName"
 	// IAMInstanceProfileNodes key for accessing Nodes Instance profile from outputs in terraform
 	IAMInstanceProfileNodes = "iamInstanceProfileNodes"
-	// IAMInstanceProfileBastions key for accessing Bastions Instance profile from outputs in terraform
-	IAMInstanceProfileBastions = "iamInstanceProfileBastions"
 	// NodesRole role for nodes
 	NodesRole = "nodes_role_arn"
-	// BastionsRole role for bastions
-	BastionsRole = "bastions_role_arn"
 
 	// CloudProviderConfigName is the name of the configmap containing the cloud provider config.
 	CloudProviderConfigName = "cloud-provider-config"

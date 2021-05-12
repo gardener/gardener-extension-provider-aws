@@ -263,6 +263,21 @@ Volume
 <p>DataVolumes contains configuration for the additional disks attached to VMs.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>iamInstanceProfile</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IAMInstanceProfile">
+IAMInstanceProfile
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
+worker pool.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus
@@ -475,6 +490,50 @@ string
 </td>
 <td>
 <p>Roles is a list of AWS IAM roles.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IAMInstanceProfile">IAMInstanceProfile
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+</p>
+<p>
+<p>IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
+worker pool. Either &lsquo;Name&rdquo; or &lsquo;ARN&rsquo; must be specified.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Name is the name of the instance profile.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>arn</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ARN is the ARN of the instance profile.</p>
 </td>
 </tr>
 </tbody>

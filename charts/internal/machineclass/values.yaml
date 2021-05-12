@@ -5,7 +5,9 @@ machineClasses:
   ami: ami-123456
   region: eu-west-1
   machineType: m4.xlarge
-  iamInstanceProfile: nodes
+  iamInstanceProfile:
+    name: nodes
+  # arn: arn
   keyName: my-ssh-key
   networkInterfaces:
   - subnetID: subnet-acbd1234
