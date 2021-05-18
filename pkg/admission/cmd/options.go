@@ -25,5 +25,6 @@ import (
 func GardenWebhookSwitchOptions() *webhookcmd.SwitchOptions {
 	return webhookcmd.NewSwitchOptions(
 		webhookcmd.Switch(extensionswebhook.ValidatorName, validator.New),
+		webhookcmd.Switch(validator.SecretsValidatorName, validator.NewSecretsWebhook),
 	)
 }
