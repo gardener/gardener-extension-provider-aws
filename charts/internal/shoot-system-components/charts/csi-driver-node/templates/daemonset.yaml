@@ -38,7 +38,7 @@ spec:
         - --volume-attach-limit={{ .Values.driver.volumeAttachLimit }}
         {{- end }}
         - --logtostderr
-        - --v=5
+        - --v=3
         env:
         - name: CSI_ENDPOINT
           value: unix:{{ .Values.socketPath }}
