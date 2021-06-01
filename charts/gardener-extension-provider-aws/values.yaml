@@ -59,7 +59,7 @@ webhookConfig:
   serverPort: 10250
 
 leaderElection:
-  resourceLock: configmapsleases
+  resourceLock: leases
 
 config:
   clientConnection:
