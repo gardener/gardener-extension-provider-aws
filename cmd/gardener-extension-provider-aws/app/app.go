@@ -54,11 +54,8 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 	var (
 		restOpts = &controllercmd.RESTOptions{}
 		mgrOpts  = &controllercmd.ManagerOptions{
-			LeaderElection: true,
-			// TODO: migrate default to `leases` in one of the next releases
-			// `configmapsleases` has been default since v1.20 (but was not configurable via flags)
-			// maybe consider changing the default in v1.22?
-			LeaderElectionResourceLock: resourcelock.ConfigMapsLeasesResourceLock,
+			LeaderElection:             true,
+			LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 			LeaderElectionID:           controllercmd.LeaderElectionNameID(aws.Name),
 			LeaderElectionNamespace:    os.Getenv("LEADER_ELECTION_NAMESPACE"),
 			WebhookServerPort:          443,
