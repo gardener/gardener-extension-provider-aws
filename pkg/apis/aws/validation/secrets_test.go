@@ -70,6 +70,14 @@ var _ = Describe("Secret validation", func() {
 			HaveOccurred(),
 		),
 
+		Entry("should return error when the access key does not contain only alphanumeric characters",
+			map[string][]byte{
+				aws.AccessKeyID:     []byte(strings.Repeat("a", 20) + " "),
+				aws.SecretAccessKey: []byte(strings.Repeat("b", 40)),
+			},
+			HaveOccurred(),
+		),
+
 		Entry("should return error when the secret access key field is missing",
 			map[string][]byte{
 				aws.AccessKeyID: []byte(strings.Repeat("a", 16)),
@@ -89,6 +97,14 @@ var _ = Describe("Secret validation", func() {
 			map[string][]byte{
 				aws.AccessKeyID:     []byte(strings.Repeat("a", 16)),
 				aws.SecretAccessKey: []byte(strings.Repeat("b", 39)),
+			},
+			HaveOccurred(),
+		),
+
+		Entry("should return error when the secret access key does not contain only base64 characters",
+			map[string][]byte{
+				aws.AccessKeyID:     []byte(strings.Repeat("a", 16)),
+				aws.SecretAccessKey: []byte(strings.Repeat("b", 40) + " "),
 			},
 			HaveOccurred(),
 		),
