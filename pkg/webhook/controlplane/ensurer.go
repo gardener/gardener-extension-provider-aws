@@ -38,8 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const csiMigrationVersion = "1.18"
-
 // NewEnsurer creates a new controlplane ensurer.
 func NewEnsurer(logger logr.Logger) genericmutator.Ensurer {
 	return &ensurer{
@@ -81,7 +79,7 @@ func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, gctx gconte
 		return err
 	}
 
-	csiEnabled, csiMigrationComplete, err := csimigration.CheckCSIConditions(cluster, csiMigrationVersion)
+	csiEnabled, csiMigrationComplete, err := csimigration.CheckCSIConditions(cluster, aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return err
 	}
@@ -110,7 +108,7 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 		return err
 	}
 
-	csiEnabled, csiMigrationComplete, err := csimigration.CheckCSIConditions(cluster, csiMigrationVersion)
+	csiEnabled, csiMigrationComplete, err := csimigration.CheckCSIConditions(cluster, aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return err
 	}
@@ -140,7 +138,7 @@ func (e *ensurer) EnsureKubeSchedulerDeployment(ctx context.Context, gctx gconte
 		return err
 	}
 
-	csiEnabled, csiMigrationComplete, err := csimigration.CheckCSIConditions(cluster, csiMigrationVersion)
+	csiEnabled, csiMigrationComplete, err := csimigration.CheckCSIConditions(cluster, aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return err
 	}
@@ -395,7 +393,7 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcon
 		return nil, err
 	}
 
-	csiEnabled, _, err := csimigration.CheckCSIConditions(cluster, csiMigrationVersion)
+	csiEnabled, _, err := csimigration.CheckCSIConditions(cluster, aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +430,7 @@ func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, gctx gcontext.
 		return err
 	}
 
-	csiEnabled, err := versionutils.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", csiMigrationVersion)
+	csiEnabled, err := versionutils.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return err
 	}
