@@ -398,14 +398,14 @@ func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 	_ *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
-	k8sVersionLessThan118, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, "<", "1.18")
+	csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return nil, err
 	}
 
 	return map[string]interface{}{
 		"volumesnapshots": map[string]interface{}{
-			"enabled": !k8sVersionLessThan118,
+			"enabled": csiEnabled,
 		},
 	}, nil
 }
@@ -416,7 +416,7 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
-	k8sVersionLessThan118, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, "<", "1.18")
+	csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +439,7 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 	}
 
 	return map[string]interface{}{
-		"useLegacyProvisioner": k8sVersionLessThan118,
+		"useLegacyProvisioner": !csiEnabled,
 		"managedDefaultClass":  managedDefaultClass,
 	}, nil
 }
@@ -554,12 +554,12 @@ func getCSIControllerChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 ) (map[string]interface{}, error) {
-	k8sVersionLessThan118, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, "<", "1.18")
+	csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return nil, err
 	}
 
-	if k8sVersionLessThan118 {
+	if !csiEnabled {
 		return map[string]interface{}{"enabled": false}, nil
 	}
 
@@ -587,13 +587,13 @@ func getCSIControllerChartValues(
 func getControlPlaneShootChartValues(
 	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
-	k8sVersionLessThan118, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, "<", "1.18")
+	csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return nil, err
 	}
 
 	csiDriverNodeValues := map[string]interface{}{
-		"enabled":    !k8sVersionLessThan118,
+		"enabled":    csiEnabled,
 		"vpaEnabled": gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
 	}
 
