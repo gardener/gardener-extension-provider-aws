@@ -108,8 +108,13 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 
 	// ControlPlaneConfig
 	if shoot.Spec.Provider.ControlPlaneConfig != nil {
-		if _, err := decodeControlPlaneConfig(s.decoder, shoot.Spec.Provider.ControlPlaneConfig, fldPath.Child("controlPlaneConfig")); err != nil {
+		controlPlaneConfig, err := decodeControlPlaneConfig(s.decoder, shoot.Spec.Provider.ControlPlaneConfig, fldPath.Child("controlPlaneConfig"))
+		if err != nil {
 			return err
+		}
+
+		if errList := awsvalidation.ValidateControlPlaneConfig(controlPlaneConfig, shoot.Spec.Kubernetes.Version, fldPath.Child("controlPlaneConfig")); len(errList) != 0 {
+			return errList.ToAggregate()
 		}
 	}
 

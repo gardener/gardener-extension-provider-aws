@@ -208,14 +208,12 @@ var _ = Describe("Bastion tests", func() {
 		})
 
 		By("wait until bastion is reconciled")
-		Expect(extensions.WaitUntilExtensionCRReady(
+		Expect(extensions.WaitUntilExtensionObjectReady(
 			ctx,
 			c,
 			logger,
-			func() client.Object { return &extensionsv1alpha1.Bastion{} },
+			bastion.DeepCopy(),
 			extensionsv1alpha1.BastionResource,
-			bastion.Namespace,
-			bastion.Name,
 			10*time.Second,
 			30*time.Second,
 			5*time.Minute,
@@ -331,14 +329,12 @@ func teardownBastion(ctx context.Context, logger *logrus.Entry, c client.Client,
 	Expect(client.IgnoreNotFound(c.Delete(ctx, bastion))).To(Succeed())
 
 	By("wait until bastion is deleted")
-	err := extensions.WaitUntilExtensionCRDeleted(
+	err := extensions.WaitUntilExtensionObjectDeleted(
 		ctx,
 		c,
 		logger,
-		func() extensionsv1alpha1.Object { return &extensionsv1alpha1.Bastion{} },
+		bastion.DeepCopy(),
 		extensionsv1alpha1.BastionResource,
-		bastion.Namespace,
-		bastion.Name,
 		10*time.Second,
 		16*time.Minute,
 	)
