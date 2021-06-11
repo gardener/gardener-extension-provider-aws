@@ -48,7 +48,7 @@ var (
 // HealthChecks are grouped by extension (e.g worker), extension.type (e.g aws) and  Health Check Type (e.g SystemComponentsHealthy)
 func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) error {
 	csiEnabledPreCheckFunc := func(_ client.Object, cluster *extensionscontroller.Cluster) bool {
-		csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", "1.18")
+		csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
 		if err != nil {
 			return false
 		}
