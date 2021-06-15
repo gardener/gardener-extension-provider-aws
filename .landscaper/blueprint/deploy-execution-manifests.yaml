@@ -45,6 +45,9 @@ deployItems:
                 {{- $image := getResource .cd "name" "gardener-extension-provider-aws-image" }}
                 repository: {{ ociRefRepo ( $image.access.imageReference ) }}
                 tag: {{ ociRefVersion ( $image.access.imageReference ) }}
+              images:
+                alpine: {{ (getResource .cd "name" "alpine").access.imageReference }}
+                pause: {{ (getResource .cd "name" "pause").access.imageReference }}
               replicaCount: 3
               resources:
                 {{- if .imports.controllerRegistration.resources }}
