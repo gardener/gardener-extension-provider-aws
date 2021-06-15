@@ -190,3 +190,7 @@ cnudie-cd-build-push:
 
 .PHONY: cnudie-build-push-all
 cnudie-build-push-all: cnudie-docker-images cnudie-docker-push cnudie-cd-build-push
+
+.PHONY: cnudie-create-installation
+cnudie-create-installation:
+	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/create-installation.sh
