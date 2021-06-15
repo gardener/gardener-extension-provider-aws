@@ -23,6 +23,7 @@ VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
 LD_FLAGS                    := "-w -X github.com/gardener/$(EXTENSION_PREFIX)-$(NAME)/pkg/version.Version=$(IMAGE_TAG)"
 LEADER_ELECTION             := false
 IGNORE_OPERATION_ANNOTATION := true
+EFFECTIVE_VERSION := $(VERSION)-$(shell git rev-parse HEAD)
 
 WEBHOOK_CONFIG_PORT	:= 8443
 WEBHOOK_CONFIG_MODE	:= url
@@ -160,3 +161,11 @@ integration-test-bastion:
 		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
 		--region=$(REGION)
+
+#####################################################################
+# Rules for cnudie component descriptors dev setup #
+#####################################################################
+
+.PHONY: cnudie
+cnudie:
+	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/generate-cd.sh
