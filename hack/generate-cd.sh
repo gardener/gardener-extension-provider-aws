@@ -43,7 +43,7 @@ name: gardener-extension-provider-aws
 relation: local
 access:
   type: ociRegistry
-  imageReference: eu.gcr.io/gardener-project/gardener/extensions/provider-aws:${EFFECTIVE_VERSION}
+  imageReference: eu.gcr.io/gardener-project/development/images/provider-aws:${EFFECTIVE_VERSION}
 ...
 ---
 type: ociImage
@@ -51,7 +51,7 @@ name: gardener-extension-admission-aws
 relation: local
 access:
   type: ociRegistry
-  imageReference: eu.gcr.io/gardener-project/gardener/extensions/admission-aws:${EFFECTIVE_VERSION}
+  imageReference: eu.gcr.io/gardener-project/development/images/admission-aws:${EFFECTIVE_VERSION}
 ...
 EOF
 

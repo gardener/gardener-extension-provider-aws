@@ -23,7 +23,6 @@ VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
 LD_FLAGS                    := "-w -X github.com/gardener/$(EXTENSION_PREFIX)-$(NAME)/pkg/version.Version=$(IMAGE_TAG)"
 LEADER_ELECTION             := false
 IGNORE_OPERATION_ANNOTATION := true
-EFFECTIVE_VERSION := $(VERSION)-$(shell git rev-parse HEAD)
 
 WEBHOOK_CONFIG_PORT	:= 8443
 WEBHOOK_CONFIG_MODE	:= url
@@ -38,6 +37,11 @@ endif
 REGION                 := eu-west-1
 ACCESS_KEY_ID_FILE     := .kube-secrets/aws/access_key_id.secret
 SECRET_ACCESS_KEY_FILE := .kube-secrets/aws/secret_access_key.secret
+
+EFFECTIVE_VERSION := $(VERSION)-$(shell git rev-parse HEAD)
+CNUDIE_DEV_REGISTRY      := eu.gcr.io/gardener-project/development
+CNUDIE_DEV_IMAGE_REPOSITORY_PROVIDER := $(CNUDIE_DEV_REGISTRY)/images/$(NAME)
+CNUDIE_DEV_IMAGE_REPOSITORY_ADMISSION := $(CNUDIE_DEV_REGISTRY)/images/$(ADMISSION_NAME)
 
 #########################################
 # Rules for local development scenarios #
@@ -166,6 +170,23 @@ integration-test-bastion:
 # Rules for cnudie component descriptors dev setup #
 #####################################################################
 
-.PHONY: cnudie
-cnudie:
+.PHONY: cnudie-docker-images
+cnudie-docker-images:
+	@echo "Building docker images for version $(EFFECTIVE_VERSION)"
+	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(CNUDIE_DEV_IMAGE_REPOSITORY_PROVIDER):$(EFFECTIVE_VERSION) -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME) .
+	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(CNUDIE_DEV_IMAGE_REPOSITORY_ADMISSION):$(EFFECTIVE_VERSION) -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
+
+.PHONY: cnudie-docker-push
+cnudie-docker-push:
+	@echo "Pushing docker images for version $(EFFECTIVE_VERSION) to registry $(CNUDIE_DEV_REGISTRY)"
+	@if ! docker images $(CNUDIE_DEV_IMAGE_REPOSITORY_PROVIDER) | awk '{ print $$2 }' | grep -q -F $(EFFECTIVE_VERSION); then echo "$(CNUDIE_DEV_IMAGE_REPOSITORY_PROVIDER) version $(EFFECTIVE_VERSION) is not yet built. Please run 'make cnudie-docker-images'"; false; fi
+	@docker push $(CNUDIE_DEV_IMAGE_REPOSITORY_PROVIDER):$(EFFECTIVE_VERSION)
+	@if ! docker images $(CNUDIE_DEV_IMAGE_REPOSITORY_ADMISSION) | awk '{ print $$2 }' | grep -q -F $(EFFECTIVE_VERSION); then echo "$(CNUDIE_DEV_IMAGE_REPOSITORY_ADMISSION) version $(EFFECTIVE_VERSION) is not yet built. Please run 'make cnudie-docker-images'"; false; fi
+	@docker push $(CNUDIE_DEV_IMAGE_REPOSITORY_ADMISSION):$(EFFECTIVE_VERSION)
+
+.PHONY: cnudie-cd-build-push
+cnudie-cd-build-push:
 	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/generate-cd.sh
+
+.PHONY: cnudie-build-push-all
+cnudie-build-push-all: cnudie-docker-images cnudie-docker-push cnudie-cd-build-push
