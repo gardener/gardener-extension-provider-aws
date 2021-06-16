@@ -180,6 +180,9 @@ cnudie-docker-push:
 	@if ! docker images $(IMAGE_PREFIX)/$(ADMISSION_NAME) | awk '{ print $$2 }' | grep -q -F $(EFFECTIVE_VERSION); then echo "$(IMAGE_PREFIX)/$(ADMISSION_NAME) version $(EFFECTIVE_VERSION) is not yet built. Please run 'make cnudie-docker-images'"; false; fi
 	@docker push $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(EFFECTIVE_VERSION)
 
+.PHONY: cnudie-docker-all
+cnudie-docker-all: cnudie-docker-images cnudie-docker-push
+
 .PHONY: cnudie-cd-build-push
 cnudie-cd-build-push:
 	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/generate-cd.sh
