@@ -10,6 +10,8 @@ SOURCE_PATH="$(dirname $0)/.."
 mkdir "${SOURCE_PATH}/tmp"
 INSTALLATION_PATH="${SOURCE_PATH}/tmp/installation.yaml"
 
+REGISTRY="$(${SOURCE_PATH}/hack/get-image-registry.sh)"
+
 cat << EOF > ${INSTALLATION_PATH}
 apiVersion: landscaper.gardener.cloud/v1alpha1
 kind: Installation
@@ -20,7 +22,7 @@ spec:
     ref:
       repositoryContext:
         type: ociRegistry
-        baseUrl: eu.gcr.io/gardener-project/development
+        baseUrl: $(REGISTRY)
       componentName: github.com/gardener/gardener-extension-provider-aws
       version: ${EFFECTIVE_VERSION}
 

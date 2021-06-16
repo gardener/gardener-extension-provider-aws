@@ -6,7 +6,10 @@
 
 set -e
 
-REPO_CTX="eu.gcr.io/gardener-project/development"
+SOURCE_PATH="$(dirname $0)/.."
+IMAGE_REGISTRY="$(${SOURCE_PATH}/hack/get-image-registry.sh)"
+CD_REGISTRY="$(${SOURCE_PATH}/hack/get-cd-registry.sh)"
+
 CA_PATH="$(mktemp -d)"
 TMP_COMPONENT_DESCRIPTOR_PATH="${CA_PATH}/component-descriptor.yaml"
 
@@ -31,7 +34,7 @@ echo "> Creating base definition"
 component-cli ca create "${CA_PATH}" \
     --component-name=github.com/gardener/gardener-extension-provider-aws \
     --component-version=${EFFECTIVE_VERSION} \
-    --repo-ctx=${REPO_CTX}
+    --repo-ctx=${CD_REGISTRY}
 
 echo "> Extending resources.yaml: adding image of virtual-garden deployer"
 RESOURCES_BASE_PATH="$(mktemp -d)"
@@ -43,7 +46,7 @@ name: gardener-extension-provider-aws
 relation: local
 access:
   type: ociRegistry
-  imageReference: eu.gcr.io/gardener-project/development/images/provider-aws:${EFFECTIVE_VERSION}
+  imageReference: ${IMAGE_REGISTRY}/provider-aws:${EFFECTIVE_VERSION}
 ...
 ---
 type: ociImage
@@ -51,7 +54,7 @@ name: gardener-extension-admission-aws
 relation: local
 access:
   type: ociRegistry
-  imageReference: eu.gcr.io/gardener-project/development/images/admission-aws:${EFFECTIVE_VERSION}
+  imageReference: ${IMAGE_REGISTRY}/admission-aws:${EFFECTIVE_VERSION}
 ...
 EOF
 
@@ -74,5 +77,5 @@ CTF_PATH=${CTF_PATH} BASE_DEFINITION_PATH=${TMP_COMPONENT_DESCRIPTOR_PATH} \
   ADD_DEPENDENCIES_CMD=${ADD_DEPENDENCIES_CMD} bash $SOURCE_PATH/.ci/component_descriptor
 
 echo "> Uploading archive from ${CTF_PATH}"
-component-cli ctf push --repo-ctx=${REPO_CTX} "${CTF_PATH}"
+component-cli ctf push --repo-ctx=${CD_REGISTRY} "${CTF_PATH}"
 
