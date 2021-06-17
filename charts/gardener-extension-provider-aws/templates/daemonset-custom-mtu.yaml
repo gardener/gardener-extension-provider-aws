@@ -30,7 +30,7 @@ spec:
           operator: Exists
       initContainers:
       - name: mtu-customizer
-        image: {{ include "image.alpine" . }}
+        image: {{ include "images.alpine" . }}
         command:
         - /mtu-customizer/mtu-customizer.sh
         securityContext:
@@ -41,7 +41,7 @@ spec:
             mountPath: /mtu-customizer
       containers:
         - name: pause
-          image: {{ include "image.pause" .  }}
+          image: {{ include "images.pause" .  }}
       terminationGracePeriodSeconds: 2
       volumes:
         - name: mtu-customizer

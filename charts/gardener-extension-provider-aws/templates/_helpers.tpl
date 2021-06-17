@@ -22,6 +22,22 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- end }}
 {{- end }}
 
+{{- define "images.alpine" -}}
+    {{- if .Values.images.alpine }}
+      {{- .Values.images.alpine }}
+    {{- else }}
+      {{- include "image.alpine" .  }}
+    {{- end }}
+{{- end }}
+
+{{- define "images.pause" -}}
+    {{- if .Values.images.pause }}
+      {{- .Values.images.pause }}
+    {{- else }}
+      {{- include "image.pause" .  }}
+    {{- end }}
+{{- end -}}
+
 {{- define "deploymentversion" -}}
 apps/v1
 {{- end -}}
