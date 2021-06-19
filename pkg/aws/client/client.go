@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -30,6 +31,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/aws/aws-sdk-go/service/route53"
+	"github.com/aws/aws-sdk-go/service/route53/route53iface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -45,12 +48,13 @@ import (
 // * ELB is the standard client for the ELB service.
 // * ELBv2 is the standard client for the ELBv2 service.
 type Client struct {
-	EC2   ec2iface.EC2API
-	STS   stsiface.STSAPI
-	IAM   iamiface.IAMAPI
-	S3    s3iface.S3API
-	ELB   elbiface.ELBAPI
-	ELBv2 elbv2iface.ELBV2API
+	EC2     ec2iface.EC2API
+	STS     stsiface.STSAPI
+	IAM     iamiface.IAMAPI
+	S3      s3iface.S3API
+	ELB     elbiface.ELBAPI
+	ELBv2   elbv2iface.ELBV2API
+	Route53 route53iface.Route53API
 }
 
 // NewClient creates a new Client for the given AWS credentials <accessKeyID>, <secretAccessKey>, and
@@ -70,12 +74,13 @@ func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
 	}
 
 	return &Client{
-		EC2:   ec2.New(s, config),
-		ELB:   elb.New(s, config),
-		ELBv2: elbv2.New(s, config),
-		IAM:   iam.New(s, config),
-		STS:   sts.New(s, config),
-		S3:    s3.New(s, config),
+		EC2:     ec2.New(s, config),
+		ELB:     elb.New(s, config),
+		ELBv2:   elbv2.New(s, config),
+		IAM:     iam.New(s, config),
+		STS:     sts.New(s, config),
+		S3:      s3.New(s, config),
+		Route53: route53.New(s, config),
 	}, nil
 }
 
@@ -418,11 +423,105 @@ func (c *Client) DeleteSecurityGroup(ctx context.Context, id string) error {
 	return ignoreNotFound(err)
 }
 
+// GetDNSHostedZones returns a map of all DNS hosted zone names mapped to their IDs.
+func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, error) {
+	zones := make(map[string]string)
+	if err := c.Route53.ListHostedZonesPagesWithContext(ctx, &route53.ListHostedZonesInput{}, func(out *route53.ListHostedZonesOutput, lastPage bool) bool {
+		for _, zone := range out.HostedZones {
+			zones[normalizeZoneName(aws.StringValue(zone.Name))] = normalizeZoneId(aws.StringValue(zone.Id))
+		}
+		return !lastPage
+	}); err != nil {
+		return nil, err
+	}
+	return zones, nil
+}
+
+func normalizeZoneName(zoneName string) string {
+	if strings.HasPrefix(zoneName, "\\052.") {
+		zoneName = "*" + zoneName[4:]
+	}
+	if strings.HasSuffix(zoneName, ".") {
+		return zoneName[:len(zoneName)-1]
+	}
+	return zoneName
+}
+
+func normalizeZoneId(zoneId string) string {
+	parts := strings.Split(zoneId, "/")
+	return parts[len(parts)-1]
+}
+
+// CreateOrUpdateDNSRecord creates or updates the DNS record in the DNS hosted zone with the given zone ID,
+// with the given name, type, values, and TTL.
+func (c *Client) CreateOrUpdateDNSRecord(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
+	out, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionUpsert, name, recordType, values, ttl))
+	if err != nil {
+		return err
+	}
+	return c.Route53.WaitUntilResourceRecordSetsChangedWithContext(ctx, &route53.GetChangeInput{Id: out.ChangeInfo.Id})
+}
+
+// DeleteDNSRecord deletes the DNS record in the DNS hosted zone with the given zone ID,
+// with the given name, type, values, and TTL.
+func (c *Client) DeleteDNSRecord(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
+	out, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, name, recordType, values, ttl))
+	if err != nil {
+		return ignoreNotFoundRoute53(err)
+	}
+	return c.Route53.WaitUntilResourceRecordSetsChangedWithContext(ctx, &route53.GetChangeInput{Id: out.ChangeInfo.Id})
+}
+
+func newChangeResourceRecordSetsInput(zoneId, action, name, recordType string, values []string, ttl int64) *route53.ChangeResourceRecordSetsInput {
+	var resourceRecords []*route53.ResourceRecord
+	for _, value := range values {
+		if recordType == route53.RRTypeTxt {
+			value = encloseInQuotes(value)
+		}
+		resourceRecords = append(resourceRecords, &route53.ResourceRecord{
+			Value: aws.String(value),
+		})
+	}
+	return &route53.ChangeResourceRecordSetsInput{
+		HostedZoneId: aws.String(zoneId),
+		ChangeBatch: &route53.ChangeBatch{
+			Changes: []*route53.Change{
+				{
+					Action: aws.String(action),
+					ResourceRecordSet: &route53.ResourceRecordSet{
+						Name:            aws.String(name),
+						ResourceRecords: resourceRecords,
+						Type:            aws.String(recordType),
+						TTL:             aws.Int64(ttl),
+					},
+				},
+			},
+		},
+	}
+}
+
+func encloseInQuotes(s string) string {
+	if s[0] != '"' || s[len(s)-1] != '"' {
+		return fmt.Sprintf(`"%s"`, s)
+	}
+	return s
+}
+
 func ignoreNotFound(err error) error {
 	if err == nil {
 		return nil
 	}
 	if aerr, ok := err.(awserr.Error); ok && (aerr.Code() == elb.ErrCodeAccessPointNotFoundException || aerr.Code() == "InvalidGroup.NotFound") {
+		return nil
+	}
+	return err
+}
+
+func ignoreNotFoundRoute53(err error) error {
+	if err == nil {
+		return nil
+	}
+	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && strings.Contains(aerr.Message(), "it was not found") {
 		return nil
 	}
 	return err

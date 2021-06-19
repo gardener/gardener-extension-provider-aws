@@ -1,4 +1,4 @@
-// Copyright (c) 2019 SAP SE or an SAP affiliate company. All rights reserved. This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
+// Copyright (c) 2021 SAP SE or an SAP affiliate company. All rights reserved. This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aws
+package dnsrecord
 
-// Type is the type of resources managed by the AWS actuators.
-const Type = "aws"
+import "strings"
 
-// Type is the type of resources managed by the DNSRecord AWS actuator.
-const DNSType = "aws-route53"
+// MatchesDomain returns true if the given hostname matches (is a subdomain) of the given domain, false otherwise.
+func MatchesDomain(hostname, domain string) bool {
+	return strings.HasSuffix(hostname, "."+domain) || domain == hostname
+}

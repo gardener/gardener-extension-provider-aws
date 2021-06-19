@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dnsrecord-external
+  namespace: shoot--foobar--aws
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: base64(access-key-id)
+  AWS_SECRET_ACCESS_KEY: base64(secret-access-key)
+# AWS_REGION: base64(region)
+---
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: Cluster
+metadata:
+  name: shoot--foobar--aws
+spec:
+  cloudProfile:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: CloudProfile
+  seed:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: Seed
+  shoot:
+    apiVersion: core.gardener.cloud/v1alpha1
+    kind: Shoot
+    status:
+      lastOperation:
+        state: Succeeded
+---
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: DNSRecord
+metadata:
+  name: dnsrecord-external
+  namespace: shoot--foobar--aws
+spec:
+  type: aws-route53
+  secretRef:
+    name: dnsrecord-external
+    namespace: shoot--foobar--aws
+# region: eu-west-1
+# zone: ZFOO
+  name: api.aws.foobar.shoot.example.com
+# recordType: A
+  values: # list of IP addresses for A records (external or internal), or texts for TXT records (owner).
+  - 1.2.3.4
+# ttl: 120

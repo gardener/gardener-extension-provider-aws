@@ -67,7 +67,7 @@ var _ = Describe("Secret", func() {
 
 			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
 
-			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef)
+			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(Equal(fakeErr))
@@ -87,7 +87,7 @@ var _ = Describe("Secret", func() {
 				return nil
 			})
 
-			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef)
+			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
 
 			Expect(credentials).To(Equal(&Credentials{
 				AccessKeyID:     accessKeyID,
@@ -99,7 +99,7 @@ var _ = Describe("Secret", func() {
 
 	Describe("#ReadCredentialsSecret", func() {
 		It("should return an error because access key id is missing", func() {
-			credentials, err := ReadCredentialsSecret(secret)
+			credentials, err := ReadCredentialsSecret(secret, false)
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(HaveOccurred())
@@ -110,7 +110,7 @@ var _ = Describe("Secret", func() {
 				AccessKeyID: []byte("foo"),
 			}
 
-			credentials, err := ReadCredentialsSecret(secret)
+			credentials, err := ReadCredentialsSecret(secret, false)
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(HaveOccurred())
@@ -127,7 +127,7 @@ var _ = Describe("Secret", func() {
 				SecretAccessKey: key,
 			}
 
-			credentials, err := ReadCredentialsSecret(secret)
+			credentials, err := ReadCredentialsSecret(secret, false)
 
 			Expect(credentials).To(Equal(&Credentials{
 				AccessKeyID:     id,
