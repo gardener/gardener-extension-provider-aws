@@ -22,13 +22,13 @@ spec:
     type: string
     description: The DNS record provider type.
     JSONPath: .spec.type
-  - name: Domain
+  - name: Domain Name
     type: string
     description: The DNS record domain name.
     JSONPath: .spec.name
   - name: Record Type
     type: string
-    description: The DNS record type (A or TXT).
+    description: The DNS record type (A, CNAME, or TXT).
     JSONPath: .spec.recordType
   - name: State
     type: string

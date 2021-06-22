@@ -17,7 +17,6 @@ package dnsrecord
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/dnsrecord"
@@ -62,11 +61,10 @@ func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRec
 	}
 
 	// Create or update DNS record
-	recordType := extensionsv1alpha1helper.GetDNSRecordType(dns.Spec.RecordType)
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
-	a.logger.Info("Creating or updating DNS record", "zone", zone, "name", dns.Spec.Name, "type", recordType, "values", dns.Spec.Values)
-	if err := awsClient.CreateOrUpdateDNSRecord(ctx, zone, dns.Spec.Name, string(recordType), dns.Spec.Values, ttl); err != nil {
-		return fmt.Errorf("could not create or update DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, recordType, dns.Spec.Values, err)
+	a.logger.Info("Creating or updating DNS record", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values)
+	if err := awsClient.CreateOrUpdateDNSRecord(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
+		return fmt.Errorf("could not create or update DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err)
 	}
 
 	// Update resource status
@@ -91,11 +89,10 @@ func (a *actuator) Delete(ctx context.Context, dns *extensionsv1alpha1.DNSRecord
 	}
 
 	// Delete DNS record
-	recordType := extensionsv1alpha1helper.GetDNSRecordType(dns.Spec.RecordType)
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
-	a.logger.Info("Deleting DNS record", "zone", zone, "name", dns.Spec.Name, "type", recordType, "values", dns.Spec.Values)
-	if err := awsClient.DeleteDNSRecord(ctx, zone, dns.Spec.Name, string(recordType), dns.Spec.Values, ttl); err != nil {
-		return fmt.Errorf("could not delete DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, recordType, dns.Spec.Values, err)
+	a.logger.Info("Deleting DNS record", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values)
+	if err := awsClient.DeleteDNSRecord(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
+		return fmt.Errorf("could not delete DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err)
 	}
 
 	// Update resource status
@@ -137,7 +134,7 @@ func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 func findZoneForName(zones map[string]string, name string) string {
 	longestZoneName, result := "", ""
 	for zoneName, zoneId := range zones {
-		if strings.HasSuffix(name, zoneName) && len(zoneName) > len(longestZoneName) {
+		if dnsrecord.MatchesDomain(name, zoneName) && len(zoneName) > len(longestZoneName) {
 			longestZoneName, result = zoneName, zoneId
 		}
 	}
