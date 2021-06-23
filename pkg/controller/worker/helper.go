@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	AwsCsiDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
+	awsCSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
 )
 
 func (w *workerDelegate) decodeWorkerProviderStatus() (*api.WorkerStatus, error) {
