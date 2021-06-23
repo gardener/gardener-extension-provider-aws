@@ -28,10 +28,6 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-const (
-	awsCSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
-)
-
 func (w *workerDelegate) decodeWorkerProviderStatus() (*api.WorkerStatus, error) {
 	workerStatus := &api.WorkerStatus{}
 
@@ -62,22 +58,4 @@ func (w *workerDelegate) updateWorkerProviderStatus(ctx context.Context, workerS
 		w.worker.Status.ProviderStatus = &runtime.RawExtension{Object: workerStatusV1alpha1}
 		return nil
 	})
-}
-
-func makeCopyOfMap(mp map[string]string) map[string]string {
-	var mpDeepCopy = make(map[string]string)
-	for k, v := range mp {
-		mpDeepCopy[k] = v
-	}
-	return mpDeepCopy
-}
-
-func addAwsCsiDriverTopologyLabel(poolLabels map[string]string, zone string) map[string]string {
-	if _, exists := poolLabels[AwsCsiDriverTopologyKey]; !exists {
-		var poolLabelsDeepCopy = makeCopyOfMap(poolLabels)
-		poolLabelsDeepCopy[AwsCsiDriverTopologyKey] = zone
-		return poolLabelsDeepCopy
-	}
-
-	return poolLabels
 }
