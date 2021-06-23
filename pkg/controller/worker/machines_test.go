@@ -141,9 +141,7 @@ var _ = Describe("Machines", func() {
 				zone1       string
 				zone2       string
 
-				labels                               map[string]string
-				labelsWithAwsCsiDriverTopologyLabel1 map[string]string
-				labelsWithAwsCsiDriverTopologyLabel2 map[string]string
+				labels map[string]string
 
 				machineConfiguration *machinev1alpha1.MachineConfiguration
 
@@ -211,8 +209,6 @@ var _ = Describe("Machines", func() {
 				zone2 = region + "b"
 
 				labels = map[string]string{"component": "TiDB"}
-				labelsWithAwsCsiDriverTopologyLabel1 = makeCopyOfMap(labels)
-				labelsWithAwsCsiDriverTopologyLabel2 = makeCopyOfMap(labels)
 
 				machineConfiguration = &machinev1alpha1.MachineConfiguration{}
 
@@ -537,9 +533,6 @@ var _ = Describe("Machines", func() {
 						machineClassPool2Zone2,
 					}}
 
-					labelsWithAwsCsiDriverTopologyLabel1[AwsCsiDriverTopologyKey] = zone1
-					labelsWithAwsCsiDriverTopologyLabel2[AwsCsiDriverTopologyKey] = zone2
-
 					machineDeployments = worker.MachineDeployments{
 						{
 							Name:                 machineClassNamePool1Zone1,
@@ -549,7 +542,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(0, maxPool1, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool1, 2, maxPool1),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool1, 2, minPool1),
-							Labels:               labelsWithAwsCsiDriverTopologyLabel1,
+							Labels:               labels,
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -560,7 +553,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(1, maxPool1, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool1, 2, maxPool1),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool1, 2, minPool1),
-							Labels:               labelsWithAwsCsiDriverTopologyLabel2,
+							Labels:               labels,
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -571,7 +564,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(0, maxPool2, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool2, 2, maxPool2),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool2, 2, minPool2),
-							Labels:               labelsWithAwsCsiDriverTopologyLabel1,
+							Labels:               labels,
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -582,7 +575,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(1, maxPool2, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool2, 2, maxPool2),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool2, 2, minPool2),
-							Labels:               labelsWithAwsCsiDriverTopologyLabel2,
+							Labels:               labels,
 							MachineConfiguration: machineConfiguration,
 						},
 					}
@@ -917,12 +910,4 @@ func addNameAndSecretToMachineClass(class map[string]interface{}, name string, c
 		"namespace": credentialsSecretRef.Namespace,
 	}
 	class["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass}
-}
-
-func makeCopyOfMap(mp map[string]string) map[string]string {
-	var mpDeepCopy = make(map[string]string)
-	for k, v := range mp {
-		mpDeepCopy[k] = v
-	}
-	return mpDeepCopy
 }

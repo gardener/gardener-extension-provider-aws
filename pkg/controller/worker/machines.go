@@ -24,7 +24,7 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
+	"github.com/gardener/gardener/extensions/pkg/controller/csimigration"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -91,6 +91,11 @@ func (w *workerDelegate) generateMachineConfig() error {
 	}
 
 	nodesSecurityGroup, err := awsapihelper.FindSecurityGroupForPurpose(infrastructureStatus.VPC.SecurityGroups, awsapi.PurposeNodes)
+	if err != nil {
+		return err
+	}
+
+	csiEnabled, _, err := csimigration.CheckCSIConditions(w.cluster, aws.GetCSIMigrationKubernetesVersion(w.cluster))
 	if err != nil {
 		return err
 	}
@@ -168,26 +173,29 @@ func (w *workerDelegate) generateMachineConfig() error {
 			}
 
 			var (
-				deploymentName = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
-				className      = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
+				deploymentName          = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
+				className               = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
+				awsCSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
 			)
 
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
-				Name:           deploymentName,
-				ClassName:      className,
-				SecretName:     className,
-				Minimum:        worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
-				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
-				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
-				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
-				// TODO: remove when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
-				// add aws csi driver topology label if its not specified
-				Labels:               addAwsCsiDriverTopologyLabel(pool.Labels, zone),
+				Name:                 deploymentName,
+				ClassName:            className,
+				SecretName:           className,
+				Minimum:              worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
+				Maximum:              worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
+				MaxSurge:             worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
+				MaxUnavailable:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
+				Labels:               pool.Labels,
 				Annotations:          pool.Annotations,
 				Taints:               pool.Taints,
 				MachineConfiguration: genericworkeractuator.ReadMachineConfiguration(pool),
 			})
-
+			// TODO: remove when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
+			// add aws csi driver topology label if its not specified
+			if csiEnabled {
+				machineDeployments[len(machineDeployments)-1].Labels = utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone})
+			}
 			machineClassSpec["name"] = className
 			machineClassSpec["labels"] = map[string]string{corev1.LabelZoneFailureDomain: zone}
 			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass}
