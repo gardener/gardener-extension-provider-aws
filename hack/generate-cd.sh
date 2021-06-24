@@ -7,8 +7,11 @@
 set -e
 
 SOURCE_PATH="$(dirname $0)/.."
-IMAGE_REGISTRY="$(${SOURCE_PATH}/hack/get-image-registry.sh)"
-CD_REGISTRY="$(${SOURCE_PATH}/hack/get-cd-registry.sh)"
+source "${SOURCE_PATH}/hack/environment.sh"
+
+IMAGE_REGISTRY=$(get_image_registry)
+CD_REGISTRY=$(get_cd_registry)
+COMPONENT_NAME=$(get_cd_component_name)
 
 CA_PATH="$(mktemp -d)"
 TMP_COMPONENT_DESCRIPTOR_PATH="${CA_PATH}/component-descriptor.yaml"
@@ -32,7 +35,7 @@ fi
 echo "> Generate Component Descriptor ${EFFECTIVE_VERSION}"
 echo "> Creating base definition"
 component-cli ca create "${CA_PATH}" \
-    --component-name=github.com/gardener/gardener-extension-provider-aws \
+    --component-name=${COMPONENT_NAME} \
     --component-version=${EFFECTIVE_VERSION} \
     --repo-ctx=${CD_REGISTRY}
 

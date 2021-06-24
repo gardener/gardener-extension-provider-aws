@@ -15,9 +15,10 @@
 EXTENSION_PREFIX            := gardener-extension
 NAME                        := provider-aws
 ADMISSION_NAME              := admission-aws
+REGISTRY                    := eu.gcr.io/gardener-project/gardener
 REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 HACK_DIR                    := $(REPO_ROOT)/hack
-IMAGE_PREFIX                := $(shell "$(HACK_DIR)/get-image-registry.sh")
+IMAGE_PREFIX                := $(REGISTRY)/extensions
 VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
 EFFECTIVE_VERSION           := $(VERSION)-$(shell git rev-parse HEAD)
 

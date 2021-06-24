@@ -7,10 +7,13 @@
 set -e
 
 SOURCE_PATH="$(dirname $0)/.."
+source "${SOURCE_PATH}/hack/environment.sh"
+
 TMP_DIR="$(mktemp -d)"
 INSTALLATION_PATH="${TMP_DIR}/installation.yaml"
 
-REGISTRY="$(${SOURCE_PATH}/hack/get-cd-registry.sh)"
+REGISTRY=$(get_cd_registry)
+COMPONENT_NAME=$(get_cd_component_name)
 
 cat << EOF > ${INSTALLATION_PATH}
 apiVersion: landscaper.gardener.cloud/v1alpha1
@@ -23,7 +26,7 @@ spec:
       repositoryContext:
         type: ociRegistry
         baseUrl: ${REGISTRY}
-      componentName: github.com/gardener/gardener-extension-provider-aws
+      componentName: ${COMPONENT_NAME}
       version: ${EFFECTIVE_VERSION}
 
   blueprint:
@@ -36,52 +39,9 @@ spec:
         target: "#cluster"
 
   importDataMappings:
-    cloudProfile:
-      machineImages:
-        - name: gardenlinux
-          versions:
-          - classification: preview
-            cri:
-            - containerRuntimes:
-              - type: gvisor
-              name: containerd
-            version: 318.4.0
-          - classification: supported
-            cri:
-            - containerRuntimes:
-              - type: gvisor
-              name: containerd
-            version: 184.0.0
-        - name: flatcar
-          versions:
-          - classification: preview
-            version: 2605.11.0
+    cloudProfile: {}
 
-      regions:
-        - name: ap-northeast-1
-          zones:
-          - name: ap-northeast-1a
-          - name: ap-northeast-1c
-          - name: ap-northeast-1d
-        - name: ap-northeast-2
-          zones:
-          - name: ap-northeast-2a
-          - name: ap-northeast-2b
-          - name: ap-northeast-2c
-          - name: ap-northeast-2d
-
-    kubernetesVersions:
-      - classification: supported
-        version: 1.20.6
-      - classification: deprecated
-        expirationDate: '2021-09-15T23:59:59Z'
-        version: 1.20.5
-      - classification: deprecated
-        expirationDate: '2021-08-15T23:59:59Z'
-        version: 1.20.4
-      - classification: deprecated
-        expirationDate: '2021-07-31T23:59:59Z'
-        version: 1.20.2
+    kubernetesVersions: []
 
     controllerRegistration:
       concurrentSyncs: 50
@@ -102,21 +62,7 @@ spec:
           updateMode: "Auto"
 
     imageVectorOverwrite:
-      images:
-        - name: aws-lb-readvertiser
-          repository: eu.gcr.io/sap-se-gcr-k8s-public/eu_gcr_io/gardener-project/gardener/aws-lb-readvertiser
-          sourceRepository: github.com/gardener/aws-lb-readvertiser
-          tag: sha256:4bbadddf273efb00babfa277885b4342d5a1f5006c857bbe2232a75748e12cff
-        - name: cloud-controller-manager
-          repository: eu.gcr.io/sap-se-gcr-k8s-public/k8s_gcr_io/hyperkube
-          sourceRepository: github.com/kubernetes/kubernetes
-          tag: sha256:12d877b29fb0d7c0cb90f4e8de8a98bb644df623be39ce7bab5420d2e21c2edc
-          targetVersion: 1.15.12
-        - name: cloud-controller-manager
-          repository: eu.gcr.io/sap-se-gcr-k8s-public/k8s_gcr_io/hyperkube
-          sourceRepository: github.com/kubernetes/kubernetes
-          tag: sha256:ad97b353f1d8c37950248e1879d9ed48ce0eaeccba58d4d04f8f2a788c467ffe
-          targetVersion: 1.16.15
+      images: []
 EOF
 
 echo "Installation stored at ${INSTALLATION_PATH}"
