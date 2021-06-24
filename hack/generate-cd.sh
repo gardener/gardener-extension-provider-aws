@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright (c) 2020 SAP SE or an SAP affiliate company. All rights reserved. This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
 #
@@ -78,4 +78,3 @@ CTF_PATH=${CTF_PATH} BASE_DEFINITION_PATH=${TMP_COMPONENT_DESCRIPTOR_PATH} \
 
 echo "> Uploading archive from ${CTF_PATH}"
 component-cli ctf push --repo-ctx=${CD_REGISTRY} "${CTF_PATH}"
-
