@@ -179,23 +179,26 @@ func (w *workerDelegate) generateMachineConfig() error {
 			)
 
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
-				Name:                 deploymentName,
-				ClassName:            className,
-				SecretName:           className,
-				Minimum:              worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
-				Maximum:              worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
-				MaxSurge:             worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
-				MaxUnavailable:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
-				Labels:               pool.Labels,
+				Name:           deploymentName,
+				ClassName:      className,
+				SecretName:     className,
+				Minimum:        worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
+				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
+				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
+				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
+				// TODO: remove when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
+				// add aws csi driver topology label if its not specified
+				Labels: func() map[string]string {
+					if !csiEnabled {
+						return pool.Labels
+					}
+					return utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone})
+				}(),
 				Annotations:          pool.Annotations,
 				Taints:               pool.Taints,
 				MachineConfiguration: genericworkeractuator.ReadMachineConfiguration(pool),
 			})
-			// TODO: remove when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
-			// add aws csi driver topology label if its not specified
-			if csiEnabled {
-				machineDeployments[len(machineDeployments)-1].Labels = utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone})
-			}
+
 			machineClassSpec["name"] = className
 			machineClassSpec["labels"] = map[string]string{corev1.LabelZoneFailureDomain: zone}
 			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass}
