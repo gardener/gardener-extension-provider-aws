@@ -186,12 +186,12 @@ func (w *workerDelegate) generateMachineConfig() error {
 				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
 				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
 				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
-				// TODO: remove when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
-				// add aws csi driver topology label if its not specified
 				Labels: func() map[string]string {
 					if !csiEnabled {
 						return pool.Labels
 					}
+					// TODO: remove the csi topology label when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
+					// add aws csi driver topology label if its not specified
 					return utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone})
 				}(),
 				Annotations:          pool.Annotations,
