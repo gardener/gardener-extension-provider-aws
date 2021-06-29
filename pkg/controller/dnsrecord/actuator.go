@@ -17,17 +17,27 @@ package dnsrecord
 import (
 	"context"
 	"fmt"
+	"time"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/dnsrecord"
+	controllererror "github.com/gardener/gardener/extensions/pkg/controller/error"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
+	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+)
+
+const (
+	// requeueAfterOnProviderError is a value for RequeueAfter to be returned on provider errors
+	// in order to prevent quick retries that could quickly exhaust the account rate limits in case of e.g.
+	// configuration issues.
+	requeueAfterOnProviderError = 30 * time.Second
 )
 
 type actuator struct {
@@ -62,9 +72,12 @@ func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRec
 
 	// Create or update DNS record
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
-	a.logger.Info("Creating or updating DNS record", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values)
+	a.logger.Info("Creating or updating DNS record", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
 	if err := awsClient.CreateOrUpdateDNSRecord(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
-		return fmt.Errorf("could not create or update DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err)
+		return &controllererror.RequeueAfterError{
+			Cause:        fmt.Errorf("could not create or update DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err),
+			RequeueAfter: requeueAfterOnProviderError,
+		}
 	}
 
 	// Update resource status
@@ -90,9 +103,12 @@ func (a *actuator) Delete(ctx context.Context, dns *extensionsv1alpha1.DNSRecord
 
 	// Delete DNS record
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
-	a.logger.Info("Deleting DNS record", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values)
+	a.logger.Info("Deleting DNS record", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
 	if err := awsClient.DeleteDNSRecord(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
-		return fmt.Errorf("could not delete DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err)
+		return &controllererror.RequeueAfterError{
+			Cause:        fmt.Errorf("could not delete DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err),
+			RequeueAfter: requeueAfterOnProviderError,
+		}
 	}
 
 	// Update resource status
@@ -111,18 +127,21 @@ func (a *actuator) Migrate(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 
 func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecord, awsClient awsclient.Interface) (string, error) {
 	switch {
-	case dns.Status.Zone != nil && *dns.Status.Zone != "":
-		return *dns.Status.Zone, nil
 	case dns.Spec.Zone != nil && *dns.Spec.Zone != "":
 		return *dns.Spec.Zone, nil
+	case dns.Status.Zone != nil && *dns.Status.Zone != "":
+		return *dns.Status.Zone, nil
 	default:
 		// The zone is not specified in the resource status or spec. Try to determine the zone by
 		// getting all hosted zones of the account and searching for the longest zone name that is a suffix of dns.spec.Name
 		zones, err := awsClient.GetDNSHostedZones(ctx)
 		if err != nil {
-			return "", fmt.Errorf("could not get DNS hosted zones: %+v", err)
+			return "", &controllererror.RequeueAfterError{
+				Cause:        fmt.Errorf("could not get DNS hosted zones: %+v", err),
+				RequeueAfter: requeueAfterOnProviderError,
+			}
 		}
-		a.logger.Info("Got DNS hosted zones", "zones", zones)
+		a.logger.Info("Got DNS hosted zones", "zones", zones, "dnsrecord", kutil.ObjectName(dns))
 		zone := findZoneForName(zones, dns.Spec.Name)
 		if zone == "" {
 			return "", fmt.Errorf("could not find DNS hosted zone for name %s", dns.Spec.Name)
