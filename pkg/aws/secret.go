@@ -76,16 +76,6 @@ func NewClientFromSecretRef(ctx context.Context, client client.Client, secretRef
 	return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), region)
 }
 
-// NewClientFromDNSSecretRef creates a new Client for the given AWS credentials from given k8s <secretRef> and
-// the AWS region <region>, using the DNS keys as alternatives to the regular ones.
-func NewClientFromDNSSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, region *string) (awsclient.Interface, error) {
-	credentials, err := GetCredentialsFromSecretRef(ctx, client, secretRef, true)
-	if err != nil {
-		return nil, err
-	}
-	return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), getDNSRegion(region, credentials))
-}
-
 func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, required bool) ([]byte, error) {
 	if value, ok := secret.Data[key]; ok {
 		return value, nil
@@ -102,15 +92,4 @@ func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, requi
 		return nil, fmt.Errorf("missing %q field in secret", key)
 	}
 	return nil, nil
-}
-
-func getDNSRegion(region *string, credentials *Credentials) string {
-	switch {
-	case region != nil:
-		return *region
-	case credentials.Region != nil:
-		return string(credentials.Region)
-	default:
-		return DefaultDNSRegion
-	}
 }

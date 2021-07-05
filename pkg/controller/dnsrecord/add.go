@@ -16,6 +16,7 @@ package dnsrecord
 
 import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/dnsrecord"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -42,7 +43,7 @@ type AddOptions struct {
 // The opts.Reconciler is being set with a newly instantiated actuator.
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 	return dnsrecord.Add(mgr, dnsrecord.AddArgs{
-		Actuator:          NewActuator(logger),
+		Actuator:          NewActuator(awsclient.FactoryFunc(awsclient.NewInterface), logger),
 		ControllerOptions: opts.Controller,
 		Predicates:        dnsrecord.DefaultPredicates(opts.IgnoreOperationAnnotation),
 		Type:              aws.DNSType,

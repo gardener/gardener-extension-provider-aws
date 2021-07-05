@@ -53,3 +53,17 @@ type Interface interface {
 	DeleteELBV2(ctx context.Context, arn string) error
 	DeleteSecurityGroup(ctx context.Context, id string) error
 }
+
+// Factory creates instances of Interface.
+type Factory interface {
+	// NewClient creates a new instance of Interface for the given AWS credentials and region.
+	NewClient(accessKeyID, secretAccessKey, region string) (Interface, error)
+}
+
+// FactoryFunc is a function that implements Factory.
+type FactoryFunc func(accessKeyID, secretAccessKey, region string) (Interface, error)
+
+// NewClient creates a new instance of Interface for the given AWS credentials and region.
+func (f FactoryFunc) NewClient(accessKeyID, secretAccessKey, region string) (Interface, error) {
+	return f(accessKeyID, secretAccessKey, region)
+}

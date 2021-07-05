@@ -56,6 +56,11 @@ type Client struct {
 	Route53 route53iface.Route53API
 }
 
+// NewInterface creates a new instance of Interface for the given AWS credentials and region.
+func NewInterface(accessKeyID, secretAccessKey, region string) (Interface, error) {
+	return NewClient(accessKeyID, secretAccessKey, region)
+}
+
 // NewClient creates a new Client for the given AWS credentials <accessKeyID>, <secretAccessKey>, and
 // the AWS region <region>.
 // It initializes the clients for the various services like EC2, ELB, etc.

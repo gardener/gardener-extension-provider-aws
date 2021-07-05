@@ -41,13 +41,15 @@ const (
 )
 
 type actuator struct {
-	client client.Client
-	logger logr.Logger
+	client           client.Client
+	awsClientFactory awsclient.Factory
+	logger           logr.Logger
 }
 
-func NewActuator(logger logr.Logger) dnsrecord.Actuator {
+func NewActuator(awsClientFactory awsclient.Factory, logger logr.Logger) dnsrecord.Actuator {
 	return &actuator{
-		logger: logger.WithName("aws-dnsrecord-actuator"),
+		awsClientFactory: awsClientFactory,
+		logger:           logger.WithName("aws-dnsrecord-actuator"),
 	}
 }
 
@@ -59,7 +61,11 @@ func (a *actuator) InjectClient(client client.Client) error {
 // Reconcile reconciles the DNSRecord.
 func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRecord, cluster *extensionscontroller.Cluster) error {
 	// Create AWS client
-	awsClient, err := aws.NewClientFromDNSSecretRef(ctx, a.client, dns.Spec.SecretRef, dns.Spec.Region)
+	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
+	if err != nil {
+		return fmt.Errorf("could not get AWS credentials: %+v", err)
+	}
+	awsClient, err := a.awsClientFactory.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), getRegion(dns, credentials))
 	if err != nil {
 		return fmt.Errorf("could not create AWS client: %+v", err)
 	}
@@ -90,7 +96,11 @@ func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRec
 // Delete deletes the DNSRecord.
 func (a *actuator) Delete(ctx context.Context, dns *extensionsv1alpha1.DNSRecord, cluster *extensionscontroller.Cluster) error {
 	// Create AWS client
-	awsClient, err := aws.NewClientFromDNSSecretRef(ctx, a.client, dns.Spec.SecretRef, dns.Spec.Region)
+	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
+	if err != nil {
+		return fmt.Errorf("could not get AWS credentials: %+v", err)
+	}
+	awsClient, err := a.awsClientFactory.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), getRegion(dns, credentials))
 	if err != nil {
 		return fmt.Errorf("could not create AWS client: %+v", err)
 	}
@@ -158,4 +168,15 @@ func findZoneForName(zones map[string]string, name string) string {
 		}
 	}
 	return result
+}
+
+func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) string {
+	switch {
+	case dns.Spec.Region != nil && *dns.Spec.Region != "":
+		return *dns.Spec.Region
+	case credentials.Region != nil:
+		return string(credentials.Region)
+	default:
+		return aws.DefaultDNSRegion
+	}
 }
