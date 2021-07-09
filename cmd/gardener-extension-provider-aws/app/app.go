@@ -39,7 +39,6 @@ import (
 	awscmd "github.com/gardener/gardener-extension-provider-aws/pkg/cmd"
 	awsbackupbucket "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
 	awsbackupentry "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
 	awsbastion "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
 	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
 	awscsimigration "github.com/gardener/gardener-extension-provider-aws/pkg/controller/csimigration"
@@ -187,7 +186,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			reconcileOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awsworker.DefaultAddOptions.IgnoreOperationAnnotation)
-			reconcileOpts.Completed().Apply(&bastion.DefaultAddOptions.IgnoreOperationAnnotation)
+			reconcileOpts.Completed().Apply(&awsbastion.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awsbackupbucket.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.IgnoreOperationAnnotation)
 			workerCtrlOpts.Completed().Apply(&awsworker.DefaultAddOptions.Controller)
