@@ -40,6 +40,11 @@ type Interface interface {
 	CreateBucketIfNotExists(ctx context.Context, bucket, region string) error
 	DeleteBucketIfExists(ctx context.Context, bucket string) error
 
+	// Route53 wrappers
+	GetDNSHostedZones(ctx context.Context) (map[string]string, error)
+	CreateOrUpdateDNSRecord(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error
+	DeleteDNSRecord(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error
+
 	// The following functions are only temporary needed due to https://github.com/gardener/gardener/issues/129.
 	ListKubernetesELBs(ctx context.Context, vpcID, clusterName string) ([]string, error)
 	ListKubernetesELBsV2(ctx context.Context, vpcID, clusterName string) ([]string, error)
@@ -47,4 +52,18 @@ type Interface interface {
 	DeleteELB(ctx context.Context, name string) error
 	DeleteELBV2(ctx context.Context, arn string) error
 	DeleteSecurityGroup(ctx context.Context, id string) error
+}
+
+// Factory creates instances of Interface.
+type Factory interface {
+	// NewClient creates a new instance of Interface for the given AWS credentials and region.
+	NewClient(accessKeyID, secretAccessKey, region string) (Interface, error)
+}
+
+// FactoryFunc is a function that implements Factory.
+type FactoryFunc func(accessKeyID, secretAccessKey, region string) (Interface, error)
+
+// NewClient creates a new instance of Interface for the given AWS credentials and region.
+func (f FactoryFunc) NewClient(accessKeyID, secretAccessKey, region string) (Interface, error) {
+	return f(accessKeyID, secretAccessKey, region)
 }

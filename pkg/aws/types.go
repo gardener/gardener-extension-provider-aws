@@ -62,6 +62,12 @@ const (
 	SecretAccessKey = "secretAccessKey"
 	// Region is a constant for the key in a backup secret that holds the AWS region.
 	Region = "region"
+	// DNSAccessKeyID is a constant for the key in a DNS secret that holds the AWS access key id.
+	DNSAccessKeyID = "AWS_ACCESS_KEY_ID"
+	// DNSSecretAccessKey is a constant for the key in a DNS secret that holds the AWS secret access key.
+	DNSSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
+	// DNSRegion is a constant for the key in a DNS secret that holds the AWS region.
+	DNSRegion = "AWS_REGION"
 	// TerraformerPurposeInfra is a constant for the complete Terraform setup with purpose 'infrastructure'.
 	TerraformerPurposeInfra = "infra"
 	// VPCIDKey is the vpc_id tf state key
@@ -78,6 +84,10 @@ const (
 	IAMInstanceProfileNodes = "iamInstanceProfileNodes"
 	// NodesRole role for nodes
 	NodesRole = "nodes_role_arn"
+
+	// DefaultDNSRegion is the default region to be used if a region is not specified in the DNS secret
+	// or in the DNSRecord resource.
+	DefaultDNSRegion = "us-west-2"
 
 	// CloudProviderConfigName is the name of the configmap containing the cloud provider config.
 	CloudProviderConfigName = "cloud-provider-config"
@@ -128,4 +138,5 @@ var (
 type Credentials struct {
 	AccessKeyID     []byte
 	SecretAccessKey []byte
+	Region          []byte
 }

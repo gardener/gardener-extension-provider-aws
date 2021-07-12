@@ -29,11 +29,9 @@ var (
 		features.HVPA:                   {Default: false, PreRelease: featuregate.Alpha},
 		features.HVPAForShootedSeed:     {Default: false, PreRelease: featuregate.Alpha},
 		features.ManagedIstio:           {Default: true, PreRelease: featuregate.Beta},
-		features.KonnectivityTunnel:     {Default: false, PreRelease: featuregate.Alpha},
 		features.APIServerSNI:           {Default: true, PreRelease: featuregate.Beta},
 		features.CachedRuntimeClients:   {Default: false, PreRelease: featuregate.Alpha},
-		features.NodeLocalDNS:           {Default: false, PreRelease: featuregate.Alpha},
-		features.MountHostCADirectories: {Default: false, PreRelease: featuregate.Alpha},
+		features.MountHostCADirectories: {Default: true, PreRelease: featuregate.Beta},
 		features.SeedKubeScheduler:      {Default: false, PreRelease: featuregate.Alpha},
 		features.ReversedVPN:            {Default: false, PreRelease: featuregate.Alpha},
 	}

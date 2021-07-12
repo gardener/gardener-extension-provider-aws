@@ -42,6 +42,7 @@ import (
 	awsbastion "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
 	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
 	awscsimigration "github.com/gardener/gardener-extension-provider-aws/pkg/controller/csimigration"
+	awsdnsrecord "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
@@ -92,6 +93,11 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			MaxConcurrentReconciles: 5,
 		}
 
+		// options for the dnsrecord controller
+		dnsRecordCtrlOpts = &controllercmd.ControllerOptions{
+			MaxConcurrentReconciles: 5,
+		}
+
 		// options for the infrastructure controller
 		infraCtrlOpts = &controllercmd.ControllerOptions{
 			MaxConcurrentReconciles: 5,
@@ -124,6 +130,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			controllercmd.PrefixOption("bastion-", bastionCtrlOpts),
 			controllercmd.PrefixOption("controlplane-", controlPlaneCtrlOpts),
 			controllercmd.PrefixOption("csimigration-", csiMigrationCtrlOpts),
+			controllercmd.PrefixOption("dnsrecord-", dnsRecordCtrlOpts),
 			controllercmd.PrefixOption("infrastructure-", infraCtrlOpts),
 			controllercmd.PrefixOption("worker-", &workerCtrlOptsUnprefixed),
 			controllercmd.PrefixOption("healthcheck-", healthCheckCtrlOpts),
@@ -182,6 +189,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			bastionCtrlOpts.Completed().Apply(&awsbastion.DefaultAddOptions.Controller)
 			controlPlaneCtrlOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.Controller)
 			csiMigrationCtrlOpts.Completed().Apply(&awscsimigration.DefaultAddOptions.Controller)
+			dnsRecordCtrlOpts.Completed().Apply(&awsdnsrecord.DefaultAddOptions.Controller)
 			infraCtrlOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.Controller)
 			reconcileOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.IgnoreOperationAnnotation)
