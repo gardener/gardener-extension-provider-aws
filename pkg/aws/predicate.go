@@ -17,5 +17,5 @@ package aws
 // Type is the type of resources managed by the AWS actuators.
 const Type = "aws"
 
-// Type is the type of resources managed by the DNSRecord AWS actuator.
+// DNSType is the type of resources managed by the DNSRecord AWS actuator.
 const DNSType = "aws-route53"
