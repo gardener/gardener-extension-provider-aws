@@ -1,0 +1,18 @@
+kind: TestDefinition
+metadata:
+  name: dnsrecord-test
+spec:
+  owner: gardener-oq@listserv.sap.com
+  description: Integration test for dnsrecord creation, update, and deletion
+  activeDeadlineSeconds: 1800
+
+  command: [bash, -c]
+  args:
+  - >-
+    go test -timeout=25m -mod=vendor ./test/integration/dnsrecord
+    --v -ginkgo.v -ginkgo.progress -ginkgo.noColor
+    --kubeconfig=$TM_KUBECONFIG_PATH/testmachinery.config
+    --access-key-id=$ACCESS_KEY_ID
+    --secret-access-key=$SECRET_ACCESS_KEY
+
+  image: golang:1.16.3

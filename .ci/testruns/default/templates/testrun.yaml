@@ -44,3 +44,10 @@ spec:
       - name: REGION
         type: env
         value: eu-west-1
+  - name: dnsrecord-test
+    definition:
+      name: dnsrecord-test
+      config:
+      - name: USE_EXISTING_CLUSTER
+        type: env
+        value: "true"

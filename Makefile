@@ -161,3 +161,11 @@ integration-test-bastion:
 		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
 		--region=$(REGION)
+
+.PHONY: integration-test-dnsrecord
+integration-test-dnsrecord:
+	@go test -timeout=0 -mod=vendor ./test/integration/dnsrecord \
+		--v -ginkgo.v -ginkgo.progress \
+		--kubeconfig=${KUBECONFIG} \
+		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
+		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))'
