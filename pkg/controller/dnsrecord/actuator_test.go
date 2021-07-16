@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	name        = "dnsrecord-external"
+	name        = "aws-external"
 	namespace   = "shoot--foobar--aws"
 	shootDomain = "shoot.example.com"
 	domainName  = "api.aws.foobar." + shootDomain
@@ -133,7 +133,8 @@ var _ = Describe("Actuator", func() {
 			)
 			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, aws.DefaultDNSRegion).Return(awsClient, nil)
 			awsClient.EXPECT().GetDNSHostedZones(ctx).Return(zones, nil)
-			awsClient.EXPECT().CreateOrUpdateDNSRecord(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).Return(nil)
+			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).Return(nil)
+			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, "comment-"+domainName, "TXT", nil, int64(0)).Return(nil)
 			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&extensionsv1alpha1.DNSRecord{})).DoAndReturn(
 				func(_ context.Context, _ client.ObjectKey, obj *extensionsv1alpha1.DNSRecord) error {
 					*obj = *dns
@@ -165,7 +166,7 @@ var _ = Describe("Actuator", func() {
 				},
 			)
 			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, aws.DefaultDNSRegion).Return(awsClient, nil)
-			awsClient.EXPECT().DeleteDNSRecord(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).Return(nil)
+			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).Return(nil)
 
 			err := a.Delete(ctx, dns, nil)
 			Expect(err).NotTo(HaveOccurred())

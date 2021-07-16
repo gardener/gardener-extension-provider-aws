@@ -42,8 +42,8 @@ type Interface interface {
 
 	// Route53 wrappers
 	GetDNSHostedZones(ctx context.Context) (map[string]string, error)
-	CreateOrUpdateDNSRecord(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error
-	DeleteDNSRecord(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error
+	CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error
+	DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error
 
 	// The following functions are only temporary needed due to https://github.com/gardener/gardener/issues/129.
 	ListKubernetesELBs(ctx context.Context, vpcID, clusterName string) ([]string, error)

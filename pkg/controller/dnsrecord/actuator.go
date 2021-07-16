@@ -22,6 +22,7 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/dnsrecord"
 	controllererror "github.com/gardener/gardener/extensions/pkg/controller/error"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
@@ -76,13 +77,25 @@ func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRec
 		return err
 	}
 
-	// Create or update DNS record
+	// Create or update DNS recordset
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
-	a.logger.Info("Creating or updating DNS record", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
-	if err := awsClient.CreateOrUpdateDNSRecord(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
+	a.logger.Info("Creating or updating DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
+	if err := awsClient.CreateOrUpdateDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
 		return &controllererror.RequeueAfterError{
-			Cause:        fmt.Errorf("could not create or update DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err),
+			Cause:        fmt.Errorf("could not create or update DNS recordset in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err),
 			RequeueAfter: requeueAfterOnProviderError,
+		}
+	}
+
+	// Delete meta DNS recordset if exists
+	if dns.Status.LastOperation == nil || dns.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeCreate {
+		name, recordType := dnsrecord.GetMetaRecordName(dns.Spec.Name), "TXT"
+		a.logger.Info("Deleting meta DNS recordset", "zone", zone, "name", name, "type", recordType, "dnsrecord", kutil.ObjectName(dns))
+		if err := awsClient.DeleteDNSRecordSet(ctx, zone, name, recordType, nil, 0); err != nil {
+			return &controllererror.RequeueAfterError{
+				Cause:        fmt.Errorf("could not delete meta DNS recordset in zone %s with name %s and type %s: %+v", zone, name, recordType, err),
+				RequeueAfter: requeueAfterOnProviderError,
+			}
 		}
 	}
 
@@ -111,17 +124,16 @@ func (a *actuator) Delete(ctx context.Context, dns *extensionsv1alpha1.DNSRecord
 		return err
 	}
 
-	// Delete DNS record
+	// Delete DNS recordset
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
-	a.logger.Info("Deleting DNS record", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
-	if err := awsClient.DeleteDNSRecord(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
+	a.logger.Info("Deleting DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
+	if err := awsClient.DeleteDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
 		return &controllererror.RequeueAfterError{
-			Cause:        fmt.Errorf("could not delete DNS record in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err),
+			Cause:        fmt.Errorf("could not delete DNS recordset in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err),
 			RequeueAfter: requeueAfterOnProviderError,
 		}
 	}
 
-	// Update resource status
 	return nil
 }
 
@@ -152,22 +164,12 @@ func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 			}
 		}
 		a.logger.Info("Got DNS hosted zones", "zones", zones, "dnsrecord", kutil.ObjectName(dns))
-		zone := findZoneForName(zones, dns.Spec.Name)
+		zone := dnsrecord.FindZoneForName(zones, dns.Spec.Name)
 		if zone == "" {
 			return "", fmt.Errorf("could not find DNS hosted zone for name %s", dns.Spec.Name)
 		}
 		return zone, nil
 	}
-}
-
-func findZoneForName(zones map[string]string, name string) string {
-	longestZoneName, result := "", ""
-	for zoneName, zoneId := range zones {
-		if dnsrecord.MatchesDomain(name, zoneName) && len(zoneName) > len(longestZoneName) {
-			longestZoneName, result = zoneName, zoneId
-		}
-	}
-	return result
 }
 
 func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) string {

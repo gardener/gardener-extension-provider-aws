@@ -29,7 +29,7 @@ func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, erro
 	zones := make(map[string]string)
 	if err := c.Route53.ListHostedZonesPagesWithContext(ctx, &route53.ListHostedZonesInput{}, func(out *route53.ListHostedZonesOutput, lastPage bool) bool {
 		for _, zone := range out.HostedZones {
-			zones[normalizeZoneName(aws.StringValue(zone.Name))] = normalizeZoneId(aws.StringValue(zone.Id))
+			zones[normalizeName(aws.StringValue(zone.Name))] = normalizeZoneId(aws.StringValue(zone.Id))
 		}
 		return !lastPage
 	}); err != nil {
@@ -38,14 +38,14 @@ func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, erro
 	return zones, nil
 }
 
-func normalizeZoneName(zoneName string) string {
-	if strings.HasPrefix(zoneName, "\\052.") {
-		zoneName = "*" + zoneName[4:]
+func normalizeName(name string) string {
+	if strings.HasPrefix(name, "\\052.") {
+		name = "*" + name[4:]
 	}
-	if strings.HasSuffix(zoneName, ".") {
-		return zoneName[:len(zoneName)-1]
+	if strings.HasSuffix(name, ".") {
+		return name[:len(name)-1]
 	}
-	return zoneName
+	return name
 }
 
 func normalizeZoneId(zoneId string) string {
@@ -53,28 +53,82 @@ func normalizeZoneId(zoneId string) string {
 	return parts[len(parts)-1]
 }
 
-// CreateOrUpdateDNSRecord creates or updates the DNS record in the DNS hosted zone with the given zone ID,
+// CreateOrUpdateDNSRecordSet creates or updates the DNS recordset in the DNS hosted zone with the given zone ID,
 // with the given name, type, values, and TTL.
-func (c *Client) CreateOrUpdateDNSRecord(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
-	_, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionUpsert, name, recordType, values, ttl))
+func (c *Client) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
+	rrs := newResourceRecordSet(name, recordType, newResourceRecords(recordType, values), ttl)
+	_, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionUpsert, rrs))
 	return err
 }
 
-// DeleteDNSRecord deletes the DNS record in the DNS hosted zone with the given zone ID,
+// DeleteDNSRecordSet deletes the DNS recordset in the DNS hosted zone with the given zone ID,
 // with the given name, type, values, and TTL.
-func (c *Client) DeleteDNSRecord(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
-	_, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, name, recordType, values, ttl))
+// If values is empty and TTL is 0, the actual state will be determined by reading the recordset from the zone.
+// Otherwise, an attempt will be made to delete the recordset with the given values / TTL. If this results in a
+// "values do not match" error, the actual state will again be determined by reading the recordset from the zone, and
+// a second attempt to delete it will be made.
+// The idea is to ensure a consistent and foolproof behavior while sending as few requests as possible to avoid
+// rate limit issues.
+func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
+	var (
+		err error
+		rrs *route53.ResourceRecordSet
+	)
+	if len(values) == 0 && ttl == 0 {
+		// No values / ttl were specified, so get the resource recordset from the zone
+		rrs, err = c.getResourceRecordSet(ctx, zoneId, name, recordType)
+		if err != nil {
+			return err
+		}
+		if rrs == nil {
+			return nil
+		}
+	} else {
+		rrs = newResourceRecordSet(name, recordType, newResourceRecords(recordType, values), ttl)
+	}
+	_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrs))
+	if isValuesDoNotMatchError(err) && len(values) > 0 && ttl > 0 {
+		// The actual values / ttl are different from the given values / ttl
+		// Get the resource recordset from the zone and try again
+		rrs, err = c.getResourceRecordSet(ctx, zoneId, name, getRecordType(recordType, values[0]))
+		if err != nil {
+			return err
+		}
+		if rrs == nil {
+			return nil
+		}
+		_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrs))
+	}
 	return ignoreNotFoundRoute53(err)
 }
 
-func newChangeResourceRecordSetsInput(zoneId, action, name, recordType string, values []string, ttl int64) *route53.ChangeResourceRecordSetsInput {
+func (c *Client) getResourceRecordSet(ctx context.Context, zoneId, name, recordType string) (*route53.ResourceRecordSet, error) {
+	out, err := c.Route53.ListResourceRecordSetsWithContext(ctx, &route53.ListResourceRecordSetsInput{
+		HostedZoneId:    aws.String(zoneId),
+		MaxItems:        aws.String("1"),
+		StartRecordName: aws.String(name),
+		StartRecordType: aws.String(recordType),
+	})
+	if ignoreNotFoundRoute53(err) != nil {
+		return nil, err
+	}
+	if out == nil || len(out.ResourceRecordSets) == 0 { // no records in zone
+		return nil, nil
+	}
+	if rrs := out.ResourceRecordSets[0]; normalizeName(aws.StringValue(rrs.Name)) == name && aws.StringValue(rrs.Type) == recordType {
+		return out.ResourceRecordSets[0], nil
+	}
+	return nil, nil
+}
+
+func newChangeResourceRecordSetsInput(zoneId, action string, rrs *route53.ResourceRecordSet) *route53.ChangeResourceRecordSetsInput {
 	return &route53.ChangeResourceRecordSetsInput{
 		HostedZoneId: aws.String(zoneId),
 		ChangeBatch: &route53.ChangeBatch{
 			Changes: []*route53.Change{
 				{
 					Action:            aws.String(action),
-					ResourceRecordSet: newResourceRecordSet(name, recordType, newResourceRecords(recordType, values), ttl),
+					ResourceRecordSet: rrs,
 				},
 			},
 		},
@@ -120,6 +174,15 @@ func newResourceRecordSet(name, recordType string, resourceRecords []*route53.Re
 		ResourceRecords: resourceRecords,
 		TTL:             aws.Int64(ttl),
 	}
+}
+
+func getRecordType(recordType, value string) string {
+	if recordType == route53.RRTypeCname {
+		if zoneId := canonicalHostedZoneId(value); zoneId != "" {
+			return route53.RRTypeA
+		}
+	}
+	return recordType
 }
 
 var (
@@ -207,4 +270,11 @@ func ignoreNotFoundRoute53(err error) error {
 		return nil
 	}
 	return err
+}
+
+func isValuesDoNotMatchError(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && strings.Contains(aerr.Message(), "the values provided do not match the current values") {
+		return true
+	}
+	return false
 }

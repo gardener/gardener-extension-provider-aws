@@ -115,7 +115,7 @@ github.com/gardener/etcd-druid/api/v1alpha1
 # github.com/gardener/external-dns-management v0.7.18
 github.com/gardener/external-dns-management/pkg/apis/dns
 github.com/gardener/external-dns-management/pkg/apis/dns/v1alpha1
-# github.com/gardener/gardener v1.26.1-0.20210706090542-6ba36a2db8a1
+# github.com/gardener/gardener v1.26.1-0.20210712101613-e8eb807d790f
 ## explicit
 github.com/gardener/gardener/.github
 github.com/gardener/gardener/.github/ISSUE_TEMPLATE
@@ -227,6 +227,7 @@ github.com/gardener/gardener/pkg/operation/botanist/component/clusteridentity
 github.com/gardener/gardener/pkg/operation/botanist/component/etcd
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/containerruntime
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/controlplane
+github.com/gardener/gardener/pkg/operation/botanist/component/extensions/dnsrecord
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/extension
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/infrastructure
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig
@@ -240,12 +241,14 @@ github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operati
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/original/components/kernelconfig
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/original/components/kubelet
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/original/components/logrotate
+github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/original/components/promtail
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/original/components/rootcertificates
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/original/components/varlibmount
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/utils
 github.com/gardener/gardener/pkg/operation/botanist/component/extensions/worker
 github.com/gardener/gardener/pkg/operation/botanist/component/kubecontrollermanager
 github.com/gardener/gardener/pkg/operation/botanist/component/kubescheduler
+github.com/gardener/gardener/pkg/operation/botanist/component/logging
 github.com/gardener/gardener/pkg/operation/botanist/component/metricsserver
 github.com/gardener/gardener/pkg/operation/botanist/component/resourcemanager
 github.com/gardener/gardener/pkg/operation/botanist/component/vpnseedserver
