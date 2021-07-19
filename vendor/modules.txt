@@ -115,7 +115,7 @@ github.com/gardener/etcd-druid/api/v1alpha1
 # github.com/gardener/external-dns-management v0.7.18
 github.com/gardener/external-dns-management/pkg/apis/dns
 github.com/gardener/external-dns-management/pkg/apis/dns/v1alpha1
-# github.com/gardener/gardener v1.26.1-0.20210712101613-e8eb807d790f
+# github.com/gardener/gardener v1.27.1
 ## explicit
 github.com/gardener/gardener/.github
 github.com/gardener/gardener/.github/ISSUE_TEMPLATE
