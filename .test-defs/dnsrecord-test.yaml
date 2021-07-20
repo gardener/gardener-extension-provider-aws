@@ -12,7 +12,7 @@ spec:
     go test -timeout=25m -mod=vendor ./test/integration/dnsrecord
     --v -ginkgo.v -ginkgo.progress -ginkgo.noColor
     --kubeconfig=$TM_KUBECONFIG_PATH/testmachinery.config
-    --access-key-id=$ACCESS_KEY_ID
-    --secret-access-key=$SECRET_ACCESS_KEY
+    --access-key-id=$DNS_ACCESS_KEY_ID
+    --secret-access-key=$DNS_SECRET_ACCESS_KEY
 
   image: golang:1.16.3

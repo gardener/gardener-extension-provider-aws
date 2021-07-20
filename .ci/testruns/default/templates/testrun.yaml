@@ -28,6 +28,18 @@ spec:
       secretKeyRef:
         name: shoot-operator-aws
         key: secretAccessKey
+  - name: DNS_ACCESS_KEY_ID
+    type: env
+    valueFrom:
+      secretKeyRef:
+        name: route53-operator-aws
+        key: accessKeyID
+  - name: DNS_SECRET_ACCESS_KEY
+    type: env
+    valueFrom:
+      secretKeyRef:
+        name: route53-operator-aws
+        key: secretAccessKey
 
   testflow:
   - name: infrastructure-test
