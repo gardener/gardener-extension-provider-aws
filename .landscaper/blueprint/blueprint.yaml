@@ -30,7 +30,7 @@ imports:
       versions:
         type: array
 
-# data from landscape-*-setup/landscape.yaml section gardener-extension-provider-aws
+# data from landscape-*-setup/landscape.yaml section gardener-extension-provider-aws.values
 - name: controllerRegistration
   schema:
     type: object
