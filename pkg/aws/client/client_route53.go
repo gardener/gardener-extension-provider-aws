@@ -17,7 +17,9 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -36,6 +38,30 @@ func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, erro
 		return nil, err
 	}
 	return zones, nil
+}
+
+// CreateDNSHostedZone creates the DNS hosted zone with the given name and comment, and returns the ID of the
+// newly created zone.
+func (c *Client) CreateDNSHostedZone(ctx context.Context, name, comment string) (string, error) {
+	out, err := c.Route53.CreateHostedZoneWithContext(ctx, &route53.CreateHostedZoneInput{
+		CallerReference: aws.String(strconv.Itoa(int(time.Now().Unix()))),
+		Name:            aws.String(name),
+		HostedZoneConfig: &route53.HostedZoneConfig{
+			Comment: aws.String(comment),
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	return aws.StringValue(out.HostedZone.Id), nil
+}
+
+// DeleteDNSHostedZone deletes the DNS hosted zone with the given ID.
+func (c *Client) DeleteDNSHostedZone(ctx context.Context, zoneId string) error {
+	_, err := c.Route53.DeleteHostedZoneWithContext(ctx, &route53.DeleteHostedZoneInput{
+		Id: aws.String(zoneId),
+	})
+	return ignoreHostedZoneNotFound(err)
 }
 
 func normalizeName(name string) string {
@@ -76,7 +102,7 @@ func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordTyp
 	)
 	if len(values) == 0 && ttl == 0 {
 		// No values / ttl were specified, so get the resource recordset from the zone
-		rrs, err = c.getResourceRecordSet(ctx, zoneId, name, recordType)
+		rrs, err = c.GetDNSRecordSet(ctx, zoneId, name, recordType)
 		if err != nil {
 			return err
 		}
@@ -90,7 +116,7 @@ func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordTyp
 	if isValuesDoNotMatchError(err) && len(values) > 0 && ttl > 0 {
 		// The actual values / ttl are different from the given values / ttl
 		// Get the resource recordset from the zone and try again
-		rrs, err = c.getResourceRecordSet(ctx, zoneId, name, getRecordType(recordType, values[0]))
+		rrs, err = c.GetDNSRecordSet(ctx, zoneId, name, getRecordType(recordType, values[0]))
 		if err != nil {
 			return err
 		}
@@ -99,17 +125,18 @@ func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordTyp
 		}
 		_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrs))
 	}
-	return ignoreNotFoundRoute53(err)
+	return ignoreResourceRecordSetNotFound(err)
 }
 
-func (c *Client) getResourceRecordSet(ctx context.Context, zoneId, name, recordType string) (*route53.ResourceRecordSet, error) {
+// GetDNSRecordSet returns the DNS recordset in the DNS hosted zone with the given zone ID, and with the given name and type.
+func (c *Client) GetDNSRecordSet(ctx context.Context, zoneId, name, recordType string) (*route53.ResourceRecordSet, error) {
 	out, err := c.Route53.ListResourceRecordSetsWithContext(ctx, &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    aws.String(zoneId),
 		MaxItems:        aws.String("1"),
 		StartRecordName: aws.String(name),
 		StartRecordType: aws.String(recordType),
 	})
-	if ignoreNotFoundRoute53(err) != nil {
+	if ignoreResourceRecordSetNotFound(err) != nil {
 		return nil, err
 	}
 	if out == nil || len(out.ResourceRecordSets) == 0 { // no records in zone
@@ -262,11 +289,21 @@ func encloseInQuotes(s string) string {
 	return s
 }
 
-func ignoreNotFoundRoute53(err error) error {
+func ignoreResourceRecordSetNotFound(err error) error {
 	if err == nil {
 		return nil
 	}
 	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && strings.Contains(aerr.Message(), "it was not found") {
+		return nil
+	}
+	return err
+}
+
+func ignoreHostedZoneNotFound(err error) error {
+	if err == nil {
+		return nil
+	}
+	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeHostedZoneNotFound {
 		return nil
 	}
 	return err

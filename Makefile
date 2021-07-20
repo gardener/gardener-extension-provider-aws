@@ -92,6 +92,7 @@ docker-images:
 install-requirements:
 	@go install -mod=vendor $(REPO_ROOT)/vendor/github.com/ahmetb/gen-crd-api-reference-docs
 	@go install -mod=vendor $(REPO_ROOT)/vendor/github.com/golang/mock/mockgen
+	@go install -mod=vendor sigs.k8s.io/controller-runtime/tools/setup-envtest
 	@go install -mod=vendor $(REPO_ROOT)/vendor/github.com/onsi/ginkgo/ginkgo
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/install-requirements.sh
 
@@ -128,11 +129,11 @@ format:
 
 .PHONY: test
 test:
-	@SKIP_FETCH_TOOLS=1 $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test.sh ./cmd/... ./pkg/...
+	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test.sh ./cmd/... ./pkg/...
 
 .PHONY: test-cov
 test-cov:
-	@SKIP_FETCH_TOOLS=1 $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-cover.sh ./cmd/... ./pkg/...
+	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-cover.sh ./cmd/... ./pkg/...
 
 .PHONY: test-clean
 test-clean:
@@ -161,3 +162,11 @@ integration-test-bastion:
 		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
 		--region=$(REGION)
+
+.PHONY: integration-test-dnsrecord
+integration-test-dnsrecord:
+	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-integration.sh -timeout=0 ./test/integration/dnsrecord \
+		--v -ginkgo.v -ginkgo.progress \
+		--kubeconfig=${KUBECONFIG} \
+		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
+		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))'

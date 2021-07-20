@@ -28,6 +28,18 @@ spec:
       secretKeyRef:
         name: shoot-operator-aws
         key: secretAccessKey
+  - name: DNS_ACCESS_KEY_ID
+    type: env
+    valueFrom:
+      secretKeyRef:
+        name: route53-operator-aws
+        key: accessKeyID
+  - name: DNS_SECRET_ACCESS_KEY
+    type: env
+    valueFrom:
+      secretKeyRef:
+        name: route53-operator-aws
+        key: secretAccessKey
 
   testflow:
   - name: infrastructure-test
@@ -44,3 +56,10 @@ spec:
       - name: REGION
         type: env
         value: eu-west-1
+  - name: dnsrecord-test
+    definition:
+      name: dnsrecord-test
+      config:
+      - name: USE_EXISTING_CLUSTER
+        type: env
+        value: "true"
