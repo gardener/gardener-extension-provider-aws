@@ -53,7 +53,7 @@ images:
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: k8s.gcr.io/sig-storage/csi-provisioner
-  tag: "v1.6.0"
+  tag: "v2.1.2"
 - name: csi-attacher
   sourceRepository: github.com/kubernetes-csi/external-attacher
   repository: k8s.gcr.io/sig-storage/csi-attacher

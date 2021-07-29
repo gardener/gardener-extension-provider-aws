@@ -88,8 +88,8 @@ spec:
         - --feature-gates=Topology=true
         - --volume-name-prefix=pv-{{ .Release.Namespace }}
         - --extra-create-metadata=true
-        - --enable-leader-election
-        - --leader-election-type=leases
+        - --default-fstype=ext4
+        - --leader-election=true
         - --leader-election-namespace=kube-system
         - --v=5
         env:
