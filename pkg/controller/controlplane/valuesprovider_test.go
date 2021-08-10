@@ -135,7 +135,7 @@ var _ = Describe("ValuesProvider", func() {
 						Pods: &cidr,
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: "1.13.4",
+						Version: "1.15.4",
 					},
 				},
 			},

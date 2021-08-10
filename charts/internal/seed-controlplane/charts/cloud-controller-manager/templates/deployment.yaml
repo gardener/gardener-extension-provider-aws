@@ -53,16 +53,12 @@ spec:
         {{- include "cloud-controller-manager.featureGates" . | trimSuffix "," | indent 8 }}
         - --kubeconfig=/var/lib/cloud-controller-manager/kubeconfig
         - --leader-elect=true
-        {{- if semverCompare ">= 1.13" .Values.kubernetesVersion }}
         - --secure-port={{ include "cloud-controller-manager.port" . }}
         - --port=0
-        {{- end }}
-        {{- if semverCompare ">= 1.12" .Values.kubernetesVersion }}
         - --authentication-kubeconfig=/var/lib/cloud-controller-manager/kubeconfig
         - --authorization-kubeconfig=/var/lib/cloud-controller-manager/kubeconfig
         - --tls-cert-file=/var/lib/cloud-controller-manager-server/cloud-controller-manager-server.crt
         - --tls-private-key-file=/var/lib/cloud-controller-manager-server/cloud-controller-manager-server.key
-        {{- end }}
         - --tls-cipher-suites={{ include "kubernetes.tlsCipherSuites" . | replace "\n" "," | trimPrefix "," }}
         - --use-service-account-credentials
         - --v=2
@@ -80,11 +76,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            {{- if semverCompare ">= 1.13" .Values.kubernetesVersion }}
             scheme: HTTPS
-            {{- else }}
-            scheme: HTTP
-            {{- end }}
             port: {{ include "cloud-controller-manager.port" . }}
           successThreshold: 1
           failureThreshold: 2

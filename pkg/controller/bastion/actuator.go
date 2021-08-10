@@ -66,7 +66,7 @@ func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1
 		return nil, errors.Wrapf(err, "failed to find %q Secret", v1beta1constants.SecretNameCloudProvider)
 	}
 
-	credentials, err := aws.ReadCredentialsSecret(secret)
+	credentials, err := aws.ReadCredentialsSecret(secret, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read credentials Secret")
 	}

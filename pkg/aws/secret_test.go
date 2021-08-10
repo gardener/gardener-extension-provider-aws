@@ -30,6 +30,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+var (
+	accessKeyID     = []byte("foo")
+	secretAccessKey = []byte("bar")
+	region          = []byte("region")
+)
+
 var _ = Describe("Secret", func() {
 	var secret *corev1.Secret
 
@@ -62,78 +68,184 @@ var _ = Describe("Secret", func() {
 			ctrl.Finish()
 		})
 
-		It("should return an error because secret could not be read", func() {
+		It("should fail if the secret could not be read", func() {
 			fakeErr := errors.New("error")
-
 			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
 
-			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef)
+			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(Equal(fakeErr))
 		})
 
-		It("should return the correct credentials object", func() {
-			var (
-				accessKeyID     = []byte("foo")
-				secretAccessKey = []byte("bar")
-			)
+		Context("DNS keys are not allowed", func() {
+			It("should return the correct credentials object if non-DNS keys are used", func() {
+				c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
+					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+						secret.Data = map[string][]byte{
+							AccessKeyID:     accessKeyID,
+							SecretAccessKey: secretAccessKey,
+						}
+						return nil
+					},
+				)
 
-			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
-				secret.Data = map[string][]byte{
+				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
+
+				Expect(credentials).To(Equal(&Credentials{
 					AccessKeyID:     accessKeyID,
 					SecretAccessKey: secretAccessKey,
-				}
-				return nil
+				}))
+				Expect(err).NotTo(HaveOccurred())
 			})
 
-			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef)
+			It("should fail if DNS keys are used", func() {
+				c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
+					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+						secret.Data = map[string][]byte{
+							DNSAccessKeyID:     accessKeyID,
+							DNSSecretAccessKey: secretAccessKey,
+						}
+						return nil
+					},
+				)
 
-			Expect(credentials).To(Equal(&Credentials{
-				AccessKeyID:     accessKeyID,
-				SecretAccessKey: secretAccessKey,
-			}))
-			Expect(err).NotTo(HaveOccurred())
+				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
+
+				Expect(credentials).To(BeNil())
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("DNS keys are allowed", func() {
+			It("should return the correct credentials object if DNS keys are used", func() {
+				c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
+					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+						secret.Data = map[string][]byte{
+							DNSAccessKeyID:     accessKeyID,
+							DNSSecretAccessKey: secretAccessKey,
+							DNSRegion:          region,
+						}
+						return nil
+					},
+				)
+
+				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true)
+
+				Expect(credentials).To(Equal(&Credentials{
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+					Region:          region,
+				}))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return the correct credentials object if non-DNS keys are used", func() {
+				c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
+					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+						secret.Data = map[string][]byte{
+							AccessKeyID:     accessKeyID,
+							SecretAccessKey: secretAccessKey,
+							Region:          region,
+						}
+						return nil
+					},
+				)
+
+				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true)
+
+				Expect(credentials).To(Equal(&Credentials{
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+					Region:          region,
+				}))
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 
 	Describe("#ReadCredentialsSecret", func() {
-		It("should return an error because access key id is missing", func() {
-			credentials, err := ReadCredentialsSecret(secret)
+		It("should fail if access key id is missing", func() {
+			credentials, err := ReadCredentialsSecret(secret, false)
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should return an error because secret access key is missing", func() {
+		It("should fail if secret access key is missing", func() {
 			secret.Data = map[string][]byte{
-				AccessKeyID: []byte("foo"),
+				AccessKeyID: accessKeyID,
 			}
 
-			credentials, err := ReadCredentialsSecret(secret)
+			credentials, err := ReadCredentialsSecret(secret, false)
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should return the credentials structure", func() {
-			var (
-				id  = []byte("foo")
-				key = []byte("bar")
-			)
+		Context("DNS keys are not allowed", func() {
+			It("should return the correct credentials object if non-DNS keys are used", func() {
+				secret.Data = map[string][]byte{
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+				}
 
-			secret.Data = map[string][]byte{
-				AccessKeyID:     id,
-				SecretAccessKey: key,
-			}
+				credentials, err := ReadCredentialsSecret(secret, false)
 
-			credentials, err := ReadCredentialsSecret(secret)
+				Expect(credentials).To(Equal(&Credentials{
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+				}))
+				Expect(err).NotTo(HaveOccurred())
+			})
 
-			Expect(credentials).To(Equal(&Credentials{
-				AccessKeyID:     id,
-				SecretAccessKey: key,
-			}))
-			Expect(err).NotTo(HaveOccurred())
+			It("should fail if DNS keys are used", func() {
+				secret.Data = map[string][]byte{
+					DNSAccessKeyID:     accessKeyID,
+					DNSSecretAccessKey: secretAccessKey,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, false)
+
+				Expect(credentials).To(BeNil())
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("DNS keys are allowed", func() {
+			It("should return the correct credentials object if DNS keys are used", func() {
+				secret.Data = map[string][]byte{
+					DNSAccessKeyID:     accessKeyID,
+					DNSSecretAccessKey: secretAccessKey,
+					DNSRegion:          region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, true)
+
+				Expect(credentials).To(Equal(&Credentials{
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+					Region:          region,
+				}))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return the correct credentials object if non-DNS keys are used", func() {
+				secret.Data = map[string][]byte{
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+					Region:          region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, true)
+
+				Expect(credentials).To(Equal(&Credentials{
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+					Region:          region,
+				}))
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 })

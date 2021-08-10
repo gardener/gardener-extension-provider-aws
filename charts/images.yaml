@@ -2,7 +2,7 @@ images:
 - name: terraformer
   sourceRepository: github.com/gardener/terraformer
   repository: eu.gcr.io/gardener-project/gardener/terraformer-aws
-  tag: "v2.7.0"
+  tag: "v2.9.0"
 
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/kubernetes
@@ -36,7 +36,7 @@ images:
 - name: machine-controller-manager
   sourceRepository: github.com/gardener/machine-controller-manager
   repository: eu.gcr.io/gardener-project/gardener/machine-controller-manager
-  tag: "v0.39.0"
+  tag: "v0.40.0"
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
   repository: eu.gcr.io/gardener-project/gardener/machine-controller-manager-provider-aws
@@ -49,11 +49,11 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: k8s.gcr.io/provider-aws/aws-ebs-csi-driver
-  tag: "v0.10.1"
+  tag: "v1.1.1"
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: k8s.gcr.io/sig-storage/csi-provisioner
-  tag: "v1.6.0"
+  tag: "v2.1.2"
 - name: csi-attacher
   sourceRepository: github.com/kubernetes-csi/external-attacher
   repository: k8s.gcr.io/sig-storage/csi-attacher
@@ -61,7 +61,7 @@ images:
 - name: csi-snapshotter
   sourceRepository: github.com/kubernetes-csi/external-snapshotter
   repository: k8s.gcr.io/sig-storage/csi-snapshotter
-  tag: "v2.1.5"
+  tag: "v3.0.3"
 - name: csi-resizer
   sourceRepository: github.com/kubernetes-csi/external-resizer
   repository: k8s.gcr.io/sig-storage/csi-resizer
@@ -69,7 +69,7 @@ images:
 - name: csi-snapshot-controller
   sourceRepository: github.com/kubernetes-csi/external-snapshotter
   repository: k8s.gcr.io/sig-storage/snapshot-controller
-  tag: "v2.1.5"
+  tag: "v3.0.3"
 - name: csi-node-driver-registrar
   sourceRepository: github.com/kubernetes-csi/node-driver-registrar
   repository: k8s.gcr.io/sig-storage/csi-node-driver-registrar
