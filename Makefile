@@ -16,12 +16,10 @@ EXTENSION_PREFIX            := gardener-extension
 NAME                        := provider-aws
 ADMISSION_NAME              := admission-aws
 REGISTRY                    := eu.gcr.io/gardener-project/gardener
+IMAGE_PREFIX                := $(REGISTRY)/extensions
 REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 HACK_DIR                    := $(REPO_ROOT)/hack
-IMAGE_PREFIX                := $(REGISTRY)/extensions
 VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
-EFFECTIVE_VERSION           := $(VERSION)-$(shell git rev-parse HEAD)
-
 LD_FLAGS                    := "-w -X github.com/gardener/$(EXTENSION_PREFIX)-$(NAME)/pkg/version.Version=$(IMAGE_TAG)"
 LEADER_ELECTION             := false
 IGNORE_OPERATION_ANNOTATION := true
@@ -94,6 +92,7 @@ docker-images:
 install-requirements:
 	@go install -mod=vendor $(REPO_ROOT)/vendor/github.com/ahmetb/gen-crd-api-reference-docs
 	@go install -mod=vendor $(REPO_ROOT)/vendor/github.com/golang/mock/mockgen
+	@go install -mod=vendor sigs.k8s.io/controller-runtime/tools/setup-envtest
 	@go install -mod=vendor $(REPO_ROOT)/vendor/github.com/onsi/ginkgo/ginkgo
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/install-requirements.sh
 
@@ -104,6 +103,7 @@ revendor:
 	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/*
 	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/.ci/*
 	@$(REPO_ROOT)/hack/update-github-templates.sh
+	@ln -sf ../vendor/github.com/gardener/gardener/hack/cherry-pick-pull.sh $(HACK_DIR)/cherry-pick-pull.sh
 
 .PHONY: clean
 clean:
@@ -129,11 +129,11 @@ format:
 
 .PHONY: test
 test:
-	@SKIP_FETCH_TOOLS=1 $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test.sh ./cmd/... ./pkg/...
+	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test.sh ./cmd/... ./pkg/...
 
 .PHONY: test-cov
 test-cov:
-	@SKIP_FETCH_TOOLS=1 $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-cover.sh ./cmd/... ./pkg/...
+	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-cover.sh ./cmd/... ./pkg/...
 
 .PHONY: test-clean
 test-clean:
@@ -163,34 +163,10 @@ integration-test-bastion:
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
 		--region=$(REGION)
 
-#####################################################################
-# Rules for cnudie component descriptors dev setup #
-#####################################################################
-
-.PHONY: cnudie-docker-images
-cnudie-docker-images:
-	@echo "Building docker images for version $(EFFECTIVE_VERSION) for registry $(IMAGE_PREFIX)"
-	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(NAME):$(EFFECTIVE_VERSION) -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME) .
-	@docker build --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(EFFECTIVE_VERSION) -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
-
-.PHONY: cnudie-docker-push
-cnudie-docker-push:
-	@echo "Pushing docker images for version $(EFFECTIVE_VERSION) to registry $(IMAGE_PREFIX)"
-	@if ! docker images $(IMAGE_PREFIX)/$(NAME) | awk '{ print $$2 }' | grep -q -F $(EFFECTIVE_VERSION); then echo "$(IMAGE_PREFIX)/$(NAME) version $(EFFECTIVE_VERSION) is not yet built. Please run 'make cnudie-docker-images'"; false; fi
-	@docker push $(IMAGE_PREFIX)/$(NAME):$(EFFECTIVE_VERSION)
-	@if ! docker images $(IMAGE_PREFIX)/$(ADMISSION_NAME) | awk '{ print $$2 }' | grep -q -F $(EFFECTIVE_VERSION); then echo "$(IMAGE_PREFIX)/$(ADMISSION_NAME) version $(EFFECTIVE_VERSION) is not yet built. Please run 'make cnudie-docker-images'"; false; fi
-	@docker push $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(EFFECTIVE_VERSION)
-
-.PHONY: cnudie-docker-all
-cnudie-docker-all: cnudie-docker-images cnudie-docker-push
-
-.PHONY: cnudie-cd-build-push
-cnudie-cd-build-push:
-	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/generate-cd.sh
-
-.PHONY: cnudie-build-push-all
-cnudie-build-push-all: cnudie-docker-images cnudie-docker-push cnudie-cd-build-push
-
-.PHONY: cnudie-create-installation
-cnudie-create-installation:
-	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/create-installation.sh
+.PHONY: integration-test-dnsrecord
+integration-test-dnsrecord:
+	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/test-integration.sh -timeout=0 ./test/integration/dnsrecord \
+		--v -ginkgo.v -ginkgo.progress \
+		--kubeconfig=${KUBECONFIG} \
+		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
+		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))'
