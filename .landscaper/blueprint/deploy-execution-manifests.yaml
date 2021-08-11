@@ -12,6 +12,79 @@ deployItems:
     - policy: manage
       manifest:
         apiVersion: core.gardener.cloud/v1beta1
+        kind: ControllerDeployment
+        metadata:
+          name: provider-aws
+          namespace: garden
+        type: helm
+        providerConfig:
+          {{- $chart := getResource .cd "name" "gardener-extension-provider-aws-chart" }}
+          chart: {{ resolve ( $chart.access ) | toString | b64enc }}
+          values:
+            image:
+              {{- $image := getResource .cd "name" "gardener-extension-provider-aws-image" }}
+              repository: {{ ociRefRepo ( $image.access.imageReference ) }}
+              tag: {{ ociRefVersion ( $image.access.imageReference ) }}
+            images:
+              alpine: {{ (getResource .cd "name" "alpine").access.imageReference }}
+              pause: {{ (getResource .cd "name" "pause").access.imageReference }}
+            replicaCount: 3
+            resources:
+              {{- if .imports.controllerRegistration.resources }}
+              {{- toYaml .imports.controllerRegistration.resources | nindent 16 }}
+              {{- else }}
+              requests:
+                cpu: "20m"
+                memory: "64Mi"
+              limits:
+                cpu: "100m"
+                memory: "256Mi"
+              {{- end }}
+            vpa:
+              {{- if .imports.controllerRegistration.vpa }}
+              {{- toYaml .imports.controllerRegistration.vpa | nindent 16}}
+              {{- else }}
+              enabled: true
+              updatePolicy:
+                updateMode: "Auto"
+              {{- end }}
+            controllers:
+              {{- if .imports.controllerRegistration.concurrentSyncs }}
+              backupentry:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              controlplane:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              healthcheck:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              infrastructure:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              worker:
+                concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
+              {{- else }}
+              backupentry:
+                concurrentSyncs: 20
+              controlplane:
+                concurrentSyncs: 20
+              healthcheck:
+                concurrentSyncs: 20
+              infrastructure:
+                concurrentSyncs: 20
+              worker:
+                concurrentSyncs: 20
+              {{- end }}
+            config:
+              etcd:
+                storage:
+                  className: gardener.cloud-fast
+                  capacity: 80Gi
+            {{- if .imports.imageVectorOverwrite }}
+            imageVectorOverwrite: |
+              {{- toYaml .imports.imageVectorOverwrite | nindent 16 }}
+            {{- end }}
+
+    - policy: manage
+      manifest:
+        apiVersion: core.gardener.cloud/v1beta1
         kind: ControllerRegistration
         metadata:
           name: provider-aws
@@ -36,72 +109,8 @@ deployItems:
             type: aws
           {{- end}}
         deployment:
-          type: helm
-          providerConfig:
-            {{- $chart := getResource .cd "name" "gardener-extension-provider-aws-chart" }}
-            chart: {{ resolve ( $chart.access ) | toString | b64enc }}
-            values:
-              image:
-                {{- $image := getResource .cd "name" "gardener-extension-provider-aws-image" }}
-                repository: {{ ociRefRepo ( $image.access.imageReference ) }}
-                tag: {{ ociRefVersion ( $image.access.imageReference ) }}
-              images:
-                alpine: {{ (getResource .cd "name" "alpine").access.imageReference }}
-                pause: {{ (getResource .cd "name" "pause").access.imageReference }}
-              replicaCount: 3
-              resources:
-                {{- if .imports.controllerRegistration.resources }}
-                {{- toYaml .imports.controllerRegistration.resources | nindent 16 }}
-                {{- else }}
-                requests:
-                  cpu: "20m"
-                  memory: "64Mi"
-                limits:
-                  cpu: "100m"
-                  memory: "256Mi"
-                {{- end }}
-              vpa:
-                {{- if .imports.controllerRegistration.vpa }}
-                {{- toYaml .imports.controllerRegistration.vpa | nindent 16}}
-                {{- else }}
-                enabled: true
-                updatePolicy:
-                  updateMode: "Auto"
-                {{- end }}
-              controllers:
-                {{- if .imports.controllerRegistration.concurrentSyncs }}
-                backupentry:
-                  concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
-                controlplane:
-                  concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
-                healthcheck:
-                  concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
-                infrastructure:
-                  concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
-                worker:
-                  concurrentSyncs: {{ .imports.controllerRegistration.concurrentSyncs }}
-                {{- else }}
-                backupentry:
-                  concurrentSyncs: 20
-                controlplane:
-                  concurrentSyncs: 20
-                healthcheck:
-                  concurrentSyncs: 20
-                infrastructure:
-                  concurrentSyncs: 20
-                worker:
-                  concurrentSyncs: 20
-                {{- end }}
-              config:
-                etcd:
-                  storage:
-                    className: gardener.cloud-fast
-                    capacity: 80Gi
-              {{- if .imports.imageVectorOverwrite }}
-              imageVectorOverwrite: |
-                {{- toYaml .imports.imageVectorOverwrite | nindent 16 }}
-              {{- end }}
-
+          deploymentRefs:
+            - name: provider-aws
     - policy: manage
       manifest:
         apiVersion: core.gardener.cloud/v1beta1
