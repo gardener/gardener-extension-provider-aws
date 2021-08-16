@@ -16,7 +16,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.18.17"
+  tag: "v1.18.20"
   targetVersion: "1.18.x"
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
