@@ -206,7 +206,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass}
 
 			// if the shoot K8s version is greater than or equal to 1.22 then
-			// enable source destination check on AWS instances by default
+			// disable source destination check on AWS instances by default
 			shootK8sVersion := w.cluster.Shoot.Spec.Kubernetes.Version
 
 			k8sVersionGreaterOrEqualThan122, err := versionutils.CompareVersions(shootK8sVersion, ">=", "1.22")
