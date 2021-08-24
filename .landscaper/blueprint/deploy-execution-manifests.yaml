@@ -142,6 +142,42 @@ deployItems:
           #   The allocatable resources on such "small" machines are not enough to run the system components
           #   and addons without disruptions.
           machineTypes:
+            - name: m6i.large
+              cpu: "2"
+              gpu: "0"
+              memory: 8Gi
+            - name: m6i.xlarge
+              cpu: "4"
+              gpu: "0"
+              memory: 16Gi
+            - name: m6i.2xlarge
+              cpu: "8"
+              gpu: "0"
+              memory: 32Gi
+            - name: m6i.4xlarge
+              cpu: "16"
+              gpu: "0"
+              memory: 64Gi
+            - name: m6i.8xlarge
+              cpu: "32"
+              gpu: "0"
+              memory: 128Gi
+            - name: m6i.12xlarge
+              cpu: "48"
+              gpu: "0"
+              memory: 192Gi
+            - name: m6i.16xlarge
+              cpu: "64"
+              gpu: "0"
+              memory: 256Gi
+            - name: m6i.24xlarge
+              cpu: "96"
+              gpu: "0"
+              memory: 384Gi
+            - name: m6i.32xlarge
+              cpu: "128"
+              gpu: "0"
+              memory: 512Gi
             - name: m5.large
               cpu: "2"
               gpu: "0"
