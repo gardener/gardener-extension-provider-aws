@@ -42,7 +42,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1beta1 "k8s.io/api/storage/v1beta1"
+	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	autoscalingv1beta2 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1beta2"
@@ -263,7 +263,7 @@ var (
 				Objects: []*chart.Object{
 					// csi-driver
 					{Type: &appsv1.DaemonSet{}, Name: aws.CSINodeName},
-					{Type: &storagev1beta1.CSIDriver{}, Name: "ebs.csi.aws.com"},
+					{Type: &storagev1.CSIDriver{}, Name: "ebs.csi.aws.com"},
 					{Type: &corev1.ServiceAccount{}, Name: aws.CSIDriverName},
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIDriverName},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIDriverName},
@@ -587,14 +587,16 @@ func getCSIControllerChartValues(
 func getControlPlaneShootChartValues(
 	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
-	csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
+	kubernetesVersion := cluster.Shoot.Spec.Kubernetes.Version
+	csiEnabled, err := version.CompareVersions(kubernetesVersion, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
 	if err != nil {
 		return nil, err
 	}
 
 	csiDriverNodeValues := map[string]interface{}{
-		"enabled":    csiEnabled,
-		"vpaEnabled": gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
+		"enabled":           csiEnabled,
+		"kubernetesVersion": kubernetesVersion,
+		"vpaEnabled":        gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
 	}
 
 	if value, ok := cluster.Shoot.Annotations[aws.VolumeAttachLimit]; ok {

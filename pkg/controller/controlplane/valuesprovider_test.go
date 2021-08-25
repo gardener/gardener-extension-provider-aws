@@ -221,6 +221,14 @@ var _ = Describe("ValuesProvider", func() {
 				"featureGates": map[string]bool{
 					"CustomResourceValidation": true,
 				},
+				"tlsCipherSuites": []string{
+					"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+					"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+					"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+					"TLS_RSA_WITH_AES_128_CBC_SHA",
+					"TLS_RSA_WITH_AES_256_CBC_SHA",
+					"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+				},
 			})
 			c = mockclient.NewMockClient(ctrl)
 
@@ -274,7 +282,8 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(values).To(Equal(map[string]interface{}{
 				aws.CloudControllerManagerName: enabledTrue,
 				aws.CSINodeName: utils.MergeMaps(enabledFalse, map[string]interface{}{
-					"vpaEnabled": false,
+					"kubernetesVersion": "1.15.4",
+					"vpaEnabled":        false,
 				}),
 			}))
 		})
@@ -285,7 +294,8 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(values).To(Equal(map[string]interface{}{
 				aws.CloudControllerManagerName: enabledTrue,
 				aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-					"vpaEnabled": true,
+					"kubernetesVersion": "1.18.1",
+					"vpaEnabled":        true,
 					"driver": map[string]interface{}{
 						"volumeAttachLimit": "42",
 					},
