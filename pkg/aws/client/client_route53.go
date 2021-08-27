@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -311,6 +312,22 @@ func ignoreHostedZoneNotFound(err error) error {
 
 func isValuesDoNotMatchError(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && strings.Contains(aerr.Message(), "the values provided do not match the current values") {
+		return true
+	}
+	return false
+}
+
+func IsNoSuchHostedZoneError(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeNoSuchHostedZone {
+		return true
+	}
+	return false
+}
+
+var notPermittedInZoneRegex = regexp.MustCompile(`RRSet with DNS name [^\ ]+ is not permitted in zone [^\ ]+`)
+
+func IsNotPermittedInZoneError(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && notPermittedInZoneRegex.MatchString(aerr.Message()) {
 		return true
 	}
 	return false
