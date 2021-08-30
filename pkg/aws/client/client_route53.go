@@ -317,6 +317,7 @@ func isValuesDoNotMatchError(err error) bool {
 	return false
 }
 
+// IsNoSuchHostedZoneError returns true if the error indicates a non-existing route53 hosted zone.
 func IsNoSuchHostedZoneError(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeNoSuchHostedZone {
 		return true
@@ -326,6 +327,7 @@ func IsNoSuchHostedZoneError(err error) bool {
 
 var notPermittedInZoneRegex = regexp.MustCompile(`RRSet with DNS name [^\ ]+ is not permitted in zone [^\ ]+`)
 
+// IsNotPermittedInZoneError returns true if the error indicates that the DNS name is not permitted in the route53 hosted zone.
 func IsNotPermittedInZoneError(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && notPermittedInZoneRegex.MatchString(aerr.Message()) {
 		return true
