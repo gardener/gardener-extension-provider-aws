@@ -177,19 +177,34 @@ func (mr *MockInterfaceMockRecorder) GetDNSHostedZones(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSHostedZones", reflect.TypeOf((*MockInterface)(nil).GetDNSHostedZones), arg0)
 }
 
-// GetInternetGateway mocks base method.
-func (m *MockInterface) GetInternetGateway(arg0 context.Context, arg1 string) (string, error) {
+// GetVPCAttribute mocks base method.
+func (m *MockInterface) GetVPCAttribute(arg0 context.Context, arg1, arg2 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInternetGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetVPCAttribute", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVPCAttribute indicates an expected call of GetVPCAttribute.
+func (mr *MockInterfaceMockRecorder) GetVPCAttribute(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVPCAttribute", reflect.TypeOf((*MockInterface)(nil).GetVPCAttribute), arg0, arg1, arg2)
+}
+
+// GetVPCInternetGateway mocks base method.
+func (m *MockInterface) GetVPCInternetGateway(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVPCInternetGateway", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetInternetGateway indicates an expected call of GetInternetGateway.
-func (mr *MockInterfaceMockRecorder) GetInternetGateway(arg0, arg1 interface{}) *gomock.Call {
+// GetVPCInternetGateway indicates an expected call of GetVPCInternetGateway.
+func (mr *MockInterfaceMockRecorder) GetVPCInternetGateway(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetInternetGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVPCInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetVPCInternetGateway), arg0, arg1)
 }
 
 // ListKubernetesELBs mocks base method.
@@ -235,20 +250,6 @@ func (m *MockInterface) ListKubernetesSecurityGroups(arg0 context.Context, arg1,
 func (mr *MockInterfaceMockRecorder) ListKubernetesSecurityGroups(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesSecurityGroups", reflect.TypeOf((*MockInterface)(nil).ListKubernetesSecurityGroups), arg0, arg1, arg2)
-}
-
-// VerifyVPCAttributes mocks base method.
-func (m *MockInterface) VerifyVPCAttributes(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VerifyVPCAttributes", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// VerifyVPCAttributes indicates an expected call of VerifyVPCAttributes.
-func (mr *MockInterfaceMockRecorder) VerifyVPCAttributes(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyVPCAttributes", reflect.TypeOf((*MockInterface)(nil).VerifyVPCAttributes), arg0, arg1)
 }
 
 // MockFactory is a mock of Factory interface.

@@ -125,10 +125,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	case infrastructureConfig.Networks.VPC.ID != nil:
 		createVPC = false
 		existingVpcID := *infrastructureConfig.Networks.VPC.ID
-		if err := awsClient.VerifyVPCAttributes(ctx, existingVpcID); err != nil {
-			return nil, err
-		}
-		existingInternetGatewayID, err := awsClient.GetInternetGateway(ctx, existingVpcID)
+		existingInternetGatewayID, err := awsClient.GetVPCInternetGateway(ctx, existingVpcID)
 		if err != nil {
 			return nil, err
 		}
