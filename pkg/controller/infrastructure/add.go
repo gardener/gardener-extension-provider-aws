@@ -16,9 +16,7 @@ package infrastructure
 
 import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -42,7 +40,6 @@ type AddOptions struct {
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 	return infrastructure.Add(mgr, infrastructure.AddArgs{
 		Actuator:          NewActuator(),
-		ConfigValidator:   NewConfigValidator(awsclient.FactoryFunc(awsclient.NewInterface), log.Log),
 		ControllerOptions: opts.Controller,
 		Predicates:        infrastructure.DefaultPredicates(opts.IgnoreOperationAnnotation),
 		Type:              aws.Type,

@@ -32,8 +32,8 @@ const (
 // Interface is an interface which must be implemented by AWS clients.
 type Interface interface {
 	GetAccountID(ctx context.Context) (string, error)
-	GetVPCInternetGateway(ctx context.Context, vpcID string) (string, error)
-	GetVPCAttribute(ctx context.Context, vpcID string, attribute string) (bool, error)
+	GetInternetGateway(ctx context.Context, vpcID string) (string, error)
+	VerifyVPCAttributes(ctx context.Context, vpcID string) error
 
 	// S3 wrappers
 	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
