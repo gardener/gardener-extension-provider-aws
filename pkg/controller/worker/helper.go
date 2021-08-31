@@ -16,13 +16,13 @@ package worker
 
 import (
 	"context"
+	"fmt"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
@@ -36,7 +36,7 @@ func (w *workerDelegate) decodeWorkerProviderStatus() (*api.WorkerStatus, error)
 	}
 
 	if _, _, err := w.Decoder().Decode(w.worker.Status.ProviderStatus.Raw, nil, workerStatus); err != nil {
-		return nil, errors.Wrapf(err, "could not decode WorkerStatus '%s'", kutil.ObjectName(w.worker))
+		return nil, fmt.Errorf("could not decode WorkerStatus '%s': %w", kutil.ObjectName(w.worker), err)
 	}
 
 	return workerStatus, nil

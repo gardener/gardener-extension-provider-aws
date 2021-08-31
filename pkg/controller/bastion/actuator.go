@@ -16,6 +16,7 @@ package bastion
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -29,7 +30,6 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -63,12 +63,12 @@ func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1
 	key := kubernetes.Key(bastion.Namespace, v1beta1constants.SecretNameCloudProvider)
 
 	if err := a.Client().Get(ctx, key, secret); err != nil {
-		return nil, errors.Wrapf(err, "failed to find %q Secret", v1beta1constants.SecretNameCloudProvider)
+		return nil, fmt.Errorf("failed to find %q Secret: %w", v1beta1constants.SecretNameCloudProvider, err)
 	}
 
 	credentials, err := aws.ReadCredentialsSecret(secret, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read credentials Secret")
+		return nil, fmt.Errorf("failed to read credentials Secret: %w", err)
 	}
 
 	return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), shoot.Spec.Region)

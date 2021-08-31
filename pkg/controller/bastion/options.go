@@ -28,7 +28,6 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
-	"github.com/pkg/errors"
 )
 
 // Options contains provider-related information required for setting up
@@ -63,32 +62,32 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 
 	subnetID, vpcID, err := resolveSubnetName(ctx, awsClient, subnetName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find subnet %q", subnetName)
+		return nil, fmt.Errorf("failed to find subnet %q: %w", subnetName, err)
 	}
 
 	// this security group exists already and just needs to be resolved to its ID
 	workerSecurityGroupName := name + "-nodes"
 	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, vpcID, workerSecurityGroupName)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to check for worker security group")
+		return nil, fmt.Errorf("failed to check for worker security group: %w", err)
 	}
 	if workerSecurityGroup == nil {
-		return nil, errors.New("security group for worker node does not exist yet")
+		return nil, fmt.Errorf("security group for worker node does not exist yet")
 	}
 
 	cloudProfileConfig, err := getCloudProfileConfig(cluster)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to extract cloud provider config from cluster")
+		return nil, fmt.Errorf("failed to extract cloud provider config from cluster: %w", err)
 	}
 
 	imageID, err := determineImageID(cluster.Shoot, cloudProfileConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to determine OS image for bastion host")
+		return nil, fmt.Errorf("failed to determine OS image for bastion host: %w", err)
 	}
 
 	instanceType, err := determineInstanceType(ctx, awsClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to determine instance type")
+		return nil, fmt.Errorf("failed to determine instance type: %w", err)
 	}
 
 	return &Options{
@@ -120,7 +119,7 @@ func resolveSubnetName(ctx context.Context, awsClient *awsclient.Client, subnetN
 	}
 
 	if len(subnets.Subnets) == 0 {
-		err = errors.New("subnet not found")
+		err = fmt.Errorf("subnet not found")
 		return
 	}
 
@@ -132,7 +131,7 @@ func resolveSubnetName(ctx context.Context, awsClient *awsclient.Client, subnetN
 
 func getCloudProfileConfig(cluster *extensions.Cluster) (*awsv1alpha1.CloudProfileConfig, error) {
 	if cluster.CloudProfile.Spec.ProviderConfig.Raw == nil {
-		return nil, errors.New("no cloud provider config set in cluster's CloudProfile")
+		return nil, fmt.Errorf("no cloud provider config set in cluster's CloudProfile")
 	}
 
 	var (
@@ -166,7 +165,7 @@ func determineImageID(shoot *gardencorev1beta1.Shoot, providerConfig *awsv1alpha
 func determineInstanceType(ctx context.Context, awsClient *awsclient.Client) (string, error) {
 	offerings, err := awsClient.EC2.DescribeInstanceTypeOfferingsWithContext(ctx, &ec2.DescribeInstanceTypeOfferingsInput{})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to list instance types")
+		return "", fmt.Errorf("failed to list instance types: %w", err)
 	}
 
 	types := make([]string, len(offerings.InstanceTypeOfferings))
@@ -188,5 +187,5 @@ func determineInstanceType(ctx context.Context, awsClient *awsclient.Client) (st
 		}
 	}
 
-	return "", errors.New("no t.* instance type available")
+	return "", fmt.Errorf("no t.* instance type available")
 }
