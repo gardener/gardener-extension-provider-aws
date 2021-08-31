@@ -16,10 +16,10 @@ package shoot
 
 import (
 	"context"
+	"fmt"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,7 +41,7 @@ func NewMutator() extensionswebhook.Mutator {
 func (m *mutator) Mutate(ctx context.Context, new, _ client.Object) error {
 	acc, err := meta.Accessor(new)
 	if err != nil {
-		return errors.Wrapf(err, "could not create accessor during webhook")
+		return fmt.Errorf("could not create accessor during webhook: %w", err)
 	}
 	// If the object does have a deletion timestamp then we don't want to mutate anything.
 	if acc.GetDeletionTimestamp() != nil {

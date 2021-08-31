@@ -16,6 +16,7 @@ package bastion
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -26,7 +27,6 @@ import (
 	ctrlerror "github.com/gardener/gardener/extensions/pkg/controller/error"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -35,18 +35,18 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
-		return errors.Wrap(err, "failed to create AWS client")
+		return fmt.Errorf("failed to create AWS client: %w", err)
 	}
 
 	opt, err := DetermineOptions(ctx, bastion, cluster, awsClient)
 	if err != nil {
-		return errors.Wrap(err, "failed to setup AWS client options")
+		return fmt.Errorf("failed to setup AWS client options: %w", err)
 	}
 
 	// resolve security group name to its ID
 	group, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.BastionSecurityGroupName)
 	if err != nil {
-		return errors.Wrap(err, "failed to list security groups")
+		return fmt.Errorf("failed to list security groups: %w", err)
 	}
 
 	// if the security group still exists, remove it from the worker's security group
@@ -54,28 +54,28 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 		opt.BastionSecurityGroupID = *group.GroupId
 
 		if err := removeWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
-			return errors.Wrap(err, "failed to remove bastion host from worker security group")
+			return fmt.Errorf("failed to remove bastion host from worker security group: %w", err)
 		}
 	}
 
 	if err := removeBastionInstance(ctx, logger, awsClient, opt); err != nil {
-		return errors.Wrap(err, "failed to remove bastion instance")
+		return fmt.Errorf("failed to remove bastion instance: %w", err)
 	}
 
 	terminated, err := instanceIsTerminated(ctx, awsClient, opt)
 	if err != nil {
-		return errors.Wrap(err, "failed to check for bastion instance")
+		return fmt.Errorf("failed to check for bastion instance: %w", err)
 	}
 
 	if !terminated {
 		return &ctrlerror.RequeueAfterError{
 			RequeueAfter: 10 * time.Second,
-			Cause:        errors.New("bastion instance is still terminating"),
+			Cause:        fmt.Errorf("bastion instance is still terminating"),
 		}
 	}
 
 	if err := removeSecurityGroup(ctx, logger, awsClient, opt); err != nil {
-		return errors.Wrap(err, "failed to remove security group")
+		return fmt.Errorf("failed to remove security group: %w", err)
 	}
 
 	return nil
@@ -84,7 +84,7 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
 	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.WorkerSecurityGroupName)
 	if err != nil {
-		return errors.Wrap(err, "failed to fetch worker security group")
+		return fmt.Errorf("failed to fetch worker security group: %w", err)
 	}
 
 	// if for some reason the worker's SG is already gone, that's fine, no need to cleanup any further
@@ -139,7 +139,7 @@ func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *a
 		},
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to list instances")
+		return fmt.Errorf("failed to list instances: %w", err)
 	}
 
 	// nothing to do
@@ -153,7 +153,7 @@ func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *a
 		InstanceIds: aws.StringSlice([]string{*instance.InstanceId}),
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to terminate instance")
+		return fmt.Errorf("failed to terminate instance: %w", err)
 	}
 
 	return nil
@@ -162,7 +162,7 @@ func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *a
 func removeSecurityGroup(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
 	group, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.BastionSecurityGroupName)
 	if err != nil {
-		return errors.Wrap(err, "failed to list security groups")
+		return fmt.Errorf("failed to list security groups: %w", err)
 	}
 
 	// nothing to do
@@ -176,7 +176,7 @@ func removeSecurityGroup(ctx context.Context, logger logr.Logger, awsClient *aws
 		GroupId: group.GroupId,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to remove security group")
+		return fmt.Errorf("failed to remove security group: %w", err)
 	}
 
 	return nil

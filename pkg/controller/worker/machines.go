@@ -34,7 +34,6 @@ import (
 	"github.com/gardener/gardener/pkg/utils"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -64,7 +63,7 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 
 	// Delete any older version of AWSMachineClass CRs.
 	if err := w.Client().DeleteAllOf(ctx, &machinev1alpha1.AWSMachineClass{}, client.InNamespace(w.worker.Namespace)); err != nil {
-		return errors.Wrapf(err, "cleaning up older version of AWS machine class CRs failed")
+		return fmt.Errorf("cleaning up older version of AWS machine class CRs failed: %w", err)
 	}
 
 	return w.seedChartApplier.Apply(ctx, filepath.Join(aws.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
@@ -235,7 +234,7 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	// handle root disk
 	rootDisk, err := computeEBSForVolume(*pool.Volume)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error when computing EBS for root disk")
+		return nil, fmt.Errorf("error when computing EBS for root disk: %w", err)
 	}
 	if workerConfig.Volume != nil && workerConfig.Volume.IOPS != nil {
 		rootDisk["iops"] = *workerConfig.Volume.IOPS
@@ -254,7 +253,7 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 		for i, vol := range dataVolumes {
 			dataDisk, err := computeEBSForDataVolume(vol)
 			if err != nil {
-				return nil, errors.Wrapf(err, "error when computing EBS for %v", vol)
+				return nil, fmt.Errorf("error when computing EBS for %v: %w", vol, err)
 			}
 			if dvConfig := awsapihelper.FindDataVolumeByName(workerConfig.DataVolumes, vol.Name); dvConfig != nil {
 				if dvConfig.IOPS != nil {
@@ -266,7 +265,7 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 			}
 			deviceName, err := computeEBSDeviceNameForIndex(i)
 			if err != nil {
-				return nil, errors.Wrapf(err, "error when computing EBS device name for %v", vol)
+				return nil, fmt.Errorf("error when computing EBS device name for %v: %w", vol, err)
 			}
 			blockDevices = append(blockDevices, map[string]interface{}{
 				"deviceName": deviceName,

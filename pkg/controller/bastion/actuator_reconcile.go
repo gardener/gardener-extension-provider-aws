@@ -17,6 +17,7 @@ package bastion
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"time"
 
@@ -28,7 +29,6 @@ import (
 	ctrlerror "github.com/gardener/gardener/extensions/pkg/controller/error"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,26 +39,26 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
-		return errors.Wrap(err, "failed to create AWS client")
+		return fmt.Errorf("failed to create AWS client: %w", err)
 	}
 
 	opt, err := DetermineOptions(ctx, bastion, cluster, awsClient)
 	if err != nil {
-		return errors.Wrap(err, "failed to setup AWS client options")
+		return fmt.Errorf("failed to setup AWS client options: %w", err)
 	}
 
 	opt.BastionSecurityGroupID, err = ensureSecurityGroup(ctx, logger, bastion, awsClient, opt)
 	if err != nil {
-		return errors.Wrap(err, "failed to ensure security group")
+		return fmt.Errorf("failed to ensure security group: %w", err)
 	}
 
 	endpoints, err := ensureBastionInstance(ctx, logger, bastion, awsClient, opt)
 	if err != nil {
-		return errors.Wrap(err, "failed to ensure bastion instance")
+		return fmt.Errorf("failed to ensure bastion instance: %w", err)
 	}
 
 	if err := ensureWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
-		return errors.Wrap(err, "failed to authorize bastion host in worker security group")
+		return fmt.Errorf("failed to authorize bastion host in worker security group: %w", err)
 	}
 
 	// reconcile again if the instance has not all endpoints yet
@@ -67,7 +67,7 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 			// requeue rather soon, so that the user (most likely gardenctl eventually)
 			// doesn't have to wait too long for the public endpoint to become available
 			RequeueAfter: 5 * time.Second,
-			Cause:        errors.New("bastion instance has no public/private endpoints yet"),
+			Cause:        fmt.Errorf("bastion instance has no public/private endpoints yet"),
 		}
 	}
 
@@ -88,7 +88,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 	// prepare rules
 	ingressPermission, err := ingressPermissions(ctx, bastion)
 	if err != nil {
-		return "", errors.Wrap(err, "invalid ingress rules configured for bastion")
+		return "", fmt.Errorf("invalid ingress rules configured for bastion: %w", err)
 	}
 
 	egressPermission := &ec2.IpPermission{
@@ -128,7 +128,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 			},
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "could not create security group")
+			return "", fmt.Errorf("could not create security group: %w", err)
 		}
 
 		groupID = output.GroupId
@@ -146,7 +146,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 			IpPermissions: []*ec2.IpPermission{ingressPermission},
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to authorize ingress")
+			return "", fmt.Errorf("failed to authorize ingress: %w", err)
 		}
 	}
 
@@ -158,7 +158,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 			IpPermissions: []*ec2.IpPermission{egressPermission},
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to revoke egress")
+			return "", fmt.Errorf("failed to revoke egress: %w", err)
 		}
 	}
 
@@ -183,7 +183,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 			IpPermissions: permsToDelete,
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to revoke egress")
+			return "", fmt.Errorf("failed to revoke egress: %w", err)
 		}
 	}
 
@@ -207,7 +207,7 @@ func ingressPermissions(ctx context.Context, bastion *extensionsv1alpha1.Bastion
 
 		ip, ipNet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			return nil, errors.Wrapf(err, "invalid ingress CIDR %q", cidr)
+			return nil, fmt.Errorf("invalid ingress CIDR %q: %w", cidr, err)
 		}
 
 		// Make sure to not set a description, otherwise the equality checks in
@@ -263,7 +263,7 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 	// check if the instance already exists and has an IP
 	endpoints, err := getInstanceEndpoints(ctx, awsClient, opt.InstanceName)
 	if err != nil { // could not check for instance
-		return nil, errors.Wrap(err, "failed to check for EC2 instance")
+		return nil, fmt.Errorf("failed to check for EC2 instance: %w", err)
 	}
 
 	// instance exists, though it may not be ready yet
@@ -303,7 +303,7 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 
 	_, err = awsClient.EC2.RunInstancesWithContext(ctx, input)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to run instance")
+		return nil, fmt.Errorf("failed to run instance: %w", err)
 	}
 
 	// check again for the current endpoints and return them
@@ -325,7 +325,7 @@ func getInstanceEndpoints(ctx context.Context, awsClient *awsclient.Client, inst
 		},
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list instances")
+		return nil, fmt.Errorf("failed to list instances: %w", err)
 	}
 	if instance == nil {
 		return nil, nil
@@ -370,10 +370,10 @@ func addressToIngress(dnsName *string, ipAddress *string) *corev1.LoadBalancerIn
 func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
 	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.WorkerSecurityGroupName)
 	if err != nil {
-		return errors.Wrap(err, "failed to fetch worker security group")
+		return fmt.Errorf("failed to fetch worker security group: %w", err)
 	}
 	if workerSecurityGroup == nil {
-		return errors.New("cannot find security group for workers")
+		return fmt.Errorf("cannot find security group for workers")
 	}
 
 	permission := workerSecurityGroupPermission(opt)
@@ -429,7 +429,7 @@ func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, vpcID st
 		},
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list security groups")
+		return nil, fmt.Errorf("failed to list security groups: %w", err)
 	}
 
 	if len(groups.SecurityGroups) == 0 {

@@ -36,7 +36,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
-	"github.com/pkg/errors"
 )
 
 // Client is a struct containing several clients for the different AWS services it needs to interact with.
@@ -368,16 +367,16 @@ func (c *Client) ListKubernetesELBsV2(ctx context.Context, vpcID, clusterName st
 func (c *Client) DeleteELBV2(ctx context.Context, arn string) error {
 	targetGroups, err := c.ELBv2.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{LoadBalancerArn: &arn})
 	if err != nil {
-		return errors.Wrapf(err, "could not list loadbalancer target groups for arn %s", arn)
+		return fmt.Errorf("could not list loadbalancer target groups for arn %s: %w", arn, err)
 	}
 
 	if _, err := c.ELBv2.DeleteLoadBalancerWithContext(ctx, &elbv2.DeleteLoadBalancerInput{LoadBalancerArn: &arn}); ignoreNotFound(err) != nil {
-		return errors.Wrapf(err, "could not delete loadbalancer for arn %s", arn)
+		return fmt.Errorf("could not delete loadbalancer for arn %s: %w", arn, err)
 	}
 
 	for _, group := range targetGroups.TargetGroups {
 		if _, err := c.ELBv2.DeleteTargetGroup(&elbv2.DeleteTargetGroupInput{TargetGroupArn: group.TargetGroupArn}); err != nil {
-			return errors.Wrapf(err, "could not delete target groups after deleting loadbalancer for arn %s", arn)
+			return fmt.Errorf("could not delete target groups after deleting loadbalancer for arn %s: %w", arn, err)
 		}
 	}
 
