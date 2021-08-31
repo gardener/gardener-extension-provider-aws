@@ -223,7 +223,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(infra.Status.LastError).NotTo(BeNil())
-			Expect(infra.Status.LastError.Description).To(ContainSubstring("VPC attribute enableDnsHostnames must be set to true"))
+			Expect(infra.Status.LastError.Description).To(ContainSubstring("invalid VPC attributes: `enableDnsHostnames` must be set to `true`"))
 		})
 
 		It("should successfully create and delete", func() {

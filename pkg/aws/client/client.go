@@ -97,9 +97,9 @@ func (c *Client) GetAccountID(ctx context.Context) (string, error) {
 	return *getCallerIdentityOutput.Account, nil
 }
 
-// GetVPCInternetGateway returns the ID of the internet gateway attached to the given VPC <vpcID>.
+// GetInternetGateway returns the ID of the internet gateway attached to the given VPC <vpcID>.
 // If there is no internet gateway attached, the returned string will be empty.
-func (c *Client) GetVPCInternetGateway(ctx context.Context, vpcID string) (string, error) {
+func (c *Client) GetInternetGateway(ctx context.Context, vpcID string) (string, error) {
 	describeInternetGatewaysInput := &ec2.DescribeInternetGatewaysInput{
 		Filters: []*ec2.Filter{
 			{
@@ -115,27 +115,34 @@ func (c *Client) GetVPCInternetGateway(ctx context.Context, vpcID string) (strin
 		return "", err
 	}
 
-	if len(describeInternetGatewaysOutput.InternetGateways) > 0 {
-		return aws.StringValue(describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId), nil
+	if describeInternetGatewaysOutput.InternetGateways != nil {
+		if *describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId == "" {
+			return "", fmt.Errorf("no attached internet gateway found for vpc %s", vpcID)
+		}
+		return *describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId, nil
 	}
-	return "", nil
+	return "", fmt.Errorf("no attached internet gateway found for vpc %s", vpcID)
 }
 
-// GetVPCAttribute returns the value of the specified VPC attribute.
-func (c *Client) GetVPCAttribute(ctx context.Context, vpcID string, attribute string) (bool, error) {
-	vpcAttribute, err := c.EC2.DescribeVpcAttributeWithContext(ctx, &ec2.DescribeVpcAttributeInput{VpcId: &vpcID, Attribute: aws.String(attribute)})
+// VerifyVPCAttributes checks whether the VPC attributes are correct.
+func (c *Client) VerifyVPCAttributes(ctx context.Context, vpcID string) error {
+	vpcAttribute, err := c.EC2.DescribeVpcAttributeWithContext(ctx, &ec2.DescribeVpcAttributeInput{VpcId: &vpcID, Attribute: aws.String("enableDnsSupport")})
 	if err != nil {
-		return false, err
+		return err
+	}
+	if vpcAttribute.EnableDnsSupport == nil || vpcAttribute.EnableDnsSupport.Value == nil || !*vpcAttribute.EnableDnsSupport.Value {
+		return fmt.Errorf("invalid VPC attributes: `enableDnsSupport` must be set to `true`")
 	}
 
-	switch attribute {
-	case "enableDnsSupport":
-		return vpcAttribute.EnableDnsSupport != nil && vpcAttribute.EnableDnsSupport.Value != nil && *vpcAttribute.EnableDnsSupport.Value, nil
-	case "enableDnsHostnames":
-		return vpcAttribute.EnableDnsHostnames != nil && vpcAttribute.EnableDnsHostnames.Value != nil && *vpcAttribute.EnableDnsHostnames.Value, nil
-	default:
-		return false, nil
+	vpcAttribute, err = c.EC2.DescribeVpcAttributeWithContext(ctx, &ec2.DescribeVpcAttributeInput{VpcId: &vpcID, Attribute: aws.String("enableDnsHostnames")})
+	if err != nil {
+		return err
 	}
+	if vpcAttribute.EnableDnsHostnames == nil || vpcAttribute.EnableDnsHostnames.Value == nil || !*vpcAttribute.EnableDnsHostnames.Value {
+		return fmt.Errorf("invalid VPC attributes: `enableDnsHostnames` must be set to `true`")
+	}
+
+	return nil
 }
 
 // DeleteObjectsWithPrefix deletes the s3 objects with the specific <prefix> from <bucket>. If it does not exist,
@@ -420,15 +427,11 @@ func (c *Client) DeleteSecurityGroup(ctx context.Context, id string) error {
 	return ignoreNotFound(err)
 }
 
-func IsNotFoundError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && (aerr.Code() == elb.ErrCodeAccessPointNotFoundException || aerr.Code() == "InvalidGroup.NotFound" || aerr.Code() == "InvalidVpcID.NotFound") {
-		return true
-	}
-	return false
-}
-
 func ignoreNotFound(err error) error {
-	if err == nil || IsNotFoundError(err) {
+	if err == nil {
+		return nil
+	}
+	if aerr, ok := err.(awserr.Error); ok && (aerr.Code() == elb.ErrCodeAccessPointNotFoundException || aerr.Code() == "InvalidGroup.NotFound") {
 		return nil
 	}
 	return err

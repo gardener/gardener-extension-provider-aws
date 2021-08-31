@@ -81,7 +81,6 @@ type SeedSpec struct {
 	Ingress *Ingress
 }
 
-// GetProviderType gets the type of the provider.
 func (s *Seed) GetProviderType() string {
 	return s.Spec.Provider.Type
 }
