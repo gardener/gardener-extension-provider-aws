@@ -55,7 +55,7 @@ autoscaling/v2beta1
 {{- end -}}
 
 {{- define "webhookadmissionregistration" -}}
-admissionregistration.k8s.io/v1beta1
+admissionregistration.k8s.io/v1
 {{- end -}}
 
 {{- define "poddisruptionbudgetversion" -}}

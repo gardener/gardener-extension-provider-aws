@@ -22,7 +22,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	"github.com/gardener/gardener/extensions/pkg/util"
 
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -42,7 +42,7 @@ type AddOptions struct {
 	// IgnoreOperationAnnotation specifies whether to ignore the operation annotation or not.
 	IgnoreOperationAnnotation bool
 	// ShootWebhooks specifies the list of desired Shoot MutatingWebhooks.
-	ShootWebhooks []admissionregistrationv1beta1.MutatingWebhook
+	ShootWebhooks []admissionregistrationv1.MutatingWebhook
 }
 
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
