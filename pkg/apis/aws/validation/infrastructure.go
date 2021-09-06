@@ -102,8 +102,9 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 	}
 
 	var (
-		cidrs       = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones)*3)
-		workerCIDRs = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones))
+		cidrs                            = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones)*3)
+		workerCIDRs                      = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones))
+		referencedElasticIPAllocationIDs []string
 	)
 
 	for i, zone := range infra.Networks.Zones {
@@ -122,8 +123,18 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
 		workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
 
-		if zone.ElasticIPAllocationID != nil && !strings.HasPrefix(*zone.ElasticIPAllocationID, "eipalloc-") {
-			allErrs = append(allErrs, field.Invalid(zonePath.Child("elasticIPAllocationID"), *zone.ElasticIPAllocationID, "must start with eipalloc-"))
+		if zone.ElasticIPAllocationID != nil {
+			for _, eIP := range referencedElasticIPAllocationIDs {
+				if eIP == *zone.ElasticIPAllocationID {
+					allErrs = append(allErrs, field.Duplicate(zonePath.Child("elasticIPAllocationID"), *zone.ElasticIPAllocationID))
+					break
+				}
+			}
+			referencedElasticIPAllocationIDs = append(referencedElasticIPAllocationIDs, *zone.ElasticIPAllocationID)
+
+			if !strings.HasPrefix(*zone.ElasticIPAllocationID, "eipalloc-") {
+				allErrs = append(allErrs, field.Invalid(zonePath.Child("elasticIPAllocationID"), *zone.ElasticIPAllocationID, "must start with eipalloc-"))
+			}
 		}
 	}
 
