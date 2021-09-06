@@ -14,21 +14,20 @@ imports:
       machineImages:
         type: array
       regions:
-        type: object
-        properties:
-          name:
-            type: string
-          zones:
-            type: array
+        type: array
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+            zones:
+              type: array
 
 # data from landscape-*-setup/export/kubernetes/KUBERNETES_VERSIONS.yaml
 # versions of item with name 'aws'
 - name: kubernetesVersions
   schema:
-    type: object
-    properties:
-      versions:
-        type: array
+    type: array
 
 # data from landscape-*-setup/landscape.yaml section gardener-extension-provider-aws.values
 - name: controllerRegistration
