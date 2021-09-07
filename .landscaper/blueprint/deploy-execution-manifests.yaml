@@ -67,6 +67,8 @@ deployItems:
                 concurrentSyncs: 20
               controlplane:
                 concurrentSyncs: 20
+              dnsrecord:
+                concurrentSyncs: 20
               healthcheck:
                 concurrentSyncs: 20
               infrastructure:
