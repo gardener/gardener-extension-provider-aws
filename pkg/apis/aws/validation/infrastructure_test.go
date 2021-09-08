@@ -360,6 +360,22 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				errorList = ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
+
+			It("should forbid the assigning same elastic IP allocation id to multiple zones", func() {
+				infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, awsZone2)
+				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.StringPtr("eipalloc-123456")
+				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = pointer.StringPtr("eipalloc-123456")
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":  Equal(field.ErrorTypeDuplicate),
+					"Field": Equal("networks.zones[1].elasticIPAllocationID"),
+				}))
+
+				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = pointer.StringPtr("eipalloc-654321")
+				errorList = ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
 		})
 
 		Context("gatewayEndpoints", func() {
