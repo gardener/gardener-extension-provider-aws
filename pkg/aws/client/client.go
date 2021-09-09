@@ -419,6 +419,7 @@ func (c *Client) DeleteSecurityGroup(ctx context.Context, id string) error {
 	return ignoreNotFound(err)
 }
 
+// IsNotFoundError returns true if the given error is a awserr.Error indicating that a AWS resource was not found.
 func IsNotFoundError(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok && (aerr.Code() == elb.ErrCodeAccessPointNotFoundException || aerr.Code() == "InvalidGroup.NotFound" || aerr.Code() == "InvalidVpcID.NotFound") {
 		return true

@@ -48,6 +48,7 @@ type actuator struct {
 	logger           logr.Logger
 }
 
+// NewActuator creates a new dnsrecord.Actuator.
 func NewActuator(awsClientFactory awsclient.Factory, logger logr.Logger) dnsrecord.Actuator {
 	return &actuator{
 		awsClientFactory: awsClientFactory,

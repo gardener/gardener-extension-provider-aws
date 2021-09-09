@@ -23,6 +23,7 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
+// BeSemanticallyEqualToRolePolicyDocument returns a matcher that checks if a role policy document is semantically equal to the given one.
 func BeSemanticallyEqualToRolePolicyDocument(expected interface{}) types.GomegaMatcher {
 	return &rolePolicyDocumentMatcher{
 		expected: expected,
