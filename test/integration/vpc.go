@@ -187,7 +187,7 @@ func DestroyVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.
 		return err
 	}
 
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+	return wait.PollUntil(5*time.Second, func() (bool, error) {
 		entry.Infof("Waiting until vpc '%s' is deleted...", vpcID)
 
 		_, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
@@ -203,9 +203,5 @@ func DestroyVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.
 		}
 
 		return false, nil
-	}, ctx.Done()); err != nil {
-		return err
-	}
-
-	return nil
+	}, ctx.Done())
 }
