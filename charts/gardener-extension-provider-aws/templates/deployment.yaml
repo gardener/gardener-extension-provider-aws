@@ -79,6 +79,9 @@ spec:
           mountPath: /charts_overwrite/
           readOnly: true
         {{- end }}
+        - name: kube-api-access-gardener
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -100,3 +103,21 @@ spec:
           name: {{ include "name" . }}-imagevector-overwrite
           defaultMode: 420
       {{- end }}
+      - name: kube-api-access-gardener
+        projected:
+          defaultMode: 420
+          sources:
+          - serviceAccountToken:
+              expirationSeconds: 1800
+              path: token
+          - configMap:
+              items:
+              - key: ca.crt
+                path: ca.crt
+              name: kube-root-ca.crt
+          - downwardAPI:
+              items:
+              - fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+                path: namespace

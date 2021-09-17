@@ -21,9 +21,7 @@ spec:
       labels:
 {{ include "labels" . | indent 8 }}
     spec:
-      {{- if .Values.global.kubeconfig }}
-      automountServiceAccountToken: false
-      {{- else }}
+      {{- if not .Values.global.kubeconfig }}
       serviceAccountName: {{ include "name" . }}
       {{- end }}
       containers:
@@ -58,6 +56,10 @@ spec:
         - name: gardener-extension-admission-aws-kubeconfig
           mountPath: /etc/gardener-extension-admission-aws/kubeconfig
           readOnly: true
+        {{- else }}
+        - name: kube-api-access-gardener
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
         {{- end }}
       volumes:
       - name: gardener-extension-admission-aws-cert
@@ -69,4 +71,23 @@ spec:
         secret:
           secretName: gardener-extension-admission-aws-kubeconfig
           defaultMode: 420
+      {{- else }}
+      - name: kube-api-access-gardener
+        projected:
+          defaultMode: 420
+          sources:
+          - serviceAccountToken:
+              expirationSeconds: 1800
+              path: token
+          - configMap:
+              items:
+              - key: ca.crt
+                path: ca.crt
+              name: kube-root-ca.crt
+          - downwardAPI:
+              items:
+              - fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+                path: namespace
       {{- end }}
