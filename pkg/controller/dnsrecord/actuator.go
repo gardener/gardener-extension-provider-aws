@@ -19,40 +19,35 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/dnsrecord"
-	controllererror "github.com/gardener/gardener/extensions/pkg/controller/error"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
+	"golang.org/x/time/rate"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-)
-
-const (
-	// requeueAfterOnProviderError is a value for RequeueAfter to be returned on provider errors
-	// in order to prevent quick retries that could quickly exhaust the account rate limits in case of e.g.
-	// configuration issues.
-	requeueAfterOnProviderError = 30 * time.Second
 )
 
 type actuator struct {
-	client           client.Client
-	awsClientFactory awsclient.Factory
-	logger           logr.Logger
+	client              client.Client
+	awsClientFactory    awsclient.Factory
+	providerRateLimiter *rate.Limiter
+	logger              logr.Logger
 }
 
 // NewActuator creates a new dnsrecord.Actuator.
-func NewActuator(awsClientFactory awsclient.Factory, logger logr.Logger) dnsrecord.Actuator {
+func NewActuator(awsClientFactory awsclient.Factory, providerRateLimiter *rate.Limiter, logger logr.Logger) dnsrecord.Actuator {
 	return &actuator{
-		awsClientFactory: awsClientFactory,
-		logger:           logger.WithName("aws-dnsrecord-actuator"),
+		awsClientFactory:    awsClientFactory,
+		providerRateLimiter: providerRateLimiter,
+		logger:              logger.WithName("aws-dnsrecord-actuator"),
 	}
 }
 
@@ -80,28 +75,24 @@ func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRec
 	}
 
 	// Create or update DNS recordset
+	if err := a.waitForProviderRateLimiter(ctx); err != nil {
+		return err
+	}
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
 	a.logger.Info("Creating or updating DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
 	if err := awsClient.CreateOrUpdateDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
-		cause := fmt.Errorf("could not create or update DNS recordset in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err)
-		if awsclient.IsNoSuchHostedZoneError(err) || awsclient.IsNotPermittedInZoneError(err) {
-			cause = gardencorev1beta1helper.NewErrorWithCodes(cause.Error(), gardencorev1beta1.ErrorConfigurationProblem)
-		}
-		return &controllererror.RequeueAfterError{
-			Cause:        cause,
-			RequeueAfter: requeueAfterOnProviderError,
-		}
+		return wrapAWSClientError(err, fmt.Sprintf("could not create or update DNS recordset in zone %s with name %s, type %s, and values %v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values))
 	}
 
 	// Delete meta DNS recordset if exists
 	if dns.Status.LastOperation == nil || dns.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeCreate {
+		if err := a.waitForProviderRateLimiter(ctx); err != nil {
+			return err
+		}
 		name, recordType := dnsrecord.GetMetaRecordName(dns.Spec.Name), "TXT"
 		a.logger.Info("Deleting meta DNS recordset", "zone", zone, "name", name, "type", recordType, "dnsrecord", kutil.ObjectName(dns))
 		if err := awsClient.DeleteDNSRecordSet(ctx, zone, name, recordType, nil, 0); err != nil {
-			return &controllererror.RequeueAfterError{
-				Cause:        fmt.Errorf("could not delete meta DNS recordset in zone %s with name %s and type %s: %+v", zone, name, recordType, err),
-				RequeueAfter: requeueAfterOnProviderError,
-			}
+			return wrapAWSClientError(err, fmt.Sprintf("could not delete meta DNS recordset in zone %s with name %s and type %s", zone, name, recordType))
 		}
 	}
 
@@ -131,13 +122,13 @@ func (a *actuator) Delete(ctx context.Context, dns *extensionsv1alpha1.DNSRecord
 	}
 
 	// Delete DNS recordset
+	if err := a.waitForProviderRateLimiter(ctx); err != nil {
+		return err
+	}
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
 	a.logger.Info("Deleting DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
 	if err := awsClient.DeleteDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
-		return &controllererror.RequeueAfterError{
-			Cause:        fmt.Errorf("could not delete DNS recordset in zone %s with name %s, type %s, and values %v: %+v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values, err),
-			RequeueAfter: requeueAfterOnProviderError,
-		}
+		return wrapAWSClientError(err, fmt.Sprintf("could not delete DNS recordset in zone %s with name %s, type %s, and values %v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values))
 	}
 
 	return nil
@@ -162,12 +153,12 @@ func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 	default:
 		// The zone is not specified in the resource status or spec. Try to determine the zone by
 		// getting all hosted zones of the account and searching for the longest zone name that is a suffix of dns.spec.Name
+		if err := a.waitForProviderRateLimiter(ctx); err != nil {
+			return "", err
+		}
 		zones, err := awsClient.GetDNSHostedZones(ctx)
 		if err != nil {
-			return "", &controllererror.RequeueAfterError{
-				Cause:        fmt.Errorf("could not get DNS hosted zones: %+v", err),
-				RequeueAfter: requeueAfterOnProviderError,
-			}
+			return "", wrapAWSClientError(err, "could not get DNS hosted zones")
 		}
 		a.logger.Info("Got DNS hosted zones", "zones", zones, "dnsrecord", kutil.ObjectName(dns))
 		zone := dnsrecord.FindZoneForName(zones, dns.Spec.Name)
@@ -176,6 +167,17 @@ func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 		}
 		return zone, nil
 	}
+}
+
+func (a *actuator) waitForProviderRateLimiter(ctx context.Context) error {
+	t := time.Now()
+	if err := a.providerRateLimiter.Wait(ctx); err != nil {
+		return fmt.Errorf("could not wait for provider rate limiter: %+v", err)
+	}
+	if waitDuration := time.Since(t); waitDuration.Seconds() > 1/float64(a.providerRateLimiter.Limit()) {
+		a.logger.Info("Waited for provider rate limiter", "waitDuration", waitDuration)
+	}
+	return nil
 }
 
 func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) string {
@@ -187,4 +189,12 @@ func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) 
 	default:
 		return aws.DefaultDNSRegion
 	}
+}
+
+func wrapAWSClientError(err error, message string) error {
+	wrappedErr := fmt.Errorf("%s: %+v", message, err)
+	if awsclient.IsNoSuchHostedZoneError(err) || awsclient.IsNotPermittedInZoneError(err) {
+		wrappedErr = gardencorev1beta1helper.NewErrorWithCodes(wrappedErr.Error(), gardencorev1beta1.ErrorConfigurationProblem)
+	}
+	return wrappedErr
 }

@@ -23,6 +23,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/ulikunitz/xz v0.5.7 // indirect
+	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
 	k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver v0.21.2
 	k8s.io/apimachinery v0.21.2

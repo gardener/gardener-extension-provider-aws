@@ -94,8 +94,11 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 		}
 
 		// options for the dnsrecord controller
-		dnsRecordCtrlOpts = &controllercmd.ControllerOptions{
-			MaxConcurrentReconciles: 5,
+		dnsRecordCtrlOpts = &awscmd.DNSRecordControllerOptions{
+			ControllerOptions: controllercmd.ControllerOptions{
+				MaxConcurrentReconciles: 5,
+			},
+			ProviderRateLimit: 1,
 		}
 
 		// options for the infrastructure controller

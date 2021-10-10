@@ -592,6 +592,7 @@ golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
 # golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
+## explicit
 golang.org/x/time/rate
 # golang.org/x/tools v0.1.5
 golang.org/x/tools/go/ast/astutil

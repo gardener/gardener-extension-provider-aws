@@ -41,6 +41,13 @@ import (
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 	extensioncontrolplanewebhook "github.com/gardener/gardener/extensions/pkg/webhook/controlplane"
 	extensionshootwebhook "github.com/gardener/gardener/extensions/pkg/webhook/shoot"
+	"github.com/spf13/pflag"
+	"golang.org/x/time/rate"
+)
+
+const (
+	// ProviderRateLimitFlag is the name of the command line flag to specify the rate limit for provider operations.
+	ProviderRateLimitFlag = "provider-rate-limit"
 )
 
 // ControllerSwitchOptions are the controllercmd.SwitchOptions for the provider controllers.
@@ -65,4 +72,54 @@ func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 		webhookcmd.Switch(extensioncontrolplanewebhook.ExposureWebhookName, controlplaneexposurewebhook.AddToManager),
 		webhookcmd.Switch(extensionshootwebhook.WebhookName, shootwebhook.AddToManager),
 	)
+}
+
+// DNSRecordControllerOptions are command line options that can be set for dnsrecordcontroller.Options.
+type DNSRecordControllerOptions struct {
+	controllercmd.ControllerOptions
+	ProviderRateLimit float64
+
+	config *DNSRecordControllerConfig
+}
+
+// AddFlags implements Flagger.AddFlags.
+func (c *DNSRecordControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	c.ControllerOptions.AddFlags(fs)
+	fs.Float64Var(&c.ProviderRateLimit, ProviderRateLimitFlag, c.ProviderRateLimit, "The rate limit for provider operations.")
+}
+
+// Complete implements Completer.Complete.
+func (c *DNSRecordControllerOptions) Complete() error {
+	if err := c.ControllerOptions.Complete(); err != nil {
+		return err
+	}
+	c.config = &DNSRecordControllerConfig{
+		ControllerConfig:  *c.ControllerOptions.Completed(),
+		ProviderRateLimit: rate.Limit(c.ProviderRateLimit),
+	}
+	return nil
+}
+
+// Completed returns the completed DNSRecordControllerConfig. Only call this if `Complete` was successful.
+func (c *DNSRecordControllerOptions) Completed() *DNSRecordControllerConfig {
+	return c.config
+}
+
+// DNSRecordControllerConfig is a completed DNSRecord controller configuration.
+type DNSRecordControllerConfig struct {
+	controllercmd.ControllerConfig
+	ProviderRateLimit rate.Limit
+}
+
+// Apply sets the values of this DNSRecordControllerConfig in the given controller.Options.
+func (c *DNSRecordControllerConfig) Apply(opts *dnsrecordcontroller.Options) {
+	c.ControllerConfig.Apply(&opts.Options)
+	opts.ProviderRateLimit = c.ProviderRateLimit
+}
+
+// Options initializes empty dnsrecordcontroller.Options, applies the set values and returns it.
+func (c *DNSRecordControllerConfig) Options() dnsrecordcontroller.Options {
+	var opts dnsrecordcontroller.Options
+	c.Apply(&opts)
+	return opts
 }
