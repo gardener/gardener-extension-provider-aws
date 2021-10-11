@@ -16,8 +16,11 @@ package dnsrecord_test
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"path/filepath"
 	"strings"
 	"time"
@@ -90,10 +93,19 @@ var _ = Describe("DNSRecord tests", func() {
 				aws.SecretAccessKey: []byte(*secretAccessKey),
 			},
 		}
-		cluster = &extensionsv1alpha1.Cluster{
+		shoot = gardencorev1beta1.Shoot{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: gardencorev1beta1.SchemeGroupVersion.String(),
+				Kind:       "Shoot",
+			},
+			ObjectMeta: metav1.ObjectMeta{Name: "testShoot"},
+		}
+		shootJson, _ = json.Marshal(shoot)
+		cluster      = &extensionsv1alpha1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: testName,
 			},
+			Spec: extensionsv1alpha1.ClusterSpec{Shoot: runtime.RawExtension{Raw: shootJson}},
 		}
 	)
 
