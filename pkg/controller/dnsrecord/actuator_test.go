@@ -83,7 +83,7 @@ var _ = Describe("Actuator", func() {
 		ctx = context.TODO()
 		logger = log.Log.WithName("test")
 
-		a = NewActuator(awsClientFactory, rate.NewLimiter(rate.Inf, 0), logger)
+		a = NewActuator(awsClientFactory, RateLimiterOptions{Limit: rate.Inf, Burst: 1}, logger)
 
 		err := a.(inject.Client).InjectClient(c)
 		Expect(err).NotTo(HaveOccurred())

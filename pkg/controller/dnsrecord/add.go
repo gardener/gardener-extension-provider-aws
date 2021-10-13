@@ -32,18 +32,20 @@ var (
 	logger = log.Log.WithName("aws-dnsrecord-controller")
 )
 
-// Options are the arguments for creating a new dnsrecord controller.
-type Options struct {
-	// Options are the controller.Options.
-	controller.Options
-	// ProviderRateLimit is the rate limit for provider operations.
-	ProviderRateLimit rate.Limit
+// RateLimiterOptions are the options for provider rate limiters.
+type RateLimiterOptions struct {
+	// Limit is the rate limit for provider operations.
+	Limit rate.Limit
+	// Burst is the rate limiter burst for provider operations.
+	Burst int
 }
 
 // AddOptions are options to apply when adding the AWS dnsrecord controller to the manager.
 type AddOptions struct {
-	// Controller are the Options.
-	Controller Options
+	// Controller are the controller.Options.
+	Controller controller.Options
+	// RateLimiter are the RateLimiterOptions.
+	RateLimiter RateLimiterOptions
 	// IgnoreOperationAnnotation specifies whether to ignore the operation annotation or not.
 	IgnoreOperationAnnotation bool
 }
@@ -52,8 +54,8 @@ type AddOptions struct {
 // The opts.Reconciler is being set with a newly instantiated actuator.
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 	return dnsrecord.Add(mgr, dnsrecord.AddArgs{
-		Actuator:          NewActuator(awsclient.FactoryFunc(awsclient.NewInterface), rate.NewLimiter(opts.Controller.ProviderRateLimit, 1), logger),
-		ControllerOptions: opts.Controller.Options,
+		Actuator:          NewActuator(awsclient.FactoryFunc(awsclient.NewInterface), opts.RateLimiter, logger),
+		ControllerOptions: opts.Controller,
 		Predicates:        dnsrecord.DefaultPredicates(opts.IgnoreOperationAnnotation),
 		Type:              aws.DNSType,
 	})

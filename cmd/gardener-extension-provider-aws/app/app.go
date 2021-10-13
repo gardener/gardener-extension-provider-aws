@@ -98,7 +98,8 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			ControllerOptions: controllercmd.ControllerOptions{
 				MaxConcurrentReconciles: 5,
 			},
-			ProviderRateLimit: 1,
+			ProviderClientQPS:   1,
+			ProviderClientBurst: 5,
 		}
 
 		// options for the infrastructure controller
@@ -193,6 +194,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			controlPlaneCtrlOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.Controller)
 			csiMigrationCtrlOpts.Completed().Apply(&awscsimigration.DefaultAddOptions.Controller)
 			dnsRecordCtrlOpts.Completed().Apply(&awsdnsrecord.DefaultAddOptions.Controller)
+			dnsRecordCtrlOpts.Completed().ApplyRateLimiter(&awsdnsrecord.DefaultAddOptions.RateLimiter)
 			infraCtrlOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.Controller)
 			reconcileOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.IgnoreOperationAnnotation)
