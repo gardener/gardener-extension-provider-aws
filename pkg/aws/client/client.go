@@ -36,6 +36,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
+	"golang.org/x/time/rate"
 )
 
 // Client is a struct containing several clients for the different AWS services it needs to interact with.
@@ -45,14 +46,16 @@ import (
 // * S3 is the standard client for the S3 service.
 // * ELB is the standard client for the ELB service.
 // * ELBv2 is the standard client for the ELBv2 service.
+// * Route53 is the standard client for the Route53 service.
 type Client struct {
-	EC2     ec2iface.EC2API
-	STS     stsiface.STSAPI
-	IAM     iamiface.IAMAPI
-	S3      s3iface.S3API
-	ELB     elbiface.ELBAPI
-	ELBv2   elbv2iface.ELBV2API
-	Route53 route53iface.Route53API
+	EC2                ec2iface.EC2API
+	STS                stsiface.STSAPI
+	IAM                iamiface.IAMAPI
+	S3                 s3iface.S3API
+	ELB                elbiface.ELBAPI
+	ELBv2              elbv2iface.ELBV2API
+	Route53            route53iface.Route53API
+	Route53RateLimiter *rate.Limiter
 }
 
 // NewInterface creates a new instance of Interface for the given AWS credentials and region.
@@ -77,13 +80,14 @@ func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
 	}
 
 	return &Client{
-		EC2:     ec2.New(s, config),
-		ELB:     elb.New(s, config),
-		ELBv2:   elbv2.New(s, config),
-		IAM:     iam.New(s, config),
-		STS:     sts.New(s, config),
-		S3:      s3.New(s, config),
-		Route53: route53.New(s, config),
+		EC2:                ec2.New(s, config),
+		ELB:                elb.New(s, config),
+		ELBv2:              elbv2.New(s, config),
+		IAM:                iam.New(s, config),
+		STS:                sts.New(s, config),
+		S3:                 s3.New(s, config),
+		Route53:            route53.New(s, config),
+		Route53RateLimiter: rate.NewLimiter(rate.Inf, 0),
 	}, nil
 }
 

@@ -53,8 +53,9 @@ type AddOptions struct {
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
 // The opts.Reconciler is being set with a newly instantiated actuator.
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
+	logger.Info("Adding dnsrecord controller", "RateLimiterOptions", opts.RateLimiter)
 	return dnsrecord.Add(mgr, dnsrecord.AddArgs{
-		Actuator:          NewActuator(awsclient.FactoryFunc(awsclient.NewInterface), opts.RateLimiter, logger),
+		Actuator:          NewActuator(awsclient.NewRoute53Factory(opts.RateLimiter.Limit, opts.RateLimiter.Burst), logger),
 		ControllerOptions: opts.Controller,
 		Predicates:        dnsrecord.DefaultPredicates(opts.IgnoreOperationAnnotation),
 		Type:              aws.DNSType,

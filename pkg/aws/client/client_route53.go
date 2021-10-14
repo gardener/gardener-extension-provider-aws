@@ -27,9 +27,17 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 )
 
+const (
+	// route53RateLimiterWaitTimeout is the timeout for route53 rate limiter waits.
+	route53RateLimiterWaitTimeout = 10 * time.Second
+)
+
 // GetDNSHostedZones returns a map of all DNS hosted zone names mapped to their IDs.
 func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, error) {
 	zones := make(map[string]string)
+	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
+		return nil, err
+	}
 	if err := c.Route53.ListHostedZonesPagesWithContext(ctx, &route53.ListHostedZonesInput{}, func(out *route53.ListHostedZonesOutput, lastPage bool) bool {
 		for _, zone := range out.HostedZones {
 			zones[normalizeName(aws.StringValue(zone.Name))] = normalizeZoneId(aws.StringValue(zone.Id))
@@ -44,6 +52,9 @@ func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, erro
 // CreateDNSHostedZone creates the DNS hosted zone with the given name and comment, and returns the ID of the
 // newly created zone.
 func (c *Client) CreateDNSHostedZone(ctx context.Context, name, comment string) (string, error) {
+	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
+		return "", err
+	}
 	out, err := c.Route53.CreateHostedZoneWithContext(ctx, &route53.CreateHostedZoneInput{
 		CallerReference: aws.String(strconv.Itoa(int(time.Now().Unix()))),
 		Name:            aws.String(name),
@@ -59,6 +70,9 @@ func (c *Client) CreateDNSHostedZone(ctx context.Context, name, comment string) 
 
 // DeleteDNSHostedZone deletes the DNS hosted zone with the given ID.
 func (c *Client) DeleteDNSHostedZone(ctx context.Context, zoneId string) error {
+	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
+		return err
+	}
 	_, err := c.Route53.DeleteHostedZoneWithContext(ctx, &route53.DeleteHostedZoneInput{
 		Id: aws.String(zoneId),
 	})
@@ -84,6 +98,9 @@ func normalizeZoneId(zoneId string) string {
 // with the given name, type, values, and TTL.
 func (c *Client) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
 	rrs := newResourceRecordSet(name, recordType, newResourceRecords(recordType, values), ttl)
+	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
+		return err
+	}
 	_, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionUpsert, rrs))
 	return err
 }
@@ -113,6 +130,9 @@ func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordTyp
 	} else {
 		rrs = newResourceRecordSet(name, recordType, newResourceRecords(recordType, values), ttl)
 	}
+	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
+		return err
+	}
 	_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrs))
 	if isValuesDoNotMatchError(err) && len(values) > 0 && ttl > 0 {
 		// The actual values / ttl are different from the given values / ttl
@@ -124,6 +144,9 @@ func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordTyp
 		if rrs == nil {
 			return nil
 		}
+		if err := c.waitForRoute53RateLimiter(ctx); err != nil {
+			return err
+		}
 		_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrs))
 	}
 	return ignoreResourceRecordSetNotFound(err)
@@ -131,6 +154,9 @@ func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordTyp
 
 // GetDNSRecordSet returns the DNS recordset in the DNS hosted zone with the given zone ID, and with the given name and type.
 func (c *Client) GetDNSRecordSet(ctx context.Context, zoneId, name, recordType string) (*route53.ResourceRecordSet, error) {
+	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
+		return nil, err
+	}
 	out, err := c.Route53.ListResourceRecordSetsWithContext(ctx, &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    aws.String(zoneId),
 		MaxItems:        aws.String("1"),
@@ -147,6 +173,15 @@ func (c *Client) GetDNSRecordSet(ctx context.Context, zoneId, name, recordType s
 		return out.ResourceRecordSets[0], nil
 	}
 	return nil, nil
+}
+
+func (c *Client) waitForRoute53RateLimiter(ctx context.Context) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, route53RateLimiterWaitTimeout)
+	defer cancel()
+	if err := c.Route53RateLimiter.Wait(timeoutCtx); err != nil {
+		return fmt.Errorf("could not wait for client-side route53 rate limiter: %+v", err)
+	}
+	return nil
 }
 
 func newChangeResourceRecordSetsInput(zoneId, action string, rrs *route53.ResourceRecordSet) *route53.ChangeResourceRecordSetsInput {

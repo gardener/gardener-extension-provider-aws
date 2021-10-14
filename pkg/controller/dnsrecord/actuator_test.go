@@ -34,7 +34,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -83,7 +82,7 @@ var _ = Describe("Actuator", func() {
 		ctx = context.TODO()
 		logger = log.Log.WithName("test")
 
-		a = NewActuator(awsClientFactory, RateLimiterOptions{Limit: rate.Inf, Burst: 1}, logger)
+		a = NewActuator(awsClientFactory, logger)
 
 		err := a.(inject.Client).InjectClient(c)
 		Expect(err).NotTo(HaveOccurred())

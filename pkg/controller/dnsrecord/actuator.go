@@ -17,8 +17,6 @@ package dnsrecord
 import (
 	"context"
 	"fmt"
-	"sync"
-	"time"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -31,34 +29,20 @@ import (
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
-	"golang.org/x/time/rate"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	// rateLimiterCacheTTL is the TTL to keep rate limiters in a time-based eviction cache.
-	rateLimiterCacheTTL = 1 * time.Hour
-	// rateLimiterWaitTimeout is the timeout for rate limiter waits.
-	rateLimiterWaitTimeout = 10 * time.Second
-)
-
 type actuator struct {
-	client            client.Client
-	awsClientFactory  awsclient.Factory
-	rateLimiters      *cache.Expiring
-	rateLimitersMutex sync.Mutex
-	rateLimiterOpts   RateLimiterOptions
-	logger            logr.Logger
+	client           client.Client
+	awsClientFactory awsclient.Factory
+	logger           logr.Logger
 }
 
 // NewActuator creates a new dnsrecord.Actuator.
-func NewActuator(awsClientFactory awsclient.Factory, rateLimiterOpts RateLimiterOptions, logger logr.Logger) dnsrecord.Actuator {
+func NewActuator(awsClientFactory awsclient.Factory, logger logr.Logger) dnsrecord.Actuator {
 	return &actuator{
 		awsClientFactory: awsClientFactory,
-		rateLimiters:     cache.NewExpiring(),
-		rateLimiterOpts:  rateLimiterOpts,
 		logger:           logger.WithName("aws-dnsrecord-actuator"),
 	}
 }
@@ -81,15 +65,12 @@ func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRec
 	}
 
 	// Determine DNS hosted zone ID
-	zone, err := a.getZone(ctx, dns, awsClient, credentials)
+	zone, err := a.getZone(ctx, dns, awsClient)
 	if err != nil {
 		return err
 	}
 
 	// Create or update DNS recordset
-	if err := a.waitForRateLimiter(ctx, credentials.AccessKeyID); err != nil {
-		return err
-	}
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
 	a.logger.Info("Creating or updating DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
 	if err := awsClient.CreateOrUpdateDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
@@ -98,9 +79,6 @@ func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRec
 
 	// Delete meta DNS recordset if exists
 	if dns.Status.LastOperation == nil || dns.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeCreate {
-		if err := a.waitForRateLimiter(ctx, credentials.AccessKeyID); err != nil {
-			return err
-		}
 		name, recordType := dnsrecord.GetMetaRecordName(dns.Spec.Name), "TXT"
 		a.logger.Info("Deleting meta DNS recordset", "zone", zone, "name", name, "type", recordType, "dnsrecord", kutil.ObjectName(dns))
 		if err := awsClient.DeleteDNSRecordSet(ctx, zone, name, recordType, nil, 0); err != nil {
@@ -128,15 +106,12 @@ func (a *actuator) Delete(ctx context.Context, dns *extensionsv1alpha1.DNSRecord
 	}
 
 	// Determine DNS hosted zone ID
-	zone, err := a.getZone(ctx, dns, awsClient, credentials)
+	zone, err := a.getZone(ctx, dns, awsClient)
 	if err != nil {
 		return err
 	}
 
 	// Delete DNS recordset
-	if err := a.waitForRateLimiter(ctx, credentials.AccessKeyID); err != nil {
-		return err
-	}
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
 	a.logger.Info("Deleting DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
 	if err := awsClient.DeleteDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
@@ -156,7 +131,7 @@ func (a *actuator) Migrate(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 	return nil
 }
 
-func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecord, awsClient awsclient.Interface, credentials *aws.Credentials) (string, error) {
+func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecord, awsClient awsclient.Interface) (string, error) {
 	switch {
 	case dns.Spec.Zone != nil && *dns.Spec.Zone != "":
 		return *dns.Spec.Zone, nil
@@ -165,9 +140,6 @@ func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 	default:
 		// The zone is not specified in the resource status or spec. Try to determine the zone by
 		// getting all hosted zones of the account and searching for the longest zone name that is a suffix of dns.spec.Name
-		if err := a.waitForRateLimiter(ctx, credentials.AccessKeyID); err != nil {
-			return "", err
-		}
 		zones, err := awsClient.GetDNSHostedZones(ctx)
 		if err != nil {
 			return "", wrapAWSClientError(err, "could not get DNS hosted zones")
@@ -179,39 +151,6 @@ func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 		}
 		return zone, nil
 	}
-}
-
-func (a *actuator) waitForRateLimiter(ctx context.Context, accessKeyID []byte) error {
-	rateLimiter := a.getRateLimiter(accessKeyID)
-	timeoutCtx, cancel := context.WithTimeout(ctx, rateLimiterWaitTimeout)
-	defer cancel()
-	t := time.Now()
-	if err := rateLimiter.Wait(timeoutCtx); err != nil {
-		return fmt.Errorf("could not wait for client-side provider rate limiter: %+v", err)
-	}
-	if waitDuration := time.Since(t); waitDuration.Seconds() > 1/float64(rateLimiter.Limit()) {
-		a.logger.Info("Waited for client-side provider rate limiter", "waitDuration", waitDuration)
-	}
-	return nil
-}
-
-func (a *actuator) getRateLimiter(accessKeyID []byte) *rate.Limiter {
-	// cache.Expiring Get and Set methods are concurrency-safe
-	// However, if a rate limiter is not present in the cache, it may happen that multiple rate limiters are created
-	// at the same time for the same access key id, and the desired QPS is exceeded, so use a mutex to guard against this
-	a.rateLimitersMutex.Lock()
-	defer a.rateLimitersMutex.Unlock()
-
-	// Get a rate limiter from the cache, or create a new one if not present
-	var rateLimiter *rate.Limiter
-	if v, ok := a.rateLimiters.Get(string(accessKeyID)); ok {
-		rateLimiter = v.(*rate.Limiter)
-	} else {
-		rateLimiter = rate.NewLimiter(a.rateLimiterOpts.Limit, a.rateLimiterOpts.Burst)
-	}
-	// Set should be called on every Get with cache.Expiring to refresh the TTL
-	a.rateLimiters.Set(string(accessKeyID), rateLimiter, rateLimiterCacheTTL)
-	return rateLimiter
 }
 
 func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) string {
