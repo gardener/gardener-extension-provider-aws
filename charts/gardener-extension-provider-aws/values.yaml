@@ -75,12 +75,6 @@ metrics:
   ## enable metrics scraping
   ##
   enabled: true
-  ## annotations for prometheus scraping on extension pods
-  ##
-  podAnnotations:
-    prometheus.io/scrape: "true"
-    # default metrics endpoint in controller-runtime (currently not configurable in this extension)
-    prometheus.io/port: "8080"
 
 config:
   clientConnection:
