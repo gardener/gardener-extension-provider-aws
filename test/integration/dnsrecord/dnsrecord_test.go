@@ -37,6 +37,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -130,7 +131,11 @@ var _ = Describe("DNSRecord tests", func() {
 		Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
 		Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
 
-		Expect(dnsrecordctrl.AddToManager(mgr)).To(Succeed())
+		Expect(dnsrecordctrl.AddToManagerWithOptions(mgr, dnsrecordctrl.AddOptions{
+			RateLimiter: dnsrecordctrl.RateLimiterOptions{
+				Limit: rate.Inf,
+			},
+		})).To(Succeed())
 
 		var mgrContext context.Context
 		mgrContext, mgrCancel = context.WithCancel(ctx)

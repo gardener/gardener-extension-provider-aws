@@ -41,6 +41,16 @@ import (
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 	extensioncontrolplanewebhook "github.com/gardener/gardener/extensions/pkg/webhook/controlplane"
 	extensionshootwebhook "github.com/gardener/gardener/extensions/pkg/webhook/shoot"
+	"github.com/spf13/pflag"
+	"golang.org/x/time/rate"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+)
+
+const (
+	// ProviderClientQPSFlag is the name of the command line flag to specify the client QPS for provider operations.
+	ProviderClientQPSFlag = "provider-client-qps"
+	// ProviderClientBurstFlag is the name of the command line flag to specify the client burst for provider operations.
+	ProviderClientBurstFlag = "provider-client-burst"
 )
 
 // ControllerSwitchOptions are the controllercmd.SwitchOptions for the provider controllers.
@@ -65,4 +75,70 @@ func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 		webhookcmd.Switch(extensioncontrolplanewebhook.ExposureWebhookName, controlplaneexposurewebhook.AddToManager),
 		webhookcmd.Switch(extensionshootwebhook.WebhookName, shootwebhook.AddToManager),
 	)
+}
+
+// DNSRecordControllerOptions are command line options that can be set for dnsrecordcontroller.Options.
+type DNSRecordControllerOptions struct {
+	controllercmd.ControllerOptions
+	ProviderClientQPS   float64
+	ProviderClientBurst int
+
+	config *DNSRecordControllerConfig
+}
+
+// AddFlags implements Flagger.AddFlags.
+func (c *DNSRecordControllerOptions) AddFlags(fs *pflag.FlagSet) {
+	c.ControllerOptions.AddFlags(fs)
+	fs.Float64Var(&c.ProviderClientQPS, ProviderClientQPSFlag, c.ProviderClientQPS, "The client QPS for provider operations.")
+	fs.IntVar(&c.ProviderClientBurst, ProviderClientBurstFlag, c.ProviderClientBurst, "The client burst for provider operations.")
+}
+
+// Complete implements Completer.Complete.
+func (c *DNSRecordControllerOptions) Complete() error {
+	if err := c.ControllerOptions.Complete(); err != nil {
+		return err
+	}
+	c.config = &DNSRecordControllerConfig{
+		ControllerConfig:    *c.ControllerOptions.Completed(),
+		ProviderClientQPS:   rate.Limit(c.ProviderClientQPS),
+		ProviderClientBurst: c.ProviderClientBurst,
+	}
+	return nil
+}
+
+// Completed returns the completed DNSRecordControllerConfig. Only call this if `Complete` was successful.
+func (c *DNSRecordControllerOptions) Completed() *DNSRecordControllerConfig {
+	return c.config
+}
+
+// DNSRecordControllerConfig is a completed DNSRecord controller configuration.
+type DNSRecordControllerConfig struct {
+	controllercmd.ControllerConfig
+	ProviderClientQPS   rate.Limit
+	ProviderClientBurst int
+}
+
+// Apply sets the values of this DNSRecordControllerConfig in the given controller.Options.
+func (c *DNSRecordControllerConfig) Apply(opts *controller.Options) {
+	c.ControllerConfig.Apply(opts)
+}
+
+// ApplyRateLimiter sets the values of this DNSRecordControllerConfig in the given dnsrecordcontroller.RateLimiterOptions.
+func (c *DNSRecordControllerConfig) ApplyRateLimiter(opts *dnsrecordcontroller.RateLimiterOptions) {
+	opts.Limit = c.ProviderClientQPS
+	opts.Burst = c.ProviderClientBurst
+}
+
+// Options initializes empty controller.Options, applies the set values and returns it.
+func (c *DNSRecordControllerConfig) Options() controller.Options {
+	var opts controller.Options
+	c.Apply(&opts)
+	return opts
+}
+
+// RateLimiterOptions initializes empty dnsrecordcontroller.RateLimiterOptions, applies the set values and returns it.
+func (c *DNSRecordControllerConfig) RateLimiterOptions() dnsrecordcontroller.RateLimiterOptions {
+	var opts dnsrecordcontroller.RateLimiterOptions
+	c.ApplyRateLimiter(&opts)
+	return opts
 }

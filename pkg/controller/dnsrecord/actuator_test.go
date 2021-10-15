@@ -25,7 +25,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/gardener/gardener/extensions/pkg/controller/dnsrecord"
-	controllererror "github.com/gardener/gardener/extensions/pkg/controller/error"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -171,7 +170,7 @@ var _ = Describe("Actuator", func() {
 
 			err := a.Reconcile(ctx, dns, nil)
 			Expect(err).To(HaveOccurred())
-			_, ok := err.(*controllererror.RequeueAfterError).Cause.(gardencorev1beta1helper.Coder)
+			_, ok := err.(gardencorev1beta1helper.Coder)
 			Expect(ok).To(BeFalse())
 		})
 
@@ -183,7 +182,7 @@ var _ = Describe("Actuator", func() {
 
 			err := a.Reconcile(ctx, dns, nil)
 			Expect(err).To(HaveOccurred())
-			coder, ok := err.(*controllererror.RequeueAfterError).Cause.(gardencorev1beta1helper.Coder)
+			coder, ok := err.(gardencorev1beta1helper.Coder)
 			Expect(ok).To(BeTrue())
 			Expect(coder.Codes()).To(Equal([]gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem}))
 		})
@@ -196,7 +195,7 @@ var _ = Describe("Actuator", func() {
 
 			err := a.Reconcile(ctx, dns, nil)
 			Expect(err).To(HaveOccurred())
-			coder, ok := err.(*controllererror.RequeueAfterError).Cause.(gardencorev1beta1helper.Coder)
+			coder, ok := err.(gardencorev1beta1helper.Coder)
 			Expect(ok).To(BeTrue())
 			Expect(coder.Codes()).To(Equal([]gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem}))
 		})
