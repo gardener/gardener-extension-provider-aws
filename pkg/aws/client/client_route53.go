@@ -178,8 +178,12 @@ func (c *Client) GetDNSRecordSet(ctx context.Context, zoneId, name, recordType s
 func (c *Client) waitForRoute53RateLimiter(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, route53RateLimiterWaitTimeout)
 	defer cancel()
+	t := time.Now()
 	if err := c.Route53RateLimiter.Wait(timeoutCtx); err != nil {
 		return fmt.Errorf("could not wait for client-side route53 rate limiter: %+v", err)
+	}
+	if waitDuration := time.Since(t); waitDuration.Seconds() > 1/float64(c.Route53RateLimiter.Limit()) {
+		c.Logger.Info("Waited for client-side route53 rate limiter", "waitDuration", waitDuration.String())
 	}
 	return nil
 }

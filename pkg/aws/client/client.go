@@ -36,7 +36,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
+	"github.com/go-logr/logr"
 	"golang.org/x/time/rate"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Client is a struct containing several clients for the different AWS services it needs to interact with.
@@ -56,6 +58,7 @@ type Client struct {
 	ELBv2              elbv2iface.ELBV2API
 	Route53            route53iface.Route53API
 	Route53RateLimiter *rate.Limiter
+	Logger             logr.Logger
 }
 
 // NewInterface creates a new instance of Interface for the given AWS credentials and region.
@@ -88,6 +91,7 @@ func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
 		S3:                 s3.New(s, config),
 		Route53:            route53.New(s, config),
 		Route53RateLimiter: rate.NewLimiter(rate.Inf, 0),
+		Logger:             log.Log.WithName("aws-client"),
 	}, nil
 }
 
