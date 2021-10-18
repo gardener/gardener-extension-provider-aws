@@ -298,20 +298,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(c.Create(ctx, namespace)).To(Succeed())
 
 			By("create cluster")
-			shoot := gardencorev1beta1.Shoot{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: gardencorev1beta1.SchemeGroupVersion.String(),
-					Kind:       "Shoot",
-				},
-				ObjectMeta: metav1.ObjectMeta{Name: "testShoot"},
-			}
-			shootJson, _ := json.Marshal(shoot)
-			cluster = &extensionsv1alpha1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespaceName,
-				},
-				Spec: extensionsv1alpha1.ClusterSpec{Shoot: runtime.RawExtension{Raw: shootJson}},
-			}
+			cluster = createTestCluster(namespaceName)
 			Expect(c.Create(ctx, cluster)).To(Succeed())
 
 			By("deploy invalid cloudprovider secret into namespace")
@@ -351,6 +338,23 @@ var _ = Describe("Infrastructure tests", func() {
 		})
 	})
 })
+
+func createTestCluster(name string) *extensionsv1alpha1.Cluster {
+	shoot := gardencorev1beta1.Shoot{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: gardencorev1beta1.SchemeGroupVersion.String(),
+			Kind:       "Shoot",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "testShoot"},
+	}
+	shootJson, _ := json.Marshal(shoot)
+	return &extensionsv1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: extensionsv1alpha1.ClusterSpec{Shoot: runtime.RawExtension{Raw: shootJson}},
+	}
+}
 
 func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespaceName string, providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client) error {
 	var (
@@ -394,20 +398,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	}
 
 	By("create cluster")
-	shoot := gardencorev1beta1.Shoot{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: gardencorev1beta1.SchemeGroupVersion.String(),
-			Kind:       "Shoot",
-		},
-		ObjectMeta: metav1.ObjectMeta{Name: "testShoot"},
-	}
-	shootJson, _ := json.Marshal(shoot)
-	cluster = &extensionsv1alpha1.Cluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespaceName,
-		},
-		Spec: extensionsv1alpha1.ClusterSpec{Shoot: runtime.RawExtension{Raw: shootJson}},
-	}
+	cluster = createTestCluster(namespaceName)
 	if err := c.Create(ctx, cluster); err != nil {
 		return err
 	}
