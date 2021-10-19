@@ -9,7 +9,7 @@ scope: app-developer
 ---
 ### Overview
 
-Gardener allows you to create a Kubernetes cluster with different services. This tutorial will guide you through the process of creating a cluster with an AWS secret. 
+Gardener allows you to create a Kubernetes cluster with different infrastructure providers. This tutorial will guide you through the process of creating a cluster on AWS.
 
 ### Prerequisites
 
@@ -97,6 +97,6 @@ Gardener allows you to create a Kubernetes cluster with different services. This
 
 ### Result
 
-After completing the steps in this tutorial, you will be able to see and copy the kubeconfig of your cluster.
+After completing the steps in this tutorial, you will be able to see and download the kubeconfig of your cluster.
 
   <img src="images/copy-kubeconfig.png">
