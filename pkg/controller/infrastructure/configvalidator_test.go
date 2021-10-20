@@ -26,6 +26,7 @@ import (
 	mockawsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client/mock"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -185,6 +186,122 @@ var _ = Describe("ConfigValidator", func() {
 				"Field":  Equal("networks.vpc.id"),
 				"Detail": Equal(fmt.Sprintf("could not get VPC attribute enableDnsSupport for VPC %s: test", vpcID)),
 			}))
+		})
+
+		Describe("validate Elastic IP addresses", func() {
+			BeforeEach(func() {
+				infra.ClusterName = "cluster-1"
+				infra.Spec.ProviderConfig.Raw = encode(&apisaws.InfrastructureConfig{
+					Networks: apisaws.Networks{
+						VPC: apisaws.VPC{},
+						Zones: []apisaws.Zone{
+							{
+								ElasticIPAllocationID: pointer.String("eipalloc-0e2669d4b46150ee4"),
+							},
+							{
+								ElasticIPAllocationID: pointer.String("eipalloc-0e2669d4b46150ee5"),
+							},
+							{
+								ElasticIPAllocationID: pointer.String("eipalloc-0e2669d4b46150ee6"),
+							},
+						},
+					},
+				})
+			})
+
+			It("should succeed - no EIPs configured", func() {
+				infra.Spec.ProviderConfig.Raw = encode(&apisaws.InfrastructureConfig{
+					Networks: apisaws.Networks{
+						VPC: apisaws.VPC{},
+					},
+				})
+				errorList := cv.Validate(ctx, infra)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should succeed - all EIPs exist and are already associated to the Shoot's NAT Gateways", func() {
+				mapping := map[string]*string{
+					"eipalloc-0e2669d4b46150ee4": pointer.String("eipassoc-0f8ff66536587824b"),
+					"eipalloc-0e2669d4b46150ee5": pointer.String("eipassoc-0f8ff66536587824c"),
+					"eipalloc-0e2669d4b46150ee6": pointer.String("eipassoc-0f8ff66536587824d"),
+				}
+				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
+				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.ClusterName).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5", "eipalloc-0e2669d4b46150ee6"), nil)
+
+				errorList := cv.Validate(ctx, infra)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should succeed - all EIPs exist, but are not associated to any resource yet", func() {
+				mapping := map[string]*string{
+					"eipalloc-0e2669d4b46150ee4": nil,
+					"eipalloc-0e2669d4b46150ee5": nil,
+					"eipalloc-0e2669d4b46150ee6": nil,
+				}
+				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
+
+				errorList := cv.Validate(ctx, infra)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should fail - the Elastic IP Address for the given allocation ID does not exist", func() {
+				empty := make(map[string]*string, 0)
+				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, []string{"eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5", "eipalloc-0e2669d4b46150ee6"}).Return(empty, nil)
+
+				errorList := cv.Validate(ctx, infra)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":     Equal(field.ErrorTypeInvalid),
+					"Field":    Equal("networks.zones[].elasticIPAllocationID"),
+					"BadValue": Equal("eipalloc-0e2669d4b46150ee4"),
+					"Detail":   ContainSubstring("cannot be used as it does not exist"),
+				}, Fields{
+					"Type":     Equal(field.ErrorTypeInvalid),
+					"Field":    Equal("networks.zones[].elasticIPAllocationID"),
+					"BadValue": Equal("eipalloc-0e2669d4b46150ee5"),
+					"Detail":   ContainSubstring("cannot be used as it does not exist"),
+				}, Fields{
+					"Type":     Equal(field.ErrorTypeInvalid),
+					"Field":    Equal("networks.zones[].elasticIPAllocationID"),
+					"BadValue": Equal("eipalloc-0e2669d4b46150ee6"),
+					"Detail":   ContainSubstring("cannot be used as it does not exist"),
+				},
+				))
+			})
+
+			It("should fail - some of the Elastic IP Addresses exist, some do not", func() {
+				mapping := map[string]*string{
+					"eipalloc-0e2669d4b46150ee4": pointer.String("eipassoc-0f8ff66536587824b"),
+					"eipalloc-0e2669d4b46150ee5": pointer.String("eipassoc-0f8ff66536587824c"),
+				}
+				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
+				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.ClusterName).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
+
+				errorList := cv.Validate(ctx, infra)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":     Equal(field.ErrorTypeInvalid),
+					"Field":    Equal("networks.zones[].elasticIPAllocationID"),
+					"BadValue": Equal("eipalloc-0e2669d4b46150ee6"),
+					"Detail":   ContainSubstring("cannot be used as it does not exist"),
+				}))
+			})
+
+			It("should fail - Elastic IP Addresses exist are already associated with another resource", func() {
+				mapping := map[string]*string{
+					"eipalloc-0e2669d4b46150ee4": pointer.String("eipassoc-0f8ff66536587824b"),
+					"eipalloc-0e2669d4b46150ee5": pointer.String("eipassoc-0f8ff66536587824c"),
+					"eipalloc-0e2669d4b46150ee6": pointer.String("eipassoc-0f8ff66536587824d"),
+				}
+				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
+				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.ClusterName).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
+
+				errorList := cv.Validate(ctx, infra)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":     Equal(field.ErrorTypeInvalid),
+					"Field":    Equal("networks.zones[].elasticIPAllocationID"),
+					"BadValue": Equal("eipalloc-0e2669d4b46150ee6"),
+					"Detail":   ContainSubstring("cannot be attached to the clusters NAT Gateway(s) as it is already associated"),
+				}))
+			})
 		})
 	})
 })

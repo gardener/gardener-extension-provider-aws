@@ -10,6 +10,7 @@ import (
 
 	client "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	gomock "github.com/golang/mock/gomock"
+	sets "k8s.io/apimachinery/pkg/util/sets"
 )
 
 // MockInterface is a mock of Interface interface.
@@ -175,6 +176,36 @@ func (m *MockInterface) GetDNSHostedZones(arg0 context.Context) (map[string]stri
 func (mr *MockInterfaceMockRecorder) GetDNSHostedZones(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSHostedZones", reflect.TypeOf((*MockInterface)(nil).GetDNSHostedZones), arg0)
+}
+
+// GetElasticIPsAssociationIDForAllocationIDs mocks base method.
+func (m *MockInterface) GetElasticIPsAssociationIDForAllocationIDs(arg0 context.Context, arg1 []string) (map[string]*string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetElasticIPsAssociationIDForAllocationIDs", arg0, arg1)
+	ret0, _ := ret[0].(map[string]*string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetElasticIPsAssociationIDForAllocationIDs indicates an expected call of GetElasticIPsAssociationIDForAllocationIDs.
+func (mr *MockInterfaceMockRecorder) GetElasticIPsAssociationIDForAllocationIDs(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetElasticIPsAssociationIDForAllocationIDs", reflect.TypeOf((*MockInterface)(nil).GetElasticIPsAssociationIDForAllocationIDs), arg0, arg1)
+}
+
+// GetNATGatewayAddressAllocations mocks base method.
+func (m *MockInterface) GetNATGatewayAddressAllocations(arg0 context.Context, arg1 string) (sets.String, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNATGatewayAddressAllocations", arg0, arg1)
+	ret0, _ := ret[0].(sets.String)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNATGatewayAddressAllocations indicates an expected call of GetNATGatewayAddressAllocations.
+func (mr *MockInterfaceMockRecorder) GetNATGatewayAddressAllocations(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNATGatewayAddressAllocations", reflect.TypeOf((*MockInterface)(nil).GetNATGatewayAddressAllocations), arg0, arg1)
 }
 
 // GetVPCAttribute mocks base method.

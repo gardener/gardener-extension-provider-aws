@@ -38,6 +38,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 	"github.com/go-logr/logr"
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -126,6 +127,80 @@ func (c *Client) GetVPCInternetGateway(ctx context.Context, vpcID string) (strin
 		return aws.StringValue(describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId), nil
 	}
 	return "", nil
+}
+
+// GetElasticIPsAssociationIDForAllocationIDs list existing elastic IP addresses for the given allocationIDs.
+// returns a map[elasticIPAllocationID]elasticIPAssociationID or an error
+func (c *Client) GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context, allocationIDs []string) (map[string]*string, error) {
+	describeAddressesInput := &ec2.DescribeAddressesInput{
+		AllocationIds: aws.StringSlice(allocationIDs),
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("domain"),
+				Values: aws.StringSlice([]string{"vpc"}),
+			},
+		},
+	}
+
+	describeAddressesOutput, err := c.EC2.DescribeAddressesWithContext(ctx, describeAddressesInput)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(describeAddressesOutput.Addresses) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]*string, len(describeAddressesOutput.Addresses))
+	for _, addr := range describeAddressesOutput.Addresses {
+		if addr.AllocationId == nil {
+			// this should not happen
+			continue
+		}
+		result[*addr.AllocationId] = addr.AssociationId
+	}
+
+	return result, nil
+}
+
+// GetNATGatewayAddressAllocations get the allocation IDs for the NAT Gateway addresses for each existing NAT Gateway in the vpc
+// returns a slice of allocation IDs or an error
+func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.String, error) {
+	describeAddressesInput := &ec2.DescribeNatGatewaysInput{
+		Filter: []*ec2.Filter{{
+			Name: aws.String(fmt.Sprintf("tag:kubernetes.io/cluster/%s", shootNamespace)),
+			Values: []*string{
+				aws.String("1"),
+			},
+		}},
+	}
+
+	describeNatGatewaysOutput, err := c.EC2.DescribeNatGatewaysWithContext(ctx, describeAddressesInput)
+	if err != nil {
+		return nil, err
+	}
+
+	result := sets.NewString()
+	if len(describeNatGatewaysOutput.NatGateways) == 0 {
+		return result, nil
+	}
+
+	for _, natGateway := range describeNatGatewaysOutput.NatGateways {
+		if natGateway.NatGatewayAddresses == nil || len(natGateway.NatGatewayAddresses) == 0 {
+			continue
+		}
+
+		// add all allocation IDS for the addresses for this NAT Gateway
+		// these are the allocation IDS which identify the associated EIP
+		for _, address := range natGateway.NatGatewayAddresses {
+			if address == nil {
+				continue
+			}
+			result.Insert(*address.AllocationId)
+		}
+	}
+
+	return result, nil
 }
 
 // GetVPCAttribute returns the value of the specified VPC attribute.
