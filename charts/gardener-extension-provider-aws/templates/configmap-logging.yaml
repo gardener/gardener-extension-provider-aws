@@ -36,16 +36,16 @@ data:
         Reserve_Data        True
 
     [FILTER]
-        Name                rewrite_tag
+        Name                modify
         Match               kubernetes.*
-        Rule                $tag ^kubernetes\.var\.log\.containers\.(cloud-controller-manager-.+?_.+?_aws-cloud-controller-manager|csi-driver-controller-.+?_.+?_aws-csi) user-exposed.$TAG true
-        Emitter_Name        re_emitted-provider-aws
+        Condition           Key_value_matches tag ^kubernetes\.var\.log\.containers\.(cloud-controller-manager-.+?_.+?_aws-cloud-controller-manager|csi-driver-controller-.+?_.+?_aws-csi)
+        Add                 __gardener_multitenant_id__ operator;user
 
     [FILTER]
-        Name                rewrite_tag
+        Name                modify
         Match               kubernetes.*
-        Rule                $tag ^kubernetes\.var\.log\.containers\.machine-controller-manager-.+?_.+?_(aws-machine-controller-manager|machine-controller-manager-provider-aws) user-exposed.$TAG true
-        Emitter_Name        re_emitted-provider-aws-mcm
+        Condition           Key_value_matches tag ^kubernetes\.var\.log\.containers\.machine-controller-manager-.+?_.+?_(aws-machine-controller-manager|machine-controller-manager-provider-aws)
+        Add                 __gardener_multitenant_id__ operator;user
 
 {{ if eq .Values.gardener.seed.provider "aws" }}
     [FILTER]
