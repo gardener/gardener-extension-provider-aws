@@ -154,7 +154,6 @@ func (c *Client) GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context,
 	result := make(map[string]*string, len(describeAddressesOutput.Addresses))
 	for _, addr := range describeAddressesOutput.Addresses {
 		if addr.AllocationId == nil {
-			// this should not happen
 			continue
 		}
 		result[*addr.AllocationId] = addr.AssociationId

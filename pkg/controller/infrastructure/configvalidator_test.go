@@ -190,7 +190,6 @@ var _ = Describe("ConfigValidator", func() {
 
 		Describe("validate Elastic IP addresses", func() {
 			BeforeEach(func() {
-				infra.ClusterName = "cluster-1"
 				infra.Spec.ProviderConfig.Raw = encode(&apisaws.InfrastructureConfig{
 					Networks: apisaws.Networks{
 						VPC: apisaws.VPC{},
@@ -226,7 +225,7 @@ var _ = Describe("ConfigValidator", func() {
 					"eipalloc-0e2669d4b46150ee6": pointer.String("eipassoc-0f8ff66536587824d"),
 				}
 				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
-				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.ClusterName).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5", "eipalloc-0e2669d4b46150ee6"), nil)
+				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5", "eipalloc-0e2669d4b46150ee6"), nil)
 
 				errorList := cv.Validate(ctx, infra)
 				Expect(errorList).To(BeEmpty())
@@ -245,7 +244,7 @@ var _ = Describe("ConfigValidator", func() {
 			})
 
 			It("should fail - the Elastic IP Address for the given allocation ID does not exist", func() {
-				empty := make(map[string]*string, 0)
+				empty := make(map[string]*string)
 				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, []string{"eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5", "eipalloc-0e2669d4b46150ee6"}).Return(empty, nil)
 
 				errorList := cv.Validate(ctx, infra)
@@ -274,7 +273,7 @@ var _ = Describe("ConfigValidator", func() {
 					"eipalloc-0e2669d4b46150ee5": pointer.String("eipassoc-0f8ff66536587824c"),
 				}
 				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
-				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.ClusterName).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
+				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
 
 				errorList := cv.Validate(ctx, infra)
 				Expect(errorList).To(ConsistOfFields(Fields{
@@ -292,7 +291,7 @@ var _ = Describe("ConfigValidator", func() {
 					"eipalloc-0e2669d4b46150ee6": pointer.String("eipassoc-0f8ff66536587824d"),
 				}
 				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
-				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.ClusterName).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
+				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.NewString("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
 
 				errorList := cv.Validate(ctx, infra)
 				Expect(errorList).To(ConsistOfFields(Fields{
