@@ -16,6 +16,8 @@ package client
 
 import (
 	"context"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -34,6 +36,8 @@ type Interface interface {
 	GetAccountID(ctx context.Context) (string, error)
 	GetVPCInternetGateway(ctx context.Context, vpcID string) (string, error)
 	GetVPCAttribute(ctx context.Context, vpcID string, attribute string) (bool, error)
+	GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context, allocationIDs []string) (map[string]*string, error)
+	GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.String, error)
 
 	// S3 wrappers
 	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
