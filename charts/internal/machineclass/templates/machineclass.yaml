@@ -26,6 +26,7 @@ providerSpec:
   ami: {{ $machineClass.ami }}
   region: {{ $machineClass.region }}
   machineType: {{ $machineClass.machineType }}
+  srcAndDstChecksEnabled: {{ $machineClass.srcAndDstChecksEnabled }}
   iam:
 {{- if $machineClass.iamInstanceProfile.name }}
     name: {{ $machineClass.iamInstanceProfile.name }}
