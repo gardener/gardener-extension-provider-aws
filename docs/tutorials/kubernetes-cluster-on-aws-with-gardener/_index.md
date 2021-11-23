@@ -4,13 +4,14 @@ level: beginner
 category: Getting Started
 scope: app-developer
 ---
+
 ### Overview
 
 Gardener allows you to create a Kubernetes cluster on different infrastructure providers. This tutorial will guide you through the process of creating a cluster on AWS.
 
 ### Prerequisites
 
-- You need an [AWS account](https://aws.amazon.com/).
+- You have created an [AWS account](https://aws.amazon.com/).
 - You have access to the Gardener dashboard and have permissions to create projects.
 
 ### Steps
@@ -28,7 +29,7 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
 
     <img src="images/gardener-copy-policy.png">
 
-1. To [create a new policy](https://console.aws.amazon.com/iam/home?#/policies) in AWS:
+1. [Create a new policy](https://console.aws.amazon.com/iam/home?#/policies) in AWS:
     1. Choose *Create policy*.
         
         <img src="images/amazon-create-policy.png">
@@ -44,7 +45,7 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
         <img src="images/amazon-review-policy.png">
         
 
-1. [Create a new technical user](https://console.aws.amazon.com/iam/home?#/users$new?step=details).
+1. [Create a new technical user](https://console.aws.amazon.com/iam/home?#/users$new?step=details) in AWS:
     1. Type in a username and select the access key credential type.
 
         <img src="images/add-user.png">
@@ -62,7 +63,6 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
     <img src="images/save-keys.png">
 
 1. On the Gardener dashboard, choose *Secrets* and then the plus sign <img src="images/plus-icon.png">. Select *AWS* from the drop down menu to add a new AWS secret.
-
 
 1. Create your secret.
 
