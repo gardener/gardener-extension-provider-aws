@@ -5,8 +5,13 @@ metadata:
   name: {{ .Values.config.etcd.storage.className }}
   labels:
 {{ include "labels" . | indent 4 }}
+  annotations:
+    resources.gardener.cloud/delete-on-invalid-update: "true"
 allowVolumeExpansion: true
 provisioner: {{ .Values.config.etcd.storage.provisioner }}
 parameters:
   type: gp2
+  {{- if .Values.config.etcd.storage.encrypted }}
+  encrypted: "true"
+  {{- end }}
 {{- end }}
