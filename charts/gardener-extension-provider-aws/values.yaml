@@ -87,6 +87,7 @@ config:
       className: gardener.cloud-fast
       capacity: 80Gi
       provisioner: kubernetes.io/aws-ebs
+      encrypted: true
 
 gardener:
   seed:

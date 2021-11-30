@@ -10,6 +10,8 @@ metadata:
     storageclass.kubernetes.io/is-default-class: "true"
     {{- end }}
 allowVolumeExpansion: true
+parameters:
+  encrypted: "true"
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
 
@@ -21,6 +23,8 @@ metadata:
     resources.gardener.cloud/delete-on-invalid-update: "true"
   name: gp2
 allowVolumeExpansion: true
+parameters:
+  encrypted: "true"
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
 ---
