@@ -94,6 +94,7 @@ install-requirements:
 	@go install -mod=vendor $(REPO_ROOT)/vendor/github.com/golang/mock/mockgen
 	@go install -mod=vendor $(REPO_ROOT)/vendor/golang.org/x/tools/cmd/goimports
 	@go install -mod=vendor sigs.k8s.io/controller-runtime/tools/setup-envtest
+	@go install -mod=vendor sigs.k8s.io/controller-tools/cmd/controller-gen
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/install-requirements.sh
 
 .PHONY: revendor
@@ -121,7 +122,7 @@ check:
 
 .PHONY: generate
 generate:
-	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/generate.sh ./charts/... ./cmd/... ./pkg/...
+	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/generate.sh ./charts/... ./cmd/... ./example/... ./pkg/...
 
 .PHONY: format
 format:

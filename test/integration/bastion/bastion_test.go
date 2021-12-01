@@ -33,8 +33,8 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/extensions/pkg/controller"
-	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
@@ -124,8 +124,8 @@ var _ = Describe("Bastion tests", func() {
 			UseExistingCluster: pointer.BoolPtr(true),
 			CRDInstallOptions: envtest.CRDInstallOptions{
 				Paths: []string{
-					filepath.Join(repoRoot, "example", "20-crd-bastion.yaml"),
-					filepath.Join(repoRoot, "example", "20-crd-cluster.yaml"),
+					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_bastions.yaml"),
+					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
 				},
 			},
 		}
@@ -342,41 +342,57 @@ func teardownBastion(ctx context.Context, logger *logrus.Entry, c client.Client,
 }
 
 func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *controller.Cluster) {
-	providerConfig := &awsv1alpha1.CloudProfileConfig{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "aws.provider.extensions.gardener.cloud/v1alpha1",
-			Kind:       "CloudProfileConfig",
-		},
-		MachineImages: []awsv1alpha1.MachineImages{
-			{
-				Name: "ubuntu",
-				Versions: []awsv1alpha1.MachineImageVersion{
-					{
-						Version: bastionImageVersion,
-						Regions: []awsv1alpha1.RegionAMIMapping{
-							{
-								Name: *region,
-								AMI:  amiID,
+	var (
+		providerConfig = &awsv1alpha1.CloudProfileConfig{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "aws.provider.extensions.gardener.cloud/v1alpha1",
+				Kind:       "CloudProfileConfig",
+			},
+			MachineImages: []awsv1alpha1.MachineImages{
+				{
+					Name: "ubuntu",
+					Versions: []awsv1alpha1.MachineImageVersion{
+						{
+							Version: bastionImageVersion,
+							Regions: []awsv1alpha1.RegionAMIMapping{
+								{
+									Name: *region,
+									AMI:  amiID,
+								},
 							},
 						},
 					},
 				},
 			},
-		},
-	}
+		}
+		cloudProfile = &gardencorev1beta1.CloudProfile{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "core.gardener.cloud/v1beta1",
+				Kind:       "CloudProfile",
+			},
+			Spec: gardencorev1beta1.CloudProfileSpec{
+				ProviderConfig: &runtime.RawExtension{
+					Object: providerConfig,
+				},
+			},
+		}
+		shoot = &gardencorev1beta1.Shoot{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "core.gardener.cloud/v1beta1",
+				Kind:       "Shoot",
+			},
+			Spec: gardencorev1beta1.ShootSpec{
+				Region: *region,
+			},
+		}
+	)
 
-	shoot := &v1beta1.Shoot{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "core.gardener.cloud/v1beta1",
-			Kind:       "Shoot",
-		},
-		Spec: v1beta1.ShootSpec{
-			Region: *region,
-		},
-	}
-
-	providerConfigJSON, _ := json.Marshal(providerConfig)
-	shootJSON, _ := json.Marshal(shoot)
+	providerConfigJSON, err := json.Marshal(providerConfig)
+	Expect(err).NotTo(HaveOccurred())
+	cloudProfileJSON, err := json.Marshal(cloudProfile)
+	Expect(err).NotTo(HaveOccurred())
+	shootJSON, err := json.Marshal(shoot)
+	Expect(err).NotTo(HaveOccurred())
 
 	extensionscluster := &extensionsv1alpha1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -384,13 +400,11 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 		},
 		Spec: extensionsv1alpha1.ClusterSpec{
 			CloudProfile: runtime.RawExtension{
-				Object: &core.CloudProfile{
-					Spec: core.CloudProfileSpec{
-						ProviderConfig: &runtime.RawExtension{
-							Object: providerConfig,
-						},
-					},
-				},
+				Object: cloudProfile,
+				Raw:    cloudProfileJSON,
+			},
+			Seed: runtime.RawExtension{
+				Raw: []byte("{}"),
 			},
 			Shoot: runtime.RawExtension{
 				Object: shoot,

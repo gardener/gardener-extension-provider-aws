@@ -22,13 +22,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/route53"
 	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	dnsrecordctrl "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
-	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 
+	"github.com/aws/aws-sdk-go/service/route53"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
@@ -40,6 +40,7 @@ import (
 	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -95,6 +96,11 @@ var _ = Describe("DNSRecord tests", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: testName,
 			},
+			Spec: extensionsv1alpha1.ClusterSpec{
+				CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
+				Seed:         runtime.RawExtension{Raw: []byte("{}")},
+				Shoot:        runtime.RawExtension{Raw: []byte("{}")},
+			},
 		}
 	)
 
@@ -112,8 +118,8 @@ var _ = Describe("DNSRecord tests", func() {
 		testEnv = &envtest.Environment{
 			CRDInstallOptions: envtest.CRDInstallOptions{
 				Paths: []string{
-					filepath.Join(repoRoot, "example", "20-crd-dnsrecord.yaml"),
-					filepath.Join(repoRoot, "example", "20-crd-cluster.yaml"),
+					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_dnsrecords.yaml"),
+					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
 				},
 			},
 		}
