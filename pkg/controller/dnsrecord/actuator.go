@@ -27,6 +27,7 @@ import (
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
+	"github.com/gardener/gardener/pkg/controllerutils"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/retry"
@@ -87,7 +88,7 @@ func (a *actuator) Reconcile(ctx context.Context, dns *extensionsv1alpha1.DNSRec
 	}
 
 	// Update resource status
-	return extensionscontroller.TryUpdateStatus(ctx, retry.DefaultBackoff, a.client, dns, func() error {
+	return controllerutils.TryUpdateStatus(ctx, retry.DefaultBackoff, a.client, dns, func() error {
 		dns.Status.Zone = &zone
 		return nil
 	})
