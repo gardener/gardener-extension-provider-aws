@@ -26,9 +26,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/extensions/pkg/controller"
-	ctrlerror "github.com/gardener/gardener/extensions/pkg/controller/error"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/controllerutils"
+	reconcilerutils "github.com/gardener/gardener/pkg/controllerutils/reconciler"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
@@ -64,7 +64,7 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 
 	// reconcile again if the instance has not all endpoints yet
 	if !endpoints.Ready() {
-		return &ctrlerror.RequeueAfterError{
+		return &reconcilerutils.RequeueAfterError{
 			// requeue rather soon, so that the user (most likely gardenctl eventually)
 			// doesn't have to wait too long for the public endpoint to become available
 			RequeueAfter: 5 * time.Second,

@@ -31,6 +31,7 @@ import (
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/controllerutils"
+	reconcilerutils "github.com/gardener/gardener/pkg/controllerutils/reconciler"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 )
 
@@ -48,7 +49,7 @@ type reconciler struct {
 func NewReconciler(actuator Actuator) reconcile.Reconciler {
 	logger := log.Log.WithName(ControllerName)
 
-	return extensionscontroller.OperationAnnotationWrapper(
+	return reconcilerutils.OperationAnnotationWrapper(
 		func() client.Object { return &extensionsv1alpha1.Bastion{} },
 		&reconciler{
 			logger:        logger,
@@ -108,8 +109,8 @@ func (r *reconciler) reconcile(ctx context.Context, bastion *extensionsv1alpha1.
 
 	r.logger.Info("Starting the reconciliation of bastion", "bastion", kutil.ObjectName(bastion))
 	if err := r.actuator.Reconcile(ctx, bastion, cluster); err != nil {
-		_ = r.statusUpdater.Error(ctx, bastion, extensionscontroller.ReconcileErrCauseOrErr(err), operationType, "Error reconciling bastion")
-		return extensionscontroller.ReconcileErr(err)
+		_ = r.statusUpdater.Error(ctx, bastion, reconcilerutils.ReconcileErrCauseOrErr(err), operationType, "Error reconciling bastion")
+		return reconcilerutils.ReconcileErr(err)
 	}
 
 	if err := r.statusUpdater.Success(ctx, bastion, operationType, "Successfully reconciled bastion"); err != nil {
@@ -133,8 +134,8 @@ func (r *reconciler) delete(ctx context.Context, bastion *extensionsv1alpha1.Bas
 	r.logger.Info("Starting the deletion of bastion", "bastion", kutil.ObjectName(bastion))
 
 	if err := r.actuator.Delete(ctx, bastion, cluster); err != nil {
-		_ = r.statusUpdater.Error(ctx, bastion, extensionscontroller.ReconcileErrCauseOrErr(err), operationType, "Error deleting bastion")
-		return extensionscontroller.ReconcileErr(err)
+		_ = r.statusUpdater.Error(ctx, bastion, reconcilerutils.ReconcileErrCauseOrErr(err), operationType, "Error deleting bastion")
+		return reconcilerutils.ReconcileErr(err)
 	}
 
 	if err := r.statusUpdater.Success(ctx, bastion, operationType, "Successfully reconciled bastion"); err != nil {
