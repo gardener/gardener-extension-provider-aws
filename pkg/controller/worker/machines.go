@@ -61,11 +61,6 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 		}
 	}
 
-	// Delete any older version of AWSMachineClass CRs.
-	if err := w.Client().DeleteAllOf(ctx, &machinev1alpha1.AWSMachineClass{}, client.InNamespace(w.worker.Namespace)); err != nil {
-		return fmt.Errorf("cleaning up older version of AWS machine class CRs failed: %w", err)
-	}
-
 	return w.seedChartApplier.Apply(ctx, filepath.Join(aws.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 

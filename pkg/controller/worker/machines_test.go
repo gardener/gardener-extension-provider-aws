@@ -48,12 +48,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	ctx = context.TODO()
-)
+var ctx = context.TODO()
 
 var _ = Describe("Machines", func() {
 	var (
@@ -670,19 +667,12 @@ var _ = Describe("Machines", func() {
 					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
 					// Test workerDelegate.DeployMachineClasses()
-
-					gomock.InOrder(
-						c.EXPECT().
-							DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)),
-						chartApplier.
-							EXPECT().
-							Apply(
-								ctx,
-								filepath.Join(aws.InternalChartsPath, "machineclass"),
-								namespace,
-								"machineclass",
-								kubernetes.Values(machineClasses),
-							),
+					chartApplier.EXPECT().Apply(
+						ctx,
+						filepath.Join(aws.InternalChartsPath, "machineclass"),
+						namespace,
+						"machineclass",
+						kubernetes.Values(machineClasses),
 					)
 
 					err := workerDelegate.DeployMachineClasses(ctx)
@@ -722,26 +712,6 @@ var _ = Describe("Machines", func() {
 					Expect(result).To(Equal(machineDeployments))
 				})
 
-				It("should delete the all old AWSMachineClasses", func() {
-					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
-					gomock.InOrder(
-						c.EXPECT().
-							DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)),
-						chartApplier.
-							EXPECT().
-							Apply(
-								ctx,
-								filepath.Join(aws.InternalChartsPath, "machineclass"),
-								namespace,
-								"machineclass",
-								kubernetes.Values(machineClasses),
-							),
-					)
-
-					err := workerDelegate.DeployMachineClasses(context.TODO())
-					Expect(err).NotTo(HaveOccurred())
-				})
-
 				Context("using workerConfig.iamInstanceProfile", func() {
 					modifyExpectedMachineClasses := func(expectedIamInstanceProfile map[string]interface{}) {
 						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
@@ -771,18 +741,12 @@ var _ = Describe("Machines", func() {
 
 						workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-						gomock.InOrder(
-							c.EXPECT().
-								DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)),
-							chartApplier.
-								EXPECT().
-								Apply(
-									ctx,
-									filepath.Join(aws.InternalChartsPath, "machineclass"),
-									namespace,
-									"machineclass",
-									kubernetes.Values(machineClasses),
-								),
+						chartApplier.EXPECT().Apply(
+							ctx,
+							filepath.Join(aws.InternalChartsPath, "machineclass"),
+							namespace,
+							"machineclass",
+							kubernetes.Values(machineClasses),
 						)
 
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
@@ -799,18 +763,12 @@ var _ = Describe("Machines", func() {
 
 						workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-						gomock.InOrder(
-							c.EXPECT().
-								DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)),
-							chartApplier.
-								EXPECT().
-								Apply(
-									ctx,
-									filepath.Join(aws.InternalChartsPath, "machineclass"),
-									namespace,
-									"machineclass",
-									kubernetes.Values(machineClasses),
-								),
+						chartApplier.EXPECT().Apply(
+							ctx,
+							filepath.Join(aws.InternalChartsPath, "machineclass"),
+							namespace,
+							"machineclass",
+							kubernetes.Values(machineClasses),
 						)
 
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
@@ -821,17 +779,6 @@ var _ = Describe("Machines", func() {
 					// Deliberately setting InfrastructureProviderStatus to empty
 					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
 					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
-
-					err := workerDelegate.DeployMachineClasses(context.TODO())
-					Expect(err).To(HaveOccurred())
-				})
-
-				It("should not delete the any of old AWSMachineClasses as DeleteAll call returns error", func() {
-					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
-
-					c.EXPECT().
-						DeleteAllOf(context.TODO(), &machinev1alpha1.AWSMachineClass{}, client.InNamespace(namespace)).
-						Return(fmt.Errorf("fake error"))
 
 					err := workerDelegate.DeployMachineClasses(context.TODO())
 					Expect(err).To(HaveOccurred())
