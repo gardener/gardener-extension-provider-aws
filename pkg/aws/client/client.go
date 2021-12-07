@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -51,15 +52,16 @@ import (
 // * ELBv2 is the standard client for the ELBv2 service.
 // * Route53 is the standard client for the Route53 service.
 type Client struct {
-	EC2                ec2iface.EC2API
-	STS                stsiface.STSAPI
-	IAM                iamiface.IAMAPI
-	S3                 s3iface.S3API
-	ELB                elbiface.ELBAPI
-	ELBv2              elbv2iface.ELBV2API
-	Route53            route53iface.Route53API
-	Route53RateLimiter *rate.Limiter
-	Logger             logr.Logger
+	EC2                           ec2iface.EC2API
+	STS                           stsiface.STSAPI
+	IAM                           iamiface.IAMAPI
+	S3                            s3iface.S3API
+	ELB                           elbiface.ELBAPI
+	ELBv2                         elbv2iface.ELBV2API
+	Route53                       route53iface.Route53API
+	Route53RateLimiter            *rate.Limiter
+	Route53RateLimiterWaitTimeout time.Duration
+	Logger                        logr.Logger
 }
 
 // NewInterface creates a new instance of Interface for the given AWS credentials and region.

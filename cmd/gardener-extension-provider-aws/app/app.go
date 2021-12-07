@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	"github.com/gardener/gardener/extensions/pkg/controller"
@@ -98,8 +99,9 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			ControllerOptions: controllercmd.ControllerOptions{
 				MaxConcurrentReconciles: 5,
 			},
-			ProviderClientQPS:   1,
-			ProviderClientBurst: 5,
+			ProviderClientQPS:         1,
+			ProviderClientBurst:       5,
+			ProviderClientWaitTimeout: 2 * time.Second,
 		}
 
 		// options for the infrastructure controller

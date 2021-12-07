@@ -27,11 +27,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 )
 
-const (
-	// route53RateLimiterWaitTimeout is the timeout for route53 rate limiter waits.
-	route53RateLimiterWaitTimeout = 10 * time.Second
-)
-
 // GetDNSHostedZones returns a map of all DNS hosted zone names mapped to their IDs.
 func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, error) {
 	zones := make(map[string]string)
@@ -176,11 +171,11 @@ func (c *Client) GetDNSRecordSet(ctx context.Context, zoneId, name, recordType s
 }
 
 func (c *Client) waitForRoute53RateLimiter(ctx context.Context) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, route53RateLimiterWaitTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, c.Route53RateLimiterWaitTimeout)
 	defer cancel()
 	t := time.Now()
 	if err := c.Route53RateLimiter.Wait(timeoutCtx); err != nil {
-		return fmt.Errorf("could not wait for client-side route53 rate limiter: %+v", err)
+		return &Route53RateLimiterWaitError{Cause: err}
 	}
 	if waitDuration := time.Since(t); waitDuration.Seconds() > 1/float64(c.Route53RateLimiter.Limit()) {
 		c.Logger.Info("Waited for client-side route53 rate limiter", "waitDuration", waitDuration.String())
@@ -369,6 +364,14 @@ var notPermittedInZoneRegex = regexp.MustCompile(`RRSet with DNS name [^\ ]+ is 
 // IsNotPermittedInZoneError returns true if the error indicates that the DNS name is not permitted in the route53 hosted zone.
 func IsNotPermittedInZoneError(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && notPermittedInZoneRegex.MatchString(aerr.Message()) {
+		return true
+	}
+	return false
+}
+
+// IsThrottlingError returns true if the error is a throttling error.
+func IsThrottlingError(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok && strings.Contains(aerr.Message(), "Throttling") {
 		return true
 	}
 	return false

@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"time"
+
 	backupbucketcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
 	backupentrycontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
 	bastioncontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
@@ -51,6 +53,8 @@ const (
 	ProviderClientQPSFlag = "provider-client-qps"
 	// ProviderClientBurstFlag is the name of the command line flag to specify the client burst for provider operations.
 	ProviderClientBurstFlag = "provider-client-burst"
+	// ProviderClientWaitTimeoutFlag is the name of the command line flag to specify the client wait timeout for provider operations.
+	ProviderClientWaitTimeoutFlag = "provider-client-wait-timeout"
 )
 
 // ControllerSwitchOptions are the controllercmd.SwitchOptions for the provider controllers.
@@ -80,8 +84,9 @@ func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 // DNSRecordControllerOptions are command line options that can be set for dnsrecordcontroller.Options.
 type DNSRecordControllerOptions struct {
 	controllercmd.ControllerOptions
-	ProviderClientQPS   float64
-	ProviderClientBurst int
+	ProviderClientQPS         float64
+	ProviderClientBurst       int
+	ProviderClientWaitTimeout time.Duration
 
 	config *DNSRecordControllerConfig
 }
@@ -91,6 +96,7 @@ func (c *DNSRecordControllerOptions) AddFlags(fs *pflag.FlagSet) {
 	c.ControllerOptions.AddFlags(fs)
 	fs.Float64Var(&c.ProviderClientQPS, ProviderClientQPSFlag, c.ProviderClientQPS, "The client QPS for provider operations.")
 	fs.IntVar(&c.ProviderClientBurst, ProviderClientBurstFlag, c.ProviderClientBurst, "The client burst for provider operations.")
+	fs.DurationVar(&c.ProviderClientWaitTimeout, ProviderClientWaitTimeoutFlag, c.ProviderClientWaitTimeout, "The client wait timeout for provider operations.")
 }
 
 // Complete implements Completer.Complete.
@@ -99,9 +105,10 @@ func (c *DNSRecordControllerOptions) Complete() error {
 		return err
 	}
 	c.config = &DNSRecordControllerConfig{
-		ControllerConfig:    *c.ControllerOptions.Completed(),
-		ProviderClientQPS:   rate.Limit(c.ProviderClientQPS),
-		ProviderClientBurst: c.ProviderClientBurst,
+		ControllerConfig:          *c.ControllerOptions.Completed(),
+		ProviderClientQPS:         rate.Limit(c.ProviderClientQPS),
+		ProviderClientBurst:       c.ProviderClientBurst,
+		ProviderClientWaitTimeout: c.ProviderClientWaitTimeout,
 	}
 	return nil
 }
@@ -114,8 +121,9 @@ func (c *DNSRecordControllerOptions) Completed() *DNSRecordControllerConfig {
 // DNSRecordControllerConfig is a completed DNSRecord controller configuration.
 type DNSRecordControllerConfig struct {
 	controllercmd.ControllerConfig
-	ProviderClientQPS   rate.Limit
-	ProviderClientBurst int
+	ProviderClientQPS         rate.Limit
+	ProviderClientBurst       int
+	ProviderClientWaitTimeout time.Duration
 }
 
 // Apply sets the values of this DNSRecordControllerConfig in the given controller.Options.
@@ -127,6 +135,7 @@ func (c *DNSRecordControllerConfig) Apply(opts *controller.Options) {
 func (c *DNSRecordControllerConfig) ApplyRateLimiter(opts *dnsrecordcontroller.RateLimiterOptions) {
 	opts.Limit = c.ProviderClientQPS
 	opts.Burst = c.ProviderClientBurst
+	opts.WaitTimeout = c.ProviderClientWaitTimeout
 }
 
 // Options initializes empty controller.Options, applies the set values and returns it.
