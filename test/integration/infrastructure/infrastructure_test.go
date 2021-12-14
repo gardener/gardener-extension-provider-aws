@@ -120,8 +120,8 @@ var _ = Describe("Infrastructure tests", func() {
 			UseExistingCluster: pointer.BoolPtr(true),
 			CRDInstallOptions: envtest.CRDInstallOptions{
 				Paths: []string{
-					filepath.Join(repoRoot, "example", "20-crd-cluster.yaml"),
-					filepath.Join(repoRoot, "example", "20-crd-infrastructure.yaml"),
+					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
+					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_infrastructures.yaml"),
 				},
 			},
 		}
@@ -302,6 +302,11 @@ var _ = Describe("Infrastructure tests", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: namespaceName,
 				},
+				Spec: extensionsv1alpha1.ClusterSpec{
+					CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
+					Seed:         runtime.RawExtension{Raw: []byte("{}")},
+					Shoot:        runtime.RawExtension{Raw: []byte("{}")},
+				},
 			}
 			Expect(c.Create(ctx, cluster)).To(Succeed())
 
@@ -388,6 +393,11 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	cluster = &extensionsv1alpha1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
+		},
+		Spec: extensionsv1alpha1.ClusterSpec{
+			CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
+			Seed:         runtime.RawExtension{Raw: []byte("{}")},
+			Shoot:        runtime.RawExtension{Raw: []byte("{}")},
 		},
 	}
 	if err := c.Create(ctx, cluster); err != nil {

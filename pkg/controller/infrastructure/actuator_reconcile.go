@@ -29,6 +29,7 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	"github.com/gardener/gardener/pkg/controllerutils"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -196,7 +197,7 @@ func updateProviderStatus(ctx context.Context, c client.Client, infrastructure *
 		return err
 	}
 
-	return extensionscontroller.TryUpdateStatus(ctx, retry.DefaultBackoff, c, infrastructure, func() error {
+	return controllerutils.TryUpdateStatus(ctx, retry.DefaultBackoff, c, infrastructure, func() error {
 		infrastructure.Status.ProviderStatus = &runtime.RawExtension{Object: infrastructureStatus}
 		infrastructure.Status.State = &runtime.RawExtension{Raw: stateByte}
 		return nil
