@@ -163,6 +163,16 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				}))
 			})
 
+			It("should allow specifying valid config", func() {
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow specifying valid config with podsCIDR=nil and servicesCIDR=nil", func() {
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, nil, nil)
+				Expect(errorList).To(BeEmpty())
+			})
+
 			It("should allow adding the same zone", func() {
 				infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, awsZone2)
 				infrastructureConfig.Networks.Zones[1].Name = zone

@@ -158,8 +158,12 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 
 	// make sure that VPC cidrs don't overlap with each other
 	allErrs = append(allErrs, cidrvalidation.ValidateCIDROverlap(cidrs, false)...)
-	allErrs = append(allErrs, pods.ValidateNotOverlap(cidrs...)...)
-	allErrs = append(allErrs, services.ValidateNotOverlap(cidrs...)...)
+	if pods != nil {
+		allErrs = append(allErrs, pods.ValidateNotOverlap(cidrs...)...)
+	}
+	if services != nil {
+		allErrs = append(allErrs, services.ValidateNotOverlap(cidrs...)...)
+	}
 
 	allErrs = append(allErrs, ValidateIgnoreTags(field.NewPath("ignoreTags"), infra.IgnoreTags)...)
 
