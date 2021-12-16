@@ -16,4 +16,4 @@ spec:
     --secret-access-key=$SECRET_ACCESS_KEY
     --region=$REGION
 
-  image: golang:1.16.3
+  image: golang:1.17.5
