@@ -17,6 +17,7 @@ package dnsrecord
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -28,10 +29,18 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/controllerutils"
+	"github.com/gardener/gardener/pkg/controllerutils/reconciler"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	// requeueAfterOnThrottlingError is a value for RequeueAfter to be returned on throttling errors
+	// in order to prevent retries with backoff that may lead to longer reconciliation times when many
+	// dnsrecords are reconciled at the same time.
+	requeueAfterOnThrottlingError = 30 * time.Second
 )
 
 type actuator struct {
@@ -169,6 +178,12 @@ func wrapAWSClientError(err error, message string) error {
 	wrappedErr := fmt.Errorf("%s: %+v", message, err)
 	if awsclient.IsNoSuchHostedZoneError(err) || awsclient.IsNotPermittedInZoneError(err) {
 		wrappedErr = gardencorev1beta1helper.NewErrorWithCodes(wrappedErr.Error(), gardencorev1beta1.ErrorConfigurationProblem)
+	}
+	if _, ok := err.(*awsclient.Route53RateLimiterWaitError); ok || awsclient.IsThrottlingError(err) {
+		wrappedErr = &reconciler.RequeueAfterError{
+			Cause:        wrappedErr,
+			RequeueAfter: requeueAfterOnThrottlingError,
+		}
 	}
 	return wrappedErr
 }

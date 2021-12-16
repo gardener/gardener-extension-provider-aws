@@ -36,6 +36,7 @@ controllers:
     concurrentSyncs: 5
     providerClientQPS: 1
     providerClientBurst: 5
+    providerClientWaitTimeout: 2s
   infrastructure:
     concurrentSyncs: 5
   worker:

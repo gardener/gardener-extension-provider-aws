@@ -15,6 +15,7 @@
 package client
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -27,12 +28,23 @@ const (
 	route53RateLimiterCacheTTL = 1 * time.Hour
 )
 
+// Route53RateLimiterWaitError is an error to be reported if waiting for a route53 rate limiter fails.
+// This can only happen if the wait time would exceed the configured wait timeout.
+type Route53RateLimiterWaitError struct {
+	Cause error
+}
+
+func (e *Route53RateLimiterWaitError) Error() string {
+	return fmt.Sprintf("could not wait for client-side route53 rate limiter: %+v", e.Cause)
+}
+
 // NewRoute53Factory creates a new Factory that initializes a route53 rate limiter with the given limit and burst
 // when creating new clients.
-func NewRoute53Factory(limit rate.Limit, burst int) Factory {
+func NewRoute53Factory(limit rate.Limit, burst int, waitTimeout time.Duration) Factory {
 	return &route53Factory{
 		limit:        limit,
 		burst:        burst,
+		waitTimeout:  waitTimeout,
 		rateLimiters: cache.NewExpiring(),
 	}
 }
@@ -40,6 +52,7 @@ func NewRoute53Factory(limit rate.Limit, burst int) Factory {
 type route53Factory struct {
 	limit             rate.Limit
 	burst             int
+	waitTimeout       time.Duration
 	rateLimiters      *cache.Expiring
 	rateLimitersMutex sync.Mutex
 }
@@ -51,6 +64,7 @@ func (f *route53Factory) NewClient(accessKeyID, secretAccessKey, region string) 
 		return nil, err
 	}
 	c.Route53RateLimiter = f.getRateLimiter(accessKeyID)
+	c.Route53RateLimiterWaitTimeout = f.waitTimeout
 	return c, nil
 }
 

@@ -15,6 +15,8 @@
 package dnsrecord
 
 import (
+	"time"
+
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
@@ -38,6 +40,8 @@ type RateLimiterOptions struct {
 	Limit rate.Limit
 	// Burst is the rate limiter burst for provider operations.
 	Burst int
+	// WaitTimeout is the timeout for rate limiter waits.
+	WaitTimeout time.Duration
 }
 
 // AddOptions are options to apply when adding the AWS dnsrecord controller to the manager.
@@ -55,7 +59,7 @@ type AddOptions struct {
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 	logger.Info("Adding dnsrecord controller", "RateLimiterOptions", opts.RateLimiter)
 	return dnsrecord.Add(mgr, dnsrecord.AddArgs{
-		Actuator:          NewActuator(awsclient.NewRoute53Factory(opts.RateLimiter.Limit, opts.RateLimiter.Burst), logger),
+		Actuator:          NewActuator(awsclient.NewRoute53Factory(opts.RateLimiter.Limit, opts.RateLimiter.Burst, opts.RateLimiter.WaitTimeout), logger),
 		ControllerOptions: opts.Controller,
 		Predicates:        dnsrecord.DefaultPredicates(opts.IgnoreOperationAnnotation),
 		Type:              aws.DNSType,
