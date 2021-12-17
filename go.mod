@@ -35,6 +35,7 @@ require (
 )
 
 replace (
+	github.com/gardener/gardener => github.com/timebertt/gardener v0.0.0-20211217130402-5a99530d1e66 // cleanup/try-patch-update-v1.36
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.11.0 // keep this value in sync with sigs.k8s.io/controller-runtime
 	k8s.io/api => k8s.io/api v0.22.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.2
