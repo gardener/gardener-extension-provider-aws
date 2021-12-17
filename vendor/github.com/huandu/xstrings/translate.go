@@ -4,6 +4,7 @@
 package xstrings
 
 import (
+	"bytes"
 	"unicode"
 	"unicode/utf8"
 )
@@ -25,7 +26,7 @@ type runeMap map[rune]rune
 // If a from/to pattern pair needs to be used more than once, it's recommended
 // to create a Translator and reuse it.
 type Translator struct {
-	quickDict  *runeDict       // A quick dictionary to look up rune by index. Only available for latin runes.
+	quickDict  *runeDict       // A quick dictionary to look up rune by index. Only availabe for latin runes.
 	runeMap    runeMap         // Rune map for translation.
 	ranges     []*runeRangeMap // Ranges of runes.
 	mappedRune rune            // If mappedRune >= 0, all matched runes are translated to the mappedRune.
@@ -151,12 +152,12 @@ func NewTranslator(from, to string) *Translator {
 			continue
 		}
 
-		_, toStart = tr.addRuneRange(fromStart, fromEnd, toStart, toStart, singleRunes)
+		fromStart, toStart = tr.addRuneRange(fromStart, fromEnd, toStart, toStart, singleRunes)
 		fromEnd = utf8.RuneError
 	}
 
 	if fromEnd != utf8.RuneError {
-		tr.addRune(fromEnd, toStart, singleRunes)
+		singleRunes = tr.addRune(fromEnd, toStart, singleRunes)
 	}
 
 	tr.reverted = reverted
@@ -302,7 +303,7 @@ func (tr *Translator) Translate(str string) string {
 
 	orig := str
 
-	var output *stringBuilder
+	var output *bytes.Buffer
 
 	for len(str) > 0 {
 		r, size = utf8.DecodeRuneInString(str)
@@ -499,7 +500,7 @@ func Squeeze(str, pattern string) string {
 	var size int
 	var skipSqueeze, matched bool
 	var tr *Translator
-	var output *stringBuilder
+	var output *bytes.Buffer
 
 	orig := str
 	last = -1

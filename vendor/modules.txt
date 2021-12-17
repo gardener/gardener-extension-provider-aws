@@ -93,6 +93,7 @@ github.com/cyphar/filepath-securejoin
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/dsnet/compress v0.0.1
+## explicit
 github.com/dsnet/compress
 github.com/dsnet/compress/bzip2
 github.com/dsnet/compress/bzip2/internal/sais
@@ -118,7 +119,7 @@ github.com/gardener/etcd-druid/api/validation
 # github.com/gardener/external-dns-management v0.7.18
 github.com/gardener/external-dns-management/pkg/apis/dns
 github.com/gardener/external-dns-management/pkg/apis/dns/v1alpha1
-# github.com/gardener/gardener v1.36.0
+# github.com/gardener/gardener v1.36.0 => github.com/timebertt/gardener v0.0.0-20211217130402-5a99530d1e66
 ## explicit
 github.com/gardener/gardener/.github
 github.com/gardener/gardener/.github/ISSUE_TEMPLATE
@@ -415,7 +416,7 @@ github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/json/parser
 github.com/hashicorp/hcl/json/scanner
 github.com/hashicorp/hcl/json/token
-# github.com/huandu/xstrings v1.3.2
+# github.com/huandu/xstrings v1.2.0
 github.com/huandu/xstrings
 # github.com/imdario/mergo v0.3.12
 github.com/imdario/mergo
@@ -556,6 +557,7 @@ github.com/ulikunitz/xz/internal/hash
 github.com/ulikunitz/xz/internal/xlog
 github.com/ulikunitz/xz/lzma
 # github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8
+## explicit
 github.com/xi2/xz
 # go.uber.org/atomic v1.7.0
 go.uber.org/atomic
@@ -1170,6 +1172,7 @@ sigs.k8s.io/structured-merge-diff/v4/typed
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
+# github.com/gardener/gardener => github.com/timebertt/gardener v0.0.0-20211217130402-5a99530d1e66
 # github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.11.0
 # k8s.io/api => k8s.io/api v0.22.2
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.2

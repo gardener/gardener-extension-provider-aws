@@ -22,17 +22,15 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/controllerutils"
+	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 
-	resourcesv1alpha1 "github.com/gardener/gardener/pkg/apis/resources/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	autoscalingv1beta2 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1beta2"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -81,14 +79,6 @@ func (a *AddToManagerBuilder) AddToManager(m manager.Manager) error {
 		}
 	}
 	return nil
-}
-
-// DeleteAllFinalizers removes all finalizers from the object and issues an  update.
-func DeleteAllFinalizers(ctx context.Context, client client.Client, obj client.Object) error {
-	return controllerutils.TryUpdate(ctx, retry.DefaultBackoff, client, obj, func() error {
-		obj.SetFinalizers(nil)
-		return nil
-	})
 }
 
 // GetSecretByReference returns the Secret object matching the given SecretReference.
