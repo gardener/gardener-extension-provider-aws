@@ -29,12 +29,10 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/controllerutils"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -197,11 +195,10 @@ func updateProviderStatus(ctx context.Context, c client.Client, infrastructure *
 		return err
 	}
 
-	return controllerutils.TryUpdateStatus(ctx, retry.DefaultBackoff, c, infrastructure, func() error {
-		infrastructure.Status.ProviderStatus = &runtime.RawExtension{Object: infrastructureStatus}
-		infrastructure.Status.State = &runtime.RawExtension{Raw: stateByte}
-		return nil
-	})
+	patch := client.MergeFrom(infrastructure.DeepCopy())
+	infrastructure.Status.ProviderStatus = &runtime.RawExtension{Object: infrastructureStatus}
+	infrastructure.Status.State = &runtime.RawExtension{Raw: stateByte}
+	return c.Status().Patch(ctx, infrastructure, patch)
 }
 
 func computeProviderStatus(ctx context.Context, tf terraformer.Terraformer, infrastructureConfig *awsapi.InfrastructureConfig) (*awsv1alpha1.InfrastructureStatus, *terraformer.RawState, error) {
