@@ -27,11 +27,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/controllerutils"
 	reconcilerutils "github.com/gardener/gardener/pkg/controllerutils/reconciler"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -74,10 +72,9 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 
 	// once a public endpoint is available, publish the endpoint on the
 	// Bastion resource to notify upstream about the ready instance
-	return controllerutils.TryUpdateStatus(ctx, retry.DefaultBackoff, a.Client(), bastion, func() error {
-		bastion.Status.Ingress = *endpoints.public
-		return nil
-	})
+	patch := client.MergeFrom(bastion.DeepCopy())
+	bastion.Status.Ingress = *endpoints.public
+	return a.Client().Status().Patch(ctx, bastion, patch)
 }
 
 func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *Options) (string, error) {

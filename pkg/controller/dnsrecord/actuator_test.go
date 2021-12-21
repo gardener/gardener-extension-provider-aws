@@ -143,14 +143,8 @@ var _ = Describe("Actuator", func() {
 			awsClient.EXPECT().GetDNSHostedZones(ctx).Return(zones, nil)
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).Return(nil)
 			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, "comment-"+domainName, "TXT", nil, int64(0)).Return(nil)
-			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&extensionsv1alpha1.DNSRecord{})).DoAndReturn(
-				func(_ context.Context, _ client.ObjectKey, obj *extensionsv1alpha1.DNSRecord) error {
-					*obj = *dns
-					return nil
-				},
-			)
-			sw.EXPECT().Update(ctx, gomock.AssignableToTypeOf(&extensionsv1alpha1.DNSRecord{})).DoAndReturn(
-				func(_ context.Context, obj *extensionsv1alpha1.DNSRecord, opts ...client.UpdateOption) error {
+			sw.EXPECT().Patch(ctx, gomock.AssignableToTypeOf(&extensionsv1alpha1.DNSRecord{}), gomock.Any()).DoAndReturn(
+				func(_ context.Context, obj *extensionsv1alpha1.DNSRecord, _ client.Patch, opts ...client.PatchOption) error {
 					Expect(obj.Status).To(Equal(extensionsv1alpha1.DNSRecordStatus{
 						Zone: pointer.String(zone),
 					}))

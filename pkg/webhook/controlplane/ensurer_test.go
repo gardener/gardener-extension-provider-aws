@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Masterminds/semver"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	"github.com/coreos/go-systemd/v22/unit"
@@ -629,7 +630,7 @@ done
 				hostnamectlUnitOption,
 			}
 
-			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s116, oldUnitOptions, nil)
+			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s116, semver.MustParse("1.16.0"), oldUnitOptions, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(opts).To(Equal(newUnitOptions))
 		})
@@ -646,7 +647,7 @@ done
 				hostnamectlUnitOption,
 			}
 
-			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s117, oldUnitOptions, nil)
+			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s117, semver.MustParse("1.17.0"), oldUnitOptions, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(opts).To(Equal(newUnitOptions))
 		})
@@ -664,7 +665,7 @@ done
 				hostnamectlUnitOption,
 			}
 
-			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s118, oldUnitOptions, nil)
+			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s118, semver.MustParse("1.18.0"), oldUnitOptions, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(opts).To(Equal(newUnitOptions))
 		})
@@ -693,7 +694,7 @@ done
 			}
 			kubeletConfig := *oldKubeletConfig
 
-			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s117, &kubeletConfig, nil)
+			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s117, semver.MustParse("1.17.0"), &kubeletConfig, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(&kubeletConfig).To(Equal(newKubeletConfig))
 		})
@@ -709,7 +710,7 @@ done
 			}
 			kubeletConfig := *oldKubeletConfig
 
-			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s118, &kubeletConfig, nil)
+			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s118, semver.MustParse("1.18.0"), &kubeletConfig, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(&kubeletConfig).To(Equal(newKubeletConfig))
 		})
@@ -725,7 +726,7 @@ done
 			}
 			kubeletConfig := *oldKubeletConfig
 
-			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s121, &kubeletConfig, nil)
+			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s121, semver.MustParse("1.21.0"), &kubeletConfig, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(&kubeletConfig).To(Equal(newKubeletConfig))
 		})

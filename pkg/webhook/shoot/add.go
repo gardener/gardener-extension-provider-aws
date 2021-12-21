@@ -19,7 +19,6 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/webhook/shoot"
 
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -38,7 +37,9 @@ var logger = log.Log.WithName("aws-shoot-webhook")
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) (*extensionswebhook.Webhook, error) {
 	logger.Info("Adding webhook to manager")
 	return shoot.New(mgr, shoot.Args{
-		Types:   []client.Object{&corev1.ConfigMap{}},
+		Types: []extensionswebhook.Type{
+			{Obj: &corev1.ConfigMap{}},
+		},
 		Mutator: NewMutator(),
 	})
 }
