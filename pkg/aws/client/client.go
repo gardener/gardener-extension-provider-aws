@@ -86,15 +86,16 @@ func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
 	}
 
 	return &Client{
-		EC2:                ec2.New(s, config),
-		ELB:                elb.New(s, config),
-		ELBv2:              elbv2.New(s, config),
-		IAM:                iam.New(s, config),
-		STS:                sts.New(s, config),
-		S3:                 s3.New(s, config),
-		Route53:            route53.New(s, config),
-		Route53RateLimiter: rate.NewLimiter(rate.Inf, 0),
-		Logger:             log.Log.WithName("aws-client"),
+		EC2:                           ec2.New(s, config),
+		ELB:                           elb.New(s, config),
+		ELBv2:                         elbv2.New(s, config),
+		IAM:                           iam.New(s, config),
+		STS:                           sts.New(s, config),
+		S3:                            s3.New(s, config),
+		Route53:                       route53.New(s, config),
+		Route53RateLimiter:            rate.NewLimiter(rate.Inf, 0),
+		Route53RateLimiterWaitTimeout: 1 * time.Second,
+		Logger:                        log.Log.WithName("aws-client"),
 	}, nil
 }
 

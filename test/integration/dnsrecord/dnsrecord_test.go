@@ -139,7 +139,8 @@ var _ = Describe("DNSRecord tests", func() {
 
 		Expect(dnsrecordctrl.AddToManagerWithOptions(mgr, dnsrecordctrl.AddOptions{
 			RateLimiter: dnsrecordctrl.RateLimiterOptions{
-				Limit: rate.Inf,
+				Limit:       rate.Inf,
+				WaitTimeout: 1 * time.Second,
 			},
 		})).To(Succeed())
 
