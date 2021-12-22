@@ -21,6 +21,9 @@ import (
 	apisawshelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -75,6 +78,30 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		if iam.ARN != nil && len(*iam.ARN) == 0 {
 			allErrs = append(allErrs, field.Required(fldPath.Child("iamInstanceProfile", "arn"), "arn must not be empty"))
 		}
+	}
+
+	if nodeTemplate := workerConfig.NodeTemplate; nodeTemplate != nil {
+		capacityAttributes := []corev1.ResourceName{"cpu", "gpu", "memory"}
+
+		for _, capacityAttribute := range capacityAttributes {
+			if _, ok := nodeTemplate.Capacity[capacityAttribute]; !ok {
+				allErrs = append(allErrs, field.Required(fldPath.Child("nodeTemplate").Child("capacity"), fmt.Sprintf("%s is a mandatory field", capacityAttribute)))
+			}
+		}
+
+		for key, val := range nodeTemplate.Capacity {
+			allErrs = append(allErrs, validateResourceQuantityValue(key, val, fldPath.Child("nodeTemplate").Child("capacity").Child(string(key)))...)
+		}
+	}
+
+	return allErrs
+}
+
+func validateResourceQuantityValue(key corev1.ResourceName, value resource.Quantity, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if value.Cmp(resource.Quantity{}) < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath, value.String(), fmt.Sprintf("%s value must not be negative", key)))
 	}
 
 	return allErrs

@@ -17,11 +17,15 @@ package validation_test
 import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 
 	"github.com/gardener/gardener/pkg/apis/core"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
 )
@@ -41,6 +45,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			dataVolume1Name = "foo"
 			dataVolume2Name = "bar"
 			dataVolumes     []core.DataVolume
+			nodeTemplate    *extensionsv1alpha1.NodeTemplate
 
 			iamInstanceProfileName = "name"
 			iamInstanceProfileARN  = "arn"
@@ -73,11 +78,56 @@ var _ = Describe("ValidateWorkerConfig", func() {
 						},
 					},
 				},
+				NodeTemplate: nodeTemplate,
 			}
 		})
 
 		It("should return no errors for a valid io1 configuration", func() {
 			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty())
+		})
+
+		It("should return no errors for a valid nodetemplate configuration", func() {
+			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+				Capacity: corev1.ResourceList{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("50Gi"),
+					"gpu":    resource.MustParse("0"),
+				},
+			}
+			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty())
+		})
+
+		It("should return errors for a invalid nodetemplate configuration", func() {
+			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+				Capacity: corev1.ResourceList{
+					"cpu":    resource.MustParse("-1"),
+					"memory": resource.MustParse("50Gi"),
+					"gpu":    resource.MustParse("0"),
+				},
+			}
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("config.nodeTemplate.capacity.cpu"),
+				"Detail": Equal("cpu value must not be negative"),
+			}))))
+		})
+
+		It("should return errors for a invalid nodetemplate configuration", func() {
+			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+				Capacity: corev1.ResourceList{
+					"memory": resource.MustParse("50Gi"),
+					"gpu":    resource.MustParse("0"),
+				},
+			}
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":   Equal(field.ErrorTypeRequired),
+				"Field":  Equal("config.nodeTemplate.capacity"),
+				"Detail": Equal("cpu is a mandatory field"),
+			}))))
 		})
 
 		It("should return no errors for a valid gp2 configuration", func() {
