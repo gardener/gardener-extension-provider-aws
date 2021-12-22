@@ -237,6 +237,18 @@ string
 </tr>
 <tr>
 <td>
+<code>nodeTemplate</code></br>
+<em>
+github.com/gardener/gardener/pkg/apis/extensions/v1alpha1.NodeTemplate
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NodeTemplate contains resource information of the machine which is used by Cluster Autoscaler to generate nodeTemplate during scaling a nodeGroup from zero.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>volume</code></br>
 <em>
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Volume">

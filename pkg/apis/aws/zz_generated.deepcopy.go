@@ -22,6 +22,7 @@ limitations under the License.
 package aws
 
 import (
+	v1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -562,6 +563,11 @@ func (in *Volume) DeepCopy() *Volume {
 func (in *WorkerConfig) DeepCopyInto(out *WorkerConfig) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
+	if in.NodeTemplate != nil {
+		in, out := &in.NodeTemplate, &out.NodeTemplate
+		*out = new(v1alpha1.NodeTemplate)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Volume != nil {
 		in, out := &in.Volume, &out.Volume
 		*out = new(Volume)

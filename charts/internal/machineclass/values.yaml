@@ -5,6 +5,14 @@ machineClasses:
   ami: ami-123456
   region: eu-west-1
   machineType: m4.xlarge
+  nodeTemplate:
+    capacity:
+      cpu: 4
+      gpu: 0
+      memory: 16Gi
+    instanceType: m4.xlarge
+    region: eu-west-1
+    zone: eu-west-1a
   iamInstanceProfile:
     name: nodes
   # arn: arn
