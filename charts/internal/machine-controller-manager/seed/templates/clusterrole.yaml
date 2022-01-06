@@ -26,3 +26,20 @@ rules:
   - events
   verbs:
   - "*"
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  resourceNames:
+  - machine-controller
+  - machine-controller-manager
+  verbs:
+  - get
+  - watch
+  - update
