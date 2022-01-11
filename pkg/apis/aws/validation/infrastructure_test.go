@@ -389,12 +389,12 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("networks.vpc.gatewayEndpoints[1]"),
 					"BadValue": Equal("my-endpoint"),
-					"Detail":   Equal("must be alphanumeric"),
+					"Detail":   Equal("must be a valid domain name"),
 				}))
 			})
 
 			It("should accept all-valid lists", func() {
-				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"myservice", "s3"}
+				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"myservice", "s3", "my.other.service"}
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
