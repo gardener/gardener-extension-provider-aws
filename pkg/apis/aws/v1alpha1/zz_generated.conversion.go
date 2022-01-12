@@ -25,6 +25,7 @@ import (
 	unsafe "unsafe"
 
 	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -834,6 +835,7 @@ func Convert_aws_Volume_To_v1alpha1_Volume(in *aws.Volume, out *Volume, s conver
 }
 
 func autoConvert_v1alpha1_WorkerConfig_To_aws_WorkerConfig(in *WorkerConfig, out *aws.WorkerConfig, s conversion.Scope) error {
+	out.NodeTemplate = (*extensionsv1alpha1.NodeTemplate)(unsafe.Pointer(in.NodeTemplate))
 	out.Volume = (*aws.Volume)(unsafe.Pointer(in.Volume))
 	out.DataVolumes = *(*[]aws.DataVolume)(unsafe.Pointer(&in.DataVolumes))
 	out.IAMInstanceProfile = (*aws.IAMInstanceProfile)(unsafe.Pointer(in.IAMInstanceProfile))
@@ -846,6 +848,7 @@ func Convert_v1alpha1_WorkerConfig_To_aws_WorkerConfig(in *WorkerConfig, out *aw
 }
 
 func autoConvert_aws_WorkerConfig_To_v1alpha1_WorkerConfig(in *aws.WorkerConfig, out *WorkerConfig, s conversion.Scope) error {
+	out.NodeTemplate = (*extensionsv1alpha1.NodeTemplate)(unsafe.Pointer(in.NodeTemplate))
 	out.Volume = (*Volume)(unsafe.Pointer(in.Volume))
 	out.DataVolumes = *(*[]DataVolume)(unsafe.Pointer(&in.DataVolumes))
 	out.IAMInstanceProfile = (*IAMInstanceProfile)(unsafe.Pointer(in.IAMInstanceProfile))

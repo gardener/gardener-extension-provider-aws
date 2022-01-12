@@ -16,6 +16,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 )
 
 // +genclient
@@ -25,6 +27,9 @@ import (
 type WorkerConfig struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// NodeTemplate contains resource information of the machine which is used by Cluster Autoscaler to generate nodeTemplate during scaling a nodeGroup from zero.
+	// +optional
+	NodeTemplate *extensionsv1alpha1.NodeTemplate `json:"nodeTemplate,omitempty"`
 	// Volume contains configuration for the root disks attached to VMs.
 	// +optional
 	Volume *Volume `json:"volume,omitempty"`
