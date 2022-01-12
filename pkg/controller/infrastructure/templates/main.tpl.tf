@@ -62,6 +62,10 @@ resource "aws_vpc_endpoint" "vpc_gwep_{{ $ep }}" {
 resource "aws_route_table" "routetable_main" {
   vpc_id = {{ .vpc.id }}
 
+  timeouts {
+    create = "5m"
+  }
+
 {{ commonTags .clusterName | indent 2 }}
 }
 
@@ -243,6 +247,10 @@ resource "aws_nat_gateway" "natgw_z{{ $index }}" {
 
 resource "aws_route_table" "routetable_private_utility_z{{ $index }}" {
   vpc_id = {{ $.vpc.id }}
+
+  timeouts {
+    create = "5m"
+  }
 
 {{ commonTagsWithSuffix $.clusterName (print "private-" $zone.name) | indent 2 }}
 }
