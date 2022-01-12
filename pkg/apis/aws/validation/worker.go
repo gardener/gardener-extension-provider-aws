@@ -81,16 +81,13 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	}
 
 	if nodeTemplate := workerConfig.NodeTemplate; nodeTemplate != nil {
-		capacityAttributes := []corev1.ResourceName{"cpu", "gpu", "memory"}
-
-		for _, capacityAttribute := range capacityAttributes {
-			if _, ok := nodeTemplate.Capacity[capacityAttribute]; !ok {
+		for _, capacityAttribute := range []corev1.ResourceName{"cpu", "gpu", "memory"} {
+			value, ok := nodeTemplate.Capacity[capacityAttribute]
+			if !ok {
 				allErrs = append(allErrs, field.Required(fldPath.Child("nodeTemplate").Child("capacity"), fmt.Sprintf("%s is a mandatory field", capacityAttribute)))
+				continue
 			}
-		}
-
-		for key, val := range nodeTemplate.Capacity {
-			allErrs = append(allErrs, validateResourceQuantityValue(key, val, fldPath.Child("nodeTemplate").Child("capacity").Child(string(key)))...)
+			allErrs = append(allErrs, validateResourceQuantityValue(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("capacity").Child(string(capacityAttribute)))...)
 		}
 	}
 
