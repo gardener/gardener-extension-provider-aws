@@ -290,6 +290,11 @@ dataVolumes:
 iamInstanceProfile: # (specify either ARN or name)
   name: my-profile
 # arn: my-instance-profile-arn
+nodeTemplate: # (to be specified only if the node capacity would be different from cloudprofile info during runtime)
+  capacity:
+    cpu: 2
+    gpu: 0
+    memory: 50Gi
 ```
 
 The `.volume.iops` is the number of I/O operations per second (IOPS) that the volume supports.
