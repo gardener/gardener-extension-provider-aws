@@ -24,6 +24,7 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/csimigration"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
@@ -102,7 +103,6 @@ func (w *workerDelegate) generateMachineConfig() error {
 	}
 
 	for _, pool := range w.worker.Spec.Pools {
-		zoneLen := int32(len(pool.Zones))
 
 		workerConfig := &awsapi.WorkerConfig{}
 		if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
@@ -136,9 +136,15 @@ func (w *workerDelegate) generateMachineConfig() error {
 			return err
 		}
 
+		corndonedZones := gardencorehelper.GetCorndonedZones(w.cluster.Shoot.Spec.Provider.AutoCordonZones, w.cluster.Shoot.Annotations)
+		zoneLen := int32(len(corndonedZones))
+		indexOffset := 0
 		for zoneIndex, zone := range pool.Zones {
-			zoneIdx := int32(zoneIndex)
-
+			if inStringList(corndonedZones, zone) {
+				indexOffset++
+				continue
+			}
+			relativeIdx := int32(zoneIndex - indexOffset)
 			nodesSubnet, err := awsapihelper.FindSubnetForPurposeAndZone(infrastructureStatus.VPC.Subnets, awsapi.PurposeNodes, zone)
 			if err != nil {
 				return err
@@ -183,10 +189,10 @@ func (w *workerDelegate) generateMachineConfig() error {
 				Name:           deploymentName,
 				ClassName:      className,
 				SecretName:     className,
-				Minimum:        worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
-				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
-				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
-				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
+				Minimum:        worker.DistributeOverZones(relativeIdx, pool.Minimum, zoneLen),
+				Maximum:        worker.DistributeOverZones(relativeIdx, pool.Maximum, zoneLen),
+				MaxSurge:       worker.DistributePositiveIntOrPercent(relativeIdx, pool.MaxSurge, zoneLen, pool.Maximum),
+				MaxUnavailable: worker.DistributePositiveIntOrPercent(relativeIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
 				Labels: func() map[string]string {
 					if !csiEnabled {
 						return pool.Labels
@@ -363,4 +369,14 @@ func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructure
 	}
 
 	return nil, fmt.Errorf("unable to compute IAM instance profile configuration")
+}
+
+func inStringList(list []string, testee string) bool {
+	for _, e := range list {
+		if e == testee {
+			return true
+		}
+	}
+
+	return false
 }

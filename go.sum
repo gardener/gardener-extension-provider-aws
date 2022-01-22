@@ -436,6 +436,8 @@ github.com/jia-jerry/gardener v1.33.2-0.20220121142818-214b57e7d48c h1:+TBm9/e5Q
 github.com/jia-jerry/gardener v1.33.2-0.20220121142818-214b57e7d48c/go.mod h1:tmclsznh8ZMNaqDKf7QLvEeMkplYXFWNOCNRynWrcHU=
 github.com/jia-jerry/gardener v1.33.2-0.20220122065752-9592e456e2aa h1:6/sQO8wuu9crIDJR8xRWRP/297eFAG+dyg+aBdLy5UY=
 github.com/jia-jerry/gardener v1.33.2-0.20220122065752-9592e456e2aa/go.mod h1:tmclsznh8ZMNaqDKf7QLvEeMkplYXFWNOCNRynWrcHU=
+github.com/jia-jerry/gardener v1.33.2-0.20220123143612-4b333a112bbc h1:ZxrwFicNpDt3fw2d+TACQYfs9+RkSDZKA48hT/0WmMM=
+github.com/jia-jerry/gardener v1.33.2-0.20220123143612-4b333a112bbc/go.mod h1:tmclsznh8ZMNaqDKf7QLvEeMkplYXFWNOCNRynWrcHU=
 github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=

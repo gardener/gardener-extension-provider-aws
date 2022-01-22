@@ -402,7 +402,7 @@ func AutomaticCordonZones(provider *core.Provider) bool {
 
 func GetCorndonedZones(autoCordonZones *bool, shootAnnotaions map[string]string) []string {
 	result := []string{}
-	if autoCordonZones != nil || !*autoCordonZones {
+	if autoCordonZones == nil || !*autoCordonZones {
 		return result
 	}
 
