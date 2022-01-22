@@ -16,9 +16,11 @@ package helper
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1consts "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 
 	"github.com/Masterminds/semver"
 	corev1 "k8s.io/api/core/v1"
@@ -391,4 +393,40 @@ func CalculateSeedUsage(shootList []*core.Shoot) map[string]int {
 	}
 
 	return m
+}
+
+// AutomaticCordonZones determines whether to automatically cordon zones
+func AutomaticCordonZones(provider *core.Provider) bool {
+	return provider.AutoCordonZones != nil && *provider.AutoCordonZones
+}
+
+func GetCorndonedZones(autoCordonZones *bool, shootAnnotaions map[string]string) []string {
+	result := []string{}
+	if autoCordonZones != nil || !*autoCordonZones {
+		return result
+	}
+
+	cordonedZonesStr, ok := shootAnnotaions[v1beta1consts.CordonedZones]
+	if !ok {
+		return result
+	}
+
+	return strings.Split(cordonedZonesStr, ",")
+}
+
+// GetAtiveZones filters out cordoned zones
+func GetAtiveZones(autoCordonZones *bool, shootAnnotaions map[string]string, zones []string) []string {
+	cordonedZoneList := GetCorndonedZones(autoCordonZones, shootAnnotaions)
+	cordonedZoneMap := make(map[string]string)
+	for _, zone := range cordonedZoneList {
+		cordonedZoneMap[zone] = ""
+	}
+
+	result := []string{}
+	for _, zone := range zones {
+		if _, ok := cordonedZoneMap[zone]; !ok {
+			result = append(result, zone)
+		}
+	}
+	return result
 }

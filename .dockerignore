@@ -11,7 +11,7 @@
 !test/
 !tools/
 !vendor/
-
+!.git
 !.gitignore
 !.golangci.yaml
 

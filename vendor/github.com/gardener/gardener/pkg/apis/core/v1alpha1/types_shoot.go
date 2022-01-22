@@ -1020,6 +1020,9 @@ type Provider struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	Workers []Worker `json:"workers" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,4,rep,name=workers"`
+	// AutoCordonZones specifies whether to cordon zone by Gardener automatically
+	// +optional
+	AutoCordonZones *bool `json:"autoCordonZones,omitempty" protobuf:"varint,5,opt,name=autoCordonZones"`
 }
 
 // Worker is the base definition of a worker group.

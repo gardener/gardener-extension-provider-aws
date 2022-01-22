@@ -254,7 +254,8 @@ const (
 	// ShootOperationRotateSSHKeypair is a constant for an annotation on a Shoot indicating that the SSH keypair for the shoot
 	// nodes shall be rotated.
 	ShootOperationRotateSSHKeypair = "rotate-ssh-keypair"
-
+	// CordonedZones specifies zones which will be cordoned, where no nodes will be provisioned.
+	CordonedZones = "shoot.gardener.cloud/cordoned-zones"
 	// SeedResourceManagerClass is the resource-class managed by the Gardener-Resource-Manager
 	// instance in the garden namespace on the seeds.
 	SeedResourceManagerClass = "seed"

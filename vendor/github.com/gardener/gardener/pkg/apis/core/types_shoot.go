@@ -817,6 +817,8 @@ type Provider struct {
 	InfrastructureConfig *runtime.RawExtension
 	// Workers is a list of worker groups.
 	Workers []Worker
+	// AutoCordonZones specifies whether to cordon zones by Gardener automatically
+	AutoCordonZones *bool
 }
 
 // Worker is the base definition of a worker group.

@@ -15,8 +15,8 @@
 EXTENSION_PREFIX            := gardener-extension
 NAME                        := provider-aws
 ADMISSION_NAME              := admission-aws
-REGISTRY                    := eu.gcr.io/gardener-project/gardener
-IMAGE_PREFIX                := $(REGISTRY)/extensions
+REGISTRY                    := registry.eu-central-1.aliyuncs.com/gardener-de
+IMAGE_PREFIX                := $(REGISTRY)
 REPO_ROOT                   := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 HACK_DIR                    := $(REPO_ROOT)/hack
 VERSION                     := $(shell cat "$(REPO_ROOT)/VERSION")
@@ -38,6 +38,10 @@ REGION                 := eu-west-1
 ACCESS_KEY_ID_FILE     := .kube-secrets/aws/access_key_id.secret
 SECRET_ACCESS_KEY_FILE := .kube-secrets/aws/secret_access_key.secret
 
+EFFECTIVE_VERSION := $(VERSION)-$(shell git rev-parse HEAD)
+ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
+	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-dirty
+endif
 #########################################
 # Rules for local development scenarios #
 #########################################
@@ -81,8 +85,13 @@ docker-login:
 
 .PHONY: docker-images
 docker-images:
-	@docker build -t $(IMAGE_PREFIX)/$(NAME):$(VERSION)           -t $(IMAGE_PREFIX)/$(NAME):latest           -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME)           .
-	@docker build -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
+	@docker build -t $(IMAGE_PREFIX)/$(NAME):$(EFFECTIVE_VERSION) -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME)           .
+	#@docker build -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(EFFECTIVE_VERSION) -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
+
+.PHONY: docker-push
+docker-push:
+	@docker push $(IMAGE_PREFIX)/$(NAME):$(EFFECTIVE_VERSION)
+	#@docker push $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(EFFECTIVE_VERSION)
 
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
@@ -99,7 +108,6 @@ install-requirements:
 .PHONY: revendor
 revendor:
 	@GO111MODULE=on go mod vendor
-	@GO111MODULE=on go mod tidy
 	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/*
 	@chmod +x $(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/.ci/*
 	@$(REPO_ROOT)/hack/update-github-templates.sh
