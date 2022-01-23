@@ -13,6 +13,7 @@ provider "aws" {
   }
   {{- end }}
 }
+{{- $cordonedZone := "" }}
 
 //=====================================================================
 //= VPC, DHCP Options, Gateways, Subnets, Route Tables, Security Groups
@@ -50,14 +51,14 @@ resource "aws_internet_gateway" "igw" {
 }
 {{- end}}
 
-{{ range $ep := .vpc.gatewayEndpoints }}
+{{- range $ep := .vpc.gatewayEndpoints }}
 resource "aws_vpc_endpoint" "vpc_gwep_{{ $ep }}" {
   vpc_id       = {{ $.vpc.id }}
   service_name = "com.amazonaws.{{ $.aws.region }}.{{ $ep }}"
 
 {{ commonTagsWithSuffix $.clusterName (print "gw-" $ep) | indent 2 }}
 }
-{{ end }}
+{{- end }}
 
 resource "aws_route_table" "routetable_main" {
   vpc_id = {{ .vpc.id }}
@@ -128,7 +129,7 @@ resource "aws_security_group_rule" "nodes_egress_all" {
   security_group_id = aws_security_group.nodes.id
 }
 
-{{ range $index, $zone := .zones }}
+{{- range $index, $zone := .zones }}
 resource "aws_subnet" "nodes_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.worker }}"
@@ -279,8 +280,51 @@ resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}
   subnet_id      = aws_subnet.nodes_z{{ $index }}.id
   route_table_id = aws_route_table.routetable_private_utility_z{{ $index }}.id
 }
-{{end}}
 
+{{- if $zone.cordoned }}
+{{ with $zoneID := (print "aws_subnet.nodes_z" $index ".id") }}
+{{ $cordonedZone = joinTwoElements $cordonedZone $zoneID }}
+{{- end }}
+{{ with $zoneID := (print "aws_subnet.public_utility_z" $index ".id") }}
+{{ $cordonedZone = joinTwoElements $cordonedZone $zoneID }}
+{{- end }}
+{{ with $zoneID := (print "aws_subnet.private_utility_z" $index ".id") }}
+{{ $cordonedZone = joinTwoElements $cordonedZone $zoneID }}
+{{- end }}
+{{- end }}
+{{- /* end for range of zones */ -}}
+{{- end }}
+{{ if $cordonedZone }}
+resource "aws_network_acl" "allow_api" {
+  vpc_id = aws_vpc.vpc.id
+  subnet_ids =  [{{ $cordonedZone }}]
+
+  tags = {
+    Name = "{{ $.clusterName }}-only-access-apiserver"
+    "kubernetes.io/cluster/{{ $.clusterName }}"  = "1"
+  }
+}
+resource "aws_network_acl_rule" "allow_api_rule_1" {
+  network_acl_id = aws_network_acl.allow_api.id
+  rule_number    = 1
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "18.159.178.237/32"
+  from_port      = 443
+  to_port        = 443
+}
+resource "aws_network_acl_rule" "allow_api_rule_2" {
+  network_acl_id = aws_network_acl.allow_api.id
+  rule_number    = 2
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "18.158.4.163/32"
+  from_port      = 443
+  to_port        = 443
+}
+{{- end }}
 //=====================================================================
 //= IAM instance profiles
 //=====================================================================

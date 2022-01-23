@@ -24,14 +24,14 @@ import (
 )
 
 // Restore takes the infrastructure state and deploys it as terraform state ConfigMap before calling the terraformer
-func (a *actuator) Restore(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+func (a *actuator) Restore(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
 	terraformState, err := terraformer.UnmarshalRawState(infrastructure.Status.State)
 	if err != nil {
 		return err
 	}
 
 	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "restore")
-	infrastructureStatus, state, err := Reconcile(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure, terraformer.CreateOrUpdateState{State: &terraformState.Data})
+	infrastructureStatus, state, err := a.reconcile(ctx, logger, infrastructure, terraformer.CreateOrUpdateState{State: &terraformState.Data}, cluster)
 	if err != nil {
 		return err
 	}

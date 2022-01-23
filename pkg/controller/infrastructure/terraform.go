@@ -37,6 +37,7 @@ func init() {
 		New(tplNameMainTF).
 		Funcs(utils.MergeMaps(sprig.TxtFuncMap(), map[string]interface{}{
 			"joinQuotes":           joinQuotes,
+			"joinTwoElements":      joinTwoElements,
 			"commonTags":           commonTags,
 			"commonTagsWithSuffix": commonTagsWithSuffix,
 		})).
@@ -70,6 +71,18 @@ func joinQuotes(data []string) string {
 	}
 
 	return strings.TrimSuffix(out, ",")
+}
+
+func joinTwoElements(e1, e2 string) string {
+	if e1 == "" {
+		return e2
+	}
+
+	if e2 == "" {
+		return e1
+	}
+
+	return fmt.Sprintf("%s,%s", e1, e2)
 }
 
 func commonTags(clusterName string) string {

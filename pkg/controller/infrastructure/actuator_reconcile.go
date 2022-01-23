@@ -28,49 +28,47 @@ import (
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
+	corehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
 	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "reconcile")
-	infrastructureStatus, state, err := Reconcile(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState))
+	infrastructureStatus, state, err := a.reconcile(ctx, logger, infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState), cluster)
 	if err != nil {
 		return err
 	}
 	return updateProviderStatus(ctx, a.Client(), infrastructure, infrastructureStatus, state)
 }
 
-// Reconcile reconciles the given Infrastructure object. It returns the provider specific status and the Terraform state.
-func Reconcile(
+//  reconciles the given Infrastructure object. It returns the provider specific status and the Terraform state.
+func (a *actuator) reconcile(
 	ctx context.Context,
 	logger logr.Logger,
-	restConfig *rest.Config,
-	c client.Client,
-	decoder runtime.Decoder,
 	infrastructure *extensionsv1alpha1.Infrastructure,
 	stateInitializer terraformer.StateConfigMapInitializer,
+	cluster *extensionscontroller.Cluster,
 ) (
 	*awsv1alpha1.InfrastructureStatus,
 	*terraformer.RawState,
 	error,
 ) {
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
-	if _, _, err := decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
+	if _, _, err := a.Decoder().Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
 		return nil, nil, fmt.Errorf("could not decode provider config: %+v", err)
 	}
 
-	awsClient, err := aws.NewClientFromSecretRef(ctx, c, infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
+	awsClient, err := aws.NewClientFromSecretRef(ctx, a.Client(), infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create new AWS client: %+v", err)
 	}
 
-	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, awsClient)
+	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, awsClient, cluster)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
 	}
@@ -80,7 +78,7 @@ func Reconcile(
 		return nil, nil, fmt.Errorf("could not render Terraform template: %+v", err)
 	}
 
-	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure)
+	tf, err := newTerraformer(a.logger, a.RESTConfig(), aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create terraformer object: %+v", err)
 	}
@@ -90,7 +88,7 @@ func Reconcile(
 		InitializeWith(
 			ctx,
 			terraformer.DefaultInitializer(
-				c,
+				a.Client(),
 				mainTF.String(),
 				variablesTF,
 				[]byte(terraformTFVars),
@@ -104,7 +102,12 @@ func Reconcile(
 	return computeProviderStatus(ctx, tf, infrastructureConfig)
 }
 
-func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig, awsClient awsclient.Interface) (map[string]interface{}, error) {
+func generateTerraformInfraConfig(ctx context.Context,
+	infrastructure *extensionsv1alpha1.Infrastructure,
+	infrastructureConfig *awsapi.InfrastructureConfig,
+	awsClient awsclient.Interface,
+	cluster *extensionscontroller.Cluster,
+) (map[string]interface{}, error) {
 	var (
 		dhcpDomainName    = "ec2.internal"
 		createVPC         = true
@@ -135,14 +138,23 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		vpcCIDR = *infrastructureConfig.Networks.VPC.CIDR
 	}
 
+	cordenedZones := corehelper.GetCorndonedZones(cluster.Shoot.Spec.Provider.AutoCordonZones, cluster.Shoot.Annotations)
 	var zones []map[string]interface{}
 	for _, zone := range infrastructureConfig.Networks.Zones {
+		cordoned := false
+		for _, cordonedZone := range cordenedZones {
+			if zone.Name == cordonedZone {
+				cordoned = true
+				break
+			}
+		}
 		zones = append(zones, map[string]interface{}{
 			"name":                  zone.Name,
 			"worker":                zone.Workers,
 			"public":                zone.Public,
 			"internal":              zone.Internal,
 			"elasticIPAllocationID": zone.ElasticIPAllocationID,
+			"cordoned":              cordoned,
 		})
 	}
 
