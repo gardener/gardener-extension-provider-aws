@@ -304,7 +304,7 @@ resource "aws_network_acl" "allow_api" {
     "kubernetes.io/cluster/{{ $.clusterName }}"  = "1"
   }
 }
-resource "aws_network_acl_rule" "allow_api_rule_1" {
+resource "aws_network_acl_rule" "allow_outbound_api_rule_1" {
   network_acl_id = aws_network_acl.allow_api.id
   rule_number    = 1
   egress         = true
@@ -314,7 +314,7 @@ resource "aws_network_acl_rule" "allow_api_rule_1" {
   from_port      = 443
   to_port        = 443
 }
-resource "aws_network_acl_rule" "allow_api_rule_2" {
+resource "aws_network_acl_rule" "allow_outbound_api_rule_2" {
   network_acl_id = aws_network_acl.allow_api.id
   rule_number    = 2
   egress         = true
@@ -323,6 +323,28 @@ resource "aws_network_acl_rule" "allow_api_rule_2" {
   cidr_block     = "18.158.4.163/32"
   from_port      = 443
   to_port        = 443
+}
+
+resource "aws_network_acl_rule" "allow_outbound_dns_rule" {
+  network_acl_id = aws_network_acl.allow_api.id
+  rule_number    = 3
+  egress         = true
+  protocol       = "udp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 53
+  to_port        = 53
+}
+
+resource "aws_network_acl_rule" "allow_inbound_tcp_rule" {
+  network_acl_id = aws_network_acl.allow_api.id
+  rule_number    = 1
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 0
+  to_port        = 65535
 }
 {{- end }}
 //=====================================================================
