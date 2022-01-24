@@ -18,9 +18,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Masterminds/semver"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
+	"github.com/Masterminds/semver"
 	"github.com/coreos/go-systemd/v22/unit"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/csimigration"
@@ -35,6 +35,7 @@ import (
 	"github.com/gardener/gardener/pkg/utils/version"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -618,57 +619,38 @@ done
 			}
 		})
 
-		It("should modify existing elements of kubelet.service unit options (k8s < 1.17)", func() {
-			newUnitOptions := []*unit.UnitOption{
-				{
-					Section: "Service",
-					Name:    "ExecStart",
-					Value: `/opt/bin/hyperkube kubelet \
-    --config=/var/lib/kubelet/config/kubelet \
-    --cloud-provider=aws`,
-				},
-				hostnamectlUnitOption,
-			}
+		DescribeTable("should modify existing elements of kubelet.service unit options",
+			func(gctx gcontext.GardenContext, kubeletVersion *semver.Version, cloudProvider string, withControllerAttachDetachFlag bool) {
+				newUnitOptions := []*unit.UnitOption{
+					{
+						Section: "Service",
+						Name:    "ExecStart",
+						Value: `/opt/bin/hyperkube kubelet \
+    --config=/var/lib/kubelet/config/kubelet`,
+					},
+					hostnamectlUnitOption,
+				}
 
-			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s116, semver.MustParse("1.16.0"), oldUnitOptions, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(opts).To(Equal(newUnitOptions))
-		})
+				if cloudProvider != "" {
+					newUnitOptions[0].Value += ` \
+    --cloud-provider=` + cloudProvider
+				}
 
-		It("should modify existing elements of kubelet.service unit options (k8s >= 1.17)", func() {
-			newUnitOptions := []*unit.UnitOption{
-				{
-					Section: "Service",
-					Name:    "ExecStart",
-					Value: `/opt/bin/hyperkube kubelet \
-    --config=/var/lib/kubelet/config/kubelet \
-    --cloud-provider=aws`,
-				},
-				hostnamectlUnitOption,
-			}
+				if withControllerAttachDetachFlag {
+					newUnitOptions[0].Value += ` \
+    --enable-controller-attach-detach=true`
+				}
 
-			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s117, semver.MustParse("1.17.0"), oldUnitOptions, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(opts).To(Equal(newUnitOptions))
-		})
+				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, gctx, kubeletVersion, oldUnitOptions, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(opts).To(Equal(newUnitOptions))
+			},
 
-		It("should modify existing elements of kubelet.service unit options (k8s >= 1.18)", func() {
-			newUnitOptions := []*unit.UnitOption{
-				{
-					Section: "Service",
-					Name:    "ExecStart",
-					Value: `/opt/bin/hyperkube kubelet \
-    --config=/var/lib/kubelet/config/kubelet \
-    --cloud-provider=external \
-    --enable-controller-attach-detach=true`,
-				},
-				hostnamectlUnitOption,
-			}
-
-			opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s118, semver.MustParse("1.18.0"), oldUnitOptions, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(opts).To(Equal(newUnitOptions))
-		})
+			Entry("kubelet version < 1.17", eContextK8s116, semver.MustParse("1.16.0"), "aws", false),
+			Entry("1.17 <= kubelet version < 1.18", eContextK8s117, semver.MustParse("1.17.0"), "aws", false),
+			Entry("1.18 <= kubelet version < 1.23", eContextK8s118, semver.MustParse("1.18.0"), "external", true),
+			Entry("kubelet version >= 1.23", eContextK8s118, semver.MustParse("1.23.0"), "", false),
+		)
 	})
 
 	Describe("#EnsureKubeletConfiguration", func() {
@@ -686,50 +668,32 @@ done
 			}
 		})
 
-		It("should modify existing elements of kubelet configuration (< 1.17)", func() {
-			newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
-				FeatureGates: map[string]bool{
-					"Foo": true,
-				},
-			}
-			kubeletConfig := *oldKubeletConfig
+		DescribeTable("should modify existing elements of kubelet configuration",
+			func(gctx gcontext.GardenContext, kubeletVersion *semver.Version, withCSIFeatureGates bool, csiMigrationCompleteFeatureGate string, enableControllerAttachDetach *bool) {
+				newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
+					FeatureGates: map[string]bool{
+						"Foo": true,
+					},
+					EnableControllerAttachDetach: enableControllerAttachDetach,
+				}
+				kubeletConfig := *oldKubeletConfig
 
-			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s117, semver.MustParse("1.17.0"), &kubeletConfig, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(&kubeletConfig).To(Equal(newKubeletConfig))
-		})
+				if withCSIFeatureGates {
+					newKubeletConfig.FeatureGates["CSIMigration"] = true
+					newKubeletConfig.FeatureGates["CSIMigrationAWS"] = true
+					newKubeletConfig.FeatureGates[csiMigrationCompleteFeatureGate] = true
+				}
 
-		It("should modify existing elements of kubelet configuration (>= 1.18)", func() {
-			newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
-				FeatureGates: map[string]bool{
-					"Foo":                     true,
-					"CSIMigration":            true,
-					"CSIMigrationAWS":         true,
-					"CSIMigrationAWSComplete": true,
-				},
-			}
-			kubeletConfig := *oldKubeletConfig
+				err := ensurer.EnsureKubeletConfiguration(ctx, gctx, kubeletVersion, &kubeletConfig, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(&kubeletConfig).To(Equal(newKubeletConfig))
+			},
 
-			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s118, semver.MustParse("1.18.0"), &kubeletConfig, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(&kubeletConfig).To(Equal(newKubeletConfig))
-		})
-
-		It("should modify existing elements of kubelet configuration (>= 1.21)", func() {
-			newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
-				FeatureGates: map[string]bool{
-					"Foo":                       true,
-					"CSIMigration":              true,
-					"CSIMigrationAWS":           true,
-					"InTreePluginAWSUnregister": true,
-				},
-			}
-			kubeletConfig := *oldKubeletConfig
-
-			err := ensurer.EnsureKubeletConfiguration(ctx, eContextK8s121, semver.MustParse("1.21.0"), &kubeletConfig, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(&kubeletConfig).To(Equal(newKubeletConfig))
-		})
+			Entry("kubelet < 1.18", eContextK8s117, semver.MustParse("1.17.0"), false, "", nil),
+			Entry("1.18 <= kubelet < 1.21", eContextK8s118, semver.MustParse("1.18.0"), true, "CSIMigrationAWSComplete", nil),
+			Entry("1.21 <= kubelet < 1.23", eContextK8s121, semver.MustParse("1.21.0"), true, "InTreePluginAWSUnregister", nil),
+			Entry("kubelet >= 1.23", eContextK8s121, semver.MustParse("1.23.0"), true, "InTreePluginAWSUnregister", pointer.Bool(true)),
+		)
 	})
 
 	Describe("#EnsureKubernetesGeneralConfiguration", func() {
