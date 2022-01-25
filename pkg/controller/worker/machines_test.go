@@ -733,9 +733,8 @@ var _ = Describe("Machines", func() {
 						Object: expectedImages,
 					}
 
-					c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Worker{})).Return(nil)
 					c.EXPECT().Status().Return(statusWriter)
-					statusWriter.EXPECT().Update(ctx, workerWithExpectedImages).Return(nil)
+					statusWriter.EXPECT().Patch(ctx, workerWithExpectedImages, gomock.Any()).Return(nil)
 
 					err = workerDelegate.UpdateMachineImagesStatus(ctx)
 					Expect(err).NotTo(HaveOccurred())
