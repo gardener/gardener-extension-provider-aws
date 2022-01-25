@@ -294,6 +294,9 @@ resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}
 {{- end }}
 {{- /* end for range of zones */ -}}
 {{- end }}
+/////////////////////////
+// ACL for cordoned zones
+/////////////////////////
 {{ if $cordonedZone }}
 resource "aws_network_acl" "allow_api" {
   vpc_id = aws_vpc.vpc.id
@@ -304,48 +307,65 @@ resource "aws_network_acl" "allow_api" {
     "kubernetes.io/cluster/{{ $.clusterName }}"  = "1"
   }
 }
-resource "aws_network_acl_rule" "allow_outbound_api_rule_1" {
-  network_acl_id = aws_network_acl.allow_api.id
-  rule_number    = 1
-  egress         = true
-  protocol       = "tcp"
-  rule_action    = "allow"
-  cidr_block     = "18.159.178.237/32"
-  from_port      = 443
-  to_port        = 443
-}
-resource "aws_network_acl_rule" "allow_outbound_api_rule_2" {
-  network_acl_id = aws_network_acl.allow_api.id
-  rule_number    = 2
-  egress         = true
-  protocol       = "tcp"
-  rule_action    = "allow"
-  cidr_block     = "18.158.4.163/32"
-  from_port      = 443
-  to_port        = 443
-}
 
-resource "aws_network_acl_rule" "allow_outbound_dns_rule" {
+{{- $inboudIndx := 10 }}
+{{- $outboudIndx := 10 }}
+{{- range $index, $zone := .zones }}
+{{- if $zone.cordoned }}
+// From NAT subnet to node
+resource "aws_network_acl_rule" "allow_outbound_nat_rule_{{ $index }}" {
   network_acl_id = aws_network_acl.allow_api.id
-  rule_number    = 3
+  rule_number    = {{ $inboudIndx }}
   egress         = true
-  protocol       = "udp"
-  rule_action    = "allow"
-  cidr_block     = "0.0.0.0/0"
-  from_port      = 53
-  to_port        = 53
-}
-
-resource "aws_network_acl_rule" "allow_inbound_tcp_rule" {
-  network_acl_id = aws_network_acl.allow_api.id
-  rule_number    = 1
-  egress         = false
   protocol       = "tcp"
   rule_action    = "allow"
-  cidr_block     = "0.0.0.0/0"
+  cidr_block     = "{{ $zone.worker }}"
   from_port      = 0
   to_port        = 65535
 }
+// Allow passive packets to nodes
+resource "aws_network_acl_rule" "allow_inbound_node_rule_{{ $index }}" {
+  network_acl_id = aws_network_acl.allow_api.id
+  rule_number    = {{ $inboudIndx }}
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "{{ $zone.worker }}"
+  from_port      = 0
+  to_port        = 65535
+}
+{{- $inboudIndx = add $inboudIndx 10 }}
+{{- $outboudIndx = add $outboudIndx 10 }}
+{{- end }}
+{{- end }}
+
+{{- range $index, $apiCIDR := .kubeAPIServerCIDRs }}
+resource "aws_network_acl_rule" "allow_outbound_api_rule_{{ $index }}" {
+  network_acl_id = aws_network_acl.allow_api.id
+  rule_number    = {{ $outboudIndx }}
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "{{ $apiCIDR }}"
+  from_port      = 443
+  to_port        = 443
+}
+
+resource "aws_network_acl_rule" "allow_inbound_api_rule_{{ $index }}" {
+  network_acl_id = aws_network_acl.allow_api.id
+  rule_number    = {{ $inboudIndx }}
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "{{ $apiCIDR }}"
+  from_port      = 0
+  to_port        = 65535
+}
+
+{{- $inboudIndx = add $inboudIndx 10 }}
+{{- $outboudIndx = add $outboudIndx 10 }}
+{{- end }}
+
 {{- end }}
 //=====================================================================
 //= IAM instance profiles
