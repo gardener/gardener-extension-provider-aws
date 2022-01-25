@@ -343,7 +343,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).To(MatchError(ContainSubstring("error validating provider credentials")))
 			var errorWithCode *gardencorev1beta1helper.ErrorWithCodes
 			Expect(errors.As(err, &errorWithCode)).To(BeTrue())
-			Expect(errorWithCode.Codes()).To(ConsistOf(gardencorev1beta1.ErrorInfraUnauthorized))
+			Expect(errorWithCode.Codes()).To(ConsistOf(gardencorev1beta1.ErrorInfraUnauthorized, gardencorev1beta1.ErrorInfraInsufficientPrivileges))
 		})
 	})
 })
