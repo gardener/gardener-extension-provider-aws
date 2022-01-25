@@ -20,14 +20,18 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
+	"github.com/Masterminds/semver"
+	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -44,10 +48,12 @@ type shoot struct {
 	apiReader      client.Reader
 	decoder        runtime.Decoder
 	lenientDecoder runtime.Decoder
+	scheme         *runtime.Scheme
 }
 
 // InjectScheme injects the given scheme into the validator.
 func (s *shoot) InjectScheme(scheme *runtime.Scheme) error {
+	s.scheme = scheme
 	s.decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 	s.lenientDecoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
 	return nil
@@ -119,9 +125,24 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 	}
 
 	// WorkerConfig and Shoot workers
+	shootV1beta1 := &gardencorev1beta1.Shoot{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: gardencorev1beta1.SchemeGroupVersion.String(),
+			Kind:       "Shoot",
+		},
+	}
+	if err := s.scheme.Convert(shoot, shootV1beta1, nil); err != nil {
+		return err
+	}
+
+	csiMigrationVersion, err := semver.NewVersion(aws.GetCSIMigrationKubernetesVersion(&extensionscontroller.Cluster{Shoot: shootV1beta1}))
+	if err != nil {
+		return err
+	}
+
 	fldPath = fldPath.Child("workers")
 	for i, worker := range shoot.Spec.Provider.Workers {
-		var workerConfig *aws.WorkerConfig
+		var workerConfig *api.WorkerConfig
 		if worker.ProviderConfig != nil {
 			wc, err := decodeWorkerConfig(s.decoder, worker.ProviderConfig, fldPath.Index(i).Child("providerConfig"))
 			if err != nil {
@@ -130,7 +151,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 			workerConfig = wc
 		}
 
-		if errList := awsvalidation.ValidateWorker(worker, infraConfig.Networks.Zones, workerConfig, fldPath.Index(i)); len(errList) != 0 {
+		if errList := awsvalidation.ValidateWorker(worker, csiMigrationVersion, infraConfig.Networks.Zones, workerConfig, fldPath.Index(i)); len(errList) != 0 {
 			return errList.ToAggregate()
 		}
 	}
@@ -198,7 +219,7 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 	return s.validateShootSecret(ctx, shoot)
 }
 
-func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *aws.InfrastructureConfig, fldPath *field.Path) error {
+func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, fldPath *field.Path) error {
 	cloudProfile := &gardencorev1beta1.CloudProfile{}
 	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
 		return err
