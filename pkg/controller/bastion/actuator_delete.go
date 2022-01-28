@@ -122,13 +122,13 @@ func instanceIsTerminated(ctx context.Context, awsClient *awsclient.Client, opt 
 
 	for _, reservation := range instances.Reservations {
 		for _, instance := range reservation.Instances {
-			if *instance.State.Code == InstanceStateTerminated {
-				return true, nil
+			if *instance.State.Code != InstanceStateTerminated {
+				return false, nil
 			}
 		}
 	}
 
-	return false, nil
+	return true, nil
 }
 
 func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
