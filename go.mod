@@ -40,7 +40,7 @@ require (
 )
 
 replace (
-	github.com/gardener/gardener => github.com/jia-jerry/gardener v1.33.2-0.20220123143612-4b333a112bbc
+	github.com/gardener/gardener => github.com/jia-jerry/gardener v1.33.2-0.20220128060055-0acb3c94ecbf
 	github.com/gardener/gardener-resource-manager/api => github.com/gardener/gardener-resource-manager/api v0.25.0
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.7.1 // keep this value in sync with sigs.k8s.io/controller-runtime
 	k8s.io/api => k8s.io/api v0.21.2

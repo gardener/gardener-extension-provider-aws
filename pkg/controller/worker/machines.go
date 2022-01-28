@@ -136,7 +136,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 			return err
 		}
 
-		corndonedZones := gardencorehelper.GetCorndonedZones(w.cluster.Shoot.Spec.Provider.AutoCordonZones, w.cluster.Shoot.Annotations)
+		corndonedZones := gardencorehelper.GetCorndonedZones(w.cluster.Shoot.Annotations)
 		zoneLen := int32(len(pool.Zones) - len(corndonedZones))
 		indexOffset := 0
 		for zoneIndex, zone := range pool.Zones {

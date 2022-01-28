@@ -138,7 +138,7 @@ func generateTerraformInfraConfig(ctx context.Context,
 		vpcCIDR = *infrastructureConfig.Networks.VPC.CIDR
 	}
 
-	cordenedZones := corehelper.GetCorndonedZones(cluster.Shoot.Spec.Provider.AutoCordonZones, cluster.Shoot.Annotations)
+	cordenedZones := corehelper.GetCorndonedZones(cluster.Shoot.Annotations)
 	var zones []map[string]interface{}
 	for _, zone := range infrastructureConfig.Networks.Zones {
 		cordoned := false

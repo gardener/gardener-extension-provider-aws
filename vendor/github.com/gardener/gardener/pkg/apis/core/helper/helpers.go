@@ -400,33 +400,11 @@ func AutomaticCordonZones(provider *core.Provider) bool {
 	return provider.AutoCordonZones != nil && *provider.AutoCordonZones
 }
 
-func GetCorndonedZones(autoCordonZones *bool, shootAnnotaions map[string]string) []string {
-	result := []string{}
-	if autoCordonZones == nil || !*autoCordonZones {
-		return result
-	}
-
+func GetCorndonedZones(shootAnnotaions map[string]string) []string {
 	cordonedZonesStr, ok := shootAnnotaions[v1beta1consts.CordonedZones]
 	if !ok {
-		return result
+		return []string{}
 	}
 
 	return strings.Split(cordonedZonesStr, ",")
-}
-
-// GetAtiveZones filters out cordoned zones
-func GetAtiveZones(autoCordonZones *bool, shootAnnotaions map[string]string, zones []string) []string {
-	cordonedZoneList := GetCorndonedZones(autoCordonZones, shootAnnotaions)
-	cordonedZoneMap := make(map[string]string)
-	for _, zone := range cordonedZoneList {
-		cordonedZoneMap[zone] = ""
-	}
-
-	result := []string{}
-	for _, zone := range zones {
-		if _, ok := cordonedZoneMap[zone]; !ok {
-			result = append(result, zone)
-		}
-	}
-	return result
 }
