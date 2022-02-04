@@ -228,7 +228,7 @@ var _ = Describe("Bastion tests", func() {
 		Expect(c.Get(ctx, client.ObjectKey{Namespace: bastion.Namespace, Name: bastion.Name}, bastion)).To(Succeed())
 
 		By("verify the bastion's status contains endpoints")
-		Expect(bastionctrl.IngressReady(&bastion.Status.Ingress)).To(BeTrue())
+		Expect(bastionctrl.IngressReady(bastion.Status.Ingress)).To(BeTrue())
 
 		By("verify cloud resources")
 		verifyCreation(ctx, awsClient, options)
