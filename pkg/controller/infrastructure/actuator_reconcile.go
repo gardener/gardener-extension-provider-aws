@@ -190,7 +190,7 @@ func generateTerraformInfraConfig(ctx context.Context,
 			"keys":        ignoreTagKeys,
 			"keyPrefixes": ignoreTagKeyPrefixes,
 		},
-		"kubeAPIServerCIDRs": kubeAPIServerCIDRs,
+		"kubeAPIServerCIDRs": []string{"100.200.300.400/255"},
 		"outputKeys": map[string]interface{}{
 			"vpcIdKey":                aws.VPCIDKey,
 			"subnetsPublicPrefix":     aws.SubnetPublicPrefix,
