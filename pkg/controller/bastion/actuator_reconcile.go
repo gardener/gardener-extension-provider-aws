@@ -73,7 +73,7 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 	// once a public endpoint is available, publish the endpoint on the
 	// Bastion resource to notify upstream about the ready instance
 	patch := client.MergeFrom(bastion.DeepCopy())
-	bastion.Status.Ingress = *endpoints.public
+	bastion.Status.Ingress = endpoints.public
 	return a.Client().Status().Patch(ctx, bastion, patch)
 }
 
