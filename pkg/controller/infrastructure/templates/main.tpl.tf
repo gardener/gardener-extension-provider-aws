@@ -339,14 +339,14 @@ resource "aws_network_acl_rule" "allow_inbound_node_rule_{{ $index }}" {
 {{- end }}
 {{- end }}
 
-{{- range $index, $apiCIDR := .kubeAPIServerCIDRs }}
+{{- range $index, $apiIP := .kubeAPIServerIPs }}
 resource "aws_network_acl_rule" "allow_outbound_api_rule_{{ $index }}" {
   network_acl_id = aws_network_acl.allow_api.id
   rule_number    = {{ $outboudIndx }}
   egress         = true
   protocol       = "tcp"
   rule_action    = "allow"
-  cidr_block     = "{{ $apiCIDR }}"
+  cidr_block     = "{{ $apiIP }}/32"
   from_port      = 443
   to_port        = 443
 }
@@ -357,7 +357,7 @@ resource "aws_network_acl_rule" "allow_inbound_api_rule_{{ $index }}" {
   egress         = false
   protocol       = "tcp"
   rule_action    = "allow"
-  cidr_block     = "{{ $apiCIDR }}"
+  cidr_block     = "{{ $apiIP }}/32"
   from_port      = 0
   to_port        = 65535
 }

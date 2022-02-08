@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -25,11 +27,14 @@ import (
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	corev1 "k8s.io/api/core/v1"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	corehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	kubernetes "github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -68,7 +73,7 @@ func (a *actuator) reconcile(
 		return nil, nil, fmt.Errorf("failed to create new AWS client: %+v", err)
 	}
 
-	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, awsClient, cluster)
+	terraformConfig, err := a.generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, awsClient, cluster)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
 	}
@@ -102,7 +107,35 @@ func (a *actuator) reconcile(
 	return computeProviderStatus(ctx, tf, infrastructureConfig)
 }
 
-func generateTerraformInfraConfig(ctx context.Context,
+func (a *actuator) getShootAPIServerIPs(ctx context.Context, cordonZones bool, shootNameSpace string) ([]string, error) {
+	if !cordonZones {
+		return []string{}, nil
+	}
+
+	secret := &corev1.Secret{}
+	if err := a.Client().Get(ctx, client.ObjectKey{Namespace: shootNameSpace, Name: v1beta1constants.SecretNameGardener}, secret); err != nil {
+		return nil, err
+	}
+
+	kubeconfig, ok := secret.Data[kubernetes.KubeConfig]
+	if !ok || len(kubeconfig) == 0 {
+		return nil, fmt.Errorf("the field '%s' of secret %s is empty", kubernetes.KubeConfig, v1beta1constants.SecretNameGardener)
+	}
+
+	restConfig, err := kubernetes.RESTConfigFromKubeconfig(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	apiURL, err := url.Parse(restConfig.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	return net.LookupHost(apiURL.Host)
+}
+
+func (a *actuator) generateTerraformInfraConfig(ctx context.Context,
 	infrastructure *extensionsv1alpha1.Infrastructure,
 	infrastructureConfig *awsapi.InfrastructureConfig,
 	awsClient awsclient.Interface,
@@ -168,6 +201,11 @@ func generateTerraformInfraConfig(ctx context.Context,
 		ignoreTagKeyPrefixes = tags.KeyPrefixes
 	}
 
+	kubeAPIServerIPs, err := a.getShootAPIServerIPs(ctx, len(cordenedZones) > 0, infrastructure.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]interface{}{
 		"aws": map[string]interface{}{
 			"region": infrastructure.Spec.Region,
@@ -190,7 +228,7 @@ func generateTerraformInfraConfig(ctx context.Context,
 			"keys":        ignoreTagKeys,
 			"keyPrefixes": ignoreTagKeyPrefixes,
 		},
-		"kubeAPIServerCIDRs": []string{"100.200.300.400/255"},
+		"kubeAPIServerIPs": kubeAPIServerIPs,
 		"outputKeys": map[string]interface{}{
 			"vpcIdKey":                aws.VPCIDKey,
 			"subnetsPublicPrefix":     aws.SubnetPublicPrefix,
