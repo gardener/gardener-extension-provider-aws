@@ -53,8 +53,9 @@ import (
 // NewControllerManagerCommand creates a new command for running a AWS provider controller.
 func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 	var (
-		restOpts = &controllercmd.RESTOptions{}
-		mgrOpts  = &controllercmd.ManagerOptions{
+		generalOpts = &controllercmd.GeneralOptions{}
+		restOpts    = &controllercmd.RESTOptions{}
+		mgrOpts     = &controllercmd.ManagerOptions{
 			LeaderElection:             true,
 			LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 			LeaderElectionID:           controllercmd.LeaderElectionNameID(aws.Name),
@@ -129,6 +130,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 		webhookOptions     = webhookcmd.NewAddToManagerOptions(aws.Name, webhookServerOptions, webhookSwitches)
 
 		aggOption = controllercmd.NewOptionAggregator(
+			generalOpts,
 			restOpts,
 			mgrOpts,
 			controllercmd.PrefixOption("backupbucket-", backupBucketCtrlOpts),
@@ -183,6 +185,20 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if err := machinev1alpha1.AddToScheme(scheme); err != nil {
 				controllercmd.LogErrAndExit(err, "Could not update manager scheme")
 			}
+
+			useTokenRequestor, err := controller.UseTokenRequestor(generalOpts.Completed().GardenerVersion)
+			if err != nil {
+				controllercmd.LogErrAndExit(err, "Could not determine whether token requestor should be used")
+			}
+			awscontrolplane.DefaultAddOptions.UseTokenRequestor = useTokenRequestor
+			awsworker.DefaultAddOptions.UseTokenRequestor = useTokenRequestor
+
+			useProjectedTokenMount, err := controller.UseServiceAccountTokenVolumeProjection(generalOpts.Completed().GardenerVersion)
+			if err != nil {
+				controllercmd.LogErrAndExit(err, "Could not determine whether service account token volume projection should be used")
+			}
+			awscontrolplane.DefaultAddOptions.UseProjectedTokenMount = useProjectedTokenMount
+			awsworker.DefaultAddOptions.UseProjectedTokenMount = useProjectedTokenMount
 
 			// add common meta types to schema for controller-runtime to use v1.ListOptions
 			metav1.AddToGroupVersion(scheme, machinev1alpha1.SchemeGroupVersion)

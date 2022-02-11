@@ -91,5 +91,6 @@ config:
       encrypted: true
 
 gardener:
+  version: ""
   seed:
     provider: aws
