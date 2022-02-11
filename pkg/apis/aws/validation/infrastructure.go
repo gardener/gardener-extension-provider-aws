@@ -29,6 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+// valid values for networks.vpc.gatewayEndpoints
+var gatewayEndpointPattern = regexp.MustCompile(`^\w+(\.\w+)*$`)
+
 // ValidateInfrastructureConfigAgainstCloudProfile validates the given `InfrastructureConfig` against the given `CloudProfile`.
 func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfile *gardencorev1beta1.CloudProfile, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
@@ -93,10 +96,9 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 
 	if len(infra.Networks.VPC.GatewayEndpoints) > 0 {
 		epsPath := networksPath.Child("vpc", "gatewayEndpoints")
-		re := regexp.MustCompile(`^\w+$`)
 		for i, svc := range infra.Networks.VPC.GatewayEndpoints {
-			if !re.MatchString(svc) {
-				allErrs = append(allErrs, field.Invalid(epsPath.Index(i), svc, "must be alphanumeric"))
+			if !gatewayEndpointPattern.MatchString(svc) {
+				allErrs = append(allErrs, field.Invalid(epsPath.Index(i), svc, "must be a valid domain name"))
 			}
 		}
 	}
