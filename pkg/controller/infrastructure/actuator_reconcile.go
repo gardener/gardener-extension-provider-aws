@@ -132,7 +132,8 @@ func (a *actuator) getShootAPIServerIPs(ctx context.Context, cordonZones bool, s
 		return nil, err
 	}
 
-	return net.LookupHost(apiURL.Host)
+	net.LookupHost(apiURL.Host)
+	return []string{}, nil
 }
 
 func (a *actuator) generateTerraformInfraConfig(ctx context.Context,

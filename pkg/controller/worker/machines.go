@@ -137,8 +137,13 @@ func (w *workerDelegate) generateMachineConfig() error {
 		}
 
 		corndonedZones := gardencorehelper.GetCorndonedZones(w.cluster.Shoot.Annotations)
-		zoneLen := int32(len(pool.Zones) - len(corndonedZones))
+		zoneLen := int32(len(pool.Zones))
 		indexOffset := 0
+		for _, zone := range pool.Zones {
+			if inStringList(corndonedZones, zone) {
+				zoneLen--
+			}
+		}
 		for zoneIndex, zone := range pool.Zones {
 			if inStringList(corndonedZones, zone) {
 				indexOffset++
