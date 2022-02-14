@@ -92,93 +92,93 @@ func validateFlags() {
 	}
 }
 
-var _ = Describe("Infrastructure tests", func() {
-	var (
-		ctx    = context.Background()
-		logger *logrus.Entry
+var (
+	ctx    = context.Background()
+	logger *logrus.Entry
 
-		testEnv   *envtest.Environment
-		mgrCancel context.CancelFunc
-		c         client.Client
-		decoder   runtime.Decoder
+	testEnv   *envtest.Environment
+	mgrCancel context.CancelFunc
+	c         client.Client
+	decoder   runtime.Decoder
 
-		awsClient *awsclient.Client
-	)
+	awsClient *awsclient.Client
+)
 
-	BeforeSuite(func() {
-		repoRoot := filepath.Join("..", "..", "..")
+var _ = BeforeSuite(func() {
+	repoRoot := filepath.Join("..", "..", "..")
 
-		// enable manager logs
-		logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
+	// enable manager logs
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 
-		log := logrus.New()
-		log.SetOutput(GinkgoWriter)
-		logger = logrus.NewEntry(log)
+	log := logrus.New()
+	log.SetOutput(GinkgoWriter)
+	logger = logrus.NewEntry(log)
 
-		By("starting test environment")
-		testEnv = &envtest.Environment{
-			UseExistingCluster: pointer.BoolPtr(true),
-			CRDInstallOptions: envtest.CRDInstallOptions{
-				Paths: []string{
-					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
-					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_infrastructures.yaml"),
-				},
+	By("starting test environment")
+	testEnv = &envtest.Environment{
+		UseExistingCluster: pointer.BoolPtr(true),
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
+				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_infrastructures.yaml"),
 			},
-		}
+		},
+	}
 
-		cfg, err := testEnv.Start()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(cfg).ToNot(BeNil())
+	cfg, err := testEnv.Start()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
 
-		By("setup manager")
-		mgr, err := manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
-		Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
-
-		Expect(infrastructure.AddToManager(mgr)).To(Succeed())
-
-		var mgrContext context.Context
-		mgrContext, mgrCancel = context.WithCancel(ctx)
-
-		By("start manager")
-		go func() {
-			err := mgr.Start(mgrContext)
-			Expect(err).NotTo(HaveOccurred())
-		}()
-
-		// test client should be uncached and independent from the tested manager
-		c, err = client.New(cfg, client.Options{
-			Scheme: mgr.GetScheme(),
-			Mapper: mgr.GetRESTMapper(),
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(c).NotTo(BeNil())
-		decoder = serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder()
-
-		flag.Parse()
-		validateFlags()
-
-		awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
-		Expect(err).NotTo(HaveOccurred())
+	By("setup manager")
+	mgr, err := manager.New(cfg, manager.Options{
+		MetricsBindAddress: "0",
 	})
+	Expect(err).ToNot(HaveOccurred())
 
-	AfterSuite(func() {
-		defer func() {
-			By("stopping manager")
-			mgrCancel()
-		}()
+	Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
+	Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
 
-		By("running cleanup actions")
-		framework.RunCleanupActions()
+	Expect(infrastructure.AddToManager(mgr)).To(Succeed())
 
-		By("stopping test environment")
-		Expect(testEnv.Stop()).To(Succeed())
+	var mgrContext context.Context
+	mgrContext, mgrCancel = context.WithCancel(ctx)
+
+	By("start manager")
+	go func() {
+		err := mgr.Start(mgrContext)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	// test client should be uncached and independent from the tested manager
+	c, err = client.New(cfg, client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
 	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(c).NotTo(BeNil())
+	decoder = serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder()
 
+	flag.Parse()
+	validateFlags()
+
+	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
+	Expect(err).NotTo(HaveOccurred())
+})
+
+var _ = AfterSuite(func() {
+	defer func() {
+		By("stopping manager")
+		mgrCancel()
+	}()
+
+	By("running cleanup actions")
+	framework.RunCleanupActions()
+
+	By("stopping test environment")
+	Expect(testEnv.Stop()).To(Succeed())
+})
+
+var _ = Describe("Infrastructure tests", func() {
 	Context("with infrastructure that requests new vpc (networks.vpc.cidr)", func() {
 		It("should successfully create and delete", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
