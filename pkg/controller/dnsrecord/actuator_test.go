@@ -33,6 +33,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -168,31 +169,23 @@ var _ = Describe("Actuator", func() {
 			Expect(ok).To(BeFalse())
 		})
 
-		It("should fail with ERR_CONFIGURATION_PROBLEM if there is no such hosted zone", func() {
+		DescribeTable("should fail with ERR_CONFIGURATION_PROBLEM when", func(errorCode, errorMessage string) {
 			dns.Spec.Zone = pointer.String(zone)
 
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).
-				Return(awserr.New(route53.ErrCodeNoSuchHostedZone, "", nil))
+				Return(awserr.New(errorCode, errorMessage, nil))
 
 			err := a.Reconcile(ctx, dns, nil)
 			Expect(err).To(HaveOccurred())
 			coder, ok := err.(gardencorev1beta1helper.Coder)
 			Expect(ok).To(BeTrue())
 			Expect(coder.Codes()).To(Equal([]gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem}))
-		})
-
-		It("should fail with ERR_CONFIGURATION_PROBLEM if the domain name is not permitted in the zone", func() {
-			dns.Spec.Zone = pointer.String(zone)
-
-			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).
-				Return(awserr.New(route53.ErrCodeInvalidChangeBatch, "RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com.", nil))
-
-			err := a.Reconcile(ctx, dns, nil)
-			Expect(err).To(HaveOccurred())
-			coder, ok := err.(gardencorev1beta1helper.Coder)
-			Expect(ok).To(BeTrue())
-			Expect(coder.Codes()).To(Equal([]gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem}))
-		})
+		},
+			Entry("there is no such hosted zone", route53.ErrCodeNoSuchHostedZone, ""),
+			Entry("domain name is not permitted in the zone", route53.ErrCodeInvalidChangeBatch, "RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com."),
+			Entry("hosted zone already exists", "", "duplicate zones"),
+			Entry("hosted zones have overlapping dns names", "", "overlapping zones"),
+		)
 	})
 
 	Describe("#Delete", func() {

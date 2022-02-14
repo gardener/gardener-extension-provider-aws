@@ -173,7 +173,7 @@ func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) 
 
 func wrapAWSClientError(err error, message string) error {
 	wrappedErr := fmt.Errorf("%s: %+v", message, err)
-	if awsclient.IsNoSuchHostedZoneError(err) || awsclient.IsNotPermittedInZoneError(err) {
+	if isConfigurationError(err) {
 		wrappedErr = gardencorev1beta1helper.NewErrorWithCodes(wrappedErr.Error(), gardencorev1beta1.ErrorConfigurationProblem)
 	}
 	if _, ok := err.(*awsclient.Route53RateLimiterWaitError); ok || awsclient.IsThrottlingError(err) {
@@ -183,4 +183,11 @@ func wrapAWSClientError(err error, message string) error {
 		}
 	}
 	return wrappedErr
+}
+
+func isConfigurationError(err error) bool {
+	return awsclient.IsNoSuchHostedZoneError(err) ||
+		awsclient.IsNotPermittedInZoneError(err) ||
+		awsclient.IsDuplicateZonesError(err) ||
+		awsclient.IsOverlappingZonesError(err)
 }

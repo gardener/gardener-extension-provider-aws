@@ -17,7 +17,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -342,37 +341,4 @@ func ignoreHostedZoneNotFound(err error) error {
 		return nil
 	}
 	return err
-}
-
-func isValuesDoNotMatchError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && strings.Contains(aerr.Message(), "the values provided do not match the current values") {
-		return true
-	}
-	return false
-}
-
-// IsNoSuchHostedZoneError returns true if the error indicates a non-existing route53 hosted zone.
-func IsNoSuchHostedZoneError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeNoSuchHostedZone {
-		return true
-	}
-	return false
-}
-
-var notPermittedInZoneRegex = regexp.MustCompile(`RRSet with DNS name [^\ ]+ is not permitted in zone [^\ ]+`)
-
-// IsNotPermittedInZoneError returns true if the error indicates that the DNS name is not permitted in the route53 hosted zone.
-func IsNotPermittedInZoneError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && notPermittedInZoneRegex.MatchString(aerr.Message()) {
-		return true
-	}
-	return false
-}
-
-// IsThrottlingError returns true if the error is a throttling error.
-func IsThrottlingError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && strings.Contains(aerr.Message(), "Throttling") {
-		return true
-	}
-	return false
 }
