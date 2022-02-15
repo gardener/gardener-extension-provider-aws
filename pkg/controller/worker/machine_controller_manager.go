@@ -78,7 +78,7 @@ func (w *workerDelegate) getMachineDrainTimeoutAWS() string {
 	result := "2h"
 	corndonedZones := gardencorehelper.GetCorndonedZones(w.cluster.Shoot.Annotations)
 	if len(corndonedZones) > 0 {
-		result = "2m"
+		result = "2h"
 	}
 
 	return result
