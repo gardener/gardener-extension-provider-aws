@@ -91,6 +91,25 @@ var _ = BeforeSuite(func() {
 	log.SetOutput(GinkgoWriter)
 	logger = logrus.NewEntry(log)
 
+	DeferCleanup(func() {
+		defer func() {
+			By("stopping manager")
+			mgrCancel()
+		}()
+
+		By("running cleanup actions")
+		framework.RunCleanupActions()
+
+		By("deleting AWS DNS hosted zone")
+		deleteDNSHostedZone(ctx, awsClient, zoneID)
+
+		By("tearing down shoot environment")
+		teardownShootEnvironment(ctx, c, namespace, secret, cluster)
+
+		By("stopping test environment")
+		Expect(testEnv.Stop()).To(Succeed())
+	})
+
 	By("generating randomized test resource identifiers")
 	testName = fmt.Sprintf("aws-dnsrecord-it--%s", randomString())
 	zoneName = testName + ".gardener.cloud"
@@ -179,25 +198,6 @@ var _ = BeforeSuite(func() {
 
 	By("creating AWS DNS hosted zone")
 	zoneID = createDNSHostedZone(ctx, awsClient, zoneName)
-})
-
-var _ = AfterSuite(func() {
-	defer func() {
-		By("stopping manager")
-		mgrCancel()
-	}()
-
-	By("running cleanup actions")
-	framework.RunCleanupActions()
-
-	By("deleting AWS DNS hosted zone")
-	deleteDNSHostedZone(ctx, awsClient, zoneID)
-
-	By("tearing down shoot environment")
-	teardownShootEnvironment(ctx, c, namespace, secret, cluster)
-
-	By("stopping test environment")
-	Expect(testEnv.Stop()).To(Succeed())
 })
 
 var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, beforeCreate, beforeUpdate, beforeDelete func()) {

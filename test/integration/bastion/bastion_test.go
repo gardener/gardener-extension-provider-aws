@@ -111,6 +111,19 @@ var _ = BeforeSuite(func() {
 	log.SetOutput(GinkgoWriter)
 	logger = logrus.NewEntry(log)
 
+	DeferCleanup(func() {
+		defer func() {
+			By("stopping manager")
+			mgrCancel()
+		}()
+
+		By("running cleanup actions")
+		framework.RunCleanupActions()
+
+		By("stopping test environment")
+		Expect(testEnv.Stop()).To(Succeed())
+	})
+
 	By("generating randomized test resource identifiers")
 	randString, err := randomString()
 	Expect(err).NotTo(HaveOccurred())
@@ -173,19 +186,6 @@ var _ = BeforeSuite(func() {
 
 	amiID := determineBastionImage(ctx, awsClient)
 	extensionscluster, corecluster = newCluster(namespaceName, amiID)
-})
-
-var _ = AfterSuite(func() {
-	defer func() {
-		By("stopping manager")
-		mgrCancel()
-	}()
-
-	By("running cleanup actions")
-	framework.RunCleanupActions()
-
-	By("stopping test environment")
-	Expect(testEnv.Stop()).To(Succeed())
 })
 
 var _ = Describe("Bastion tests", func() {

@@ -114,6 +114,19 @@ var _ = BeforeSuite(func() {
 	log.SetOutput(GinkgoWriter)
 	logger = logrus.NewEntry(log)
 
+	DeferCleanup(func() {
+		defer func() {
+			By("stopping manager")
+			mgrCancel()
+		}()
+
+		By("running cleanup actions")
+		framework.RunCleanupActions()
+
+		By("stopping test environment")
+		Expect(testEnv.Stop()).To(Succeed())
+	})
+
 	By("starting test environment")
 	testEnv = &envtest.Environment{
 		UseExistingCluster: pointer.BoolPtr(true),
@@ -163,19 +176,6 @@ var _ = BeforeSuite(func() {
 
 	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
 	Expect(err).NotTo(HaveOccurred())
-})
-
-var _ = AfterSuite(func() {
-	defer func() {
-		By("stopping manager")
-		mgrCancel()
-	}()
-
-	By("running cleanup actions")
-	framework.RunCleanupActions()
-
-	By("stopping test environment")
-	Expect(testEnv.Stop()).To(Succeed())
 })
 
 var _ = Describe("Infrastructure tests", func() {
