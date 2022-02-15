@@ -45,7 +45,7 @@ spec:
         - ./machine-controller
         - --control-kubeconfig=inClusterConfig
         - --machine-creation-timeout=20m
-        - --machine-drain-timeout=2h
+        - --machine-drain-timeout={{ .Values.machineDrainTimeoutAWS }}
         - --machine-health-timeout=10m
         - --namespace={{ .Release.Namespace }}
         - --port={{ .Values.metricsPortAWS }}

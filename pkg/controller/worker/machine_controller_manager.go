@@ -21,6 +21,7 @@ import (
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
+	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils/chart"
@@ -66,10 +67,21 @@ func (w *workerDelegate) GetMachineControllerManagerChartValues(ctx context.Cont
 		"namespace": map[string]interface{}{
 			"uid": namespace.UID,
 		},
+		"machineDrainTimeoutAWS": w.getMachineDrainTimeoutAWS(),
 		"podLabels": map[string]interface{}{
 			v1beta1constants.LabelPodMaintenanceRestart: "true",
 		},
 	}, nil
+}
+
+func (w *workerDelegate) getMachineDrainTimeoutAWS() string {
+	result := "2h"
+	corndonedZones := gardencorehelper.GetCorndonedZones(w.cluster.Shoot.Annotations)
+	if len(corndonedZones) > 0 {
+		result = "2m"
+	}
+
+	return result
 }
 
 func (w *workerDelegate) GetMachineControllerManagerShootChartValues(ctx context.Context) (map[string]interface{}, error) {

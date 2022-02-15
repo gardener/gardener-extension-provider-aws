@@ -16,6 +16,8 @@ namespace:
 metricsPort: 10258
 metricsPortAWS: 10259
 
+machineDrainTimeoutAWS: 2h
+
 vpa:
   enabled: true
   updatePolicy:
