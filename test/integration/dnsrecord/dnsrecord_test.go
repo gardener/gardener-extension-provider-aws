@@ -33,7 +33,7 @@ import (
 	"github.com/gardener/gardener/pkg/extensions"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/test/framework"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/sirupsen/logrus"
@@ -63,119 +63,35 @@ func validateFlags() {
 	}
 }
 
-var _ = Describe("DNSRecord tests", func() {
-	var (
-		ctx = context.Background()
+var (
+	ctx = context.Background()
 
-		logger    *logrus.Entry
-		awsClient *awsclient.Client
-		testEnv   *envtest.Environment
-		mgrCancel context.CancelFunc
-		c         client.Client
+	logger    *logrus.Entry
+	awsClient *awsclient.Client
+	testEnv   *envtest.Environment
+	mgrCancel context.CancelFunc
+	c         client.Client
 
-		testName = fmt.Sprintf("aws-dnsrecord-it--%s", randomString())
-		zoneName = testName + ".gardener.cloud"
-		zoneID   string
+	testName string
+	zoneName string
+	zoneID   string
 
-		namespace = &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: testName,
-			},
-		}
-		secret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "dnsrecord",
-				Namespace: testName,
-			},
-			Data: map[string][]byte{
-				aws.AccessKeyID:     []byte(*accessKeyID),
-				aws.SecretAccessKey: []byte(*secretAccessKey),
-			},
-		}
-		cluster = &extensionsv1alpha1.Cluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: testName,
-			},
-			Spec: extensionsv1alpha1.ClusterSpec{
-				CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
-				Seed:         runtime.RawExtension{Raw: []byte("{}")},
-				Shoot:        runtime.RawExtension{Raw: []byte("{}")},
-			},
-		}
-	)
+	namespace *corev1.Namespace
+	secret    *corev1.Secret
+	cluster   *extensionsv1alpha1.Cluster
+)
 
-	BeforeSuite(func() {
-		repoRoot := filepath.Join("..", "..", "..")
+var _ = BeforeSuite(func() {
+	repoRoot := filepath.Join("..", "..", "..")
 
-		// enable manager logs
-		logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
+	// enable manager logs
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 
-		log := logrus.New()
-		log.SetOutput(GinkgoWriter)
-		logger = logrus.NewEntry(log)
+	log := logrus.New()
+	log.SetOutput(GinkgoWriter)
+	logger = logrus.NewEntry(log)
 
-		By("starting test environment")
-		testEnv = &envtest.Environment{
-			CRDInstallOptions: envtest.CRDInstallOptions{
-				Paths: []string{
-					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_dnsrecords.yaml"),
-					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
-				},
-			},
-		}
-
-		cfg, err := testEnv.Start()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(cfg).ToNot(BeNil())
-
-		By("setting up manager")
-		mgr, err := manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
-		Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
-
-		Expect(dnsrecordctrl.AddToManagerWithOptions(mgr, dnsrecordctrl.AddOptions{
-			RateLimiter: dnsrecordctrl.RateLimiterOptions{
-				Limit:       rate.Inf,
-				WaitTimeout: 1 * time.Second,
-			},
-		})).To(Succeed())
-
-		var mgrContext context.Context
-		mgrContext, mgrCancel = context.WithCancel(ctx)
-
-		By("starting manager")
-		go func() {
-			defer GinkgoRecover()
-			err := mgr.Start(mgrContext)
-			Expect(err).NotTo(HaveOccurred())
-		}()
-
-		// test client should be uncached and independent from the tested manager
-		c, err = client.New(cfg, client.Options{
-			Scheme: mgr.GetScheme(),
-			Mapper: mgr.GetRESTMapper(),
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(c).NotTo(BeNil())
-
-		flag.Parse()
-		validateFlags()
-
-		awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, aws.DefaultDNSRegion)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("setting up shoot environment")
-		setupShootEnvironment(ctx, c, namespace, secret, cluster)
-
-		By("creating AWS DNS hosted zone")
-		zoneID = createDNSHostedZone(ctx, awsClient, zoneName)
-	})
-
-	AfterSuite(func() {
+	DeferCleanup(func() {
 		defer func() {
 			By("stopping manager")
 			mgrCancel()
@@ -194,33 +110,146 @@ var _ = Describe("DNSRecord tests", func() {
 		Expect(testEnv.Stop()).To(Succeed())
 	})
 
-	var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, beforeCreate, beforeUpdate, beforeDelete func()) {
-		if beforeCreate != nil {
-			beforeCreate()
+	By("generating randomized test resource identifiers")
+	testName = fmt.Sprintf("aws-dnsrecord-it--%s", randomString())
+	zoneName = testName + ".gardener.cloud"
+	namespace = &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testName,
+		},
+	}
+	secret = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dnsrecord",
+			Namespace: testName,
+		},
+		Data: map[string][]byte{
+			aws.AccessKeyID:     []byte(*accessKeyID),
+			aws.SecretAccessKey: []byte(*secretAccessKey),
+		},
+	}
+	cluster = &extensionsv1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testName,
+		},
+		Spec: extensionsv1alpha1.ClusterSpec{
+			CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
+			Seed:         runtime.RawExtension{Raw: []byte("{}")},
+			Shoot:        runtime.RawExtension{Raw: []byte("{}")},
+		},
+	}
+
+	By("starting test environment")
+	testEnv = &envtest.Environment{
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_dnsrecords.yaml"),
+				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
+			},
+		},
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
+
+	By("setting up manager")
+	mgr, err := manager.New(cfg, manager.Options{
+		MetricsBindAddress: "0",
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
+	Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
+
+	Expect(dnsrecordctrl.AddToManagerWithOptions(mgr, dnsrecordctrl.AddOptions{
+		RateLimiter: dnsrecordctrl.RateLimiterOptions{
+			Limit:       rate.Inf,
+			WaitTimeout: 1 * time.Second,
+		},
+	})).To(Succeed())
+
+	var mgrContext context.Context
+	mgrContext, mgrCancel = context.WithCancel(ctx)
+
+	By("starting manager")
+	go func() {
+		defer GinkgoRecover()
+		err := mgr.Start(mgrContext)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	// test client should be uncached and independent from the tested manager
+	c, err = client.New(cfg, client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(c).NotTo(BeNil())
+
+	flag.Parse()
+	validateFlags()
+
+	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, aws.DefaultDNSRegion)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("setting up shoot environment")
+	setupShootEnvironment(ctx, c, namespace, secret, cluster)
+
+	By("creating AWS DNS hosted zone")
+	zoneID = createDNSHostedZone(ctx, awsClient, zoneName)
+})
+
+var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, beforeCreate, beforeUpdate, beforeDelete func()) {
+	if beforeCreate != nil {
+		beforeCreate()
+	}
+
+	By("creating dnsrecord")
+	createDNSRecord(ctx, c, dns)
+
+	defer func() {
+		if beforeDelete != nil {
+			beforeDelete()
 		}
 
-		By("creating dnsrecord")
-		createDNSRecord(ctx, c, dns)
+		By("deleting dnsrecord")
+		deleteDNSRecord(ctx, c, dns)
 
-		defer func() {
-			if beforeDelete != nil {
-				beforeDelete()
-			}
+		By("waiting until dnsrecord is deleted")
+		waitUntilDNSRecordDeleted(ctx, c, logger, dns)
 
-			By("deleting dnsrecord")
-			deleteDNSRecord(ctx, c, dns)
+		By("verifying that the AWS DNS recordset does not exist")
+		verifyDNSRecordSetDeleted(ctx, awsClient, dns)
+	}()
 
-			By("waiting until dnsrecord is deleted")
-			waitUntilDNSRecordDeleted(ctx, c, logger, dns)
+	framework.AddCleanupAction(func() {
+		By("deleting the AWS DNS recordset if it still exists")
+		deleteDNSRecordSet(ctx, awsClient, dns)
+	})
 
-			By("verifying that the AWS DNS recordset does not exist")
-			verifyDNSRecordSetDeleted(ctx, awsClient, dns)
-		}()
+	By("waiting until dnsrecord is ready")
+	waitUntilDNSRecordReady(ctx, c, logger, dns)
 
-		framework.AddCleanupAction(func() {
-			By("deleting the AWS DNS recordset if it still exists")
-			deleteDNSRecordSet(ctx, awsClient, dns)
-		})
+	By("getting dnsrecord and verifying its status")
+	getDNSRecordAndVerifyStatus(ctx, c, dns, zoneID)
+
+	By("verifying that the AWS DNS recordset exists and matches dnsrecord")
+	verifyDNSRecordSet(ctx, awsClient, dns)
+
+	By("verifying that the meta AWS DNS recordset does not exist")
+	verifyMetaDNSRecordSetDeleted(ctx, awsClient, dns)
+
+	if len(newValues) > 0 {
+		if beforeUpdate != nil {
+			beforeUpdate()
+		}
+
+		dns.Spec.Values = newValues
+		metav1.SetMetaDataAnnotation(&dns.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
+
+		By("updating dnsrecord")
+		updateDNSRecord(ctx, c, dns)
 
 		By("waiting until dnsrecord is ready")
 		waitUntilDNSRecordReady(ctx, c, logger, dns)
@@ -230,32 +259,10 @@ var _ = Describe("DNSRecord tests", func() {
 
 		By("verifying that the AWS DNS recordset exists and matches dnsrecord")
 		verifyDNSRecordSet(ctx, awsClient, dns)
-
-		By("verifying that the meta AWS DNS recordset does not exist")
-		verifyMetaDNSRecordSetDeleted(ctx, awsClient, dns)
-
-		if len(newValues) > 0 {
-			if beforeUpdate != nil {
-				beforeUpdate()
-			}
-
-			dns.Spec.Values = newValues
-			metav1.SetMetaDataAnnotation(&dns.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
-
-			By("updating dnsrecord")
-			updateDNSRecord(ctx, c, dns)
-
-			By("waiting until dnsrecord is ready")
-			waitUntilDNSRecordReady(ctx, c, logger, dns)
-
-			By("getting dnsrecord and verifying its status")
-			getDNSRecordAndVerifyStatus(ctx, c, dns, zoneID)
-
-			By("verifying that the AWS DNS recordset exists and matches dnsrecord")
-			verifyDNSRecordSet(ctx, awsClient, dns)
-		}
 	}
+}
 
+var _ = Describe("DNSRecord tests", func() {
 	Context("when a DNS recordset doesn't exist and is not changed or deleted before dnsrecord deletion", func() {
 		It("should successfully create and delete a dnsrecord of type A", func() {
 			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, pointer.Int64(300))

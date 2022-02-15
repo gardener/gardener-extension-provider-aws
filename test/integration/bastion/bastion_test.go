@@ -40,7 +40,7 @@ import (
 	"github.com/gardener/gardener/pkg/extensions"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/test/framework"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/sirupsen/logrus"
@@ -84,95 +84,34 @@ func validateFlags() {
 	}
 }
 
-var _ = Describe("Bastion tests", func() {
-	var (
-		ctx = context.Background()
+var (
+	ctx = context.Background()
 
-		logger    *logrus.Entry
-		awsClient *awsclient.Client
+	logger    *logrus.Entry
+	awsClient *awsclient.Client
 
-		extensionscluster *extensionsv1alpha1.Cluster
-		corecluster       *controller.Cluster
+	extensionscluster *extensionsv1alpha1.Cluster
+	corecluster       *controller.Cluster
 
-		testEnv   *envtest.Environment
-		mgrCancel context.CancelFunc
-		c         client.Client
-	)
+	testEnv   *envtest.Environment
+	mgrCancel context.CancelFunc
+	c         client.Client
 
-	randString, err := randomString()
-	Expect(err).NotTo(HaveOccurred())
+	namespaceName string
+	namespace     *corev1.Namespace
+)
 
-	namespaceName := fmt.Sprintf("aws-bastion-it--%s", randString)
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespaceName,
-		},
-	}
+var _ = BeforeSuite(func() {
+	repoRoot := filepath.Join("..", "..", "..")
 
-	BeforeSuite(func() {
-		repoRoot := filepath.Join("..", "..", "..")
+	// enable manager logs
+	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
 
-		// enable manager logs
-		logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
+	log := logrus.New()
+	log.SetOutput(GinkgoWriter)
+	logger = logrus.NewEntry(log)
 
-		log := logrus.New()
-		log.SetOutput(GinkgoWriter)
-		logger = logrus.NewEntry(log)
-
-		By("starting test environment")
-		testEnv = &envtest.Environment{
-			UseExistingCluster: pointer.BoolPtr(true),
-			CRDInstallOptions: envtest.CRDInstallOptions{
-				Paths: []string{
-					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_bastions.yaml"),
-					filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
-				},
-			},
-		}
-
-		cfg, err := testEnv.Start()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(cfg).ToNot(BeNil())
-
-		By("setup manager")
-		mgr, err := manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
-		Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
-
-		Expect(bastionctrl.AddToManager(mgr)).To(Succeed())
-
-		var mgrContext context.Context
-		mgrContext, mgrCancel = context.WithCancel(ctx)
-
-		By("start manager")
-		go func() {
-			err := mgr.Start(mgrContext)
-			Expect(err).NotTo(HaveOccurred())
-		}()
-
-		// test client should be uncached and independent from the tested manager
-		c, err = client.New(cfg, client.Options{
-			Scheme: mgr.GetScheme(),
-			Mapper: mgr.GetRESTMapper(),
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(c).NotTo(BeNil())
-
-		flag.Parse()
-		validateFlags()
-
-		awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
-		Expect(err).NotTo(HaveOccurred())
-
-		amiID := determineBastionImage(ctx, awsClient)
-		extensionscluster, corecluster = newCluster(namespaceName, amiID)
-	})
-
-	AfterSuite(func() {
+	DeferCleanup(func() {
 		defer func() {
 			By("stopping manager")
 			mgrCancel()
@@ -185,6 +124,71 @@ var _ = Describe("Bastion tests", func() {
 		Expect(testEnv.Stop()).To(Succeed())
 	})
 
+	By("generating randomized test resource identifiers")
+	randString, err := randomString()
+	Expect(err).NotTo(HaveOccurred())
+
+	namespaceName = fmt.Sprintf("aws-bastion-it--%s", randString)
+	namespace = &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespaceName,
+		},
+	}
+
+	By("starting test environment")
+	testEnv = &envtest.Environment{
+		UseExistingCluster: pointer.BoolPtr(true),
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_bastions.yaml"),
+				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
+			},
+		},
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
+
+	By("setup manager")
+	mgr, err := manager.New(cfg, manager.Options{
+		MetricsBindAddress: "0",
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
+	Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
+
+	Expect(bastionctrl.AddToManager(mgr)).To(Succeed())
+
+	var mgrContext context.Context
+	mgrContext, mgrCancel = context.WithCancel(ctx)
+
+	By("start manager")
+	go func() {
+		err := mgr.Start(mgrContext)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	// test client should be uncached and independent from the tested manager
+	c, err = client.New(cfg, client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(c).NotTo(BeNil())
+
+	flag.Parse()
+	validateFlags()
+
+	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
+	Expect(err).NotTo(HaveOccurred())
+
+	amiID := determineBastionImage(ctx, awsClient)
+	extensionscluster, corecluster = newCluster(namespaceName, amiID)
+})
+
+var _ = Describe("Bastion tests", func() {
 	It("should successfully create and delete", func() {
 		By("setup infrastructure")
 		infra := setupInfrastructure(ctx, logger, awsClient, extensionscluster.ObjectMeta.Name)
