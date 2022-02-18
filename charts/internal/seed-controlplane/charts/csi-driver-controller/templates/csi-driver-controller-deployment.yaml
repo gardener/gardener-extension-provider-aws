@@ -224,6 +224,8 @@ spec:
           mountPath: /csi
 
       volumes:
+      - name: socket-dir
+        emptyDir: {}
       {{- if .Values.global.useTokenRequestor }}
       - name: kubeconfig-csi-attacher
         projected:
@@ -290,8 +292,6 @@ spec:
                 name: shoot-access-csi-resizer
                 optional: false
       {{- else }}
-      - name: socket-dir
-        emptyDir: {}
       - name: csi-provisioner
         secret:
           secretName: csi-provisioner
