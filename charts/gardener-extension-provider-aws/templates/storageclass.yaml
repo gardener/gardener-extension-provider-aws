@@ -10,7 +10,7 @@ metadata:
 allowVolumeExpansion: true
 provisioner: {{ .Values.config.etcd.storage.provisioner }}
 parameters:
-  type: gp2
+  type: gp3
   {{- if .Values.config.etcd.storage.encrypted }}
   encrypted: "true"
   {{- end }}
