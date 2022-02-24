@@ -17,7 +17,10 @@ webhooks:
     - shoots
     - cloudprofiles
   failurePolicy: Fail
-  objectSelector: {}
+  # Please make sure you are running `gardener@v1.42` or later before enabling this object selector.
+  objectSelector:
+    matchLabels:
+      provider.extensions.gardener.cloud/aws: "true"
   namespaceSelector: {}
   sideEffects: None
   admissionReviewVersions:
