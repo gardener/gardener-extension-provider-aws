@@ -29,6 +29,8 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener/pkg/utils"
+	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
+	"github.com/gardener/gardener/pkg/utils/secrets"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -173,6 +175,7 @@ var _ = Describe("ValuesProvider", func() {
 			aws.CSISnapshotterName:                     "6a5bfc847638c499062f7fb44e31a30a9760bf4179e1dbf85e0ff4b4f162cd68",
 			aws.CSIResizerName:                         "a77e663ba1af340fb3dd7f6f8a1be47c7aa9e658198695480641e6b934c0b9ed",
 			aws.CSISnapshotControllerName:              "84cba346d2e2cf96c3811b55b01f57bdd9b9bcaed7065760470942d267984eaf",
+			aws.CSISnapshotValidation:                  "452097220f89011daa2543876c3f3184f5064a12be454ae32e2ad205ec55823c",
 		}
 
 		enabledTrue = map[string]interface{}{"enabled": true}
@@ -276,13 +279,28 @@ var _ = Describe("ValuesProvider", func() {
 							"checksum/secret-" + aws.CSISnapshotControllerName: checksums[aws.CSISnapshotControllerName],
 						},
 					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"podAnnotations": map[string]interface{}{
+							"checksum/secret-" + aws.CSISnapshotValidation: checksums[aws.CSISnapshotValidation],
+						},
+					},
 				}),
 			}))
 		})
 	})
 
 	Describe("#GetControlPlaneShootChartValues", func() {
+		BeforeEach(func() {
+			c = mockclient.NewMockClient(ctrl)
+
+			err := vp.(inject.Client).InjectClient(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			c.EXPECT().Get(ctx, kutil.Key(cp.ClusterName, string(secrets.CACert)), gomock.AssignableToTypeOf(&corev1.Secret{}))
+		})
 		It("should return correct shoot control plane chart values (k8s < 1.18)", func() {
+
 			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sLessThan118, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
@@ -294,6 +312,10 @@ var _ = Describe("ValuesProvider", func() {
 				aws.CSINodeName: utils.MergeMaps(enabledFalse, map[string]interface{}{
 					"kubernetesVersion": "1.15.4",
 					"vpaEnabled":        false,
+					"webhookConfig": map[string]interface{}{
+						"url":      "https://" + aws.CSISnapshotValidation + "." + cp.ClusterName + "/volumesnapshot",
+						"caBundle": "",
+					},
 				}),
 			}))
 		})
@@ -312,6 +334,10 @@ var _ = Describe("ValuesProvider", func() {
 					"vpaEnabled":        true,
 					"driver": map[string]interface{}{
 						"volumeAttachLimit": "42",
+					},
+					"webhookConfig": map[string]interface{}{
+						"url":      "https://" + aws.CSISnapshotValidation + "." + cp.ClusterName + "/volumesnapshot",
+						"caBundle": "",
 					},
 				}),
 			}))
