@@ -448,12 +448,12 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 
 // GetControlPlaneShootChartValues returns the values for the control plane shoot chart applied by the generic actuator.
 func (vp *valuesProvider) GetControlPlaneShootChartValues(
-	c context.Context,
+	ctx context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 	_ map[string]string,
 ) (map[string]interface{}, error) {
-	return getControlPlaneShootChartValues(c, cluster, cp, vp.Client(), vp.useTokenRequestor, vp.useProjectedTokenMount)
+	return getControlPlaneShootChartValues(ctx, cluster, cp, vp.Client(), vp.useTokenRequestor, vp.useProjectedTokenMount)
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
@@ -667,7 +667,7 @@ func getCSIControllerChartValues(
 
 // getControlPlaneShootChartValues collects and returns the control plane shoot chart values.
 func getControlPlaneShootChartValues(
-	c context.Context,
+	ctx context.Context,
 	cluster *extensionscontroller.Cluster,
 	cp *extensionsv1alpha1.ControlPlane,
 	client client.Client,
@@ -685,7 +685,7 @@ func getControlPlaneShootChartValues(
 
 	// get the ca.crt for caBundle of the snapshot-validation webhook
 	secret := &corev1.Secret{}
-	if err := client.Get(c, kutil.Key(cluster.ObjectMeta.Name, string(secrets.CACert)), secret); err != nil {
+	if err := client.Get(ctx, kutil.Key(cluster.ObjectMeta.Name, string(secrets.CACert)), secret); err != nil {
 		return nil, err
 	}
 
