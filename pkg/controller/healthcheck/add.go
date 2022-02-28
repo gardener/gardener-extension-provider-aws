@@ -79,6 +79,11 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				PreCheckFunc:  csiEnabledPreCheckFunc,
 			},
 			{
+				ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
+				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.CSISnapshotValidation),
+				PreCheckFunc:  csiEnabledPreCheckFunc,
+			},
+			{
 				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
 				HealthCheck:   general.CheckManagedResource(genericcontrolplaneactuator.ControlPlaneShootChartResourceName),
 			},

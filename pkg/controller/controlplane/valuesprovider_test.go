@@ -17,6 +17,7 @@ package controlplane
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -30,7 +31,6 @@ import (
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener/pkg/utils"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
-	"github.com/gardener/gardener/pkg/utils/secrets"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -75,6 +75,7 @@ var _ = Describe("ValuesProvider", func() {
 
 			return data
 		}
+		fakeErr = fmt.Errorf("fake err")
 	)
 
 	BeforeEach(func() {
@@ -296,11 +297,10 @@ var _ = Describe("ValuesProvider", func() {
 
 			err := vp.(inject.Client).InjectClient(c)
 			Expect(err).NotTo(HaveOccurred())
-
-			c.EXPECT().Get(ctx, kutil.Key(cp.ClusterName, string(secrets.CACert)), gomock.AssignableToTypeOf(&corev1.Secret{}))
 		})
-		It("should return correct shoot control plane chart values (k8s < 1.18)", func() {
 
+		It("should return correct shoot control plane chart values (k8s < 1.18)", func() {
+			c.EXPECT().Get(ctx, kutil.Key(cp.ClusterName, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{}))
 			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sLessThan118, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
@@ -320,27 +320,36 @@ var _ = Describe("ValuesProvider", func() {
 			}))
 		})
 
-		It("should return correct shoot control plane chart values (k8s >= 1.18)", func() {
-			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, nil)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"global": map[string]interface{}{
-					"useTokenRequestor":      true,
-					"useProjectedTokenMount": true,
-				},
-				aws.CloudControllerManagerName: enabledTrue,
-				aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-					"kubernetesVersion": "1.18.1",
-					"vpaEnabled":        true,
-					"driver": map[string]interface{}{
-						"volumeAttachLimit": "42",
+		Context("shoot control plane chart values (k8s >= 1.18)", func() {
+			It("should return error when ca secret is not found", func() {
+				c.EXPECT().Get(ctx, kutil.Key(cp.ClusterName, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
+				_, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, nil)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should return correct shoot control plane chart when ca is secret found", func() {
+				c.EXPECT().Get(ctx, kutil.Key(cp.ClusterName, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{}))
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(values).To(Equal(map[string]interface{}{
+					"global": map[string]interface{}{
+						"useTokenRequestor":      true,
+						"useProjectedTokenMount": true,
 					},
-					"webhookConfig": map[string]interface{}{
-						"url":      "https://" + aws.CSISnapshotValidation + "." + cp.ClusterName + "/volumesnapshot",
-						"caBundle": "",
-					},
-				}),
-			}))
+					aws.CloudControllerManagerName: enabledTrue,
+					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+						"kubernetesVersion": "1.18.1",
+						"vpaEnabled":        true,
+						"driver": map[string]interface{}{
+							"volumeAttachLimit": "42",
+						},
+						"webhookConfig": map[string]interface{}{
+							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.ClusterName + "/volumesnapshot",
+							"caBundle": "",
+						},
+					}),
+				}))
+			})
 		})
 	})
 
