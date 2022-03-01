@@ -4,7 +4,7 @@ metadata:
   name: csi-snapshot-validation
   namespace: {{ .Release.Namespace }}
   labels:
-    app: snapshot-validationxs
+    app: snapshot-validation
 spec:
   replicas: {{ .Values.csiSnapshotValidationWebhook.replicas }}
   selector:

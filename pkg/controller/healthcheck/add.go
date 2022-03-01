@@ -30,6 +30,7 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils/version"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -78,11 +79,12 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.CSISnapshotControllerName),
 				PreCheckFunc:  csiEnabledPreCheckFunc,
 			},
-			{
-				ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
-				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.CSISnapshotValidation),
-				PreCheckFunc:  csiEnabledPreCheckFunc,
-			},
+			// TODO(acumino): Enable this health check in future release
+			// {
+			// 	ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
+			// 	HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.CSISnapshotValidation),
+			// 	PreCheckFunc:  csiEnabledPreCheckFunc,
+			// },
 			{
 				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
 				HealthCheck:   general.CheckManagedResource(genericcontrolplaneactuator.ControlPlaneShootChartResourceName),
