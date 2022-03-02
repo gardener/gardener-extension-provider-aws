@@ -198,6 +198,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 				controllercmd.LogErrAndExit(err, "Could not determine whether service account token volume projection should be used")
 			}
 			awscontrolplane.DefaultAddOptions.UseProjectedTokenMount = useProjectedTokenMount
+			awsinfrastructure.DefaultAddOptions.UseProjectedTokenMount = useProjectedTokenMount
 			awsworker.DefaultAddOptions.UseProjectedTokenMount = useProjectedTokenMount
 
 			// add common meta types to schema for controller-runtime to use v1.ListOptions
