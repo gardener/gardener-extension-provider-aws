@@ -18,7 +18,10 @@ webhooks:
     - shoots
   failurePolicy: Fail
   objectSelector:
-    {{- toYaml (default (dict) .Values.global.webhookConfig.objectSelector) | nindent 4 }}
+    {{- if .Values.global.webhookConfig.useObjectSelector }}
+    matchLabels:
+      provider.extensions.gardener.cloud/aws: "true"
+    {{- end }}
   namespaceSelector: {}
   sideEffects: None
   admissionReviewVersions:

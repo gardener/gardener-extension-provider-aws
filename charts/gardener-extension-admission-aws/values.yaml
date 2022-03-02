@@ -32,9 +32,7 @@ global:
         -----BEGIN RSA PRIVATE KEY-----
         ...
         -----END RSA PRIVATE KEY-----
-    # objectSelector:
-    #   matchLabels:
-    #     provider.extensions.gardener.cloud/aws: "true"
+    # useObjectSelector: false
   # Kubeconfig to the target cluster. In-cluster configuration will be used if not specified.
   kubeconfig:
 
