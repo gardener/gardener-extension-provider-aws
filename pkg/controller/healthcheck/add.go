@@ -79,7 +79,7 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.CSISnapshotControllerName),
 				PreCheckFunc:  csiEnabledPreCheckFunc,
 			},
-			// TODO(acumino): Enable this health check in future release
+			// TODO(acumino): Enable this health check in v1.36.
 			// {
 			// 	ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
 			// 	HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.CSISnapshotValidation),

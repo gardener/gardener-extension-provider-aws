@@ -300,7 +300,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct shoot control plane chart values (k8s < 1.18)", func() {
-			c.EXPECT().Get(ctx, kutil.Key(cp.ClusterName, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{}))
+			c.EXPECT().Get(ctx, kutil.Key(cp.Namespace, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{}))
 			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sLessThan118, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
@@ -313,7 +313,7 @@ var _ = Describe("ValuesProvider", func() {
 					"kubernetesVersion": "1.15.4",
 					"vpaEnabled":        false,
 					"webhookConfig": map[string]interface{}{
-						"url":      "https://" + aws.CSISnapshotValidation + "." + cp.ClusterName + "/volumesnapshot",
+						"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
 						"caBundle": "",
 					},
 				}),
@@ -322,13 +322,13 @@ var _ = Describe("ValuesProvider", func() {
 
 		Context("shoot control plane chart values (k8s >= 1.18)", func() {
 			It("should return error when ca secret is not found", func() {
-				c.EXPECT().Get(ctx, kutil.Key(cp.ClusterName, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
+				c.EXPECT().Get(ctx, kutil.Key(cp.Namespace, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
 				_, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, nil)
 				Expect(err).To(HaveOccurred())
 			})
 
 			It("should return correct shoot control plane chart when ca is secret found", func() {
-				c.EXPECT().Get(ctx, kutil.Key(cp.ClusterName, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{}))
+				c.EXPECT().Get(ctx, kutil.Key(cp.Namespace, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{}))
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
@@ -344,7 +344,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.ClusterName + "/volumesnapshot",
+							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
 					}),

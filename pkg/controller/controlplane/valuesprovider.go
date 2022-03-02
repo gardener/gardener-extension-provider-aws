@@ -453,7 +453,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	cluster *extensionscontroller.Cluster,
 	_ map[string]string,
 ) (map[string]interface{}, error) {
-	return getControlPlaneShootChartValues(ctx, cluster, vp.Client(), vp.useTokenRequestor, vp.useProjectedTokenMount)
+	return getControlPlaneShootChartValues(ctx, cluster, cp, vp.Client(), vp.useTokenRequestor, vp.useProjectedTokenMount)
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
@@ -669,6 +669,7 @@ func getCSIControllerChartValues(
 func getControlPlaneShootChartValues(
 	ctx context.Context,
 	cluster *extensionscontroller.Cluster,
+	cp *extensionsv1alpha1.ControlPlane,
 	client client.Client,
 	useTokenRequestor bool,
 	useProjectedTokenMount bool,
@@ -684,7 +685,7 @@ func getControlPlaneShootChartValues(
 
 	// get the ca.crt for caBundle of the snapshot-validation webhook
 	secret := &corev1.Secret{}
-	if err := client.Get(ctx, kutil.Key(cluster.ObjectMeta.Name, string(v1beta1constants.SecretNameCACluster)), secret); err != nil {
+	if err := client.Get(ctx, kutil.Key(cp.Namespace, string(v1beta1constants.SecretNameCACluster)), secret); err != nil {
 		return nil, err
 	}
 
@@ -693,7 +694,7 @@ func getControlPlaneShootChartValues(
 		"kubernetesVersion": kubernetesVersion,
 		"vpaEnabled":        gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
 		"webhookConfig": map[string]interface{}{
-			"url":      "https://" + aws.CSISnapshotValidation + "." + cluster.ObjectMeta.Name + "/volumesnapshot",
+			"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
 			"caBundle": string(secret.Data["ca.crt"]),
 		},
 	}
