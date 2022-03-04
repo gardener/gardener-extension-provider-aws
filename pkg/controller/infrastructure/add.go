@@ -35,13 +35,15 @@ type AddOptions struct {
 	Controller controller.Options
 	// IgnoreOperationAnnotation specifies whether to ignore the operation annotation or not.
 	IgnoreOperationAnnotation bool
+	// UseProjectedTokenMount specifies whether the projected token mount shall be used for the terraformer.
+	UseProjectedTokenMount bool
 }
 
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
 // The opts.Reconciler is being set with a newly instantiated actuator.
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 	return infrastructure.Add(mgr, infrastructure.AddArgs{
-		Actuator:          NewActuator(),
+		Actuator:          NewActuator(opts.UseProjectedTokenMount),
 		ConfigValidator:   NewConfigValidator(awsclient.FactoryFunc(awsclient.NewInterface), log.Log),
 		ControllerOptions: opts.Controller,
 		Predicates:        infrastructure.DefaultPredicates(opts.IgnoreOperationAnnotation),
