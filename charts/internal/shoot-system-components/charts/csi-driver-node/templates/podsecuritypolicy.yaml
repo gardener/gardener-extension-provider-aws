@@ -8,6 +8,7 @@ spec:
   allowPrivilegeEscalation: true
   volumes:
   - hostPath
+  - projected
   - secret
   hostNetwork: true
   hostPorts:
