@@ -417,8 +417,8 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcon
 
 func ensureKubeletCommandLineArgs(command []string, csiEnabled bool, kubeletVersion *semver.Version) []string {
 	if csiEnabled {
+		command = extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
 		if !version.ConstraintK8sGreaterEqual123.Check(kubeletVersion) {
-			command = extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
 			command = extensionswebhook.EnsureStringWithPrefix(command, "--enable-controller-attach-detach=", "true")
 		}
 	} else {

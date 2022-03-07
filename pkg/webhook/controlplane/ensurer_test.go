@@ -649,7 +649,7 @@ done
 			Entry("kubelet version < 1.17", eContextK8s116, semver.MustParse("1.16.0"), "aws", false),
 			Entry("1.17 <= kubelet version < 1.18", eContextK8s117, semver.MustParse("1.17.0"), "aws", false),
 			Entry("1.18 <= kubelet version < 1.23", eContextK8s118, semver.MustParse("1.18.0"), "external", true),
-			Entry("kubelet version >= 1.23", eContextK8s118, semver.MustParse("1.23.0"), "", false),
+			Entry("kubelet version >= 1.23", eContextK8s118, semver.MustParse("1.23.0"), "external", false),
 		)
 	})
 
