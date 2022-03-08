@@ -17,7 +17,11 @@ webhooks:
     - cloudprofiles
     - shoots
   failurePolicy: Fail
-  objectSelector: {}
+  objectSelector:
+    {{- if .Values.global.webhookConfig.useObjectSelector }}
+    matchLabels:
+      provider.extensions.gardener.cloud/aws: "true"
+    {{- end }}
   namespaceSelector: {}
   sideEffects: None
   admissionReviewVersions:
