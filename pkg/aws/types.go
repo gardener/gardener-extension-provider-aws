@@ -48,6 +48,8 @@ const (
 	CSINodeDriverRegistrarImageName = "csi-node-driver-registrar"
 	// CSILivenessProbeImageName is the name of the csi-liveness-probe image.
 	CSILivenessProbeImageName = "csi-liveness-probe"
+	// CSISnapshotValidationWebhookImageName is the name of the csi-snapshot-validation-webhook image.
+	CSISnapshotValidationWebhookImageName = "csi-snapshot-validation-webhook"
 
 	// MachineControllerManagerImageName is the name of the MachineControllerManager image.
 	MachineControllerManagerImageName = "machine-controller-manager"
@@ -122,6 +124,8 @@ const (
 	CSILivenessProbeName = "csi-liveness-probe"
 	// LBReadvertiserDeploymentName is the constant for the name of the AWS LB Readvertiser deployment
 	LBReadvertiserDeploymentName = "aws-lb-readvertiser"
+	// CSISnapshotValidation is the constant for the name of the csi-snapshot-validation-webhook component.
+	CSISnapshotValidation = "csi-snapshot-validation"
 )
 
 var (
