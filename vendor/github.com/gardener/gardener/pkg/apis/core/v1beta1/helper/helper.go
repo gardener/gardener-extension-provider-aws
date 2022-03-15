@@ -1290,6 +1290,11 @@ func NginxIngressEnabled(addons *gardencorev1beta1.Addons) bool {
 	return addons != nil && addons.NginxIngress != nil && addons.NginxIngress.Enabled
 }
 
+// KubeProxyEnabled returns true if the kube-proxy is enabled in the Shoot manifest.
+func KubeProxyEnabled(config *gardencorev1beta1.KubeProxyConfig) bool {
+	return config != nil && config.Enabled != nil && *config.Enabled
+}
+
 // BackupBucketIsErroneous returns `true` if the given BackupBucket has a last error.
 // It also returns the error description if available.
 func BackupBucketIsErroneous(bb *gardencorev1beta1.BackupBucket) (bool, string) {
@@ -1464,4 +1469,22 @@ func AddTypeToSecretBinding(secretBinding *gardencorev1beta1.SecretBinding, prov
 		types = append(types, providerType)
 	}
 	secretBinding.Provider.Type = strings.Join(types, ",")
+}
+
+// IsCoreDNSAutoscalingModeUsed indicates whether the specified autoscaling mode of CoreDNS is enabled or not.
+func IsCoreDNSAutoscalingModeUsed(systemComponents *gardencorev1beta1.SystemComponents, autoscalingMode gardencorev1beta1.CoreDNSAutoscalingMode) bool {
+	isDefaultMode := autoscalingMode == gardencorev1beta1.CoreDNSAutoscalingModeHorizontal
+	if systemComponents == nil {
+		return isDefaultMode
+	}
+
+	if systemComponents.CoreDNS == nil {
+		return isDefaultMode
+	}
+
+	if systemComponents.CoreDNS.Autoscaling == nil {
+		return isDefaultMode
+	}
+
+	return systemComponents.CoreDNS.Autoscaling.Mode == autoscalingMode
 }
