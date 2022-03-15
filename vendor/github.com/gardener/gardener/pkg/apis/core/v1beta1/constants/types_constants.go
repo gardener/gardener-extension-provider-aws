@@ -109,6 +109,10 @@ const (
 	// DeploymentNameVPAUpdater is a constant for the name of the VPA updater deployment.
 	DeploymentNameVPAUpdater = "vpa-updater"
 
+	// DeploymentNameMachineControllerManager is a constant for the name of a Kubernetes deployment object that contains
+	// the machine-controller-manager pod.
+	DeploymentNameMachineControllerManager = "machine-controller-manager"
+
 	// StatefulSetNameAlertManager is a constant for the name of a Kubernetes stateful set object that contains
 	// the alertmanager pod.
 	StatefulSetNameAlertManager = "alertmanager"
@@ -263,6 +267,12 @@ const (
 	// ShootOperationRotateSSHKeypair is a constant for an annotation on a Shoot indicating that the SSH keypair for the shoot
 	// nodes shall be rotated.
 	ShootOperationRotateSSHKeypair = "rotate-ssh-keypair"
+	// ShootOperationRotateCAStart is a constant for an annotation on a Shoot indicating that the rotation of the
+	// certificate authorities shall be started.
+	ShootOperationRotateCAStart = "rotate-ca-start"
+	// ShootOperationRotateCAComplete is a constant for an annotation on a Shoot indicating that the rotation of the
+	// certificate authorities shall be completed.
+	ShootOperationRotateCAComplete = "rotate-ca-complete"
 
 	// SeedResourceManagerClass is the resource-class managed by the Gardener-Resource-Manager
 	// instance in the garden namespace on the seeds.
@@ -286,6 +296,19 @@ const (
 	LabelLogging = "logging"
 	// LabelMonitoring is a constant for a label for monitoring stack configurations
 	LabelMonitoring = "monitoring"
+
+	// LabelExtensionExtensionTypePrefix is used to prefix extension label for extension types.
+	LabelExtensionExtensionTypePrefix = "extensions.extensions.gardener.cloud/"
+	// LabelExtensionProviderTypePrefix is used to prefix extension label for cloud provider types.
+	LabelExtensionProviderTypePrefix = "provider.extensions.gardener.cloud/"
+	// LabelExtensionDNSRecordTypePrefix is used to prefix extension label for DNS types.
+	LabelExtensionDNSRecordTypePrefix = "dnsrecord.extensions.gardener.cloud/"
+	// LabelExtensionNetworkingTypePrefix is used to prefix extension label for networking plugin types.
+	LabelExtensionNetworkingTypePrefix = "networking.extensions.gardener.cloud/"
+	// LabelExtensionOperatingSystemConfigTypePrefix is used to prefix extension label for OperatingSystemConfig types.
+	LabelExtensionOperatingSystemConfigTypePrefix = "operatingsystemconfig.extensions.gardener.cloud/"
+	// LabelExtensionContainerRuntimeTypePrefix is used to prefix extension label for ContainerRuntime types.
+	LabelExtensionContainerRuntimeTypePrefix = "containerruntime.extensions.gardener.cloud/"
 
 	// LabelNetworkPolicyToBlockedCIDRs allows Egress from pods labeled with 'networking.gardener.cloud/to-blocked-cidrs=allowed'.
 	LabelNetworkPolicyToBlockedCIDRs = "networking.gardener.cloud/to-blocked-cidrs"
