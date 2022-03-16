@@ -154,7 +154,7 @@ func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 		a.logger.Info("Got DNS hosted zones", "zones", zones, "dnsrecord", kutil.ObjectName(dns))
 		zone := dnsrecord.FindZoneForName(zones, dns.Spec.Name)
 		if zone == "" {
-			return "", fmt.Errorf("could not find DNS hosted zone for name %s", dns.Spec.Name)
+			return "", gardencorev1beta1helper.NewErrorWithCodes(fmt.Sprintf("could not find DNS hosted zone for name %s", dns.Spec.Name), gardencorev1beta1.ErrorConfigurationProblem)
 		}
 		return zone, nil
 	}
