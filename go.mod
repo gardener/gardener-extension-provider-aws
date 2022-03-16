@@ -36,14 +36,14 @@ require (
 
 replace (
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.11.0 // keep this value in sync with sigs.k8s.io/controller-runtime
-	k8s.io/api => k8s.io/api v0.22.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.22.2
-	k8s.io/apiserver => k8s.io/apiserver v0.22.2
-	k8s.io/client-go => k8s.io/client-go v0.22.2
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.22.2
-	k8s.io/code-generator => k8s.io/code-generator v0.22.2
-	k8s.io/component-base => k8s.io/component-base v0.22.2
+	k8s.io/api => k8s.io/api v0.23.3
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.23.3
+	k8s.io/apimachinery => k8s.io/apimachinery v0.23.3
+	k8s.io/apiserver => k8s.io/apiserver v0.23.3
+	k8s.io/client-go => k8s.io/client-go v0.23.3
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.23.3
+	k8s.io/code-generator => k8s.io/code-generator v0.23.3
+	k8s.io/component-base => k8s.io/component-base v0.23.3
 	k8s.io/helm => k8s.io/helm v2.13.1+incompatible
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.22.2
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.23.3
 )
