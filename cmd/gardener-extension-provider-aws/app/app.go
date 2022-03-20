@@ -48,6 +48,7 @@ import (
 	autoscalingv1beta2 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1beta2"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/component-base/version/verflag"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -155,6 +156,8 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 		Use: fmt.Sprintf("%s-controller-manager", aws.Name),
 
 		RunE: func(cmd *cobra.Command, args []string) error {
+			verflag.PrintAndExitIfRequested()
+
 			if err := aggOption.Complete(); err != nil {
 				return fmt.Errorf("error completing options: %w", err)
 			}
@@ -252,6 +255,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 		},
 	}
 
+	verflag.AddFlags(cmd.Flags())
 	aggOption.AddFlags(cmd.Flags())
 
 	return cmd
