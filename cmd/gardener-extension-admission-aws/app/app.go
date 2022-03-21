@@ -58,7 +58,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := aggOption.Complete(); err != nil {
-				controllercmd.LogErrAndExit(err, "Error completing options")
+				return fmt.Errorf("error completing options: %w", err)
 			}
 
 			util.ApplyClientConnectionConfigurationToRESTConfig(&componentbaseconfig.ClientConnectionConfiguration{
@@ -68,13 +68,13 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 
 			mgr, err := manager.New(restOpts.Completed().Config, mgrOpts.Completed().Options())
 			if err != nil {
-				controllercmd.LogErrAndExit(err, "Could not instantiate manager")
+				return fmt.Errorf("could not instantiate manager: %w", err)
 			}
 
 			install.Install(mgr.GetScheme())
 
 			if err := awsinstall.AddToScheme(mgr.GetScheme()); err != nil {
-				controllercmd.LogErrAndExit(err, "Could not update manager scheme")
+				return fmt.Errorf("could not update manager scheme: %w", err)
 			}
 
 			if err := mgr.GetFieldIndexer().IndexField(ctx, &gardencorev1beta1.SecretBinding{}, index.SecretRefNamespaceField, index.SecretRefNamespaceIndexerFunc); err != nil {
@@ -90,7 +90,11 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			return mgr.Start(ctx)
+			if err := mgr.Start(ctx); err != nil {
+				return fmt.Errorf("error running manager: %w", err)
+			}
+
+			return nil
 		},
 	}
 
