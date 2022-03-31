@@ -67,6 +67,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			LeaderElectionNamespace:    os.Getenv("LEADER_ELECTION_NAMESPACE"),
 			WebhookServerPort:          443,
 			WebhookCertDir:             "/tmp/gardener-extensions-cert",
+			HealthBindAddress:          ":8081",
 		}
 		configFileOpts = &awscmd.ConfigOptions{}
 
