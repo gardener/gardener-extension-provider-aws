@@ -1,4 +1,4 @@
-apiVersion: autoscaling.k8s.io/v1beta2
+apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
   name: cloud-controller-manager-vpa
@@ -12,7 +12,8 @@ spec:
     updateMode: Auto
   resourcePolicy:
     containerPolicies:
-    - containerName: '*'
+    - containerName: aws-cloud-controller-manager
       minAllowed:
-        cpu: 20m
-        memory: 40M
+        cpu: {{ .Values.resources.requests.cpu }}
+        memory: {{ .Values.resources.requests.memory }}
+      controlledValues: RequestsOnly

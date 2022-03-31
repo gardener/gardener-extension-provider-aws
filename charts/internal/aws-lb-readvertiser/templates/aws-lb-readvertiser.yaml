@@ -34,12 +34,7 @@ spec:
         - --elb-dns-name={{ .Values.domain }}
         - --refresh-period=5
         resources:
-          requests:
-            cpu: 20m
-            memory: 20Mi
-          limits:
-            cpu: 40m
-            memory: 40Mi
+{{ toYaml .Values.resources | indent 10 }}
         volumeMounts:
         - mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
           name: kubeconfig

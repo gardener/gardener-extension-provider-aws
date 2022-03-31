@@ -48,7 +48,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	autoscalingv1beta2 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1beta2"
+	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 )
 
 const (
@@ -132,7 +132,7 @@ var (
 					{Type: &corev1.Service{}, Name: aws.CloudControllerManagerName},
 					{Type: &appsv1.Deployment{}, Name: aws.CloudControllerManagerName},
 					{Type: &corev1.ConfigMap{}, Name: aws.CloudControllerManagerName + "-observability-config"},
-					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
+					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
 				},
 			},
 			{
@@ -150,11 +150,11 @@ var (
 				Objects: []*chart.Object{
 					// csi-driver-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSIControllerName},
-					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
+					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
 					{Type: &corev1.ConfigMap{}, Name: aws.CSIControllerName + "-observability-config"},
 					// csi-snapshot-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotControllerName},
-					{Type: &autoscalingv1beta2.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
+					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
 					// csi-snapshot-validation-webhook
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotValidation},
 					{Type: &corev1.Service{}, Name: aws.CSISnapshotValidation},

@@ -23,3 +23,15 @@ vpa:
   enabled: true
   updatePolicy:
     updateMode: "Auto"
+
+resources:
+  mcm:
+    requests:
+      cpu: 31m
+      memory: 70Mi
+    limits:
+      memory: 1024Mi
+  mcmProviderAWS:
+    requests:
+      cpu: 30m
+      memory: 64Mi

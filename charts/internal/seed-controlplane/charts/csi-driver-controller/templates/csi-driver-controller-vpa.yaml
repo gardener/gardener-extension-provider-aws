@@ -1,5 +1,5 @@
 ---
-apiVersion: autoscaling.k8s.io/v1beta2
+apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
   name: csi-driver-controller-vpa
@@ -7,9 +7,30 @@ metadata:
 spec:
   resourcePolicy:
     containerPolicies:
-    - containerName: '*'
+    - containerName: aws-csi-driver
       minAllowed:
-        memory: 25Mi
+        memory: {{ .Values.resources.driver.requests.memory }}
+      controlledValues: RequestsOnly
+    - containerName: aws-csi-provisioner
+      minAllowed:
+        memory: {{ .Values.resources.provisioner.requests.memory }}
+      controlledValues: RequestsOnly
+    - containerName: aws-csi-attacher
+      minAllowed:
+        memory: {{ .Values.resources.attacher.requests.memory }}
+      controlledValues: RequestsOnly
+    - containerName: aws-csi-snapshotter
+      minAllowed:
+        memory: {{ .Values.resources.snapshotter.requests.memory }}
+      controlledValues: RequestsOnly
+    - containerName: aws-csi-resizer
+      minAllowed:
+        memory: {{ .Values.resources.resizer.requests.memory }}
+      controlledValues: RequestsOnly
+    - containerName: aws-csi-liveness-probe
+      minAllowed:
+        memory: {{ .Values.resources.livenessProbe.requests.memory }}
+      controlledValues: RequestsOnly
   targetRef:
     apiVersion: apps/v1
     kind: Deployment

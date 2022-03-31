@@ -4,3 +4,9 @@ podAnnotations: {}
 images:
   aws-lb-readvertiser: image-repository:image-tag
 genericTokenKubeconfigSecretName: generic-token-kubeconfig
+resources:
+  requests:
+    cpu: 20m
+    memory: 20Mi
+  limits:
+    memory: 80Mi
