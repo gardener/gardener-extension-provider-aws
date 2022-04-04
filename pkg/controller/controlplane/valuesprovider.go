@@ -69,8 +69,8 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 		SecretConfigsFunc: func(cas map[string]*secrets.Certificate, clusterName string) []secrets.ConfigInterface {
 			out := []secrets.ConfigInterface{
 				&secrets.ControlPlaneSecretConfig{
+					Name: cloudControllerManagerServerName,
 					CertificateSecretConfig: &secrets.CertificateSecretConfig{
-						Name:       cloudControllerManagerServerName,
 						CommonName: aws.CloudControllerManagerName,
 						DNSNames:   kutil.DNSNamesForService(aws.CloudControllerManagerName, clusterName),
 						CertType:   secrets.ServerCert,
@@ -78,8 +78,8 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 					},
 				},
 				&secrets.ControlPlaneSecretConfig{
+					Name: aws.CSISnapshotValidation,
 					CertificateSecretConfig: &secrets.CertificateSecretConfig{
-						Name:       aws.CSISnapshotValidation,
 						CommonName: aws.UsernamePrefix + aws.CSISnapshotValidation,
 						DNSNames:   kutil.DNSNamesForService(aws.CSISnapshotValidation, clusterName),
 						CertType:   secrets.ServerCert,
@@ -91,8 +91,8 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 			if !useTokenRequestor {
 				out = append(out,
 					&secrets.ControlPlaneSecretConfig{
+						Name: aws.CloudControllerManagerName,
 						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							Name:         aws.CloudControllerManagerName,
 							CommonName:   "system:" + aws.CloudControllerManagerName,
 							Organization: []string{user.SystemPrivilegedGroup},
 							CertType:     secrets.ClientCert,
@@ -106,8 +106,8 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 						},
 					},
 					&secrets.ControlPlaneSecretConfig{
+						Name: aws.CSIProvisionerName,
 						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							Name:       aws.CSIProvisionerName,
 							CommonName: aws.UsernamePrefix + aws.CSIProvisionerName,
 							CertType:   secrets.ClientCert,
 							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
@@ -120,8 +120,8 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 						},
 					},
 					&secrets.ControlPlaneSecretConfig{
+						Name: aws.CSIAttacherName,
 						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							Name:       aws.CSIAttacherName,
 							CommonName: aws.UsernamePrefix + aws.CSIAttacherName,
 							CertType:   secrets.ClientCert,
 							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
@@ -134,8 +134,8 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 						},
 					},
 					&secrets.ControlPlaneSecretConfig{
+						Name: aws.CSISnapshotterName,
 						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							Name:       aws.CSISnapshotterName,
 							CommonName: aws.UsernamePrefix + aws.CSISnapshotterName,
 							CertType:   secrets.ClientCert,
 							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
@@ -148,8 +148,8 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 						},
 					},
 					&secrets.ControlPlaneSecretConfig{
+						Name: aws.CSIResizerName,
 						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							Name:       aws.CSIResizerName,
 							CommonName: aws.UsernamePrefix + aws.CSIResizerName,
 							CertType:   secrets.ClientCert,
 							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
@@ -162,8 +162,8 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 						},
 					},
 					&secrets.ControlPlaneSecretConfig{
+						Name: aws.CSISnapshotControllerName,
 						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							Name:       aws.CSISnapshotControllerName,
 							CommonName: aws.UsernamePrefix + aws.CSISnapshotControllerName,
 							CertType:   secrets.ClientCert,
 							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
@@ -215,8 +215,8 @@ func getExposureSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 		SecretConfigsFunc: func(cas map[string]*secrets.Certificate, clusterName string) []secrets.ConfigInterface {
 			return []secrets.ConfigInterface{
 				&secrets.ControlPlaneSecretConfig{
+					Name: aws.LBReadvertiserDeploymentName,
 					CertificateSecretConfig: &secrets.CertificateSecretConfig{
-						Name:         aws.LBReadvertiserDeploymentName,
 						CommonName:   aws.LBReadvertiserDeploymentName,
 						Organization: []string{user.SystemPrivilegedGroup},
 						CertType:     secrets.ClientCert,
@@ -237,7 +237,7 @@ func getExposureSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 
 func exposureShootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
 	return []*gutil.ShootAccessSecret{
-		gutil.NewShootAccessSecret(aws.LBReadvertiserDeploymentName, ""),
+		gutil.NewShootAccessSecret(aws.LBReadvertiserDeploymentName, namespace),
 	}
 }
 
