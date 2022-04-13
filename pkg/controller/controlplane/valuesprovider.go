@@ -225,7 +225,7 @@ func getExposureSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 
 func exposureShootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
 	return []*gutil.ShootAccessSecret{
-		gutil.NewShootAccessSecret(aws.LBReadvertiserDeploymentName, ""),
+		gutil.NewShootAccessSecret(aws.LBReadvertiserDeploymentName, namespace),
 	}
 }
 
