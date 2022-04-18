@@ -56,14 +56,6 @@ data:
         regex: ^(rest_client_requests_total|process_max_fds|process_open_fds)$
         action: keep
 
-  dashboard_operators: |
-    cloud-controller-manager-dashboard.json: |-
-{{- .Files.Get "ccm-dashboard.json" | nindent 6 }}
-
-  dashboard_users: |
-    cloud-controller-manager-dashboard.json: |-
-{{- .Files.Get "ccm-dashboard.json" | nindent 6 }}
-
   observedComponents: |
     observedPods:
     - podPrefix: cloud-controller-manager
