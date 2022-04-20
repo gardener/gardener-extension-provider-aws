@@ -1,4 +1,3 @@
-useTokenRequestor: false
 domain: cluster.local
 replicas: 1
 podAnnotations: {}

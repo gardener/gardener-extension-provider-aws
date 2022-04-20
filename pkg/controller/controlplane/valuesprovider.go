@@ -57,7 +57,7 @@ const (
 	cloudControllerManagerServerName = "cloud-controller-manager-server"
 )
 
-func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
+func getSecretConfigsFuncs() secrets.Interface {
 	return &secrets.Secrets{
 		CertificateSecretConfigs: map[string]*secrets.CertificateSecretConfig{
 			v1beta1constants.SecretNameCACluster: {
@@ -87,97 +87,6 @@ func getSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
 					},
 				},
 			}
-
-			if !useTokenRequestor {
-				out = append(out,
-					&secrets.ControlPlaneSecretConfig{
-						Name: aws.CloudControllerManagerName,
-						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							CommonName:   "system:" + aws.CloudControllerManagerName,
-							Organization: []string{user.SystemPrivilegedGroup},
-							CertType:     secrets.ClientCert,
-							SigningCA:    cas[v1beta1constants.SecretNameCACluster],
-						},
-						KubeConfigRequests: []secrets.KubeConfigRequest{
-							{
-								ClusterName:   clusterName,
-								APIServerHost: v1beta1constants.DeploymentNameKubeAPIServer,
-							},
-						},
-					},
-					&secrets.ControlPlaneSecretConfig{
-						Name: aws.CSIProvisionerName,
-						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							CommonName: aws.UsernamePrefix + aws.CSIProvisionerName,
-							CertType:   secrets.ClientCert,
-							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
-						},
-						KubeConfigRequests: []secrets.KubeConfigRequest{
-							{
-								ClusterName:   clusterName,
-								APIServerHost: v1beta1constants.DeploymentNameKubeAPIServer,
-							},
-						},
-					},
-					&secrets.ControlPlaneSecretConfig{
-						Name: aws.CSIAttacherName,
-						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							CommonName: aws.UsernamePrefix + aws.CSIAttacherName,
-							CertType:   secrets.ClientCert,
-							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
-						},
-						KubeConfigRequests: []secrets.KubeConfigRequest{
-							{
-								ClusterName:   clusterName,
-								APIServerHost: v1beta1constants.DeploymentNameKubeAPIServer,
-							},
-						},
-					},
-					&secrets.ControlPlaneSecretConfig{
-						Name: aws.CSISnapshotterName,
-						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							CommonName: aws.UsernamePrefix + aws.CSISnapshotterName,
-							CertType:   secrets.ClientCert,
-							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
-						},
-						KubeConfigRequests: []secrets.KubeConfigRequest{
-							{
-								ClusterName:   clusterName,
-								APIServerHost: v1beta1constants.DeploymentNameKubeAPIServer,
-							},
-						},
-					},
-					&secrets.ControlPlaneSecretConfig{
-						Name: aws.CSIResizerName,
-						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							CommonName: aws.UsernamePrefix + aws.CSIResizerName,
-							CertType:   secrets.ClientCert,
-							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
-						},
-						KubeConfigRequests: []secrets.KubeConfigRequest{
-							{
-								ClusterName:   clusterName,
-								APIServerHost: v1beta1constants.DeploymentNameKubeAPIServer,
-							},
-						},
-					},
-					&secrets.ControlPlaneSecretConfig{
-						Name: aws.CSISnapshotControllerName,
-						CertificateSecretConfig: &secrets.CertificateSecretConfig{
-							CommonName: aws.UsernamePrefix + aws.CSISnapshotControllerName,
-							CertType:   secrets.ClientCert,
-							SigningCA:  cas[v1beta1constants.SecretNameCACluster],
-						},
-						KubeConfigRequests: []secrets.KubeConfigRequest{
-							{
-								ClusterName:   clusterName,
-								APIServerHost: v1beta1constants.DeploymentNameKubeAPIServer,
-							},
-						},
-					},
-				)
-			}
-
 			return out
 		},
 	}
@@ -203,7 +112,7 @@ var legacySecretNamesToCleanup = []string{
 	aws.CSISnapshotControllerName,
 }
 
-func getExposureSecretConfigsFuncs(useTokenRequestor bool) secrets.Interface {
+func getExposureSecretConfigsFuncs() secrets.Interface {
 	return &secrets.Secrets{
 		CertificateSecretConfigs: map[string]*secrets.CertificateSecretConfig{
 			v1beta1constants.SecretNameCACluster: {
@@ -392,21 +301,15 @@ var (
 )
 
 // NewValuesProvider creates a new ValuesProvider for the generic actuator.
-func NewValuesProvider(logger logr.Logger, useTokenRequestor, useProjectedTokenMount bool) genericactuator.ValuesProvider {
-	return &valuesProvider{
-		logger:                 logger.WithName("aws-values-provider"),
-		useTokenRequestor:      useTokenRequestor,
-		useProjectedTokenMount: useProjectedTokenMount,
-	}
+func NewValuesProvider(logger logr.Logger) genericactuator.ValuesProvider {
+	return &valuesProvider{logger: logger.WithName("aws-values-provider")}
 }
 
 // valuesProvider is a ValuesProvider that provides AWS-specific values for the 2 charts applied by the generic actuator.
 type valuesProvider struct {
 	genericactuator.NoopValuesProvider
 	common.ClientContext
-	logger                 logr.Logger
-	useTokenRequestor      bool
-	useProjectedTokenMount bool
+	logger logr.Logger
 }
 
 // GetConfigChartValues returns the values for the config chart applied by the generic actuator.
@@ -443,7 +346,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		}
 	}
 
-	return getControlPlaneChartValues(cpConfig, cp, cluster, checksums, scaledDown, vp.useTokenRequestor)
+	return getControlPlaneChartValues(cpConfig, cp, cluster, checksums, scaledDown)
 }
 
 // GetControlPlaneShootChartValues returns the values for the control plane shoot chart applied by the generic actuator.
@@ -453,7 +356,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	cluster *extensionscontroller.Cluster,
 	_ map[string]string,
 ) (map[string]interface{}, error) {
-	return getControlPlaneShootChartValues(ctx, cluster, cp, vp.Client(), vp.useTokenRequestor, vp.useProjectedTokenMount)
+	return getControlPlaneShootChartValues(ctx, cluster, cp, vp.Client())
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
@@ -528,9 +431,8 @@ func (vp *valuesProvider) GetControlPlaneExposureChartValues(
 	}
 
 	return map[string]interface{}{
-		"useTokenRequestor": vp.useTokenRequestor,
-		"domain":            address,
-		"replicas":          extensionscontroller.GetReplicas(cluster, 1),
+		"domain":   address,
+		"replicas": extensionscontroller.GetReplicas(cluster, 1),
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-" + aws.LBReadvertiserDeploymentName: checksums[aws.LBReadvertiserDeploymentName],
 		},
@@ -564,7 +466,6 @@ func getControlPlaneChartValues(
 	cluster *extensionscontroller.Cluster,
 	checksums map[string]string,
 	scaledDown bool,
-	useTokenRequestor bool,
 ) (map[string]interface{}, error) {
 	ccm, err := getCCMChartValues(cpConfig, cp, cluster, checksums, scaledDown)
 	if err != nil {
@@ -577,9 +478,6 @@ func getControlPlaneChartValues(
 	}
 
 	return map[string]interface{}{
-		"global": map[string]interface{}{
-			"useTokenRequestor": useTokenRequestor,
-		},
 		aws.CloudControllerManagerName: ccm,
 		aws.CSIControllerName:          csi,
 	}, nil
@@ -671,8 +569,6 @@ func getControlPlaneShootChartValues(
 	cluster *extensionscontroller.Cluster,
 	cp *extensionsv1alpha1.ControlPlane,
 	client client.Client,
-	useTokenRequestor bool,
-	useProjectedTokenMount bool,
 ) (
 	map[string]interface{},
 	error,
@@ -706,10 +602,6 @@ func getControlPlaneShootChartValues(
 	}
 
 	return map[string]interface{}{
-		"global": map[string]interface{}{
-			"useTokenRequestor":      useTokenRequestor,
-			"useProjectedTokenMount": useProjectedTokenMount,
-		},
 		aws.CloudControllerManagerName: map[string]interface{}{"enabled": true},
 		aws.CSINodeName:                csiDriverNodeValues,
 	}, nil

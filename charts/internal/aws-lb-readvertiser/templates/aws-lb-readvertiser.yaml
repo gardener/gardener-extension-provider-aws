@@ -30,11 +30,7 @@ spec:
         image: {{ index .Values.images "aws-lb-readvertiser" }}
         imagePullPolicy: IfNotPresent
         args:
-        {{- if .Values.useTokenRequestor }}
         - --kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
-        {{- else }}
-        - --kubeconfig=/var/lib/aws-lb-readvertiser/kubeconfig
-        {{- end }}
         - --elb-dns-name={{ .Values.domain }}
         - --refresh-period=5
         resources:
@@ -45,16 +41,10 @@ spec:
             cpu: 40m
             memory: 40Mi
         volumeMounts:
-        {{- if .Values.useTokenRequestor }}
         - mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
           name: kubeconfig
           readOnly: true
-        {{- else }}
-        - name: aws-lb-readvertiser
-          mountPath: /var/lib/aws-lb-readvertiser
-        {{- end }}
       volumes:
-      {{- if .Values.useTokenRequestor }}
       - name: kubeconfig
         projected:
           defaultMode: 420
@@ -71,8 +61,3 @@ spec:
                   path: token
               name: shoot-access-aws-lb-readvertiser
               optional: false
-      {{- else }}
-      - name: aws-lb-readvertiser
-        secret:
-          secretName: aws-lb-readvertiser
-      {{- end }}

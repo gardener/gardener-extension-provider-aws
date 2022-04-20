@@ -14,11 +14,6 @@ spec:
       role: disk-driver
   template:
     metadata:
-      {{- if .Values.global.useProjectedTokenMount }}
-      annotations:
-        # TODO(rfranzke): Remove in a future release.
-        security.gardener.cloud/trigger: rollout
-      {{- end }}
       labels:
         app: csi
         role: disk-driver

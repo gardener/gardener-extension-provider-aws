@@ -183,7 +183,7 @@ var _ = Describe("ValuesProvider", func() {
 		enabledFalse = map[string]interface{}{"enabled": false}
 
 		ctrl = gomock.NewController(GinkgoT())
-		vp = NewValuesProvider(logger, true, true)
+		vp = NewValuesProvider(logger)
 
 		Expect(vp.(inject.Scheme).InjectScheme(scheme)).To(Succeed())
 	})
@@ -244,9 +244,6 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sLessThan118, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"global": map[string]interface{}{
-					"useTokenRequestor": true,
-				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": clusterK8sLessThan118.Shoot.Spec.Kubernetes.Version,
 				}),
@@ -258,9 +255,6 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"global": map[string]interface{}{
-					"useTokenRequestor": true,
-				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": clusterK8sAtLeast118.Shoot.Spec.Kubernetes.Version,
 				}),
@@ -304,10 +298,6 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sLessThan118, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"global": map[string]interface{}{
-					"useTokenRequestor":      true,
-					"useProjectedTokenMount": true,
-				},
 				aws.CloudControllerManagerName: enabledTrue,
 				aws.CSINodeName: utils.MergeMaps(enabledFalse, map[string]interface{}{
 					"kubernetesVersion": "1.15.4",
@@ -332,10 +322,6 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
-					"global": map[string]interface{}{
-						"useTokenRequestor":      true,
-						"useProjectedTokenMount": true,
-					},
 					aws.CloudControllerManagerName: enabledTrue,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.18.1",
@@ -493,9 +479,8 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetControlPlaneExposureChartValues(ctx, cp, clusterK8sLessThan118, checksums)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"useTokenRequestor": true,
-				"domain":            "10.10.10.1",
-				"replicas":          1,
+				"domain":   "10.10.10.1",
+				"replicas": 1,
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-aws-lb-readvertiser": "599aeee0cbbfdab4ea29c642cb04a6c9a3eb90ec21b41570efb987958f99d4b1",
 				},
