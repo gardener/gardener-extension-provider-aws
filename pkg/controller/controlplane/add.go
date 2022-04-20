@@ -49,8 +49,8 @@ type AddOptions struct {
 func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 	return controlplane.Add(mgr, controlplane.AddArgs{
 		Actuator: genericactuator.NewActuator(aws.Name,
-			getSecretConfigsFuncs(), shootAccessSecretsFunc, getLegacySecretNamesToCleanup(legacySecretNamesToCleanup),
-			getExposureSecretConfigsFuncs(), exposureShootAccessSecretsFunc, getLegacySecretNamesToCleanup(legacyExposureSecretNamesToCleanup),
+			getSecretConfigsFuncs(), shootAccessSecretsFunc,
+			getExposureSecretConfigsFuncs(), exposureShootAccessSecretsFunc,
 			configChart, controlPlaneChart, controlPlaneShootChart, controlPlaneShootCRDsChart, storageClassChart, cpExposureChart,
 			NewValuesProvider(logger), extensionscontroller.ChartRendererFactoryFunc(util.NewChartRendererForShoot),
 			imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhooks, mgr.GetWebhookServer().Port, logger),
@@ -63,8 +63,4 @@ func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 // AddToManager adds a controller with the default Options.
 func AddToManager(mgr manager.Manager) error {
 	return AddToManagerWithOptions(mgr, DefaultAddOptions)
-}
-
-func getLegacySecretNamesToCleanup(names []string) []string {
-	return names
 }

@@ -103,15 +103,6 @@ func shootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
 	}
 }
 
-var legacySecretNamesToCleanup = []string{
-	aws.CloudControllerManagerName,
-	aws.CSIProvisionerName,
-	aws.CSIAttacherName,
-	aws.CSISnapshotterName,
-	aws.CSIResizerName,
-	aws.CSISnapshotControllerName,
-}
-
 func getExposureSecretConfigsFuncs() secrets.Interface {
 	return &secrets.Secrets{
 		CertificateSecretConfigs: map[string]*secrets.CertificateSecretConfig{
@@ -151,10 +142,6 @@ func exposureShootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret
 }
 
 var (
-	legacyExposureSecretNamesToCleanup = []string{
-		aws.LBReadvertiserDeploymentName,
-	}
-
 	configChart = &chart.Chart{
 		Name: "cloud-provider-config",
 		Path: filepath.Join(aws.InternalChartsPath, "cloud-provider-config"),
