@@ -418,11 +418,9 @@ func (vp *valuesProvider) GetControlPlaneExposureChartValues(
 	}
 
 	return map[string]interface{}{
-		"domain":   address,
-		"replicas": extensionscontroller.GetReplicas(cluster, 1),
-		"podAnnotations": map[string]interface{}{
-			"checksum/secret-" + aws.LBReadvertiserDeploymentName: checksums[aws.LBReadvertiserDeploymentName],
-		},
+		"domain":                           address,
+		"replicas":                         extensionscontroller.GetReplicas(cluster, 1),
+		"genericTokenKubeconfigSecretName": extensionscontroller.GenericTokenKubeconfigSecretNameFromCluster(cluster),
 	}, nil
 }
 
@@ -465,6 +463,9 @@ func getControlPlaneChartValues(
 	}
 
 	return map[string]interface{}{
+		"global": map[string]interface{}{
+			"genericTokenKubeconfigSecretName": extensionscontroller.GenericTokenKubeconfigSecretNameFromCluster(cluster),
+		},
 		aws.CloudControllerManagerName: ccm,
 		aws.CSIControllerName:          csi,
 	}, nil
@@ -490,7 +491,6 @@ func getCCMChartValues(
 		"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
 		"podNetwork":        extensionscontroller.GetPodNetwork(cluster),
 		"podAnnotations": map[string]interface{}{
-			"checksum/secret-cloud-controller-manager":        checksums[aws.CloudControllerManagerName],
 			"checksum/secret-cloud-controller-manager-server": checksums[cloudControllerManagerServerName],
 			"checksum/secret-cloudprovider":                   checksums[v1beta1constants.SecretNameCloudProvider],
 			"checksum/configmap-cloud-provider-config":        checksums[aws.CloudProviderConfigName],
@@ -529,17 +529,10 @@ func getCSIControllerChartValues(
 		"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"region":   cp.Spec.Region,
 		"podAnnotations": map[string]interface{}{
-			"checksum/secret-" + aws.CSIProvisionerName:                   checksums[aws.CSIProvisionerName],
-			"checksum/secret-" + aws.CSIAttacherName:                      checksums[aws.CSIAttacherName],
-			"checksum/secret-" + aws.CSISnapshotterName:                   checksums[aws.CSISnapshotterName],
-			"checksum/secret-" + aws.CSIResizerName:                       checksums[aws.CSIResizerName],
 			"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 		},
 		"csiSnapshotController": map[string]interface{}{
 			"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
-			"podAnnotations": map[string]interface{}{
-				"checksum/secret-" + aws.CSISnapshotControllerName: checksums[aws.CSISnapshotControllerName],
-			},
 		},
 		"csiSnapshotValidationWebhook": map[string]interface{}{
 			"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),

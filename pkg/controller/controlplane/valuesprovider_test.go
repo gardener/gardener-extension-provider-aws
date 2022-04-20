@@ -47,7 +47,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 )
 
-const namespace = "test"
+const (
+	namespace                        = "test"
+	genericTokenKubeconfigSecretName = "generic-token-kubeconfig-92e9ae14"
+)
 
 var _ = Describe("ValuesProvider", func() {
 	var (
@@ -132,6 +135,11 @@ var _ = Describe("ValuesProvider", func() {
 		}
 
 		clusterK8sLessThan118 = &extensionscontroller.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"generic-token-kubeconfig.secret.gardener.cloud/name": genericTokenKubeconfigSecretName,
+				},
+			},
 			Shoot: &gardencorev1beta1.Shoot{
 				Spec: gardencorev1beta1.ShootSpec{
 					Networking: gardencorev1beta1.Networking{
@@ -145,6 +153,11 @@ var _ = Describe("ValuesProvider", func() {
 		}
 
 		clusterK8sAtLeast118 = &extensionscontroller.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"generic-token-kubeconfig.secret.gardener.cloud/name": genericTokenKubeconfigSecretName,
+				},
+			},
 			Shoot: &gardencorev1beta1.Shoot{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -168,14 +181,7 @@ var _ = Describe("ValuesProvider", func() {
 		checksums = map[string]string{
 			v1beta1constants.SecretNameCloudProvider:   "8bafb35ff1ac60275d62e1cbd495aceb511fb354f74a20f7d06ecb48b3a68432",
 			aws.CloudProviderConfigName:                "08a7bc7fe8f59b055f173145e211760a83f02cf89635cef26ebb351378635606",
-			aws.CloudControllerManagerName:             "3d791b164a808638da9a8df03924be2a41e34cd664e42231c00fe369e3588272",
 			aws.CloudControllerManagerName + "-server": "6dff2a2e6f14444b66d8e4a351c049f7e89ee24ba3eaab95dbec40ba6bdebb52",
-			aws.LBReadvertiserDeploymentName:           "599aeee0cbbfdab4ea29c642cb04a6c9a3eb90ec21b41570efb987958f99d4b1",
-			aws.CSIProvisionerName:                     "65b1dac6b50673535cff480564c2e5c71077ed19b1b6e0e2291207225bdf77d4",
-			aws.CSIAttacherName:                        "3f22909841cdbb80e5382d689d920309c0a7d995128e52c79773f9608ed7c289",
-			aws.CSISnapshotterName:                     "6a5bfc847638c499062f7fb44e31a30a9760bf4179e1dbf85e0ff4b4f162cd68",
-			aws.CSIResizerName:                         "a77e663ba1af340fb3dd7f6f8a1be47c7aa9e658198695480641e6b934c0b9ed",
-			aws.CSISnapshotControllerName:              "84cba346d2e2cf96c3811b55b01f57bdd9b9bcaed7065760470942d267984eaf",
 			aws.CSISnapshotValidation:                  "452097220f89011daa2543876c3f3184f5064a12be454ae32e2ad205ec55823c",
 		}
 
@@ -217,7 +223,6 @@ var _ = Describe("ValuesProvider", func() {
 					"maintenance.gardener.cloud/restart": "true",
 				},
 				"podAnnotations": map[string]interface{}{
-					"checksum/secret-" + aws.CloudControllerManagerName:             checksums[aws.CloudControllerManagerName],
 					"checksum/secret-" + aws.CloudControllerManagerName + "-server": checksums[aws.CloudControllerManagerName+"-server"],
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider:   checksums[v1beta1constants.SecretNameCloudProvider],
 					"checksum/configmap-" + aws.CloudProviderConfigName:             checksums[aws.CloudProviderConfigName],
@@ -244,6 +249,9 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sLessThan118, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": clusterK8sLessThan118.Shoot.Spec.Kubernetes.Version,
 				}),
@@ -255,6 +263,9 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": clusterK8sAtLeast118.Shoot.Spec.Kubernetes.Version,
 				}),
@@ -262,17 +273,10 @@ var _ = Describe("ValuesProvider", func() {
 					"replicas": 1,
 					"region":   region,
 					"podAnnotations": map[string]interface{}{
-						"checksum/secret-" + aws.CSIProvisionerName:                   checksums[aws.CSIProvisionerName],
-						"checksum/secret-" + aws.CSIAttacherName:                      checksums[aws.CSIAttacherName],
-						"checksum/secret-" + aws.CSISnapshotterName:                   checksums[aws.CSISnapshotterName],
-						"checksum/secret-" + aws.CSIResizerName:                       checksums[aws.CSIResizerName],
 						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 					},
 					"csiSnapshotController": map[string]interface{}{
 						"replicas": 1,
-						"podAnnotations": map[string]interface{}{
-							"checksum/secret-" + aws.CSISnapshotControllerName: checksums[aws.CSISnapshotControllerName],
-						},
 					},
 					"csiSnapshotValidationWebhook": map[string]interface{}{
 						"replicas": 1,
@@ -479,8 +483,9 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetControlPlaneExposureChartValues(ctx, cp, clusterK8sLessThan118, checksums)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"domain":   "10.10.10.1",
-				"replicas": 1,
+				"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				"domain":                           "10.10.10.1",
+				"replicas":                         1,
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-aws-lb-readvertiser": "599aeee0cbbfdab4ea29c642cb04a6c9a3eb90ec21b41570efb987958f99d4b1",
 				},
