@@ -17,7 +17,6 @@ package controlplane
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -30,7 +29,8 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener/pkg/utils"
-	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
+	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
+	fakesecretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager/fake"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 )
@@ -78,7 +79,9 @@ var _ = Describe("ValuesProvider", func() {
 
 			return data
 		}
-		fakeErr = fmt.Errorf("fake err")
+
+		fakeClient         client.Client
+		fakeSecretsManager secretsmanager.Interface
 	)
 
 	BeforeEach(func() {
@@ -179,10 +182,8 @@ var _ = Describe("ValuesProvider", func() {
 		}
 
 		checksums = map[string]string{
-			v1beta1constants.SecretNameCloudProvider:   "8bafb35ff1ac60275d62e1cbd495aceb511fb354f74a20f7d06ecb48b3a68432",
-			aws.CloudProviderConfigName:                "08a7bc7fe8f59b055f173145e211760a83f02cf89635cef26ebb351378635606",
-			aws.CloudControllerManagerName + "-server": "6dff2a2e6f14444b66d8e4a351c049f7e89ee24ba3eaab95dbec40ba6bdebb52",
-			aws.CSISnapshotValidation:                  "452097220f89011daa2543876c3f3184f5064a12be454ae32e2ad205ec55823c",
+			v1beta1constants.SecretNameCloudProvider: "8bafb35ff1ac60275d62e1cbd495aceb511fb354f74a20f7d06ecb48b3a68432",
+			aws.CloudProviderConfigName:              "08a7bc7fe8f59b055f173145e211760a83f02cf89635cef26ebb351378635606",
 		}
 
 		enabledTrue = map[string]interface{}{"enabled": true}
@@ -192,6 +193,9 @@ var _ = Describe("ValuesProvider", func() {
 		vp = NewValuesProvider(logger)
 
 		Expect(vp.(inject.Scheme).InjectScheme(scheme)).To(Succeed())
+
+		fakeClient = fakeclient.NewClientBuilder().Build()
+		fakeSecretsManager = fakesecretsmanager.New(fakeClient, namespace)
 	})
 
 	AfterEach(func() {
@@ -223,9 +227,8 @@ var _ = Describe("ValuesProvider", func() {
 					"maintenance.gardener.cloud/restart": "true",
 				},
 				"podAnnotations": map[string]interface{}{
-					"checksum/secret-" + aws.CloudControllerManagerName + "-server": checksums[aws.CloudControllerManagerName+"-server"],
-					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider:   checksums[v1beta1constants.SecretNameCloudProvider],
-					"checksum/configmap-" + aws.CloudProviderConfigName:             checksums[aws.CloudProviderConfigName],
+					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					"checksum/configmap-" + aws.CloudProviderConfigName:           checksums[aws.CloudProviderConfigName],
 				},
 				"featureGates": map[string]bool{
 					"CustomResourceValidation": true,
@@ -238,6 +241,9 @@ var _ = Describe("ValuesProvider", func() {
 					"TLS_RSA_WITH_AES_256_CBC_SHA",
 					"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
 				},
+				"secrets": map[string]interface{}{
+					"server": "cloud-controller-manager-server",
+				},
 			})
 			c = mockclient.NewMockClient(ctrl)
 
@@ -246,7 +252,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct control plane chart values (k8s < 1.18)", func() {
-			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sLessThan118, checksums, false)
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sLessThan118, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"global": map[string]interface{}{
@@ -260,7 +266,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct control plane chart values (k8s >= 1.18)", func() {
-			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, checksums, false)
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"global": map[string]interface{}{
@@ -280,8 +286,8 @@ var _ = Describe("ValuesProvider", func() {
 					},
 					"csiSnapshotValidationWebhook": map[string]interface{}{
 						"replicas": 1,
-						"podAnnotations": map[string]interface{}{
-							"checksum/secret-" + aws.CSISnapshotValidation: checksums[aws.CSISnapshotValidation],
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
 						},
 					},
 				}),
@@ -298,8 +304,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct shoot control plane chart values (k8s < 1.18)", func() {
-			c.EXPECT().Get(ctx, kutil.Key(cp.Namespace, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{}))
-			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sLessThan118, nil)
+			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sLessThan118, fakeSecretsManager, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				aws.CloudControllerManagerName: enabledTrue,
@@ -315,15 +320,8 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		Context("shoot control plane chart values (k8s >= 1.18)", func() {
-			It("should return error when ca secret is not found", func() {
-				c.EXPECT().Get(ctx, kutil.Key(cp.Namespace, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
-				_, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, nil)
-				Expect(err).To(HaveOccurred())
-			})
-
 			It("should return correct shoot control plane chart when ca is secret found", func() {
-				c.EXPECT().Get(ctx, kutil.Key(cp.Namespace, string(v1beta1constants.SecretNameCACluster)), gomock.AssignableToTypeOf(&corev1.Secret{}))
-				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, nil)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName: enabledTrue,
@@ -480,15 +478,12 @@ var _ = Describe("ValuesProvider", func() {
 			serviceKey := client.ObjectKey{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}
 			c.EXPECT().Get(ctx, serviceKey, gomock.AssignableToTypeOf(&corev1.Service{})).DoAndReturn(clientGet(cpService))
 
-			values, err := vp.GetControlPlaneExposureChartValues(ctx, cp, clusterK8sLessThan118, checksums)
+			values, err := vp.GetControlPlaneExposureChartValues(ctx, cp, clusterK8sLessThan118, fakeSecretsManager, checksums)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				"domain":                           "10.10.10.1",
 				"replicas":                         1,
-				"podAnnotations": map[string]interface{}{
-					"checksum/secret-aws-lb-readvertiser": "599aeee0cbbfdab4ea29c642cb04a6c9a3eb90ec21b41570efb987958f99d4b1",
-				},
 			}))
 		})
 	})
