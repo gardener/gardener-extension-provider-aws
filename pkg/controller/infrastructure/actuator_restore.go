@@ -39,7 +39,7 @@ func (a *actuator) Restore(ctx context.Context, infrastructure *extensionsv1alph
 		a.Decoder(),
 		infrastructure,
 		terraformer.CreateOrUpdateState{State: &terraformState.Data},
-		a.useProjectedTokenMount,
+		a.disableProjectedTokenMount,
 	)
 	if err != nil {
 		return err

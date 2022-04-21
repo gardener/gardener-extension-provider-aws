@@ -34,14 +34,14 @@ import (
 type actuator struct {
 	logger logr.Logger
 	common.RESTConfigContext
-	useProjectedTokenMount bool
+	disableProjectedTokenMount bool
 }
 
 // NewActuator creates a new Actuator that updates the status of the handled Infrastructure resources.
-func NewActuator(useProjectedTokenMount bool) infrastructure.Actuator {
+func NewActuator(disableProjectedTokenMount bool) infrastructure.Actuator {
 	return &actuator{
-		logger:                 log.Log.WithName("infrastructure-actuator"),
-		useProjectedTokenMount: useProjectedTokenMount,
+		logger:                     log.Log.WithName("infrastructure-actuator"),
+		disableProjectedTokenMount: disableProjectedTokenMount,
 	}
 }
 
@@ -52,7 +52,7 @@ func newTerraformer(
 	restConfig *rest.Config,
 	purpose string,
 	infra *extensionsv1alpha1.Infrastructure,
-	useProjectedTokenMount bool,
+	disableProjectedTokenMount bool,
 ) (
 	terraformer.Terraformer,
 	error,
@@ -64,7 +64,7 @@ func newTerraformer(
 
 	owner := metav1.NewControllerRef(infra, extensionsv1alpha1.SchemeGroupVersion.WithKind(extensionsv1alpha1.InfrastructureResource))
 	return tf.
-		UseProjectedTokenMount(useProjectedTokenMount).
+		UseProjectedTokenMount(!disableProjectedTokenMount).
 		SetTerminationGracePeriodSeconds(630).
 		SetDeadlineCleaning(5 * time.Minute).
 		SetDeadlinePod(15 * time.Minute).

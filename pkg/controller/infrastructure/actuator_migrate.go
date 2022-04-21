@@ -30,7 +30,7 @@ import (
 // Migrate deletes only the ConfigMaps and Secrets of the Terraformer.
 func (a *actuator) Migrate(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
 	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "migrate")
-	return migrate(ctx, logger, a.RESTConfig(), infrastructure, a.useProjectedTokenMount)
+	return migrate(ctx, logger, a.RESTConfig(), infrastructure, a.disableProjectedTokenMount)
 }
 
 func migrate(
@@ -38,9 +38,9 @@ func migrate(
 	logger logr.Logger,
 	restConfig *rest.Config,
 	infrastructure *extensionsv1alpha1.Infrastructure,
-	useProjectedTokenMount bool,
+	disableProjectedTokenMount bool,
 ) error {
-	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, useProjectedTokenMount)
+	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, disableProjectedTokenMount)
 	if err != nil {
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
