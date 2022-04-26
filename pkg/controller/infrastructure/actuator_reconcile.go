@@ -45,7 +45,7 @@ func (a *actuator) Reconcile(ctx context.Context, infrastructure *extensionsv1al
 		a.Client(),
 		a.Decoder(),
 		infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState),
-		a.useProjectedTokenMount,
+		a.disableProjectedTokenMount,
 	)
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func Reconcile(
 	decoder runtime.Decoder,
 	infrastructure *extensionsv1alpha1.Infrastructure,
 	stateInitializer terraformer.StateConfigMapInitializer,
-	useProjectedTokenMount bool,
+	disableProjectedTokenMount bool,
 ) (
 	*awsv1alpha1.InfrastructureStatus,
 	*terraformer.RawState,
@@ -88,7 +88,7 @@ func Reconcile(
 		return nil, nil, fmt.Errorf("could not render Terraform template: %+v", err)
 	}
 
-	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, useProjectedTokenMount)
+	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, disableProjectedTokenMount)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create terraformer object: %+v", err)
 	}

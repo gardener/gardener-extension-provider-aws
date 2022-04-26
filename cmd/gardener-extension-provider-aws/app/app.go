@@ -194,21 +194,6 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 				return fmt.Errorf("could not update manager scheme: %w", err)
 			}
 
-			useTokenRequestor, err := controller.UseTokenRequestor(generalOpts.Completed().GardenerVersion)
-			if err != nil {
-				return fmt.Errorf("could not determine whether token requestor should be used: %w", err)
-			}
-			awscontrolplane.DefaultAddOptions.UseTokenRequestor = useTokenRequestor
-			awsworker.DefaultAddOptions.UseTokenRequestor = useTokenRequestor
-
-			useProjectedTokenMount, err := controller.UseServiceAccountTokenVolumeProjection(generalOpts.Completed().GardenerVersion)
-			if err != nil {
-				return fmt.Errorf("could not determine whether service account token volume projection should be used: %w", err)
-			}
-			awscontrolplane.DefaultAddOptions.UseProjectedTokenMount = useProjectedTokenMount
-			awsinfrastructure.DefaultAddOptions.UseProjectedTokenMount = useProjectedTokenMount
-			awsworker.DefaultAddOptions.UseProjectedTokenMount = useProjectedTokenMount
-
 			// add common meta types to schema for controller-runtime to use v1.ListOptions
 			metav1.AddToGroupVersion(scheme, machinev1alpha1.SchemeGroupVersion)
 

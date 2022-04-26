@@ -37,7 +37,7 @@ import (
 
 func (a *actuator) Delete(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
 	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "delete")
-	return Delete(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure, a.useProjectedTokenMount)
+	return Delete(ctx, logger, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure, a.disableProjectedTokenMount)
 }
 
 // Delete deletes the given Infrastructure.
@@ -48,7 +48,7 @@ func Delete(
 	c client.Client,
 	decoder runtime.Decoder,
 	infrastructure *extensionsv1alpha1.Infrastructure,
-	useProjectedTokenMount bool,
+	disableProjectedTokenMount bool,
 ) error {
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
 	if _, _, err := decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
@@ -59,7 +59,7 @@ func Delete(
 		infrastructureConfig = nil
 	}
 
-	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, useProjectedTokenMount)
+	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, disableProjectedTokenMount)
 	if err != nil {
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
