@@ -1,4 +1,4 @@
-apiVersion: "autoscaling.k8s.io/v1beta2"
+apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
   name: aws-lb-readvertiser-vpa
@@ -6,9 +6,10 @@ metadata:
 spec:
   resourcePolicy:
     containerPolicies:
-    - containerName: '*'
+    - containerName: aws-lb-readvertiser
       minAllowed:
-        memory: 20Mi
+        memory: {{ .Values.resources.requests.memory }}
+      controlledValues: RequestsOnly
   targetRef:
     apiVersion: {{ include "deploymentversion" . }}
     kind: Deployment

@@ -51,6 +51,8 @@ spec:
         - --port={{ .Values.metricsPortAWS }}
         - --target-kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
         - --v=3
+        resources:
+{{ toYaml .Values.resources.mcmProviderAWS | indent 10 }}
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -99,12 +101,7 @@ spec:
           containerPort: {{ .Values.metricsPort }}
           protocol: TCP
         resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 350m
-            memory: 256Mi
+{{ toYaml .Values.resources.mcm | indent 10 }}
         volumeMounts:
         - mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
           name: kubeconfig
