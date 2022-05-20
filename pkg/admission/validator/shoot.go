@@ -203,6 +203,11 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 
 func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) error {
 	fldPath := field.NewPath("spec", "provider")
+
+	if shoot.Spec.Provider.InfrastructureConfig == nil {
+		return field.Required(fldPath.Child("infrastructureConfig"), "InfrastructureConfig must be set for AWS shoots")
+	}
+
 	infraConfig, err := decodeInfrastructureConfig(s.decoder, shoot.Spec.Provider.InfrastructureConfig, fldPath.Child("infrastructureConfig"))
 	if err != nil {
 		return err
