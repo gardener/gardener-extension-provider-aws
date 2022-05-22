@@ -116,7 +116,7 @@ var _ = Describe("Secret validation", func() {
 			BeNil(),
 		),
 
-		Entry("should succeed when the client credentials are valid  (longest possilble access key)",
+		Entry("should succeed when the client credentials are valid (longest possilble access key)",
 			map[string][]byte{
 				aws.AccessKeyID:     []byte(strings.Repeat("a", 128)),
 				aws.SecretAccessKey: []byte(strings.Repeat("b", 40)),
