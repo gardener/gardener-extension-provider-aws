@@ -17,12 +17,10 @@ package validator_test
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -49,19 +47,14 @@ var _ = Describe("SecretBinding validator", func() {
 		var (
 			shootValidator extensionswebhook.Validator
 
-			ctrl          *gomock.Controller
-			c             *mockclient.MockClient
-			apiReader     *mockclient.MockReader
-			cloudProfile  *gardencorev1beta1.CloudProfile
-			secret        *corev1.Secret
-			secretBinding *gardencorev1beta1.SecretBinding
-			shoot         *core.Shoot
+			ctrl         *gomock.Controller
+			c            *mockclient.MockClient
+			cloudProfile *gardencorev1beta1.CloudProfile
+			shoot        *core.Shoot
 
-			ctx              = context.TODO()
-			cloudProfileKey  = client.ObjectKey{Name: "aws"}
-			secretKey        = client.ObjectKey{Name: "provider-account", Namespace: namespace}
-			secretBindingKey = client.ObjectKey{Name: "provider-account", Namespace: namespace}
-			gp2type          = string(apisaws.VolumeTypeGP2)
+			ctx             = context.TODO()
+			cloudProfileKey = client.ObjectKey{Name: "aws"}
+			gp2type         = string(apisaws.VolumeTypeGP2)
 		)
 
 		BeforeEach(func() {
@@ -77,8 +70,6 @@ var _ = Describe("SecretBinding validator", func() {
 
 			c = mockclient.NewMockClient(ctrl)
 			Expect(shootValidator.(inject.Client).InjectClient(c)).To(Succeed())
-			apiReader = mockclient.NewMockReader(ctrl)
-			Expect(shootValidator.(inject.APIReader).InjectAPIReader(apiReader)).To(Succeed())
 
 			cloudProfile = &gardencorev1beta1.CloudProfile{
 				ObjectMeta: metav1.ObjectMeta{
@@ -100,34 +91,13 @@ var _ = Describe("SecretBinding validator", func() {
 					},
 				},
 			}
-			secret = &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "provider-account",
-					Namespace: namespace,
-				},
-				Data: map[string][]byte{
-					aws.AccessKeyID:     []byte(strings.Repeat("a", 128)),
-					aws.SecretAccessKey: []byte(strings.Repeat("b", 40)),
-				},
-			}
-			secretBinding = &gardencorev1beta1.SecretBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "provider-account",
-					Namespace: namespace,
-				},
-				SecretRef: corev1.SecretReference{
-					Name:      secret.Name,
-					Namespace: secret.Namespace,
-				},
-			}
 			shoot = &core.Shoot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: namespace,
 				},
 				Spec: core.ShootSpec{
-					SecretBindingName: secretBinding.Name,
-					CloudProfileName:  cloudProfile.Name,
+					CloudProfileName: cloudProfile.Name,
 					Provider: core.Provider{
 						InfrastructureConfig: &runtime.RawExtension{
 							Raw: encode(&apisawsv1alpha1.InfrastructureConfig{
@@ -308,8 +278,6 @@ var _ = Describe("SecretBinding validator", func() {
 
 			It("should succeed for valid Shoot", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-				c.EXPECT().Get(ctx, secretBindingKey, &gardencorev1beta1.SecretBinding{}).SetArg(2, *secretBinding)
-				apiReader.EXPECT().Get(ctx, secretKey, &corev1.Secret{}).SetArg(2, *secret)
 
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())

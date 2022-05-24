@@ -10,7 +10,6 @@ rules:
   - core.gardener.cloud
   resources:
   - cloudprofiles
-  - secretbindings
   verbs:
   - get
   - list
