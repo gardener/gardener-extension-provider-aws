@@ -48,7 +48,9 @@ webhooks:
     resources:
     - secrets
   failurePolicy: Fail
-  objectSelector: {}
+  objectSelector:
+    matchLabels:
+      provider.shoot.gardener.cloud/aws: "true"
   namespaceSelector: {}
   sideEffects: None
   admissionReviewVersions:
