@@ -154,7 +154,7 @@ func (a *actuator) getZone(ctx context.Context, dns *extensionsv1alpha1.DNSRecor
 		a.logger.Info("Got DNS hosted zones", "zones", zones, "dnsrecord", kutil.ObjectName(dns))
 		zone := dnsrecord.FindZoneForName(zones, dns.Spec.Name)
 		if zone == "" {
-			return "", gardencorev1beta1helper.NewErrorWithCodes(fmt.Sprintf("could not find DNS hosted zone for name %s", dns.Spec.Name), gardencorev1beta1.ErrorConfigurationProblem)
+			return "", gardencorev1beta1helper.NewErrorWithCodes(fmt.Errorf("could not find DNS hosted zone for name %s", dns.Spec.Name), gardencorev1beta1.ErrorConfigurationProblem)
 		}
 		return zone, nil
 	}
@@ -174,7 +174,7 @@ func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) 
 func wrapAWSClientError(err error, message string) error {
 	wrappedErr := fmt.Errorf("%s: %+v", message, err)
 	if awsclient.IsNoSuchHostedZoneError(err) || awsclient.IsNotPermittedInZoneError(err) {
-		wrappedErr = gardencorev1beta1helper.NewErrorWithCodes(wrappedErr.Error(), gardencorev1beta1.ErrorConfigurationProblem)
+		wrappedErr = gardencorev1beta1helper.NewErrorWithCodes(wrappedErr, gardencorev1beta1.ErrorConfigurationProblem)
 	}
 	if _, ok := err.(*awsclient.Route53RateLimiterWaitError); ok || awsclient.IsThrottlingError(err) {
 		wrappedErr = &reconciler.RequeueAfterError{

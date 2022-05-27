@@ -457,3 +457,7 @@ CSI drivers usually have a different procedure for configuring this custom limit
 
 This extension supports `gardener/gardener`'s `WorkerPoolKubernetesVersion` feature gate, i.e., having [worker pools with overridden Kubernetes versions](https://github.com/gardener/gardener/blob/8a9c88866ec5fce59b5acf57d4227eeeb73669d7/example/90-shoot.yaml#L69-L70) since `gardener-extension-provider-aws@v1.34`.
 Note that this feature is only usable for `Shoot`s whose `.spec.kubernetes.version` is greater or equal than the CSI migration version (`1.18`).
+
+## Shoot CA Certificate and `ServiceAccount` Signing Key Rotation
+
+This extension supports `gardener/gardener`'s `ShootCARotation` and `ShootSARotation` feature gates since `gardener-extension-provider-aws@v1.36`.
