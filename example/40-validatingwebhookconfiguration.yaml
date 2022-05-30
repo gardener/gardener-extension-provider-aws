@@ -14,8 +14,9 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - shoots
     - cloudprofiles
+    - secretbindings
+    - shoots
   failurePolicy: Fail
   # Please make sure you are running `gardener@v1.42` or later before enabling this object selector.
   objectSelector:
@@ -40,7 +41,9 @@ webhooks:
     resources:
     - secrets
   failurePolicy: Fail
-  objectSelector: {}
+  objectSelector:
+    matchLabels:
+      provider.shoot.gardener.cloud/aws: "true"
   namespaceSelector: {}
   sideEffects: None
   admissionReviewVersions:
