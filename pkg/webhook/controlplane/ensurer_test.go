@@ -109,7 +109,22 @@ var _ = Describe("Ensurer", func() {
 				},
 			},
 		)
-
+		eContextK8s120WithCSIAnnotation = gcontext.NewInternalGardenContext(
+			&extensionscontroller.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						csimigration.AnnotationKeyNeedsComplete: "true",
+					},
+				},
+				Shoot: &gardencorev1beta1.Shoot{
+					Spec: gardencorev1beta1.ShootSpec{
+						Kubernetes: gardencorev1beta1.Kubernetes{
+							Version: "1.20.0",
+						},
+					},
+				},
+			},
+		)
 		eContextK8s121 = gcontext.NewInternalGardenContext(
 			&extensionscontroller.Cluster{
 				Shoot: &gardencorev1beta1.Shoot{
@@ -418,7 +433,7 @@ var _ = Describe("Ensurer", func() {
 
 		BeforeEach(func() {
 			dep = &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeControllerManager},
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeScheduler},
 				Spec: appsv1.DeploymentSpec{
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -435,7 +450,7 @@ var _ = Describe("Ensurer", func() {
 			ensurer = NewEnsurer(logger)
 		})
 
-		It("should add missing elements to kube-scheduler deployment (k8s < 1.18)", func() {
+		It("should not add anything to kube-scheduler deployment (k8s < 1.18)", func() {
 			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s117, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -461,6 +476,53 @@ var _ = Describe("Ensurer", func() {
 			Expect(err).To(Not(HaveOccurred()))
 
 			checkKubeSchedulerDeployment(dep, "1.21.0", true)
+		})
+	})
+
+	Describe("#EnsureClusterAutoscalerDeployment", func() {
+		var (
+			dep     *appsv1.Deployment
+			ensurer genericmutator.Ensurer
+		)
+
+		BeforeEach(func() {
+			dep = &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: v1beta1constants.DeploymentNameClusterAutoscaler},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "cluster-autoscaler",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			ensurer = NewEnsurer(logger)
+		})
+
+		It("should not add anything to cluster-autoscaler deployment (k8s < 1.20)", func() {
+			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s118, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			checkClusterAutoscalerDeployment(dep, "1.18.0")
+		})
+
+		It("should add missing elements to cluster-autoscaler deployment (k8s 1.20)", func() {
+			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s120WithCSIAnnotation, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			checkClusterAutoscalerDeployment(dep, "1.20.0")
+		})
+
+		It("should add missing elements to cluster-autoscaler deployment (k8s >= 1.21)", func() {
+			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s121WithCSIAnnotation, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			checkClusterAutoscalerDeployment(dep, "1.21.0")
 		})
 	})
 
@@ -852,6 +914,23 @@ func checkKubeSchedulerDeployment(dep *appsv1.Deployment, k8sVersion string, nee
 		} else {
 			Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,CSIMigrationAWSComplete=true"))
 		}
+	}
+}
+
+func checkClusterAutoscalerDeployment(dep *appsv1.Deployment, k8sVersion string) {
+	if k8sVersionAtLeast120, _ := version.CompareVersions(k8sVersion, ">=", "1.20"); !k8sVersionAtLeast120 {
+		return
+	}
+	k8sVersionAtLeast121, _ := version.CompareVersions(k8sVersion, ">=", "1.21")
+
+	// Check that the cluster-autoscaler container still exists and contains all needed command line args.
+	c := extensionswebhook.ContainerWithName(dep.Spec.Template.Spec.Containers, "cluster-autoscaler")
+	Expect(c).To(Not(BeNil()))
+
+	if k8sVersionAtLeast121 {
+		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
+	} else {
+		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,CSIMigrationAWSComplete=true"))
 	}
 }
 
