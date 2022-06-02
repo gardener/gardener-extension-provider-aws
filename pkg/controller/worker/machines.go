@@ -28,6 +28,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/csimigration"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
+	gardencorev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
@@ -188,6 +189,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 				deploymentName          = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
 				className               = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
 				awsCSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
+				nodeLocalDNSLabel       = w.cluster.Shoot.Annotations[gardencorev1beta1constants.AnnotationNodeLocalDNS]
 			)
 
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
@@ -204,7 +206,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 					}
 					// TODO: remove the csi topology label when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
 					// add aws csi driver topology label if its not specified
-					return utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone})
+					return utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone, "networking.gardener.cloud/node-local-dns-enabled": nodeLocalDNSLabel})
 				}(),
 				Annotations:          pool.Annotations,
 				Taints:               pool.Taints,
