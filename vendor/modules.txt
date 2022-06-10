@@ -16,8 +16,8 @@ github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 ## explicit
 github.com/PuerkitoBio/urlesc
-# github.com/ahmetb/gen-crd-api-reference-docs v0.2.0
-## explicit
+# github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
+## explicit; go 1.15
 github.com/ahmetb/gen-crd-api-reference-docs
 # github.com/aws/aws-sdk-go v1.38.19
 ## explicit; go 1.11
