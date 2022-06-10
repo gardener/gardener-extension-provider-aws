@@ -161,6 +161,8 @@ replace (
 	k8s.io/code-generator => k8s.io/code-generator v0.23.3
 	k8s.io/component-base => k8s.io/component-base v0.23.3
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.23.3
+	k8s.io/kubelet v0.23.3 => k8s.io/kubelet v0.23.3
+	k8s.io/metrics v0.23.3 => k8s.io/metrics v0.23.3
 )
 
 replace (
