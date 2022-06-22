@@ -6,7 +6,7 @@ COPY . .
 RUN make install
 
 ############# base
-FROM alpine:3.13.7 AS base
+FROM gcr.io/distroless/static-debian11:nonroot AS base
 
 ############# gardener-extension-provider-aws
 FROM base AS gardener-extension-provider-aws
