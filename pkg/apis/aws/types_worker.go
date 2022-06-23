@@ -47,7 +47,7 @@ type Volume struct {
 	// and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	//
-	// Constraint: Constraint: IOPS should be a positive value.
+	// Constraint: IOPS should be a positive value.
 	// Validation of IOPS (i.e. whether it is allowed and is in the specified range for a particular volume type) is done on aws side.
 	//
 	// Condition: This parameter is required for requests to create io1 volumes;

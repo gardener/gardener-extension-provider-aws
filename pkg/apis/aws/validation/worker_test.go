@@ -36,6 +36,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			io1type       = string(apisaws.VolumeTypeIO1)
 			io1iops int64 = 200
 			gp2type       = string(apisaws.VolumeTypeGP2)
+			gp2iops int64 = 400
 			gp3type       = string(apisaws.VolumeTypeGP3)
 			gp3iops int64 = 4000
 
@@ -139,6 +140,8 @@ var _ = Describe("ValidateWorkerConfig", func() {
 		It("should return no errors for a valid gp2 configuration", func() {
 			worker.Volume.IOPS = nil
 			Expect(ValidateWorkerConfig(worker, rootVolumeGP2, dataVolumes, fldPath)).To(BeEmpty())
+			worker.Volume.IOPS = &gp2iops // this will later fail on aws side because currently iops cannot be set for gp2.
+			Expect(ValidateWorkerConfig(worker, rootVolumeGP2, dataVolumes, fldPath)).To(BeEmpty())
 		})
 
 		It("should return no errors for a valid gp3 configuration", func() {
@@ -166,7 +169,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			))
 		})
 
-		It("should enforce that the IOPS is non negative", func() {
+		It("should enforce that the IOPS is positive", func() {
 			var negative int64 = -100
 			worker.Volume.IOPS = &negative
 			worker.DataVolumes[0].IOPS = &negative
@@ -184,7 +187,6 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				})),
 			))
 		})
-
 		It("should prevent duplicate entries for data volumes in workerconfig", func() {
 			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{Name: dataVolume1Name})
 

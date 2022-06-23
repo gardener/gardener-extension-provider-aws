@@ -107,14 +107,12 @@ func validateResourceQuantityValue(key corev1.ResourceName, value resource.Quant
 func validateVolumeConfig(volume *apisaws.Volume, volumeType string, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	iopsPath := fldPath.Child("iops")
-
-	if volumeType == string(apisaws.VolumeTypeIO1) && (volume == nil || volume.IOPS == nil) {
+	if volume != nil && volume.IOPS != nil {
+		if *volume.IOPS <= 0 {
+			allErrs = append(allErrs, field.Forbidden(iopsPath, "iops must be a positive value"))
+		}
+	} else if volumeType == string(apisaws.VolumeTypeIO1) {
 		allErrs = append(allErrs, field.Required(iopsPath, fmt.Sprintf("iops must be provided when using %s volumes", apisaws.VolumeTypeIO1)))
-		return allErrs
-	}
-
-	if volume != nil && volume.IOPS != nil && *volume.IOPS < 0 {
-		allErrs = append(allErrs, field.Forbidden(iopsPath, "iops must be a non negative value"))
 	}
 	return allErrs
 }
