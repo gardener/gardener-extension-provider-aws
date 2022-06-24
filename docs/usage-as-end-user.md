@@ -298,14 +298,13 @@ nodeTemplate: # (to be specified only if the node capacity would be different fr
 ```
 
 The `.volume.iops` is the number of I/O operations per second (IOPS) that the volume supports.
-For `io1` volume type, this represents the number of IOPS that are provisioned for the volume.
-For `gp2` volume type, this represents the baseline performance of the volume and the rate at which the volume accumulates I/O credits for bursting. For more information about General Purpose SSD baseline performance, I/O credits, and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the Amazon Elastic Compute Cloud User Guide.\
-Constraint: Range is 100-20000 IOPS for `io1` volumes and 100-10000 IOPS for `gp2` volumes.
+For `io1` and `gp3` volume type, this represents the number of IOPS that are provisioned for the volume.
+For `gp2` volume type, this represents the baseline performance of the volume and the rate at which the volume accumulates I/O credits for bursting. For more information about General Purpose SSD baseline performance, I/O credits, IOPS range and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the Amazon Elastic Compute Cloud User Guide.\
+Constraint: IOPS should be a positive value. Validation of IOPS (i.e. whether it is allowed and is in the specified range for a particular volume type) is done on aws side.
 
 The `.dataVolumes` can optionally contain configurations for the data volumes stated in the `Shoot` specification in the `.spec.provider.workers[].dataVolumes` list.
 The `.name` must match to the name of the data volume in the shoot.
-Apart from the `.iops` (which, again, is only valid for `io1` or `gp2` volumes), it is also possible to provide a snapshot ID.
-It allows to [restore the data volume from an existing snapshot](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-restoring-volume.html).
+It is also possible to provide a snapshot ID. It allows to [restore the data volume from an existing snapshot](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-restoring-volume.html).
 
 The `iamInstanceProfile` section allows to specify the IAM instance profile name xor ARN that should be used for this worker pool.
 If not specified, a dedicated IAM instance profile created by the infrastructure controller is used (see above).
@@ -349,7 +348,7 @@ spec:
       volume:
         size: 50Gi
         type: gp2
-    # The following provider config is only valid if the volume type is `io1`.
+    # The following provider config is valid if the volume type is `io1`.
     # providerConfig:
     #   apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
     #   kind: WorkerConfig

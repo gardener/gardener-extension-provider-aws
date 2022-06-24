@@ -37,13 +37,16 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			io1iops int64 = 200
 			gp2type       = string(apisaws.VolumeTypeGP2)
 			gp2iops int64 = 400
-			footype       = "foo"
+			gp3type       = string(apisaws.VolumeTypeGP3)
+			gp3iops int64 = 4000
 
 			rootVolumeIO1 = &core.Volume{Type: &io1type}
 			rootVolumeGP2 = &core.Volume{Type: &gp2type}
+			rootVolumeGP3 = &core.Volume{Type: &gp3type}
 
 			dataVolume1Name = "foo"
 			dataVolume2Name = "bar"
+			dataVolume3Name = "baz"
 			dataVolumes     []core.DataVolume
 			nodeTemplate    *extensionsv1alpha1.NodeTemplate
 
@@ -63,6 +66,10 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				{
 					Name: dataVolume2Name,
 					Type: &gp2type,
+				},
+				{
+					Name: dataVolume3Name,
+					Type: &gp3type,
 				},
 			}
 
@@ -131,11 +138,20 @@ var _ = Describe("ValidateWorkerConfig", func() {
 		})
 
 		It("should return no errors for a valid gp2 configuration", func() {
-			worker.Volume.IOPS = &gp2iops
-			Expect(ValidateWorkerConfig(worker, &core.Volume{Type: &gp2type}, dataVolumes, fldPath)).To(BeEmpty())
+			worker.Volume.IOPS = nil
+			Expect(ValidateWorkerConfig(worker, rootVolumeGP2, dataVolumes, fldPath)).To(BeEmpty())
+			worker.Volume.IOPS = &gp2iops // this will later fail on aws side because currently iops cannot be set for gp2.
+			Expect(ValidateWorkerConfig(worker, rootVolumeGP2, dataVolumes, fldPath)).To(BeEmpty())
 		})
 
-		It("should enforce that IOPS are provided for io1 volumes", func() {
+		It("should return no errors for a valid gp3 configuration", func() {
+			worker.Volume.IOPS = nil
+			Expect(ValidateWorkerConfig(worker, rootVolumeGP3, dataVolumes, fldPath)).To(BeEmpty())
+			worker.Volume.IOPS = &gp3iops
+			Expect(ValidateWorkerConfig(worker, rootVolumeGP3, dataVolumes, fldPath)).To(BeEmpty())
+		})
+
+		It("should enforce that IOPS is provided for io1 volumes", func() {
 			worker.Volume.IOPS = nil
 			worker.DataVolumes[0].IOPS = nil
 
@@ -153,34 +169,10 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			))
 		})
 
-		It("should enforce that the IOPS for gp2 volumes is within the allowed range", func() {
-			var tooLarge int64 = 123123123
-			worker.Volume.IOPS = &tooLarge
-			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{
-				Name: dataVolume2Name,
-				Volume: apisaws.Volume{
-					IOPS: &tooLarge,
-				},
-			})
-
-			errorList := ValidateWorkerConfig(worker, rootVolumeGP2, dataVolumes, fldPath)
-
-			Expect(errorList).To(ConsistOf(
-				PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeForbidden),
-					"Field": Equal("config.volume.iops"),
-				})),
-				PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeForbidden),
-					"Field": Equal("config.dataVolumes[1].iops"),
-				})),
-			))
-		})
-
-		It("should enforce that the IOPS for io1 volumes is within the allowed range", func() {
-			var tooLarge int64 = 123123123
-			worker.Volume.IOPS = &tooLarge
-			worker.DataVolumes[0].IOPS = &tooLarge
+		It("should enforce that the IOPS is positive", func() {
+			var negative int64 = -100
+			worker.Volume.IOPS = &negative
+			worker.DataVolumes[0].IOPS = &negative
 
 			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
@@ -195,33 +187,6 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				})),
 			))
 		})
-
-		It("should return an error if IOPS is set for a non-supported volume type", func() {
-			dataVolumes = append(dataVolumes, core.DataVolume{
-				Name: "broken",
-				Type: &footype,
-			})
-			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{
-				Name: "broken",
-				Volume: apisaws.Volume{
-					IOPS: &io1iops,
-				},
-			})
-
-			errorList := ValidateWorkerConfig(worker, &core.Volume{Type: &footype}, dataVolumes, fldPath)
-
-			Expect(errorList).To(ConsistOf(
-				PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeForbidden),
-					"Field": Equal("config.volume.iops"),
-				})),
-				PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeForbidden),
-					"Field": Equal("config.dataVolumes[2].iops"),
-				})),
-			))
-		})
-
 		It("should prevent duplicate entries for data volumes in workerconfig", func() {
 			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{Name: dataVolume1Name})
 

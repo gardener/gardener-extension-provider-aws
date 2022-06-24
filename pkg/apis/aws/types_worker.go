@@ -40,18 +40,18 @@ type WorkerConfig struct {
 // Volume contains configuration for the root disks attached to VMs.
 type Volume struct {
 	// IOPS is the number of I/O operations per second (IOPS) that the volume supports.
-	// For io1 volume type, this represents the number of IOPS that are provisioned for the
+	// For io1 and gp3 volume type, this represents the number of IOPS that are provisioned for the
 	// volume. For gp2 volume type, this represents the baseline performance of the volume and
 	// the rate at which the volume accumulates I/O credits for bursting. For more
 	// information about General Purpose SSD baseline performance, I/O credits,
 	// and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	//
-	// Constraint: Range is 100-20000 IOPS for io1 volumes and 100-10000 IOPS for
-	// gp2 volumes.
+	// Constraint: IOPS should be a positive value.
+	// Validation of IOPS (i.e. whether it is allowed and is in the specified range for a particular volume type) is done on aws side.
 	//
 	// Condition: This parameter is required for requests to create io1 volumes;
-	// it is not used in requests to create gp2, st1, sc1, or standard volumes.
+	// Do not specify it in requests to create gp2, st1, sc1, or standard volumes.
 	IOPS *int64
 }
 
@@ -106,4 +106,6 @@ const (
 	VolumeTypeIO1 VolumeType = "io1"
 	// VolumeTypeGP2 is a constant for the gp2 volume type.
 	VolumeTypeGP2 VolumeType = "gp2"
+	// VolumeTypeGP3 is a constant for the gp3 volume type.
+	VolumeTypeGP3 VolumeType = "gp3"
 )

@@ -106,27 +106,13 @@ func validateResourceQuantityValue(key corev1.ResourceName, value resource.Quant
 
 func validateVolumeConfig(volume *apisaws.Volume, volumeType string, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
-
-	if volumeType == string(apisaws.VolumeTypeIO1) && (volume == nil || volume.IOPS == nil) {
-		allErrs = append(allErrs, field.Required(fldPath.Child("iops"), fmt.Sprintf("iops must be provided when using %s volumes", apisaws.VolumeTypeIO1)))
-	}
-
+	iopsPath := fldPath.Child("iops")
 	if volume != nil && volume.IOPS != nil {
-		iopsPath := fldPath.Child("iops")
-
-		switch volumeType {
-		case string(apisaws.VolumeTypeGP2):
-			if *volume.IOPS < 100 || *volume.IOPS > 10000 {
-				allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("range is 100-10000 iops for %s volumes", apisaws.VolumeTypeGP2)))
-			}
-		case string(apisaws.VolumeTypeIO1):
-			if *volume.IOPS < 100 || *volume.IOPS > 20000 {
-				allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("range is 100-20000 iops for %s volumes", apisaws.VolumeTypeIO1)))
-			}
-		default:
-			allErrs = append(allErrs, field.Forbidden(iopsPath, fmt.Sprintf("setting iops is only allowed if volume type is %q or %q", apisaws.VolumeTypeGP2, apisaws.VolumeTypeIO1)))
+		if *volume.IOPS <= 0 {
+			allErrs = append(allErrs, field.Forbidden(iopsPath, "iops must be a positive value"))
 		}
+	} else if volumeType == string(apisaws.VolumeTypeIO1) {
+		allErrs = append(allErrs, field.Required(iopsPath, fmt.Sprintf("iops must be provided when using %s volumes", apisaws.VolumeTypeIO1)))
 	}
-
 	return allErrs
 }
