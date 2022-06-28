@@ -36,6 +36,13 @@ data:
         Reserve_Data        True
 
     [FILTER]
+        Name                parser
+        Match               kubernetes.*csi-snapshot*aws-csi*
+        Key_Name            log
+        Parser              kubeapiserverParser
+        Reserve_Data        True
+
+    [FILTER]
         Name                modify
         Match               kubernetes.*
         Condition           Key_value_matches tag ^kubernetes\.var\.log\.containers\.(cloud-controller-manager-.+?_.+?_aws-cloud-controller-manager|csi-driver-controller-.+?_.+?_aws-csi)
