@@ -363,12 +363,6 @@ github.com/google/pprof/profile
 # github.com/google/uuid v1.1.2
 ## explicit
 github.com/google/uuid
-# github.com/googleapis/gnostic v0.5.5
-## explicit; go 1.12
-github.com/googleapis/gnostic/compiler
-github.com/googleapis/gnostic/extensions
-github.com/googleapis/gnostic/jsonschema
-github.com/googleapis/gnostic/openapiv2
 # github.com/hashicorp/errwrap v1.0.0
 ## explicit
 github.com/hashicorp/errwrap
@@ -452,6 +446,9 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 ## explicit; go 1.12
 github.com/modern-go/reflect2
+# github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+## explicit
+github.com/munnerz/goautoneg
 # github.com/nwaples/rardecode v1.1.2
 ## explicit
 github.com/nwaples/rardecode
@@ -623,6 +620,8 @@ golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
+golang.org/x/net/internal/socks
+golang.org/x/net/proxy
 # golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 ## explicit; go 1.11
 golang.org/x/oauth2
@@ -760,7 +759,7 @@ istio.io/client-go/pkg/apis/networking/v1beta1
 # istio.io/gogo-genproto v0.0.0-20210113155706-4daf5697332f
 ## explicit; go 1.15
 istio.io/gogo-genproto/googleapis/google/api
-# k8s.io/api v0.24.2 => k8s.io/api v0.23.3
+# k8s.io/api v0.24.2 => k8s.io/api v0.24.2
 ## explicit; go 1.16
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -809,7 +808,7 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.24.2 => k8s.io/apiextensions-apiserver v0.23.3
+# k8s.io/apiextensions-apiserver v0.24.2 => k8s.io/apiextensions-apiserver v0.24.2
 ## explicit; go 1.16
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
@@ -818,7 +817,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.24.2 => k8s.io/apimachinery v0.23.3
+# k8s.io/apimachinery v0.24.2 => k8s.io/apimachinery v0.24.2
 ## explicit; go 1.16
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -873,7 +872,7 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.24.2 => k8s.io/apiserver v0.23.3
+# k8s.io/apiserver v0.24.2 => k8s.io/apiserver v0.24.2
 ## explicit; go 1.16
 k8s.io/apiserver/pkg/apis/config
 k8s.io/apiserver/pkg/apis/config/v1
@@ -882,7 +881,7 @@ k8s.io/apiserver/pkg/authentication/user
 ## explicit; go 1.14
 k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1
 k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1beta2
-# k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible => k8s.io/client-go v0.23.3
+# k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible => k8s.io/client-go v0.24.2
 ## explicit; go 1.16
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1
@@ -977,10 +976,10 @@ k8s.io/client-go/kubernetes/typed/storage/v1
 k8s.io/client-go/kubernetes/typed/storage/v1alpha1
 k8s.io/client-go/kubernetes/typed/storage/v1beta1
 k8s.io/client-go/metadata
+k8s.io/client-go/openapi
 k8s.io/client-go/pkg/apis/clientauthentication
 k8s.io/client-go/pkg/apis/clientauthentication/install
 k8s.io/client-go/pkg/apis/clientauthentication/v1
-k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1
 k8s.io/client-go/pkg/apis/clientauthentication/v1beta1
 k8s.io/client-go/pkg/version
 k8s.io/client-go/plugin/pkg/client/auth/exec
@@ -1013,7 +1012,7 @@ k8s.io/client-go/util/homedir
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
-# k8s.io/code-generator v0.24.2 => k8s.io/code-generator v0.23.3
+# k8s.io/code-generator v0.24.2 => k8s.io/code-generator v0.24.2
 ## explicit; go 1.16
 k8s.io/code-generator
 k8s.io/code-generator/cmd/client-gen
@@ -1049,7 +1048,7 @@ k8s.io/code-generator/cmd/set-gen
 k8s.io/code-generator/pkg/namer
 k8s.io/code-generator/pkg/util
 k8s.io/code-generator/third_party/forked/golang/reflect
-# k8s.io/component-base v0.24.2 => k8s.io/component-base v0.23.3
+# k8s.io/component-base v0.24.2 => k8s.io/component-base v0.24.2
 ## explicit; go 1.16
 k8s.io/component-base/config
 k8s.io/component-base/config/v1alpha1
@@ -1100,7 +1099,7 @@ k8s.io/klog/v2/internal/buffer
 k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
-# k8s.io/kube-aggregator v0.24.2 => k8s.io/kube-aggregator v0.23.3
+# k8s.io/kube-aggregator v0.24.2 => k8s.io/kube-aggregator v0.24.2
 ## explicit; go 1.16
 k8s.io/kube-aggregator/pkg/apis/apiregistration
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1
@@ -1114,6 +1113,8 @@ k8s.io/kube-openapi/pkg/builder3/util
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/generators
 k8s.io/kube-openapi/pkg/generators/rules
+k8s.io/kube-openapi/pkg/handler3
+k8s.io/kube-openapi/pkg/internal/handler
 k8s.io/kube-openapi/pkg/openapiconv
 k8s.io/kube-openapi/pkg/schemaconv
 k8s.io/kube-openapi/pkg/schemamutation
@@ -1225,18 +1226,18 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 # github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.11.1
-# k8s.io/api => k8s.io/api v0.23.3
-# k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.23.3
-# k8s.io/apimachinery => k8s.io/apimachinery v0.23.3
-# k8s.io/apiserver => k8s.io/apiserver v0.23.3
+# k8s.io/api => k8s.io/api v0.24.2
+# k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.24.2
+# k8s.io/apimachinery => k8s.io/apimachinery v0.24.2
+# k8s.io/apiserver => k8s.io/apiserver v0.24.2
 # k8s.io/autoscaler => k8s.io/autoscaler v0.0.0-20201008123815-1d78814026aa
 # k8s.io/autoscaler/vertical-pod-autoscaler => k8s.io/autoscaler/vertical-pod-autoscaler v0.9.0
-# k8s.io/client-go => k8s.io/client-go v0.23.3
-# k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.23.3
-# k8s.io/code-generator => k8s.io/code-generator v0.23.3
-# k8s.io/component-base => k8s.io/component-base v0.23.3
+# k8s.io/client-go => k8s.io/client-go v0.24.2
+# k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.24.2
+# k8s.io/code-generator => k8s.io/code-generator v0.24.2
+# k8s.io/component-base => k8s.io/component-base v0.24.2
 # k8s.io/helm => k8s.io/helm v2.13.1+incompatible
-# k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.23.3
+# k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.24.2
 # sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.11.1
 # github.com/gardener/hvpa-controller => github.com/gardener/hvpa-controller v0.4.0
 # github.com/gardener/hvpa-controller/api => github.com/gardener/hvpa-controller/api v0.4.0

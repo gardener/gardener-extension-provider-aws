@@ -68,7 +68,6 @@ require (
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
 	github.com/google/uuid v1.1.2 // indirect
-	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -93,6 +92,7 @@ require (
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nwaples/rardecode v1.1.2 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.0-beta.8 // indirect
@@ -148,18 +148,18 @@ require (
 
 replace (
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.11.1 // keep this value in sync with sigs.k8s.io/controller-runtime
-	k8s.io/api => k8s.io/api v0.23.3
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.23.3
-	k8s.io/apimachinery => k8s.io/apimachinery v0.23.3
-	k8s.io/apiserver => k8s.io/apiserver v0.23.3
+	k8s.io/api => k8s.io/api v0.24.2
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.24.2
+	k8s.io/apimachinery => k8s.io/apimachinery v0.24.2
+	k8s.io/apiserver => k8s.io/apiserver v0.24.2
 	k8s.io/autoscaler => k8s.io/autoscaler v0.0.0-20201008123815-1d78814026aa // translates to k8s.io/autoscaler/vertical-pod-autoscaler@v0.9.0
 	k8s.io/autoscaler/vertical-pod-autoscaler => k8s.io/autoscaler/vertical-pod-autoscaler v0.9.0
-	k8s.io/client-go => k8s.io/client-go v0.23.3
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.23.3
-	k8s.io/code-generator => k8s.io/code-generator v0.23.3
-	k8s.io/component-base => k8s.io/component-base v0.23.3
+	k8s.io/client-go => k8s.io/client-go v0.24.2
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.24.2
+	k8s.io/code-generator => k8s.io/code-generator v0.24.2
+	k8s.io/component-base => k8s.io/component-base v0.24.2
 	k8s.io/helm => k8s.io/helm v2.13.1+incompatible
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.23.3
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.24.2
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.11.1
 )
 
