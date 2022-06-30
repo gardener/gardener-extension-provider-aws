@@ -8,8 +8,8 @@ require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.2.0
 	github.com/aws/aws-sdk-go v1.38.19
 	github.com/coreos/go-systemd/v22 v22.3.2
-	github.com/gardener/etcd-druid v0.8.0
-	github.com/gardener/gardener v1.48.0
+	github.com/gardener/etcd-druid v0.9.0
+	github.com/gardener/gardener v1.50.1-0.20220701074220-216e074e49da
 	github.com/gardener/machine-controller-manager v0.45.0
 	github.com/go-logr/logr v1.2.3
 	github.com/golang/mock v1.6.0
@@ -18,19 +18,19 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
+	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
 	golang.org/x/tools v0.1.10
-	k8s.io/api v0.23.3
-	k8s.io/apiextensions-apiserver v0.23.3
-	k8s.io/apimachinery v0.23.3
-	k8s.io/autoscaler/vertical-pod-autoscaler v0.10.0
+	k8s.io/api v0.24.2
+	k8s.io/apiextensions-apiserver v0.24.2
+	k8s.io/apimachinery v0.24.2
+	k8s.io/autoscaler/vertical-pod-autoscaler v0.11.0
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
-	k8s.io/code-generator v0.23.3
-	k8s.io/component-base v0.23.3
-	k8s.io/kubelet v0.23.3
+	k8s.io/code-generator v0.24.2
+	k8s.io/component-base v0.24.2
+	k8s.io/kubelet v0.24.2
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
-	sigs.k8s.io/controller-runtime v0.11.1
-	sigs.k8s.io/controller-tools v0.8.0
+	sigs.k8s.io/controller-runtime v0.12.1
+	sigs.k8s.io/controller-tools v0.9.0
 )
 
 require (
@@ -57,12 +57,13 @@ require (
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
-	github.com/gobuffalo/flect v0.2.3 // indirect
+	github.com/gobuffalo/flect v0.2.5 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
@@ -131,16 +132,16 @@ require (
 	istio.io/api v0.0.0-20220304035241-8c47cbbea144 // indirect
 	istio.io/client-go v1.12.5 // indirect
 	istio.io/gogo-genproto v0.0.0-20210113155706-4daf5697332f // indirect
-	k8s.io/apiserver v0.23.3 // indirect
-	k8s.io/gengo v0.0.0-20210813121822-485abfe95c7c // indirect
+	k8s.io/apiserver v0.24.2 // indirect
+	k8s.io/gengo v0.0.0-20211129171323-c02415ce4185 // indirect
 	k8s.io/helm v2.16.1+incompatible // indirect
 	k8s.io/klog v1.0.0 // indirect
-	k8s.io/klog/v2 v2.30.0 // indirect
-	k8s.io/kube-aggregator v0.23.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
-	k8s.io/metrics v0.23.3 // indirect
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20220513175748-3f265c36d7bf // indirect
-	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
+	k8s.io/klog/v2 v2.60.1 // indirect
+	k8s.io/kube-aggregator v0.24.2 // indirect
+	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
+	k8s.io/metrics v0.24.2 // indirect
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20220613074012-11e533d55213 // indirect
+	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )

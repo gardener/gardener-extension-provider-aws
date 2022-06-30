@@ -23,7 +23,7 @@ import (
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 
-	"github.com/gardener/gardener/extensions/test/testmachinery/generator"
+	"github.com/gardener/gardener/test/testmachinery/extensions/generator"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
