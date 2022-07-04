@@ -124,7 +124,7 @@ check-generate:
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/check-generate.sh $(REPO_ROOT)
 
 .PHONY: check
-check:
+check: $(GOIMPORTS) $(GOLANGCI_LINT) 
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/check.sh --golangci-lint-config=./.golangci.yaml ./cmd/... ./pkg/... ./test/...
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/check-charts.sh ./charts
 
@@ -137,7 +137,7 @@ generate: $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(HELM) $(MOCKGEN)
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/generate.sh ./charts/... ./cmd/... ./example/... ./pkg/...
 
 .PHONY: format
-format:
+format: $(GOIMPORTS)
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/format.sh ./cmd ./pkg ./test
 
 .PHONY: test
@@ -156,7 +156,7 @@ test-clean:
 verify: check format test
 
 .PHONY: verify-extended
-verify-extended: install-requirements check-generate check format test-cov test-clean
+verify-extended: check-generate check format test-cov test-clean
 
 .PHONY: integration-test-infra
 integration-test-infra:
