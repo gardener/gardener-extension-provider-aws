@@ -131,7 +131,7 @@ github.com/gardener/etcd-druid/api/v1alpha1
 ## explicit; go 1.14
 github.com/gardener/external-dns-management/pkg/apis/dns
 github.com/gardener/external-dns-management/pkg/apis/dns/v1alpha1
-# github.com/gardener/gardener v1.50.1-0.20220701074220-216e074e49da
+# github.com/gardener/gardener v1.50.1
 ## explicit; go 1.18
 github.com/gardener/gardener/.github
 github.com/gardener/gardener/.github/ISSUE_TEMPLATE
@@ -877,8 +877,8 @@ k8s.io/apimachinery/third_party/forked/golang/reflect
 k8s.io/apiserver/pkg/apis/config
 k8s.io/apiserver/pkg/apis/config/v1
 k8s.io/apiserver/pkg/authentication/user
-# k8s.io/autoscaler/vertical-pod-autoscaler v0.11.0 => k8s.io/autoscaler/vertical-pod-autoscaler v0.9.0
-## explicit; go 1.14
+# k8s.io/autoscaler/vertical-pod-autoscaler v0.11.0 => k8s.io/autoscaler/vertical-pod-autoscaler v0.11.0
+## explicit; go 1.17
 k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1
 k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1beta2
 # k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible => k8s.io/client-go v0.24.2
@@ -1231,8 +1231,8 @@ sigs.k8s.io/yaml
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.24.2
 # k8s.io/apimachinery => k8s.io/apimachinery v0.24.2
 # k8s.io/apiserver => k8s.io/apiserver v0.24.2
-# k8s.io/autoscaler => k8s.io/autoscaler v0.0.0-20201008123815-1d78814026aa
-# k8s.io/autoscaler/vertical-pod-autoscaler => k8s.io/autoscaler/vertical-pod-autoscaler v0.9.0
+# k8s.io/autoscaler => k8s.io/autoscaler v0.0.0-20220531185024-cc90d57b7fe1
+# k8s.io/autoscaler/vertical-pod-autoscaler => k8s.io/autoscaler/vertical-pod-autoscaler v0.11.0
 # k8s.io/client-go => k8s.io/client-go v0.24.2
 # k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.24.2
 # k8s.io/code-generator => k8s.io/code-generator v0.24.2

@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.38.19
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/gardener/etcd-druid v0.9.0
-	github.com/gardener/gardener v1.50.1-0.20220701074220-216e074e49da
+	github.com/gardener/gardener v1.50.1
 	github.com/gardener/machine-controller-manager v0.45.0
 	github.com/go-logr/logr v1.2.3
 	github.com/golang/mock v1.6.0
@@ -152,8 +152,8 @@ replace (
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.24.2
 	k8s.io/apimachinery => k8s.io/apimachinery v0.24.2
 	k8s.io/apiserver => k8s.io/apiserver v0.24.2
-	k8s.io/autoscaler => k8s.io/autoscaler v0.0.0-20201008123815-1d78814026aa // translates to k8s.io/autoscaler/vertical-pod-autoscaler@v0.9.0
-	k8s.io/autoscaler/vertical-pod-autoscaler => k8s.io/autoscaler/vertical-pod-autoscaler v0.9.0
+	k8s.io/autoscaler => k8s.io/autoscaler v0.0.0-20220531185024-cc90d57b7fe1 // translates to k8s.io/autoscaler/vertical-pod-autoscaler@v0.11.0
+	k8s.io/autoscaler/vertical-pod-autoscaler => k8s.io/autoscaler/vertical-pod-autoscaler v0.11.0
 	k8s.io/client-go => k8s.io/client-go v0.24.2
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.24.2
 	k8s.io/code-generator => k8s.io/code-generator v0.24.2
