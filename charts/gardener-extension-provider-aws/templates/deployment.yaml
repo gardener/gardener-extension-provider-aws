@@ -29,7 +29,7 @@ spec:
         {{- if and .Values.metrics.enableScraping }}
         prometheus.io/scrape: "true"
         # default metrics endpoint in controller-runtime
-        prometheus.io/port: {{ .Values.metricsPort }}
+        prometheus.io/port: "{{ .Values.metricsPort }}"
         {{- end }}
       labels:
 {{ include "labels" . | indent 8 }}
