@@ -111,14 +111,15 @@ func (w *workerDelegate) generateMachineConfig() error {
 			return err
 		}
 
-		ami, err := w.findMachineImage(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region)
+		ami, err := w.findMachineImage(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, pool.Architecture)
 		if err != nil {
 			return err
 		}
 		machineImages = appendMachineImage(machineImages, awsapi.MachineImage{
-			Name:    pool.MachineImage.Name,
-			Version: pool.MachineImage.Version,
-			AMI:     ami,
+			Name:         pool.MachineImage.Name,
+			Version:      pool.MachineImage.Version,
+			AMI:          ami,
+			Architecture: pool.Architecture,
 		})
 
 		blockDevices, err := w.computeBlockDevices(pool, workerConfig)

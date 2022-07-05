@@ -49,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 )
 
 var ctx = context.TODO()
@@ -104,6 +105,9 @@ var _ = Describe("Machines", func() {
 				instanceProfileName string
 				securityGroupID     string
 				keyName             string
+
+				archAMD string
+				archARM string
 
 				volumeType      string
 				volumeSize      int
@@ -178,6 +182,9 @@ var _ = Describe("Machines", func() {
 				instanceProfileName = "nodes-instance-prof"
 				securityGroupID = "sg-12345"
 				keyName = "my-ssh-key"
+
+				archAMD = "amd64"
+				archARM = "arm64"
 
 				volumeType = "normal"
 				volumeSize = 20
@@ -262,8 +269,9 @@ var _ = Describe("Machines", func() {
 									Version: machineImageVersion,
 									Regions: []apiv1alpha1.RegionAMIMapping{
 										{
-											Name: region,
-											AMI:  machineImageAMI,
+											Name:         region,
+											AMI:          machineImageAMI,
+											Architecture: pointer.String(archAMD),
 										},
 									},
 								},
@@ -360,6 +368,7 @@ var _ = Describe("Machines", func() {
 								MaxSurge:       maxSurgePool1,
 								MaxUnavailable: maxUnavailablePool1,
 								MachineType:    machineType,
+								Architecture:   pointer.String(archAMD),
 								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
 									Capacity: nodeCapacity,
 								},
@@ -419,6 +428,7 @@ var _ = Describe("Machines", func() {
 								MaxSurge:       maxSurgePool2,
 								MaxUnavailable: maxUnavailablePool2,
 								MachineType:    machineType,
+								Architecture:   pointer.String(archAMD),
 								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
 									Capacity: nodeCapacity,
 								},
@@ -721,9 +731,10 @@ var _ = Describe("Machines", func() {
 						},
 						MachineImages: []apiv1alpha1.MachineImage{
 							{
-								Name:    machineImageName,
-								Version: machineImageVersion,
-								AMI:     machineImageAMI,
+								Name:         machineImageName,
+								Version:      machineImageVersion,
+								AMI:          machineImageAMI,
+								Architecture: pointer.String(archAMD),
 							},
 						},
 					}
@@ -782,7 +793,6 @@ var _ = Describe("Machines", func() {
 							"machineclass",
 							kubernetes.Values(machineClasses),
 						)
-
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
 					})
 
@@ -873,6 +883,16 @@ var _ = Describe("Machines", func() {
 
 			It("should fail because the ami for this region cannot be found", func() {
 				w.Spec.Region = "another-region"
+
+				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
+
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
+				Expect(err).To(HaveOccurred())
+				Expect(result).To(BeNil())
+			})
+
+			It("should fail because the ami for this architecture cannot be found", func() {
+				w.Spec.Pools[0].Architecture = pointer.String(archARM)
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
