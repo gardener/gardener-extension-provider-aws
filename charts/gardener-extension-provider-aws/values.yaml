@@ -21,6 +21,7 @@ vpa:
   updatePolicy:
     updateMode: "Auto"
 
+metricsPort: 8080
 healthPort: 8081
 
 controllers:
