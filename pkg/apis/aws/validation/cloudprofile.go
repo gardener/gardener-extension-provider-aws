@@ -19,7 +19,9 @@ import (
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/strings/slices"
 )
 
 // ValidateCloudProfileConfig validates a CloudProfileConfig object.
@@ -58,6 +60,9 @@ func ValidateCloudProfileConfig(cloudProfile *apisaws.CloudProfileConfig, fldPat
 				}
 				if len(region.AMI) == 0 {
 					allErrs = append(allErrs, field.Required(kdxPath.Child("ami"), "must provide an ami"))
+				}
+				if !slices.Contains(v1beta1constants.ValidArchitectures, *region.Architecture) {
+					allErrs = append(allErrs, field.NotSupported(kdxPath.Child("architecture"), *region.Architecture, v1beta1constants.ValidArchitectures))
 				}
 			}
 		}
