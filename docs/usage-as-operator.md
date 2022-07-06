@@ -27,6 +27,7 @@ machineImages:
     regions:
     - name: eu-central-1
       ami: ami-034fd8c3f4026eb39
+      # architecture: amd64 # optional
 ```
 
 ### Example `CloudProfile` manifest
@@ -78,6 +79,7 @@ spec:
         regions:
         - name: eu-central-1
           ami: ami-034fd8c3f4026eb39
+          # architecture: amd64 # optional
 ```
 
 ## `Seed` resource
