@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"k8s.io/utils/pointer"
 )
 
 // FindInstanceProfileForPurpose takes a list of instance profiles and tries to find the first entry
@@ -85,7 +86,7 @@ func FindSubnetForPurposeAndZone(subnets []api.Subnet, purpose, zone string) (*a
 // found then an error will be returned.
 func FindMachineImage(machineImages []api.MachineImage, name, version string, arch *string) (*api.MachineImage, error) {
 	for _, machineImage := range machineImages {
-		if machineImage.Name == name && machineImage.Version == version && *machineImage.Architecture == *arch {
+		if machineImage.Name == name && machineImage.Version == version && pointer.StringEqual(arch, machineImage.Architecture) {
 			return &machineImage, nil
 		}
 	}
@@ -106,7 +107,7 @@ func FindAMIForRegionFromCloudProfile(cloudProfileConfig *api.CloudProfileConfig
 					continue
 				}
 				for _, mapping := range version.Regions {
-					if regionName == mapping.Name && *arch == *mapping.Architecture {
+					if regionName == mapping.Name && pointer.StringEqual(arch, mapping.Architecture) {
 						return mapping.AMI, nil
 					}
 				}
