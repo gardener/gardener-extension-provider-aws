@@ -96,6 +96,8 @@ type MachineImage struct {
 	Version string
 	// AMI is the AMI for the machine image.
 	AMI string
+	// Architecture is the CPU architecture of the machine image.
+	Architecture *string
 }
 
 // VolumeType is a constant for volume types.

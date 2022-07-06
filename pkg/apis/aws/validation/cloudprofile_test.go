@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("CloudProfileConfig validation", func() {
@@ -38,8 +39,9 @@ var _ = Describe("CloudProfileConfig validation", func() {
 								Version: "1.2.3",
 								Regions: []apisaws.RegionAMIMapping{
 									{
-										Name: "eu",
-										AMI:  "ami-1234",
+										Name:         "eu",
+										AMI:          "ami-1234",
+										Architecture: pointer.String("amd64"),
 									},
 								},
 							},
@@ -101,7 +103,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 						Versions: []apisaws.MachineImageVersion{
 							{
 								Version: "1.2.3",
-								Regions: []apisaws.RegionAMIMapping{{}},
+								Regions: []apisaws.RegionAMIMapping{{Architecture: pointer.String("amd64")}},
 							},
 						},
 					},
@@ -115,6 +117,17 @@ var _ = Describe("CloudProfileConfig validation", func() {
 				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("root.machineImages[0].versions[0].regions[0].ami"),
+				}))))
+			})
+
+			It("should forbid unsupported machine image architecture configuration", func() {
+				cloudProfileConfig.MachineImages[0].Versions[0].Regions[0].Architecture = pointer.String("foo")
+
+				errorList := ValidateCloudProfileConfig(cloudProfileConfig, field.NewPath("root"))
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeNotSupported),
+					"Field": Equal("root.machineImages[0].versions[0].regions[0].architecture"),
 				}))))
 			})
 		})

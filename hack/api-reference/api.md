@@ -738,6 +738,18 @@ string
 <p>AMI is the AMI for the machine image.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>architecture</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Architecture is the CPU architecture of the machine image.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion
@@ -908,6 +920,18 @@ string
 </td>
 <td>
 <p>AMI is the AMI for the machine image.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>architecture</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Architecture is the CPU architecture of the machine image.</p>
 </td>
 </tr>
 </tbody>

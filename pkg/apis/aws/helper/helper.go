@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"k8s.io/utils/pointer"
 )
 
 // FindInstanceProfileForPurpose takes a list of instance profiles and tries to find the first entry
@@ -81,21 +82,21 @@ func FindSubnetForPurposeAndZone(subnets []api.Subnet, purpose, zone string) (*a
 }
 
 // FindMachineImage takes a list of machine images and tries to find the first entry
-// whose name, version, and zone matches with the given name, version, and region. If no such entry is
+// whose name, version, architecture and zone matches with the given name, version, architecture and region. If no such entry is
 // found then an error will be returned.
-func FindMachineImage(machineImages []api.MachineImage, name, version string) (*api.MachineImage, error) {
+func FindMachineImage(machineImages []api.MachineImage, name, version string, arch *string) (*api.MachineImage, error) {
 	for _, machineImage := range machineImages {
-		if machineImage.Name == name && machineImage.Version == version {
+		if machineImage.Name == name && machineImage.Version == version && pointer.StringEqual(arch, machineImage.Architecture) {
 			return &machineImage, nil
 		}
 	}
-	return nil, fmt.Errorf("no machine image with name %q, version %q found", name, version)
+	return nil, fmt.Errorf("no machine image found with name %q, architecture %q and version %q", name, *arch, version)
 }
 
-// FindAMIForRegionFromCloudProfile takes a list of machine images, and the desired image name, version, and region. It tries
-// to find the image with the given name and version in the desired region. If it cannot be found then an error
+// FindAMIForRegionFromCloudProfile takes a list of machine images, and the desired image name, version, architecture and region. It tries
+// to find the image with the given name, architecture and version in the desired region. If it cannot be found then an error
 // is returned.
-func FindAMIForRegionFromCloudProfile(cloudProfileConfig *api.CloudProfileConfig, imageName, imageVersion, regionName string) (string, error) {
+func FindAMIForRegionFromCloudProfile(cloudProfileConfig *api.CloudProfileConfig, imageName, imageVersion, regionName string, arch *string) (string, error) {
 	if cloudProfileConfig != nil {
 		for _, machineImage := range cloudProfileConfig.MachineImages {
 			if machineImage.Name != imageName {
@@ -106,7 +107,7 @@ func FindAMIForRegionFromCloudProfile(cloudProfileConfig *api.CloudProfileConfig
 					continue
 				}
 				for _, mapping := range version.Regions {
-					if regionName == mapping.Name {
+					if regionName == mapping.Name && pointer.StringEqual(arch, mapping.Architecture) {
 						return mapping.AMI, nil
 					}
 				}
@@ -114,7 +115,7 @@ func FindAMIForRegionFromCloudProfile(cloudProfileConfig *api.CloudProfileConfig
 		}
 	}
 
-	return "", fmt.Errorf("could not find an AMI for region %q and name %q in version %q", regionName, imageName, imageVersion)
+	return "", fmt.Errorf("could not find an AMI for region %q, name %q and architecture %q in version %q", regionName, imageName, *arch, imageVersion)
 }
 
 // FindDataVolumeByName takes a list of data volumes and a data volume name. It tries to find the data volume entry for

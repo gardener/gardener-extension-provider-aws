@@ -107,6 +107,9 @@ type MachineImage struct {
 	Version string `json:"version"`
 	// AMI is the AMI for the machine image.
 	AMI string `json:"ami"`
+	// Architecture is the CPU architecture of the machine image.
+	// +optional
+	Architecture *string `json:"architecture,omitempty"`
 }
 
 // VolumeType is a constant for volume types.

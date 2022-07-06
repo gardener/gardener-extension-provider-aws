@@ -51,4 +51,6 @@ type RegionAMIMapping struct {
 	Name string
 	// AMI is the AMI for the machine image.
 	AMI string
+	// Architecture is the CPU architecture of the machine image.
+	Architecture *string
 }

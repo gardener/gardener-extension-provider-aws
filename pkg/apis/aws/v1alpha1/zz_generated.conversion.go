@@ -566,6 +566,7 @@ func autoConvert_v1alpha1_MachineImage_To_aws_MachineImage(in *MachineImage, out
 	out.Name = in.Name
 	out.Version = in.Version
 	out.AMI = in.AMI
+	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
 	return nil
 }
 
@@ -578,6 +579,7 @@ func autoConvert_aws_MachineImage_To_v1alpha1_MachineImage(in *aws.MachineImage,
 	out.Name = in.Name
 	out.Version = in.Version
 	out.AMI = in.AMI
+	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
 	return nil
 }
 
@@ -659,6 +661,7 @@ func Convert_aws_Networks_To_v1alpha1_Networks(in *aws.Networks, out *Networks, 
 func autoConvert_v1alpha1_RegionAMIMapping_To_aws_RegionAMIMapping(in *RegionAMIMapping, out *aws.RegionAMIMapping, s conversion.Scope) error {
 	out.Name = in.Name
 	out.AMI = in.AMI
+	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
 	return nil
 }
 
@@ -670,6 +673,7 @@ func Convert_v1alpha1_RegionAMIMapping_To_aws_RegionAMIMapping(in *RegionAMIMapp
 func autoConvert_aws_RegionAMIMapping_To_v1alpha1_RegionAMIMapping(in *aws.RegionAMIMapping, out *RegionAMIMapping, s conversion.Scope) error {
 	out.Name = in.Name
 	out.AMI = in.AMI
+	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
 	return nil
 }
 
