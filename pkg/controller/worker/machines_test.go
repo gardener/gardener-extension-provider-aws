@@ -428,7 +428,6 @@ var _ = Describe("Machines", func() {
 								MaxSurge:       maxSurgePool2,
 								MaxUnavailable: maxUnavailablePool2,
 								MachineType:    machineType,
-								Architecture:   pointer.String(archAMD),
 								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
 									Capacity: nodeCapacity,
 								},

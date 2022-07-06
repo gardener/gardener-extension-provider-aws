@@ -61,21 +61,13 @@ func (w *workerDelegate) findMachineImage(name, version string, region string, a
 
 		machineImage, err := helper.FindMachineImage(workerStatus.MachineImages, name, version, arch)
 		if err != nil {
-			if arch != nil {
-				return "", worker.ErrorMachineImageNotFound(name, version, *arch, region)
-			} else {
-				return "", worker.ErrorMachineImageNotFound(name, version, region)
-			}
+			return "", worker.ErrorMachineImageNotFound(name, version, *arch, region)
 		}
 
 		return machineImage.AMI, nil
 	}
 
-	if arch != nil {
-		return "", worker.ErrorMachineImageNotFound(name, version, *arch, region)
-	} else {
-		return "", worker.ErrorMachineImageNotFound(name, version, region)
-	}
+	return "", worker.ErrorMachineImageNotFound(name, version, *arch, region)
 }
 
 func appendMachineImage(machineImages []api.MachineImage, machineImage api.MachineImage) []api.MachineImage {

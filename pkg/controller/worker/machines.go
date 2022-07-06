@@ -35,6 +35,7 @@ import (
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -111,7 +112,9 @@ func (w *workerDelegate) generateMachineConfig() error {
 			return err
 		}
 
-		ami, err := w.findMachineImage(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, pool.Architecture)
+		arch := pointer.StringDeref(pool.Architecture, v1beta1constants.ArchitectureAMD64)
+
+		ami, err := w.findMachineImage(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, &arch)
 		if err != nil {
 			return err
 		}
@@ -119,7 +122,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 			Name:         pool.MachineImage.Name,
 			Version:      pool.MachineImage.Version,
 			AMI:          ami,
-			Architecture: pool.Architecture,
+			Architecture: &arch,
 		})
 
 		blockDevices, err := w.computeBlockDevices(pool, workerConfig)

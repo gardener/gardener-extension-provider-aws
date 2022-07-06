@@ -14,6 +14,7 @@ In this section we are describing how the configuration for `CloudProfile`s look
 
 The cloud profile configuration contains information about the real machine image IDs in the AWS environment (AMIs).
 You have to map every version that you specify in `.spec.machineImages[].versions` here such that the AWS extension knows the AMI for every version you want to offer.
+For each AMI an `architecture` field can be specified which specifies the CPU architecture of the machine on which given machine image can be used.
 
 An example `CloudProfileConfig` for the AWS extension looks as follows:
 
