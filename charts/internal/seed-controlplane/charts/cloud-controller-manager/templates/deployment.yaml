@@ -32,6 +32,7 @@ spec:
 {{- end }}
     spec:
       automountServiceAccountToken: false
+      priorityClassName: gardener-system-300
       containers:
       - name: aws-cloud-controller-manager
         image: {{ index .Values.images "cloud-controller-manager" }}

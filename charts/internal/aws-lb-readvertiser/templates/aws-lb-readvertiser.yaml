@@ -25,6 +25,7 @@ spec:
 {{- end }}
     spec:
       automountServiceAccountToken: false
+      priorityClassName: gardener-system-900
       containers:
       - name: aws-lb-readvertiser
         image: {{ index .Values.images "aws-lb-readvertiser" }}
