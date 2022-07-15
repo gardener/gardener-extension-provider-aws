@@ -37,3 +37,18 @@ resources:
       memory: 300Mi
 
 pspDisabled: false
+
+vpa:
+  resourcePolicy:
+    driver:
+      maxAllowed:
+        cpu: 2
+        memory: 4G
+    nodeDriverRegistrar:
+      maxAllowed:
+        cpu: 1
+        memory: 3G
+    livenessProbe:
+      maxAllowed:
+        cpu: 1
+        memory: 3G
