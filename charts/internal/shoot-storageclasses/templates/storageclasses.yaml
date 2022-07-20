@@ -16,18 +16,6 @@ provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
 
 ---
-apiVersion: {{ include "storageclassversion" . }}
-kind: StorageClass
-metadata:
-  annotations:
-    resources.gardener.cloud/delete-on-invalid-update: "true"
-  name: gp2
-allowVolumeExpansion: true
-parameters:
-  encrypted: "true"
-provisioner: ebs.csi.aws.com
-volumeBindingMode: WaitForFirstConsumer
----
 apiVersion: snapshot.storage.k8s.io/v1beta1
 kind: VolumeSnapshotClass
 metadata:
