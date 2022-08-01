@@ -19,15 +19,15 @@ import (
 	"time"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"github.com/go-logr/logr"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // CreateSubnet creates a new subnet and waits for it to become available.
-func CreateSubnet(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcID string, cidr string, name string) (string, error) {
+func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string, cidr string, name string) (string, error) {
 	output, err := awsClient.EC2.CreateSubnet(&ec2.CreateSubnetInput{
 		CidrBlock: awssdk.String(cidr),
 		VpcId:     awssdk.String(vpcID),
@@ -50,7 +50,7 @@ func CreateSubnet(ctx context.Context, logger *logrus.Entry, awsClient *awsclien
 	subnetID := output.Subnet.SubnetId
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		logger.Infof("Waiting until subnet '%s' is available...", *subnetID)
+		log.Info("Waiting until subnet '%s' is available...", *subnetID)
 
 		output, err := awsClient.EC2.DescribeSubnets(&ec2.DescribeSubnetsInput{
 			SubnetIds: []*string{subnetID},
@@ -73,7 +73,7 @@ func CreateSubnet(ctx context.Context, logger *logrus.Entry, awsClient *awsclien
 }
 
 // DestroySubnet deletes an existing subnet.
-func DestroySubnet(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, subnetID string) error {
+func DestroySubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, subnetID string) error {
 	_, err := awsClient.EC2.DeleteSubnet(&ec2.DeleteSubnetInput{
 		SubnetId: awssdk.String(subnetID),
 	})

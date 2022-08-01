@@ -18,10 +18,10 @@ import (
 	"context"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"github.com/go-logr/logr"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sirupsen/logrus"
 )
 
 // CreateSecurityGroup creates a new security group.
@@ -50,7 +50,7 @@ func CreateSecurityGroup(ctx context.Context, awsClient *awsclient.Client, group
 }
 
 // DestroySecurityGroup deletes an existing security group.
-func DestroySecurityGroup(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, securityGroupID string) error {
+func DestroySecurityGroup(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, securityGroupID string) error {
 	_, err := awsClient.EC2.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
 		GroupId: awssdk.String(securityGroupID),
 	})

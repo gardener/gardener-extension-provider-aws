@@ -26,17 +26,18 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	dnsrecordctrl "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
+	"github.com/go-logr/logr"
 
 	"github.com/aws/aws-sdk-go/service/route53"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
+	"github.com/gardener/gardener/pkg/logger"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/test/framework"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,7 +67,7 @@ func validateFlags() {
 var (
 	ctx = context.Background()
 
-	logger    *logrus.Entry
+	log       logr.Logger
 	awsClient *awsclient.Client
 	testEnv   *envtest.Environment
 	mgrCancel context.CancelFunc
@@ -85,11 +86,9 @@ var _ = BeforeSuite(func() {
 	repoRoot := filepath.Join("..", "..", "..")
 
 	// enable manager logs
-	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
+	logf.SetLogger(logger.MustNewZapLogger(logger.DebugLevel, logger.FormatJSON, zap.WriteTo(GinkgoWriter)))
 
-	log := logrus.New()
-	log.SetOutput(GinkgoWriter)
-	logger = logrus.NewEntry(log)
+	log = logf.Log.WithName("dnsrecord-test")
 
 	DeferCleanup(func() {
 		defer func() {
@@ -217,7 +216,7 @@ var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, before
 		deleteDNSRecord(ctx, c, dns)
 
 		By("waiting until dnsrecord is deleted")
-		waitUntilDNSRecordDeleted(ctx, c, logger, dns)
+		waitUntilDNSRecordDeleted(ctx, c, log, dns)
 
 		By("verifying that the AWS DNS recordset does not exist")
 		verifyDNSRecordSetDeleted(ctx, awsClient, dns)
@@ -229,7 +228,7 @@ var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, before
 	})
 
 	By("waiting until dnsrecord is ready")
-	waitUntilDNSRecordReady(ctx, c, logger, dns)
+	waitUntilDNSRecordReady(ctx, c, log, dns)
 
 	By("getting dnsrecord and verifying its status")
 	getDNSRecordAndVerifyStatus(ctx, c, dns, zoneID)
@@ -252,7 +251,7 @@ var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, before
 		updateDNSRecord(ctx, c, dns)
 
 		By("waiting until dnsrecord is ready")
-		waitUntilDNSRecordReady(ctx, c, logger, dns)
+		waitUntilDNSRecordReady(ctx, c, log, dns)
 
 		By("getting dnsrecord and verifying its status")
 		getDNSRecordAndVerifyStatus(ctx, c, dns, zoneID)
@@ -357,11 +356,11 @@ func getDNSRecordAndVerifyStatus(ctx context.Context, c client.Client, dns *exte
 	Expect(dns.Status.Zone).To(PointTo(Equal(zoneID)))
 }
 
-func waitUntilDNSRecordReady(ctx context.Context, c client.Client, logger *logrus.Entry, dns *extensionsv1alpha1.DNSRecord) {
+func waitUntilDNSRecordReady(ctx context.Context, c client.Client, log logr.Logger, dns *extensionsv1alpha1.DNSRecord) {
 	Expect(extensions.WaitUntilExtensionObjectReady(
 		ctx,
 		c,
-		logger,
+		log,
 		dns,
 		extensionsv1alpha1.DNSRecordResource,
 		10*time.Second,
@@ -371,11 +370,11 @@ func waitUntilDNSRecordReady(ctx context.Context, c client.Client, logger *logru
 	)).To(Succeed())
 }
 
-func waitUntilDNSRecordDeleted(ctx context.Context, c client.Client, logger *logrus.Entry, dns *extensionsv1alpha1.DNSRecord) {
+func waitUntilDNSRecordDeleted(ctx context.Context, c client.Client, log logr.Logger, dns *extensionsv1alpha1.DNSRecord) {
 	Expect(extensions.WaitUntilExtensionObjectDeleted(
 		ctx,
 		c,
-		logger,
+		log,
 		dns.DeepCopy(),
 		extensionsv1alpha1.DNSRecordResource,
 		10*time.Second,

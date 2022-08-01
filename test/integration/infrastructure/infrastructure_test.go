@@ -35,12 +35,13 @@ import (
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
+	"github.com/gardener/gardener/pkg/logger"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/test/framework"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -93,8 +94,8 @@ func validateFlags() {
 }
 
 var (
-	ctx    = context.Background()
-	logger *logrus.Entry
+	ctx = context.Background()
+	log logr.Logger
 
 	testEnv   *envtest.Environment
 	mgrCancel context.CancelFunc
@@ -108,11 +109,9 @@ var _ = BeforeSuite(func() {
 	repoRoot := filepath.Join("..", "..", "..")
 
 	// enable manager logs
-	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
+	logf.SetLogger(logger.MustNewZapLogger(logger.DebugLevel, logger.FormatJSON, zap.WriteTo(GinkgoWriter)))
 
-	log := logrus.New()
-	log.SetOutput(GinkgoWriter)
-	logger = logrus.NewEntry(log)
+	log = logf.Log.WithName("infrastructure-test")
 
 	DeferCleanup(func() {
 		defer func() {
@@ -193,7 +192,7 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, logger, c, namespace, providerConfig, decoder, awsClient)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -201,13 +200,13 @@ var _ = Describe("Infrastructure tests", func() {
 	Context("with infrastructure that uses existing vpc (networks.vpc.id)", func() {
 		It("should fail to create when required vpc attribute is not enabled", func() {
 			enableDnsHostnames := false
-			vpcID, igwID, err := integration.CreateVPC(ctx, logger, awsClient, vpcCIDR, enableDnsHostnames)
+			vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 			Expect(igwID).NotTo(BeEmpty())
 
 			framework.AddCleanupAction(func() {
-				Expect(integration.DestroyVPC(ctx, logger, awsClient, vpcID)).To(Succeed())
+				Expect(integration.DestroyVPC(ctx, log, awsClient, vpcID)).To(Succeed())
 			})
 
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
@@ -218,7 +217,7 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, logger, c, namespace, providerConfig, decoder, awsClient)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient)
 			Expect(err).To(HaveOccurred())
 
 			By("verify infrastructure status")
@@ -232,13 +231,13 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete", func() {
 			enableDnsHostnames := true
-			vpcID, igwID, err := integration.CreateVPC(ctx, logger, awsClient, vpcCIDR, enableDnsHostnames)
+			vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 			Expect(igwID).NotTo(BeEmpty())
 
 			framework.AddCleanupAction(func() {
-				Expect(integration.DestroyVPC(ctx, logger, awsClient, vpcID)).To(Succeed())
+				Expect(integration.DestroyVPC(ctx, log, awsClient, vpcID)).To(Succeed())
 			})
 
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
@@ -249,7 +248,7 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, logger, c, namespace, providerConfig, decoder, awsClient)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -284,7 +283,7 @@ var _ = Describe("Infrastructure tests", func() {
 				err := extensions.WaitUntilExtensionObjectDeleted(
 					ctx,
 					c,
-					logger,
+					log,
 					infra,
 					extensionsv1alpha1.InfrastructureResource,
 					10*time.Second,
@@ -336,7 +335,7 @@ var _ = Describe("Infrastructure tests", func() {
 			err = extensions.WaitUntilExtensionObjectReady(
 				ctx,
 				c,
-				logger,
+				log,
 				infra,
 				extensionsv1alpha1.InfrastructureResource,
 				10*time.Second,
@@ -352,7 +351,7 @@ var _ = Describe("Infrastructure tests", func() {
 	})
 })
 
-func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespaceName string, providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client) error {
+func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceName string, providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client) error {
 	var (
 		namespace                 *corev1.Namespace
 		cluster                   *extensionsv1alpha1.Cluster
@@ -368,7 +367,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 		err := extensions.WaitUntilExtensionObjectDeleted(
 			ctx,
 			c,
-			logger,
+			log,
 			infra,
 			extensionsv1alpha1.InfrastructureResource,
 			10*time.Second,
@@ -437,7 +436,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	if err := extensions.WaitUntilExtensionObjectReady(
 		ctx,
 		c,
-		logger,
+		log,
 		infra,
 		extensionsv1alpha1.InfrastructureResource,
 		10*time.Second,
@@ -475,7 +474,7 @@ func runTest(ctx context.Context, logger *logrus.Entry, c client.Client, namespa
 	if err := extensions.WaitUntilExtensionObjectReady(
 		ctx,
 		c,
-		logger,
+		log,
 		infra,
 		"Infrastucture",
 		10*time.Second,
