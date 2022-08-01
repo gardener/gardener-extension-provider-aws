@@ -25,3 +25,23 @@ func (w *workerDelegate) DeployMachineDependencies(_ context.Context) error {
 func (w *workerDelegate) CleanupMachineDependencies(_ context.Context) error {
 	return nil
 }
+
+// PreReconcileHook implements genericactuator.WorkerDelegate.
+func (w *workerDelegate) PreReconcileHook(_ context.Context) error {
+	return nil
+}
+
+// PostReconcileHook implements genericactuator.WorkerDelegate.
+func (w *workerDelegate) PostReconcileHook(_ context.Context) error {
+	return nil
+}
+
+// PreDeleteHook implements genericactuator.WorkerDelegate.
+func (w *workerDelegate) PreDeleteHook(_ context.Context) error {
+	return nil
+}
+
+// PostDeleteHook implements genericactuator.WorkerDelegate.
+func (w *workerDelegate) PostDeleteHook(_ context.Context) error {
+	return nil
+}
