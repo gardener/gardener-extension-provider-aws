@@ -36,7 +36,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,7 +43,6 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 )
 
@@ -59,7 +57,6 @@ var _ = Describe("ValuesProvider", func() {
 		c                     *mockclient.MockClient
 		encoder               runtime.Encoder
 		ctx                   context.Context
-		logger                logr.Logger
 		scheme                *runtime.Scheme
 		vp                    genericactuator.ValuesProvider
 		region                string
@@ -86,7 +83,6 @@ var _ = Describe("ValuesProvider", func() {
 
 	BeforeEach(func() {
 		ctx = context.TODO()
-		logger = log.Log.WithName("test")
 		scheme = runtime.NewScheme()
 
 		Expect(apisaws.AddToScheme(scheme)).To(Succeed())
@@ -190,7 +186,7 @@ var _ = Describe("ValuesProvider", func() {
 		enabledFalse = map[string]interface{}{"enabled": false}
 
 		ctrl = gomock.NewController(GinkgoT())
-		vp = NewValuesProvider(logger)
+		vp = NewValuesProvider()
 
 		Expect(vp.(inject.Scheme).InjectScheme(scheme)).To(Succeed())
 
