@@ -33,9 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
-	logger := a.logger.WithValues("bastion", client.ObjectKeyFromObject(bastion), "operation", "reconcile")
-
+func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
 		return fmt.Errorf("failed to create AWS client: %w", err)
@@ -46,17 +44,17 @@ func (a *actuator) Reconcile(ctx context.Context, bastion *extensionsv1alpha1.Ba
 		return fmt.Errorf("failed to setup AWS client options: %w", err)
 	}
 
-	opt.BastionSecurityGroupID, err = ensureSecurityGroup(ctx, logger, bastion, awsClient, opt)
+	opt.BastionSecurityGroupID, err = ensureSecurityGroup(ctx, log, bastion, awsClient, opt)
 	if err != nil {
 		return fmt.Errorf("failed to ensure security group: %w", err)
 	}
 
-	endpoints, err := ensureBastionInstance(ctx, logger, bastion, awsClient, opt)
+	endpoints, err := ensureBastionInstance(ctx, log, bastion, awsClient, opt)
 	if err != nil {
 		return fmt.Errorf("failed to ensure bastion instance: %w", err)
 	}
 
-	if err := ensureWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
+	if err := ensureWorkerPermissions(ctx, log, awsClient, opt); err != nil {
 		return fmt.Errorf("failed to authorize bastion host in worker security group: %w", err)
 	}
 

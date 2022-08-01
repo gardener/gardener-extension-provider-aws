@@ -27,12 +27,9 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	reconcilerutils "github.com/gardener/gardener/pkg/controllerutils/reconciler"
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
-	logger := a.logger.WithValues("bastion", client.ObjectKeyFromObject(bastion), "operation", "delete")
-
+func (a *actuator) Delete(ctx context.Context, log logr.Logger, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
 		return fmt.Errorf("failed to create AWS client: %w", err)
@@ -53,12 +50,12 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 	if group != nil {
 		opt.BastionSecurityGroupID = *group.GroupId
 
-		if err := removeWorkerPermissions(ctx, logger, awsClient, opt); err != nil {
+		if err := removeWorkerPermissions(ctx, log, awsClient, opt); err != nil {
 			return fmt.Errorf("failed to remove bastion host from worker security group: %w", err)
 		}
 	}
 
-	if err := removeBastionInstance(ctx, logger, awsClient, opt); err != nil {
+	if err := removeBastionInstance(ctx, log, awsClient, opt); err != nil {
 		return fmt.Errorf("failed to remove bastion instance: %w", err)
 	}
 
@@ -74,7 +71,7 @@ func (a *actuator) Delete(ctx context.Context, bastion *extensionsv1alpha1.Basti
 		}
 	}
 
-	if err := removeSecurityGroup(ctx, logger, awsClient, opt); err != nil {
+	if err := removeSecurityGroup(ctx, log, awsClient, opt); err != nil {
 		return fmt.Errorf("failed to remove security group: %w", err)
 	}
 
