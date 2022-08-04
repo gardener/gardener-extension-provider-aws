@@ -20,20 +20,19 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/go-logr/logr"
 )
 
 // Restore takes the infrastructure state and deploys it as terraform state ConfigMap before calling the terraformer
-func (a *actuator) Restore(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+func (a *actuator) Restore(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
 	terraformState, err := terraformer.UnmarshalRawState(infrastructure.Status.State)
 	if err != nil {
 		return err
 	}
 
-	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "restore")
 	infrastructureStatus, state, err := Reconcile(
 		ctx,
-		logger,
+		log,
 		a.RESTConfig(),
 		a.Client(),
 		a.Decoder(),

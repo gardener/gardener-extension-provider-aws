@@ -19,19 +19,17 @@ import (
 	"time"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"github.com/go-logr/logr"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // CreateVPC creates a new VPC and waits for it to become available. It returns
 // the VPC ID, the Internet Gateway ID or an error in case something unexpected happens.
-func CreateVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames bool) (string, string, error) {
-	entry := logger.WithField("test", "existing-vpc")
-
+func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames bool) (string, string, error) {
 	createVpcOutput, err := awsClient.EC2.CreateVpc(&ec2.CreateVpcInput{
 		CidrBlock: awssdk.String(vpcCIDR),
 	})
@@ -41,7 +39,7 @@ func CreateVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.C
 	vpcID := createVpcOutput.Vpc.VpcId
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until vpc '%s' is available...", *vpcID)
+		log.Info("Waiting until vpc '%s' is available...", *vpcID)
 
 		describeVpcOutput, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
 			VpcIds: []*string{vpcID},
@@ -87,7 +85,7 @@ func CreateVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.C
 	}
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until internet gateway '%s' is attached to vpc '%s'...", *igwID, *vpcID)
+		log.Info("Waiting until internet gateway '%s' is attached to vpc '%s'...", *igwID, *vpcID)
 
 		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
 			InternetGatewayIds: []*string{igwID},
@@ -113,9 +111,7 @@ func CreateVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.C
 }
 
 // DestroyVPC deletes the Internet Gateway and the VPC itself.
-func DestroyVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, vpcID string) error {
-	entry := logger.WithField("test", "existing-vpc")
-
+func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string) error {
 	describeInternetGatewaysOutput, err := awsClient.EC2.DescribeInternetGatewaysWithContext(ctx, &ec2.DescribeInternetGatewaysInput{Filters: []*ec2.Filter{
 		{
 			Name: awssdk.String("attachment.vpc-id"),
@@ -138,7 +134,7 @@ func DestroyVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.
 	}
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until internet gateway '%s' is detached from vpc '%s'...", *igwID, vpcID)
+		log.Info("Waiting until internet gateway '%s' is detached from vpc '%s'...", *igwID, vpcID)
 
 		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
 			InternetGatewayIds: []*string{igwID},
@@ -161,7 +157,7 @@ func DestroyVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.
 	}
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until internet gateway '%s' is deleted...", *igwID)
+		log.Info("Waiting until internet gateway '%s' is deleted...", *igwID)
 
 		_, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
 			InternetGatewayIds: []*string{igwID},
@@ -188,7 +184,7 @@ func DestroyVPC(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.
 	}
 
 	return wait.PollUntil(5*time.Second, func() (bool, error) {
-		entry.Infof("Waiting until vpc '%s' is deleted...", vpcID)
+		log.Info("Waiting until vpc '%s' is deleted...", vpcID)
 
 		_, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
 			VpcIds: []*string{&vpcID},

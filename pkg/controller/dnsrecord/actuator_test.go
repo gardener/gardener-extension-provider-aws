@@ -82,7 +82,7 @@ var _ = Describe("Actuator", func() {
 		ctx = context.TODO()
 		logger = log.Log.WithName("test")
 
-		a = NewActuator(awsClientFactory, logger)
+		a = NewActuator(awsClientFactory)
 
 		err := a.(inject.Client).InjectClient(c)
 		Expect(err).NotTo(HaveOccurred())
@@ -152,7 +152,7 @@ var _ = Describe("Actuator", func() {
 				},
 			)
 
-			err := a.Reconcile(ctx, dns, nil)
+			err := a.Reconcile(ctx, logger, dns, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -162,7 +162,7 @@ var _ = Describe("Actuator", func() {
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).
 				Return(errors.New("test"))
 
-			err := a.Reconcile(ctx, dns, nil)
+			err := a.Reconcile(ctx, logger, dns, nil)
 			Expect(err).To(HaveOccurred())
 			_, ok := err.(gardencorev1beta1helper.Coder)
 			Expect(ok).To(BeFalse())
@@ -174,7 +174,7 @@ var _ = Describe("Actuator", func() {
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).
 				Return(awserr.New(route53.ErrCodeNoSuchHostedZone, "", nil))
 
-			err := a.Reconcile(ctx, dns, nil)
+			err := a.Reconcile(ctx, logger, dns, nil)
 			Expect(err).To(HaveOccurred())
 			coder, ok := err.(gardencorev1beta1helper.Coder)
 			Expect(ok).To(BeTrue())
@@ -187,7 +187,7 @@ var _ = Describe("Actuator", func() {
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).
 				Return(awserr.New(route53.ErrCodeInvalidChangeBatch, "RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com.", nil))
 
-			err := a.Reconcile(ctx, dns, nil)
+			err := a.Reconcile(ctx, logger, dns, nil)
 			Expect(err).To(HaveOccurred())
 			coder, ok := err.(gardencorev1beta1helper.Coder)
 			Expect(ok).To(BeTrue())
@@ -208,7 +208,7 @@ var _ = Describe("Actuator", func() {
 			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, aws.DefaultDNSRegion).Return(awsClient, nil)
 			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120)).Return(nil)
 
-			err := a.Delete(ctx, dns, nil)
+			err := a.Delete(ctx, logger, dns, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

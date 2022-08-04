@@ -24,13 +24,11 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Migrate deletes only the ConfigMaps and Secrets of the Terraformer.
-func (a *actuator) Migrate(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	logger := a.logger.WithValues("infrastructure", client.ObjectKeyFromObject(infrastructure), "operation", "migrate")
-	return migrate(ctx, logger, a.RESTConfig(), infrastructure, a.disableProjectedTokenMount)
+func (a *actuator) Migrate(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+	return migrate(ctx, log, a.RESTConfig(), infrastructure, a.disableProjectedTokenMount)
 }
 
 func migrate(

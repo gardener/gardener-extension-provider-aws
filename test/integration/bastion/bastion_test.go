@@ -29,6 +29,7 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	bastionctrl "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
 	"github.com/gardener/gardener-extension-provider-aws/test/integration"
+	"github.com/go-logr/logr"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -38,12 +39,12 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
+	"github.com/gardener/gardener/pkg/logger"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/test/framework"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,7 +88,7 @@ func validateFlags() {
 var (
 	ctx = context.Background()
 
-	logger    *logrus.Entry
+	log       logr.Logger
 	awsClient *awsclient.Client
 
 	extensionscluster *extensionsv1alpha1.Cluster
@@ -105,11 +106,9 @@ var _ = BeforeSuite(func() {
 	repoRoot := filepath.Join("..", "..", "..")
 
 	// enable manager logs
-	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
+	logf.SetLogger(logger.MustNewZapLogger(logger.DebugLevel, logger.FormatJSON, zap.WriteTo(GinkgoWriter)))
 
-	log := logrus.New()
-	log.SetOutput(GinkgoWriter)
-	logger = logrus.NewEntry(log)
+	log = logf.Log.WithName("bastion-test")
 
 	DeferCleanup(func() {
 		defer func() {
@@ -191,21 +190,21 @@ var _ = BeforeSuite(func() {
 var _ = Describe("Bastion tests", func() {
 	It("should successfully create and delete", func() {
 		By("setup infrastructure")
-		infra := setupInfrastructure(ctx, logger, awsClient, extensionscluster.ObjectMeta.Name)
+		infra := setupInfrastructure(ctx, log, awsClient, extensionscluster.ObjectMeta.Name)
 		framework.AddCleanupAction(func() {
-			teardownInfrastructure(ctx, logger, awsClient, infra)
+			teardownInfrastructure(ctx, log, awsClient, infra)
 		})
 
 		By("setup shoot environment")
-		setupShootEnvironment(ctx, logger, c, namespace, extensionscluster)
+		setupShootEnvironment(ctx, log, c, namespace, extensionscluster)
 		framework.AddCleanupAction(func() {
-			teardownShootEnvironment(ctx, logger, c, namespace, extensionscluster)
+			teardownShootEnvironment(ctx, log, c, namespace, extensionscluster)
 		})
 
 		By("setup bastion")
-		bastion, options := setupBastion(ctx, logger, awsClient, c, namespaceName, corecluster)
+		bastion, options := setupBastion(ctx, log, awsClient, c, namespaceName, corecluster)
 		framework.AddCleanupAction(func() {
-			teardownBastion(ctx, logger, c, bastion)
+			teardownBastion(ctx, log, c, bastion)
 
 			By("verify bastion deletion")
 			verifyDeletion(ctx, awsClient, options)
@@ -215,7 +214,7 @@ var _ = Describe("Bastion tests", func() {
 		Expect(extensions.WaitUntilExtensionObjectReady(
 			ctx,
 			c,
-			logger,
+			log,
 			bastion,
 			extensionsv1alpha1.BastionResource,
 			10*time.Second,
@@ -265,14 +264,14 @@ type infrastructure struct {
 	WorkerSecurityGroupID string
 }
 
-func setupInfrastructure(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, shootName string) *infrastructure {
-	vpcID, igwID, err := integration.CreateVPC(ctx, logger, awsClient, vpcCIDR, true)
+func setupInfrastructure(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, shootName string) *infrastructure {
+	vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, true)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(vpcID).NotTo(BeEmpty())
 	Expect(igwID).NotTo(BeEmpty())
 
 	subnetName := fmt.Sprintf("%s-%s", shootName, publicUtilitySuffix)
-	subnetID, err := integration.CreateSubnet(ctx, logger, awsClient, vpcID, subnetCIDR, subnetName)
+	subnetID, err := integration.CreateSubnet(ctx, log, awsClient, vpcID, subnetCIDR, subnetName)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(subnetID).NotTo(BeEmpty())
 
@@ -288,13 +287,13 @@ func setupInfrastructure(ctx context.Context, logger *logrus.Entry, awsClient *a
 	}
 }
 
-func teardownInfrastructure(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, infra *infrastructure) {
-	Expect(integration.DestroySubnet(ctx, logger, awsClient, infra.SubnetID)).To(Succeed())
-	Expect(integration.DestroySecurityGroup(ctx, logger, awsClient, infra.WorkerSecurityGroupID)).To(Succeed())
-	Expect(integration.DestroyVPC(ctx, logger, awsClient, infra.VPCID)).To(Succeed())
+func teardownInfrastructure(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, infra *infrastructure) {
+	Expect(integration.DestroySubnet(ctx, log, awsClient, infra.SubnetID)).To(Succeed())
+	Expect(integration.DestroySecurityGroup(ctx, log, awsClient, infra.WorkerSecurityGroupID)).To(Succeed())
+	Expect(integration.DestroyVPC(ctx, log, awsClient, infra.VPCID)).To(Succeed())
 }
 
-func setupShootEnvironment(ctx context.Context, logger *logrus.Entry, c client.Client, namespace *corev1.Namespace, cluster *extensionsv1alpha1.Cluster) {
+func setupShootEnvironment(ctx context.Context, log logr.Logger, c client.Client, namespace *corev1.Namespace, cluster *extensionsv1alpha1.Cluster) {
 	Expect(c.Create(ctx, namespace)).To(Succeed())
 	Expect(c.Create(ctx, cluster)).To(Succeed())
 
@@ -311,12 +310,12 @@ func setupShootEnvironment(ctx context.Context, logger *logrus.Entry, c client.C
 	Expect(c.Create(ctx, secret)).To(Succeed())
 }
 
-func teardownShootEnvironment(ctx context.Context, logger *logrus.Entry, c client.Client, namespace *corev1.Namespace, cluster *extensionsv1alpha1.Cluster) {
+func teardownShootEnvironment(ctx context.Context, log logr.Logger, c client.Client, namespace *corev1.Namespace, cluster *extensionsv1alpha1.Cluster) {
 	Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
 	Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
 }
 
-func setupBastion(ctx context.Context, logger *logrus.Entry, awsClient *awsclient.Client, c client.Client, name string, cluster *controller.Cluster) (*extensionsv1alpha1.Bastion, *bastionctrl.Options) {
+func setupBastion(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, c client.Client, name string, cluster *controller.Cluster) (*extensionsv1alpha1.Bastion, *bastionctrl.Options) {
 	bastion, err := newBastion(name)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -328,7 +327,7 @@ func setupBastion(ctx context.Context, logger *logrus.Entry, awsClient *awsclien
 	return bastion, options
 }
 
-func teardownBastion(ctx context.Context, logger *logrus.Entry, c client.Client, bastion *extensionsv1alpha1.Bastion) {
+func teardownBastion(ctx context.Context, log logr.Logger, c client.Client, bastion *extensionsv1alpha1.Bastion) {
 	By("delete bastion")
 	Expect(client.IgnoreNotFound(c.Delete(ctx, bastion))).To(Succeed())
 
@@ -336,7 +335,7 @@ func teardownBastion(ctx context.Context, logger *logrus.Entry, c client.Client,
 	err := extensions.WaitUntilExtensionObjectDeleted(
 		ctx,
 		c,
-		logger,
+		log,
 		bastion,
 		extensionsv1alpha1.BastionResource,
 		10*time.Second,
