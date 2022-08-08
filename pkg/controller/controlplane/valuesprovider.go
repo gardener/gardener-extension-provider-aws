@@ -551,6 +551,7 @@ func getControlPlaneShootChartValues(
 			"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
 			"caBundle": string(caSecret.Data[secretutils.DataKeyCertificateBundle]),
 		},
+		"pspDisabled": gardencorev1beta1helper.IsPSPDisabled(cluster.Shoot),
 	}
 
 	if value, ok := cluster.Shoot.Annotations[aws.VolumeAttachLimit]; ok {
