@@ -321,6 +321,7 @@ var _ = Describe("ValuesProvider", func() {
 						"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
 						"caBundle": "",
 					},
+					"pspDisabled": false,
 				}),
 			}))
 		})
@@ -341,6 +342,63 @@ var _ = Describe("ValuesProvider", func() {
 							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
+						"pspDisabled": false,
+					}),
+				}))
+			})
+		})
+
+		Context("podSecurityPolicy", func() {
+			It("should return correct shoot control plane chart when PodSecurityPolicy admission plugin is not disabled in the shoot", func() {
+				clusterK8sAtLeast118.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+					AdmissionPlugins: []gardencorev1beta1.AdmissionPlugin{
+						{
+							Name: "PodSecurityPolicy",
+						},
+					},
+				}
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(values).To(Equal(map[string]interface{}{
+					aws.CloudControllerManagerName: enabledTrue,
+					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+						"kubernetesVersion": "1.18.1",
+						"vpaEnabled":        true,
+						"driver": map[string]interface{}{
+							"volumeAttachLimit": "42",
+						},
+						"webhookConfig": map[string]interface{}{
+							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
+							"caBundle": "",
+						},
+						"pspDisabled": false,
+					}),
+				}))
+			})
+			It("should return correct shoot control plane chart when PodSecurityPolicy admission plugin is disabled in the shoot", func() {
+				clusterK8sAtLeast118.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+					AdmissionPlugins: []gardencorev1beta1.AdmissionPlugin{
+						{
+							Name:     "PodSecurityPolicy",
+							Disabled: pointer.Bool(true),
+						},
+					},
+				}
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(values).To(Equal(map[string]interface{}{
+					aws.CloudControllerManagerName: enabledTrue,
+					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+						"kubernetesVersion": "1.18.1",
+						"vpaEnabled":        true,
+						"driver": map[string]interface{}{
+							"volumeAttachLimit": "42",
+						},
+						"webhookConfig": map[string]interface{}{
+							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
+							"caBundle": "",
+						},
+						"pspDisabled": true,
 					}),
 				}))
 			})
