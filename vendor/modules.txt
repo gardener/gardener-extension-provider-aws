@@ -250,7 +250,7 @@ github.com/gardener/gardener/test/framework/reporter
 github.com/gardener/gardener/test/testmachinery/extensions/generator
 github.com/gardener/gardener/test/testmachinery/extensions/healthcheck
 github.com/gardener/gardener/test/testmachinery/extensions/operation
-# github.com/gardener/hvpa-controller/api v0.5.0 => github.com/gardener/hvpa-controller/api v0.5.0
+# github.com/gardener/hvpa-controller/api v0.5.0
 ## explicit; go 1.15
 github.com/gardener/hvpa-controller/api/v1alpha1
 # github.com/gardener/machine-controller-manager v0.45.0
@@ -1243,5 +1243,3 @@ sigs.k8s.io/yaml
 # k8s.io/helm => k8s.io/helm v2.16.1+incompatible
 # k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.24.3
 # sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.12.1
-# github.com/gardener/hvpa-controller => github.com/gardener/hvpa-controller v0.5.0
-# github.com/gardener/hvpa-controller/api => github.com/gardener/hvpa-controller/api v0.5.0
