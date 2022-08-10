@@ -23,19 +23,15 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type actuator struct {
 	backupbucket.Actuator
 	client client.Client
-	logger logr.Logger
 }
 
 func newActuator() backupbucket.Actuator {
-	return &actuator{
-		logger: log.Log.WithName("aws-backupbucket-actuator"),
-	}
+	return &actuator{}
 }
 
 func (a *actuator) InjectClient(client client.Client) error {
