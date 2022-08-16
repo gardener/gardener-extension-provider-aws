@@ -39,7 +39,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 	vpcID := createVpcOutput.Vpc.VpcId
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		log.Info("Waiting until vpc '%s' is available...", *vpcID)
+		log.Info("Waiting until vpc is available...", "vpcID", *vpcID)
 
 		describeVpcOutput, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
 			VpcIds: []*string{vpcID},
@@ -85,7 +85,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 	}
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		log.Info("Waiting until internet gateway '%s' is attached to vpc '%s'...", *igwID, *vpcID)
+		log.Info("Waiting until internet gateway is attached to vpc...", "internetGatewayID", *igwID, "vpcID", *vpcID)
 
 		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
 			InternetGatewayIds: []*string{igwID},
@@ -134,7 +134,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 	}
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		log.Info("Waiting until internet gateway '%s' is detached from vpc '%s'...", *igwID, vpcID)
+		log.Info("Waiting until internet gateway is detached from vpc...", "internetGatewayID", *igwID, "vpcID", vpcID)
 
 		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
 			InternetGatewayIds: []*string{igwID},
@@ -157,7 +157,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 	}
 
 	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
-		log.Info("Waiting until internet gateway '%s' is deleted...", *igwID)
+		log.Info("Waiting until internet gateway is deleted...", "internetGatewayID", *igwID)
 
 		_, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
 			InternetGatewayIds: []*string{igwID},
@@ -184,7 +184,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 	}
 
 	return wait.PollUntil(5*time.Second, func() (bool, error) {
-		log.Info("Waiting until vpc '%s' is deleted...", vpcID)
+		log.Info("Waiting until vpc is deleted...", "vpcID", vpcID)
 
 		_, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
 			VpcIds: []*string{&vpcID},
