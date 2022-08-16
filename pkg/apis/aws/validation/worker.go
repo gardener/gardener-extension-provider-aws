@@ -114,5 +114,9 @@ func validateVolumeConfig(volume *apisaws.Volume, volumeType string, fldPath *fi
 	} else if volumeType == string(apisaws.VolumeTypeIO1) {
 		allErrs = append(allErrs, field.Required(iopsPath, fmt.Sprintf("iops must be provided when using %s volumes", apisaws.VolumeTypeIO1)))
 	}
+	if volume != nil && volume.Throughput != nil && *volume.Throughput <= 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("throughput"), *volume.Throughput, "throughput must be a positive value"))
+	}
+
 	return allErrs
 }

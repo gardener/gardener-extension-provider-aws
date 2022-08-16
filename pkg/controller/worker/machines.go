@@ -251,8 +251,13 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	if err != nil {
 		return nil, fmt.Errorf("error when computing EBS for root disk: %w", err)
 	}
-	if workerConfig.Volume != nil && workerConfig.Volume.IOPS != nil {
-		rootDisk["iops"] = *workerConfig.Volume.IOPS
+	if workerConfig.Volume != nil {
+		if workerConfig.Volume.IOPS != nil {
+			rootDisk["iops"] = *workerConfig.Volume.IOPS
+		}
+		if workerConfig.Volume.Throughput != nil {
+			rootDisk["throughput"] = *workerConfig.Volume.Throughput
+		}
 	}
 	blockDevices = append(blockDevices, map[string]interface{}{"ebs": rootDisk})
 
@@ -276,6 +281,9 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 				}
 				if dvConfig.SnapshotID != nil {
 					dataDisk["snapshotID"] = *dvConfig.SnapshotID
+				}
+				if dvConfig.Throughput != nil {
+					dataDisk["throughput"] = *dvConfig.Throughput
 				}
 			}
 			deviceName, err := computeEBSDeviceNameForIndex(i)

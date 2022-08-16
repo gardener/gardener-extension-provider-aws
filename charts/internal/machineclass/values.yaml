@@ -37,4 +37,5 @@ machineClasses:
       volumeSize: 50
       volumeType: gp2
     # iops: 100
+    # throughput: 125 #(only for gp3)
     # snapshotID: snap-12345

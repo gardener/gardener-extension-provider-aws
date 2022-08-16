@@ -283,9 +283,11 @@ apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: WorkerConfig
 volume:
   iops: 10000
+  throughput: 200 
 dataVolumes:
 - name: kubelet-dir
   iops: 12345
+  throughput: 150
   snapshotID: snap-1234
 iamInstanceProfile: # (specify either ARN or name)
   name: my-profile
@@ -301,6 +303,8 @@ The `.volume.iops` is the number of I/O operations per second (IOPS) that the vo
 For `io1` and `gp3` volume type, this represents the number of IOPS that are provisioned for the volume.
 For `gp2` volume type, this represents the baseline performance of the volume and the rate at which the volume accumulates I/O credits for bursting. For more information about General Purpose SSD baseline performance, I/O credits, IOPS range and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html) in the Amazon Elastic Compute Cloud User Guide.\
 Constraint: IOPS should be a positive value. Validation of IOPS (i.e. whether it is allowed and is in the specified range for a particular volume type) is done on aws side.
+
+The `volume.throughput` is the throughput that the volume supports, in `MiB/s`. As of `16th Aug 2022`, this parameter is valid only for `gp3` volume types and will return an error from the provider side if specified for other volume types. Its current range of throughput is from `125MiB/s` to `1000 MiB/s`. To know more about throughput and its range, see the official AWS documentation [here](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html).
 
 The `.dataVolumes` can optionally contain configurations for the data volumes stated in the `Shoot` specification in the `.spec.provider.workers[].dataVolumes` list.
 The `.name` must match to the name of the data volume in the shoot.
