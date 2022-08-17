@@ -35,6 +35,10 @@ type ControlPlaneConfig struct {
 type CloudControllerManagerConfig struct {
 	// FeatureGates contains information about enabled feature gates.
 	FeatureGates map[string]bool
+
+	// UseCustomRouteController controls if custom route controller should be used.
+	// Defaults to false.
+	UseCustomRouteController *bool
 }
 
 // Storage contains configuration for storage in the cluster.

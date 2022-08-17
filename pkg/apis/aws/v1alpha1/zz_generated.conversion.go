@@ -302,6 +302,7 @@ func RegisterConversions(s *runtime.Scheme) error {
 
 func autoConvert_v1alpha1_CloudControllerManagerConfig_To_aws_CloudControllerManagerConfig(in *CloudControllerManagerConfig, out *aws.CloudControllerManagerConfig, s conversion.Scope) error {
 	out.FeatureGates = *(*map[string]bool)(unsafe.Pointer(&in.FeatureGates))
+	out.UseCustomRouteController = (*bool)(unsafe.Pointer(in.UseCustomRouteController))
 	return nil
 }
 
@@ -312,6 +313,7 @@ func Convert_v1alpha1_CloudControllerManagerConfig_To_aws_CloudControllerManager
 
 func autoConvert_aws_CloudControllerManagerConfig_To_v1alpha1_CloudControllerManagerConfig(in *aws.CloudControllerManagerConfig, out *CloudControllerManagerConfig, s conversion.Scope) error {
 	out.FeatureGates = *(*map[string]bool)(unsafe.Pointer(&in.FeatureGates))
+	out.UseCustomRouteController = (*bool)(unsafe.Pointer(in.UseCustomRouteController))
 	return nil
 }
 

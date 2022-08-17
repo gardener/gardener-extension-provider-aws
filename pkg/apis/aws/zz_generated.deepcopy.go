@@ -36,6 +36,11 @@ func (in *CloudControllerManagerConfig) DeepCopyInto(out *CloudControllerManager
 			(*out)[key] = val
 		}
 	}
+	if in.UseCustomRouteController != nil {
+		in, out := &in.UseCustomRouteController, &out.UseCustomRouteController
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

@@ -234,6 +234,7 @@ kind: ControlPlaneConfig
 cloudControllerManager:
   featureGates:
     CustomResourceValidation: true
+  useCustomRouteController: true
 storage:
   managedDefaultClass: false
 ```
@@ -241,6 +242,9 @@ storage:
 The `cloudControllerManager.featureGates` contains a map of explicitly enabled or disabled feature gates.
 For production usage it's not recommend to use this field at all as you can enable alpha features or disable beta/stable features, potentially impacting the cluster stability.
 If you don't want to configure anything for the `cloudControllerManager` simply omit the key in the YAML specification.
+
+The `cloudControllerManager.useCustomRouteController` controls if the [custom routes controller](https://github.com/gardener/aws-custom-route-controller) should be enabled.
+If enabled, it will add routes to the pod CIDRs for all nodes in the route tables for all zones.
 
 The `storage.managedDefaultClass` controls if the `default` storage / volume snapshot classes are marked as default by Gardener. Set it to `false` to [mark another storage / volume snapshot class as default](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) without Gardener overwriting this change. If unset, this field defaults to `true`.
 
