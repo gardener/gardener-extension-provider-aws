@@ -76,6 +76,18 @@ var _ = Describe("ValuesProvider", func() {
 
 			return data
 		}
+		setCustomRouteControllerEnabled = func(cp *extensionsv1alpha1.ControlPlane) {
+			cp.Spec.ProviderConfig = &runtime.RawExtension{
+				Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
+					CloudControllerManager: &apisawsv1alpha1.CloudControllerManagerConfig{
+						FeatureGates: map[string]bool{
+							"CustomResourceValidation": true,
+						},
+						UseCustomRouteController: pointer.Bool(true),
+					},
+				}),
+			}
+		}
 
 		fakeClient         client.Client
 		fakeSecretsManager secretsmanager.Interface
@@ -213,6 +225,7 @@ var _ = Describe("ValuesProvider", func() {
 
 	Describe("#GetControlPlaneChartValues", func() {
 		var ccmChartValues map[string]interface{}
+		var crcChartValues map[string]interface{}
 
 		BeforeEach(func() {
 			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -241,6 +254,19 @@ var _ = Describe("ValuesProvider", func() {
 					"server": "cloud-controller-manager-server",
 				},
 			})
+			crcChartValues = map[string]interface{}{
+				"podLabels": map[string]interface{}{
+					"maintenance.gardener.cloud/restart": "true",
+				},
+				"region":      "europe",
+				"enabled":     false,
+				"replicas":    1,
+				"clusterName": "test",
+				"podNetwork":  "10.250.0.0/19",
+				"podAnnotations": map[string]interface{}{
+					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+				},
+			}
 			c = mockclient.NewMockClient(ctrl)
 
 			err := vp.(inject.Client).InjectClient(c)
@@ -262,7 +288,8 @@ var _ = Describe("ValuesProvider", func() {
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": clusterK8sLessThan118.Shoot.Spec.Kubernetes.Version,
 				}),
-				aws.CSIControllerName: enabledFalse,
+				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.CSIControllerName:            enabledFalse,
 			}))
 		})
 
@@ -276,6 +303,39 @@ var _ = Describe("ValuesProvider", func() {
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": clusterK8sAtLeast118.Shoot.Spec.Kubernetes.Version,
 				}),
+				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+					},
+				}),
+			}))
+		})
+
+		It("should return correct control plane chart values (k8s >= 1.18) and custom route controller enabled", func() {
+			setCustomRouteControllerEnabled(cp)
+			crcChartValues["enabled"] = true
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
+				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
+					"kubernetesVersion": clusterK8sAtLeast118.Shoot.Spec.Kubernetes.Version,
+				}),
+				aws.AWSCustomRouteControllerName: crcChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
 					"region":   region,
@@ -313,7 +373,8 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sLessThan118, fakeSecretsManager, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				aws.CloudControllerManagerName: enabledTrue,
+				aws.CloudControllerManagerName:   enabledTrue,
+				aws.AWSCustomRouteControllerName: enabledFalse,
 				aws.CSINodeName: utils.MergeMaps(enabledFalse, map[string]interface{}{
 					"kubernetesVersion": "1.15.4",
 					"vpaEnabled":        false,
@@ -331,7 +392,32 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName: enabledTrue,
+					aws.CloudControllerManagerName:   enabledTrue,
+					aws.AWSCustomRouteControllerName: enabledFalse,
+					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+						"kubernetesVersion": "1.18.1",
+						"vpaEnabled":        true,
+						"driver": map[string]interface{}{
+							"volumeAttachLimit": "42",
+						},
+						"webhookConfig": map[string]interface{}{
+							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
+							"caBundle": "",
+						},
+						"pspDisabled": false,
+					}),
+				}))
+			})
+		})
+
+		Context("shoot control plane chart values (k8s >= 1.18) and custom route controller enabled", func() {
+			It("should return correct shoot control plane chart when ca is secret found", func() {
+				setCustomRouteControllerEnabled(cp)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(values).To(Equal(map[string]interface{}{
+					aws.CloudControllerManagerName:   enabledTrue,
+					aws.AWSCustomRouteControllerName: enabledTrue,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.18.1",
 						"vpaEnabled":        true,
@@ -360,7 +446,8 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName: enabledTrue,
+					aws.CloudControllerManagerName:   enabledTrue,
+					aws.AWSCustomRouteControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.18.1",
 						"vpaEnabled":        true,
@@ -387,7 +474,8 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName: enabledTrue,
+					aws.CloudControllerManagerName:   enabledTrue,
+					aws.AWSCustomRouteControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.18.1",
 						"vpaEnabled":        true,
