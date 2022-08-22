@@ -37,3 +37,19 @@ resources:
       memory: 300Mi
 
 pspDisabled: false
+securityContext:
+  # The node pod must be run as root to bind to the registration/driver sockets
+  runAsNonRoot: false
+  runAsUser: 0
+  runAsGroup: 0
+  fsGroup: 0
+containerSecurityContext:
+  node:
+    readOnlyRootFilesystem: true
+    privileged: true
+  livenessProbe:
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+  nodeDriverRegistrar:
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false

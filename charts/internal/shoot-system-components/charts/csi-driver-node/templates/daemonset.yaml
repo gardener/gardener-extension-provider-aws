@@ -20,7 +20,7 @@ spec:
     spec:
       hostNetwork: true
       priorityClassName: system-node-critical
-      serviceAccount: csi-driver-node
+      serviceAccountName: csi-driver-node
       tolerations:
       - effect: NoSchedule
         operator: Exists
@@ -28,6 +28,10 @@ spec:
         operator: Exists
       - effect: NoExecute
         operator: Exists
+{{- if .Values.securityContext }}
+      securityContext:
+{{- toYaml .Values.securityContext | nindent 8 }}
+{{- end }}
       containers:
       - name: csi-driver
         image: {{ index .Values.images "csi-driver" }}
@@ -46,8 +50,10 @@ spec:
         resources:
 {{ toYaml .Values.resources.driver | indent 10 }}
 {{- end }}
+{{- if .Values.containerSecurityContext.node }}
         securityContext:
-          privileged: true
+{{- toYaml .Values.containerSecurityContext.node | nindent 10 }}
+{{- end }}
         ports:
         - name: healthz
           containerPort: 9808
@@ -91,6 +97,10 @@ spec:
         resources:
 {{ toYaml .Values.resources.nodeDriverRegistrar | indent 10 }}
 {{- end }}
+{{- if .Values.containerSecurityContext.nodeDriverRegistrar }}
+        securityContext:
+{{- toYaml .Values.containerSecurityContext.nodeDriverRegistrar | nindent 10 }}
+{{- end }}
         volumeMounts:
         - name: plugin-dir
           mountPath: /csi
@@ -108,7 +118,10 @@ spec:
         volumeMounts:
         - name: plugin-dir
           mountPath: /csi
-
+{{- if .Values.containerSecurityContext.livenessProbe}}
+        securityContext:
+{{- toYaml .Values.containerSecurityContext.livenessProbe | nindent 10 }}
+{{- end }}
       volumes:
       - name: kubelet-dir
         hostPath:
