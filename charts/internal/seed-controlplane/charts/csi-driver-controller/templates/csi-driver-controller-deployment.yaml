@@ -182,6 +182,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.resizer | indent 10 }}
 {{- end }}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: socket-dir
           mountPath: {{ .Values.socketPath }}
