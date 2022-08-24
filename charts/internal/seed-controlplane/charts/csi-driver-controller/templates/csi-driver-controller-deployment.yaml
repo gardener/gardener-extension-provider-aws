@@ -64,6 +64,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.driver | indent 10 }}
 {{- end }}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
         ports:
         - name: healthz
           containerPort: 9808
@@ -100,6 +103,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.provisioner | indent 10 }}
 {{- end }}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: socket-dir
           mountPath: {{ .Values.socketPath }}
@@ -123,6 +129,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.attacher | indent 10 }}
 {{- end }}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: socket-dir
           mountPath: {{ .Values.socketPath }}
@@ -146,6 +155,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.snapshotter | indent 10 }}
 {{- end }}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: socket-dir
           mountPath: {{ .Values.socketPath }}
@@ -170,6 +182,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.resizer | indent 10 }}
 {{- end }}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: socket-dir
           mountPath: {{ .Values.socketPath }}
@@ -185,6 +200,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.livenessProbe | indent 10 }}
 {{- end }}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: socket-dir
           mountPath: /csi
