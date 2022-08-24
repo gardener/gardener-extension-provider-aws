@@ -28,10 +28,11 @@ spec:
         operator: Exists
       - effect: NoExecute
         operator: Exists
-{{- if .Values.securityContext }}
       securityContext:
-{{- toYaml .Values.securityContext | nindent 8 }}
-{{- end }}
+        runAsNonRoot: false
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
       containers:
       - name: csi-driver
         image: {{ index .Values.images "csi-driver" }}
@@ -50,10 +51,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.driver | indent 10 }}
 {{- end }}
-{{- if .Values.containerSecurityContext.node }}
         securityContext:
-{{- toYaml .Values.containerSecurityContext.node | nindent 10 }}
-{{- end }}
+          readOnlyRootFilesystem: true
+          privileged: true
         ports:
         - name: healthz
           containerPort: 9808
@@ -97,10 +97,9 @@ spec:
         resources:
 {{ toYaml .Values.resources.nodeDriverRegistrar | indent 10 }}
 {{- end }}
-{{- if .Values.containerSecurityContext.nodeDriverRegistrar }}
         securityContext:
-{{- toYaml .Values.containerSecurityContext.nodeDriverRegistrar | nindent 10 }}
-{{- end }}
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: plugin-dir
           mountPath: /csi
@@ -118,10 +117,9 @@ spec:
         volumeMounts:
         - name: plugin-dir
           mountPath: /csi
-{{- if .Values.containerSecurityContext.livenessProbe}}
         securityContext:
-{{- toYaml .Values.containerSecurityContext.livenessProbe | nindent 10 }}
-{{- end }}
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
       volumes:
       - name: kubelet-dir
         hostPath:

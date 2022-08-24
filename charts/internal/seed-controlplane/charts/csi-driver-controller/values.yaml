@@ -73,26 +73,3 @@ csiSnapshotValidationWebhook:
       memory: 200Mi
   secrets:
     server: csi-snapshot-validation-server
-
-containerSecurityContext:
-  provisioner:
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-  attacher:
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-  snapshotter:
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-  resizer:
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-  livenessProbe:
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-  driver:
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-
-
-

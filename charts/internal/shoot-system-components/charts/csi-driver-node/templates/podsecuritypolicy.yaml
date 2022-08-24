@@ -26,5 +26,5 @@ spec:
     rule: RunAsAny
   fsGroup:
     rule: RunAsAny
-  readOnlyRootFilesystem: false
+  readOnlyRootFilesystem: true
 {{- end }}
