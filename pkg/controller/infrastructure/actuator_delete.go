@@ -33,11 +33,35 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
-func (a *actuator) Delete(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+func (a *actuator) Delete(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
+	state, err := a.getStateFromInfraStatus(ctx, infrastructure)
+	if err != nil {
+		return err
+	}
+	if state != nil {
+		return a.deleteWithFlow(ctx, log, infrastructure, cluster, state)
+	}
+
 	return Delete(ctx, log, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure, a.disableProjectedTokenMount)
+}
+
+func (a *actuator) deleteWithFlow(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure,
+	_ *extensionscontroller.Cluster, oldState *infraflow.PersistentState) error {
+	log.Info("deleteWithFlow")
+
+	flowContext, err := a.createFlowContext(ctx, log, infrastructure, oldState)
+	if err != nil {
+		return err
+	}
+	if err = flowContext.Delete(ctx); err != nil {
+		_ = flowContext.PersistState(ctx, true)
+		return a.addErrorCodes(err)
+	}
+	return flowContext.PersistState(ctx, true)
 }
 
 // Delete deletes the given Infrastructure.
@@ -110,7 +134,7 @@ func Delete(
 					return nil
 				}
 
-				if err := destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
+				if err := infraflow.DestroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
 					return util.DetermineError(fmt.Errorf("Failed to destroy load balancers and security groups: %w", err), helper.KnownCodes)
 				}
 
@@ -129,30 +153,6 @@ func Delete(
 
 	if err := f.Run(ctx, flow.Opts{}); err != nil {
 		return util.DetermineError(flow.Errors(err), helper.KnownCodes)
-	}
-
-	return nil
-}
-
-func destroyKubernetesLoadBalancersAndSecurityGroups(ctx context.Context, awsClient awsclient.Interface, vpcID, clusterName string) error {
-	for _, v := range []struct {
-		listFn   func(context.Context, string, string) ([]string, error)
-		deleteFn func(context.Context, string) error
-	}{
-		{awsClient.ListKubernetesELBs, awsClient.DeleteELB},
-		{awsClient.ListKubernetesELBsV2, awsClient.DeleteELBV2},
-		{awsClient.ListKubernetesSecurityGroups, awsClient.DeleteSecurityGroup},
-	} {
-		results, err := v.listFn(ctx, vpcID, clusterName)
-		if err != nil {
-			return err
-		}
-
-		for _, result := range results {
-			if err := v.deleteFn(ctx, result); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil

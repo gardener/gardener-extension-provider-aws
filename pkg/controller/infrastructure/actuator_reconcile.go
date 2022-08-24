@@ -36,10 +36,27 @@ import (
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
 
-func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	infrastructureStatus, state, err := Reconcile(
+func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
+	flowState, err := a.getStateFromInfraStatus(ctx, infrastructure)
+	if err != nil {
+		return err
+	}
+	if flowState != nil {
+		return a.reconcileWithFlow(ctx, log, infrastructure, flowState)
+	}
+	if a.shouldUseFlow(infrastructure, cluster) {
+		flowState, err = a.migrateFromTerraformerState(ctx, log, infrastructure)
+		if err != nil {
+			return err
+		}
+		return a.reconcileWithFlow(ctx, log, infrastructure, flowState)
+	}
+
+	infrastructureStatus, state, err := ReconcileWithTerraformer(
 		ctx,
 		log,
 		a.RESTConfig(),
@@ -51,11 +68,232 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructur
 	if err != nil {
 		return err
 	}
-	return updateProviderStatus(ctx, a.Client(), infrastructure, infrastructureStatus, state)
+	return updateProviderStatusTf(ctx, a.Client(), infrastructure, infrastructureStatus, state)
 }
 
-// Reconcile reconciles the given Infrastructure object. It returns the provider specific status and the Terraform state.
-func Reconcile(
+func (a *actuator) shouldUseFlow(infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) bool {
+	return (infrastructure.Annotations != nil && strings.EqualFold(infrastructure.Annotations[AnnotationKeyUseFlow], "true")) ||
+		(cluster.Shoot != nil && cluster.Shoot.Annotations != nil && strings.EqualFold(cluster.Shoot.Annotations[AnnotationKeyUseFlow], "true"))
+}
+
+func (a *actuator) getStateFromInfraStatus(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure) (*infraflow.PersistentState, error) {
+	if infrastructure.Status.State != nil {
+		return infraflow.NewPersistentStateFromJSON(infrastructure.Status.State.Raw)
+	}
+	return nil, nil
+}
+
+func (a *actuator) migrateFromTerraformerState(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure) (*infraflow.PersistentState, error) {
+	log.Info("starting terraform state migration")
+	infrastructureConfig, err := a.decodeInfrastructureConfig(infrastructure)
+	if err != nil {
+		return nil, err
+	}
+	state, err := migrateTerraformStateToFlowState(infrastructure.Status.State, infrastructureConfig.Networks.Zones)
+	if err != nil {
+		return nil, fmt.Errorf("migration from terraform state failed: %w", err)
+	}
+
+	if err := a.updateStatusState(ctx, infrastructure, state); err != nil {
+		return nil, fmt.Errorf("updating status state failed: %w", err)
+	}
+	log.Info("terraform state migrated successfully")
+
+	return state, nil
+}
+
+func (a *actuator) decodeInfrastructureConfig(infrastructure *extensionsv1alpha1.Infrastructure) (*awsapi.InfrastructureConfig, error) {
+	infrastructureConfig := &awsapi.InfrastructureConfig{}
+	if _, _, err := a.Decoder().Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
+		return nil, fmt.Errorf("could not decode provider config: %w", err)
+	}
+	return infrastructureConfig, nil
+}
+
+func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
+	infrastructure *extensionsv1alpha1.Infrastructure, oldState *infraflow.PersistentState) (*infraflow.FlowContext, error) {
+	if oldState.MigratedFromTerraform() && !oldState.TerraformCleanedUp() {
+		err := a.cleanupTerraformerResources(ctx, log, infrastructure)
+		if err != nil {
+			return nil, fmt.Errorf("cleaning up terraformer resources failed: %w", err)
+		}
+		oldState.SetTerraformCleanedUp()
+		if err := a.updateStatusState(ctx, infrastructure, oldState); err != nil {
+			return nil, fmt.Errorf("updating status state failed: %w", err)
+		}
+	}
+
+	infrastructureConfig, err := a.decodeInfrastructureConfig(infrastructure)
+	if err != nil {
+		return nil, err
+	}
+
+	awsClient, err := aws.NewClientFromSecretRef(ctx, a.Client(), infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new AWS client: %w", err)
+	}
+
+	infraObjectKey := client.ObjectKey{
+		Namespace: infrastructure.Namespace,
+		Name:      infrastructure.Name,
+	}
+	persistor := func(ctx context.Context, flatState shared.FlatMap) error {
+		state := infraflow.NewPersistentStateFromFlatMap(flatState)
+		infra := &extensionsv1alpha1.Infrastructure{}
+		if err := a.Client().Get(ctx, infraObjectKey, infra); err != nil {
+			return err
+		}
+		return a.updateStatusState(ctx, infra, state)
+	}
+
+	if oldState != nil && !oldState.HasValidVersion() {
+		return nil, fmt.Errorf("unknown flow state version %s", oldState.FlowVersion)
+	}
+	var oldFlatState shared.FlatMap
+	if oldState != nil {
+		oldFlatState = oldState.ToFlatMap()
+	}
+
+	return infraflow.NewFlowContext(log, awsClient, infrastructure, infrastructureConfig, oldFlatState, persistor)
+}
+
+func (a *actuator) cleanupTerraformerResources(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure) error {
+	tf, err := newTerraformer(log, a.RESTConfig(), aws.TerraformerPurposeInfra, infrastructure, a.disableProjectedTokenMount)
+	if err != nil {
+		return fmt.Errorf("could not create terraformer object: %w", err)
+	}
+
+	if err := tf.CleanupConfiguration(ctx); err != nil {
+		return err
+	}
+	return tf.RemoveTerraformerFinalizerFromConfig(ctx)
+}
+
+func (a *actuator) reconcileWithFlow(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure,
+	oldState *infraflow.PersistentState) error {
+	log.Info("reconcileWithFlow")
+
+	flowContext, err := a.createFlowContext(ctx, log, infrastructure, oldState)
+	if err != nil {
+		return err
+	}
+	if err = flowContext.Reconcile(ctx); err != nil {
+		_ = flowContext.PersistState(ctx, true)
+		return a.addErrorCodes(err)
+	}
+	return flowContext.PersistState(ctx, true)
+}
+
+func (a *actuator) updateStatusState(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, state *infraflow.PersistentState) error {
+	infrastructureConfig, err := a.decodeInfrastructureConfig(infra)
+	if err != nil {
+		return err
+	}
+
+	infrastructureStatus, err := computeProviderStatusFromFlowState(infrastructureConfig, state)
+	if err != nil {
+		return err
+	}
+
+	stateBytes, err := state.ToJSON()
+	if err != nil {
+		return err
+	}
+
+	return updateProviderStatus(ctx, a.Client(), infra, infrastructureStatus, stateBytes)
+}
+
+func computeProviderStatusFromFlowState(config *awsapi.InfrastructureConfig, state *infraflow.PersistentState) (*awsv1alpha1.InfrastructureStatus, error) {
+	if len(state.Data) == 0 {
+		return nil, nil
+	}
+	status := &awsv1alpha1.InfrastructureStatus{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "InfrastructureStatus",
+		},
+	}
+
+	vpcID := ""
+	if config.Networks.VPC.ID != nil {
+		vpcID = *config.Networks.VPC.ID
+	} else {
+		vpcID = state.Data[infraflow.IdentifierVPC]
+		if !shared.IsValidValue(vpcID) {
+			vpcID = ""
+		}
+	}
+
+	if vpcID != "" {
+		var subnets []awsv1alpha1.Subnet
+		prefix := infraflow.ChildIdZones + shared.Separator
+		for k, v := range state.Data {
+			if !shared.IsValidValue(v) {
+				continue
+			}
+			if strings.HasPrefix(k, prefix) {
+				parts := strings.Split(k, shared.Separator)
+				if len(parts) != 3 {
+					continue
+				}
+				var purpose string
+				switch parts[2] {
+				case infraflow.IdentifierZoneSubnetPublic:
+					purpose = awsapi.PurposePublic
+				case infraflow.IdentifierZoneSubnetWorkers:
+					purpose = awsapi.PurposeNodes
+				default:
+					continue
+				}
+				subnets = append(subnets, awsv1alpha1.Subnet{
+					ID:      v,
+					Purpose: purpose,
+					Zone:    parts[1],
+				})
+			}
+		}
+
+		status.VPC = awsv1alpha1.VPCStatus{
+			ID:      vpcID,
+			Subnets: subnets,
+		}
+		if groupID := state.Data[infraflow.IdentifierNodesSecurityGroup]; shared.IsValidValue(groupID) {
+			status.VPC.SecurityGroups = []awsv1alpha1.SecurityGroup{
+				{
+					Purpose: awsapi.PurposeNodes,
+					ID:      groupID,
+				},
+			}
+		}
+	}
+
+	if keyName := state.Data[infraflow.NameKeyPair]; shared.IsValidValue(keyName) {
+		status.EC2.KeyName = keyName
+	}
+
+	if name := state.Data[infraflow.NameIAMInstanceProfile]; shared.IsValidValue(name) {
+		status.IAM.InstanceProfiles = []awsv1alpha1.InstanceProfile{
+			{
+				Purpose: awsapi.PurposeNodes,
+				Name:    name,
+			},
+		}
+	}
+	if arn := state.Data[infraflow.ARNIAMRole]; shared.IsValidValue(arn) {
+		status.IAM.Roles = []awsv1alpha1.Role{
+			{
+				Purpose: awsapi.PurposeNodes,
+				ARN:     arn,
+			},
+		}
+	}
+
+	return status, nil
+
+}
+
+// ReconcileWithTerraformer reconciles the given Infrastructure object with terraform. It returns the provider specific status and the Terraform state.
+func ReconcileWithTerraformer(
 	ctx context.Context,
 	logger logr.Logger,
 	restConfig *rest.Config,
@@ -203,15 +441,23 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	return terraformInfraConfig, nil
 }
 
-func updateProviderStatus(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, state *terraformer.RawState) error {
-	stateByte, err := state.Marshal()
-	if err != nil {
-		return err
+func updateProviderStatusTf(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, state *terraformer.RawState) error {
+	var stateBytes []byte
+	if state != nil {
+		var err error
+		stateBytes, err = state.Marshal()
+		if err != nil {
+			return err
+		}
 	}
+	return updateProviderStatus(ctx, c, infrastructure, infrastructureStatus, stateBytes)
+}
+
+func updateProviderStatus(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, stateBytes []byte) error {
 
 	patch := client.MergeFrom(infrastructure.DeepCopy())
 	infrastructure.Status.ProviderStatus = &runtime.RawExtension{Object: infrastructureStatus}
-	infrastructure.Status.State = &runtime.RawExtension{Raw: stateByte}
+	infrastructure.Status.State = &runtime.RawExtension{Raw: stateBytes}
 	return c.Status().Patch(ctx, infrastructure, patch)
 }
 

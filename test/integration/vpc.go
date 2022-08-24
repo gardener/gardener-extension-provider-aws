@@ -31,7 +31,8 @@ import (
 // the VPC ID, the Internet Gateway ID or an error in case something unexpected happens.
 func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames bool) (string, string, error) {
 	createVpcOutput, err := awsClient.EC2.CreateVpc(&ec2.CreateVpcInput{
-		CidrBlock: awssdk.String(vpcCIDR),
+		TagSpecifications: awsclient.Tags{"Name": "aws-infrastructure-it-create-vpc"}.ToTagSpecifications(ec2.ResourceTypeVpc),
+		CidrBlock:         awssdk.String(vpcCIDR),
 	})
 	if err != nil {
 		return "", "", err
@@ -70,7 +71,19 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		}
 	}
 
-	createIgwOutput, err := awsClient.EC2.CreateInternetGateway(&ec2.CreateInternetGatewayInput{})
+	_, err = awsClient.EC2.ModifyVpcAttribute(&ec2.ModifyVpcAttributeInput{
+		EnableDnsSupport: &ec2.AttributeBooleanValue{
+			Value: awssdk.Bool(true),
+		},
+		VpcId: vpcID,
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	createIgwOutput, err := awsClient.EC2.CreateInternetGateway(&ec2.CreateInternetGatewayInput{
+		TagSpecifications: awsclient.Tags{"Name": "aws-infrastructure-it-create-vpc"}.ToTagSpecifications(ec2.ResourceTypeInternetGateway),
+	})
 	if err != nil {
 		return "", "", err
 	}

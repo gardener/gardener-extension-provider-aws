@@ -15,6 +15,7 @@
 package infrastructure
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
@@ -28,6 +29,13 @@ import (
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
+)
+
+const (
+	// AnnotationKeyUseFlow is the annotation key used to enable reconciliation with flow instead of terraformer.
+	AnnotationKeyUseFlow = "aws.provider.extensions.gardener.cloud/use-flow"
 )
 
 type actuator struct {
@@ -86,4 +94,15 @@ func generateTerraformerEnvVars(secretRef corev1.SecretReference) []corev1.EnvVa
 			Key: aws.SecretAccessKey,
 		}},
 	}}
+}
+
+func (a *actuator) addErrorCodes(err error) error {
+	if err == nil {
+		return nil
+	}
+	if msg := err.Error(); strings.Contains(msg, "AuthFailure:") ||
+		strings.Contains(msg, "InvalidClientTokenId:") {
+		return helper.NewErrorWithCodes(err, gardencorev1beta1.ErrorInfraUnauthorized)
+	}
+	return err
 }
