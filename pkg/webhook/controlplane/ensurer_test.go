@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	"github.com/Masterminds/semver"
@@ -36,6 +37,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 
+	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -803,6 +805,79 @@ done
 			Expect(*data).To(Equal(result))
 		})
 	})
+
+	Describe("Custom Route Controller", func() {
+		var (
+			client       *mockclient.MockClient
+			controlPlane *extensionsv1alpha1.ControlPlane
+			mutator      extensionswebhook.Mutator
+
+			namespace  = "foo"
+			clusterKey = kutil.Key(namespace)
+			oldCluster = &extensionsv1alpha1.Cluster{
+				Spec: extensionsv1alpha1.ClusterSpec{
+					Shoot: runtime.RawExtension{
+						Raw: []byte(`{"spec":{"kubernetes":{"version": "1.21.5"}}}`),
+					},
+				},
+			}
+			newCluster = &extensionsv1alpha1.Cluster{
+				Spec: extensionsv1alpha1.ClusterSpec{
+					Shoot: runtime.RawExtension{
+						Raw: []byte(`{"spec":{"kubernetes":{"version": "1.22.4"}}}`),
+					},
+				},
+			}
+		)
+
+		BeforeEach(func() {
+			client = mockclient.NewMockClient(ctrl)
+			controlPlane = &extensionsv1alpha1.ControlPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace},
+				Spec: extensionsv1alpha1.ControlPlaneSpec{
+					DefaultSpec: extensionsv1alpha1.DefaultSpec{
+						ProviderConfig: &runtime.RawExtension{
+							Raw: []byte("{}"),
+						},
+					},
+				},
+			}
+			mutator = NewControlPlaneMutator(logger, nil)
+			err := mutator.(inject.Client).InjectClient(client)
+			Expect(err).To(Not(HaveOccurred()))
+		})
+
+		It("should not enable for kubernetes < 1.22", func() {
+			oldControlPlane := controlPlane.DeepCopy()
+
+			client.EXPECT().Get(ctx, clusterKey, &extensionsv1alpha1.Cluster{}).DoAndReturn(clientGet(oldCluster))
+
+			err := mutator.Mutate(ctx, controlPlane, nil)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(oldControlPlane).To(Equal(controlPlane))
+		})
+
+		It("should enable for kubernetes >= 1.22", func() {
+			oldControlPlane := controlPlane.DeepCopy()
+
+			client.EXPECT().Get(ctx, clusterKey, &extensionsv1alpha1.Cluster{}).DoAndReturn(clientGet(newCluster))
+
+			err := mutator.Mutate(ctx, controlPlane, nil)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(oldControlPlane).To(Not(Equal(controlPlane)))
+			Expect(controlPlane.Spec.ProviderConfig.Object).ToNot(BeNil())
+			Expect(*controlPlane.Spec.ProviderConfig.Object.(*awsv1alpha1.ControlPlaneConfig).CloudControllerManager).ToNot(BeNil())
+			Expect(*controlPlane.Spec.ProviderConfig.Object.(*awsv1alpha1.ControlPlaneConfig).CloudControllerManager.UseCustomRouteController).To(BeTrue())
+		})
+
+		It("should not enable on update", func() {
+			oldControlPlane := controlPlane.DeepCopy()
+
+			err := mutator.Mutate(ctx, controlPlane, controlPlane)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(oldControlPlane).To(Equal(controlPlane))
+		})
+	})
 })
 
 func checkKubeAPIServerDeployment(dep *appsv1.Deployment, annotations map[string]string, k8sVersion string, needsCSIMigrationCompletedFeatureGates bool) {
@@ -941,6 +1016,8 @@ func clientGet(result runtime.Object) interface{} {
 			*obj.(*corev1.Secret) = *result.(*corev1.Secret)
 		case *corev1.ConfigMap:
 			*obj.(*corev1.ConfigMap) = *result.(*corev1.ConfigMap)
+		case *extensionsv1alpha1.Cluster:
+			*obj.(*extensionsv1alpha1.Cluster) = *result.(*extensionsv1alpha1.Cluster)
 		}
 		return nil
 	}
