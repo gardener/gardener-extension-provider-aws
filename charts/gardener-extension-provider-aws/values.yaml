@@ -91,6 +91,7 @@ config:
       className: gardener.cloud-fast
       capacity: 80Gi
       provisioner: kubernetes.io/aws-ebs
+      volumeBindingMode: WaitForFirstConsumer
       encrypted: true
 
 gardener:

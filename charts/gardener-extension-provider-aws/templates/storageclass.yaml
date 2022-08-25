@@ -9,6 +9,7 @@ metadata:
     resources.gardener.cloud/delete-on-invalid-update: "true"
 allowVolumeExpansion: true
 provisioner: {{ .Values.config.etcd.storage.provisioner }}
+volumeBindingMode: {{ .Values.config.etcd.storage.volumeBindingMode }}
 parameters:
   type: gp3
   {{- if .Values.config.etcd.storage.encrypted }}
