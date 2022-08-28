@@ -33,6 +33,7 @@ import (
 	"github.com/gardener/gardener/pkg/utils/version"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -42,7 +43,13 @@ var (
 	defaultSyncPeriod = time.Second * 30
 	// DefaultAddOptions are the default DefaultAddArgs for AddToManager.
 	DefaultAddOptions = healthcheck.DefaultAddArgs{
-		HealthCheckConfig: healthcheckconfig.HealthCheckConfig{SyncPeriod: metav1.Duration{Duration: defaultSyncPeriod}},
+		HealthCheckConfig: healthcheckconfig.HealthCheckConfig{
+			SyncPeriod: metav1.Duration{Duration: defaultSyncPeriod},
+			ShootRESTOptions: &healthcheckconfig.RESTOptions{
+				QPS:   pointer.Float32(100),
+				Burst: pointer.Int(130),
+			},
+		},
 	}
 )
 
