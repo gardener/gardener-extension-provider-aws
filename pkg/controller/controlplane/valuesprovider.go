@@ -94,6 +94,7 @@ func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfig
 func shootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
 	return []*gutil.ShootAccessSecret{
 		gutil.NewShootAccessSecret(aws.CloudControllerManagerName, namespace),
+		gutil.NewShootAccessSecret(aws.AWSCustomRouteControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIProvisionerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIAttacherName, namespace),
 		gutil.NewShootAccessSecret(aws.CSISnapshotterName, namespace),
@@ -135,6 +136,17 @@ var (
 				},
 			},
 			{
+				Name:   aws.AWSCustomRouteControllerName,
+				Images: []string{aws.AWSCustomRouteControllerImageName},
+				Objects: []*chart.Object{
+					{Type: &appsv1.Deployment{}, Name: aws.AWSCustomRouteControllerName},
+					{Type: &rbacv1.Role{}, Name: aws.AWSCustomRouteControllerName},
+					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSCustomRouteControllerName},
+					{Type: &corev1.ServiceAccount{}, Name: aws.AWSCustomRouteControllerName},
+					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
+				},
+			},
+			{
 				Name: aws.CSIControllerName,
 				Images: []string{
 					aws.CSIDriverImageName,
@@ -173,6 +185,14 @@ var (
 				Objects: []*chart.Object{
 					{Type: &rbacv1.ClusterRole{}, Name: "system:controller:cloud-node-controller"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "system:controller:cloud-node-controller"},
+				},
+			},
+			{
+				Name: aws.AWSCustomRouteControllerName,
+				Path: filepath.Join(aws.InternalChartsPath, "aws-custom-route-controller"),
+				Objects: []*chart.Object{
+					{Type: &rbacv1.ClusterRole{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
 				},
 			},
 			{
@@ -310,7 +330,15 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	secretsReader secretsmanager.Reader,
 	_ map[string]string,
 ) (map[string]interface{}, error) {
-	return getControlPlaneShootChartValues(cluster, cp, secretsReader)
+	// Decode providerConfig
+	cpConfig := &apisaws.ControlPlaneConfig{}
+	if cp.Spec.ProviderConfig != nil {
+		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+		}
+	}
+
+	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader)
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
@@ -426,6 +454,11 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
+	crc, err := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown)
+	if err != nil {
+		return nil, err
+	}
+
 	csi, err := getCSIControllerChartValues(cp, cluster, secretsReader, checksums, scaledDown)
 	if err != nil {
 		return nil, err
@@ -435,8 +468,9 @@ func getControlPlaneChartValues(
 		"global": map[string]interface{}{
 			"genericTokenKubeconfigSecretName": extensionscontroller.GenericTokenKubeconfigSecretNameFromCluster(cluster),
 		},
-		aws.CloudControllerManagerName: ccm,
-		aws.CSIControllerName:          csi,
+		aws.CloudControllerManagerName:   ccm,
+		aws.AWSCustomRouteControllerName: crc,
+		aws.CSIControllerName:            csi,
 	}, nil
 }
 
@@ -480,6 +514,35 @@ func getCCMChartValues(
 
 	if cpConfig.CloudControllerManager != nil {
 		values["featureGates"] = cpConfig.CloudControllerManager.FeatureGates
+	}
+
+	return values, nil
+}
+
+// getCRCChartValues collects and returns the custom-route-controller chart values.
+func getCRCChartValues(
+	cpConfig *apisaws.ControlPlaneConfig,
+	cp *extensionsv1alpha1.ControlPlane,
+	cluster *extensionscontroller.Cluster,
+	checksums map[string]string,
+	scaledDown bool,
+) (map[string]interface{}, error) {
+	enabled := cpConfig.CloudControllerManager != nil &&
+		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
+		*cpConfig.CloudControllerManager.UseCustomRouteController
+
+	values := map[string]interface{}{
+		"enabled":     enabled,
+		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
+		"clusterName": cp.Namespace,
+		"podNetwork":  extensionscontroller.GetPodNetwork(cluster),
+		"podAnnotations": map[string]interface{}{
+			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
+		},
+		"podLabels": map[string]interface{}{
+			v1beta1constants.LabelPodMaintenanceRestart: "true",
+		},
+		"region": cp.Spec.Region,
 	}
 
 	return values, nil
@@ -529,6 +592,7 @@ func getCSIControllerChartValues(
 // getControlPlaneShootChartValues collects and returns the control plane shoot chart values.
 func getControlPlaneShootChartValues(
 	cluster *extensionscontroller.Cluster,
+	cpConfig *apisaws.ControlPlaneConfig,
 	cp *extensionsv1alpha1.ControlPlane,
 	secretsReader secretsmanager.Reader,
 ) (map[string]interface{}, error) {
@@ -542,6 +606,10 @@ func getControlPlaneShootChartValues(
 	if !found {
 		return nil, fmt.Errorf("secret %q not found", caNameControlPlane)
 	}
+
+	customRouteControllerEnabled := cpConfig.CloudControllerManager != nil &&
+		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
+		*cpConfig.CloudControllerManager.UseCustomRouteController
 
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           csiEnabled,
@@ -561,7 +629,8 @@ func getControlPlaneShootChartValues(
 	}
 
 	return map[string]interface{}{
-		aws.CloudControllerManagerName: map[string]interface{}{"enabled": true},
-		aws.CSINodeName:                csiDriverNodeValues,
+		aws.CloudControllerManagerName:   map[string]interface{}{"enabled": true},
+		aws.AWSCustomRouteControllerName: map[string]interface{}{"enabled": customRouteControllerEnabled},
+		aws.CSINodeName:                  csiDriverNodeValues,
 	}, nil
 }

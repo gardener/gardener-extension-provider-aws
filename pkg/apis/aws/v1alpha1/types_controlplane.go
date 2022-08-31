@@ -39,6 +39,11 @@ type CloudControllerManagerConfig struct {
 	// FeatureGates contains information about enabled feature gates.
 	// +optional
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
+
+	// UseCustomRouteController controls if custom route controller should be used.
+	// Defaults to false.
+	// +optional
+	UseCustomRouteController *bool `json:"useCustomRouteController,omitempty"`
 }
 
 // Storage contains configuration for storage in the cluster.

@@ -1,0 +1,99 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aws-custom-route-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kubernetes
+    role: aws-custom-route-controller
+spec:
+  revisionHistoryLimit: 1
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: kubernetes
+      role: aws-custom-route-controller
+  template:
+    metadata:
+      annotations:
+{{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+{{- end }}
+      labels:
+        gardener.cloud/role: controlplane
+        app: kubernetes
+        role: aws-custom-route-controller
+        networking.gardener.cloud/to-dns: allowed
+        networking.gardener.cloud/to-public-networks: allowed
+        networking.gardener.cloud/to-seed-apiserver: allowed
+        networking.gardener.cloud/to-shoot-apiserver: allowed
+{{- if .Values.podLabels }}
+{{ toYaml .Values.podLabels | indent 8 }}
+{{- end }}
+    spec:
+      strategy:
+        type: Recreate
+      priorityClassName: gardener-system-300
+      serviceAccountName: aws-custom-route-controller
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: aws-custom-route-controller
+        image: {{ index .Values.images "aws-custom-route-controller" }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /aws-custom-route-controller
+        - --control-kubeconfig=inClusterConfig
+        - --cluster-name={{ .Values.clusterName }}
+        - --health-probe-port={{ .Values.healthzPort }}
+        - --metrics-port={{ .Values.metricsPort }}
+        - --namespace={{ .Release.Namespace }}
+        - --pod-network-cidr={{ .Values.podNetwork }}
+        - --region={{ .Values.region }}
+        - --target-kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: {{ .Values.healthzPort }}
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: {{ .Values.healthzPort }}
+            scheme: HTTP
+          initialDelaySeconds: 5
+        ports:
+        - name: metrics
+          containerPort: {{ .Values.metricsPort }}
+          protocol: TCP
+        - name: healthz
+          containerPort: {{ .Values.healthzPort }}
+          protocol: TCP
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        volumeMounts:
+        - mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
+          name: kubeconfig
+          readOnly: true
+      volumes:
+      - name: kubeconfig
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: kubeconfig
+                path: kubeconfig
+              name: {{ .Values.genericTokenKubeconfigSecretName }}
+              optional: false
+          - secret:
+              items:
+              - key: token
+                path: token
+              name: shoot-access-aws-custom-route-controller
+              optional: false

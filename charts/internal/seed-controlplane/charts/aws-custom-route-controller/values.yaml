@@ -1,0 +1,33 @@
+images:
+  aws-custom-route-controller: image-repository:image-tag
+
+replicas: 1
+
+podAnnotations: {}
+
+podLabels: {}
+
+providerName: provider-foo
+
+# injected by generic worker actuator
+genericTokenKubeconfigSecretName: generic-token-kubeconfig
+
+metricsPort: 10258
+healthzPort: 10259
+
+podNetwork: 192.168.0.0/16
+region: region
+
+vpa:
+  enabled: true
+  updatePolicy:
+    updateMode: "Auto"
+
+resources:
+  requests:
+    cpu: 30m
+    memory: 50Mi
+  limits:
+    memory: 128Mi
+
+enabled: false

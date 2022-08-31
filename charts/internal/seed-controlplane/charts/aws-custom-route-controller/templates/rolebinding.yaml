@@ -1,0 +1,14 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aws-custom-route-controller
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aws-custom-route-controller
+subjects:
+- kind: ServiceAccount
+  name: aws-custom-route-controller
+  namespace: {{ .Release.Namespace }}

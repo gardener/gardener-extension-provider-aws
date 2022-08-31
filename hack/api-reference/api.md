@@ -371,6 +371,19 @@ map[string]bool
 <p>FeatureGates contains information about enabled feature gates.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>useCustomRouteController</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UseCustomRouteController controls if custom route controller should be used.
+Defaults to false.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.DataVolume">DataVolume

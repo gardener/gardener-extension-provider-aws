@@ -32,6 +32,9 @@ const (
 	AWSLBReadvertiserImageName = "aws-lb-readvertiser"
 	// CloudControllerManagerImageName is the name of the cloud-controller-manager image.
 	CloudControllerManagerImageName = "cloud-controller-manager"
+	// AWSCustomRouteControllerImageName is the name of the aws-custom-route-controller image.
+	AWSCustomRouteControllerImageName = "aws-custom-route-controller"
+
 	// CSIDriverImageName is the name of the csi-driver image.
 	CSIDriverImageName = "csi-driver"
 	// CSIProvisionerImageName is the name of the csi-provisioner image.
@@ -102,6 +105,8 @@ const (
 
 	// CloudControllerManagerName is the constant for the name of the CloudController deployed by the control plane controller.
 	CloudControllerManagerName = "cloud-controller-manager"
+	// AWSCustomRouteControllerName is the constant for the name of the custom routes controller deployed by the control plane controller.
+	AWSCustomRouteControllerName = "aws-custom-route-controller"
 	// CSIControllerName is a constant for the name of the CSI controller deployment in the seed.
 	CSIControllerName = "csi-driver-controller"
 	// CSINodeName is a constant for the name of the CSI node deployment in the shoot.
