@@ -40,8 +40,9 @@ func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 		Types: []extensionswebhook.Type{
 			{Obj: &appsv1.Deployment{}},
 			{Obj: &extensionsv1alpha1.OperatingSystemConfig{}},
+			{Obj: &extensionsv1alpha1.ControlPlane{}},
 		},
-		Mutator: genericmutator.NewMutator(NewEnsurer(logger), oscutils.NewUnitSerializer(),
-			kubelet.NewConfigCodec(fciCodec), fciCodec, logger),
+		Mutator: NewControlPlaneMutator(logger, genericmutator.NewMutator(NewEnsurer(logger),
+			oscutils.NewUnitSerializer(), kubelet.NewConfigCodec(fciCodec), fciCodec, logger)),
 	})
 }
