@@ -33,12 +33,13 @@ import (
 var _ = Describe("ValidateWorkerConfig", func() {
 	Describe("#ValidateWorkerConfig", func() {
 		var (
-			io1type       = string(apisaws.VolumeTypeIO1)
-			io1iops int64 = 200
-			gp2type       = string(apisaws.VolumeTypeGP2)
-			gp2iops int64 = 400
-			gp3type       = string(apisaws.VolumeTypeGP3)
-			gp3iops int64 = 4000
+			io1type          = string(apisaws.VolumeTypeIO1)
+			io1iops    int64 = 200
+			gp2type          = string(apisaws.VolumeTypeGP2)
+			gp2iops    int64 = 400
+			gp3type          = string(apisaws.VolumeTypeGP3)
+			gp3iops    int64 = 4000
+			throughput int64 = 200
 
 			rootVolumeIO1 = &core.Volume{Type: &io1type}
 			rootVolumeGP2 = &core.Volume{Type: &gp2type}
@@ -90,7 +91,9 @@ var _ = Describe("ValidateWorkerConfig", func() {
 		})
 
 		It("should return no errors for a valid io1 configuration", func() {
-			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty())
+			worker.Volume.Throughput = &throughput
+			worker.DataVolumes[0].Throughput = &throughput
+			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty()) // this will later fail on aws side as currently throughput cannot be configured for io1
 		})
 
 		It("should return no errors for a valid nodetemplate configuration", func() {
@@ -139,15 +142,19 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 		It("should return no errors for a valid gp2 configuration", func() {
 			worker.Volume.IOPS = nil
+			worker.Volume.Throughput = nil
 			Expect(ValidateWorkerConfig(worker, rootVolumeGP2, dataVolumes, fldPath)).To(BeEmpty())
-			worker.Volume.IOPS = &gp2iops // this will later fail on aws side because currently iops cannot be set for gp2.
+			worker.Volume.IOPS = &gp2iops          // this will later fail on aws side because currently iops cannot be set for gp2.
+			worker.Volume.Throughput = &throughput // this will later fail on aws side because currently throughput cannot be set for gp2.
 			Expect(ValidateWorkerConfig(worker, rootVolumeGP2, dataVolumes, fldPath)).To(BeEmpty())
 		})
 
 		It("should return no errors for a valid gp3 configuration", func() {
 			worker.Volume.IOPS = nil
+			worker.Volume.Throughput = nil
 			Expect(ValidateWorkerConfig(worker, rootVolumeGP3, dataVolumes, fldPath)).To(BeEmpty())
 			worker.Volume.IOPS = &gp3iops
+			worker.Volume.Throughput = &throughput
 			Expect(ValidateWorkerConfig(worker, rootVolumeGP3, dataVolumes, fldPath)).To(BeEmpty())
 		})
 
@@ -168,7 +175,6 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				})),
 			))
 		})
-
 		It("should enforce that the IOPS is positive", func() {
 			var negative int64 = -100
 			worker.Volume.IOPS = &negative
@@ -197,7 +203,26 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				"Field": Equal("config.dataVolumes[1].name"),
 			}))))
 		})
+		It("should enforce that the throughput is positive", func() {
+			var negative int64 = -100
+			worker.Volume.Throughput = &negative
+			worker.DataVolumes[0].Throughput = &negative
 
+			errorList := ValidateWorkerConfig(worker, rootVolumeGP3, dataVolumes, fldPath)
+
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.volume.throughput"),
+					"Detail": Equal("throughput must be a positive value"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.dataVolumes[0].throughput"),
+					"Detail": Equal("throughput must be a positive value"),
+				})),
+			))
+		})
 		It("should prevent data volume entries in workerconfig for non-existing data volumes shoot", func() {
 			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{Name: "broken"})
 

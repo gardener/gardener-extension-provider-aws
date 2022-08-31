@@ -1255,6 +1255,19 @@ gp2 volumes.</p>
 it is not used in requests to create gp2, st1, sc1, or standard volumes.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>throughput</code></br>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>The throughput that the volume supports, in MiB/s.</p>
+<p>This parameter is valid only for gp3 volumes.</p>
+<p>Valid Range: The range as of 16th Aug 2022 is from 125 MiB/s to 1000 MiB/s. For more info refer (<a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html">http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html</a>)</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.VolumeType">VolumeType

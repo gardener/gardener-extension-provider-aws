@@ -820,6 +820,7 @@ func Convert_aws_VPCStatus_To_v1alpha1_VPCStatus(in *aws.VPCStatus, out *VPCStat
 
 func autoConvert_v1alpha1_Volume_To_aws_Volume(in *Volume, out *aws.Volume, s conversion.Scope) error {
 	out.IOPS = (*int64)(unsafe.Pointer(in.IOPS))
+	out.Throughput = (*int64)(unsafe.Pointer(in.Throughput))
 	return nil
 }
 
@@ -830,6 +831,7 @@ func Convert_v1alpha1_Volume_To_aws_Volume(in *Volume, out *aws.Volume, s conver
 
 func autoConvert_aws_Volume_To_v1alpha1_Volume(in *aws.Volume, out *Volume, s conversion.Scope) error {
 	out.IOPS = (*int64)(unsafe.Pointer(in.IOPS))
+	out.Throughput = (*int64)(unsafe.Pointer(in.Throughput))
 	return nil
 }
 

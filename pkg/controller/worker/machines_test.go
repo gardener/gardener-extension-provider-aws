@@ -109,16 +109,18 @@ var _ = Describe("Machines", func() {
 				archAMD string
 				archARM string
 
-				volumeType      string
-				volumeSize      int
-				volumeEncrypted bool
-				volumeIOPS      int64
+				volumeType       string
+				volumeSize       int
+				volumeEncrypted  bool
+				volumeIOPS       int64
+				volumeThroughput int64
 
-				dataVolume1Name      string
-				dataVolume1Type      string
-				dataVolume1Size      int
-				dataVolume1IOPS      int64
-				dataVolume1Encrypted bool
+				dataVolume1Name       string
+				dataVolume1Type       string
+				dataVolume1Size       int
+				dataVolume1IOPS       int64
+				dataVolume1Throughput int64
+				dataVolume1Encrypted  bool
 
 				dataVolume2Name       string
 				dataVolume2Type       string
@@ -190,11 +192,13 @@ var _ = Describe("Machines", func() {
 				volumeSize = 20
 				volumeEncrypted = true
 				volumeIOPS = 400
+				volumeThroughput = 200
 
 				dataVolume1Name = "vol-1"
 				dataVolume1Type = "foo"
 				dataVolume1Size = 42
 				dataVolume1IOPS = 567
+				dataVolume1Throughput = 300
 				dataVolume1Encrypted = true
 
 				dataVolume2Name = "vol-2"
@@ -379,13 +383,15 @@ var _ = Describe("Machines", func() {
 								ProviderConfig: &runtime.RawExtension{
 									Raw: encode(&api.WorkerConfig{
 										Volume: &api.Volume{
-											IOPS: &volumeIOPS,
+											IOPS:       &volumeIOPS,
+											Throughput: &volumeThroughput,
 										},
 										DataVolumes: []api.DataVolume{
 											{
 												Name: dataVolume1Name,
 												Volume: api.Volume{
-													IOPS: &dataVolume1IOPS,
+													IOPS:       &dataVolume1IOPS,
+													Throughput: &dataVolume1Throughput,
 												},
 											},
 											{
@@ -536,6 +542,7 @@ var _ = Describe("Machines", func() {
 									"volumeSize":          volumeSize,
 									"volumeType":          volumeType,
 									"iops":                volumeIOPS,
+									"throughput":          volumeThroughput,
 									"deleteOnTermination": true,
 									"encrypted":           volumeEncrypted,
 								},
@@ -548,6 +555,7 @@ var _ = Describe("Machines", func() {
 									"deleteOnTermination": true,
 									"encrypted":           dataVolume1Encrypted,
 									"iops":                dataVolume1IOPS,
+									"throughput":          dataVolume1Throughput,
 								},
 							},
 							{
