@@ -4,6 +4,8 @@ images:
 
 replicas: 1
 
+tsc: {}
+
 podAnnotations: {}
 
 podLabels: {}

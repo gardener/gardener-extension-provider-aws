@@ -31,6 +31,10 @@ spec:
 {{ toYaml .Values.podLabels | indent 8 }}
 {{- end }}
     spec:
+{{- if .Values.tsc }}
+      topologySpreadConstraints:
+{{ toYaml .Values.tsc | indent 6 }}
+{{- end }}
       automountServiceAccountToken: false
       priorityClassName: gardener-system-300
       containers:

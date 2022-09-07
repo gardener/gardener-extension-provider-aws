@@ -35,6 +35,10 @@ spec:
 {{ toYaml .Values.podLabels | indent 8 }}
 {{- end }}
     spec:
+{{- if .Values.tsc }}
+      topologySpreadConstraints:
+{{ toYaml .Values.tsc | indent 6 }}
+{{- end }}
       priorityClassName: gardener-system-300
       serviceAccountName: machine-controller-manager
       terminationGracePeriodSeconds: 5
