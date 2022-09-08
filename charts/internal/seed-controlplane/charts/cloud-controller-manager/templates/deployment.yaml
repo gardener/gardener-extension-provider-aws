@@ -38,12 +38,7 @@ spec:
         image: {{ index .Values.images "cloud-controller-manager" }}
         imagePullPolicy: IfNotPresent
         command:
-        {{- if semverCompare "< 1.17" .Values.kubernetesVersion }}
-        - /hyperkube
-        - cloud-controller-manager
-        {{- else }}
         - /aws-cloud-controller-manager
-        {{- end }}
         - --allocate-node-cidrs=true
         - --cloud-provider=aws
         - --cloud-config=/etc/kubernetes/cloudprovider/cloudprovider.conf

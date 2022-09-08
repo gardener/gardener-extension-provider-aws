@@ -157,7 +157,7 @@ var _ = Describe("ValuesProvider", func() {
 						Pods: &cidr,
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: "1.15.4",
+						Version: "1.17.1",
 					},
 				},
 			},
@@ -376,7 +376,7 @@ var _ = Describe("ValuesProvider", func() {
 				aws.CloudControllerManagerName:   enabledTrue,
 				aws.AWSCustomRouteControllerName: enabledFalse,
 				aws.CSINodeName: utils.MergeMaps(enabledFalse, map[string]interface{}{
-					"kubernetesVersion": "1.15.4",
+					"kubernetesVersion": "1.17.1",
 					"vpaEnabled":        false,
 					"webhookConfig": map[string]interface{}{
 						"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
