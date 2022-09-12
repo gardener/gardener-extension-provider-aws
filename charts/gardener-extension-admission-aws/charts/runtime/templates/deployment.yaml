@@ -46,7 +46,7 @@ spec:
         {{- if .Values.global.kubeconfig }}
         - --kubeconfig=/etc/gardener-extension-admission-aws/kubeconfig/kubeconfig
         {{- end }}
-        {{- if .Values.metricsPort }}
+        {{- if .Values.global.metricsPort }}
         - --metrics-bind-address=:{{ .Values.global.metricsPort }}
         {{- end }}
         - --health-bind-address=:{{ .Values.global.healthPort }}
@@ -66,11 +66,6 @@ spec:
         - name: webhook-server
           containerPort: {{ .Values.global.webhookConfig.serverPort }}
           protocol: TCP
-        livenessProbe:
-          tcpSocket:
-            port: {{ .Values.global.webhookConfig.serverPort }}
-          initialDelaySeconds: 5
-          periodSeconds: 10
 {{- if .Values.global.resources }}
         resources:
 {{ toYaml .Values.global.resources | nindent 10 }}
