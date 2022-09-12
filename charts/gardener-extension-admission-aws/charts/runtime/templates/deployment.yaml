@@ -66,11 +66,6 @@ spec:
         - name: webhook-server
           containerPort: {{ .Values.global.webhookConfig.serverPort }}
           protocol: TCP
-        livenessProbe:
-          tcpSocket:
-            port: {{ .Values.global.webhookConfig.serverPort }}
-          initialDelaySeconds: 5
-          periodSeconds: 10
 {{- if .Values.global.resources }}
         resources:
 {{ toYaml .Values.global.resources | nindent 10 }}
