@@ -63,7 +63,7 @@ images:
 - name: aws-custom-route-controller
   sourceRepository: github.com/gardener/aws-custom-route-controller
   repository: eu.gcr.io/gardener-project/gardener/aws-custom-route-controller
-  tag: "v0.1.0"
+  tag: "v0.2.0"
 
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
