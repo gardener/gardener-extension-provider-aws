@@ -1000,6 +1000,13 @@ func verifyCreation(
 						"SubnetId": PointTo(Equal(internalSubnetID)),
 					})),
 				))
+				var prefixListId *string
+				for _, r := range routeTable.Routes {
+					if r.DestinationPrefixListId != nil {
+						prefixListId = r.DestinationPrefixListId
+						break
+					}
+				}
 				Expect(routeTable.Routes).To(ConsistOf([]*ec2.Route{
 					{
 						DestinationCidrBlock: cidr,
@@ -1012,6 +1019,12 @@ func verifyCreation(
 						NatGatewayId:         describeNatGatewaysOutput.NatGateways[0].NatGatewayId,
 						Origin:               awssdk.String("CreateRoute"),
 						State:                awssdk.String("active"),
+					},
+					{
+						DestinationPrefixListId: prefixListId,
+						GatewayId:               describeVpcEndpointsOutput.VpcEndpoints[0].VpcEndpointId,
+						Origin:                  awssdk.String("CreateRoute"),
+						State:                   awssdk.String("active"),
 					},
 				}))
 				Expect(routeTable.Tags).To(ConsistOf([]*ec2.Tag{

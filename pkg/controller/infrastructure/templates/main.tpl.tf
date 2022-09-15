@@ -279,6 +279,14 @@ resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}
   subnet_id      = aws_subnet.nodes_z{{ $index }}.id
   route_table_id = aws_route_table.routetable_private_utility_z{{ $index }}.id
 }
+
+{{ range $ep := $.vpc.gatewayEndpoints }}
+resource "aws_vpc_endpoint_route_table_association" "vpc_gwep_{{ $ep }}_z{{ $index }}" {
+  route_table_id  = aws_route_table.routetable_private_utility_z{{ $index }}.id
+  vpc_endpoint_id = aws_vpc_endpoint.vpc_gwep_{{ $ep }}.id
+}
+{{end}}
+
 {{end}}
 
 //=====================================================================
