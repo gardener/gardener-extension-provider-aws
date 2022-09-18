@@ -397,11 +397,10 @@ func ensureKubeControllerManagerVolumeMounts(c *corev1.Container, version string
 	}
 
 	c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, cloudProviderConfigVolumeMount)
-	if mustMountEtcSSLFolder(version) {
-		c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, etcSSLVolumeMount)
-		// some distros have symlinks from /etc/ssl/certs to /usr/share/ca-certificates
-		c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, usrShareCaCertsVolumeMount)
-	}
+
+	c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, etcSSLVolumeMount)
+	// some distros have symlinks from /etc/ssl/certs to /usr/share/ca-certificates
+	c.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(c.VolumeMounts, usrShareCaCertsVolumeMount)
 }
 
 func ensureKubeAPIServerVolumes(ps *corev1.PodSpec, csiEnabled, csiMigrationComplete bool) {
@@ -422,22 +421,10 @@ func ensureKubeControllerManagerVolumes(ps *corev1.PodSpec, version string, csiE
 	}
 
 	ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, cloudProviderConfigVolume)
-	if mustMountEtcSSLFolder(version) {
-		ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, etcSSLVolume)
-		// some distros have symlinks from /etc/ssl/certs to /usr/share/ca-certificates
-		ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, usrShareCaCertsVolume)
-	}
-}
 
-// Beginning with 1.17 Gardener no longer uses the hyperkube image for the Kubernetes control plane components.
-// The hyperkube image contained all the well-known root CAs, but the dedicated images don't. This is why we
-// mount the /etc/ssl folder from the host here.
-func mustMountEtcSSLFolder(version string) bool {
-	k8sVersionAtLeast117, err := versionutils.CompareVersions(version, ">=", "1.17")
-	if err != nil {
-		return false
-	}
-	return k8sVersionAtLeast117
+	ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, etcSSLVolume)
+	// some distros have symlinks from /etc/ssl/certs to /usr/share/ca-certificates
+	ps.Volumes = extensionswebhook.EnsureVolumeWithName(ps.Volumes, usrShareCaCertsVolume)
 }
 
 func (e *ensurer) ensureChecksumAnnotations(ctx context.Context, template *corev1.PodTemplateSpec, namespace string, csiEnabled, csiMigrationComplete bool) error {
