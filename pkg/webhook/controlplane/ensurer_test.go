@@ -838,6 +838,20 @@ done
 			Expect(*controlPlane.Spec.ProviderConfig.Object.(*awsv1alpha1.ControlPlaneConfig).CloudControllerManager.UseCustomRouteController).To(BeTrue())
 		})
 
+		It("should enable for kubernetes >= 1.22 without provider config", func() {
+			controlPlane.Spec.DefaultSpec = extensionsv1alpha1.DefaultSpec{}
+			oldControlPlane := controlPlane.DeepCopy()
+
+			client.EXPECT().Get(ctx, clusterKey, &extensionsv1alpha1.Cluster{}).DoAndReturn(clientGet(newCluster))
+
+			err := mutator.Mutate(ctx, controlPlane, nil)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(oldControlPlane).To(Not(Equal(controlPlane)))
+			Expect(controlPlane.Spec.ProviderConfig.Object).ToNot(BeNil())
+			Expect(*controlPlane.Spec.ProviderConfig.Object.(*awsv1alpha1.ControlPlaneConfig).CloudControllerManager).ToNot(BeNil())
+			Expect(*controlPlane.Spec.ProviderConfig.Object.(*awsv1alpha1.ControlPlaneConfig).CloudControllerManager.UseCustomRouteController).To(BeTrue())
+		})
+
 		It("should not enable on update", func() {
 			oldControlPlane := controlPlane.DeepCopy()
 
