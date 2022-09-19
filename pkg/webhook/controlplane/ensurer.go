@@ -680,25 +680,25 @@ func (c *controlPlaneMutator) Mutate(ctx context.Context, new, old client.Object
 		if greaterEqual122 {
 			switch x.Name {
 			case cluster.Shoot.Name:
+				config := &awsv1alpha1.ControlPlaneConfig{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+						Kind:       "ControlPlaneConfig",
+					},
+				}
 				if x.Spec.ProviderConfig != nil && x.Spec.ProviderConfig.Raw != nil {
-					config := &awsv1alpha1.ControlPlaneConfig{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
-							Kind:       "ControlPlaneConfig",
-						},
-					}
 					if _, _, err := decoder.Decode(x.Spec.ProviderConfig.Raw, nil, config); err != nil {
 						return err
 					}
-					if config.CloudControllerManager == nil {
-						config.CloudControllerManager = &awsv1alpha1.CloudControllerManagerConfig{}
-					}
-					if config.CloudControllerManager.UseCustomRouteController == nil {
-						extensionswebhook.LogMutation(c.logger, x.Kind, x.Namespace, x.Name)
-						config.CloudControllerManager.UseCustomRouteController = pointer.Bool(true)
-						x.Spec.ProviderConfig = &runtime.RawExtension{
-							Object: config,
-						}
+				}
+				if config.CloudControllerManager == nil {
+					config.CloudControllerManager = &awsv1alpha1.CloudControllerManagerConfig{}
+				}
+				if config.CloudControllerManager.UseCustomRouteController == nil {
+					extensionswebhook.LogMutation(c.logger, x.Kind, x.Namespace, x.Name)
+					config.CloudControllerManager.UseCustomRouteController = pointer.Bool(true)
+					x.Spec.ProviderConfig = &runtime.RawExtension{
+						Object: config,
 					}
 				}
 			}
