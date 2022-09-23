@@ -5,5 +5,5 @@ cloud-controller-manager:
   enabled: true
 csi-driver-controller:
   enabled: false
-aws-custom-routes-controller:
+aws-custom-route-controller:
   enabled: false

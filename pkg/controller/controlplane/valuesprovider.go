@@ -533,7 +533,7 @@ func getCRCChartValues(
 
 	values := map[string]interface{}{
 		"enabled":     enabled,
-		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
+		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown || !enabled, 1),
 		"clusterName": cp.Namespace,
 		"podNetwork":  extensionscontroller.GetPodNetwork(cluster),
 		"podAnnotations": map[string]interface{}{
