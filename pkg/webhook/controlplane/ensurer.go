@@ -19,6 +19,8 @@ import (
 	"context"
 	"regexp"
 
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -45,6 +47,10 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+)
+
+const (
+	EnableCustomRouteController = "aws.provider.extensions.gardener.cloud/useCustomRouteController"
 )
 
 var (
@@ -648,45 +654,59 @@ func (c *controlPlaneMutator) Mutate(ctx context.Context, new, old client.Object
 
 	switch x := new.(type) {
 	case *extensionsv1alpha1.ControlPlane:
-		// Only mutate inital control plane for now
-		if old != nil {
-			return nil
-		}
-
 		gctx := gcontext.NewGardenContext(c.client, new)
 		cluster, err := gctx.GetCluster(ctx)
 		if err != nil {
 			return err
 		}
-		// source/destination checks are only disabled for kubernetes >= 1.22
-		// see https://github.com/gardener/machine-controller-manager-provider-aws/issues/36 for details
+
+		if x.Name != cluster.Shoot.Name {
+			break
+		}
+
 		greaterEqual122, err := versionutils.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", "1.22")
 		if err != nil {
 			return err
 		}
-		if greaterEqual122 {
-			switch x.Name {
-			case cluster.Shoot.Name:
-				config := &awsv1alpha1.ControlPlaneConfig{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
-						Kind:       "ControlPlaneConfig",
-					},
+		if !greaterEqual122 {
+			break
+		}
+
+		if old != nil {
+			if _, ok := old.GetAnnotations()[EnableCustomRouteController]; ok {
+				tmp := new.GetAnnotations()
+				tmp[EnableCustomRouteController] = old.GetAnnotations()[EnableCustomRouteController]
+				new.SetAnnotations(tmp)
+			}
+		} else if cluster.Shoot.Status.LastOperation == nil || cluster.Shoot.Status.LastOperation.Type != v1beta1.LastOperationTypeRestore {
+			// Only mutate initial control plane for now
+			// source/destination checks are only disabled for kubernetes >= 1.22
+			// see https://github.com/gardener/machine-controller-manager-provider-aws/issues/36 for details
+			tmp := new.GetAnnotations()
+			tmp[EnableCustomRouteController] = "true"
+			new.SetAnnotations(tmp)
+		}
+
+		if new.GetAnnotations()[EnableCustomRouteController] == "true" {
+			config := &awsv1alpha1.ControlPlaneConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+					Kind:       "ControlPlaneConfig",
+				},
+			}
+			if x.Spec.ProviderConfig != nil && x.Spec.ProviderConfig.Raw != nil {
+				if _, _, err := decoder.Decode(x.Spec.ProviderConfig.Raw, nil, config); err != nil {
+					return err
 				}
-				if x.Spec.ProviderConfig != nil && x.Spec.ProviderConfig.Raw != nil {
-					if _, _, err := decoder.Decode(x.Spec.ProviderConfig.Raw, nil, config); err != nil {
-						return err
-					}
-				}
-				if config.CloudControllerManager == nil {
-					config.CloudControllerManager = &awsv1alpha1.CloudControllerManagerConfig{}
-				}
-				if config.CloudControllerManager.UseCustomRouteController == nil {
-					extensionswebhook.LogMutation(c.logger, x.Kind, x.Namespace, x.Name)
-					config.CloudControllerManager.UseCustomRouteController = pointer.Bool(true)
-					x.Spec.ProviderConfig = &runtime.RawExtension{
-						Object: config,
-					}
+			}
+			if config.CloudControllerManager == nil {
+				config.CloudControllerManager = &awsv1alpha1.CloudControllerManagerConfig{}
+			}
+			if config.CloudControllerManager.UseCustomRouteController == nil {
+				extensionswebhook.LogMutation(c.logger, x.Kind, x.Namespace, x.Name)
+				config.CloudControllerManager.UseCustomRouteController = pointer.Bool(true)
+				x.Spec.ProviderConfig = &runtime.RawExtension{
+					Object: config,
 				}
 			}
 		}

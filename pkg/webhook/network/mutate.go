@@ -18,6 +18,8 @@ import (
 	"context"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/go-logr/logr"
 
 	calicov1alpha1 "github.com/gardener/gardener-extension-networking-calico/pkg/apis/calico/v1alpha1"
@@ -30,6 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	DisableOverlay = "aws.provider.extensions.gardener.cloud/disableOverlay"
 )
 
 // NewMutator creates a new network mutator.
@@ -64,51 +70,69 @@ func (m *mutator) mutateNetworkConfig(new, old *extensionsv1alpha1.Network) erro
 		backendNone   = calicov1alpha1.None
 		ipv4PoolMode  = calicov1alpha1.Never
 		err           error
+		ctx           = context.Background()
 	)
 
-	// do network resource update only for a create operation
-	if old != nil {
+	gctx := gcontext.NewGardenContext(m.client, new)
+	cluster, err := gctx.GetCluster(ctx)
+	if err != nil {
+		return err
+	}
+
+	greaterEqual122, err := versionutils.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", "1.22")
+	if err != nil {
+		return err
+	}
+	if !greaterEqual122 {
 		return nil
+	}
+
+	if old != nil {
+		if _, ok := old.GetAnnotations()[DisableOverlay]; ok {
+			tmp := new.GetAnnotations()
+			tmp[DisableOverlay] = old.GetAnnotations()[DisableOverlay]
+			new.SetAnnotations(tmp)
+		}
+	} else if cluster.Shoot.Status.LastOperation == nil || cluster.Shoot.Status.LastOperation.Type != v1beta1.LastOperationTypeRestore {
+		// do network resource update only for a create operation
+		tmp := new.GetAnnotations()
+		tmp[DisableOverlay] = "true"
+		new.SetAnnotations(tmp)
 	}
 
 	// source/destination checks are only disabled for kubernetes >= 1.22
 	// see https://github.com/gardener/machine-controller-manager-provider-aws/issues/36 for details
-	if greaterEqual122, err := m.isKubernetesGreaterOrEqual122(new.Namespace); err != nil {
-		return err
-	} else if !greaterEqual122 {
-		return nil
-	}
-
-	if new.Spec.ProviderConfig != nil {
-		networkConfig, err = calicov1alpha1helper.CalicoNetworkConfigFromNetworkResource(new)
-		if err != nil {
-			return err
+	if new.GetAnnotations()[DisableOverlay] == "true" {
+		if new.Spec.ProviderConfig != nil {
+			networkConfig, err = calicov1alpha1helper.CalicoNetworkConfigFromNetworkResource(new)
+			if err != nil {
+				return err
+			}
+		} else {
+			networkConfig = &calicov1alpha1.NetworkConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: calicov1alpha1.SchemeGroupVersion.String(),
+					Kind:       "NetworkConfig",
+				},
+			}
 		}
-	} else {
-		networkConfig = &calicov1alpha1.NetworkConfig{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: calicov1alpha1.SchemeGroupVersion.String(),
-				Kind:       "NetworkConfig",
-			},
+
+		if networkConfig.IPv4 == nil {
+			networkConfig.IPv4 = &ipv4
+		}
+
+		if networkConfig.IPv4 != nil && networkConfig.IPv4.Mode == nil {
+			networkConfig.IPv4.Mode = &ipv4PoolMode
+		}
+
+		if networkConfig.Backend == nil {
+			networkConfig.Backend = &backendNone
+		}
+
+		new.Spec.ProviderConfig = &runtime.RawExtension{
+			Object: networkConfig,
 		}
 	}
-
-	if networkConfig.IPv4 == nil {
-		networkConfig.IPv4 = &ipv4
-	}
-
-	if networkConfig.IPv4 != nil && networkConfig.IPv4.Mode == nil {
-		networkConfig.IPv4.Mode = &ipv4PoolMode
-	}
-
-	if networkConfig.Backend == nil {
-		networkConfig.Backend = &backendNone
-	}
-
-	new.Spec.ProviderConfig = &runtime.RawExtension{
-		Object: networkConfig,
-	}
-
 	return nil
 }
 
