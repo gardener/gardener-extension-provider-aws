@@ -19,8 +19,6 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
-	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	"github.com/Masterminds/semver"
@@ -37,29 +35,10 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 )
-
-var (
-	// Scheme is a scheme with the types relevant for aws control plane configuration.
-	scheme *runtime.Scheme
-
-	decoder runtime.Decoder
-)
-
-func init() {
-	scheme = runtime.NewScheme()
-	utilruntime.Must(install.AddToScheme(scheme))
-
-	decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
-}
 
 // NewEnsurer creates a new controlplane ensurer.
 func NewEnsurer(logger logr.Logger) genericmutator.Ensurer {
@@ -611,86 +590,4 @@ func appendUniqueFile(files *[]extensionsv1alpha1.File, file extensionsv1alpha1.
 	}
 
 	*files = append(resFiles, file)
-}
-
-// NewControlPlaneMutator creates a new controlplane mutator.
-func NewControlPlaneMutator(logger logr.Logger, mutator extensionswebhook.Mutator) extensionswebhook.Mutator {
-	return &controlPlaneMutator{
-		logger:  logger.WithName("aws-controlplane-mutator"),
-		mutator: mutator,
-	}
-}
-
-type controlPlaneMutator struct {
-	client  client.Client
-	logger  logr.Logger
-	mutator extensionswebhook.Mutator
-}
-
-// InjectClient injects the given client into the mutator.
-func (c *controlPlaneMutator) InjectClient(client client.Client) error {
-	c.client = client
-	_, err := inject.ClientInto(client, c.mutator)
-	return err
-}
-
-// InjectFunc injects stuff into the mutator.
-func (c *controlPlaneMutator) InjectFunc(f inject.Func) error {
-	return f(c.mutator)
-}
-
-// Mutate validates and if needed mutates the given object.
-func (c *controlPlaneMutator) Mutate(ctx context.Context, new, old client.Object) error {
-	// If the object does have a deletion timestamp then we don't want to mutate anything.
-	if new.GetDeletionTimestamp() != nil {
-		return nil
-	}
-
-	switch x := new.(type) {
-	case *extensionsv1alpha1.ControlPlane:
-		// Only mutate inital control plane for now
-		if old != nil {
-			return nil
-		}
-
-		gctx := gcontext.NewGardenContext(c.client, new)
-		cluster, err := gctx.GetCluster(ctx)
-		if err != nil {
-			return err
-		}
-		// source/destination checks are only disabled for kubernetes >= 1.22
-		// see https://github.com/gardener/machine-controller-manager-provider-aws/issues/36 for details
-		greaterEqual122, err := versionutils.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", "1.22")
-		if err != nil {
-			return err
-		}
-		if greaterEqual122 {
-			switch x.Name {
-			case cluster.Shoot.Name:
-				if x.Spec.ProviderConfig != nil && x.Spec.ProviderConfig.Raw != nil {
-					config := &awsv1alpha1.ControlPlaneConfig{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
-							Kind:       "ControlPlaneConfig",
-						},
-					}
-					if _, _, err := decoder.Decode(x.Spec.ProviderConfig.Raw, nil, config); err != nil {
-						return err
-					}
-					if config.CloudControllerManager == nil {
-						config.CloudControllerManager = &awsv1alpha1.CloudControllerManagerConfig{}
-					}
-					if config.CloudControllerManager.UseCustomRouteController == nil {
-						extensionswebhook.LogMutation(c.logger, x.Kind, x.Namespace, x.Name)
-						config.CloudControllerManager.UseCustomRouteController = pointer.Bool(true)
-						x.Spec.ProviderConfig = &runtime.RawExtension{
-							Object: config,
-						}
-					}
-				}
-			}
-		}
-		return nil
-	}
-	return c.mutator.Mutate(ctx, new, old)
 }
