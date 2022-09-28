@@ -43,11 +43,19 @@ networking.k8s.io/v1
 {{- end -}}
 
 {{- define "cronjobversion" -}}
+{{- if semverCompare ">= 1.21-0" .Capabilities.KubeVersion.GitVersion -}}
+batch/v1
+{{- else -}}
 batch/v1beta1
+{{- end -}}
 {{- end -}}
 
 {{- define "hpaversion" -}}
+{{- if semverCompare ">= 1.23-0" .Capabilities.KubeVersion.GitVersion -}}
+autoscaling/v2
+{{- else -}}
 autoscaling/v2beta1
+{{- end -}}
 {{- end -}}
 
 {{- define "webhookadmissionregistration" -}}
@@ -55,7 +63,11 @@ admissionregistration.k8s.io/v1
 {{- end -}}
 
 {{- define "poddisruptionbudgetversion" -}}
+{{- if semverCompare ">= 1.21-0" .Capabilities.KubeVersion.GitVersion -}}
+policy/v1
+{{- else -}}
 policy/v1beta1
+{{- end -}}
 {{- end -}}
 
 {{- define "podsecuritypolicyversion" -}}
