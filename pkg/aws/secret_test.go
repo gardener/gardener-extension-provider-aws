@@ -81,7 +81,7 @@ var _ = Describe("Secret", func() {
 		Context("DNS keys are not allowed", func() {
 			It("should return the correct credentials object if non-DNS keys are used", func() {
 				c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
 						secret.Data = map[string][]byte{
 							AccessKeyID:     accessKeyID,
 							SecretAccessKey: secretAccessKey,
@@ -101,7 +101,7 @@ var _ = Describe("Secret", func() {
 
 			It("should fail if DNS keys are used", func() {
 				c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
 						secret.Data = map[string][]byte{
 							DNSAccessKeyID:     accessKeyID,
 							DNSSecretAccessKey: secretAccessKey,
@@ -120,7 +120,7 @@ var _ = Describe("Secret", func() {
 		Context("DNS keys are allowed", func() {
 			It("should return the correct credentials object if DNS keys are used", func() {
 				c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
 						secret.Data = map[string][]byte{
 							DNSAccessKeyID:     accessKeyID,
 							DNSSecretAccessKey: secretAccessKey,
@@ -142,7 +142,7 @@ var _ = Describe("Secret", func() {
 
 			It("should return the correct credentials object if non-DNS keys are used", func() {
 				c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret) error {
+					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
 						secret.Data = map[string][]byte{
 							AccessKeyID:     accessKeyID,
 							SecretAccessKey: secretAccessKey,

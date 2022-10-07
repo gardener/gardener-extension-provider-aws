@@ -30,7 +30,6 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/utils/version"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -449,7 +448,7 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcon
 func ensureKubeletCommandLineArgs(command []string, csiEnabled bool, kubeletVersion *semver.Version) []string {
 	if csiEnabled {
 		command = extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
-		if !version.ConstraintK8sGreaterEqual123.Check(kubeletVersion) {
+		if !versionutils.ConstraintK8sGreaterEqual123.Check(kubeletVersion) {
 			command = extensionswebhook.EnsureStringWithPrefix(command, "--enable-controller-attach-detach=", "true")
 		}
 	} else {
@@ -484,7 +483,7 @@ func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, gctx gcontext.
 		// kubelets of new worker nodes can directly be started with the the <csiMigrationCompleteFeatureGate> feature gate
 		new.FeatureGates[csiMigrationCompleteFeatureGate] = true
 
-		if version.ConstraintK8sGreaterEqual123.Check(kubeletVersion) {
+		if versionutils.ConstraintK8sGreaterEqual123.Check(kubeletVersion) {
 			new.EnableControllerAttachDetach = pointer.Bool(true)
 		}
 	}
