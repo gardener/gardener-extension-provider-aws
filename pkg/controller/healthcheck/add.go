@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	healthcheckconfig "github.com/gardener/gardener/extensions/pkg/apis/config"
@@ -64,6 +65,10 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 		return csiEnabled
 	}
 
+	errorCodeCheckFunc := func(err error) []gardencorev1beta1.ErrorCode {
+		return helper.DetermineErrorCodes(err)
+	}
+
 	if err := healthcheck.DefaultRegistration(
 		aws.Type,
 		extensionsv1alpha1.SchemeGroupVersion.WithKind(extensionsv1alpha1.ControlPlaneResource),
@@ -93,16 +98,19 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				PreCheckFunc:  csiEnabledPreCheckFunc,
 			},
 			{
-				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
-				HealthCheck:   general.CheckManagedResource(genericcontrolplaneactuator.ControlPlaneShootChartResourceName),
+				ConditionType:      string(gardencorev1beta1.ShootSystemComponentsHealthy),
+				HealthCheck:        general.CheckManagedResource(genericcontrolplaneactuator.ControlPlaneShootChartResourceName),
+				ErrorCodeCheckFunc: errorCodeCheckFunc,
 			},
 			{
-				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
-				HealthCheck:   general.CheckManagedResource(genericcontrolplaneactuator.StorageClassesChartResourceName),
+				ConditionType:      string(gardencorev1beta1.ShootSystemComponentsHealthy),
+				HealthCheck:        general.CheckManagedResource(genericcontrolplaneactuator.StorageClassesChartResourceName),
+				ErrorCodeCheckFunc: errorCodeCheckFunc,
 			},
 			{
-				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
-				HealthCheck:   general.CheckManagedResource(genericcontrolplaneactuator.ShootWebhooksResourceName),
+				ConditionType:      string(gardencorev1beta1.ShootSystemComponentsHealthy),
+				HealthCheck:        general.CheckManagedResource(genericcontrolplaneactuator.ShootWebhooksResourceName),
+				ErrorCodeCheckFunc: errorCodeCheckFunc,
 			},
 		},
 	); err != nil {
@@ -137,16 +145,18 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 		nil,
 		[]healthcheck.ConditionTypeToHealthCheck{
 			{
-				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
-				HealthCheck:   general.CheckManagedResource(genericworkeractuator.McmShootResourceName),
+				ConditionType:      string(gardencorev1beta1.ShootSystemComponentsHealthy),
+				HealthCheck:        general.CheckManagedResource(genericworkeractuator.McmShootResourceName),
+				ErrorCodeCheckFunc: errorCodeCheckFunc,
 			},
 			{
 				ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
 				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.MachineControllerManagerName),
 			},
 			{
-				ConditionType: string(gardencorev1beta1.ShootEveryNodeReady),
-				HealthCheck:   worker.NewNodesChecker(),
+				ConditionType:      string(gardencorev1beta1.ShootEveryNodeReady),
+				HealthCheck:        worker.NewNodesChecker(),
+				ErrorCodeCheckFunc: errorCodeCheckFunc,
 			},
 		},
 	)
