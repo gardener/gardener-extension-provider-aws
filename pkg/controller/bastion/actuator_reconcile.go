@@ -21,11 +21,13 @@ import (
 	"net"
 	"time"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/extensions/pkg/controller"
+	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	reconcilerutils "github.com/gardener/gardener/pkg/controllerutils/reconciler"
 	"github.com/go-logr/logr"
@@ -36,26 +38,26 @@ import (
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
-		return fmt.Errorf("failed to create AWS client: %w", err)
+		return util.DetermineError(fmt.Errorf("failed to create AWS client: %w", err), helper.KnownCodes)
 	}
 
 	opt, err := DetermineOptions(ctx, bastion, cluster, awsClient)
 	if err != nil {
-		return fmt.Errorf("failed to setup AWS client options: %w", err)
+		return util.DetermineError(fmt.Errorf("failed to setup AWS client options: %w", err), helper.KnownCodes)
 	}
 
 	opt.BastionSecurityGroupID, err = ensureSecurityGroup(ctx, log, bastion, awsClient, opt)
 	if err != nil {
-		return fmt.Errorf("failed to ensure security group: %w", err)
+		return util.DetermineError(fmt.Errorf("failed to ensure security group: %w", err), helper.KnownCodes)
 	}
 
 	endpoints, err := ensureBastionInstance(ctx, log, bastion, awsClient, opt)
 	if err != nil {
-		return fmt.Errorf("failed to ensure bastion instance: %w", err)
+		return util.DetermineError(fmt.Errorf("failed to ensure bastion instance: %w", err), helper.KnownCodes)
 	}
 
 	if err := ensureWorkerPermissions(ctx, log, awsClient, opt); err != nil {
-		return fmt.Errorf("failed to authorize bastion host in worker security group: %w", err)
+		return util.DetermineError(fmt.Errorf("failed to authorize bastion host in worker security group: %w", err), helper.KnownCodes)
 	}
 
 	// reconcile again if the instance has not all endpoints yet
