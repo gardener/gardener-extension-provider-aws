@@ -21,6 +21,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -36,26 +37,26 @@ import (
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
-		return fmt.Errorf("failed to create AWS client: %w", err)
+		return helper.DetermineError(fmt.Errorf("failed to create AWS client: %w", err))
 	}
 
 	opt, err := DetermineOptions(ctx, bastion, cluster, awsClient)
 	if err != nil {
-		return fmt.Errorf("failed to setup AWS client options: %w", err)
+		return helper.DetermineError(fmt.Errorf("failed to setup AWS client options: %w", err))
 	}
 
 	opt.BastionSecurityGroupID, err = ensureSecurityGroup(ctx, log, bastion, awsClient, opt)
 	if err != nil {
-		return fmt.Errorf("failed to ensure security group: %w", err)
+		return helper.DetermineError(fmt.Errorf("failed to ensure security group: %w", err))
 	}
 
 	endpoints, err := ensureBastionInstance(ctx, log, bastion, awsClient, opt)
 	if err != nil {
-		return fmt.Errorf("failed to ensure bastion instance: %w", err)
+		return helper.DetermineError(fmt.Errorf("failed to ensure bastion instance: %w", err))
 	}
 
 	if err := ensureWorkerPermissions(ctx, log, awsClient, opt); err != nil {
-		return fmt.Errorf("failed to authorize bastion host in worker security group: %w", err)
+		return helper.DetermineError(fmt.Errorf("failed to authorize bastion host in worker security group: %w", err))
 	}
 
 	// reconcile again if the instance has not all endpoints yet

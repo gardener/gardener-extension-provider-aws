@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -69,27 +70,27 @@ func Reconcile(
 ) {
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
 	if _, _, err := decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
-		return nil, nil, fmt.Errorf("could not decode provider config: %+v", err)
+		return nil, nil, helper.DetermineError(fmt.Errorf("could not decode provider config: %+v", err))
 	}
 
 	awsClient, err := aws.NewClientFromSecretRef(ctx, c, infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create new AWS client: %+v", err)
+		return nil, nil, helper.DetermineError(fmt.Errorf("failed to create new AWS client: %+v", err))
 	}
 
 	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, awsClient)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate Terraform config: %+v", err)
+		return nil, nil, helper.DetermineError(fmt.Errorf("failed to generate Terraform config: %+v", err))
 	}
 
 	var mainTF bytes.Buffer
 	if err := tplMainTF.Execute(&mainTF, terraformConfig); err != nil {
-		return nil, nil, fmt.Errorf("could not render Terraform template: %+v", err)
+		return nil, nil, helper.DetermineError(fmt.Errorf("could not render Terraform template: %+v", err))
 	}
 
 	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, disableProjectedTokenMount)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not create terraformer object: %+v", err)
+		return nil, nil, helper.DetermineError(fmt.Errorf("could not create terraformer object: %+v", err))
 	}
 
 	if err := tf.
@@ -105,7 +106,7 @@ func Reconcile(
 			)).
 		Apply(ctx); err != nil {
 
-		return nil, nil, fmt.Errorf("failed to apply the terraform config: %w", err)
+		return nil, nil, helper.DetermineError(fmt.Errorf("failed to apply the terraform config: %w", err))
 	}
 
 	return computeProviderStatus(ctx, tf, infrastructureConfig)
@@ -230,12 +231,12 @@ func computeProviderStatus(ctx context.Context, tf terraformer.Terraformer, infr
 
 	output, err := tf.GetStateOutputVariables(ctx, outputVarKeys...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, helper.DetermineError(err)
 	}
 
 	subnets, err := computeProviderStatusSubnets(infrastructureConfig, output)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, helper.DetermineError(err)
 	}
 
 	return &awsv1alpha1.InfrastructureStatus{

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
@@ -63,11 +64,11 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensio
 	// Create AWS client
 	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
 	if err != nil {
-		return fmt.Errorf("could not get AWS credentials: %+v", err)
+		return helper.DetermineError(fmt.Errorf("could not get AWS credentials: %+v", err))
 	}
 	awsClient, err := a.awsClientFactory.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), getRegion(dns, credentials))
 	if err != nil {
-		return fmt.Errorf("could not create AWS client: %+v", err)
+		return helper.DetermineError(fmt.Errorf("could not create AWS client: %+v", err))
 	}
 
 	// Determine DNS hosted zone ID
@@ -103,11 +104,11 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, dns *extensionsv
 	// Create AWS client
 	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
 	if err != nil {
-		return fmt.Errorf("could not get AWS credentials: %+v", err)
+		return helper.DetermineError(fmt.Errorf("could not get AWS credentials: %+v", err))
 	}
 	awsClient, err := a.awsClientFactory.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), getRegion(dns, credentials))
 	if err != nil {
-		return fmt.Errorf("could not create AWS client: %+v", err)
+		return helper.DetermineError(fmt.Errorf("could not create AWS client: %+v", err))
 	}
 
 	// Determine DNS hosted zone ID

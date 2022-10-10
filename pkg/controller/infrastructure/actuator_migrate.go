@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
@@ -40,11 +41,16 @@ func migrate(
 ) error {
 	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, disableProjectedTokenMount)
 	if err != nil {
-		return fmt.Errorf("could not create the Terraformer: %+v", err)
+		return helper.DetermineError(fmt.Errorf("could not create the Terraformer: %+v", err))
 	}
 
 	if err := tf.CleanupConfiguration(ctx); err != nil {
-		return err
+		return helper.DetermineError(err)
 	}
-	return tf.RemoveTerraformerFinalizerFromConfig(ctx)
+
+	if err := tf.RemoveTerraformerFinalizerFromConfig(ctx); err != nil {
+		return helper.DetermineError(err)
+	}
+
+	return nil
 }

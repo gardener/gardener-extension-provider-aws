@@ -20,12 +20,12 @@ import (
 	"time"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
-	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
@@ -60,29 +60,31 @@ func Delete(
 
 	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, disableProjectedTokenMount)
 	if err != nil {
-		return fmt.Errorf("could not create the Terraformer: %+v", err)
+		return helper.DetermineError(fmt.Errorf("could not create the Terraformer: %+v", err))
 	}
 
 	// terraform pod from previous reconciliation might still be running, ensure they are gone before doing any operations
 	if err := tf.EnsureCleanedUp(ctx); err != nil {
-		return err
+		return helper.DetermineError(err)
 	}
 
 	// If the Terraform state is empty then we can exit early as we didn't create anything. Though, we clean up potentially
 	// created configmaps/secrets related to the Terraformer.
 	if tf.IsStateEmpty(ctx) {
 		logger.Info("exiting early as infrastructure state is empty - nothing to do")
-		return tf.CleanupConfiguration(ctx)
+		if err := tf.CleanupConfiguration(ctx); err != nil {
+			return helper.DetermineError(err)
+		}
 	}
 
 	configExists, err := tf.ConfigExists(ctx)
 	if err != nil {
-		return fmt.Errorf("error while checking whether terraform config exists: %+v", err)
+		return helper.DetermineError(fmt.Errorf("error while checking whether terraform config exists: %+v", err))
 	}
 
 	awsClient, err := aws.NewClientFromSecretRef(ctx, c, infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
 	if err != nil {
-		return fmt.Errorf("failed to create new AWS client: %+v", err)
+		return helper.DetermineError(fmt.Errorf("failed to create new AWS client: %+v", err))
 	}
 
 	var (
@@ -110,7 +112,7 @@ func Delete(
 				}
 
 				if err := destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
-					return gardencorev1beta1helper.DeprecatedDetermineError(fmt.Errorf("Failed to destroy load balancers and security groups: %w", err))
+					return helper.DetermineError(fmt.Errorf("Failed to destroy load balancers and security groups: %w", err))
 				}
 
 				return nil
@@ -127,7 +129,7 @@ func Delete(
 	)
 
 	if err := f.Run(ctx, flow.Opts{}); err != nil {
-		return flow.Causes(err)
+		return helper.DetermineError(flow.Errors(err))
 	}
 
 	return nil

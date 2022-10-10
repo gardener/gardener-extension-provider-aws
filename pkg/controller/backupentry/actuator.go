@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener/extensions/pkg/controller/backupentry/genericactuator"
 
@@ -47,8 +48,11 @@ func (a *actuator) GetETCDSecretData(ctx context.Context, _ logr.Logger, be *ext
 func (a *actuator) Delete(ctx context.Context, _ logr.Logger, be *extensionsv1alpha1.BackupEntry) error {
 	awsClient, err := aws.NewClientFromSecretRef(ctx, a.client, be.Spec.SecretRef, be.Spec.Region)
 	if err != nil {
-		return err
+		return helper.DetermineError(err)
 	}
 
-	return awsClient.DeleteObjectsWithPrefix(ctx, be.Spec.BucketName, fmt.Sprintf("%s/", be.Name))
+	if err := awsClient.DeleteObjectsWithPrefix(ctx, be.Spec.BucketName, fmt.Sprintf("%s/", be.Name)); err != nil {
+		return helper.DetermineError(err)
+	}
+	return nil
 }
