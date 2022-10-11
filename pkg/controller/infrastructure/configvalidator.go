@@ -18,17 +18,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 // configValidator implements ConfigValidator for aws infrastructure resources.
@@ -130,8 +130,8 @@ func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.I
 
 // validateEIP validates if the given elastic IP exists and can be associated by the Shoot's NAT gateway
 // An EIP can be associated with the Shoot when
-//  - it is not associated yet (new)
-//  - it is already associated to any Gardener-created NAT Gateway of the Shoot cluster (identified by tag `kubernetes.io/cluster/<shoot-name>`)
+//   - it is not associated yet (new)
+//   - it is already associated to any Gardener-created NAT Gateway of the Shoot cluster (identified by tag `kubernetes.io/cluster/<shoot-name>`)
 func (c *configValidator) validateEIPS(ctx context.Context, awsClient awsclient.Interface, shootNamespace string, elasticIPAllocationIDs []string, elasticIPAllocationIDToZone map[string]string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
