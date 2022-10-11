@@ -32,6 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
@@ -43,6 +44,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -128,7 +130,7 @@ var _ = BeforeSuite(func() {
 
 	By("starting test environment")
 	testEnv = &envtest.Environment{
-		UseExistingCluster: pointer.BoolPtr(true),
+		UseExistingCluster: pointer.Bool(true),
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
 				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
@@ -179,13 +181,23 @@ var _ = BeforeSuite(func() {
 
 	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
 	Expect(err).NotTo(HaveOccurred())
+
+	priorityClass := &schedulingv1.PriorityClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: v1beta1constants.PriorityClassNameShootControlPlane300,
+		},
+		Description:   "PriorityClass for Shoot control plane components",
+		GlobalDefault: false,
+		Value:         999998300,
+	}
+	Expect(client.IgnoreAlreadyExists(c.Create(ctx, priorityClass))).To(BeNil())
 })
 
 var _ = Describe("Infrastructure tests", func() {
 	Context("with infrastructure that requests new vpc (networks.vpc.cidr)", func() {
 		It("should successfully create and delete", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             pointer.StringPtr(vpcCIDR),
+				CIDR:             pointer.String(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 
@@ -256,7 +268,7 @@ var _ = Describe("Infrastructure tests", func() {
 	Context("with invalid credentials", func() {
 		It("should fail creation but succeed deletion", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR: pointer.StringPtr(vpcCIDR),
+				CIDR: pointer.String(vpcCIDR),
 			})
 
 			namespaceName, err := generateNamespaceName()
@@ -458,7 +470,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	}
 
 	By("verify infrastructure creation")
-	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, pointer.StringPtr(vpcCIDR), s3GatewayEndpoint)
+	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, pointer.String(vpcCIDR), s3GatewayEndpoint)
 
 	By("add tags to subnet")
 	// add some ignored and not ignored tags to subnet and verify that ignored tags are not removed in the next reconciliation
@@ -499,7 +511,7 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
 			Kind:       "InfrastructureConfig",
 		},
-		EnableECRAccess: pointer.BoolPtr(true),
+		EnableECRAccess: pointer.Bool(true),
 		Networks: awsv1alpha1.Networks{
 			VPC: vpc,
 			Zones: []awsv1alpha1.Zone{
