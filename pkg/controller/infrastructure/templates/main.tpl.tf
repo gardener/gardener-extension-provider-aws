@@ -296,6 +296,11 @@ resource "aws_vpc_endpoint_route_table_association" "vpc_gwep_{{ $ep }}_z{{ $ind
 resource "aws_iam_role" "nodes" {
   name = "{{ .clusterName }}-nodes"
   path = "/"
+  lifecycle {
+        ignore_changes = [
+            permissions_boundary
+        ]
+  }
 
   assume_role_policy = <<EOF
 {
