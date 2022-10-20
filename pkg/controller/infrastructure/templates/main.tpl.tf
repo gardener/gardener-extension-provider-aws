@@ -288,6 +288,11 @@ resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}
 resource "aws_iam_role" "nodes" {
   name = "{{ .clusterName }}-nodes"
   path = "/"
+  lifecycle {
+        ignore_changes = [
+            permissions_boundary
+        ]
+  }
 
   assume_role_policy = <<EOF
 {
