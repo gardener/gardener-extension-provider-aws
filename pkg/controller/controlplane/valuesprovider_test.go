@@ -260,7 +260,7 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				"region":      "europe",
 				"enabled":     false,
-				"replicas":    1,
+				"replicas":    0,
 				"clusterName": "test",
 				"podNetwork":  "10.250.0.0/19",
 				"podAnnotations": map[string]interface{}{
@@ -326,6 +326,8 @@ var _ = Describe("ValuesProvider", func() {
 		It("should return correct control plane chart values (k8s >= 1.18) and custom route controller enabled", func() {
 			setCustomRouteControllerEnabled(cp)
 			crcChartValues["enabled"] = true
+			crcChartValues["replicas"] = 1
+
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
