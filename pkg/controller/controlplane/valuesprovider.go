@@ -530,10 +530,9 @@ func getCRCChartValues(
 	enabled := cpConfig.CloudControllerManager != nil &&
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
-
 	values := map[string]interface{}{
 		"enabled":     enabled,
-		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown || !enabled, 1),
+		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName": cp.Namespace,
 		"podNetwork":  extensionscontroller.GetPodNetwork(cluster),
 		"podAnnotations": map[string]interface{}{
@@ -543,6 +542,9 @@ func getCRCChartValues(
 			v1beta1constants.LabelPodMaintenanceRestart: "true",
 		},
 		"region": cp.Spec.Region,
+	}
+	if !enabled {
+		values["replicas"] = 0
 	}
 
 	return values, nil
