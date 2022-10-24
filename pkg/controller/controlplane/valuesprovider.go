@@ -527,11 +527,8 @@ func getCRCChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 ) (map[string]interface{}, error) {
-	enabled := cpConfig.CloudControllerManager != nil &&
-		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
-		*cpConfig.CloudControllerManager.UseCustomRouteController
 	values := map[string]interface{}{
-		"enabled":     enabled,
+		"enabled":     true,
 		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName": cp.Namespace,
 		"podNetwork":  extensionscontroller.GetPodNetwork(cluster),
@@ -543,6 +540,9 @@ func getCRCChartValues(
 		},
 		"region": cp.Spec.Region,
 	}
+	enabled := cpConfig.CloudControllerManager != nil &&
+		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
+		*cpConfig.CloudControllerManager.UseCustomRouteController
 	if !enabled {
 		values["replicas"] = 0
 	}
