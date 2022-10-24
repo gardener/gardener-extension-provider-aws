@@ -259,8 +259,8 @@ var _ = Describe("ValuesProvider", func() {
 					"maintenance.gardener.cloud/restart": "true",
 				},
 				"region":      "europe",
-				"enabled":     false,
-				"replicas":    1,
+				"enabled":     true,
+				"replicas":    0,
 				"clusterName": "test",
 				"podNetwork":  "10.250.0.0/19",
 				"podAnnotations": map[string]interface{}{
@@ -325,7 +325,8 @@ var _ = Describe("ValuesProvider", func() {
 
 		It("should return correct control plane chart values (k8s >= 1.18) and custom route controller enabled", func() {
 			setCustomRouteControllerEnabled(cp)
-			crcChartValues["enabled"] = true
+			crcChartValues["replicas"] = 1 // chart is always deployed, but with 0 replicas when disabled
+
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
