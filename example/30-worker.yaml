@@ -15,7 +15,7 @@ metadata:
   name: shoot--foobar--aws
 spec:
   cloudProfile:
-    apiVersion: core.gardener.cloud/v1alpha1
+    apiVersion: core.gardener.cloud/v1beta1
     kind: CloudProfile
     spec:
       providerConfig:
@@ -31,10 +31,10 @@ spec:
                 - name: eu-east-1
                   ami: awsami-eu-east-1
   seed:
-    apiVersion: core.gardener.cloud/v1alpha1
+    apiVersion: core.gardener.cloud/v1beta1
     kind: Seed
   shoot:
-    apiVersion: core.gardener.cloud/v1alpha1
+    apiVersion: core.gardener.cloud/v1beta1
     kind: Shoot
     spec:
       kubernetes:

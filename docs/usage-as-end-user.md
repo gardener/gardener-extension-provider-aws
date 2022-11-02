@@ -322,7 +322,7 @@ If not specified, a dedicated IAM instance profile created by the infrastructure
 Please find below an example `Shoot` manifest for one availability zone:
 
 ```yaml
-apiVersion: core.gardener.cloud/v1alpha1
+apiVersion: core.gardener.cloud/v1beta1
 kind: Shoot
 metadata:
   name: johndoe-aws
@@ -374,9 +374,9 @@ spec:
       kubernetesVersion: true
       machineImageVersion: true
   addons:
-    kubernetes-dashboard:
+    kubernetesDashboard:
       enabled: true
-    nginx-ingress:
+    nginxIngress:
       enabled: true
 ```
 
@@ -385,7 +385,7 @@ spec:
 Please find below an example `Shoot` manifest for three availability zones:
 
 ```yaml
-apiVersion: core.gardener.cloud/v1alpha1
+apiVersion: core.gardener.cloud/v1beta1
 kind: Shoot
 metadata:
   name: johndoe-aws
@@ -441,9 +441,9 @@ spec:
       kubernetesVersion: true
       machineImageVersion: true
   addons:
-    kubernetes-dashboard:
+    kubernetesDashboard:
       enabled: true
-    nginx-ingress:
+    nginxIngress:
       enabled: true
 ```
 
