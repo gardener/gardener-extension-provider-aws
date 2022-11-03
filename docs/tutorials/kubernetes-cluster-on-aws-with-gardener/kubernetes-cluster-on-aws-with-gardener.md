@@ -1,5 +1,5 @@
 ---
-title: Create a Kubernetes cluster on AWS with Gardener
+title: Create a Kubernetes Cluster on AWS with Gardener
 level: beginner
 category: Getting Started
 scope: app-developer
@@ -58,16 +58,19 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
 
     <img src="images/finish-user.png">
 
-     > Note: After the user is created, `Access key ID` and `Secret access key` are generated and displayed. Remember to save them. The `Access key ID` is used later to create secrets for Gardener.
+    {{% alert color="info"  title="Note" %}}
+    Note: After the user is created, `Access key ID` and `Secret access key` are generated and displayed. Remember to save them. The `Access key ID` is used later to create secrets for Gardener.
+    {{% /alert %}}
+
 
     <img src="images/save-keys.png">
 
 1. On the Gardener dashboard, choose *Secrets* and then the plus sign <img src="images/plus-icon.png">. Select *AWS* from the drop down menu to add a new AWS secret.
 
-1. Create your secret.
+2. Create your secret.
 
     1. Type the name of your secret.
-    1. Copy and paste the `Access Key ID` and `Secret Access Key` you saved when you created the technical user on AWS.
+    2. Copy and paste the `Access Key ID` and `Secret Access Key` you saved when you created the technical user on AWS.
     3. Choose *Add secret*.
     <img src="images/add-aws-secret.png">
 
@@ -75,19 +78,19 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
 
     <img src="images/secret-stored.png">
 
-1. To create a new cluster, choose *Clusters* and then the plus sign in the upper right corner.
+3. To create a new cluster, choose *Clusters* and then the plus sign in the upper right corner.
 
     <img src="images/new-cluster.png">
 
-1. In the *Create Cluster* section:
+4. In the *Create Cluster* section:
     1. Select *AWS* in the *Infrastructure* tab.
-    1. Type the name of your cluster in the *Cluster Details* tab.
-    1. Choose the secret you created before in the *Infrastructure Details* tab.
-    1. Choose *Create*.
+    2. Type the name of your cluster in the *Cluster Details* tab.
+    3. Choose the secret you created before in the *Infrastructure Details* tab.
+    4. Choose *Create*.
 
     <img src="images/create-cluster.png">
 
-1. Wait for your cluster to get created.
+5. Wait for your cluster to get created.
 
     <img src="images/processing-cluster.png">
 
