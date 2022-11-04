@@ -6,8 +6,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: mtu-customizer
-  annotations:
-    scheduler.alpha.kubernetes.io/critical-pod: ''
 spec:
   selector:
     matchLabels:
