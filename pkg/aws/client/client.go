@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -220,6 +221,53 @@ func (c *Client) GetVPCAttribute(ctx context.Context, vpcID string, attribute st
 	default:
 		return false, nil
 	}
+}
+
+// GetDHCPOptions returns DHCP options for aws client
+func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error) {
+	result := make(map[string]string)
+	describeVpcsInput := &ec2.DescribeVpcsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("vpc-id"),
+				Values: []*string{
+					aws.String(vpcID),
+				},
+			},
+		},
+	}
+
+	describeVpcsOutput, err := c.EC2.DescribeVpcsWithContext(ctx, describeVpcsInput)
+	if err != nil {
+		return nil, err
+	}
+	if len(describeVpcsOutput.Vpcs) == 0 {
+		return nil, errors.New("could not find VPC " + vpcID)
+	}
+
+	describeDhcpOptionsInput := &ec2.DescribeDhcpOptionsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("dhcp-options-id"),
+				Values: []*string{
+					aws.String(*describeVpcsOutput.Vpcs[0].DhcpOptionsId),
+				},
+			},
+		},
+	}
+	describeDhcpOptionsOutput, err := c.EC2.DescribeDhcpOptionsWithContext(ctx, describeDhcpOptionsInput)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(describeDhcpOptionsOutput.DhcpOptions) > 0 {
+		for _, DhcpConfiguration := range describeDhcpOptionsOutput.DhcpOptions[0].DhcpConfigurations {
+			if len(DhcpConfiguration.Values) > 0 {
+				result[*DhcpConfiguration.Key] = *DhcpConfiguration.Values[0].Value
+			}
+		}
+	}
+	return result, nil
 }
 
 // DeleteObjectsWithPrefix deletes the s3 objects with the specific <prefix> from <bucket>. If it does not exist,

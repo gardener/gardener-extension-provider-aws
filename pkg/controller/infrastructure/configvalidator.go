@@ -74,7 +74,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	// Validate infrastructure config
 	if config.Networks.VPC.ID != nil {
 		logger.Info("Validating infrastructure networks.vpc.id")
-		allErrs = append(allErrs, c.validateVPC(ctx, awsClient, *config.Networks.VPC.ID, field.NewPath("networks", "vpc", "id"))...)
+		allErrs = append(allErrs, c.validateVPC(ctx, awsClient, *config.Networks.VPC.ID, infra.Spec.Region, field.NewPath("networks", "vpc", "id"))...)
 	}
 
 	var (
@@ -96,7 +96,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	return allErrs
 }
 
-func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.Interface, vpcID string, fldPath *field.Path) field.ErrorList {
+func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.Interface, vpcID, region string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Verify that the VPC exists and the enableDnsSupport and enableDnsHostnames VPC attributes are both true
@@ -123,6 +123,23 @@ func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.I
 	}
 	if internetGatewayID == "" {
 		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, "no attached internet gateway found"))
+	}
+
+	// Verify DHCP options
+	dhcpOptions, err := awsClient.GetDHCPOptions(ctx, vpcID)
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get DHCP options for VPC %s: %w", vpcID, err)))
+		return allErrs
+	}
+
+	if domainNameServers, ok := dhcpOptions["domain-name-servers"]; ok && domainNameServers == "AmazonProvidedDNS" {
+		if domainName, ok := dhcpOptions["domain-name"]; !ok {
+			allErrs = append(allErrs, field.Invalid(fldPath, vpcID, "domain-name needed when domain-name-servers are specified"))
+		} else {
+			if (region == "us-east-1" && domainName != "ec2.internal") || (region != "us-east-1" && domainName != region+".compute.internal") {
+				allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("Invalid domain name: %s", domainName)))
+			}
+		}
 	}
 
 	return allErrs
