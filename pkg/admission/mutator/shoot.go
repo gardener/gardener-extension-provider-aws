@@ -103,7 +103,7 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 		controlPlaneConfig.CloudControllerManager = &awsv1alpha1.CloudControllerManagerConfig{}
 	}
 
-	if !networkConfig.Overlay.Enabled {
+	if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
 		if controlPlaneConfig.CloudControllerManager.UseCustomRouteController == nil {
 			controlPlaneConfig.CloudControllerManager.UseCustomRouteController = pointer.Bool(true)
 		} else {
