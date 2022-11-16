@@ -261,9 +261,18 @@ func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]s
 	}
 
 	if len(describeDhcpOptionsOutput.DhcpOptions) > 0 {
-		for _, DhcpConfiguration := range describeDhcpOptionsOutput.DhcpOptions[0].DhcpConfigurations {
-			if len(DhcpConfiguration.Values) > 0 {
-				result[*DhcpConfiguration.Key] = *DhcpConfiguration.Values[0].Value
+		for _, dhcpConfiguration := range describeDhcpOptionsOutput.DhcpOptions[0].DhcpConfigurations {
+			if len(dhcpConfiguration.Values) > 0 {
+				if *dhcpConfiguration.Key == "domain-name-servers" {
+					result[*dhcpConfiguration.Key] = ""
+					for _, value := range dhcpConfiguration.Values {
+						if *value.Value == "AmazonProvidedDNS" {
+							result[*dhcpConfiguration.Key] = "AmazonProvidedDNS"
+						}
+					}
+				} else {
+					result[*dhcpConfiguration.Key] = *dhcpConfiguration.Values[0].Value
+				}
 			}
 		}
 	}
