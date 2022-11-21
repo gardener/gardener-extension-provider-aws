@@ -1,0 +1,19 @@
+---
+{{- if semverCompare ">= 1.21-0" .Capabilities.KubeVersion.GitVersion }}
+apiVersion: policy/v1
+{{- else }}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: aws-custom-route-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kubernetes
+    role: aws-custom-route-controller
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: kubernetes
+      role: aws-custom-route-controller
