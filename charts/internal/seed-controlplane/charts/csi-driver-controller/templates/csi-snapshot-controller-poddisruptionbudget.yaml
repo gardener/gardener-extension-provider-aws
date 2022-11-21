@@ -8,7 +8,7 @@ metadata:
   name: csi-snapshot-controller
   namespace: {{ .Release.Namespace }}
   labels:
-    app: csi
+    app: csi-snapshot-controller
     role: controller
 spec:
   maxUnavailable: 1
