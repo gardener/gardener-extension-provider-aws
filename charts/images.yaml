@@ -147,7 +147,7 @@ images:
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
   repository: eu.gcr.io/gardener-project/gardener/machine-controller-manager-provider-aws
-  tag: "v0.14.0"
+  tag: "v0.15.0"
 
 - name: aws-lb-readvertiser
   sourceRepository: github.com/gardener/aws-lb-readvertiser
