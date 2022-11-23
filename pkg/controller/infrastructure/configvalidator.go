@@ -132,13 +132,11 @@ func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.I
 		return allErrs
 	}
 
-	if domainNameServers, ok := dhcpOptions["domain-name-servers"]; ok && domainNameServers == "AmazonProvidedDNS" {
-		if domainName, ok := dhcpOptions["domain-name"]; !ok {
-			allErrs = append(allErrs, field.Invalid(fldPath, vpcID, "domain-name needed when domain-name-servers are specified"))
-		} else {
-			if (region == "us-east-1" && domainName != "ec2.internal") || (region != "us-east-1" && domainName != region+".compute.internal") {
-				allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("Invalid domain name: %s", domainName)))
-			}
+	if domainName, ok := dhcpOptions["domain-name"]; !ok {
+		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, "missing domain-name value"))
+	} else {
+		if (region == "us-east-1" && domainName != "ec2.internal") || (region != "us-east-1" && domainName != region+".compute.internal") {
+			allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("invalid domain name: %s", domainName)))
 		}
 	}
 

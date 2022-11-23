@@ -127,6 +127,10 @@ var _ = Describe("ConfigValidator", func() {
 	})
 
 	Describe("#Validate", func() {
+		var (
+			validDHCPOptions map[string]string
+		)
+
 		BeforeEach(func() {
 			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
 				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
@@ -135,6 +139,10 @@ var _ = Describe("ConfigValidator", func() {
 				},
 			)
 			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, region).Return(awsClient, nil)
+
+			validDHCPOptions = map[string]string{
+				"domain-name": region + ".compute.internal",
+			}
 		})
 
 		It("should forbid VPC that doesn't exist", func() {
@@ -151,7 +159,7 @@ var _ = Describe("ConfigValidator", func() {
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(false, nil)
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(false, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return("", nil)
-			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(make(map[string]string), nil)
+			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(ConsistOfFields(Fields{
@@ -173,7 +181,7 @@ var _ = Describe("ConfigValidator", func() {
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(true, nil)
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(true, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return(vpcID, nil)
-			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(make(map[string]string), nil)
+			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(BeEmpty())
@@ -200,8 +208,7 @@ var _ = Describe("ConfigValidator", func() {
 
 			It("should allows VPC with correctly configurated DHCP options", func() {
 				mapping := map[string]string{
-					"domain-name-servers": "AmazonProvidedDNS",
-					"domain-name":         region + ".compute.internal",
+					"domain-name": region + ".compute.internal",
 				}
 				awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(mapping, nil)
 
@@ -220,24 +227,21 @@ var _ = Describe("ConfigValidator", func() {
 				}))
 			})
 
-			It("should fail with DHCP options that conatin domain-name-servers 'AmazonProvidedDNS' but no domain-name", func() {
-				mapping := map[string]string{
-					"domain-name-servers": "AmazonProvidedDNS",
-				}
+			It("should fail with DHCP options that do not contain domain-name", func() {
+				mapping := map[string]string{}
 				awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(mapping, nil)
 
 				errorList := cv.Validate(ctx, infra)
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("networks.vpc.id"),
-					"Detail": Equal("domain-name needed when domain-name-servers are specified"),
+					"Detail": Equal("missing domain-name value"),
 				}))
 			})
 
-			It("should fail with DHCP options that conatin domain-name-servers 'AmazonProvidedDNS' but domain-name is not correct", func() {
+			It("should fail with invalid DHCP options for domain-name", func() {
 				mapping := map[string]string{
-					"domain-name-servers": "AmazonProvidedDNS",
-					"domain-name":         "ec2.test",
+					"domain-name": "ec2.test",
 				}
 				awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(mapping, nil)
 
@@ -245,7 +249,7 @@ var _ = Describe("ConfigValidator", func() {
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("networks.vpc.id"),
-					"Detail": Equal("Invalid domain name: ec2.test"),
+					"Detail": Equal("invalid domain name: ec2.test"),
 				}))
 			})
 		})
