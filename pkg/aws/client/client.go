@@ -16,7 +16,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -223,9 +222,8 @@ func (c *Client) GetVPCAttribute(ctx context.Context, vpcID string, attribute st
 	}
 }
 
-// GetDHCPOptions returns DHCP options for aws client
+// GetDHCPOptions returns DHCP options for the specified VPC ID.
 func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error) {
-	result := make(map[string]string)
 	describeVpcsInput := &ec2.DescribeVpcsInput{
 		Filters: []*ec2.Filter{
 			{
@@ -242,7 +240,10 @@ func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]s
 		return nil, err
 	}
 	if len(describeVpcsOutput.Vpcs) == 0 {
-		return nil, errors.New("could not find VPC " + vpcID)
+		return nil, fmt.Errorf("could not find VPC %s", vpcID)
+	}
+	if describeVpcsOutput.Vpcs[0].DhcpOptionsId == nil {
+		return nil, nil
 	}
 
 	describeDhcpOptionsInput := &ec2.DescribeDhcpOptionsInput{
@@ -260,10 +261,11 @@ func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]s
 		return nil, err
 	}
 
+	result := make(map[string]string)
 	if len(describeDhcpOptionsOutput.DhcpOptions) > 0 {
 		for _, dhcpConfiguration := range describeDhcpOptionsOutput.DhcpOptions[0].DhcpConfigurations {
-			if *dhcpConfiguration.Key == "domain-name" && dhcpConfiguration.Values != nil {
-				if len(dhcpConfiguration.Values) > 0 {
+			if dhcpConfiguration.Key != nil && *dhcpConfiguration.Key == "domain-name" && dhcpConfiguration.Values != nil {
+				if len(dhcpConfiguration.Values) > 0 && dhcpConfiguration.Values[0].Value != nil {
 					result[*dhcpConfiguration.Key] = *dhcpConfiguration.Values[0].Value
 				}
 			}
