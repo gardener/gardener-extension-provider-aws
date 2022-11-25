@@ -10,7 +10,6 @@ rules:
   - core.gardener.cloud
   resources:
   - cloudprofiles
-  - shoots
   verbs:
   - get
   - list
