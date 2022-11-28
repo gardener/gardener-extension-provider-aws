@@ -55,8 +55,30 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 		return fmt.Errorf("wrong object type %T", new)
 	}
 
-	// source/destination checks are only disabled for kubernetes >= 1.22
-	// see https://github.com/gardener/machine-controller-manager-provider-aws/issues/36 for details
+	// Skip if shoot is in restore or migration phase
+	if wasShootRescheduledToNewSeed(shoot) {
+		return nil
+	}
+
+	var oldShoot *gardencorev1beta1.Shoot
+	if old != nil {
+		oldShoot, ok = old.(*gardencorev1beta1.Shoot)
+		if !ok {
+			return fmt.Errorf("wrong object type %T", old)
+		}
+	}
+
+	if oldShoot != nil && isShootInMigrationOrRestorePhase(shoot) {
+		return nil
+	}
+
+	// Skip if shoot is in deletion phase
+	if shoot.DeletionTimestamp != nil || oldShoot != nil && oldShoot.DeletionTimestamp != nil {
+		return nil
+	}
+
+	// Source/destination checks are only disabled for kubernetes >= 1.22
+	// See https://github.com/gardener/machine-controller-manager-provider-aws/issues/36 for details
 	greaterEqual122, err := versionutils.CompareVersions(shoot.Spec.Kubernetes.Version, ">=", "1.22")
 	if err != nil {
 		return err
@@ -70,18 +92,11 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 		return err
 	}
 
-	if old == nil && networkConfig.Overlay == nil {
+	if oldShoot == nil && networkConfig.Overlay == nil {
 		networkConfig.Overlay = overlay
 	}
 
-	if old != nil && networkConfig.Overlay == nil {
-		oldShoot, ok := old.(*gardencorev1beta1.Shoot)
-		if !ok {
-			return fmt.Errorf("wrong object type %T", old)
-		}
-		if oldShoot.DeletionTimestamp != nil {
-			return nil
-		}
+	if oldShoot != nil && networkConfig.Overlay == nil {
 		oldNetworkConfig, err := s.decodeNetworkingConfig(oldShoot.Spec.Networking.ProviderConfig)
 		if err != nil {
 			return err
@@ -90,6 +105,7 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 			networkConfig.Overlay = oldNetworkConfig.Overlay
 		}
 	}
+
 	shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
 		Object: networkConfig,
 	}
@@ -147,4 +163,21 @@ func (s *shoot) decodeControlplaneConfig(controlPlaneConfig *runtime.RawExtensio
 		}
 	}
 	return cp, nil
+}
+
+// wasShootRescheduledToNewSeed returns true if the shoot.Spec.SeedName has been changed, but the migration operation has not started yet.
+func wasShootRescheduledToNewSeed(shoot *gardencorev1beta1.Shoot) bool {
+	return shoot.Status.LastOperation != nil &&
+		shoot.Status.LastOperation.Type != gardencorev1beta1.LastOperationTypeMigrate &&
+		shoot.Spec.SeedName != nil &&
+		shoot.Status.SeedName != nil &&
+		*shoot.Spec.SeedName != *shoot.Status.SeedName
+}
+
+// isShootInMigrationOrRestorePhase returns true if the shoot is currently being migrated or restored.
+func isShootInMigrationOrRestorePhase(shoot *gardencorev1beta1.Shoot) bool {
+	return shoot.Status.LastOperation != nil &&
+		(shoot.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeRestore &&
+			shoot.Status.LastOperation.State != gardencorev1beta1.LastOperationStateSucceeded ||
+			shoot.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeMigrate)
 }
