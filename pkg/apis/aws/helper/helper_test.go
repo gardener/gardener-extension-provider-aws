@@ -84,6 +84,7 @@ var _ = Describe("Helper", func() {
 		Entry("entry not found (no name)", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "foo", "1.2.ś", pointer.String("foo"), nil, true),
 		Entry("entry not found (no version)", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "foo", "1.2.3", pointer.String("foo"), nil, true),
 		Entry("entry not found (no architecture)", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: pointer.String("bar")}}, "foo", "1.2.3", pointer.String("foo"), nil, true),
+		Entry("entry exists if architecture is nil", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "bar", "1.2.3", pointer.String("amd64"), &api.MachineImage{Name: "bar", Version: "1.2.3", Architecture: pointer.String("amd64")}, false),
 		Entry("entry exists", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: pointer.String("foo")}}, "bar", "1.2.3", pointer.String("foo"), &api.MachineImage{Name: "bar", Version: "1.2.3", Architecture: pointer.String("foo")}, false),
 	)
 

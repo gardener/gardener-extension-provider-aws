@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/utils/pointer"
 )
 
@@ -86,6 +88,9 @@ func FindSubnetForPurposeAndZone(subnets []api.Subnet, purpose, zone string) (*a
 // found then an error will be returned.
 func FindMachineImage(machineImages []api.MachineImage, name, version string, arch *string) (*api.MachineImage, error) {
 	for _, machineImage := range machineImages {
+		if machineImage.Architecture == nil {
+			machineImage.Architecture = pointer.String(v1beta1constants.ArchitectureAMD64)
+		}
 		if machineImage.Name == name && machineImage.Version == version && pointer.StringEqual(arch, machineImage.Architecture) {
 			return &machineImage, nil
 		}
