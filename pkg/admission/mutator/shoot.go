@@ -20,6 +20,9 @@ import (
 	"reflect"
 
 	calicov1alpha1 "github.com/gardener/gardener-extension-networking-calico/pkg/apis/calico/v1alpha1"
+	"github.com/gardener/gardener-extension-networking-calico/pkg/calico"
+	ciliumv1alpha1 "github.com/gardener/gardener-extension-networking-cilium/pkg/apis/cilium/v1alpha1"
+	"github.com/gardener/gardener-extension-networking-cilium/pkg/cilium"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -49,7 +52,6 @@ func (s *shoot) InjectScheme(scheme *runtime.Scheme) error {
 
 // Mutate mutates the given shoot object.
 func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
-	overlay := &calicov1alpha1.Overlay{Enabled: false}
 
 	shoot, ok := new.(*gardencorev1beta1.Shoot)
 	if !ok {
@@ -89,31 +91,77 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 	if err != nil {
 		return err
 	}
+
 	if !greaterEqual122 {
 		return nil
 	}
 
-	networkConfig, err := s.decodeNetworkingConfig(shoot.Spec.Networking.ProviderConfig)
-	if err != nil {
-		return err
-	}
+	overlayDisabled := false
 
-	if oldShoot == nil && networkConfig.Overlay == nil {
-		networkConfig.Overlay = overlay
-	}
+	switch shoot.Spec.Networking.Type {
+	case calico.ReleaseName:
+		overlay := &calicov1alpha1.Overlay{Enabled: false}
 
-	if oldShoot != nil && networkConfig.Overlay == nil {
-		oldNetworkConfig, err := s.decodeNetworkingConfig(oldShoot.Spec.Networking.ProviderConfig)
+		networkConfig, err := s.decodeCalicoNetworkConfig(shoot.Spec.Networking.ProviderConfig)
 		if err != nil {
 			return err
 		}
-		if oldNetworkConfig.Overlay != nil {
-			networkConfig.Overlay = oldNetworkConfig.Overlay
-		}
-	}
 
-	shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
-		Object: networkConfig,
+		if oldShoot == nil && networkConfig.Overlay == nil {
+			networkConfig.Overlay = overlay
+		}
+
+		if oldShoot != nil && networkConfig.Overlay == nil {
+			oldNetworkConfig, err := s.decodeCalicoNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
+			if err != nil {
+				return err
+			}
+
+			if oldNetworkConfig.Overlay != nil {
+				networkConfig.Overlay = oldNetworkConfig.Overlay
+			}
+
+		}
+
+		if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
+			overlayDisabled = true
+		}
+
+		shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
+			Object: networkConfig,
+		}
+
+	case cilium.ReleaseName:
+		overlay := &ciliumv1alpha1.Overlay{Enabled: false}
+
+		networkConfig, err := s.decodeCiliumNetworkConfig(shoot.Spec.Networking.ProviderConfig)
+		if err != nil {
+			return err
+		}
+
+		if oldShoot == nil && networkConfig.Overlay == nil {
+			networkConfig.Overlay = overlay
+		}
+
+		if oldShoot != nil && networkConfig.Overlay == nil {
+			oldNetworkConfig, err := s.decodeCiliumNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
+			if err != nil {
+				return err
+			}
+
+			if oldNetworkConfig.Overlay != nil {
+				networkConfig.Overlay = oldNetworkConfig.Overlay
+			}
+
+		}
+
+		if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
+			overlayDisabled = true
+		}
+
+		shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
+			Object: networkConfig,
+		}
 	}
 
 	controlPlaneConfig, err := s.decodeControlplaneConfig(shoot.Spec.Provider.ControlPlaneConfig)
@@ -125,7 +173,7 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 		controlPlaneConfig.CloudControllerManager = &awsv1alpha1.CloudControllerManagerConfig{}
 	}
 
-	if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
+	if overlayDisabled {
 		if controlPlaneConfig.CloudControllerManager.UseCustomRouteController == nil {
 			controlPlaneConfig.CloudControllerManager.UseCustomRouteController = pointer.Bool(true)
 		} else {
@@ -146,16 +194,6 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 	return nil
 }
 
-func (s *shoot) decodeNetworkingConfig(network *runtime.RawExtension) (*calicov1alpha1.NetworkConfig, error) {
-	networkConfig := &calicov1alpha1.NetworkConfig{}
-	if network != nil && network.Raw != nil {
-		if _, _, err := s.decoder.Decode(network.Raw, nil, networkConfig); err != nil {
-			return nil, err
-		}
-	}
-	return networkConfig, nil
-}
-
 func (s *shoot) decodeControlplaneConfig(controlPlaneConfig *runtime.RawExtension) (*awsv1alpha1.ControlPlaneConfig, error) {
 	cp := &awsv1alpha1.ControlPlaneConfig{
 		TypeMeta: metav1.TypeMeta{
@@ -169,6 +207,26 @@ func (s *shoot) decodeControlplaneConfig(controlPlaneConfig *runtime.RawExtensio
 		}
 	}
 	return cp, nil
+}
+
+func (s *shoot) decodeCalicoNetworkConfig(network *runtime.RawExtension) (*calicov1alpha1.NetworkConfig, error) {
+	networkConfig := &calicov1alpha1.NetworkConfig{}
+	if network != nil && network.Raw != nil {
+		if _, _, err := s.decoder.Decode(network.Raw, nil, networkConfig); err != nil {
+			return nil, err
+		}
+	}
+	return networkConfig, nil
+}
+
+func (s *shoot) decodeCiliumNetworkConfig(network *runtime.RawExtension) (*ciliumv1alpha1.NetworkConfig, error) {
+	networkConfig := &ciliumv1alpha1.NetworkConfig{}
+	if network != nil && network.Raw != nil {
+		if _, _, err := s.decoder.Decode(network.Raw, nil, networkConfig); err != nil {
+			return nil, err
+		}
+	}
+	return networkConfig, nil
 }
 
 // wasShootRescheduledToNewSeed returns true if the shoot.Spec.SeedName has been changed, but the migration operation has not started yet.
