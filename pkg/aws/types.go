@@ -129,8 +129,8 @@ const (
 	CSILivenessProbeName = "csi-liveness-probe"
 	// LBReadvertiserDeploymentName is the constant for the name of the AWS LB Readvertiser deployment
 	LBReadvertiserDeploymentName = "aws-lb-readvertiser"
-	// CSISnapshotValidation is the constant for the name of the csi-snapshot-validation-webhook component.
-	CSISnapshotValidation = "csi-snapshot-validation"
+	// CSISnapshotValidationName is the constant for the name of the csi-snapshot-validation-webhook component.
+	CSISnapshotValidationName = "csi-snapshot-validation"
 )
 
 var (
