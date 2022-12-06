@@ -22,10 +22,6 @@ import (
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
-	"github.com/Masterminds/semver"
-	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -127,11 +123,6 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 		return err
 	}
 
-	csiMigrationVersion, err := semver.NewVersion(aws.GetCSIMigrationKubernetesVersion(&extensionscontroller.Cluster{Shoot: shootV1beta1}))
-	if err != nil {
-		return err
-	}
-
 	fldPath = fldPath.Child("workers")
 	for i, worker := range shoot.Spec.Provider.Workers {
 		var workerConfig *api.WorkerConfig
@@ -143,7 +134,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 			workerConfig = wc
 		}
 
-		if errList := awsvalidation.ValidateWorker(worker, csiMigrationVersion, infraConfig.Networks.Zones, workerConfig, fldPath.Index(i)); len(errList) != 0 {
+		if errList := awsvalidation.ValidateWorker(worker, infraConfig.Networks.Zones, workerConfig, fldPath.Index(i)); len(errList) != 0 {
 			return errList.ToAggregate()
 		}
 	}

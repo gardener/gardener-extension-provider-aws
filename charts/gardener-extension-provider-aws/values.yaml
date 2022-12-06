@@ -33,8 +33,6 @@ controllers:
     concurrentSyncs: 5
   controlplane:
     concurrentSyncs: 5
-  csimigration:
-    concurrentSyncs: 5
   dnsrecord:
     concurrentSyncs: 5
     providerClientQPS: 1

@@ -73,11 +73,3 @@ policy/v1beta1
 {{- define "podsecuritypolicyversion" -}}
 policy/v1beta1
 {{- end -}}
-
-{{- define "ingressversion" -}}
-{{- if semverCompare ">= 1.19-0" .Capabilities.KubeVersion.GitVersion -}}
-networking.k8s.io/v1
-{{- else -}}
-networking.k8s.io/v1beta1
-{{- end -}}
-{{- end -}}

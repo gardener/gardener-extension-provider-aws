@@ -27,7 +27,6 @@ import (
 	awsbackupentry "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
 	awsbastion "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
 	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
-	awscsimigration "github.com/gardener/gardener-extension-provider-aws/pkg/controller/csimigration"
 	awsdnsrecord "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
@@ -103,11 +102,6 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			MaxConcurrentReconciles: 5,
 		}
 
-		// options for the csimigration controller
-		csiMigrationCtrlOpts = &controllercmd.ControllerOptions{
-			MaxConcurrentReconciles: 5,
-		}
-
 		// options for the dnsrecord controller
 		dnsRecordCtrlOpts = &awscmd.DNSRecordControllerOptions{
 			ControllerOptions: controllercmd.ControllerOptions{
@@ -156,7 +150,6 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			controllercmd.PrefixOption("backupentry-", backupEntryCtrlOpts),
 			controllercmd.PrefixOption("bastion-", bastionCtrlOpts),
 			controllercmd.PrefixOption("controlplane-", controlPlaneCtrlOpts),
-			controllercmd.PrefixOption("csimigration-", csiMigrationCtrlOpts),
 			controllercmd.PrefixOption("dnsrecord-", dnsRecordCtrlOpts),
 			controllercmd.PrefixOption("infrastructure-", infraCtrlOpts),
 			controllercmd.PrefixOption("worker-", &workerCtrlOptsUnprefixed),
@@ -223,7 +216,6 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			backupEntryCtrlOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.Controller)
 			bastionCtrlOpts.Completed().Apply(&awsbastion.DefaultAddOptions.Controller)
 			controlPlaneCtrlOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.Controller)
-			csiMigrationCtrlOpts.Completed().Apply(&awscsimigration.DefaultAddOptions.Controller)
 			dnsRecordCtrlOpts.Completed().Apply(&awsdnsrecord.DefaultAddOptions.Controller)
 			dnsRecordCtrlOpts.Completed().ApplyRateLimiter(&awsdnsrecord.DefaultAddOptions.RateLimiter)
 			infraCtrlOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.Controller)

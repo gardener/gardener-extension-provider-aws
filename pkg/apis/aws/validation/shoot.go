@@ -19,7 +19,6 @@ import (
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 
-	"github.com/Masterminds/semver"
 	"github.com/gardener/gardener/pkg/apis/core"
 	validationutils "github.com/gardener/gardener/pkg/utils/validation"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
@@ -39,27 +38,12 @@ func ValidateNetworking(networking core.Networking, fldPath *field.Path) field.E
 }
 
 // ValidateWorker validates a worker of a Shoot.
-func ValidateWorker(worker core.Worker, csiMigrationVersion *semver.Version, zones []apisaws.Zone, workerConfig *apisaws.WorkerConfig, fldPath *field.Path) field.ErrorList {
+func ValidateWorker(worker core.Worker, zones []apisaws.Zone, workerConfig *apisaws.WorkerConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	awsZones := sets.NewString()
 	for _, awsZone := range zones {
 		awsZones.Insert(awsZone.Name)
-	}
-
-	// Ensure the kubelet version is not lower than the version in which the extension performs CSI migration.
-	if worker.Kubernetes != nil && worker.Kubernetes.Version != nil {
-		path := fldPath.Child("kubernetes", "version")
-
-		v, err := semver.NewVersion(*worker.Kubernetes.Version)
-		if err != nil {
-			allErrs = append(allErrs, field.Invalid(path, *worker.Kubernetes.Version, err.Error()))
-			return allErrs
-		}
-
-		if v.LessThan(csiMigrationVersion) {
-			allErrs = append(allErrs, field.Forbidden(path, fmt.Sprintf("cannot use kubelet version (%s) lower than CSI migration version (%s)", v.String(), csiMigrationVersion.String())))
-		}
 	}
 
 	if worker.Volume == nil {

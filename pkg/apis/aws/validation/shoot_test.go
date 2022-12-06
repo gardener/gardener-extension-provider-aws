@@ -20,7 +20,6 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 
-	"github.com/Masterminds/semver"
 	"github.com/gardener/gardener/pkg/apis/core"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -93,42 +92,21 @@ var _ = Describe("Shoot validation", func() {
 
 		Describe("#ValidateWorker", func() {
 			It("should pass when the workerConfig is nil", func() {
-				errorList := ValidateWorker(worker, nil, awsZones, nil, field.NewPath(""))
-
-				Expect(errorList).To(BeEmpty())
-			})
-
-			It("should pass when the kubernetes version is equal to the CSI migration version", func() {
-				worker.Kubernetes = &core.WorkerKubernetes{Version: pointer.String("1.18.0")}
-
-				errorList := ValidateWorker(worker, semver.MustParse("1.18"), awsZones, nil, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, nil, field.NewPath(""))
 
 				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should pass when the kubernetes version is higher to the CSI migration version", func() {
-				worker.Kubernetes = &core.WorkerKubernetes{Version: pointer.String("1.19.0")}
+				worker.Kubernetes = &core.WorkerKubernetes{Version: pointer.String("1.20.0")}
 
-				errorList := ValidateWorker(worker, semver.MustParse("1.18"), awsZones, nil, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, nil, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(BeEmpty())
 			})
 
-			It("should not allow when the kubernetes version is lower than the CSI migration version", func() {
-				worker.Kubernetes = &core.WorkerKubernetes{Version: pointer.String("1.17.0")}
-
-				errorList := ValidateWorker(worker, semver.MustParse("1.18.0"), awsZones, nil, field.NewPath("workers").Index(0))
-
-				Expect(errorList).To(ConsistOf(
-					PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeForbidden),
-						"Field": Equal("workers[0].kubernetes.version"),
-					})),
-				))
-			})
-
 			It("should pass because the worker is configured correctly", func() {
-				errorList := ValidateWorker(worker, nil, awsZones, &apisaws.WorkerConfig{}, field.NewPath(""))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath(""))
 
 				Expect(errorList).To(BeEmpty())
 			})
@@ -136,7 +114,7 @@ var _ = Describe("Shoot validation", func() {
 			It("should forbid because volume is not configured", func() {
 				worker.Volume = nil
 
-				errorList := ValidateWorker(worker, nil, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -149,7 +127,7 @@ var _ = Describe("Shoot validation", func() {
 			It("should forbid because volume type io1 is used but no worker config provided", func() {
 				worker.Volume.Type = pointer.String(string(apisaws.VolumeTypeIO1))
 
-				errorList := ValidateWorker(worker, nil, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -167,7 +145,7 @@ var _ = Describe("Shoot validation", func() {
 				worker.Volume.Type = pointer.String(string(apisaws.VolumeTypeIO1))
 				worker.ProviderConfig = &runtime.RawExtension{}
 
-				errorList := ValidateWorker(worker, nil, awsZones, &apisaws.WorkerConfig{Volume: &apisaws.Volume{IOPS: &iops}}, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{Volume: &apisaws.Volume{IOPS: &iops}}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(BeEmpty())
 			})
@@ -177,7 +155,7 @@ var _ = Describe("Shoot validation", func() {
 				worker.Volume.VolumeSize = ""
 				worker.DataVolumes = []core.DataVolume{{}}
 
-				errorList := ValidateWorker(worker, nil, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -208,7 +186,7 @@ var _ = Describe("Shoot validation", func() {
 					})
 				}
 
-				errorList := ValidateWorker(worker, nil, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -221,7 +199,7 @@ var _ = Describe("Shoot validation", func() {
 			It("should forbid because worker does not specify a zone", func() {
 				worker.Zones = nil
 
-				errorList := ValidateWorker(worker, nil, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -235,7 +213,7 @@ var _ = Describe("Shoot validation", func() {
 				worker.Zones[0] = ""
 				worker.Zones[1] = "not-available"
 
-				errorList := ValidateWorker(worker, nil, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
+				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
