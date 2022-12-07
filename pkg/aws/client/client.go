@@ -264,10 +264,8 @@ func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]s
 	result := make(map[string]string)
 	if len(describeDhcpOptionsOutput.DhcpOptions) > 0 {
 		for _, dhcpConfiguration := range describeDhcpOptionsOutput.DhcpOptions[0].DhcpConfigurations {
-			if dhcpConfiguration.Key != nil && *dhcpConfiguration.Key == "domain-name" && dhcpConfiguration.Values != nil {
-				if len(dhcpConfiguration.Values) > 0 && dhcpConfiguration.Values[0].Value != nil {
-					result[*dhcpConfiguration.Key] = *dhcpConfiguration.Values[0].Value
-				}
+			if dhcpConfiguration.Key != nil && *dhcpConfiguration.Key == "domain-name" && len(dhcpConfiguration.Values) > 0 && dhcpConfiguration.Values[0].Value != nil {
+				result[*dhcpConfiguration.Key] = *dhcpConfiguration.Values[0].Value
 			}
 		}
 	}
