@@ -1,0 +1,21 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: extensions.gardener.cloud:provider-aws:aws-custom-route-controller
+  namespace: kube-system
+rules:
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  resourceNames:
+    - aws-custom-route-controller-leader-election
+  verbs:
+    - get
+    - update
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  verbs:
+    - create
