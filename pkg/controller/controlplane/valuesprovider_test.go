@@ -380,7 +380,7 @@ var _ = Describe("ValuesProvider", func() {
 					"kubernetesVersion": "1.17.1",
 					"vpaEnabled":        false,
 					"webhookConfig": map[string]interface{}{
-						"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
+						"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 						"caBundle": "",
 					},
 					"pspDisabled": false,
@@ -402,7 +402,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
+							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
 						"pspDisabled": false,
@@ -426,7 +426,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
+							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
 						"pspDisabled": false,
@@ -456,7 +456,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
+							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
 						"pspDisabled": false,
@@ -484,7 +484,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidation + "." + cp.Namespace + "/volumesnapshot",
+							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
 						"pspDisabled": true,

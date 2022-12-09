@@ -1,6 +1,6 @@
 {{- if .Values.useLegacyProvisioner }}
 ---
-apiVersion: {{ include "storageclassversion" . }}
+apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: default
@@ -16,7 +16,7 @@ parameters:
   encrypted: "true"
   type: gp2
 ---
-apiVersion: {{ include "storageclassversion" . }}
+apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   annotations:
