@@ -48,6 +48,7 @@ spec:
         {{- end }}
         - --logtostderr
         - --v=3
+        - --vmodule=node_*=4,mount*=4,driver=4,controller=4
         env:
         - name: CSI_ENDPOINT
           value: unix:{{ .Values.socketPath }}
