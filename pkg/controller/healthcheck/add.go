@@ -93,6 +93,11 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				PreCheckFunc:  csiEnabledPreCheckFunc,
 			},
 			{
+				ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
+				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.AWSCustomRouteControllerName),
+				// no precheck needed, as the deployment is always created (with replicas=0 if not enabled, see valuesprovider.go)
+			},
+			{
 				ConditionType: string(gardencorev1beta1.ShootSystemComponentsHealthy),
 				HealthCheck:   general.CheckManagedResource(genericcontrolplaneactuator.ControlPlaneShootChartResourceName),
 			},
