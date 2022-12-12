@@ -222,6 +222,56 @@ func (c *Client) GetVPCAttribute(ctx context.Context, vpcID string, attribute st
 	}
 }
 
+// GetDHCPOptions returns DHCP options for the specified VPC ID.
+func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error) {
+	describeVpcsInput := &ec2.DescribeVpcsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("vpc-id"),
+				Values: []*string{
+					aws.String(vpcID),
+				},
+			},
+		},
+	}
+
+	describeVpcsOutput, err := c.EC2.DescribeVpcsWithContext(ctx, describeVpcsInput)
+	if err != nil {
+		return nil, err
+	}
+	if len(describeVpcsOutput.Vpcs) == 0 {
+		return nil, fmt.Errorf("could not find VPC %s", vpcID)
+	}
+	if describeVpcsOutput.Vpcs[0].DhcpOptionsId == nil {
+		return nil, nil
+	}
+
+	describeDhcpOptionsInput := &ec2.DescribeDhcpOptionsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("dhcp-options-id"),
+				Values: []*string{
+					aws.String(*describeVpcsOutput.Vpcs[0].DhcpOptionsId),
+				},
+			},
+		},
+	}
+	describeDhcpOptionsOutput, err := c.EC2.DescribeDhcpOptionsWithContext(ctx, describeDhcpOptionsInput)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]string)
+	if len(describeDhcpOptionsOutput.DhcpOptions) > 0 {
+		for _, dhcpConfiguration := range describeDhcpOptionsOutput.DhcpOptions[0].DhcpConfigurations {
+			if dhcpConfiguration.Key != nil && *dhcpConfiguration.Key == "domain-name" && len(dhcpConfiguration.Values) > 0 && dhcpConfiguration.Values[0].Value != nil {
+				result[*dhcpConfiguration.Key] = *dhcpConfiguration.Values[0].Value
+			}
+		}
+	}
+	return result, nil
+}
+
 // DeleteObjectsWithPrefix deletes the s3 objects with the specific <prefix> from <bucket>. If it does not exist,
 // no error is returned.
 func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error {

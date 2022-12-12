@@ -36,6 +36,7 @@ type Interface interface {
 	GetAccountID(ctx context.Context) (string, error)
 	GetVPCInternetGateway(ctx context.Context, vpcID string) (string, error)
 	GetVPCAttribute(ctx context.Context, vpcID string, attribute string) (bool, error)
+	GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error)
 	GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context, allocationIDs []string) (map[string]*string, error)
 	GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.String, error)
 

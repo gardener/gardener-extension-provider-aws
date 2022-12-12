@@ -39,6 +39,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -127,6 +128,10 @@ var _ = Describe("ConfigValidator", func() {
 	})
 
 	Describe("#Validate", func() {
+		var (
+			validDHCPOptions map[string]string
+		)
+
 		BeforeEach(func() {
 			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
 				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
@@ -135,6 +140,10 @@ var _ = Describe("ConfigValidator", func() {
 				},
 			)
 			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, region).Return(awsClient, nil)
+
+			validDHCPOptions = map[string]string{
+				"domain-name": region + ".compute.internal",
+			}
 		})
 
 		It("should forbid VPC that doesn't exist", func() {
@@ -151,6 +160,7 @@ var _ = Describe("ConfigValidator", func() {
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(false, nil)
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(false, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return("", nil)
+			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(ConsistOfFields(Fields{
@@ -172,6 +182,7 @@ var _ = Describe("ConfigValidator", func() {
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(true, nil)
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(true, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return(vpcID, nil)
+			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(BeEmpty())
@@ -187,6 +198,46 @@ var _ = Describe("ConfigValidator", func() {
 				"Detail": Equal(fmt.Sprintf("could not get VPC attribute enableDnsSupport for VPC %s: test", vpcID)),
 			}))
 		})
+
+		DescribeTable("validate DHCP options", func(newRegion string, mapping map[string]string, err error, matcher gomegatypes.GomegaMatcher) {
+			if newRegion != "" {
+				infra.Spec.Region = newRegion
+				awsClientFactory.NewClient(accessKeyID, secretAccessKey, region) //nolint:errcheck
+				awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, newRegion).Return(awsClient, nil)
+			}
+
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(true, nil)
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(true, nil)
+			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return(vpcID, nil)
+			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(mapping, err)
+
+			errorList := cv.Validate(ctx, infra)
+			Expect(errorList).To(matcher)
+		},
+			Entry("should allow VPC with correctly configurated DHCP options", "", map[string]string{
+				"domain-name": region + ".compute.internal",
+			}, nil, BeEmpty()),
+			Entry("should allow VPC with correctly configurated DHCP options and domain-name 'us-east-1`", "us-east-1", map[string]string{
+				"domain-name": "ec2.internal",
+			}, nil, BeEmpty()),
+			Entry("should fail with InternalError if getting DHCP options failed", "", nil, fmt.Errorf("test"), ConsistOfFields(Fields{
+				"Type":   Equal(field.ErrorTypeInternal),
+				"Field":  Equal("networks.vpc.id"),
+				"Detail": Equal(fmt.Sprintf("could not get DHCP options for VPC %s: test", vpcID)),
+			})),
+			Entry("should fail with DHCP options that do not contain domain-name", "", map[string]string{}, nil, ConsistOfFields(Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("networks.vpc.id"),
+				"Detail": Equal("missing domain-name value in DHCP options used by the VPC"),
+			})),
+			Entry("should fail with invalid DHCP options for domain-name", "", map[string]string{
+				"domain-name": "ec2.test",
+			}, nil, ConsistOfFields(Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("networks.vpc.id"),
+				"Detail": Equal("invalid domain-name specified in DHCP options used by VPC: ec2.test"),
+			})),
+		)
 
 		Describe("validate Elastic IP addresses", func() {
 			BeforeEach(func() {
