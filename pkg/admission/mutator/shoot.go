@@ -17,6 +17,7 @@ package mutator
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	calicov1alpha1 "github.com/gardener/gardener-extension-networking-calico/pkg/apis/calico/v1alpha1"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -69,6 +70,11 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 	}
 
 	if oldShoot != nil && isShootInMigrationOrRestorePhase(shoot) {
+		return nil
+	}
+
+	// Skip if specs are matching
+	if oldShoot != nil && reflect.DeepEqual(shoot.Spec, oldShoot.Spec) {
 		return nil
 	}
 
