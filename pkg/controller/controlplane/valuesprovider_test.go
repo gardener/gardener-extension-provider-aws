@@ -17,11 +17,8 @@ package controlplane
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -31,6 +28,10 @@ import (
 	"github.com/gardener/gardener/pkg/utils"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
 	fakesecretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager/fake"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -71,7 +72,7 @@ var _ = Describe("ValuesProvider", func() {
 			b := &bytes.Buffer{}
 			Expect(encoder.Encode(obj, b)).To(Succeed())
 
-			data, err := ioutil.ReadAll(b)
+			data, err := io.ReadAll(b)
 			Expect(err).ToNot(HaveOccurred())
 
 			return data

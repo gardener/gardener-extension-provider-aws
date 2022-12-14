@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -62,7 +63,7 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 		}
 	}
 
-	return w.seedChartApplier.Apply(ctx, filepath.Join(aws.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
+	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join("internal", "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 
 // GenerateMachineDeployments generates the configuration for the desired machine deployments.

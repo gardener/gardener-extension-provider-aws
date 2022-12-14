@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gardener/gardener-extension-provider-aws/charts"
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
@@ -719,9 +719,10 @@ var _ = Describe("Machines", func() {
 					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
 					// Test workerDelegate.DeployMachineClasses()
-					chartApplier.EXPECT().Apply(
+					chartApplier.EXPECT().ApplyFromEmbeddedFS(
 						ctx,
-						filepath.Join(aws.InternalChartsPath, "machineclass"),
+						charts.InternalChart,
+						filepath.Join("internal", "machineclass"),
 						namespace,
 						"machineclass",
 						kubernetes.Values(machineClasses),
@@ -793,9 +794,10 @@ var _ = Describe("Machines", func() {
 
 						workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-						chartApplier.EXPECT().Apply(
+						chartApplier.EXPECT().ApplyFromEmbeddedFS(
 							ctx,
-							filepath.Join(aws.InternalChartsPath, "machineclass"),
+							charts.InternalChart,
+							filepath.Join("internal", "machineclass"),
 							namespace,
 							"machineclass",
 							kubernetes.Values(machineClasses),
@@ -814,9 +816,10 @@ var _ = Describe("Machines", func() {
 
 						workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
-						chartApplier.EXPECT().Apply(
+						chartApplier.EXPECT().ApplyFromEmbeddedFS(
 							ctx,
-							filepath.Join(aws.InternalChartsPath, "machineclass"),
+							charts.InternalChart,
+							filepath.Join("internal", "machineclass"),
 							namespace,
 							"machineclass",
 							kubernetes.Values(machineClasses),
