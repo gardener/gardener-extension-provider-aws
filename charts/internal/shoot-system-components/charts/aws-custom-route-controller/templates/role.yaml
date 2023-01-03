@@ -19,3 +19,9 @@ rules:
     - leases
   verbs:
     - create
+- apiGroups:
+    - ""
+  resources:
+    - "events"
+  verbs:
+    - "create"
