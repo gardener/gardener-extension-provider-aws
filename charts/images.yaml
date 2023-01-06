@@ -86,7 +86,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.22.15"
+  tag: "v1.22.17"
   targetVersion: "1.22.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -100,7 +100,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.23.12"
+  tag: "v1.23.15"
   targetVersion: "1.23.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -114,7 +114,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.24.6"
+  tag: "v1.24.9"
   targetVersion: "1.24.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -128,8 +128,22 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.25.2"
-  targetVersion: ">= 1.25"
+  tag: "v1.25.5"
+  targetVersion: "1.25.x"
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'protected'
+      authentication_enforced: false
+      user_interaction: 'gardener-operator'
+      confidentiality_requirement: 'high'
+      integrity_requirement: 'high'
+      availability_requirement: 'low'
+- name: cloud-controller-manager
+  sourceRepository: github.com/gardener/cloud-provider-aws
+  repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
+  tag: "v1.26.1"
+  targetVersion: ">= 1.26"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
