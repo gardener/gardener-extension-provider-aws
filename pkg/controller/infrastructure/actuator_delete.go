@@ -20,12 +20,13 @@ import (
 	"time"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
-	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
+	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
@@ -60,7 +61,7 @@ func Delete(
 
 	tf, err := newTerraformer(logger, restConfig, aws.TerraformerPurposeInfra, infrastructure, disableProjectedTokenMount)
 	if err != nil {
-		return fmt.Errorf("could not create the Terraformer: %+v", err)
+		return util.DetermineError(fmt.Errorf("could not create the Terraformer: %+v", err), helper.KnownCodes)
 	}
 
 	// terraform pod from previous reconciliation might still be running, ensure they are gone before doing any operations
@@ -82,7 +83,7 @@ func Delete(
 
 	awsClient, err := aws.NewClientFromSecretRef(ctx, c, infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
 	if err != nil {
-		return fmt.Errorf("failed to create new AWS client: %+v", err)
+		return util.DetermineError(fmt.Errorf("failed to create new AWS client: %+v", err), helper.KnownCodes)
 	}
 
 	var (
@@ -110,7 +111,7 @@ func Delete(
 				}
 
 				if err := destroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
-					return gardencorev1beta1helper.DeprecatedDetermineError(fmt.Errorf("Failed to destroy load balancers and security groups: %w", err))
+					return util.DetermineError(fmt.Errorf("Failed to destroy load balancers and security groups: %w", err), helper.KnownCodes)
 				}
 
 				return nil
@@ -127,7 +128,7 @@ func Delete(
 	)
 
 	if err := f.Run(ctx, flow.Opts{}); err != nil {
-		return flow.Causes(err)
+		return util.DetermineError(flow.Errors(err), helper.KnownCodes)
 	}
 
 	return nil
