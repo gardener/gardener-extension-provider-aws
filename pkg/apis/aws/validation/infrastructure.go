@@ -56,6 +56,7 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 		awsZones.Insert(awsZone.Name)
 	}
 
+	usedZones := sets.NewString()
 	for i, zone := range infra.Networks.Zones {
 		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && oldInfra.Networks.Zones[i] == zone {
 			continue
@@ -64,6 +65,10 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 		if !awsZones.Has(zone.Name) {
 			allErrs = append(allErrs, field.NotSupported(fldPath.Child("zones").Index(i).Child("name"), zone.Name, awsZones.UnsortedList()))
 		}
+		if usedZones.Has(zone.Name) {
+			allErrs = append(allErrs, field.Duplicate(fldPath.Child("zones").Index(i).Child("name"), zone.Name))
+		}
+		usedZones.Insert(zone.Name)
 	}
 
 	return allErrs
