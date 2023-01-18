@@ -27,6 +27,7 @@ import (
 	extensionsheartbeatcontroller "github.com/gardener/gardener/extensions/pkg/controller/heartbeat"
 	extensionsinfrastructurecontroller "github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsworkercontroller "github.com/gardener/gardener/extensions/pkg/controller/worker"
+	extensionscloudproviderwebhook "github.com/gardener/gardener/extensions/pkg/webhook/cloudprovider"
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 	extensioncontrolplanewebhook "github.com/gardener/gardener/extensions/pkg/webhook/controlplane"
 	extensionshootwebhook "github.com/gardener/gardener/extensions/pkg/webhook/shoot"
@@ -42,6 +43,7 @@ import (
 	healthcheckcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	infrastructurecontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	workercontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
+	cloudproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
 	controlplaneexposurewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
 	shootwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shoot"
@@ -77,6 +79,7 @@ func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 		webhookcmd.Switch(extensioncontrolplanewebhook.WebhookName, controlplanewebhook.AddToManager),
 		webhookcmd.Switch(extensioncontrolplanewebhook.ExposureWebhookName, controlplaneexposurewebhook.AddToManager),
 		webhookcmd.Switch(extensionshootwebhook.WebhookName, shootwebhook.AddToManager),
+		webhookcmd.Switch(extensionscloudproviderwebhook.WebhookName, cloudproviderwebhook.AddToManager),
 	)
 }
 
