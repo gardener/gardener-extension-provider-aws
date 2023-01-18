@@ -101,3 +101,5 @@ csiSnapshotValidationWebhook:
   secrets:
     server: csi-snapshot-validation-server
   topologyAwareRoutingEnabled: false
+
+useCredentialsFile: false

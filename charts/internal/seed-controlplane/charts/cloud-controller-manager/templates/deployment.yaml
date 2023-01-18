@@ -65,6 +65,10 @@ spec:
         - --use-service-account-credentials
         - --v=2
         env:
+        {{- if .Values.useCredentialsFile }}
+        - name: AWS_SHARED_CREDENTIALS_FILE
+          value: /srv/cloudprovider/cloudprovider.credentials
+        {{- else }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -75,6 +79,7 @@ spec:
             secretKeyRef:
               name: cloudprovider
               key: secretAccessKey
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthz
@@ -101,6 +106,8 @@ spec:
           readOnly: true
         - name: cloud-controller-manager-server
           mountPath: /var/lib/cloud-controller-manager-server
+        - name: cloudprovider
+          mountPath: /srv/cloudprovider
         - name: cloud-provider-config
           mountPath: /etc/kubernetes/cloudprovider
       dnsPolicy: ClusterFirst
@@ -127,6 +134,9 @@ spec:
       - name: cloud-controller-manager-server
         secret:
           secretName: {{ .Values.secrets.server }}
+      - name: cloudprovider
+        secret:
+          secretName: cloudprovider
       - name: cloud-provider-config
         configMap:
           name: cloud-provider-config

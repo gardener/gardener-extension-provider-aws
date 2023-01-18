@@ -44,6 +44,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
@@ -313,12 +314,26 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		}
 	}
 
+	var useCredentialsFile bool
+	cloudprovider := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloudprovider",
+			Namespace: cp.Namespace,
+		},
+	}
+	if err := vp.Client().Get(ctx, client.ObjectKeyFromObject(cloudprovider), cloudprovider); err != nil {
+		return nil, fmt.Errorf("could not find cloudprovider secret: %w", err)
+	}
+	if cloudprovider.Data != nil && cloudprovider.Data[aws.SharedCredentialsFile] != nil {
+		useCredentialsFile = true
+	}
+
 	// TODO(rfranzke): Delete this in a future release.
 	if err := kutil.DeleteObject(ctx, vp.Client(), &networkingv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "allow-kube-apiserver-to-csi-snapshot-validation", Namespace: cp.Namespace}}); err != nil {
 		return nil, fmt.Errorf("failed deleting legacy csi-snapshot-validation network policy: %w", err)
 	}
 
-	return getControlPlaneChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown)
+	return getControlPlaneChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, useCredentialsFile)
 }
 
 // GetControlPlaneShootChartValues returns the values for the control plane shoot chart applied by the generic actuator.
@@ -435,9 +450,9 @@ func getControlPlaneChartValues(
 	cluster *extensionscontroller.Cluster,
 	secretsReader secretsmanager.Reader,
 	checksums map[string]string,
-	scaledDown bool,
+	scaledDown, useCredentialsFile bool,
 ) (map[string]interface{}, error) {
-	ccm, err := getCCMChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown)
+	ccm, err := getCCMChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, useCredentialsFile)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +462,7 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
-	csi, err := getCSIControllerChartValues(cp, cluster, secretsReader, checksums, scaledDown)
+	csi, err := getCSIControllerChartValues(cp, cluster, secretsReader, checksums, scaledDown, useCredentialsFile)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +484,7 @@ func getCCMChartValues(
 	cluster *extensionscontroller.Cluster,
 	secretsReader secretsmanager.Reader,
 	checksums map[string]string,
-	scaledDown bool,
+	scaledDown, useCredentialsFile bool,
 ) (map[string]interface{}, error) {
 	kubeVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
 	if err != nil {
@@ -498,6 +513,7 @@ func getCCMChartValues(
 		"secrets": map[string]interface{}{
 			"server": serverSecret.Name,
 		},
+		"useCredentialsFile": useCredentialsFile,
 	}
 
 	if cpConfig.CloudControllerManager != nil {
@@ -544,7 +560,8 @@ func getCSIControllerChartValues(
 	cluster *extensionscontroller.Cluster,
 	secretsReader secretsmanager.Reader,
 	checksums map[string]string,
-	scaledDown bool,
+	scaledDown, useCredentialsFile bool,
+
 ) (map[string]interface{}, error) {
 	serverSecret, found := secretsReader.Get(csiSnapshotValidationServerName)
 	if !found {
@@ -568,6 +585,7 @@ func getCSIControllerChartValues(
 			},
 			"topologyAwareRoutingEnabled": gardencorev1beta1helper.IsTopologyAwareRoutingForShootControlPlaneEnabled(cluster.Seed, cluster.Shoot),
 		},
+		"useCredentialsFile": useCredentialsFile,
 	}, nil
 }
 
