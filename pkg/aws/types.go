@@ -66,7 +66,7 @@ const (
 	// SecretAccessKey is a constant for the key in a cloud provider secret and backup secret that holds the AWS secret access key.
 	SecretAccessKey = "secretAccessKey"
 	// SharedCredentialsFile is a constant for the key in cloud provider secret that holds the AWS credentials file.
-	SharedCredentialsFile = "cloudprovider.credentials"
+	SharedCredentialsFile = "credentialsFile"
 	// Region is a constant for the key in a backup secret that holds the AWS region.
 	Region = "region"
 	// DNSAccessKeyID is a constant for the key in a DNS secret that holds the AWS access key id.

@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 
 	"github.com/gardener/gardener/extensions/pkg/webhook/cloudprovider"
@@ -57,8 +58,8 @@ var _ = Describe("Ensurer", func() {
 	BeforeEach(func() {
 		secret = &corev1.Secret{
 			Data: map[string][]byte{
-				"accessKeyID":     []byte("access-key-id"),
-				"secretAccessKey": []byte("secret-access-key"),
+				aws.AccessKeyID:     []byte("access-key-id"),
+				aws.SecretAccessKey: []byte("secret-access-key"),
 			},
 		}
 
@@ -81,34 +82,34 @@ var _ = Describe("Ensurer", func() {
 
 	Describe("#EnsureCloudProviderSecret", func() {
 		It("should fail as no accessKeyID is present", func() {
-			delete(secret.Data, "accessKeyID")
+			delete(secret.Data, aws.AccessKeyID)
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 			Expect(err).To(HaveOccurred())
 		})
 		It("should fail as no secretAccessKey is present", func() {
-			delete(secret.Data, "secretAccessKey")
+			delete(secret.Data, aws.SecretAccessKey)
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 			Expect(err).To(HaveOccurred())
 		})
-		It("should pass as cloudprovider.credentials is present", func() {
-			secret.Data["cloudprovider.credentials"] = []byte("cloudprovider-credentials")
+		It("should pass as credentials file is present", func() {
+			secret.Data[aws.SharedCredentialsFile] = []byte("shared-credentials-file")
 
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data).To(Equal(map[string][]byte{
-				"accessKeyID":               []byte("access-key-id"),
-				"secretAccessKey":           []byte("secret-access-key"),
-				"cloudprovider.credentials": []byte("cloudprovider-credentials"),
+				aws.AccessKeyID:           []byte("access-key-id"),
+				aws.SecretAccessKey:       []byte("secret-access-key"),
+				aws.SharedCredentialsFile: []byte("shared-credentials-file"),
 			}))
 		})
-		It("should add cloudprovider.credentials", func() {
+		It("should add credentials file", func() {
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data).To(Equal(map[string][]byte{
-				"accessKeyID":     []byte("access-key-id"),
-				"secretAccessKey": []byte("secret-access-key"),
-				"cloudprovider.credentials": []byte(`[default]
+				aws.AccessKeyID:     []byte("access-key-id"),
+				aws.SecretAccessKey: []byte("secret-access-key"),
+				aws.SharedCredentialsFile: []byte(`[default]
 aws_access_key_id=access-key-id
 aws_secret_access_key=secret-access-key`),
 			}))

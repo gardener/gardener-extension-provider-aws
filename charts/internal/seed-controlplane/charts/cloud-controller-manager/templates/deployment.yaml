@@ -67,7 +67,7 @@ spec:
         env:
         {{- if .Values.useCredentialsFile }}
         - name: AWS_SHARED_CREDENTIALS_FILE
-          value: /srv/cloudprovider/cloudprovider.credentials
+          value: /srv/cloudprovider/credentialsFile
         {{- else }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
