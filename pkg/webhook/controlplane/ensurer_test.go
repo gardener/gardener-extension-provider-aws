@@ -91,7 +91,6 @@ var _ = Describe("Ensurer", func() {
 
 	Describe("#EnsureKubeAPIServerDeployment", func() {
 		var (
-			client  *mockclient.MockClient
 			dep     *appsv1.Deployment
 			ensurer genericmutator.Ensurer
 		)
@@ -111,14 +110,11 @@ var _ = Describe("Ensurer", func() {
 					},
 				},
 			}
-			client = mockclient.NewMockClient(ctrl)
 
 			ensurer = NewEnsurer(logger)
-			err := ensurer.(inject.Client).InjectClient(client)
-			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		It("should add missing elements to kube-apiserver deployment (k8s >= 1.18)", func() {
+		It("should add missing elements to kube-apiserver deployment (k8s = 1.20)", func() {
 			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s120, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -205,7 +201,7 @@ var _ = Describe("Ensurer", func() {
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		It("should add missing elements to kube-controller-manager deployment (k8s >= 1.18 w/ CSI annotation)", func() {
+		It("should add missing elements to kube-controller-manager deployment (k8s = 1.20 w/ CSI annotation)", func() {
 			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s120, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -243,13 +239,7 @@ var _ = Describe("Ensurer", func() {
 											{Name: "AWS_ACCESS_KEY_ID", Value: "?"},
 											{Name: "AWS_SECRET_ACCESS_KEY", Value: "?"},
 										},
-										VolumeMounts: []corev1.VolumeMount{
-											{Name: aws.CloudProviderConfigName, MountPath: "?"},
-										},
 									},
-								},
-								Volumes: []corev1.Volume{
-									{Name: aws.CloudProviderConfigName},
 								},
 							},
 						},
@@ -289,7 +279,7 @@ var _ = Describe("Ensurer", func() {
 			ensurer = NewEnsurer(logger)
 		})
 
-		It("should add missing elements to kube-scheduler deployment (k8s >= 1.18)", func() {
+		It("should add missing elements to kube-scheduler deployment (k8s = 1.20)", func() {
 			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s120, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -526,7 +516,7 @@ done
 				Expect(opts).To(Equal(newUnitOptions))
 			},
 
-			Entry("1.18 <= kubelet version < 1.23", eContextK8s120, semver.MustParse("1.20.0"), "external", true),
+			Entry("1.20 <= kubelet version < 1.23", eContextK8s120, semver.MustParse("1.20.0"), "external", true),
 			Entry("kubelet version >= 1.23", eContextK8s120, semver.MustParse("1.23.0"), "external", false),
 		)
 	})
@@ -567,7 +557,7 @@ done
 				Expect(&kubeletConfig).To(Equal(newKubeletConfig))
 			},
 
-			Entry("1.18 <= kubelet < 1.21", eContextK8s120, semver.MustParse("1.18.0"), true, "CSIMigrationAWSComplete", nil),
+			Entry("1.20 <= kubelet < 1.21", eContextK8s120, semver.MustParse("1.20.0"), true, "CSIMigrationAWSComplete", nil),
 			Entry("1.21 <= kubelet < 1.23", eContextK8s121, semver.MustParse("1.21.0"), true, "InTreePluginAWSUnregister", nil),
 			Entry("kubelet >= 1.23", eContextK8s121, semver.MustParse("1.23.0"), true, "InTreePluginAWSUnregister", pointer.Bool(true)),
 		)
@@ -639,8 +629,6 @@ func checkKubeAPIServerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 	Expect(c.Command).To(test.ContainElementWithPrefixContaining("--disable-admission-plugins=", "PersistentVolumeLabel", ","))
 	Expect(c.Env).NotTo(ContainElement(accessKeyIDEnvVar))
 	Expect(c.Env).NotTo(ContainElement(secretAccessKeyEnvVar))
-	Expect(c.VolumeMounts).NotTo(ContainElement(cloudProviderConfigVolumeMount))
-	Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(cloudProviderConfigVolume))
 	Expect(dep.Spec.Template.Annotations).To(BeNil())
 }
 
@@ -663,13 +651,11 @@ func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, k8sVersion str
 	Expect(c.Env).NotTo(ContainElement(accessKeyIDEnvVar))
 	Expect(c.Env).NotTo(ContainElement(secretAccessKeyEnvVar))
 	Expect(dep.Spec.Template.Labels).To(BeEmpty())
-	Expect(dep.Spec.Template.Spec.Volumes).To(BeEmpty())
-	Expect(c.VolumeMounts).NotTo(ContainElement(cloudProviderConfigVolumeMount))
-	Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(cloudProviderConfigVolume))
 	Expect(c.VolumeMounts).NotTo(ContainElement(etcSSLVolumeMount))
 	Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(etcSSLVolume))
 	Expect(c.VolumeMounts).NotTo(ContainElement(usrShareCaCertsVolumeMount))
 	Expect(dep.Spec.Template.Spec.Volumes).NotTo(ContainElement(usrShareCaCertsVolume))
+	Expect(dep.Spec.Template.Spec.Volumes).To(BeEmpty())
 }
 
 func checkKubeSchedulerDeployment(dep *appsv1.Deployment, k8sVersion string) {
@@ -687,9 +673,6 @@ func checkKubeSchedulerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 }
 
 func checkClusterAutoscalerDeployment(dep *appsv1.Deployment, k8sVersion string) {
-	if k8sVersionAtLeast120, _ := version.CompareVersions(k8sVersion, ">=", "1.20"); !k8sVersionAtLeast120 {
-		return
-	}
 	k8sVersionAtLeast121, _ := version.CompareVersions(k8sVersion, ">=", "1.21")
 
 	// Check that the cluster-autoscaler container still exists and contains all needed command line args.

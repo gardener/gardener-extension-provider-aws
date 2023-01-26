@@ -86,10 +86,8 @@ func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, gctx gconte
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-apiserver"); c != nil {
 		ensureKubeAPIServerCommandLineArgs(c, csiMigrationCompleteFeatureGate)
 		ensureEnvVars(c)
-		ensureKubeAPIServerVolumeMounts(c)
 	}
 
-	ensureKubeAPIServerVolumes(ps)
 	return e.ensureChecksumAnnotations(&new.Spec.Template)
 }
 
@@ -148,16 +146,6 @@ func (e *ensurer) EnsureClusterAutoscalerDeployment(ctx context.Context, gctx gc
 	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
 		return err
-	}
-
-	// cluster-autoscaler supports the "--feature-gates" flag starting 1.20.
-	// Exit early and do not add the "--feature-gates" flag for K8s < 1.20 Shoots.
-	k8sLessThan120, err := versionutils.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, "<", "1.20")
-	if err != nil {
-		return err
-	}
-	if k8sLessThan120 {
-		return nil
 	}
 
 	// At this point K8s >= 1.20. As CSIMigrationKubernetesVersion is 1.18, we can assume that CSI is enabled and CSI migration is complete.
@@ -284,19 +272,6 @@ var (
 			},
 		},
 	}
-
-	cloudProviderConfigVolumeMount = corev1.VolumeMount{
-		Name:      aws.CloudProviderConfigName,
-		MountPath: "/etc/kubernetes/cloudprovider",
-	}
-	cloudProviderConfigVolume = corev1.Volume{
-		Name: aws.CloudProviderConfigName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: aws.CloudProviderConfigName},
-			},
-		},
-	}
 )
 
 func ensureEnvVars(c *corev1.Container) {
@@ -304,22 +279,12 @@ func ensureEnvVars(c *corev1.Container) {
 	c.Env = extensionswebhook.EnsureNoEnvVarWithName(c.Env, secretAccessKeyEnvVar.Name)
 }
 
-func ensureKubeAPIServerVolumeMounts(c *corev1.Container) {
-	c.VolumeMounts = extensionswebhook.EnsureNoVolumeMountWithName(c.VolumeMounts, cloudProviderConfigVolumeMount.Name)
-}
-
 func ensureKubeControllerManagerVolumeMounts(c *corev1.Container) {
-	c.VolumeMounts = extensionswebhook.EnsureNoVolumeMountWithName(c.VolumeMounts, cloudProviderConfigVolumeMount.Name)
 	c.VolumeMounts = extensionswebhook.EnsureNoVolumeMountWithName(c.VolumeMounts, etcSSLVolumeMount.Name)
 	c.VolumeMounts = extensionswebhook.EnsureNoVolumeMountWithName(c.VolumeMounts, usrShareCaCertsVolumeMount.Name)
 }
 
-func ensureKubeAPIServerVolumes(ps *corev1.PodSpec) {
-	ps.Volumes = extensionswebhook.EnsureNoVolumeWithName(ps.Volumes, cloudProviderConfigVolume.Name)
-}
-
 func ensureKubeControllerManagerVolumes(ps *corev1.PodSpec) {
-	ps.Volumes = extensionswebhook.EnsureNoVolumeWithName(ps.Volumes, cloudProviderConfigVolume.Name)
 	ps.Volumes = extensionswebhook.EnsureNoVolumeWithName(ps.Volumes, etcSSLVolume.Name)
 	ps.Volumes = extensionswebhook.EnsureNoVolumeWithName(ps.Volumes, usrShareCaCertsVolume.Name)
 }

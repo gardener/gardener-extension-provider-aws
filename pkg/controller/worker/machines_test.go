@@ -27,7 +27,6 @@ import (
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
-	"github.com/gardener/gardener/pkg/utils/test/matchers"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
@@ -631,7 +630,7 @@ var _ = Describe("Machines", func() {
 					}
 				})
 
-				It("should return machine deployments with AWS CSI Label (k8s>=1.18)", func() {
+				It("should return machine deployments with AWS CSI Label (k8s=1.20)", func() {
 					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 
@@ -685,8 +684,7 @@ var _ = Describe("Machines", func() {
 
 					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 					Expect(err).NotTo(HaveOccurred())
-					_ = machineDeployments
-					Expect(result).To(matchers.DeepEqual(machineDeployments))
+					Expect(result).To(Equal(machineDeployments))
 				})
 
 				Context("using workerConfig.iamInstanceProfile", func() {
