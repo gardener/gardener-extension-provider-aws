@@ -282,7 +282,41 @@ var _ = Describe("SecretBinding validator", func() {
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
+
 		})
+
+		Describe("#ValidateNetworkingUpdate", func() {
+			BeforeEach(func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile).AnyTimes()
+			})
+
+			It("should succeed if nodes CIDR is unchanged", func() {
+				newShoot := shoot.DeepCopy()
+
+				err := shootValidator.Validate(ctx, newShoot, shoot)
+				Expect(err).To(BeNil())
+			})
+
+			It("should return no error if new CIDR is a superset", func() {
+				newShoot := shoot.DeepCopy()
+				shoot.Spec.Networking.Nodes = pointer.String("10.250.0.0/17")
+
+				err := shootValidator.Validate(ctx, newShoot, shoot)
+				Expect(err).To(BeNil())
+			})
+
+			It("should return no error if new CIDR is a superset", func() {
+				newShoot := shoot.DeepCopy()
+				newShoot.Spec.Networking.Nodes = pointer.String("10.250.0.0/17")
+
+				err := shootValidator.Validate(ctx, newShoot, shoot)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.networking.nodes"),
+				}))))
+			})
+		})
+
 	})
 })
 

@@ -186,6 +186,10 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return err
 	}
 
+	if errList := awsvalidation.ValidateNetworkingUpdate(oldShoot.Spec.Networking, shoot.Spec.Networking, infraConfig, field.NewPath("spec", "networking")); len(errList) != 0 {
+		return errList.ToAggregate()
+	}
+
 	if errList := awsvalidation.ValidateWorkersUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, fldPath.Child("workers")); len(errList) != 0 {
 		return errList.ToAggregate()
 	}

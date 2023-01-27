@@ -17,7 +17,7 @@ package validation
 import (
 	"fmt"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	cidrvalidation "github.com/gardener/gardener/pkg/utils/validation/cidr"
 
 	"github.com/Masterminds/semver"
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -25,6 +25,8 @@ import (
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 // ValidateNetworking validates the network settings of a Shoot.
@@ -33,6 +35,30 @@ func ValidateNetworking(networking core.Networking, fldPath *field.Path) field.E
 
 	if networking.Nodes == nil {
 		allErrs = append(allErrs, field.Required(fldPath.Child("nodes"), "a nodes CIDR must be provided for AWS shoots"))
+	}
+
+	return allErrs
+}
+
+// ValidateNetworkingUpdate validates updates to the shoot's networking configuration
+func ValidateNetworkingUpdate(oldNetworking, networking core.Networking, infra *apisaws.InfrastructureConfig, fldPath *field.Path) field.ErrorList {
+	var (
+		allErrs  = field.ErrorList{}
+		nodes    cidrvalidation.CIDR
+		oldNodes cidrvalidation.CIDR
+	)
+
+	if networking.Nodes != nil {
+		nodes = cidrvalidation.NewCIDR(*networking.Nodes, field.NewPath("spec", "networking", "nodes"))
+	}
+	if oldNetworking.Nodes != nil {
+		oldNodes = cidrvalidation.NewCIDR(*oldNetworking.Nodes, nil)
+	}
+
+	if infra != nil && infra.Networks.VPC.ID == nil {
+		if len(nodes.ValidateSubset(oldNodes)) > 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("nodes"), networking.Nodes, "nodes CIDR block can only be expanded"))
+		}
 	}
 
 	return allErrs

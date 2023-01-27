@@ -97,7 +97,7 @@ var _ = Describe("ConfigValidator", func() {
 				},
 			},
 		}
-		shootJSON, err := json.Marshal(shoot)
+		shootJSON, _ := json.Marshal(shoot)
 		cluster = &extensionsv1alpha1.Cluster{
 			Spec: extensionsv1alpha1.ClusterSpec{
 				CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
