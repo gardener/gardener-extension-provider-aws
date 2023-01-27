@@ -548,6 +548,44 @@ func (c *Client) ListKubernetesSecurityGroups(ctx context.Context, vpcID, cluste
 	return results, nil
 }
 
+// GetVPC gets a VPC resource by identifier.
+// Returns nil, if the resource is not found.
+func (c *Client) GetVPC(ctx context.Context, id string) (*VPC, error) {
+	input := &ec2.DescribeVpcsInput{VpcIds: aws.StringSlice([]string{id})}
+	output, err := c.describeVPCs(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	if len(output) == 0 {
+		return nil, nil
+	}
+	return output[0], nil
+}
+
+func (c *Client) describeVPCs(_ context.Context, input *ec2.DescribeVpcsInput) ([]*VPC, error) {
+	var result []*VPC
+	vpcList, err := c.EC2.DescribeVpcs(input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	for _, vpc := range vpcList.Vpcs {
+		result = append(result, c.fromVPC(vpc))
+
+	}
+	return result, nil
+}
+
+func (c *Client) fromVPC(item *ec2.Vpc) *VPC {
+	vpc := &VPC{
+		VpcId:           aws.StringValue(item.VpcId),
+		CidrBlock:       aws.StringValue(item.CidrBlock),
+		DhcpOptionsId:   item.DhcpOptionsId,
+		InstanceTenancy: item.InstanceTenancy,
+		State:           item.State,
+	}
+	return vpc
+}
+
 // DeleteSecurityGroup deletes the security group with the specific <id>. If it does not exist, no error is returned.
 func (c *Client) DeleteSecurityGroup(ctx context.Context, id string) error {
 	_, err := c.EC2.DeleteSecurityGroupWithContext(ctx, &ec2.DeleteSecurityGroupInput{GroupId: aws.String(id)})

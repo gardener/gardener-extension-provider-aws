@@ -21,14 +21,17 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	mockawsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client/mock"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	mockawsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client/mock"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -56,6 +59,7 @@ const (
 
 	accessKeyID     = "accessKeyID"
 	secretAccessKey = "secretAccessKey"
+	defaultCIDR     = "10.0.0.0/16"
 )
 
 var _ = Describe("ConfigValidator", func() {
@@ -69,6 +73,7 @@ var _ = Describe("ConfigValidator", func() {
 		cv               infrastructure.ConfigValidator
 		infra            *extensionsv1alpha1.Infrastructure
 		secret           *corev1.Secret
+		cluster          *extensionsv1alpha1.Cluster
 	)
 
 	BeforeEach(func() {
@@ -85,6 +90,21 @@ var _ = Describe("ConfigValidator", func() {
 		err := cv.(inject.Client).InjectClient(c)
 		Expect(err).NotTo(HaveOccurred())
 
+		shoot := v1beta1.Shoot{
+			Spec: v1beta1.ShootSpec{
+				Networking: v1beta1.Networking{
+					Nodes: pointer.String(defaultCIDR),
+				},
+			},
+		}
+		shootJSON, err := json.Marshal(shoot)
+		cluster = &extensionsv1alpha1.Cluster{
+			Spec: extensionsv1alpha1.ClusterSpec{
+				CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
+				Shoot:        runtime.RawExtension{Raw: shootJSON},
+				Seed:         runtime.RawExtension{Raw: []byte("{}")},
+			},
+		}
 		infra = &extensionsv1alpha1.Infrastructure{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -139,6 +159,13 @@ var _ = Describe("ConfigValidator", func() {
 					return nil
 				},
 			)
+			c.EXPECT().Get(ctx, kutil.Key(namespace), gomock.AssignableToTypeOf(&extensionsv1alpha1.Cluster{})).DoAndReturn(
+				func(_ context.Context, _ client.ObjectKey, obj *extensionsv1alpha1.Cluster, _ ...client.GetOption) error {
+					*obj = *cluster
+					return nil
+				},
+			).AnyTimes()
+
 			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, region).Return(awsClient, nil)
 
 			validDHCPOptions = map[string]string{
@@ -161,6 +188,7 @@ var _ = Describe("ConfigValidator", func() {
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(false, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return("", nil)
 			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
+			awsClient.EXPECT().GetVPC(ctx, vpcID).Return(&awsclient.VPC{CidrBlock: defaultCIDR}, nil)
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(ConsistOfFields(Fields{
@@ -183,6 +211,7 @@ var _ = Describe("ConfigValidator", func() {
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(true, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return(vpcID, nil)
 			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
+			awsClient.EXPECT().GetVPC(ctx, vpcID).Return(&awsclient.VPC{CidrBlock: defaultCIDR}, nil)
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(BeEmpty())
@@ -199,6 +228,21 @@ var _ = Describe("ConfigValidator", func() {
 			}))
 		})
 
+		It("should forbid VPCs with CIDR that are not larger than the shoot.spec.networking.nodes", func() {
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(true, nil)
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(true, nil)
+			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return(vpcID, nil)
+			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
+			awsClient.EXPECT().GetVPC(ctx, vpcID).Return(&awsclient.VPC{CidrBlock: "10.0.0.0/24"}, nil)
+
+			errorList := cv.Validate(ctx, infra)
+			Expect(errorList).To(ConsistOfFields(Fields{
+				"Type":     Equal(field.ErrorTypeInvalid),
+				"Field":    Equal("spec.networking.nodes"),
+				"BadValue": Equal(defaultCIDR),
+			}))
+		})
+
 		DescribeTable("validate DHCP options", func(newRegion string, mapping map[string]string, err error, matcher gomegatypes.GomegaMatcher) {
 			if newRegion != "" {
 				infra.Spec.Region = newRegion
@@ -210,6 +254,7 @@ var _ = Describe("ConfigValidator", func() {
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(true, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return(vpcID, nil)
 			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(mapping, err)
+			awsClient.EXPECT().GetVPC(ctx, vpcID).Return(&awsclient.VPC{CidrBlock: defaultCIDR}, nil).AnyTimes()
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(matcher)

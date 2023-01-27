@@ -223,6 +223,21 @@ func (mr *MockInterfaceMockRecorder) GetNATGatewayAddressAllocations(arg0, arg1 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNATGatewayAddressAllocations", reflect.TypeOf((*MockInterface)(nil).GetNATGatewayAddressAllocations), arg0, arg1)
 }
 
+// GetVPC mocks base method.
+func (m *MockInterface) GetVPC(arg0 context.Context, arg1 string) (*client.VPC, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVPC", arg0, arg1)
+	ret0, _ := ret[0].(*client.VPC)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVPC indicates an expected call of GetVPC.
+func (mr *MockInterfaceMockRecorder) GetVPC(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVPC", reflect.TypeOf((*MockInterface)(nil).GetVPC), arg0, arg1)
+}
+
 // GetVPCAttribute mocks base method.
 func (m *MockInterface) GetVPCAttribute(arg0 context.Context, arg1, arg2 string) (bool, error) {
 	m.ctrl.T.Helper()

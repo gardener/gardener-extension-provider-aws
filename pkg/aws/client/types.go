@@ -39,6 +39,7 @@ type Interface interface {
 	GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error)
 	GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context, allocationIDs []string) (map[string]*string, error)
 	GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.String, error)
+	GetVPC(ctx context.Context, id string) (*VPC, error)
 
 	// S3 wrappers
 	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
@@ -71,4 +72,15 @@ type FactoryFunc func(accessKeyID, secretAccessKey, region string) (Interface, e
 // NewClient creates a new instance of Interface for the given AWS credentials and region.
 func (f FactoryFunc) NewClient(accessKeyID, secretAccessKey, region string) (Interface, error) {
 	return f(accessKeyID, secretAccessKey, region)
+}
+
+// VPC contains the relevant fields of a EC2 VPC resource.
+type VPC struct {
+	VpcId              string
+	CidrBlock          string
+	EnableDnsSupport   bool
+	EnableDnsHostnames bool
+	DhcpOptionsId      *string
+	InstanceTenancy    *string
+	State              *string
 }

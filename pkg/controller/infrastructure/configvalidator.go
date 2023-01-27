@@ -18,9 +18,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	"github.com/gardener/gardener/pkg/utils/validation/cidr"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -74,7 +76,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	// Validate infrastructure config
 	if config.Networks.VPC.ID != nil {
 		logger.Info("Validating infrastructure networks.vpc.id")
-		allErrs = append(allErrs, c.validateVPC(ctx, awsClient, *config.Networks.VPC.ID, infra.Spec.Region, field.NewPath("networks", "vpc", "id"))...)
+		allErrs = append(allErrs, c.validateVPC(ctx, awsClient, *config.Networks.VPC.ID, infra.Spec.Region, infra.Namespace, field.NewPath("networks", "vpc", "id"))...)
 	}
 
 	var (
@@ -96,7 +98,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	return allErrs
 }
 
-func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.Interface, vpcID, region string, fldPath *field.Path) field.ErrorList {
+func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.Interface, vpcID, region, namespace string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Verify that the VPC exists and the enableDnsSupport and enableDnsHostnames VPC attributes are both true
@@ -136,6 +138,27 @@ func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.I
 		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, "missing domain-name value in DHCP options used by the VPC"))
 	} else if (region == "us-east-1" && domainName != "ec2.internal") || (region != "us-east-1" && domainName != region+".compute.internal") {
 		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("invalid domain-name specified in DHCP options used by VPC: %s", domainName)))
+	}
+
+	cluster, err := controller.GetCluster(ctx, c.Client(), namespace)
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get cluster resource for shoot: %s", err)))
+		return allErrs
+	}
+
+	vpc, err := awsClient.GetVPC(ctx, vpcID)
+	if err != nil {
+		return append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get VPC resource: %s", err)))
+	}
+
+	vpcPath := field.NewPath("networks", "vpc")
+	if cluster.Shoot.Spec.Networking.Nodes != nil {
+		nodesCIDR := cidr.NewCIDR(*cluster.Shoot.Spec.Networking.Nodes, field.NewPath("spec.networking.nodes"))
+		vpcCIDR := cidr.NewCIDR(vpc.CidrBlock, vpcPath)
+		allErrs = append(allErrs, vpcCIDR.ValidateParse()...)
+		if len(vpcCIDR.ValidateSubset(nodesCIDR)) > 0 {
+			allErrs = append(allErrs, field.Invalid(nodesCIDR.GetFieldPath(), nodesCIDR.GetCIDR(), "nodes CIDR block must be contained in the VPC"))
+		}
 	}
 
 	return allErrs
