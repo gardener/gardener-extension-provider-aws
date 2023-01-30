@@ -24,8 +24,6 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/webhook/cloudprovider"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
-	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -47,9 +45,6 @@ var _ = Describe("Ensurer", func() {
 		ensurer cloudprovider.Ensurer
 		scheme  *runtime.Scheme
 
-		ctrl *gomock.Controller
-		c    *mockclient.MockClient
-
 		secret *corev1.Secret
 
 		gctx = gcontext.NewGardenContext(nil, nil)
@@ -63,21 +58,12 @@ var _ = Describe("Ensurer", func() {
 			},
 		}
 
-		ctrl = gomock.NewController(GinkgoT())
-		c = mockclient.NewMockClient(ctrl)
 		scheme = runtime.NewScheme()
 		install.Install(scheme)
 		ensurer = NewEnsurer(logger)
 
 		err := ensurer.(inject.Scheme).InjectScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
-
-		err = ensurer.(inject.Client).InjectClient(c)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	Describe("#EnsureCloudProviderSecret", func() {
@@ -91,15 +77,17 @@ var _ = Describe("Ensurer", func() {
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 			Expect(err).To(HaveOccurred())
 		})
-		It("should pass as credentials file is present", func() {
+		It("should replace esixting credentials file", func() {
 			secret.Data[aws.SharedCredentialsFile] = []byte("shared-credentials-file")
 
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data).To(Equal(map[string][]byte{
-				aws.AccessKeyID:           []byte("access-key-id"),
-				aws.SecretAccessKey:       []byte("secret-access-key"),
-				aws.SharedCredentialsFile: []byte("shared-credentials-file"),
+				aws.AccessKeyID:     []byte("access-key-id"),
+				aws.SecretAccessKey: []byte("secret-access-key"),
+				aws.SharedCredentialsFile: []byte(`[default]
+aws_access_key_id=access-key-id
+aws_secret_access_key=secret-access-key`),
 			}))
 		})
 		It("should add credentials file", func() {
@@ -115,5 +103,4 @@ aws_secret_access_key=secret-access-key`),
 			}))
 		})
 	})
-
 })

@@ -317,7 +317,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	var useCredentialsFile bool
 	cloudprovider := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cloudprovider",
+			Name:      v1beta1constants.SecretNameCloudProvider,
 			Namespace: cp.Namespace,
 		},
 	}

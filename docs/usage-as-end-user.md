@@ -19,12 +19,9 @@ type: Opaque
 data:
   accessKeyID: base64(access-key-id)
   secretAccessKey: base64(secret-access-key)
-  credentialsFile: base64(cloudprovider-credentials)
 ```
 
 The [AWS documentation](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys) explains the necessary steps to enable programmatic access, i.e. create **access key ID** and **access key**, for the user of your choice.
-
-The **credentials file** field is optional. It's format can be found in the [AWS documentation](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html). If left empty, the field is managed by `gardener-extension-provider-aws`.
 
 ⚠️ For security reasons, we recommend creating a **dedicated user with programmatic access only**. Please avoid re-using a IAM user which has access to the AWS console (human user).
 

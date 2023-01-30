@@ -51,17 +51,14 @@ func (e *ensurer) InjectScheme(_ *runtime.Scheme) error {
 	return nil
 }
 
-// EnsureCloudProviderSecret ensures that cloudprovider secret contain
-// the shared credentials file (if not present).
+// EnsureCloudProviderSecret ensures that cloudprovider secret contains
+// the shared credentials file.
 func (e *ensurer) EnsureCloudProviderSecret(ctx context.Context, _ gcontext.GardenContext, new, _ *corev1.Secret) error {
-	if !hasSecretKey(new, aws.AccessKeyID) {
+	if _, ok := new.Data[aws.AccessKeyID]; !ok {
 		return fmt.Errorf("could not mutate cloudprovider secret as %q field is missing", aws.AccessKeyID)
 	}
-	if !hasSecretKey(new, aws.SecretAccessKey) {
+	if _, ok := new.Data[aws.SecretAccessKey]; !ok {
 		return fmt.Errorf("could not mutate cloudprovider secret as %q field is missing", aws.SecretAccessKey)
-	}
-	if hasSecretKey(new, aws.SharedCredentialsFile) {
-		return nil
 	}
 
 	e.logger.V(5).Info("mutate cloudprovider secret", "namespace", new.Namespace, "name", new.Name)
@@ -70,11 +67,4 @@ func (e *ensurer) EnsureCloudProviderSecret(ctx context.Context, _ gcontext.Gard
 		fmt.Sprintf("aws_secret_access_key=%s", string(new.Data[aws.SecretAccessKey])))
 
 	return nil
-}
-
-func hasSecretKey(secret *corev1.Secret, key string) bool {
-	if _, ok := secret.Data[key]; ok {
-		return true
-	}
-	return false
 }
