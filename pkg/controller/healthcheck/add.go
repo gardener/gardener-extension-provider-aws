@@ -94,7 +94,7 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 			},
 			{
 				ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
-				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.AWSCustomRouteControllerName),
+				HealthCheck:   newCustomRouteControllerHealthCheck(general.NewSeedDeploymentHealthChecker(aws.AWSCustomRouteControllerName)),
 				// no precheck needed, as the deployment is always created (with replicas=0 if not enabled, see valuesprovider.go)
 			},
 			{
