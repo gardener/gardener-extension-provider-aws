@@ -153,17 +153,14 @@ var _ = Describe("Machines", func() {
 
 				machineConfiguration *machinev1alpha1.MachineConfiguration
 
-				workerPoolHash1             string
-				workerPoolHash2             string
-				workerPoolWithCSIlabelHash1 string
-				workerPoolWithCSIlabelHash2 string
+				workerPoolHash1 string
+				workerPoolHash2 string
 
 				shootVersionMajorMinor string
 				shootVersion           string
 				scheme                 *runtime.Scheme
 				decoder                runtime.Decoder
 				clusterWithoutImages   *extensionscontroller.Cluster
-				clusterk8s118          *extensionscontroller.Cluster
 				cluster                *extensionscontroller.Cluster
 				w                      *extensionsv1alpha1.Worker
 			)
@@ -247,7 +244,7 @@ var _ = Describe("Machines", func() {
 
 				machineConfiguration = &machinev1alpha1.MachineConfiguration{}
 
-				shootVersionMajorMinor = "1.2"
+				shootVersionMajorMinor = "1.20"
 				shootVersion = shootVersionMajorMinor + ".3"
 
 				clusterWithoutImages = &extensionscontroller.Cluster{
@@ -296,26 +293,6 @@ var _ = Describe("Machines", func() {
 						},
 					},
 					Shoot: clusterWithoutImages.Shoot,
-				}
-
-				clusterk8s118 = &extensionscontroller.Cluster{
-					CloudProfile: &gardencorev1beta1.CloudProfile{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: cloudProfileName,
-						},
-						Spec: gardencorev1beta1.CloudProfileSpec{
-							ProviderConfig: &runtime.RawExtension{
-								Raw: cloudProfileConfigJSON,
-							},
-						},
-					},
-					Shoot: &gardencorev1beta1.Shoot{
-						Spec: gardencorev1beta1.ShootSpec{
-							Kubernetes: gardencorev1beta1.Kubernetes{
-								Version: "1.18.0",
-							},
-						},
-					},
 				}
 
 				w = &extensionsv1alpha1.Worker{
@@ -463,18 +440,15 @@ var _ = Describe("Machines", func() {
 
 				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted))
 				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
-				workerPoolWithCSIlabelHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], clusterk8s118, strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted))
-				workerPoolWithCSIlabelHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], clusterk8s118)
 
 				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, clusterWithoutImages)
 			})
 
 			Describe("machine images", func() {
 				var (
-					defaultMachineClass             map[string]interface{}
-					machineDeployments              worker.MachineDeployments
-					machineDeploymentsWithCSILabels worker.MachineDeployments
-					machineClasses                  map[string]interface{}
+					defaultMachineClass map[string]interface{}
+					machineDeployments  worker.MachineDeployments
+					machineClasses      map[string]interface{}
 				)
 
 				BeforeEach(func() {
@@ -589,11 +563,6 @@ var _ = Describe("Machines", func() {
 						machineClassWithHashPool1Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool1Zone2, workerPoolHash1)
 						machineClassWithHashPool2Zone1 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone1, workerPoolHash2)
 						machineClassWithHashPool2Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, workerPoolHash2)
-
-						machineClassWithHashPool1Zone1CSI = fmt.Sprintf("%s-%s", machineClassNamePool1Zone1, workerPoolWithCSIlabelHash1)
-						machineClassWithHashPool1Zone2CSI = fmt.Sprintf("%s-%s", machineClassNamePool1Zone2, workerPoolWithCSIlabelHash1)
-						machineClassWithHashPool2Zone1CSI = fmt.Sprintf("%s-%s", machineClassNamePool2Zone1, workerPoolWithCSIlabelHash2)
-						machineClassWithHashPool2Zone2CSI = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, workerPoolWithCSIlabelHash2)
 					)
 
 					addNameAndSecretToMachineClass(machineClassPool1Zone1, machineClassWithHashPool1Zone1, w.Spec.SecretRef)
@@ -622,7 +591,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(0, maxPool1, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool1, 2, maxPool1),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool1, 2, minPool1),
-							Labels:               labels,
+							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone1}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -633,7 +602,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(1, maxPool1, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool1, 2, maxPool1),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool1, 2, minPool1),
-							Labels:               labels,
+							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone2}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -644,7 +613,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(0, maxPool2, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool2, 2, maxPool2),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool2, 2, minPool2),
-							Labels:               labels,
+							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone1}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -655,65 +624,18 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(1, maxPool2, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool2, 2, maxPool2),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool2, 2, minPool2),
-							Labels:               labels,
-							MachineConfiguration: machineConfiguration,
-						},
-					}
-
-					machineDeploymentsWithCSILabels = worker.MachineDeployments{
-						{
-							Name:                 machineClassNamePool1Zone1,
-							ClassName:            machineClassWithHashPool1Zone1CSI,
-							SecretName:           machineClassWithHashPool1Zone1CSI,
-							Minimum:              worker.DistributeOverZones(0, minPool1, 2),
-							Maximum:              worker.DistributeOverZones(0, maxPool1, 2),
-							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool1, 2, maxPool1),
-							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool1, 2, minPool1),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone1}),
-							MachineConfiguration: machineConfiguration,
-						},
-						{
-							Name:                 machineClassNamePool1Zone2,
-							ClassName:            machineClassWithHashPool1Zone2CSI,
-							SecretName:           machineClassWithHashPool1Zone2CSI,
-							Minimum:              worker.DistributeOverZones(1, minPool1, 2),
-							Maximum:              worker.DistributeOverZones(1, maxPool1, 2),
-							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool1, 2, maxPool1),
-							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool1, 2, minPool1),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone2}),
-							MachineConfiguration: machineConfiguration,
-						},
-						{
-							Name:                 machineClassNamePool2Zone1,
-							ClassName:            machineClassWithHashPool2Zone1CSI,
-							SecretName:           machineClassWithHashPool2Zone1CSI,
-							Minimum:              worker.DistributeOverZones(0, minPool2, 2),
-							Maximum:              worker.DistributeOverZones(0, maxPool2, 2),
-							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool2, 2, maxPool2),
-							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool2, 2, minPool2),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone1}),
-							MachineConfiguration: machineConfiguration,
-						},
-						{
-							Name:                 machineClassNamePool2Zone2,
-							ClassName:            machineClassWithHashPool2Zone2CSI,
-							SecretName:           machineClassWithHashPool2Zone2CSI,
-							Minimum:              worker.DistributeOverZones(1, minPool2, 2),
-							Maximum:              worker.DistributeOverZones(1, maxPool2, 2),
-							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool2, 2, maxPool2),
-							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool2, 2, minPool2),
 							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone2}),
 							MachineConfiguration: machineConfiguration,
 						},
 					}
 				})
 
-				It("should return machine deployments with AWS CSI Label (k8s>=1.18)", func() {
-					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, clusterk8s118)
+				It("should return machine deployments with AWS CSI Label (k8s=1.20)", func() {
+					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 
 					Expect(err).NotTo(HaveOccurred())
-					Expect(result).To(Equal(machineDeploymentsWithCSILabels))
+					Expect(result).To(Equal(machineDeployments))
 				})
 				It("should return the expected machine deployments for profile image types", func() {
 					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)

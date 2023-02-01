@@ -24,9 +24,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 
-	"github.com/gardener/gardener/extensions/pkg/controller/csimigration"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -67,7 +65,7 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 }
 
 // GenerateMachineDeployments generates the configuration for the desired machine deployments.
-func (w *workerDelegate) GenerateMachineDeployments(ctx context.Context) (worker.MachineDeployments, error) {
+func (w *workerDelegate) GenerateMachineDeployments(_ context.Context) (worker.MachineDeployments, error) {
 	if w.machineDeployments == nil {
 		if err := w.generateMachineConfig(); err != nil {
 			return nil, err
@@ -89,11 +87,6 @@ func (w *workerDelegate) generateMachineConfig() error {
 	}
 
 	nodesSecurityGroup, err := awsapihelper.FindSecurityGroupForPurpose(infrastructureStatus.VPC.SecurityGroups, awsapi.PurposeNodes)
-	if err != nil {
-		return err
-	}
-
-	csiEnabled, _, err := csimigration.CheckCSIConditions(w.cluster, aws.GetCSIMigrationKubernetesVersion(w.cluster))
 	if err != nil {
 		return err
 	}
@@ -203,14 +196,9 @@ func (w *workerDelegate) generateMachineConfig() error {
 				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
 				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
 				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
-				Labels: func() map[string]string {
-					if !csiEnabled {
-						return pool.Labels
-					}
-					// TODO: remove the csi topology label when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
-					// add aws csi driver topology label if its not specified
-					return utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone})
-				}(),
+				// TODO: remove the csi topology label when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
+				// add aws csi driver topology label if it's not specified
+				Labels:               utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone}),
 				Annotations:          pool.Annotations,
 				Taints:               pool.Taints,
 				MachineConfiguration: genericworkeractuator.ReadMachineConfiguration(pool),

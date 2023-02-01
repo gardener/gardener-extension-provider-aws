@@ -449,10 +449,9 @@ spec:
 
 ## CSI volume provisioners
 
-Every AWS shoot cluster that has at least Kubernetes v1.18 will be deployed with the AWS EBS CSI driver.
+Every AWS shoot cluster will be deployed with the AWS EBS CSI driver.
 It is compatible with the legacy in-tree volume provisioner that was deprecated by the Kubernetes community and will be removed in future versions of Kubernetes.
 End-users might want to update their custom `StorageClass`es to the new `ebs.csi.aws.com` provisioner.
-Shoot clusters with Kubernetes v1.17 or less will use the in-tree `kubernetes.io/aws-ebs` volume provisioner in the kube-controller-manager and the kubelet.
 
 ### Node-specific Volume Limits
 
@@ -463,7 +462,6 @@ CSI drivers usually have a different procedure for configuring this custom limit
 ## Kubernetes Versions per Worker Pool
 
 This extension supports `gardener/gardener`'s `WorkerPoolKubernetesVersion` feature gate, i.e., having [worker pools with overridden Kubernetes versions](https://github.com/gardener/gardener/blob/8a9c88866ec5fce59b5acf57d4227eeeb73669d7/example/90-shoot.yaml#L69-L70) since `gardener-extension-provider-aws@v1.34`.
-Note that this feature is only usable for `Shoot`s whose `.spec.kubernetes.version` is greater or equal than the CSI migration version (`1.18`).
 
 ## Shoot CA Certificate and `ServiceAccount` Signing Key Rotation
 
