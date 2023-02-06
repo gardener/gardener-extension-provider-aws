@@ -4,6 +4,6 @@ global:
 cloud-controller-manager:
   enabled: true
 csi-driver-controller:
-  enabled: false
+  enabled: true
 aws-custom-route-controller:
   enabled: false

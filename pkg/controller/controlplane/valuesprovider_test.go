@@ -54,21 +54,20 @@ const (
 
 var _ = Describe("ValuesProvider", func() {
 	var (
-		ctrl                  *gomock.Controller
-		c                     *mockclient.MockClient
-		encoder               runtime.Encoder
-		ctx                   context.Context
-		scheme                *runtime.Scheme
-		vp                    genericactuator.ValuesProvider
-		region                string
-		cp                    *extensionsv1alpha1.ControlPlane
-		cidr                  string
-		clusterK8sLessThan118 *extensionscontroller.Cluster
-		clusterK8sAtLeast118  *extensionscontroller.Cluster
-		checksums             map[string]string
-		enabledTrue           map[string]interface{}
-		enabledFalse          map[string]interface{}
-		encode                = func(obj runtime.Object) []byte {
+		ctrl                 *gomock.Controller
+		c                    *mockclient.MockClient
+		encoder              runtime.Encoder
+		ctx                  context.Context
+		scheme               *runtime.Scheme
+		vp                   genericactuator.ValuesProvider
+		region               string
+		cp                   *extensionsv1alpha1.ControlPlane
+		cidr                 string
+		clusterK8sAtLeast120 *extensionscontroller.Cluster
+		checksums            map[string]string
+		enabledTrue          map[string]interface{}
+		enabledFalse         map[string]interface{}
+		encode               = func(obj runtime.Object) []byte {
 			b := &bytes.Buffer{}
 			Expect(encoder.Encode(obj, b)).To(Succeed())
 
@@ -146,25 +145,7 @@ var _ = Describe("ValuesProvider", func() {
 			},
 		}
 
-		clusterK8sLessThan118 = &extensionscontroller.Cluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					"generic-token-kubeconfig.secret.gardener.cloud/name": genericTokenKubeconfigSecretName,
-				},
-			},
-			Shoot: &gardencorev1beta1.Shoot{
-				Spec: gardencorev1beta1.ShootSpec{
-					Networking: gardencorev1beta1.Networking{
-						Pods: &cidr,
-					},
-					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: "1.17.1",
-					},
-				},
-			},
-		}
-
-		clusterK8sAtLeast118 = &extensionscontroller.Cluster{
+		clusterK8sAtLeast120 = &extensionscontroller.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					"generic-token-kubeconfig.secret.gardener.cloud/name": genericTokenKubeconfigSecretName,
@@ -181,7 +162,7 @@ var _ = Describe("ValuesProvider", func() {
 						Pods: &cidr,
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: "1.18.1",
+						Version: "1.20.1",
 						VerticalPodAutoscaler: &gardencorev1beta1.VerticalPodAutoscaler{
 							Enabled: true,
 						},
@@ -213,7 +194,7 @@ var _ = Describe("ValuesProvider", func() {
 
 	Describe("#GetConfigChartValues", func() {
 		It("should return correct config chart values", func() {
-			values, err := vp.GetConfigChartValues(ctx, cp, clusterK8sLessThan118)
+			values, err := vp.GetConfigChartValues(ctx, cp, clusterK8sAtLeast120)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"vpcID":       "vpc-1234",
@@ -279,30 +260,15 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
 		})
 
-		It("should return correct control plane chart values (k8s < 1.18)", func() {
-			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sLessThan118, fakeSecretsManager, checksums, false)
+		It("should return correct control plane chart values (k8s >= 1.20)", func() {
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"global": map[string]interface{}{
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": clusterK8sLessThan118.Shoot.Spec.Kubernetes.Version,
-				}),
-				aws.AWSCustomRouteControllerName: crcChartValues,
-				aws.CSIControllerName:            enabledFalse,
-			}))
-		})
-
-		It("should return correct control plane chart values (k8s >= 1.18)", func() {
-			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, checksums, false)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"global": map[string]interface{}{
-					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
-				},
-				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": clusterK8sAtLeast118.Shoot.Spec.Kubernetes.Version,
+					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
 				}),
 				aws.AWSCustomRouteControllerName: crcChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -324,18 +290,18 @@ var _ = Describe("ValuesProvider", func() {
 			}))
 		})
 
-		It("should return correct control plane chart values (k8s >= 1.18) and custom route controller enabled", func() {
+		It("should return correct control plane chart values (k8s >= 1.20) and custom route controller enabled", func() {
 			setCustomRouteControllerEnabled(cp)
 			crcChartValues["replicas"] = 1 // chart is always deployed, but with 0 replicas when disabled
 
-			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, checksums, false)
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"global": map[string]interface{}{
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": clusterK8sAtLeast118.Shoot.Spec.Kubernetes.Version,
+					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
 				}),
 				aws.AWSCustomRouteControllerName: crcChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -371,33 +337,15 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
 		})
 
-		It("should return correct shoot control plane chart values (k8s < 1.18)", func() {
-			values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sLessThan118, fakeSecretsManager, nil)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				aws.CloudControllerManagerName:   enabledTrue,
-				aws.AWSCustomRouteControllerName: enabledFalse,
-				aws.CSINodeName: utils.MergeMaps(enabledFalse, map[string]interface{}{
-					"kubernetesVersion": "1.17.1",
-					"vpaEnabled":        false,
-					"webhookConfig": map[string]interface{}{
-						"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-						"caBundle": "",
-					},
-					"pspDisabled": false,
-				}),
-			}))
-		})
-
-		Context("shoot control plane chart values (k8s >= 1.18)", func() {
+		Context("shoot control plane chart values (k8s >= 1.20)", func() {
 			It("should return correct shoot control plane chart when ca is secret found", func() {
-				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:   enabledTrue,
 					aws.AWSCustomRouteControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.18.1",
+						"kubernetesVersion": "1.20.1",
 						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
@@ -412,16 +360,16 @@ var _ = Describe("ValuesProvider", func() {
 			})
 		})
 
-		Context("shoot control plane chart values (k8s >= 1.18) and custom route controller enabled", func() {
+		Context("shoot control plane chart values (k8s >= 1.20) and custom route controller enabled", func() {
 			It("should return correct shoot control plane chart when ca is secret found", func() {
 				setCustomRouteControllerEnabled(cp)
-				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:   enabledTrue,
 					aws.AWSCustomRouteControllerName: enabledTrue,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.18.1",
+						"kubernetesVersion": "1.20.1",
 						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
@@ -438,20 +386,20 @@ var _ = Describe("ValuesProvider", func() {
 
 		Context("podSecurityPolicy", func() {
 			It("should return correct shoot control plane chart when PodSecurityPolicy admission plugin is not disabled in the shoot", func() {
-				clusterK8sAtLeast118.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				clusterK8sAtLeast120.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
 					AdmissionPlugins: []gardencorev1beta1.AdmissionPlugin{
 						{
 							Name: "PodSecurityPolicy",
 						},
 					},
 				}
-				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:   enabledTrue,
 					aws.AWSCustomRouteControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.18.1",
+						"kubernetesVersion": "1.20.1",
 						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
@@ -465,7 +413,7 @@ var _ = Describe("ValuesProvider", func() {
 				}))
 			})
 			It("should return correct shoot control plane chart when PodSecurityPolicy admission plugin is disabled in the shoot", func() {
-				clusterK8sAtLeast118.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				clusterK8sAtLeast120.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
 					AdmissionPlugins: []gardencorev1beta1.AdmissionPlugin{
 						{
 							Name:     "PodSecurityPolicy",
@@ -473,13 +421,13 @@ var _ = Describe("ValuesProvider", func() {
 						},
 					},
 				}
-				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast118, fakeSecretsManager, nil)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:   enabledTrue,
 					aws.AWSCustomRouteControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.18.1",
+						"kubernetesVersion": "1.20.1",
 						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
@@ -496,107 +444,46 @@ var _ = Describe("ValuesProvider", func() {
 	})
 
 	Describe("#GetStorageClassesChartValues()", func() {
-		It("should return correct storage class chart values (k8s < 1.18)", func() {
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
+		It("should return correct storage class chart values (k8s >= 1.20)", func() {
+			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast120)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"useLegacyProvisioner": true,
-				"managedDefaultClass":  true,
+				"managedDefaultClass": true,
 			}))
 		})
 
-		It("should return correct storage class chart values (k8s < 1.18) and default is set to true", func() {
+		It("should return correct storage class chart values (k8s >= 1.20) and default is set to true", func() {
 			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
 				Storage: &apisawsv1alpha1.Storage{
-					ManagedDefaultClass: pointer.BoolPtr(true),
+					ManagedDefaultClass: pointer.Bool(true),
 				},
 			})
 
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
+			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast120)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"useLegacyProvisioner": true,
-				"managedDefaultClass":  true,
+				"managedDefaultClass": true,
 			}))
 		})
 
-		It("should return correct storage class chart values (k8s < 1.18) and default is set to false", func() {
+		It("should return correct storage class chart values (k8s >= 1.20) and default is set to false", func() {
 			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
 				Storage: &apisawsv1alpha1.Storage{
-					ManagedDefaultClass: pointer.BoolPtr(false),
+					ManagedDefaultClass: pointer.Bool(false),
 				},
 			})
 
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
+			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast120)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"useLegacyProvisioner": true,
-				"managedDefaultClass":  false,
-			}))
-		})
-
-		It("should return correct storage class chart values (k8s >= 1.18)", func() {
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast118)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"useLegacyProvisioner": false,
-				"managedDefaultClass":  true,
-			}))
-		})
-
-		It("should return correct storage class chart values (k8s >= 1.18) and default is set to true", func() {
-			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
-				Storage: &apisawsv1alpha1.Storage{
-					ManagedDefaultClass: pointer.BoolPtr(true),
-				},
-			})
-
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast118)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"useLegacyProvisioner": false,
-				"managedDefaultClass":  true,
-			}))
-		})
-
-		It("should return correct storage class chart values (k8s >= 1.18) and default is set to false", func() {
-			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
-				Storage: &apisawsv1alpha1.Storage{
-					ManagedDefaultClass: pointer.BoolPtr(false),
-				},
-			})
-
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sAtLeast118)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"useLegacyProvisioner": false,
-				"managedDefaultClass":  false,
-			}))
-		})
-
-		It("should have managedDefaultClass to true when using internal resource", func() {
-			internal := `{"kind":"ControlPlaneConfig","apiVersion":"aws.provider.extensions.gardener.cloud/__internal"}`
-
-			cp.Spec.DefaultSpec.ProviderConfig.Raw = []byte(internal)
-
-			values, err := vp.GetStorageClassesChartValues(ctx, cp, clusterK8sLessThan118)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"useLegacyProvisioner": true,
-				"managedDefaultClass":  true,
+				"managedDefaultClass": false,
 			}))
 		})
 	})
 
 	Describe("#GetControlPlaneShootCRDsChartValues", func() {
-		It("should return correct control plane shoot CRDs chart values (k8s < 1.18)", func() {
-			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, clusterK8sLessThan118)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{"volumesnapshots": map[string]interface{}{"enabled": false}}))
-		})
-
-		It("should return correct control plane shoot CRDs chart values (k8s >= 1.18)", func() {
-			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, clusterK8sAtLeast118)
+		It("should return correct control plane shoot CRDs chart values (k8s >= 1.20)", func() {
+			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, clusterK8sAtLeast120)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{"volumesnapshots": map[string]interface{}{"enabled": true}}))
 		})
@@ -632,7 +519,7 @@ var _ = Describe("ValuesProvider", func() {
 			serviceKey := client.ObjectKey{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}
 			c.EXPECT().Get(ctx, serviceKey, gomock.AssignableToTypeOf(&corev1.Service{})).DoAndReturn(clientGet(cpService))
 
-			values, err := vp.GetControlPlaneExposureChartValues(ctx, cp, clusterK8sLessThan118, fakeSecretsManager, checksums)
+			values, err := vp.GetControlPlaneExposureChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
