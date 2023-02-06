@@ -64,7 +64,8 @@ func (e *ensurer) EnsureCloudProviderSecret(ctx context.Context, _ gcontext.Gard
 	e.logger.V(5).Info("mutate cloudprovider secret", "namespace", new.Namespace, "name", new.Name)
 	new.Data[aws.SharedCredentialsFile] = []byte("[default]\n" +
 		fmt.Sprintf("aws_access_key_id=%s\n", string(new.Data[aws.AccessKeyID])) +
-		fmt.Sprintf("aws_secret_access_key=%s", string(new.Data[aws.SecretAccessKey])))
+		fmt.Sprintf("aws_secret_access_key=%s", string(new.Data[aws.SecretAccessKey])),
+	)
 
 	return nil
 }

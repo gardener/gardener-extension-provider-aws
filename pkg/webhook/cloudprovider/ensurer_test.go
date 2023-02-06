@@ -23,7 +23,6 @@ import (
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 
 	"github.com/gardener/gardener/extensions/pkg/webhook/cloudprovider"
-	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -46,8 +45,6 @@ var _ = Describe("Ensurer", func() {
 		scheme  *runtime.Scheme
 
 		secret *corev1.Secret
-
-		gctx = gcontext.NewGardenContext(nil, nil)
 	)
 
 	BeforeEach(func() {
@@ -69,18 +66,18 @@ var _ = Describe("Ensurer", func() {
 	Describe("#EnsureCloudProviderSecret", func() {
 		It("should fail as no accessKeyID is present", func() {
 			delete(secret.Data, aws.AccessKeyID)
-			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
-			Expect(err).To(HaveOccurred())
+			err := ensurer.EnsureCloudProviderSecret(ctx, nil, secret, nil)
+			Expect(err).To(MatchError(ContainSubstring("could not mutate cloudprovider secret as %q field is missing", aws.AccessKeyID)))
 		})
 		It("should fail as no secretAccessKey is present", func() {
 			delete(secret.Data, aws.SecretAccessKey)
-			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
-			Expect(err).To(HaveOccurred())
+			err := ensurer.EnsureCloudProviderSecret(ctx, nil, secret, nil)
+			Expect(err).To(MatchError(ContainSubstring("could not mutate cloudprovider secret as %q field is missing", aws.SecretAccessKey)))
 		})
 		It("should replace esixting credentials file", func() {
 			secret.Data[aws.SharedCredentialsFile] = []byte("shared-credentials-file")
 
-			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
+			err := ensurer.EnsureCloudProviderSecret(ctx, nil, secret, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data).To(Equal(map[string][]byte{
 				aws.AccessKeyID:     []byte("access-key-id"),
@@ -91,7 +88,7 @@ aws_secret_access_key=secret-access-key`),
 			}))
 		})
 		It("should add credentials file", func() {
-			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
+			err := ensurer.EnsureCloudProviderSecret(ctx, nil, secret, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data).To(Equal(map[string][]byte{
