@@ -21,4 +21,3 @@ vpa:
     maxAllowed:
       cpu: 4
       memory: 10G
-useCredentialsFile: false

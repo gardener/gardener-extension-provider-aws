@@ -65,21 +65,8 @@ spec:
         - --use-service-account-credentials
         - --v=2
         env:
-        {{- if .Values.useCredentialsFile }}
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /srv/cloudprovider/credentialsFile
-        {{- else }}
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: cloudprovider
-              key: accessKeyID
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: cloudprovider
-              key: secretAccessKey
-        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthz

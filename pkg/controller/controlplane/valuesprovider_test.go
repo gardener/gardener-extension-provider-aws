@@ -208,8 +208,6 @@ var _ = Describe("ValuesProvider", func() {
 	Describe("#GetControlPlaneChartValues", func() {
 		var ccmChartValues map[string]interface{}
 		var crcChartValues map[string]interface{}
-		var csiChartValues map[string]interface{}
-		var cloudprovider *corev1.Secret
 
 		BeforeEach(func() {
 			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -237,7 +235,6 @@ var _ = Describe("ValuesProvider", func() {
 				"secrets": map[string]interface{}{
 					"server": "cloud-controller-manager-server",
 				},
-				"useCredentialsFile": false,
 			})
 			crcChartValues = map[string]interface{}{
 				"podLabels": map[string]interface{}{
@@ -250,37 +247,6 @@ var _ = Describe("ValuesProvider", func() {
 				"podNetwork":  "10.250.0.0/19",
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
-				},
-			}
-			csiChartValues = map[string]interface{}{
-				"replicas": 1,
-				"region":   region,
-				"podAnnotations": map[string]interface{}{
-					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
-				},
-				"csiSnapshotController": map[string]interface{}{
-					"replicas": 1,
-				},
-				"csiSnapshotValidationWebhook": map[string]interface{}{
-					"replicas": 1,
-					"secrets": map[string]interface{}{
-						"server": "csi-snapshot-validation-server",
-					},
-				},
-				"topologyAwareRoutingEnabled": false,
-				"enabled":                     true,
-				"useCredentialsFile":          false,
-			}
-
-			cloudprovider = &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloudprovider",
-					Namespace: namespace,
-				},
-				Type: corev1.SecretTypeOpaque,
-				Data: map[string][]byte{
-					aws.AccessKeyID:     []byte("testID"),
-					aws.SecretAccessKey: []byte("testKey"),
 				},
 			}
 			c = mockclient.NewMockClient(ctrl)
@@ -297,12 +263,6 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct control plane chart values (k8s >= 1.20)", func() {
-			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(cloudprovider), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					*obj = *cloudprovider
-					return nil
-				},
-			)
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
@@ -313,31 +273,21 @@ var _ = Describe("ValuesProvider", func() {
 					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
 				}),
 				aws.AWSCustomRouteControllerName: crcChartValues,
-				aws.CSIControllerName:            csiChartValues,
-			}))
-		})
-
-		It("should return correct control plane chart values (k8s >= 1.20) and cloudprovider secret contains credentails file", func() {
-			(*cloudprovider).Data[aws.SharedCredentialsFile] = []byte("testFile")
-			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(cloudprovider), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					*obj = *cloudprovider
-					return nil
-				},
-			)
-			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"global": map[string]interface{}{
-					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
-				},
-				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion":  clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
-					"useCredentialsFile": true,
-				}),
-				aws.AWSCustomRouteControllerName: crcChartValues,
-				aws.CSIControllerName: utils.MergeMaps(csiChartValues, map[string]interface{}{
-					"useCredentialsFile": true,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+					},
 				}),
 			}))
 		})
@@ -345,12 +295,6 @@ var _ = Describe("ValuesProvider", func() {
 		It("should return correct control plane chart values (k8s >= 1.20) and custom route controller enabled", func() {
 			setCustomRouteControllerEnabled(cp)
 			crcChartValues["replicas"] = 1 // chart is always deployed, but with 0 replicas when disabled
-			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(cloudprovider), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					*obj = *cloudprovider
-					return nil
-				},
-			)
 
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
@@ -362,7 +306,22 @@ var _ = Describe("ValuesProvider", func() {
 					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
 				}),
 				aws.AWSCustomRouteControllerName: crcChartValues,
-				aws.CSIControllerName:            csiChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+					},
+				}),
 			}))
 		})
 

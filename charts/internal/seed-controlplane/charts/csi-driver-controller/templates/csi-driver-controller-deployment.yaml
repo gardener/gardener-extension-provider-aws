@@ -49,21 +49,8 @@ spec:
         env:
         - name: CSI_ENDPOINT
           value: unix://{{ .Values.socketPath }}/csi.sock
-        {{- if .Values.useCredentialsFile }}
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /srv/cloudprovider/credentialsFile
-        {{- else }}
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: cloudprovider
-              key: accessKeyID
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: cloudprovider
-              key: secretAccessKey
-        {{- end }}
         - name: AWS_REGION
           value: {{ .Values.region }}
 {{- if .Values.resources.driver }}
