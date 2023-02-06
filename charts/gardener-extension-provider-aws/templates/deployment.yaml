@@ -28,6 +28,7 @@ spec:
         {{- end }}
         checksum/configmap-{{ include "name" . }}-config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- if and .Values.metrics.enableScraping }}
+        prometheus.io/name: "{{ .Release.Name }}"
         prometheus.io/scrape: "true"
         # default metrics endpoint in controller-runtime
         prometheus.io/port: "{{ .Values.metricsPort }}"
