@@ -44,7 +44,7 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*Credentia
 
 	var altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey *string
 	if allowDNSKeys {
-		altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey = pointer.StringPtr(DNSAccessKeyID), pointer.StringPtr(DNSSecretAccessKey), pointer.StringPtr(DNSRegion)
+		altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey = pointer.String(DNSAccessKeyID), pointer.String(DNSSecretAccessKey), pointer.String(DNSRegion)
 	}
 
 	accessKeyID, err := getSecretDataValue(secret, AccessKeyID, altAccessKeyIDKey, true)

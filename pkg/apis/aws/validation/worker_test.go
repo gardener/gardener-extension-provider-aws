@@ -261,7 +261,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			It("should forbid specifying an invalid IAM name", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
-					Name: pointer.StringPtr(""),
+					Name: pointer.String(""),
 				}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
@@ -274,7 +274,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			It("should forbid specifying an invalid IAM arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
-					ARN: pointer.StringPtr(""),
+					ARN: pointer.String(""),
 				}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)

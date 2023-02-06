@@ -357,22 +357,22 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			})
 
 			It("should ensure that the elastic IP allocation id starts with `eipalloc-`", func() {
-				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.StringPtr("foo")
+				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.String("foo")
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("networks.zones[0].elasticIPAllocationID"),
 				}))
 
-				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.StringPtr("eipalloc-123456")
+				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.String("eipalloc-123456")
 				errorList = ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should forbid the assigning same elastic IP allocation id to multiple zones", func() {
 				infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, awsZone2)
-				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.StringPtr("eipalloc-123456")
-				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = pointer.StringPtr("eipalloc-123456")
+				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.String("eipalloc-123456")
+				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = pointer.String("eipalloc-123456")
 
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 				Expect(errorList).To(ConsistOfFields(Fields{
@@ -380,7 +380,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Field": Equal("networks.zones[1].elasticIPAllocationID"),
 				}))
 
-				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = pointer.StringPtr("eipalloc-654321")
+				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = pointer.String("eipalloc-654321")
 				errorList = ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
@@ -506,7 +506,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 		It("should allow changing the elastic IP allocation ID of a zone", func() {
 			newInfrastructureConfig := infrastructureConfig.DeepCopy()
-			newInfrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.StringPtr("some-id")
+			newInfrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = pointer.String("some-id")
 
 			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
 
