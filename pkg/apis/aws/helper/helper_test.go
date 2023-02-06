@@ -15,12 +15,12 @@
 package helper_test
 
 import (
-	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	"k8s.io/utils/pointer"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/utils/pointer"
+
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
 var _ = Describe("Helper", func() {

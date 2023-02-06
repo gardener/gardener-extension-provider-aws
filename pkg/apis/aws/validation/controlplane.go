@@ -15,10 +15,10 @@
 package validation
 
 import (
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-
 	featurevalidation "github.com/gardener/gardener/pkg/utils/validation/features"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 // ValidateControlPlaneConfig validates a ControlPlaneConfig object.

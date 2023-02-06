@@ -22,12 +22,6 @@ import (
 	"strings"
 	"time"
 
-	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-	dnsrecordctrl "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
-	"github.com/go-logr/logr"
-
 	"github.com/aws/aws-sdk-go/service/route53"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -35,6 +29,7 @@ import (
 	"github.com/gardener/gardener/pkg/logger"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/test/framework"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -48,6 +43,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	dnsrecordctrl "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
 )
 
 var (

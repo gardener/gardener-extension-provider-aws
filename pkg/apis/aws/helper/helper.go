@@ -17,10 +17,10 @@ package helper
 import (
 	"fmt"
 
-	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/utils/pointer"
+
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 // FindInstanceProfileForPurpose takes a list of instance profiles and tries to find the first entry

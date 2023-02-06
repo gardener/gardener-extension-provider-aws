@@ -17,15 +17,14 @@ package validation
 import (
 	"fmt"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	apisawshelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-
 	"github.com/gardener/gardener/pkg/apis/core"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	apisawshelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
 // ValidateWorkerConfig validates a WorkerConfig object.

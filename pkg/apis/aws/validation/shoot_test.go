@@ -17,9 +17,6 @@ package validation_test
 import (
 	"fmt"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-
 	"github.com/gardener/gardener/pkg/apis/core"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,6 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 var _ = Describe("Shoot validation", func() {

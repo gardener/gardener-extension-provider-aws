@@ -20,19 +20,6 @@ import (
 	"os"
 	"time"
 
-	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awscmd "github.com/gardener/gardener-extension-provider-aws/pkg/cmd"
-	awsbackupbucket "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
-	awsbackupentry "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
-	awsbastion "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
-	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
-	awsdnsrecord "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
-	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
-	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
-	awscontrolplaneexposure "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
-
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
@@ -51,6 +38,19 @@ import (
 	"k8s.io/component-base/version/verflag"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awscmd "github.com/gardener/gardener-extension-provider-aws/pkg/cmd"
+	awsbackupbucket "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
+	awsbackupentry "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
+	awsbastion "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
+	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
+	awsdnsrecord "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
+	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
+	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
+	awscontrolplaneexposure "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
 )
 
 // NewControllerManagerCommand creates a new command for running a AWS provider controller.

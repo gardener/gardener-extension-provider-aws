@@ -15,9 +15,6 @@
 package validation_test
 
 import (
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/gardener/gardener/pkg/utils/test/matchers"
@@ -26,6 +23,9 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 var _ = Describe("InfrastructureConfig validation", func() {

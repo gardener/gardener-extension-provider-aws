@@ -17,13 +17,13 @@ package validation_test
 import (
 	"strings"
 
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
+
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 var _ = Describe("Secret validation", func() {

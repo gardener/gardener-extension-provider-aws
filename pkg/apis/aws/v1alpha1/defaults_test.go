@@ -15,11 +15,11 @@
 package v1alpha1_test
 
 import (
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
 var _ = Describe("Defaults", func() {

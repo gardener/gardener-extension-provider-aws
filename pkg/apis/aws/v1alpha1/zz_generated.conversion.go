@@ -24,10 +24,11 @@ package v1alpha1
 import (
 	unsafe "unsafe"
 
-	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+
+	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 func init() {

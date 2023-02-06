@@ -17,11 +17,11 @@ package imagevector
 import (
 	"strings"
 
-	"github.com/gardener/gardener-extension-provider-aws/charts"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
 	"github.com/gardener/gardener/pkg/utils/imagevector"
 	"k8s.io/apimachinery/pkg/util/runtime"
+
+	"github.com/gardener/gardener-extension-provider-aws/charts"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 var imageVector imagevector.ImageVector

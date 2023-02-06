@@ -18,12 +18,12 @@ import (
 	"context"
 	"fmt"
 
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 // GetCredentialsFromSecretRef reads the secret given by the the secret reference and returns the read Credentials
