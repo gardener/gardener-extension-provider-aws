@@ -182,12 +182,12 @@ func (c *configValidator) validateEIPS(ctx context.Context, awsClient awsclient.
 		return allErrs
 	}
 
-	diff := sets.NewString(associatedEips...).Difference(allocationIDsNATGateway)
+	diff := sets.New[string](associatedEips...).Difference(allocationIDsNATGateway)
 	if diff.Len() == 0 {
 		return allErrs
 	}
 
-	for _, allocationID := range diff.List() {
+	for _, allocationID := range sets.List(diff) {
 		allErrs = append(allErrs, field.Invalid(fldPath, allocationID, fmt.Sprintf("elastic IP in zone %q cannot be attached to the clusters NAT Gateway(s) as it is already associated. Please make sure the elastic IPs configured in the Infrastructure configuration (field: `elasticIPAllocationID`) are not already attached to another AWS resource.", elasticIPAllocationIDToZone[allocationID])))
 	}
 

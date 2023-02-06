@@ -51,12 +51,12 @@ func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.In
 func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureConfig, zones []gardencorev1beta1.AvailabilityZone, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	awsZones := sets.NewString()
+	awsZones := sets.New[string]()
 	for _, awsZone := range zones {
 		awsZones.Insert(awsZone.Name)
 	}
 
-	usedZones := sets.NewString()
+	usedZones := sets.New[string]()
 	for i, zone := range infra.Networks.Zones {
 		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && oldInfra.Networks.Zones[i] == zone {
 			continue

@@ -119,24 +119,24 @@ func ipPermissionsEqual(a *ec2.IpPermission, b *ec2.IpPermission) bool {
 	return bGroups.IsSuperset(aGroups)
 }
 
-func getIpRangeCidrs(ipRanges []*ec2.IpRange) sets.String {
-	result := sets.NewString()
+func getIpRangeCidrs(ipRanges []*ec2.IpRange) sets.Set[string] {
+	result := sets.New[string]()
 	for _, ipRange := range ipRanges {
 		result.Insert(*ipRange.CidrIp)
 	}
 	return result
 }
 
-func getIpv6RangeCidrs(ipRanges []*ec2.Ipv6Range) sets.String {
-	result := sets.NewString()
+func getIpv6RangeCidrs(ipRanges []*ec2.Ipv6Range) sets.Set[string] {
+	result := sets.New[string]()
 	for _, ipRange := range ipRanges {
 		result.Insert(*ipRange.CidrIpv6)
 	}
 	return result
 }
 
-func getSecurityGroupIDs(userGroupPairs []*ec2.UserIdGroupPair) sets.String {
-	result := sets.NewString()
+func getSecurityGroupIDs(userGroupPairs []*ec2.UserIdGroupPair) sets.Set[string] {
+	result := sets.New[string]()
 	for _, pair := range userGroupPairs {
 		result.Insert(*pair.GroupId)
 	}

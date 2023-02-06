@@ -36,8 +36,8 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	}
 
 	var (
-		dataVolumeNames       = sets.NewString()
-		dataVolumeConfigNames = sets.NewString()
+		dataVolumeNames       = sets.New[string]()
+		dataVolumeConfigNames = sets.New[string]()
 	)
 
 	for i, dv := range dataVolumes {

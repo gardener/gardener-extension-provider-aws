@@ -209,10 +209,10 @@ func (mr *MockInterfaceMockRecorder) GetElasticIPsAssociationIDForAllocationIDs(
 }
 
 // GetNATGatewayAddressAllocations mocks base method.
-func (m *MockInterface) GetNATGatewayAddressAllocations(arg0 context.Context, arg1 string) (sets.String, error) {
+func (m *MockInterface) GetNATGatewayAddressAllocations(arg0 context.Context, arg1 string) (sets.Set[string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetNATGatewayAddressAllocations", arg0, arg1)
-	ret0, _ := ret[0].(sets.String)
+	ret0, _ := ret[0].(sets.Set[string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

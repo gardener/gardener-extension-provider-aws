@@ -38,7 +38,7 @@ type Interface interface {
 	GetVPCAttribute(ctx context.Context, vpcID string, attribute string) (bool, error)
 	GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error)
 	GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context, allocationIDs []string) (map[string]*string, error)
-	GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.String, error)
+	GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.Set[string], error)
 
 	// S3 wrappers
 	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
