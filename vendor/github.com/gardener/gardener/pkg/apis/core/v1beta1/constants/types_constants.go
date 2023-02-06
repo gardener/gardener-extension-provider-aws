@@ -138,6 +138,11 @@ const (
 	// DeploymentNameVPAUpdater is a constant for the name of the VPA updater deployment.
 	DeploymentNameVPAUpdater = "vpa-updater"
 
+	// DeploymentNameKubernetesDashboard is a constant for the name of the kubernetes dashboard deployment.
+	DeploymentNameKubernetesDashboard = "kubernetes-dashboard"
+	// DeploymentNameDashboardMetricsScraper is a constant for the name of the dashboard metrics scraper deployment.
+	DeploymentNameDashboardMetricsScraper = "dashboard-metrics-scraper"
+
 	// DeploymentNameMachineControllerManager is a constant for the name of a Kubernetes deployment object that contains
 	// the machine-controller-manager pod.
 	DeploymentNameMachineControllerManager = "machine-controller-manager"
@@ -212,6 +217,10 @@ const (
 	GardenRoleShoot = "shoot"
 	// GardenRoleLogging is the value of the GardenRole key indicating type 'logging'.
 	GardenRoleLogging = "logging"
+	// GardenRoleIstioSystem is the value of the GardenRole key indicating type 'istio-system'.
+	GardenRoleIstioSystem = "istio-system"
+	// GardenRoleIstioIngress is the value of the GardenRole key indicating type 'istio-ingress'.
+	GardenRoleIstioIngress = "istio-ingress"
 	// GardenRoleProject is the value of GardenRole key indicating type 'project'.
 	GardenRoleProject = "project"
 	// GardenRoleControlPlane is the value of the GardenRole key indicating type 'controlplane'.
@@ -438,7 +447,11 @@ const (
 	LabelNetworkPolicyToPublicNetworks = "networking.gardener.cloud/to-public-networks"
 	// LabelNetworkPolicyToSeedAPIServer allows Egress from pods labeled with 'networking.gardener.cloud/to-seed-apiserver=allowed' to Seed's Kubernetes
 	// API Server.
+	// Deprecated: Use LabelNetworkPolicyToRuntimeAPIServer instead.
 	LabelNetworkPolicyToSeedAPIServer = "networking.gardener.cloud/to-seed-apiserver"
+	// LabelNetworkPolicyToRuntimeAPIServer allows Egress from pods labeled with 'networking.gardener.cloud/to-runtime-apiserver=allowed' to runtime Kubernetes
+	// API Server.
+	LabelNetworkPolicyToRuntimeAPIServer = "networking.gardener.cloud/to-runtime-apiserver"
 	// LabelNetworkPolicyToShootAPIServer allows Egress from pods labeled with 'networking.gardener.cloud/to-shoot-apiserver=allowed' to talk to Shoot's
 	// Kubernetes API Server.
 	LabelNetworkPolicyToShootAPIServer = "networking.gardener.cloud/to-shoot-apiserver"
@@ -523,6 +536,8 @@ const (
 	// AnnotationShootSkipCleanup is a key for an annotation on a Shoot resource that declares that the clean up steps should be skipped when the
 	// cluster is deleted. Concretely, this will skip everything except the deletion of (load balancer) services and persistent volume resources.
 	AnnotationShootSkipCleanup = "shoot.gardener.cloud/skip-cleanup"
+	// AnnotationShootSkipReadiness is a key for an annotation on a Shoot resource that instructs the shoot flow to skip readiness steps during reconciliation.
+	AnnotationShootSkipReadiness = "shoot.gardener.cloud/skip-readiness"
 	// AnnotationShootCleanupWebhooksFinalizeGracePeriodSeconds is a key for an annotation on a Shoot resource that
 	// declares the grace period in seconds for finalizing the resources handled in the 'cleanup webhooks' step.
 	// Concretely, after the specified seconds, all the finalizers of the affected resources are forcefully removed.
@@ -557,8 +572,6 @@ const (
 	AnnotationShootCloudConfigExecutionMaxDelaySeconds = "shoot.gardener.cloud/cloud-config-execution-max-delay-seconds"
 	// AnnotationShootForceRestore is a key for an annotation on a Shoot or BackupEntry resource to trigger a forceful restoration to a different seed.
 	AnnotationShootForceRestore = "shoot.gardener.cloud/force-restore"
-	// AnnotationReversedVPN moves the vpn-server to the seed.
-	AnnotationReversedVPN = "alpha.featuregates.shoot.gardener.cloud/reversed-vpn"
 	// AnnotationNodeLocalDNS enables a per node dns cache on the shoot cluster.
 	AnnotationNodeLocalDNS = "alpha.featuregates.shoot.gardener.cloud/node-local-dns"
 	// AnnotationNodeLocalDNSForceTcpToClusterDns enforces upgrade to tcp connections for communication between node local and cluster dns.

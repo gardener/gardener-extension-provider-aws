@@ -16,20 +16,21 @@ package kubelet
 
 import (
 	"fmt"
+	"sort"
 	"time"
+
+	"github.com/Masterminds/semver"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/original/components"
 	"github.com/gardener/gardener/pkg/operation/botanist/component/extensions/operatingsystemconfig/original/components/containerd"
 	"github.com/gardener/gardener/pkg/utils/imagevector"
-
-	"github.com/Masterminds/semver"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CLIFlags returns a list of kubelet CLI flags based on the provided parameters and for the provided Kubernetes version.
-func CLIFlags(kubernetesVersion *semver.Version, criName extensionsv1alpha1.CRIName, image *imagevector.Image, cliFlags components.ConfigurableKubeletCLIFlags) []string {
+func CLIFlags(kubernetesVersion *semver.Version, nodeLabels map[string]string, criName extensionsv1alpha1.CRIName, image *imagevector.Image, cliFlags components.ConfigurableKubeletCLIFlags) []string {
 	setCLIFlagsDefaults(&cliFlags)
 
 	var flags []string
@@ -40,6 +41,18 @@ func CLIFlags(kubernetesVersion *semver.Version, criName extensionsv1alpha1.CRIN
 		"--kubeconfig="+PathKubeconfigReal,
 		fmt.Sprintf("--node-labels=%s=%s", v1beta1constants.LabelWorkerKubernetesVersion, kubernetesVersion.String()),
 	)
+
+	// maps are unsorted in go, make sure to output node labels in the exact same order every time
+	// this ensures deterministic behavior so that tests are stable and the OSC doesn't change on every reconciliation
+	labelKeys := make([]string, 0, len(nodeLabels))
+	for key := range nodeLabels {
+		labelKeys = append(labelKeys, key)
+	}
+	sort.Strings(labelKeys)
+
+	for _, key := range labelKeys {
+		flags = append(flags, fmt.Sprintf("--node-labels=%s=%s", key, nodeLabels[key]))
+	}
 
 	if criName == extensionsv1alpha1.CRINameContainerD {
 		flags = append(flags,
