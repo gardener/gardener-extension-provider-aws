@@ -1,8 +1,11 @@
+# DO NOT TOUCH THIS FILE, IT IS ONLY PROVIDED FOR MIGRATION
+# The real CRDs are located at charts/internal/shoot-crds/charts/volumesnapshots/templates
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    resources.gardener.cloud/mode: Ignore
     controller-gen.kubebuilder.io/version: v0.8.0
     api-approved.kubernetes.io: "https://github.com/kubernetes-csi/external-snapshotter/pull/665"
   creationTimestamp: null
