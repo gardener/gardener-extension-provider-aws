@@ -86,7 +86,7 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		return nil, fmt.Errorf("failed to determine OS image for bastion host: %w", err)
 	}
 
-	instanceType, err := determineInstanceType(ctx, awsClient)
+	instanceType, err := determineInstanceType(ctx, imageID, awsClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine instance type: %w", err)
 	}
@@ -163,7 +163,15 @@ func determineImageID(shoot *gardencorev1beta1.Shoot, providerConfig *awsv1alpha
 	return "", fmt.Errorf("found no suitable AMI for machines in region %q", shoot.Spec.Region)
 }
 
-func determineInstanceType(ctx context.Context, awsClient *awsclient.Client) (string, error) {
+func determineInstanceType(ctx context.Context, imageID string, awsClient *awsclient.Client) (string, error) {
+	var preferredType string
+	imageInfo, err := getImagesInfo(ctx, imageID, awsClient)
+	if err != nil {
+		return "", err
+	}
+
+	imageArchitecture := imageInfo.Architecture
+
 	offerings, err := awsClient.EC2.DescribeInstanceTypeOfferingsWithContext(ctx, &ec2.DescribeInstanceTypeOfferingsInput{})
 	if err != nil {
 		return "", fmt.Errorf("failed to list instance types: %w", err)
@@ -174,9 +182,15 @@ func determineInstanceType(ctx context.Context, awsClient *awsclient.Client) (st
 		types[i] = *offering.InstanceType
 	}
 
-	// prefer t2.nano
+	switch *imageArchitecture {
+	case "amd64":
+		preferredType = "t2.nano"
+	case "arm64":
+		preferredType = "t4g.nano"
+	}
+
 	for _, t := range types {
-		if t == "t2.nano" {
+		if t == preferredType {
 			return t, nil
 		}
 	}
@@ -184,9 +198,47 @@ func determineInstanceType(ctx context.Context, awsClient *awsclient.Client) (st
 	// fallback to the first (hopefully smallest) other general purpose instance type
 	for _, t := range types {
 		if strings.HasPrefix(t, "t") {
-			return t, nil
+			instanceTypeOutput, err := awsClient.EC2.DescribeInstanceTypesWithContext(ctx, &ec2.DescribeInstanceTypesInput{
+				InstanceTypes: []*string{aws.String(t)},
+			})
+
+			if err != nil {
+				return "", fmt.Errorf("failed to describing instance types: %w", err)
+			}
+
+			for _, instanceTypes := range instanceTypeOutput.InstanceTypes {
+				for _, processorArchitecture := range instanceTypes.ProcessorInfo.SupportedArchitectures {
+					if *processorArchitecture == convertName(*imageArchitecture) {
+						return t, nil
+					}
+				}
+			}
 		}
 	}
 
 	return "", fmt.Errorf("no t.* instance type available")
+}
+
+func getImagesInfo(ctx context.Context, ami string, awsClient *awsclient.Client) (*ec2.Image, error) {
+	imageInfo, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
+		ImageIds: []*string{
+			aws.String(ami),
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Images Info: %w", err)
+	}
+
+	for _, image := range imageInfo.Images {
+		return image, nil
+	}
+	return nil, fmt.Errorf("images info not found: %w", err)
+}
+
+func convertName(a string) string {
+	if a == "amd64" {
+		return "x86_64"
+	}
+	return a
 }
