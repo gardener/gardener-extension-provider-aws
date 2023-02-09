@@ -247,6 +247,7 @@ func determineBastionImage(ctx context.Context, awsClient *awsclient.Client) str
 			},
 		},
 	})
+
 	Expect(err).NotTo(HaveOccurred())
 	Expect(output.Images).To(HaveLen(1))
 

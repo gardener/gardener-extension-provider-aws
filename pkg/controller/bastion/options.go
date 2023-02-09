@@ -17,7 +17,6 @@ package bastion
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -86,7 +85,7 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		return nil, fmt.Errorf("failed to determine OS image for bastion host: %w", err)
 	}
 
-	instanceType, err := determineInstanceType(ctx, awsClient)
+	instanceType, err := determineInstanceType(ctx, imageID, awsClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine instance type: %w", err)
 	}
@@ -163,30 +162,95 @@ func determineImageID(shoot *gardencorev1beta1.Shoot, providerConfig *awsv1alpha
 	return "", fmt.Errorf("found no suitable AMI for machines in region %q", shoot.Spec.Region)
 }
 
-func determineInstanceType(ctx context.Context, awsClient *awsclient.Client) (string, error) {
-	offerings, err := awsClient.EC2.DescribeInstanceTypeOfferingsWithContext(ctx, &ec2.DescribeInstanceTypeOfferingsInput{})
+func determineInstanceType(ctx context.Context, imageID string, awsClient *awsclient.Client) (string, error) {
+	var preferredType string
+	imageInfo, err := getImages(ctx, imageID, awsClient)
 	if err != nil {
-		return "", fmt.Errorf("failed to list instance types: %w", err)
+		return "", err
 	}
 
-	types := make([]string, len(offerings.InstanceTypeOfferings))
-	for i, offering := range offerings.InstanceTypeOfferings {
-		types[i] = *offering.InstanceType
+	imageArchitecture := imageInfo.Architecture
+
+	// default instance type
+	switch *imageArchitecture {
+	case "x86_64":
+		preferredType = "t2.nano"
+	case "arm64":
+		preferredType = "t4g.nano"
+	default:
+		return "", fmt.Errorf("image architecture not supported yet")
 	}
 
-	// prefer t2.nano
-	for _, t := range types {
-		if t == "t2.nano" {
-			return t, nil
+	exist, err := checkInstanceTypeOffering(ctx, preferredType, awsClient)
+	if err != nil {
+		return "", err
+	}
+
+	if len(exist.InstanceTypeOfferings) != 0 {
+		return preferredType, nil
+	}
+
+	// filter t type instance
+	tTypes, err := checkInstanceTypeOffering(ctx, "t*", awsClient)
+	if err != nil {
+		return "", err
+	}
+
+	if len(tTypes.InstanceTypeOfferings) == 0 {
+		return "", fmt.Errorf("no t.* instance type available")
+	}
+
+	for _, t := range tTypes.InstanceTypeOfferings {
+		input := &ec2.DescribeInstanceTypesInput{
+			InstanceTypes: []*string{t.InstanceType},
+			Filters: []*ec2.Filter{
+				{
+					Name:   aws.String("processor-info.supported-architecture"),
+					Values: []*string{imageArchitecture},
+				},
+			},
 		}
-	}
 
-	// fallback to the first (hopefully smallest) other general purpose instance type
-	for _, t := range types {
-		if strings.HasPrefix(t, "t") {
-			return t, nil
+		result, err := awsClient.EC2.DescribeInstanceTypes(input)
+		if err != nil {
+			return "", err
+		}
+
+		// continue if not found
+		if len(result.InstanceTypes) == 0 {
+			continue
+		} else {
+			return *t.InstanceType, nil
 		}
 	}
 
 	return "", fmt.Errorf("no t.* instance type available")
+}
+
+func getImages(ctx context.Context, ami string, awsClient *awsclient.Client) (*ec2.Image, error) {
+	imageInfo, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
+		ImageIds: []*string{
+			aws.String(ami),
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Images Info: %w", err)
+	}
+
+	if len(imageInfo.Images) == 0 {
+		return nil, fmt.Errorf("images info not found: %w", err)
+	}
+	return imageInfo.Images[0], nil
+}
+
+func checkInstanceTypeOffering(ctx context.Context, filter string, awsClient *awsclient.Client) (*ec2.DescribeInstanceTypeOfferingsOutput, error) {
+	return awsClient.EC2.DescribeInstanceTypeOfferingsWithContext(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("instance-type"),
+				Values: []*string{aws.String(filter)},
+			},
+		},
+	})
 }
