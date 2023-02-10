@@ -127,7 +127,7 @@ github.com/fsnotify/fsnotify
 # github.com/gardener/etcd-druid v0.15.3
 ## explicit; go 1.19
 github.com/gardener/etcd-druid/api/v1alpha1
-# github.com/gardener/gardener v1.63.1-0.20230131115839-8d53342ddcf0
+# github.com/gardener/gardener v1.64.0
 ## explicit; go 1.19
 github.com/gardener/gardener/.github
 github.com/gardener/gardener/.github/ISSUE_TEMPLATE
@@ -889,7 +889,7 @@ k8s.io/apimachinery/third_party/forked/golang/reflect
 ## explicit; go 1.19
 k8s.io/apiserver/pkg/apis/config
 k8s.io/apiserver/pkg/apis/config/v1
-# k8s.io/autoscaler/vertical-pod-autoscaler v0.12.0
+# k8s.io/autoscaler/vertical-pod-autoscaler v0.13.0
 ## explicit; go 1.19
 k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1
 # k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible => k8s.io/client-go v0.26.1
@@ -1160,6 +1160,7 @@ k8s.io/kube-openapi/pkg/validation/spec
 # k8s.io/kubelet v0.26.1
 ## explicit; go 1.19
 k8s.io/kubelet/config/v1beta1
+k8s.io/kubelet/pkg/apis
 # k8s.io/metrics v0.26.1
 ## explicit; go 1.19
 k8s.io/metrics/pkg/apis/metrics
@@ -1175,7 +1176,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# sigs.k8s.io/controller-runtime v0.14.1
+# sigs.k8s.io/controller-runtime v0.14.4
 ## explicit; go 1.19
 sigs.k8s.io/controller-runtime/pkg/cache
 sigs.k8s.io/controller-runtime/pkg/cache/internal
@@ -1233,7 +1234,7 @@ sigs.k8s.io/controller-runtime/tools/setup-envtest/remote
 sigs.k8s.io/controller-runtime/tools/setup-envtest/store
 sigs.k8s.io/controller-runtime/tools/setup-envtest/versions
 sigs.k8s.io/controller-runtime/tools/setup-envtest/workflows
-# sigs.k8s.io/controller-tools v0.11.1
+# sigs.k8s.io/controller-tools v0.11.3
 ## explicit; go 1.19
 sigs.k8s.io/controller-tools/cmd/controller-gen
 sigs.k8s.io/controller-tools/pkg/crd

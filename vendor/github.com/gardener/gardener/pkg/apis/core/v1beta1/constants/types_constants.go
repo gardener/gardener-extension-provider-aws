@@ -124,6 +124,8 @@ const (
 	// DeploymentNameGrafanaUsers is a constant for the name of a Kubernetes deployment object that contains
 	// the grafana-users pod.
 	DeploymentNameGrafanaUsers = "grafana-users"
+	// DeploymentNameGrafana is a constant for the name of a Kubernetes deployment object that contains the grafana pod.
+	DeploymentNameGrafana = "grafana"
 	// DeploymentNameEventLogger is a constant for the name of a Kubernetes deployment object that contains
 	// the event-logger pod.
 	DeploymentNameEventLogger = "event-logger"
@@ -463,8 +465,6 @@ const (
 	// LabelNetworkPolicyFromShootAPIServer allows Egress from Shoot's Kubernetes API Server to talk to pods labeled with
 	// 'networking.gardener.cloud/from-shoot-apiserver=allowed'.
 	LabelNetworkPolicyFromShootAPIServer = "networking.gardener.cloud/from-shoot-apiserver"
-	// LabelNetworkPolicyToAll disables all Ingress and Egress traffic into/from this namespace when set to "disallowed".
-	LabelNetworkPolicyToAll = "networking.gardener.cloud/to-all"
 	// LabelNetworkPolicyFromPrometheus allows Ingress from Prometheus to pods labeled with 'networking.gardener.cloud/from-prometheus=allowed' and ports
 	// named 'metrics' in the PodSpecification.
 	LabelNetworkPolicyFromPrometheus = "networking.gardener.cloud/from-prometheus"
@@ -481,8 +481,6 @@ const (
 	LabelNetworkPolicyShootToKubelet = "networking.gardener.cloud/to-kubelet"
 	// LabelNetworkPolicyAllowed is a constant for allowing a network policy.
 	LabelNetworkPolicyAllowed = "allowed"
-	// LabelNetworkPolicyDisallowed is a constant for disallowing a network policy.
-	LabelNetworkPolicyDisallowed = "disallowed"
 
 	// LabelApp is a constant for a label key.
 	LabelApp = "app"
@@ -652,6 +650,14 @@ const (
 
 	// ClusterIdentity is a constant equal to the name and data key (that stores the identity) of the cluster-identity ConfigMap
 	ClusterIdentity = "cluster-identity"
+	// ClusterIdentityOrigin is a constant equal to the data key that stores the identity origin of the cluster-identity ConfigMap
+	ClusterIdentityOrigin = "origin"
+	// ClusterIdentityOriginGardenerAPIServer defines a cluster-identity ConfigMap originated from gardener-apiserver
+	ClusterIdentityOriginGardenerAPIServer = "gardener-apiserver"
+	// ClusterIdentityOriginSeed defines a cluster-identity ConfigMap originated from seed
+	ClusterIdentityOriginSeed = "seed"
+	// ClusterIdentityOriginShoot defines a cluster-identity ConfigMap originated from shoot
+	ClusterIdentityOriginShoot = "shoot"
 
 	// SeedNginxIngressClass defines the ingress class for the seed nginx ingress controller
 	SeedNginxIngressClass = "nginx-gardener"
@@ -794,6 +800,7 @@ const (
 	// Please consider the documentation in https://github.com/gardener/gardener/blob/master/docs/development/priority-classes.md
 	PriorityClassNameShootControlPlane100 = "gardener-system-100"
 
-	// TechnicalIDPrefix is a prefix used for a shoot's technical id.
-	TechnicalIDPrefix = "shoot--"
+	// TechnicalIDPrefix is a prefix used for a shoot's technical id. For historic reasons, there is only one 'dash'
+	// while nowadays we always use two dashes after "shoot".
+	TechnicalIDPrefix = "shoot-"
 )
