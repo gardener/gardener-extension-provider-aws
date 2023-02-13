@@ -251,12 +251,12 @@ github.com/gardener/gardener/test/framework/reporter
 github.com/gardener/gardener/test/testmachinery/extensions/generator
 github.com/gardener/gardener/test/testmachinery/extensions/healthcheck
 github.com/gardener/gardener/test/testmachinery/extensions/operation
-# github.com/gardener/gardener-extension-networking-calico v1.27.1
+# github.com/gardener/gardener-extension-networking-calico v1.28.0
 ## explicit; go 1.19
 github.com/gardener/gardener-extension-networking-calico/pkg/apis/calico
 github.com/gardener/gardener-extension-networking-calico/pkg/apis/calico/v1alpha1
 github.com/gardener/gardener-extension-networking-calico/pkg/calico
-# github.com/gardener/gardener-extension-networking-cilium v1.18.0
+# github.com/gardener/gardener-extension-networking-cilium v1.20.0
 ## explicit; go 1.19
 github.com/gardener/gardener-extension-networking-cilium/pkg/apis/cilium
 github.com/gardener/gardener-extension-networking-cilium/pkg/apis/cilium/v1alpha1
