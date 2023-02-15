@@ -97,3 +97,7 @@ gardener:
   version: ""
   seed:
     provider: aws
+    spec:
+      settings:
+        topologyAwareRouting:
+          enabled: false
