@@ -165,7 +165,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		ignoreTagKeyPrefixes = tags.KeyPrefixes
 	}
 
-	return map[string]interface{}{
+	terraformInfraConfig := map[string]interface{}{
 		"aws": map[string]interface{}{
 			"region": infrastructure.Spec.Region,
 		},
@@ -192,11 +192,15 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			"subnetsPublicPrefix":     aws.SubnetPublicPrefix,
 			"subnetsNodesPrefix":      aws.SubnetNodesPrefix,
 			"securityGroupsNodes":     aws.SecurityGroupsNodes,
-			"sshKeyName":              aws.SSHKeyName,
 			"iamInstanceProfileNodes": aws.IAMInstanceProfileNodes,
 			"nodesRole":               aws.NodesRole,
 		},
-	}, nil
+	}
+
+	if infrastructure.Spec.SSHPublicKey != nil {
+		terraformInfraConfig["outputKeys"].(map[string]interface{})["sshKeyName"] = aws.SSHKeyName
+	}
+	return terraformInfraConfig, nil
 }
 
 func updateProviderStatus(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, state *terraformer.RawState) error {
@@ -219,10 +223,13 @@ func computeProviderStatus(ctx context.Context, tf terraformer.Terraformer, infr
 
 	outputVarKeys := []string{
 		aws.VPCIDKey,
-		aws.SSHKeyName,
 		aws.IAMInstanceProfileNodes,
 		aws.NodesRole,
 		aws.SecurityGroupsNodes,
+	}
+
+	if _, err := tf.GetStateOutputVariables(ctx, aws.SSHKeyName); err == nil {
+		outputVarKeys = append(outputVarKeys, aws.SSHKeyName)
 	}
 
 	for zoneIndex := range infrastructureConfig.Networks.Zones {
@@ -240,7 +247,7 @@ func computeProviderStatus(ctx context.Context, tf terraformer.Terraformer, infr
 		return nil, nil, err
 	}
 
-	return &awsv1alpha1.InfrastructureStatus{
+	infrastructureStatus := &awsv1alpha1.InfrastructureStatus{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
 			Kind:       "InfrastructureStatus",
@@ -254,9 +261,6 @@ func computeProviderStatus(ctx context.Context, tf terraformer.Terraformer, infr
 					ID:      output[aws.SecurityGroupsNodes],
 				},
 			},
-		},
-		EC2: awsv1alpha1.EC2{
-			KeyName: output[aws.SSHKeyName],
 		},
 		IAM: awsv1alpha1.IAM{
 			InstanceProfiles: []awsv1alpha1.InstanceProfile{
@@ -272,7 +276,15 @@ func computeProviderStatus(ctx context.Context, tf terraformer.Terraformer, infr
 				},
 			},
 		},
-	}, state, nil
+	}
+
+	if keyName, ok := output[aws.SSHKeyName]; ok {
+		infrastructureStatus.EC2 = awsv1alpha1.EC2{
+			KeyName: keyName,
+		}
+	}
+
+	return infrastructureStatus, state, nil
 }
 
 func computeProviderStatusSubnets(infrastructure *awsapi.InfrastructureConfig, values map[string]string) ([]awsv1alpha1.Subnet, error) {

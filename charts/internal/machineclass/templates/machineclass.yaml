@@ -42,7 +42,9 @@ providerSpec:
 {{- if $machineClass.iamInstanceProfile.arn }}
     arn: {{ $machineClass.iamInstanceProfile.arn }}
 {{- end }}
+{{- if $machineClass.keyName }}
   keyName: {{ $machineClass.keyName }}
+{{- end }}
   networkInterfaces:
 {{ toYaml $machineClass.networkInterfaces | indent 2 }}
 {{- if $machineClass.tags }}
