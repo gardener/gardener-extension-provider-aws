@@ -14,7 +14,7 @@
 
 package client
 
-func copyArray[T any](array []T) []T {
+func copySlice[T any](array []T) []T {
 	var copy []T
 	return append(copy, array...)
 }

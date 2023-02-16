@@ -15,7 +15,6 @@
 package infrastructure
 
 import (
-	"strings"
 	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
@@ -94,15 +93,4 @@ func generateTerraformerEnvVars(secretRef corev1.SecretReference) []corev1.EnvVa
 			Key: aws.SecretAccessKey,
 		}},
 	}}
-}
-
-func (a *actuator) addErrorCodes(err error) error {
-	if err == nil {
-		return nil
-	}
-	if msg := err.Error(); strings.Contains(msg, "AuthFailure:") ||
-		strings.Contains(msg, "InvalidClientTokenId:") {
-		return helper.NewErrorWithCodes(err, gardencorev1beta1.ErrorInfraUnauthorized)
-	}
-	return err
 }

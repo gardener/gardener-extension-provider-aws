@@ -205,7 +205,7 @@ type SecurityGroup struct {
 // Clone creates a copy.
 func (sg *SecurityGroup) Clone() *SecurityGroup {
 	copy := *sg
-	copy.Rules = copyArray(sg.Rules)
+	copy.Rules = copySlice(sg.Rules)
 	copy.Tags = sg.Tags.Clone()
 	return &copy
 }
@@ -300,7 +300,7 @@ type SecurityGroupRule struct {
 // Clone creates a copy.
 func (sgr *SecurityGroupRule) Clone() *SecurityGroupRule {
 	copy := *sgr
-	copy.CidrBlocks = copyArray(sgr.CidrBlocks)
+	copy.CidrBlocks = copySlice(sgr.CidrBlocks)
 	return &copy
 }
 

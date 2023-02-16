@@ -33,8 +33,8 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 )
 
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
@@ -59,7 +59,7 @@ func (a *actuator) deleteWithFlow(ctx context.Context, log logr.Logger, infrastr
 	}
 	if err = flowContext.Delete(ctx); err != nil {
 		_ = flowContext.PersistState(ctx, true)
-		return a.addErrorCodes(err)
+		return util.DetermineError(err, helper.KnownCodes)
 	}
 	return flowContext.PersistState(ctx, true)
 }

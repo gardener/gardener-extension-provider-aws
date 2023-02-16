@@ -73,7 +73,8 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructur
 
 func (a *actuator) shouldUseFlow(infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) bool {
 	return (infrastructure.Annotations != nil && strings.EqualFold(infrastructure.Annotations[AnnotationKeyUseFlow], "true")) ||
-		(cluster.Shoot != nil && cluster.Shoot.Annotations != nil && strings.EqualFold(cluster.Shoot.Annotations[AnnotationKeyUseFlow], "true"))
+		(cluster.Shoot != nil && cluster.Shoot.Annotations != nil && strings.EqualFold(cluster.Shoot.Annotations[AnnotationKeyUseFlow], "true")) ||
+		(cluster.Seed != nil && cluster.Seed.Annotations != nil && strings.EqualFold(cluster.Seed.Annotations[AnnotationKeyUseFlow], "true"))
 }
 
 func (a *actuator) getStateFromInfraStatus(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure) (*infraflow.PersistentState, error) {
@@ -146,11 +147,11 @@ func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
 		return a.updateStatusState(ctx, infra, state)
 	}
 
-	if oldState != nil && !oldState.HasValidVersion() {
-		return nil, fmt.Errorf("unknown flow state version %s", oldState.FlowVersion)
-	}
 	var oldFlatState shared.FlatMap
 	if oldState != nil {
+		if valid, err := oldState.HasValidVersion(); !valid {
+			return nil, err
+		}
 		oldFlatState = oldState.ToFlatMap()
 	}
 
@@ -179,7 +180,7 @@ func (a *actuator) reconcileWithFlow(ctx context.Context, log logr.Logger, infra
 	}
 	if err = flowContext.Reconcile(ctx); err != nil {
 		_ = flowContext.PersistState(ctx, true)
-		return a.addErrorCodes(err)
+		return util.DetermineError(err, helper.KnownCodes)
 	}
 	return flowContext.PersistState(ctx, true)
 }
