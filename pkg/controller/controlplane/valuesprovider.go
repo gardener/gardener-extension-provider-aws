@@ -21,9 +21,6 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver"
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
@@ -47,6 +44,10 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 const (
@@ -181,14 +182,6 @@ var (
 		Name: "shoot-system-components",
 		Path: filepath.Join(aws.InternalChartsPath, "shoot-system-components"),
 		SubCharts: []*chart.Chart{
-			{
-				Name: "cloud-controller-manager",
-				Path: filepath.Join(aws.InternalChartsPath, "cloud-controller-manager"),
-				Objects: []*chart.Object{
-					{Type: &rbacv1.ClusterRole{}, Name: "system:controller:cloud-node-controller"},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: "system:controller:cloud-node-controller"},
-				},
-			},
 			{
 				Name: aws.AWSCustomRouteControllerName,
 				Path: filepath.Join(aws.InternalChartsPath, "aws-custom-route-controller"),
