@@ -20,6 +20,7 @@ import (
 
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -178,10 +179,10 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 	case "arm64":
 		preferredType = "t4g.nano"
 	default:
-		return "", fmt.Errorf("image architecture not supported yet")
+		return "", fmt.Errorf("image architecture not supported")
 	}
 
-	exist, err := checkInstanceTypeOffering(ctx, preferredType, awsClient)
+	exist, err := getInstanceTypeOfferings(ctx, preferredType, awsClient)
 	if err != nil {
 		return "", err
 	}
@@ -191,40 +192,40 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 	}
 
 	// filter t type instance
-	tTypes, err := checkInstanceTypeOffering(ctx, "t*", awsClient)
+	tTypes, err := getInstanceTypeOfferings(ctx, "t*", awsClient)
 	if err != nil {
 		return "", err
 	}
 
 	if len(tTypes.InstanceTypeOfferings) == 0 {
-		return "", fmt.Errorf("no t.* instance type available")
+		return "", fmt.Errorf("no t* instance type offerings available")
 	}
 
+	tTypeSet := sets.NewString()
 	for _, t := range tTypes.InstanceTypeOfferings {
-		input := &ec2.DescribeInstanceTypesInput{
-			InstanceTypes: []*string{t.InstanceType},
-			Filters: []*ec2.Filter{
-				{
-					Name:   aws.String("processor-info.supported-architecture"),
-					Values: []*string{imageArchitecture},
-				},
-			},
-		}
-
-		result, err := awsClient.EC2.DescribeInstanceTypes(input)
-		if err != nil {
-			return "", err
-		}
-
-		// continue if not found
-		if len(result.InstanceTypes) == 0 {
-			continue
-		} else {
-			return *t.InstanceType, nil
-		}
+		tTypeSet.Insert(*t.InstanceType)
 	}
 
-	return "", fmt.Errorf("no t.* instance type available")
+	input := &ec2.DescribeInstanceTypesInput{
+		InstanceTypes: aws.StringSlice(tTypeSet.UnsortedList()),
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("processor-info.supported-architecture"),
+				Values: []*string{imageArchitecture},
+			},
+		},
+	}
+
+	result, err := awsClient.EC2.DescribeInstanceTypes(input)
+	if err != nil {
+		return "", err
+	}
+
+	if len(result.InstanceTypes) == 0 {
+		return "", fmt.Errorf("no t* instance type offerings available")
+	} else {
+		return *result.InstanceTypes[0].InstanceType, nil
+	}
 }
 
 func getImages(ctx context.Context, ami string, awsClient *awsclient.Client) (*ec2.Image, error) {
@@ -244,7 +245,7 @@ func getImages(ctx context.Context, ami string, awsClient *awsclient.Client) (*e
 	return imageInfo.Images[0], nil
 }
 
-func checkInstanceTypeOffering(ctx context.Context, filter string, awsClient *awsclient.Client) (*ec2.DescribeInstanceTypeOfferingsOutput, error) {
+func getInstanceTypeOfferings(ctx context.Context, filter string, awsClient *awsclient.Client) (*ec2.DescribeInstanceTypeOfferingsOutput, error) {
 	return awsClient.EC2.DescribeInstanceTypeOfferingsWithContext(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
 		Filters: []*ec2.Filter{
 			{
