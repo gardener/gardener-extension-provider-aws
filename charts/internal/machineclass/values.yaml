@@ -39,3 +39,7 @@ machineClasses:
     # iops: 100
     # throughput: 125 #(only for gp3)
     # snapshotID: snap-12345
+#  instanceMetadata:
+#    httpEndpoint: "disabled"
+#    httpTokens: "required"
+#    httpPutResponseHopLimit: 2

@@ -129,6 +129,8 @@ func (w *workerDelegate) generateMachineConfig() error {
 			return err
 		}
 
+		instanceMetadata := computeInstanceMetadata(workerConfig)
+
 		for zoneIndex, zone := range pool.Zones {
 			zoneIdx := int32(zoneIndex)
 
@@ -163,7 +165,8 @@ func (w *workerDelegate) generateMachineConfig() error {
 				"secret": map[string]interface{}{
 					"cloudConfig": string(pool.UserData),
 				},
-				"blockDevices": blockDevices,
+				"blockDevices":     blockDevices,
+				"instanceMetadata": instanceMetadata,
 			}
 
 			if workerConfig.NodeTemplate != nil {
@@ -375,4 +378,23 @@ func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructure
 	}
 
 	return nil, fmt.Errorf("unable to compute IAM instance profile configuration")
+}
+
+func computeInstanceMetadata(workerConfig *awsapi.WorkerConfig) map[string]interface{} {
+	res := make(map[string]interface{})
+
+	if workerConfig.InstanceMetadata == nil {
+		return res
+	}
+
+	if workerConfig.InstanceMetadata.EnableInstanceMetadataV2 {
+		// set the value to the maximum hops.
+		res["httpPutResponseHopLimit"] = 64
+	}
+
+	if workerConfig.InstanceMetadata.DisableInstanceMetadataV1 {
+		res["httpTokens"] = "required"
+	}
+
+	return res
 }

@@ -39,6 +39,8 @@ type WorkerConfig struct {
 	// worker pool.
 	// +optional
 	IAMInstanceProfile *IAMInstanceProfile `json:"iamInstanceProfile,omitempty"`
+	// InstanceMetadata contains configuration for controlling access to the metadata API.
+	InstanceMetadata *InstanceMetadata `json:"instanceMetadata,omitempty"`
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -129,3 +131,11 @@ const (
 	// VolumeTypeGP3 is a constant for the gp3 volume type.
 	VolumeTypeGP3 VolumeType = "gp3"
 )
+
+// InstanceMetadata contains configuration for controlling access to the metadata API.
+type InstanceMetadata struct {
+	// EnableInstanceMetadataV2 when set will allow access to IMDSv2 API from containerized applications.
+	EnableInstanceMetadataV2 bool `json:"enableInstanceMetadataV2,omitempty"`
+	// DisableInstanceMetadataV1 will disable access to IMDSv1.
+	DisableInstanceMetadataV1 bool `json:"disableInstanceMetadataV1,omitempty"`
+}

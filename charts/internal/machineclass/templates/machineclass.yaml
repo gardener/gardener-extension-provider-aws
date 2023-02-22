@@ -51,6 +51,18 @@ providerSpec:
 {{- end }}
   blockDevices:
 {{ toYaml $machineClass.blockDevices | indent 2 }}
+{{- if $machineClass.instanceMetadata }}
+  instanceMetadata:
+    {{- if $machineClass.instanceMetadata.httpEndpoint }}
+    httpEndpoint: {{ $machineClass.instanceMetadata.httpEndpoint }}
+    {{- end }}
+    {{- if $machineClass.instanceMetadata.httpPutResponseHopLimit }}
+    httpPutResponseHopLimit: {{ $machineClass.instanceMetadata.httpPutResponseHopLimit }}
+    {{- end }}
+    {{- if $machineClass.instanceMetadata.httpTokens }}
+    httpTokens: {{ $machineClass.instanceMetadata.httpTokens }}
+    {{- end }}
+{{- end }}
 secretRef:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}

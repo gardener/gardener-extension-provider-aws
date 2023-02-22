@@ -290,6 +290,19 @@ IAMInstanceProfile
 worker pool.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>instanceMetadata</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadata">
+InstanceMetadata
+</a>
+</em>
+</td>
+<td>
+<p>InstanceMetadata contains configuration for controlling access to the metadata API.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus
@@ -656,6 +669,47 @@ VPCStatus
 </td>
 <td>
 <p>VPC contains information about the created AWS VPC and some related resources.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadata">InstanceMetadata
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+</p>
+<p>
+<p>InstanceMetadata contains configuration for controlling access to the metadata API.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enableInstanceMetadataV2</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>EnableInstanceMetadataV2 when set will allow access to IMDSv2 API from containerized applications.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>disableInstanceMetadataV1</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DisableInstanceMetadataV1 will disable access to IMDSv1.</p>
 </td>
 </tr>
 </tbody>
