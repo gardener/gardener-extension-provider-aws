@@ -170,6 +170,10 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 		return "", err
 	}
 
+	if imageInfo.Architecture == nil {
+		return "", fmt.Errorf("image architecture is empty")
+	}
+
 	imageArchitecture := imageInfo.Architecture
 
 	// default instance type
@@ -206,7 +210,7 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 		tTypeSet.Insert(*t.InstanceType)
 	}
 
-	input := &ec2.DescribeInstanceTypesInput{
+	result, err := awsClient.EC2.DescribeInstanceTypes(&ec2.DescribeInstanceTypesInput{
 		InstanceTypes: aws.StringSlice(tTypeSet.UnsortedList()),
 		Filters: []*ec2.Filter{
 			{
@@ -214,18 +218,17 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 				Values: []*string{imageArchitecture},
 			},
 		},
-	}
+	})
 
-	result, err := awsClient.EC2.DescribeInstanceTypes(input)
 	if err != nil {
 		return "", err
 	}
 
 	if len(result.InstanceTypes) == 0 {
-		return "", fmt.Errorf("no t* instance type offerings available")
-	} else {
-		return *result.InstanceTypes[0].InstanceType, nil
+		return "", fmt.Errorf("no instance types returned for architecture %s and instance types list %v", *imageArchitecture, tTypeSet.UnsortedList())
 	}
+
+	return *result.InstanceTypes[0].InstanceType, nil
 }
 
 func getImages(ctx context.Context, ami string, awsClient *awsclient.Client) (*ec2.Image, error) {
