@@ -129,7 +129,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 			return err
 		}
 
-		instanceMetadata := computeInstanceMetadata(workerConfig)
+		instanceMetadataOptions := computeInstanceMetadata(workerConfig)
 
 		for zoneIndex, zone := range pool.Zones {
 			zoneIdx := int32(zoneIndex)
@@ -165,8 +165,8 @@ func (w *workerDelegate) generateMachineConfig() error {
 				"secret": map[string]interface{}{
 					"cloudConfig": string(pool.UserData),
 				},
-				"blockDevices":     blockDevices,
-				"instanceMetadata": instanceMetadata,
+				"blockDevices":            blockDevices,
+				"instanceMetadataOptions": instanceMetadataOptions,
 			}
 
 			if workerConfig.NodeTemplate != nil {
