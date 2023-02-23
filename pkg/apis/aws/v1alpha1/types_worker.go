@@ -138,4 +138,6 @@ type InstanceMetadata struct {
 	EnableInstanceMetadataV2 bool `json:"enableInstanceMetadataV2,omitempty"`
 	// DisableInstanceMetadataV1 will disable access to IMDSv1.
 	DisableInstanceMetadataV1 bool `json:"disableInstanceMetadataV1,omitempty"`
+	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests. Valid values are between 1 and 64.
+	HTTPPutResponseHopLimit *int64 `json:"httpPutResponseHopLimit,omitempty"`
 }

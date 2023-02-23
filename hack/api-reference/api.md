@@ -712,6 +712,17 @@ bool
 <p>DisableInstanceMetadataV1 will disable access to IMDSv1.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>httpPutResponseHopLimit</code></br>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>HTTPPutResponseHopLimit is the response hop limit for instance metadata requests. Valid values are between 1 and 64.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InstanceProfile">InstanceProfile

@@ -90,6 +90,8 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		}
 	}
 
+	allErrs = append(allErrs, validateInstanceMetadata(workerConfig.InstanceMetadata, fldPath.Child("instanceMetadata"))...)
+
 	return allErrs
 }
 
@@ -117,5 +119,31 @@ func validateVolumeConfig(volume *apisaws.Volume, volumeType string, fldPath *fi
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("throughput"), *volume.Throughput, "throughput must be a positive value"))
 	}
 
+	return allErrs
+}
+
+func validateInstanceMetadata(md *apisaws.InstanceMetadata, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if md == nil {
+		return allErrs
+	}
+
+	if !md.EnableInstanceMetadataV2 && md.HTTPPutResponseHopLimit != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("HTTPPutResponseHopLimit"), *md.HTTPPutResponseHopLimit, "enableInstanceMetadataV2 must be set to specify this field"))
+		return allErrs
+	}
+
+	if md.EnableInstanceMetadataV2 && md.HTTPPutResponseHopLimit == nil {
+		allErrs = append(allErrs, field.Required(fldPath.Child("HTTPPutResponseHopLimit"), "this field must be specified if enableInstanceMetadataV2 is enabled"))
+		return allErrs
+	}
+
+	if md.HTTPPutResponseHopLimit != nil {
+		// the technical limitations of the AWS API are between 1 and 64, but for the operation "EnableInstanceMetadataV2"
+		// to be meaningful we need to only allow hop limit >=2 as this is the prerequisite to enable IMDSv2.
+		if *md.HTTPPutResponseHopLimit < 2 || *md.HTTPPutResponseHopLimit > 64 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("HTTPPutResponseHopLimit"), *md.HTTPPutResponseHopLimit, "only values between 2 and 64 are allowed"))
+		}
+	}
 	return allErrs
 }

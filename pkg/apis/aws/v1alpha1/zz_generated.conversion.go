@@ -555,6 +555,7 @@ func Convert_aws_InfrastructureStatus_To_v1alpha1_InfrastructureStatus(in *aws.I
 func autoConvert_v1alpha1_InstanceMetadata_To_aws_InstanceMetadata(in *InstanceMetadata, out *aws.InstanceMetadata, s conversion.Scope) error {
 	out.EnableInstanceMetadataV2 = in.EnableInstanceMetadataV2
 	out.DisableInstanceMetadataV1 = in.DisableInstanceMetadataV1
+	out.HTTPPutResponseHopLimit = (*int64)(unsafe.Pointer(in.HTTPPutResponseHopLimit))
 	return nil
 }
 
@@ -566,6 +567,7 @@ func Convert_v1alpha1_InstanceMetadata_To_aws_InstanceMetadata(in *InstanceMetad
 func autoConvert_aws_InstanceMetadata_To_v1alpha1_InstanceMetadata(in *aws.InstanceMetadata, out *InstanceMetadata, s conversion.Scope) error {
 	out.EnableInstanceMetadataV2 = in.EnableInstanceMetadataV2
 	out.DisableInstanceMetadataV1 = in.DisableInstanceMetadataV1
+	out.HTTPPutResponseHopLimit = (*int64)(unsafe.Pointer(in.HTTPPutResponseHopLimit))
 	return nil
 }
 

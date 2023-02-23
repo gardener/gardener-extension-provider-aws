@@ -74,7 +74,7 @@ type DataVolume struct {
 }
 
 // IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
-// worker pool. Either 'Name" or 'ARN' must be specified.
+// worker pool. Either 'Name' or 'ARN' must be specified.
 type IAMInstanceProfile struct {
 	// Name is the name of the instance profile.
 	Name *string
@@ -126,4 +126,6 @@ type InstanceMetadata struct {
 	EnableInstanceMetadataV2 bool
 	// DisableInstanceMetadataV1 will disable access to IMDSv1.
 	DisableInstanceMetadataV1 bool
+	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests. Valid values are between 1 and 64.
+	HTTPPutResponseHopLimit *int64
 }

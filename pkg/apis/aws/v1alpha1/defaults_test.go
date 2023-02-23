@@ -15,10 +15,12 @@
 package v1alpha1_test
 
 import (
+	"github.com/onsi/gomega/gstruct"
+	"k8s.io/utils/pointer"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
@@ -60,6 +62,30 @@ var _ = Describe("Defaults", func() {
 			SetDefaults_MachineImage(obj)
 
 			Expect(*obj.Architecture).To(Equal(v1beta1constants.ArchitectureAMD64))
+		})
+	})
+
+	Describe("#SetDefaults_InstanceMetadata", func() {
+		It("should default response hop limit to 2", func() {
+			obj := &InstanceMetadata{
+				EnableInstanceMetadataV2: true,
+			}
+
+			SetDefaults_InstanceMetadata(obj)
+
+			Expect(obj.HTTPPutResponseHopLimit).NotTo(BeNil())
+			Expect(obj.HTTPPutResponseHopLimit).To(gstruct.PointTo(Equal(int64(2))))
+		})
+		It("should respect user changes", func() {
+			obj := &InstanceMetadata{
+				EnableInstanceMetadataV2: true,
+				HTTPPutResponseHopLimit:  pointer.Int64(10),
+			}
+
+			SetDefaults_InstanceMetadata(obj)
+
+			Expect(obj.HTTPPutResponseHopLimit).NotTo(BeNil())
+			Expect(obj.HTTPPutResponseHopLimit).To(gstruct.PointTo(Equal(int64(10))))
 		})
 	})
 })

@@ -15,6 +15,8 @@
 package validation_test
 
 import (
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+
 	"github.com/gardener/gardener/pkg/apis/core"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -303,6 +305,48 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 				Expect(errorList).To(BeEmpty())
+			})
+		})
+
+		Context("instanceMetadata", func() {
+			It("should disallow specifying hop limit without enabling IMDSv2", func() {
+				worker.InstanceMetadata = &apisaws.InstanceMetadata{
+					HTTPPutResponseHopLimit: pointer.Int64(10),
+				}
+
+				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+				Expect(errList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.instanceMetadata.HTTPPutResponseHopLimit"),
+					"Detail": Equal("enableInstanceMetadataV2 must be set to specify this field"),
+				}))))
+			})
+
+			It("should disallow not specifying hop limit when IMDSv2 is enabled", func() {
+				worker.InstanceMetadata = &apisaws.InstanceMetadata{
+					EnableInstanceMetadataV2: true,
+				}
+
+				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+				Expect(errList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeRequired),
+					"Field":  Equal("config.instanceMetadata.HTTPPutResponseHopLimit"),
+					"Detail": Equal("this field must be specified if enableInstanceMetadataV2 is enabled"),
+				}))))
+			})
+
+			It("hop limit should only contain valid values", func() {
+				worker.InstanceMetadata = &apisaws.InstanceMetadata{
+					EnableInstanceMetadataV2: true,
+					HTTPPutResponseHopLimit:  pointer.Int64(100),
+				}
+
+				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+				Expect(errList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.instanceMetadata.HTTPPutResponseHopLimit"),
+					"Detail": Equal("only values between 2 and 64 are allowed"),
+				}))))
 			})
 		})
 	})
