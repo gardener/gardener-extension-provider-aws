@@ -228,6 +228,10 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 		return "", fmt.Errorf("no instance types returned for architecture %s and instance types list %v", *imageArchitecture, tTypeSet.UnsortedList())
 	}
 
+	if result.InstanceTypes[0].InstanceType == nil {
+		return "", fmt.Errorf("instanceType is empty")
+	}
+
 	return *result.InstanceTypes[0].InstanceType, nil
 }
 
