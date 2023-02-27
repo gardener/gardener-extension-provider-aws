@@ -126,6 +126,7 @@ type InstanceMetadata struct {
 	EnableInstanceMetadataV2 bool
 	// DisableInstanceMetadataV1 will disable access to IMDSv1.
 	DisableInstanceMetadataV1 bool
-	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests. Valid values are between 1 and 64.
+	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
+	// Valid values are between 1 and 64. Defaults to 2 if not specified by user.
 	HTTPPutResponseHopLimit *int64
 }
