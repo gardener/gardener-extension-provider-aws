@@ -14,7 +14,6 @@ spec:
     containerPolicies:
     - containerName: aws-cloud-controller-manager
       minAllowed:
-        cpu: {{ .Values.resources.requests.cpu }}
         memory: {{ .Values.resources.requests.memory }}
       maxAllowed:
         cpu: {{ .Values.vpa.resourcePolicy.maxAllowed.cpu }}
