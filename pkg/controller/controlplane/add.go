@@ -41,6 +41,8 @@ type AddOptions struct {
 	IgnoreOperationAnnotation bool
 	// ShootWebhookConfig specifies the desired Shoot MutatingWebhooksConfiguration.
 	ShootWebhookConfig *atomic.Value
+	// WebhookServerNamespace is the namespace in which the webhook server runs.
+	WebhookServerNamespace string
 }
 
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
@@ -52,7 +54,7 @@ func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
 			nil, exposureShootAccessSecretsFunc,
 			configChart, controlPlaneChart, controlPlaneShootChart, controlPlaneShootCRDsChart, storageClassChart, cpExposureChart,
 			NewValuesProvider(), extensionscontroller.ChartRendererFactoryFunc(util.NewChartRendererForShoot),
-			imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhookConfig, mgr.GetWebhookServer().Port),
+			imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhookConfig, opts.WebhookServerNamespace, mgr.GetWebhookServer().Port),
 		ControllerOptions: opts.Controller,
 		Predicates:        controlplane.DefaultPredicates(opts.IgnoreOperationAnnotation),
 		Type:              aws.Type,
