@@ -64,7 +64,7 @@ const (
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
 	bastionImageVersion = "20.04.20210223"
-	bastionAMI          = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-20210223"
+	bastionAMI          = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230216"
 )
 
 var (
