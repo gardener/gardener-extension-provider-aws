@@ -20,9 +20,6 @@ import (
 	"fmt"
 	"reflect"
 
-	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-
-	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -32,6 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 // NewShootValidator returns a new instance of a shoot validator.

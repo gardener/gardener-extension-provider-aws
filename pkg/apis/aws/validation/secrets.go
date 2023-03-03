@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 const (

@@ -17,18 +17,6 @@ package cmd
 import (
 	"time"
 
-	backupbucketcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
-	backupentrycontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
-	bastioncontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
-	controlplanecontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
-	dnsrecordcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
-	healthcheckcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
-	infrastructurecontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
-	workercontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
-	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
-	controlplaneexposurewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
-	shootwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shoot"
-
 	extensionsbackupbucketcontroller "github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
 	extensionsbackupentrycontroller "github.com/gardener/gardener/extensions/pkg/controller/backupentry"
 	extensionsbastioncontroller "github.com/gardener/gardener/extensions/pkg/controller/bastion"
@@ -45,6 +33,18 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+
+	backupbucketcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupbucket"
+	backupentrycontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/backupentry"
+	bastioncontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
+	controlplanecontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
+	dnsrecordcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
+	healthcheckcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
+	infrastructurecontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
+	workercontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
+	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
+	controlplaneexposurewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
+	shootwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shoot"
 )
 
 const (

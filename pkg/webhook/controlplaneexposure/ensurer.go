@@ -17,8 +17,6 @@ package controlplaneexposure
 import (
 	"context"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
-
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
@@ -29,6 +27,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
 )
 
 // NewEnsurer creates a new controlplaneexposure ensurer.

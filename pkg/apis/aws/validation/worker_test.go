@@ -15,19 +15,18 @@
 package validation_test
 
 import (
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-
 	"github.com/gardener/gardener/pkg/apis/core"
+	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 var _ = Describe("ValidateWorkerConfig", func() {
@@ -262,7 +261,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			It("should forbid specifying an invalid IAM name", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
-					Name: pointer.StringPtr(""),
+					Name: pointer.String(""),
 				}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
@@ -275,7 +274,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			It("should forbid specifying an invalid IAM arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
-					ARN: pointer.StringPtr(""),
+					ARN: pointer.String(""),
 				}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)

@@ -18,9 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/extensions/pkg/controller/bastion"
@@ -32,6 +29,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 const (
@@ -119,24 +119,24 @@ func ipPermissionsEqual(a *ec2.IpPermission, b *ec2.IpPermission) bool {
 	return bGroups.IsSuperset(aGroups)
 }
 
-func getIpRangeCidrs(ipRanges []*ec2.IpRange) sets.String {
-	result := sets.NewString()
+func getIpRangeCidrs(ipRanges []*ec2.IpRange) sets.Set[string] {
+	result := sets.New[string]()
 	for _, ipRange := range ipRanges {
 		result.Insert(*ipRange.CidrIp)
 	}
 	return result
 }
 
-func getIpv6RangeCidrs(ipRanges []*ec2.Ipv6Range) sets.String {
-	result := sets.NewString()
+func getIpv6RangeCidrs(ipRanges []*ec2.Ipv6Range) sets.Set[string] {
+	result := sets.New[string]()
 	for _, ipRange := range ipRanges {
 		result.Insert(*ipRange.CidrIpv6)
 	}
 	return result
 }
 
-func getSecurityGroupIDs(userGroupPairs []*ec2.UserIdGroupPair) sets.String {
-	result := sets.NewString()
+func getSecurityGroupIDs(userGroupPairs []*ec2.UserIdGroupPair) sets.Set[string] {
+	result := sets.New[string]()
 	for _, pair := range userGroupPairs {
 		result.Insert(*pair.GroupId)
 	}

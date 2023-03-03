@@ -18,13 +18,13 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
 func (w *workerDelegate) decodeWorkerProviderStatus() (*api.WorkerStatus, error) {

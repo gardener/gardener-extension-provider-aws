@@ -17,11 +17,11 @@ package integration
 import (
 	"context"
 
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-	"github.com/go-logr/logr"
-
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
+
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 // CreateSecurityGroup creates a new security group.

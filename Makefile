@@ -43,8 +43,6 @@ SECRET_ACCESS_KEY_FILE := .kube-secrets/aws/secret_access_key.secret
 #########################################
 
 TOOLS_DIR := hack/tools
-# temporarily until Gardener version has been revendored >= v1.54
-GOLANGCI_LINT_VERSION := v1.49.0
 include vendor/github.com/gardener/gardener/hack/tools.mk
 
 #########################################
@@ -128,9 +126,10 @@ check-docforge: $(DOCFORGE)
 .PHONY: generate
 generate: $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(HELM) $(MOCKGEN)
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/generate.sh ./charts/... ./cmd/... ./example/... ./pkg/...
-
+	$(MAKE) format
+	
 .PHONY: format
-format: $(GOIMPORTS)
+format: $(GOIMPORTS) $(GOIMPORTSREVISER)
 	@$(REPO_ROOT)/vendor/github.com/gardener/gardener/hack/format.sh ./cmd ./pkg ./test
 
 .PHONY: test

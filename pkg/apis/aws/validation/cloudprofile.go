@@ -17,11 +17,11 @@ package validation
 import (
 	"fmt"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/strings/slices"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 // ValidateCloudProfileConfig validates a CloudProfileConfig object.

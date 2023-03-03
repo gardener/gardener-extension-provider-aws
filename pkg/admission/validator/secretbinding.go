@@ -18,14 +18,14 @@ import (
 	"context"
 	"fmt"
 
-	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 type secretBinding struct {

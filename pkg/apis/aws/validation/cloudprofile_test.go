@@ -15,14 +15,14 @@
 package validation_test
 
 import (
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 var _ = Describe("CloudProfileConfig validation", func() {

@@ -167,7 +167,7 @@ func (c *Client) GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context,
 
 // GetNATGatewayAddressAllocations get the allocation IDs for the NAT Gateway addresses for each existing NAT Gateway in the vpc
 // returns a slice of allocation IDs or an error
-func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.String, error) {
+func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.Set[string], error) {
 	describeAddressesInput := &ec2.DescribeNatGatewaysInput{
 		Filter: []*ec2.Filter{{
 			Name: aws.String(fmt.Sprintf("tag:kubernetes.io/cluster/%s", shootNamespace)),
@@ -182,7 +182,7 @@ func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNames
 		return nil, err
 	}
 
-	result := sets.NewString()
+	result := sets.New[string]()
 	if len(describeNatGatewaysOutput.NatGateways) == 0 {
 		return result, nil
 	}

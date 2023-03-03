@@ -19,8 +19,6 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
 	"github.com/Masterminds/semver"
 	"github.com/coreos/go-systemd/v22/unit"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -35,6 +33,8 @@ import (
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 // NewEnsurer creates a new controlplane ensurer.

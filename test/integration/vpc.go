@@ -18,13 +18,13 @@ import (
 	"context"
 	"time"
 
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-	"github.com/go-logr/logr"
-
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 // CreateVPC creates a new VPC and waits for it to become available. It returns

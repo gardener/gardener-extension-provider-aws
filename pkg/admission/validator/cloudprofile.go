@@ -18,14 +18,14 @@ import (
 	"context"
 	"fmt"
 
-	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
-
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 // NewCloudProfileValidator returns a new instance of a cloud profile validator.

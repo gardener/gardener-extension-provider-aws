@@ -23,11 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gardener/gardener-extension-provider-aws/charts"
-	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
-
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
@@ -50,6 +45,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+
+	"github.com/gardener/gardener-extension-provider-aws/charts"
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
 )
 
 var ctx = context.TODO()

@@ -18,15 +18,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
-
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
 )
 
 func TestController(t *testing.T) {
@@ -48,7 +47,7 @@ var (
 var _ = Describe("Ensurer", func() {
 	var (
 		etcdStorage = &config.ETCDStorage{
-			ClassName: pointer.StringPtr("gardener.cloud-fast"),
+			ClassName: pointer.String("gardener.cloud-fast"),
 			Capacity:  utils.QuantityPtr(resource.MustParse("80Gi")),
 		}
 

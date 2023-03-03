@@ -18,10 +18,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	mockawsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client/mock"
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
-
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/gardener/gardener/extensions/pkg/controller/dnsrecord"
@@ -40,6 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	mockawsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client/mock"
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
 )
 
 const (

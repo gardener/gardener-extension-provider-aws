@@ -23,18 +23,9 @@ import (
 	"path/filepath"
 	"time"
 
-	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
-	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-	bastionctrl "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
-	"github.com/gardener/gardener-extension-provider-aws/test/integration"
-	"github.com/go-logr/logr"
-
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/extensions/pkg/controller"
-	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -42,6 +33,7 @@ import (
 	"github.com/gardener/gardener/pkg/logger"
 	gardenerutils "github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/test/framework"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -55,6 +47,13 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	bastionctrl "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
+	"github.com/gardener/gardener-extension-provider-aws/test/integration"
 )
 
 const (
@@ -136,7 +135,7 @@ var _ = BeforeSuite(func() {
 
 	By("starting test environment")
 	testEnv = &envtest.Environment{
-		UseExistingCluster: pointer.BoolPtr(true),
+		UseExistingCluster: pointer.Bool(true),
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
 				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_bastions.yaml"),
@@ -421,8 +420,8 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		CloudProfile: &v1beta1.CloudProfile{
-			Spec: v1beta1.CloudProfileSpec{
+		CloudProfile: &gardencorev1beta1.CloudProfile{
+			Spec: gardencorev1beta1.CloudProfileSpec{
 				ProviderConfig: &runtime.RawExtension{
 					Object: providerConfig,
 					Raw:    providerConfigJSON,

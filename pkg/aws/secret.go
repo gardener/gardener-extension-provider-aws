@@ -18,12 +18,12 @@ import (
 	"context"
 	"fmt"
 
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 // GetCredentialsFromSecretRef reads the secret given by the the secret reference and returns the read Credentials
@@ -44,7 +44,7 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*Credentia
 
 	var altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey *string
 	if allowDNSKeys {
-		altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey = pointer.StringPtr(DNSAccessKeyID), pointer.StringPtr(DNSSecretAccessKey), pointer.StringPtr(DNSRegion)
+		altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey = pointer.String(DNSAccessKeyID), pointer.String(DNSSecretAccessKey), pointer.String(DNSRegion)
 	}
 
 	accessKeyID, err := getSecretDataValue(secret, AccessKeyID, altAccessKeyIDKey, true)

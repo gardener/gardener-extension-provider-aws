@@ -18,10 +18,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
-
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -37,6 +33,10 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
 var _ = Describe("SecretBinding validator", func() {

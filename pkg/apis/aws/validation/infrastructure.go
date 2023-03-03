@@ -19,14 +19,14 @@ import (
 	"regexp"
 	"strings"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	cidrvalidation "github.com/gardener/gardener/pkg/utils/validation/cidr"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 // valid values for networks.vpc.gatewayEndpoints
@@ -51,12 +51,12 @@ func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.In
 func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureConfig, zones []gardencorev1beta1.AvailabilityZone, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	awsZones := sets.NewString()
+	awsZones := sets.New[string]()
 	for _, awsZone := range zones {
 		awsZones.Insert(awsZone.Name)
 	}
 
-	usedZones := sets.NewString()
+	usedZones := sets.New[string]()
 	for i, zone := range infra.Networks.Zones {
 		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && oldInfra.Networks.Zones[i] == zone {
 			continue

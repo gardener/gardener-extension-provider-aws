@@ -21,13 +21,12 @@ import (
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/golang/mock/gomock"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 var (

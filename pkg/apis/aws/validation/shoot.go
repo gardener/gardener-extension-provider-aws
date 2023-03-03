@@ -17,13 +17,13 @@ package validation
 import (
 	"fmt"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-
 	"github.com/gardener/gardener/pkg/apis/core"
 	validationutils "github.com/gardener/gardener/pkg/utils/validation"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 // ValidateNetworking validates the network settings of a Shoot.
@@ -41,7 +41,7 @@ func ValidateNetworking(networking core.Networking, fldPath *field.Path) field.E
 func ValidateWorker(worker core.Worker, zones []apisaws.Zone, workerConfig *apisaws.WorkerConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	awsZones := sets.NewString()
+	awsZones := sets.New[string]()
 	for _, awsZone := range zones {
 		awsZones.Insert(awsZone.Name)
 	}
@@ -99,7 +99,7 @@ func ValidateWorkersUpdate(oldWorkers, newWorkers []core.Worker, fldPath *field.
 	return allErrs
 }
 
-func validateZones(zones []string, allowedZones sets.String, fldPath *field.Path) field.ErrorList {
+func validateZones(zones []string, allowedZones sets.Set[string], fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	for i, workerZone := range zones {
 		if !allowedZones.Has(workerZone) {
