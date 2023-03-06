@@ -15,11 +15,12 @@
 package cloudprovider
 
 import (
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/extensions/pkg/webhook/cloudprovider"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 var logger = log.Log.WithName("aws-cloudprovider-webhook")
