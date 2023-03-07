@@ -182,7 +182,7 @@ var _ = BeforeSuite(func() {
 	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
 	Expect(err).NotTo(HaveOccurred())
 
-	imageAMI := getImageIAM(ctx, bastionAMI, awsClient)
+	imageAMI := getImageAMI(ctx, bastionAMI, awsClient)
 	amiID := determineBastionImage(ctx, imageAMI, awsClient)
 	extensionscluster, corecluster = newCluster(namespaceName, amiID)
 })
@@ -254,7 +254,7 @@ func determineBastionImage(ctx context.Context, name string, awsClient *awsclien
 	return *output.Images[0].ImageId
 }
 
-func getImageIAM(ctx context.Context, name string, awsClient *awsclient.Client) string {
+func getImageAMI(ctx context.Context, name string, awsClient *awsclient.Client) string {
 	filters := []*ec2.Filter{
 		{
 			Name: awssdk.String("name"),
