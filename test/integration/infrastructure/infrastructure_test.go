@@ -33,8 +33,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
-	"github.com/gardener/gardener-extension-provider-aws/test/integration"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
@@ -65,6 +63,8 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
+	"github.com/gardener/gardener-extension-provider-aws/test/integration"
 )
 
 type flowUsage int

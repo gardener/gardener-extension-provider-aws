@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gardener/gardener/extensions/pkg/util"
+	"github.com/gardener/gardener/pkg/utils/flow"
+
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
-
-	"github.com/gardener/gardener/extensions/pkg/util"
-	"github.com/gardener/gardener/pkg/utils/flow"
 )
 
 // Delete creates and runs the flow to delete the AWS infrastructure.

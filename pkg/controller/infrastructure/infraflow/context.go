@@ -18,12 +18,13 @@ import (
 	"fmt"
 	"strings"
 
-	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
 
 const (

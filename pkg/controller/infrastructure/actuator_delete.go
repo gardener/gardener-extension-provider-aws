@@ -33,7 +33,6 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 )
 

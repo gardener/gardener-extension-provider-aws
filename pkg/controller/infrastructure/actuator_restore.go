@@ -17,12 +17,13 @@ package infrastructure
 import (
 	"context"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
 // Restore takes the infrastructure state and deploys it as terraform state ConfigMap before calling the terraformer

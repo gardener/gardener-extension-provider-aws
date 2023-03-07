@@ -28,8 +28,6 @@ import (
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
-	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	"github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 )
 
 const (

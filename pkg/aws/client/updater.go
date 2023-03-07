@@ -22,9 +22,10 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/go-logr/logr"
 	"k8s.io/utils/pointer"
+
+	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 // Updater provides methods to update selected AWS client objects.

@@ -18,12 +18,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gardener/gardener/extensions/pkg/terraformer"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
-	"github.com/gardener/gardener/extensions/pkg/terraformer"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones []awsapi.Zone) (*infraflow.PersistentState, error) {

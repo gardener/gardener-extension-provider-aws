@@ -18,10 +18,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
 
 const (

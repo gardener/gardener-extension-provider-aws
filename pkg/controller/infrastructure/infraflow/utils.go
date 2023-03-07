@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"time"
 
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
 	"go.uber.org/atomic"
+
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 type zoneDependencies map[string][]flow.TaskIDer

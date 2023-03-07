@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"reflect"
 
-	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
-	"k8s.io/utils/pointer"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/utils/pointer"
+
+	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 var _ = Describe("SecurityGroup", func() {
