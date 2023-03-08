@@ -187,7 +187,7 @@ func (c *FlowContext) zoneSuffixHelpers(zoneName string) *ZoneSuffixHelper {
 		return &ZoneSuffixHelper{suffix: *suffix}
 	}
 	zones := c.state.GetChild(ChildIdZones)
-	existing := sets.String{}
+	existing := sets.New[string]()
 	for _, key := range zones.GetChildrenKeys() {
 		otherChild := zones.GetChild(key)
 		if suffix := otherChild.Get(IdentifierZoneSuffix); suffix != nil {

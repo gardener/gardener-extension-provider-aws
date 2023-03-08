@@ -30,11 +30,6 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
 )
 
-const (
-	// AnnotationKeyUseFlow is the annotation key used to enable reconciliation with flow instead of terraformer.
-	AnnotationKeyUseFlow = "aws.provider.extensions.gardener.cloud/use-flow"
-)
-
 type actuator struct {
 	common.RESTConfigContext
 	disableProjectedTokenMount bool

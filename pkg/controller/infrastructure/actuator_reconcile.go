@@ -71,10 +71,17 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructur
 	return updateProviderStatusTf(ctx, a.Client(), infrastructure, infrastructureStatus, state)
 }
 
+// shouldUseFlow checks if flow reconciliation should be used, by any of these conditions:
+// - annotation `aws.provider.extensions.gardener.cloud/use-flow=true` on infrastructure resource
+// - annotation `aws.provider.extensions.gardener.cloud/use-flow=true` on shoot resource
+// - label `aws.provider.extensions.gardener.cloud/use-flow=true` on seed resource (label instead of annotation, as only labels are transported from managedseed to seed object)
+// Note: if the label `aws.provider.extensions.gardener.cloud/use-flow=on-creation` is set for the seed, new shoot clusters will
+// be annotated with `aws.provider.extensions.gardener.cloud/use-flow=true` and use the flow reconciliation
+// (see /pkg/webhook/shoot/mutator.go)
 func (a *actuator) shouldUseFlow(infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) bool {
-	return (infrastructure.Annotations != nil && strings.EqualFold(infrastructure.Annotations[AnnotationKeyUseFlow], "true")) ||
-		(cluster.Shoot != nil && cluster.Shoot.Annotations != nil && strings.EqualFold(cluster.Shoot.Annotations[AnnotationKeyUseFlow], "true")) ||
-		(cluster.Seed != nil && cluster.Seed.Annotations != nil && strings.EqualFold(cluster.Seed.Annotations[AnnotationKeyUseFlow], "true"))
+	return strings.EqualFold(infrastructure.Annotations[awsapi.AnnotationKeyUseFlow], "true") ||
+		(cluster.Shoot != nil && strings.EqualFold(cluster.Shoot.Annotations[awsapi.AnnotationKeyUseFlow], "true")) ||
+		(cluster.Seed != nil && strings.EqualFold(cluster.Seed.Labels[awsapi.SeedLabelKeyUseFlow], "true"))
 }
 
 func (a *actuator) getStateFromInfraStatus(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure) (*infraflow.PersistentState, error) {

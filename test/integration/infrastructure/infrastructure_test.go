@@ -57,6 +57,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -226,7 +227,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete (terraformer)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             pointer.StringPtr(vpcCIDR),
+				CIDR:             pointer.String(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 
@@ -239,7 +240,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete (migration from terraformer)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             pointer.StringPtr(vpcCIDR),
+				CIDR:             pointer.String(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 
@@ -429,7 +430,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should fail creation but succeed deletion (flow)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR: pointer.StringPtr(vpcCIDR),
+				CIDR: pointer.String(vpcCIDR),
 			})
 
 			namespaceName, err := generateNamespaceName()
@@ -655,7 +656,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	infraCopy := infra.DeepCopy()
 	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, "gardener.cloud/operation", "reconcile")
 	if flow == fuMigrateFromTerraformer {
-		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, infrastructure.AnnotationKeyUseFlow, "true")
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, awsapi.AnnotationKeyUseFlow, "true")
 	}
 	Expect(c.Patch(ctx, infra, client.MergeFrom(infraCopy))).To(Succeed())
 
@@ -749,7 +750,7 @@ func newInfrastructure(namespace string, providerConfig *awsv1alpha1.Infrastruct
 		},
 	}
 	if useFlow {
-		infra.Annotations = map[string]string{infrastructure.AnnotationKeyUseFlow: "true"}
+		infra.Annotations = map[string]string{awsapi.AnnotationKeyUseFlow: "true"}
 	}
 	return infra, nil
 }
