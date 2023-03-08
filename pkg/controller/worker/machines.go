@@ -382,17 +382,16 @@ func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructure
 
 func computeInstanceMetadata(workerConfig *awsapi.WorkerConfig) map[string]interface{} {
 	res := make(map[string]interface{})
-	if workerConfig.InstanceMetadata == nil {
+	if workerConfig.InstanceMetadataOptions == nil {
 		return res
 	}
 
-	if workerConfig.InstanceMetadata.EnableInstanceMetadataV2 {
-		// set the value to the maximum hops.
-		res["httpPutResponseHopLimit"] = *workerConfig.InstanceMetadata.HTTPPutResponseHopLimit
+	if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
+		res["httpPutResponseHopLimit"] = *workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit
 	}
 
-	if workerConfig.InstanceMetadata.DisableInstanceMetadataV1 {
-		res["httpTokens"] = "required"
+	if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
+		res["httpTokens"] = *workerConfig.InstanceMetadataOptions.HTTPTokens
 	}
 
 	return res

@@ -292,15 +292,15 @@ worker pool.</p>
 </tr>
 <tr>
 <td>
-<code>instanceMetadata</code></br>
+<code>instanceMetadataOptions</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadata">
-InstanceMetadata
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">
+InstanceMetadataOptions
 </a>
 </em>
 </td>
 <td>
-<p>InstanceMetadata contains configuration for controlling access to the metadata API.</p>
+<p>InstanceMetadataOptions contains configuration for controlling access to the metadata API.</p>
 </td>
 </tr>
 </tbody>
@@ -487,6 +487,15 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.HTTPTokensValue">HTTPTokensValue
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">InstanceMetadataOptions</a>)
+</p>
+<p>
+<p>HTTPTokensValue is a constant for HTTPTokens values.</p>
+</p>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IAM">IAM
 </h3>
 <p>
@@ -673,14 +682,14 @@ VPCStatus
 </tr>
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadata">InstanceMetadata
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">InstanceMetadataOptions
 </h3>
 <p>
 (<em>Appears on:</em>
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
 </p>
 <p>
-<p>InstanceMetadata contains configuration for controlling access to the metadata API.</p>
+<p>InstanceMetadataOptions contains configuration for controlling access to the metadata API.</p>
 </p>
 <table>
 <thead>
@@ -692,24 +701,15 @@ VPCStatus
 <tbody>
 <tr>
 <td>
-<code>enableInstanceMetadataV2</code></br>
+<code>httpTokens</code></br>
 <em>
-bool
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.HTTPTokensValue">
+HTTPTokensValue
+</a>
 </em>
 </td>
 <td>
-<p>EnableInstanceMetadataV2 when set will allow access to IMDSv2 API from containerized applications.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>disableInstanceMetadataV1</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>DisableInstanceMetadataV1 will disable access to IMDSv1.</p>
+<p>HTTPTokens enforces the use of metadata v2 API.</p>
 </td>
 </tr>
 <tr>

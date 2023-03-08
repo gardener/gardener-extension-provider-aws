@@ -55,10 +55,3 @@ func SetDefaults_MachineImage(obj *MachineImage) {
 		obj.Architecture = pointer.String(v1beta1constants.ArchitectureAMD64)
 	}
 }
-
-// SetDefaults_InstanceMetadata sets the default response hop limit for the IMDS.
-func SetDefaults_InstanceMetadata(obj *InstanceMetadata) {
-	if obj.EnableInstanceMetadataV2 && obj.HTTPPutResponseHopLimit == nil {
-		obj.HTTPPutResponseHopLimit = pointer.Int64(2)
-	}
-}

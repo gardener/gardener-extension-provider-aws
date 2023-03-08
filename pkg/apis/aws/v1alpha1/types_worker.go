@@ -39,8 +39,8 @@ type WorkerConfig struct {
 	// worker pool.
 	// +optional
 	IAMInstanceProfile *IAMInstanceProfile `json:"iamInstanceProfile,omitempty"`
-	// InstanceMetadata contains configuration for controlling access to the metadata API.
-	InstanceMetadata *InstanceMetadata `json:"instanceMetadata,omitempty"`
+	// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
+	InstanceMetadataOptions *InstanceMetadataOptions `json:"instanceMetadataOptions,omitempty"`
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -132,12 +132,22 @@ const (
 	VolumeTypeGP3 VolumeType = "gp3"
 )
 
-// InstanceMetadata contains configuration for controlling access to the metadata API.
-type InstanceMetadata struct {
-	// EnableInstanceMetadataV2 when set will allow access to IMDSv2 API from containerized applications.
-	EnableInstanceMetadataV2 bool `json:"enableInstanceMetadataV2,omitempty"`
-	// DisableInstanceMetadataV1 will disable access to IMDSv1.
-	DisableInstanceMetadataV1 bool `json:"disableInstanceMetadataV1,omitempty"`
+// HTTPTokensValue is a constant for HTTPTokens values.
+type HTTPTokensValue string
+
+const (
+	// HTTPTokensRequired is a constant for requiring the use of tokens to access IMDS. Effectively disables access via
+	// the IMDSv1 endpoints.
+	HTTPTokensRequired HTTPTokensValue = "required"
+	// HTTPTokensOptional that makes the use of tokens for IMDS optional. Effectively allows access via both IMDSv1 and
+	// IMDSv2 endpoints.
+	HTTPTokensOptional HTTPTokensValue = "optional"
+)
+
+// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
+type InstanceMetadataOptions struct {
+	// HTTPTokens enforces the use of metadata v2 API.
+	HTTPTokens *HTTPTokensValue `json:"httpTokens,omitempty"`
 	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
 	// Valid values are between 1 and 64. Defaults to 2 if not specified by user.
 	HTTPPutResponseHopLimit *int64 `json:"httpPutResponseHopLimit,omitempty"`

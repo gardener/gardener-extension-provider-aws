@@ -309,43 +309,41 @@ var _ = Describe("ValidateWorkerConfig", func() {
 		})
 
 		Context("instanceMetadata", func() {
-			It("should disallow specifying hop limit without enabling IMDSv2", func() {
-				worker.InstanceMetadata = &apisaws.InstanceMetadata{
-					HTTPPutResponseHopLimit: pointer.Int64(10),
+			It("should allow disabling IMDS from pods", func() {
+				v := apisaws.HTTPTokensRequired
+				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
+					HTTPPutResponseHopLimit: pointer.Int64(1),
+					HTTPTokens:              &v,
+				}
+
+				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+				Expect(errList).To(BeEmpty())
+			})
+
+			It("httpTokens should only contain valid values", func() {
+				v := apisaws.HTTPTokensValue("foobar")
+				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
+					HTTPTokens: &v,
 				}
 
 				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 				Expect(errList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("config.instanceMetadata.HTTPPutResponseHopLimit"),
-					"Detail": Equal("enableInstanceMetadataV2 must be set to specify this field"),
+					"Field":  Equal("config.instanceMetadataOptions.httpTokens"),
+					"Detail": Equal("only the following values are allowed: [required optional]"),
 				}))))
 			})
 
-			It("should disallow not specifying hop limit when IMDSv2 is enabled", func() {
-				worker.InstanceMetadata = &apisaws.InstanceMetadata{
-					EnableInstanceMetadataV2: true,
-				}
-
-				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
-				Expect(errList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(field.ErrorTypeRequired),
-					"Field":  Equal("config.instanceMetadata.HTTPPutResponseHopLimit"),
-					"Detail": Equal("this field must be specified if enableInstanceMetadataV2 is enabled"),
-				}))))
-			})
-
-			It("hop limit should only contain valid values", func() {
-				worker.InstanceMetadata = &apisaws.InstanceMetadata{
-					EnableInstanceMetadataV2: true,
-					HTTPPutResponseHopLimit:  pointer.Int64(100),
+			It("httpPutResponseHopLimit should only contain valid values", func() {
+				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
+					HTTPPutResponseHopLimit: pointer.Int64(100),
 				}
 
 				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 				Expect(errList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
-					"Field":  Equal("config.instanceMetadata.HTTPPutResponseHopLimit"),
-					"Detail": Equal("only values between 2 and 64 are allowed"),
+					"Field":  Equal("config.instanceMetadataOptions.httpPutResponseHopLimit"),
+					"Detail": Equal("only values between 1 and 64 are allowed"),
 				}))))
 			})
 		})

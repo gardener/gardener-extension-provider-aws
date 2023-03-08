@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+	"golang.org/x/exp/slices"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -90,7 +92,7 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		}
 	}
 
-	allErrs = append(allErrs, validateInstanceMetadata(workerConfig.InstanceMetadata, fldPath.Child("instanceMetadata"))...)
+	allErrs = append(allErrs, validateInstanceMetadata(workerConfig.InstanceMetadataOptions, fldPath.Child("instanceMetadataOptions"))...)
 
 	return allErrs
 }
@@ -122,27 +124,24 @@ func validateVolumeConfig(volume *apisaws.Volume, volumeType string, fldPath *fi
 	return allErrs
 }
 
-func validateInstanceMetadata(md *apisaws.InstanceMetadata, fldPath *field.Path) field.ErrorList {
+func validateInstanceMetadata(md *apisaws.InstanceMetadataOptions, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 	if md == nil {
-		return allErrs
-	}
-
-	if !md.EnableInstanceMetadataV2 && md.HTTPPutResponseHopLimit != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("HTTPPutResponseHopLimit"), *md.HTTPPutResponseHopLimit, "enableInstanceMetadataV2 must be set to specify this field"))
-		return allErrs
-	}
-
-	if md.EnableInstanceMetadataV2 && md.HTTPPutResponseHopLimit == nil {
-		allErrs = append(allErrs, field.Required(fldPath.Child("HTTPPutResponseHopLimit"), "this field must be specified if enableInstanceMetadataV2 is enabled"))
 		return allErrs
 	}
 
 	if md.HTTPPutResponseHopLimit != nil {
 		// the technical limitations of the AWS API are between 1 and 64, but for the operation "EnableInstanceMetadataV2"
 		// to be meaningful we need to only allow hop limit >=2 as this is the prerequisite to enable IMDSv2.
-		if *md.HTTPPutResponseHopLimit < 2 || *md.HTTPPutResponseHopLimit > 64 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("HTTPPutResponseHopLimit"), *md.HTTPPutResponseHopLimit, "only values between 2 and 64 are allowed"))
+		if *md.HTTPPutResponseHopLimit < 1 || *md.HTTPPutResponseHopLimit > 64 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("httpPutResponseHopLimit"), *md.HTTPPutResponseHopLimit, "only values between 1 and 64 are allowed"))
+		}
+	}
+
+	if md.HTTPTokens != nil {
+		validValues := []apisaws.HTTPTokensValue{apisaws.HTTPTokensRequired, apisaws.HTTPTokensOptional}
+		if !slices.Contains(validValues, *md.HTTPTokens) {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("httpTokens"), *md.HTTPTokens, fmt.Sprintf("only the following values are allowed: %v", validValues)))
 		}
 	}
 	return allErrs
