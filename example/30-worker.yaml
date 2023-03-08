@@ -121,3 +121,6 @@ spec:
   #   iamInstanceProfile: # (specify either ARN or name)
   #     name: my-profile
   #     arn: my-instance-profile-arn
+  #   instanceMetadataOptions:
+  #     httpTokens: required
+  #     httpPutResponseHopLimit: 2

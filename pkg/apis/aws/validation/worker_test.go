@@ -15,8 +15,6 @@
 package validation_test
 
 import (
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-
 	"github.com/gardener/gardener/pkg/apis/core"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
