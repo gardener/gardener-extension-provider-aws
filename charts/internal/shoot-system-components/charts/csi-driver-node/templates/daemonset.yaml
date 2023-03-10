@@ -19,6 +19,8 @@ spec:
         app: csi
         role: disk-driver
         node.gardener.cloud/critical-component: "true"
+      annotations:
+        node.gardener.cloud/wait-for-csi-node-aws: {{ include "csi-driver-node.provisioner" . }}
     spec:
       hostNetwork: true
       priorityClassName: system-node-critical
