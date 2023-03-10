@@ -17,6 +17,7 @@ package controlplane
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
@@ -83,6 +84,21 @@ var _ = Describe("ValuesProvider", func() {
 							"CustomResourceValidation": true,
 						},
 						UseCustomRouteController: pointer.Bool(true),
+					},
+				}),
+			}
+		}
+		setAWSLoadBalancerControllerEnabled = func(cp *extensionsv1alpha1.ControlPlane, ingressClass *apisawsv1alpha1.IngressClass) {
+			cp.Spec.ProviderConfig = &runtime.RawExtension{
+				Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
+					CloudControllerManager: &apisawsv1alpha1.CloudControllerManagerConfig{
+						FeatureGates: map[string]bool{
+							"CustomResourceValidation": true,
+						},
+					},
+					AWSLoadBalancerController: &apisawsv1alpha1.AWSLoadBalancerControllerConfig{
+						Enabled:      true,
+						IngressClass: ingressClass,
 					},
 				}),
 			}
@@ -215,6 +231,7 @@ var _ = Describe("ValuesProvider", func() {
 	Describe("#GetControlPlaneChartValues", func() {
 		var ccmChartValues map[string]interface{}
 		var crcChartValues map[string]interface{}
+		var albChartValues map[string]interface{}
 
 		BeforeEach(func() {
 			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -256,6 +273,21 @@ var _ = Describe("ValuesProvider", func() {
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 				},
 			}
+			albChartValues = map[string]interface{}{
+				"region":                "europe",
+				"vpcId":                 "vpc-1234",
+				"enabled":               true,
+				"replicaCount":          0,
+				"clusterName":           "test",
+				"webhookCertSecretName": awsLoadBalancerControllerWebhook,
+				"webhookTLS": map[string]interface{}{
+					"caCert": "",
+				},
+				"webhookURL": fmt.Sprintf("https://%s.%s:443", awsLoadBalancerControllerWebhook, namespace),
+				"podAnnotations": map[string]interface{}{
+					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+				},
+			}
 			c = mockclient.NewMockClient(ctrl)
 
 			err := vp.(inject.Client).InjectClient(c)
@@ -265,7 +297,7 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca-provider-aws-controlplane", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "csi-snapshot-validation-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
-
+			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: awsLoadBalancerControllerWebhook, Namespace: namespace}})).To(Succeed())
 			c.EXPECT().Delete(context.TODO(), &networkingv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "allow-kube-apiserver-to-csi-snapshot-validation", Namespace: cp.Namespace}})
 		})
 
@@ -279,7 +311,8 @@ var _ = Describe("ValuesProvider", func() {
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
 				}),
-				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
 					"region":   region,
@@ -313,7 +346,88 @@ var _ = Describe("ValuesProvider", func() {
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
 				}),
-				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSLoadBalancerControllerName: albChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+					},
+				}),
+			}))
+		})
+
+		It("should return correct control plane chart values (k8s >= 1.20) and ALB enabled", func() {
+			setAWSLoadBalancerControllerEnabled(cp, nil)
+			albChartValues["replicaCount"] = 1 // chart is always deployed, but with 0 replicas when disabled
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
+				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
+					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
+				}),
+				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSLoadBalancerControllerName: albChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+					},
+				}),
+			}))
+		})
+
+		It("should return correct control plane chart values (k8s >= 1.20) and ALB enabled with ingress class", func() {
+			ingressClass := &apisawsv1alpha1.IngressClass{
+				Disabled:               false,
+				IsDefault:              true,
+				IngressClassParamsSpec: &runtime.RawExtension{Raw: []byte(`{"group": "g1", "loadBalancerAttributes": [{"key": "foo", "value": "bar"}]}`)},
+			}
+			setAWSLoadBalancerControllerEnabled(cp, ingressClass)
+			albChartValues["replicaCount"] = 1 // chart is always deployed, but with 0 replicas when disabled
+			albChartValues["createIngressClassResource"] = true
+			albChartValues["ingressClassConfig"] = map[string]interface{}{"default": true}
+			albChartValues["ingressClassParams"] = map[string]interface{}{
+				"create": true,
+				"spec": map[string]interface{}{
+					"group":                  "g1",
+					"loadBalancerAttributes": []interface{}{map[string]interface{}{"key": "foo", "value": "bar"}},
+				},
+			}
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
+				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
+					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
+				}),
+				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
 					"region":   region,
@@ -393,6 +507,7 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca-provider-aws-controlplane", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "csi-snapshot-validation-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
+			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: awsLoadBalancerControllerWebhook, Namespace: namespace}})).To(Succeed())
 		})
 
 		Context("shoot control plane chart values (k8s >= 1.20)", func() {
@@ -400,8 +515,9 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName:   enabledTrue,
-					aws.AWSCustomRouteControllerName: enabledFalse,
+					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSCustomRouteControllerName:  enabledFalse,
+					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.20.1",
 						"vpaEnabled":        true,
@@ -424,8 +540,59 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName:   enabledTrue,
-					aws.AWSCustomRouteControllerName: enabledTrue,
+					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSCustomRouteControllerName:  enabledTrue,
+					aws.AWSLoadBalancerControllerName: enabledFalse,
+					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+						"kubernetesVersion": "1.20.1",
+						"vpaEnabled":        true,
+						"driver": map[string]interface{}{
+							"volumeAttachLimit": "42",
+						},
+						"webhookConfig": map[string]interface{}{
+							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
+							"caBundle": "",
+						},
+						"pspDisabled": false,
+					}),
+				}))
+			})
+		})
+
+		Context("shoot control plane chart values (k8s >= 1.20) and ALB enabled", func() {
+			It("should return correct shoot control plane chart when ca is secret found", func() {
+				ingressClass := &apisawsv1alpha1.IngressClass{
+					Disabled:               false,
+					IsDefault:              true,
+					IngressClassParamsSpec: &runtime.RawExtension{Raw: []byte(`{"group": "g1", "loadBalancerAttributes": [{"key": "foo", "value": "bar"}]}`)},
+				}
+				setAWSLoadBalancerControllerEnabled(cp, ingressClass)
+				albChartValues := map[string]interface{}{
+					"region":                "europe",
+					"enabled":               true,
+					"clusterName":           "test",
+					"webhookCertSecretName": awsLoadBalancerControllerWebhook,
+					"webhookTLS": map[string]interface{}{
+						"caCert": "",
+					},
+					"webhookURL":                 fmt.Sprintf("https://%s.%s:443", awsLoadBalancerControllerWebhook, namespace),
+					"replicaCount":               1,
+					"createIngressClassResource": true,
+					"ingressClassConfig":         map[string]interface{}{"default": true},
+					"ingressClassParams": map[string]interface{}{
+						"create": true,
+						"spec": map[string]interface{}{
+							"group":                  "g1",
+							"loadBalancerAttributes": []interface{}{map[string]interface{}{"key": "foo", "value": "bar"}},
+						},
+					},
+				}
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(values).To(Equal(map[string]interface{}{
+					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSCustomRouteControllerName:  enabledFalse,
+					aws.AWSLoadBalancerControllerName: albChartValues,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.20.1",
 						"vpaEnabled":        true,
@@ -454,8 +621,9 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName:   enabledTrue,
-					aws.AWSCustomRouteControllerName: enabledFalse,
+					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSCustomRouteControllerName:  enabledFalse,
+					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.20.1",
 						"vpaEnabled":        true,
@@ -482,8 +650,9 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName:   enabledTrue,
-					aws.AWSCustomRouteControllerName: enabledFalse,
+					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSCustomRouteControllerName:  enabledFalse,
+					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.20.1",
 						"vpaEnabled":        true,
@@ -543,7 +712,20 @@ var _ = Describe("ValuesProvider", func() {
 		It("should return correct control plane shoot CRDs chart values (k8s >= 1.20)", func() {
 			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, clusterK8sAtLeast120)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{"volumesnapshots": map[string]interface{}{"enabled": true}}))
+			Expect(values).To(Equal(map[string]interface{}{
+				"volumesnapshots":                 map[string]interface{}{"enabled": true},
+				aws.AWSLoadBalancerControllerName: map[string]interface{}{"enabled": false},
+			}))
+		})
+
+		It("should return correct control plane shoot CRDs if ALB is enabled", func() {
+			setAWSLoadBalancerControllerEnabled(cp, nil)
+			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, clusterK8sAtLeast120)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"volumesnapshots":                 map[string]interface{}{"enabled": true},
+				aws.AWSLoadBalancerControllerName: map[string]interface{}{"enabled": true},
+			}))
 		})
 	})
 

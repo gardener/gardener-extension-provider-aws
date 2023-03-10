@@ -34,6 +34,8 @@ const (
 	CloudControllerManagerImageName = "cloud-controller-manager"
 	// AWSCustomRouteControllerImageName is the name of the aws-custom-route-controller image.
 	AWSCustomRouteControllerImageName = "aws-custom-route-controller"
+	// AWSLoacBalancerControllerImageName is the name of the ALB controller image.
+	AWSLoacBalancerControllerImageName = "aws-load-balancer-controller"
 
 	// CSIDriverImageName is the name of the csi-driver image.
 	CSIDriverImageName = "csi-driver"
@@ -111,6 +113,8 @@ const (
 	CloudControllerManagerName = "cloud-controller-manager"
 	// AWSCustomRouteControllerName is the constant for the name of the custom routes controller deployed by the control plane controller.
 	AWSCustomRouteControllerName = "aws-custom-route-controller"
+	// AWSLoadBalancerControllerName is the constant for the name of the ALB controller deployed by the control plane controller.
+	AWSLoadBalancerControllerName = "aws-load-balancer-controller"
 	// CSIControllerName is a constant for the name of the CSI controller deployment in the seed.
 	CSIControllerName = "csi-driver-controller"
 	// CSINodeName is a constant for the name of the CSI node deployment in the shoot.

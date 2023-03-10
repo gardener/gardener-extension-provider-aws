@@ -4,3 +4,5 @@ csi-driver-node:
   enabled: false
 aws-custom-route-controller:
   enabled: false
+aws-load-balancer-controller:
+  enabled: false

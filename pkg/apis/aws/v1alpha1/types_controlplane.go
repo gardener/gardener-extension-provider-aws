@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -28,6 +29,10 @@ type ControlPlaneConfig struct {
 	// CloudControllerManager contains configuration settings for the cloud-controller-manager.
 	// +optional
 	CloudControllerManager *CloudControllerManagerConfig `json:"cloudControllerManager,omitempty"`
+
+	// AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
+	// +optional
+	AWSLoadBalancerController *AWSLoadBalancerControllerConfig `json:"awsLoadBalancerController,omitempty"`
 
 	// Storage contains configuration for storage in the cluster.
 	// +optional
@@ -44,6 +49,30 @@ type CloudControllerManagerConfig struct {
 	// Defaults to false.
 	// +optional
 	UseCustomRouteController *bool `json:"useCustomRouteController,omitempty"`
+}
+
+// AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
+type AWSLoadBalancerControllerConfig struct {
+	// Enabled controls if the ALB should be deployed.
+	Enabled bool `json:"enabled"`
+
+	// IngressClass controls creation and parameters of the ingress class named `alb`
+	// +optional
+	IngressClass *IngressClass `json:"ingressClass,omitempty"`
+}
+
+// IngressClass controls creation and parameters of the ingress class named `alb`
+type IngressClass struct {
+	// Disabled controls if the alb ingress class should be created.
+	Disabled bool `json:"disabled,omitempty"`
+
+	// IsDefault controls if the ingress class should be the default one.
+	IsDefault bool `json:"isDefault,omitempty"`
+
+	// IngressClassParamsSpec defines the spec of the IngressClassParams resource
+	// See https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams for more details.
+	// +optional
+	IngressClassParamsSpec *runtime.RawExtension `json:"ingressClassParams,omitempty"`
 }
 
 // Storage contains configuration for storage in the cluster.

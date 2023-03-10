@@ -164,6 +164,19 @@ images:
       confidentiality_requirement: 'high'
       integrity_requirement: 'high'
       availability_requirement: 'low'
+- name: aws-load-balancer-controller
+  sourceRepository: github.com/kubernetes-sigs/aws-load-balancer-controller
+  repository: public.ecr.aws/eks/aws-load-balancer-controller
+  tag: "v2.4.7"
+  labels:
+    - name: 'gardener.cloud/cve-categorisation'
+      value:
+        network_exposure: 'protected'
+        authentication_enforced: false
+        user_interaction: 'gardener-operator'
+        confidentiality_requirement: 'high'
+        integrity_requirement: 'high'
+        availability_requirement: 'low'
 
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver

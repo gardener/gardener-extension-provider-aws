@@ -16,6 +16,7 @@ package aws
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -26,6 +27,9 @@ type ControlPlaneConfig struct {
 
 	// CloudControllerManager contains configuration settings for the cloud-controller-manager.
 	CloudControllerManager *CloudControllerManagerConfig
+
+	// AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
+	AWSLoadBalancerController *AWSLoadBalancerControllerConfig
 
 	// Storage contains configuration for storage in the cluster.
 	Storage *Storage
@@ -39,6 +43,28 @@ type CloudControllerManagerConfig struct {
 	// UseCustomRouteController controls if custom route controller should be used.
 	// Defaults to false.
 	UseCustomRouteController *bool
+}
+
+// AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
+type AWSLoadBalancerControllerConfig struct {
+	// Enabled controls if the ALB should be deployed.
+	Enabled bool
+
+	// IngressClass controls creation and parameters of the ingress class named `alb`
+	IngressClass *IngressClass
+}
+
+// IngressClass controls creation and parameters of the ingress class named `alb`
+type IngressClass struct {
+	// Disabled controls if the alb ingress class should be created.
+	Disabled bool
+
+	// IsDefault controls if the ingress class should be the default one.
+	IsDefault bool
+
+	// IngressClassParamsSpec defines the spec of the IngressClassParams resource
+	// See https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams for more details.
+	IngressClassParamsSpec *runtime.RawExtension
 }
 
 // Storage contains configuration for storage in the cluster.
