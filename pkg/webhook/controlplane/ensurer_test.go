@@ -629,6 +629,7 @@ func checkKubeAPIServerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 	Expect(c.Env).NotTo(ContainElement(accessKeyIDEnvVar))
 	Expect(c.Env).NotTo(ContainElement(secretAccessKeyEnvVar))
 	Expect(dep.Spec.Template.Annotations).To(BeNil())
+	Expect(dep.Spec.Template.Labels).To(HaveKeyWithValue("networking.resources.gardener.cloud/to-csi-snapshot-validation-tcp-443", "allowed"))
 }
 
 func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, k8sVersion string) {

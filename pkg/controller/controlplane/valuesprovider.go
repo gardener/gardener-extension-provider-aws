@@ -170,7 +170,6 @@ var (
 					// csi-snapshot-validation-webhook
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotValidationName},
 					{Type: &corev1.Service{}, Name: aws.CSISnapshotValidationName},
-					{Type: &networkingv1.NetworkPolicy{}, Name: "allow-kube-apiserver-to-csi-snapshot-validation"},
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
 				},
@@ -299,7 +298,7 @@ func (vp *valuesProvider) GetConfigChartValues(
 
 // GetControlPlaneChartValues returns the values for the control plane chart applied by the generic actuator.
 func (vp *valuesProvider) GetControlPlaneChartValues(
-	_ context.Context,
+	ctx context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 	secretsReader secretsmanager.Reader,
@@ -312,6 +311,11 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
 			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
 		}
+	}
+
+	// TODO(rfranzke): Delete this in a future release.
+	if err := kutil.DeleteObject(ctx, vp.Client(), &networkingv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "allow-kube-apiserver-to-csi-snapshot-validation", Namespace: cp.Namespace}}); err != nil {
+		return nil, fmt.Errorf("failed deleting legacy csi-snapshot-validation network policy: %w", err)
 	}
 
 	return getControlPlaneChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown)
