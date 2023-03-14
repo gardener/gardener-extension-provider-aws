@@ -737,7 +737,7 @@ bool
 </tr>
 <tr>
 <td>
-<code>ingressClassParams</code></br>
+<code>ingressClassParamsSpec</code></br>
 <em>
 k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
