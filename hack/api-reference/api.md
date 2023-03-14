@@ -721,7 +721,7 @@ int64
 </td>
 <td>
 <p>HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
-Valid values are between 1 and 64. Defaults to 2 if not specified by user.</p>
+Valid values are between 1 and 64.</p>
 </td>
 </tr>
 </tbody>
