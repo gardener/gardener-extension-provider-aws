@@ -322,11 +322,11 @@ If not specified, a dedicated IAM instance profile created by the infrastructure
 
 The `instanceMetadataOptions` controls access to the instance metadata service (IMDS) for members of the worker. You can do the following operations:
 - access IMDSv1 (default)
-- access IMDSv2 
-- access IMDSv2 only (restrict access to IMDSv1)
-- disable access to IMDS 
+- access IMDSv2 - `httpPutResponseHopLimit >= 2`
+- access IMDSv2 only (restrict access to IMDSv1) - `httpPutResponseHopLimit >=2`, `httpTokens = "required"`
+- disable access to IMDS - `httpTokens = "required"`
 
-> Note: The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers running **not** in the host network.
+> Note: The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers  **NOT** running in the host network.
 > By default on host network IMDSv2 is already enabled (but not accessible from inside the pods). 
 > It is currently not possible to create a VM with complete restriction to the IMDS service. It is however possible to restrict access from inside the pods by setting `httpTokens` to `required` and not setting `httpPutResponseHopLimit` (or setting it to 1).
 
