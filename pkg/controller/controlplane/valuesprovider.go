@@ -100,7 +100,9 @@ func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfig
 				CertType:                    secretutils.ServerCert,
 				SkipPublishingCACertificate: true,
 			},
-			Options: []secretsmanager.GenerateOption{secretsmanager.SignedByCA(caNameControlPlane)},
+			// use current CA for signing server cert to prevent mismatches when dropping the old CA from the webhook
+			// config in phase Completing
+			Options: []secretsmanager.GenerateOption{secretsmanager.SignedByCA(caNameControlPlane, secretsmanager.UseCurrentCA)},
 		},
 	}
 }
@@ -676,7 +678,7 @@ func getALBChartValues(
 
 	if !isLoadBalancerControllerEnabled(cpConfig) {
 		values["replicaCount"] = 0
-	} else if ingressClass := cpConfig.AWSLoadBalancerController.IngressClass; ingressClass != nil {
+	} else if ingressClass := cpConfig.LoadBalancerController.IngressClass; ingressClass != nil {
 		values["createIngressClassResource"] = !ingressClass.Disabled
 		values["ingressClassConfig"] = map[string]interface{}{
 			"default": ingressClass.IsDefault,
@@ -697,7 +699,7 @@ func getALBChartValues(
 }
 
 func isLoadBalancerControllerEnabled(cpConfig *apisaws.ControlPlaneConfig) bool {
-	return cpConfig.AWSLoadBalancerController != nil && cpConfig.AWSLoadBalancerController.Enabled
+	return cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.Enabled
 }
 
 // getCSIControllerChartValues collects and returns the CSIController chart values.

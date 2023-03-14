@@ -84,6 +84,30 @@ Please make sure that the provided credentials have the correct privileges. You 
         ],
         "Effect": "Allow",
         "Resource": "*"
+      },
+      // The following permission set is only needed, if AWS Load Balancer controller is enabled (see ControlPlaneConfig)
+      {
+        "Effect": "Allow",
+        "Action": [
+          "cognito-idp:DescribeUserPoolClient",
+          "acm:ListCertificates",
+          "acm:DescribeCertificate",
+          "iam:ListServerCertificates",
+          "iam:GetServerCertificate",
+          "waf-regional:GetWebACL",
+          "waf-regional:GetWebACLForResource",
+          "waf-regional:AssociateWebACL",
+          "waf-regional:DisassociateWebACL",
+          "wafv2:GetWebACL",
+          "wafv2:GetWebACLForResource",
+          "wafv2:AssociateWebACL",
+          "wafv2:DisassociateWebACL",
+          "shield:GetSubscriptionState",
+          "shield:DescribeProtection",
+          "shield:CreateProtection",
+          "shield:DeleteProtection"
+        ],
+        "Resource": "*"
       }
     ]
   }
@@ -235,6 +259,19 @@ cloudControllerManager:
   featureGates:
     CustomResourceValidation: true
   useCustomRouteController: true
+#loadBalancerController:
+#  enabled: true
+#  ingressClass:
+#    disabled: false
+#    isDefault: false
+#    ingressClassParamsSpec: # spec section of the IngressClassParams to be created,
+#                            # see https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams
+#        # for example:
+#        loadBalancerAttributes:
+#        - key: deletion_protection.enabled
+#          value: "true"
+#        - key: idle_timeout.timeout_seconds
+#          value: "120"
 storage:
   managedDefaultClass: false
 ```
@@ -247,6 +284,66 @@ The `cloudControllerManager.useCustomRouteController` controls if the [custom ro
 If enabled, it will add routes to the pod CIDRs for all nodes in the route tables for all zones.
 
 The `storage.managedDefaultClass` controls if the `default` storage / volume snapshot classes are marked as default by Gardener. Set it to `false` to [mark another storage / volume snapshot class as default](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) without Gardener overwriting this change. If unset, this field defaults to `true`.
+
+If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/) should be deployed, set `loadBalancerController.enabled` to `true`. 
+In this case,  an `IngressClass` named `alb` is created by default. To disable its creation, set `loadBalancerController.ingressClass.disabled` to `true`.
+To make `alb` the default `IngressClass`, set `loadBalancerController.ingressClass.isDefault` to `true`.
+Additionally, with `loadBalancerController.ingressClass.ingressClassParamsSpec` you can specify the `spec` section of the
+`IngressClassParams`, which will then be created in the shoot cluster. It is used to enforce settings for a set of Ingresses.
+For more details see [IngressClassParams](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams)
+
+Please note, that currently on the "instance" mode is supported. 
+
+### Examples for `Ingress` and `Service` managed by the AWS Load Balancer Controller:
+
+1. Ingress
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: default
+  name: echoserver
+  annotations:
+    # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/annotations/
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance # target-type "ip" NOT supported in Gardener
+spec:
+  ingressClassName: alb # IngressClass created by the control plane. You may create and use another one.
+  rules:
+    - http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: echoserver
+              port:
+                number: 80
+```
+For more details see [AWS Load Balancer Documentation - Ingress Specification](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/spec/)
+
+2. Service of Type `LoadBalancer`
+
+This can be used to create a Network Load Balancer (NLB).
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/service/annotations/
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance # target-type "ip" NOT supported in Gardener
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+  ...
+spec:
+  ...
+  type: LoadBalancer
+  loadBalancerClass: service.k8s.aws/nlb # mandatory to be managed by AWS Load Balancer Controller (otherwise the Cloud Controller Manager will act on it)
+```
+
+For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/service/nlb/)
 
 ## `WorkerConfig`
 

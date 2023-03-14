@@ -113,16 +113,16 @@ CloudControllerManagerConfig
 </tr>
 <tr>
 <td>
-<code>awsLoadBalancerController</code></br>
+<code>loadBalancerController</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.AWSLoadBalancerControllerConfig">
-AWSLoadBalancerControllerConfig
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.LoadBalancerControllerConfig">
+LoadBalancerControllerConfig
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
+<p>LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
 </td>
 </tr>
 <tr>
@@ -365,50 +365,6 @@ gets the mapping from name/version to the provider-specific machine image data i
 a version that is still in use gets removed from this componentconfig it cannot reconcile anymore existing <code>Worker</code>
 resources that are still using this version. Hence, it stores the used versions in the provider status to ensure
 reconciliation is possible.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.AWSLoadBalancerControllerConfig">AWSLoadBalancerControllerConfig
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
-</p>
-<p>
-<p>AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>enabled</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Enabled controls if the ALB should be deployed.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>ingressClass</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IngressClass">
-IngressClass
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>IngressClass controls creation and parameters of the ingress class named <code>alb</code></p>
 </td>
 </tr>
 </tbody>
@@ -744,7 +700,7 @@ VPCStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.AWSLoadBalancerControllerConfig">AWSLoadBalancerControllerConfig</a>)
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.LoadBalancerControllerConfig">LoadBalancerControllerConfig</a>)
 </p>
 <p>
 <p>IngressClass controls creation and parameters of the ingress class named <code>alb</code></p>
@@ -875,6 +831,50 @@ string
 </td>
 <td>
 <p>Name is the name for this instance profile.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.LoadBalancerControllerConfig">LoadBalancerControllerConfig
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
+</p>
+<p>
+<p>LoadBalancerControllerConfig contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled controls if the ALB should be deployed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ingressClass</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IngressClass">
+IngressClass
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IngressClass controls creation and parameters of the ingress class named <code>alb</code></p>
 </td>
 </tr>
 </tbody>

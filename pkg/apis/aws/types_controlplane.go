@@ -28,8 +28,8 @@ type ControlPlaneConfig struct {
 	// CloudControllerManager contains configuration settings for the cloud-controller-manager.
 	CloudControllerManager *CloudControllerManagerConfig
 
-	// AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
-	AWSLoadBalancerController *AWSLoadBalancerControllerConfig
+	// LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
+	LoadBalancerController *LoadBalancerControllerConfig
 
 	// Storage contains configuration for storage in the cluster.
 	Storage *Storage
@@ -45,8 +45,8 @@ type CloudControllerManagerConfig struct {
 	UseCustomRouteController *bool
 }
 
-// AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
-type AWSLoadBalancerControllerConfig struct {
+// LoadBalancerControllerConfig contains configuration settings for the optional aws-load-balancer-controller (ALB).
+type LoadBalancerControllerConfig struct {
 	// Enabled controls if the ALB should be deployed.
 	Enabled bool
 

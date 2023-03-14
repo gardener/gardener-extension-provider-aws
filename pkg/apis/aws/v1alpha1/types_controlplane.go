@@ -30,9 +30,9 @@ type ControlPlaneConfig struct {
 	// +optional
 	CloudControllerManager *CloudControllerManagerConfig `json:"cloudControllerManager,omitempty"`
 
-	// AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
+	// LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
 	// +optional
-	AWSLoadBalancerController *AWSLoadBalancerControllerConfig `json:"awsLoadBalancerController,omitempty"`
+	LoadBalancerController *LoadBalancerControllerConfig `json:"loadBalancerController,omitempty"`
 
 	// Storage contains configuration for storage in the cluster.
 	// +optional
@@ -51,8 +51,8 @@ type CloudControllerManagerConfig struct {
 	UseCustomRouteController *bool `json:"useCustomRouteController,omitempty"`
 }
 
-// AWSLoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
-type AWSLoadBalancerControllerConfig struct {
+// LoadBalancerControllerConfig contains configuration settings for the optional aws-load-balancer-controller (ALB).
+type LoadBalancerControllerConfig struct {
 	// Enabled controls if the ALB should be deployed.
 	Enabled bool `json:"enabled"`
 
@@ -72,7 +72,7 @@ type IngressClass struct {
 	// IngressClassParamsSpec defines the spec of the IngressClassParams resource
 	// See https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams for more details.
 	// +optional
-	IngressClassParamsSpec *runtime.RawExtension `json:"ingressClassParams,omitempty"`
+	IngressClassParamsSpec *runtime.RawExtension `json:"ingressClassParamsSpec,omitempty"`
 }
 
 // Storage contains configuration for storage in the cluster.
