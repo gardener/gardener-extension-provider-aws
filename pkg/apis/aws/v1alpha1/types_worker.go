@@ -39,6 +39,8 @@ type WorkerConfig struct {
 	// worker pool.
 	// +optional
 	IAMInstanceProfile *IAMInstanceProfile `json:"iamInstanceProfile,omitempty"`
+	// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
+	InstanceMetadataOptions *InstanceMetadataOptions `json:"instanceMetadataOptions,omitempty"`
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -129,3 +131,24 @@ const (
 	// VolumeTypeGP3 is a constant for the gp3 volume type.
 	VolumeTypeGP3 VolumeType = "gp3"
 )
+
+// HTTPTokensValue is a constant for HTTPTokens values.
+type HTTPTokensValue string
+
+const (
+	// HTTPTokensRequired is a constant for requiring the use of tokens to access IMDS. Effectively disables access via
+	// the IMDSv1 endpoints.
+	HTTPTokensRequired HTTPTokensValue = "required"
+	// HTTPTokensOptional that makes the use of tokens for IMDS optional. Effectively allows access via both IMDSv1 and
+	// IMDSv2 endpoints.
+	HTTPTokensOptional HTTPTokensValue = "optional"
+)
+
+// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
+type InstanceMetadataOptions struct {
+	// HTTPTokens enforces the use of metadata v2 API.
+	HTTPTokens *HTTPTokensValue `json:"httpTokens,omitempty"`
+	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
+	// Valid values are between 1 and 64.
+	HTTPPutResponseHopLimit *int64 `json:"httpPutResponseHopLimit,omitempty"`
+}

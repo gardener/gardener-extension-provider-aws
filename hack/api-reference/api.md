@@ -290,6 +290,19 @@ IAMInstanceProfile
 worker pool.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>instanceMetadataOptions</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">
+InstanceMetadataOptions
+</a>
+</em>
+</td>
+<td>
+<p>InstanceMetadataOptions contains configuration for controlling access to the metadata API.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus
@@ -474,6 +487,15 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.HTTPTokensValue">HTTPTokensValue
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">InstanceMetadataOptions</a>)
+</p>
+<p>
+<p>HTTPTokensValue is a constant for HTTPTokens values.</p>
+</p>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IAM">IAM
 </h3>
 <p>
@@ -656,6 +678,50 @@ VPCStatus
 </td>
 <td>
 <p>VPC contains information about the created AWS VPC and some related resources.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">InstanceMetadataOptions
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+</p>
+<p>
+<p>InstanceMetadataOptions contains configuration for controlling access to the metadata API.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>httpTokens</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.HTTPTokensValue">
+HTTPTokensValue
+</a>
+</em>
+</td>
+<td>
+<p>HTTPTokens enforces the use of metadata v2 API.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>httpPutResponseHopLimit</code></br>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
+Valid values are between 1 and 64.</p>
 </td>
 </tr>
 </tbody>

@@ -305,5 +305,45 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				Expect(errorList).To(BeEmpty())
 			})
 		})
+
+		Context("instanceMetadata", func() {
+			It("should allow disabling IMDS from pods", func() {
+				v := apisaws.HTTPTokensRequired
+				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
+					HTTPPutResponseHopLimit: pointer.Int64(1),
+					HTTPTokens:              &v,
+				}
+
+				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+				Expect(errList).To(BeEmpty())
+			})
+
+			It("httpTokens should only contain valid values", func() {
+				v := apisaws.HTTPTokensValue("foobar")
+				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
+					HTTPTokens: &v,
+				}
+
+				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+				Expect(errList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.instanceMetadataOptions.httpTokens"),
+					"Detail": Equal("only the following values are allowed: [required optional]"),
+				}))))
+			})
+
+			It("httpPutResponseHopLimit should only contain valid values", func() {
+				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
+					HTTPPutResponseHopLimit: pointer.Int64(100),
+				}
+
+				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+				Expect(errList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.instanceMetadataOptions.httpPutResponseHopLimit"),
+					"Detail": Equal("only values between 1 and 64 are allowed"),
+				}))))
+			})
+		})
 	})
 })

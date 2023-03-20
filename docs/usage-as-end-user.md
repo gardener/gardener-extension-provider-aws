@@ -295,6 +295,9 @@ dataVolumes:
   snapshotID: snap-1234
 iamInstanceProfile: # (specify either ARN or name)
   name: my-profile
+instanceMetadataOptions:
+  httpTokens: required
+  httpPutResponseHopLimit: 2
 # arn: my-instance-profile-arn
 nodeTemplate: # (to be specified only if the node capacity would be different from cloudprofile info during runtime)
   capacity:
@@ -316,6 +319,19 @@ It is also possible to provide a snapshot ID. It allows to [restore the data vol
 
 The `iamInstanceProfile` section allows to specify the IAM instance profile name xor ARN that should be used for this worker pool.
 If not specified, a dedicated IAM instance profile created by the infrastructure controller is used (see above).
+
+The `instanceMetadataOptions` controls access to the instance metadata service (IMDS) for members of the worker. You can do the following operations:
+- access IMDSv1 (default)
+- access IMDSv2 - `httpPutResponseHopLimit >= 2`
+- access IMDSv2 only (restrict access to IMDSv1) - `httpPutResponseHopLimit >=2`, `httpTokens = "required"`
+- disable access to IMDS - `httpTokens = "required"`
+
+> Note: The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers  **NOT** running in the host network.
+> By default on host network IMDSv2 is already enabled (but not accessible from inside the pods). 
+> It is currently not possible to create a VM with complete restriction to the IMDS service. It is however possible to restrict access from inside the pods by setting `httpTokens` to `required` and not setting `httpPutResponseHopLimit` (or setting it to 1).
+
+You can find more information regarding the options in the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html). 
+
 
 ## Example `Shoot` manifest (one availability zone)
 

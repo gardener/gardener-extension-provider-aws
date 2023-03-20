@@ -34,6 +34,8 @@ type WorkerConfig struct {
 	// IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
 	// worker pool.
 	IAMInstanceProfile *IAMInstanceProfile
+	// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
+	InstanceMetadataOptions *InstanceMetadataOptions
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -72,7 +74,7 @@ type DataVolume struct {
 }
 
 // IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
-// worker pool. Either 'Name" or 'ARN' must be specified.
+// worker pool. Either 'Name' or 'ARN' must be specified.
 type IAMInstanceProfile struct {
 	// Name is the name of the instance profile.
 	Name *string
@@ -117,3 +119,24 @@ const (
 	// VolumeTypeGP3 is a constant for the gp3 volume type.
 	VolumeTypeGP3 VolumeType = "gp3"
 )
+
+// HTTPTokensValue is a constant for HTTPTokens values.
+type HTTPTokensValue string
+
+const (
+	// HTTPTokensRequired is a constant for requiring the use of tokens to access IMDS. Effectively disables access via
+	// the IMDSv1 endpoints.
+	HTTPTokensRequired HTTPTokensValue = "required"
+	// HTTPTokensOptional that makes the use of tokens for IMDS optional. Effectively allows access via both IMDSv1 and
+	// IMDSv2 endpoints.
+	HTTPTokensOptional HTTPTokensValue = "optional"
+)
+
+// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
+type InstanceMetadataOptions struct {
+	// HTTPTokens enforces the use of metadata v2 API.
+	HTTPTokens *HTTPTokensValue
+	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
+	// Valid values are between 1 and 64.
+	HTTPPutResponseHopLimit *int64
+}
