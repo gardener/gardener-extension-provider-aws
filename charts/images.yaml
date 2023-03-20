@@ -100,7 +100,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.26.0"
+  tag: "v1.26.1"
   targetVersion: ">= 1.26"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -168,7 +168,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: public.ecr.aws/ebs-csi-driver/aws-ebs-csi-driver
-  tag: "v1.14.1"
+  tag: "v1.17.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
