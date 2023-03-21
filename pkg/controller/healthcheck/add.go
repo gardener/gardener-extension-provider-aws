@@ -25,6 +25,7 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -81,6 +82,8 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				// no precheck needed, as the deployment is always created (with replicas=0 if not enabled, see valuesprovider.go)
 			},
 		},
+		// TODO(acumino): Remove this condition in a future release.
+		sets.New[gardencorev1beta1.ConditionType](gardencorev1beta1.ShootSystemComponentsHealthy),
 	); err != nil {
 		return err
 	}
@@ -99,6 +102,7 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.LBReadvertiserDeploymentName),
 			},
 		},
+		sets.Set[gardencorev1beta1.ConditionType]{},
 	); err != nil {
 		return err
 	}
@@ -121,6 +125,8 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				HealthCheck:   worker.NewNodesChecker(),
 			},
 		},
+		// TODO(acumino): Remove this condition in a future release.
+		sets.New[gardencorev1beta1.ConditionType](gardencorev1beta1.ShootSystemComponentsHealthy),
 	)
 }
 
