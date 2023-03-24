@@ -59,6 +59,7 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 	usedZones := sets.New[string]()
 	for i, zone := range infra.Networks.Zones {
 		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && oldInfra.Networks.Zones[i] == zone {
+			usedZones.Insert(zone.Name)
 			continue
 		}
 

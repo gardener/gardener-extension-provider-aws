@@ -136,6 +136,17 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				}))))
 			})
 
+			It("should forbid zone update because zone is duplicate", func() {
+				oldInfra := infrastructureConfig.DeepCopy()
+				infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, infrastructureConfig.Networks.Zones[0])
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeDuplicate),
+					"Field": Equal("spec.network.zones[1].name"),
+				}))))
+			})
+
 			It("should pass because zone is not specified in CloudProfile but was not changed", func() {
 				infrastructureConfig.Networks.Zones[0].Name = "not-available"
 				oldInfrastructureConfig := infrastructureConfig.DeepCopy()
