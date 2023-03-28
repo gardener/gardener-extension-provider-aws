@@ -144,7 +144,6 @@ func (w *workerDelegate) generateMachineConfig() error {
 				"region":             w.worker.Spec.Region,
 				"machineType":        pool.MachineType,
 				"iamInstanceProfile": iamInstanceProfile,
-				"keyName":            infrastructureStatus.EC2.KeyName,
 				"networkInterfaces": []map[string]interface{}{
 					{
 						"subnetID":         nodesSubnet.ID,
@@ -167,6 +166,10 @@ func (w *workerDelegate) generateMachineConfig() error {
 				},
 				"blockDevices":            blockDevices,
 				"instanceMetadataOptions": instanceMetadataOptions,
+			}
+
+			if len(infrastructureStatus.EC2.KeyName) > 0 {
+				machineClassSpec["keyName"] = infrastructureStatus.EC2.KeyName
 			}
 
 			if workerConfig.NodeTemplate != nil {

@@ -156,13 +156,14 @@ var _ = Describe("Machines", func() {
 				workerPoolHash1 string
 				workerPoolHash2 string
 
-				shootVersionMajorMinor string
-				shootVersion           string
-				scheme                 *runtime.Scheme
-				decoder                runtime.Decoder
-				clusterWithoutImages   *extensionscontroller.Cluster
-				cluster                *extensionscontroller.Cluster
-				w                      *extensionsv1alpha1.Worker
+				shootVersionMajorMinor       string
+				shootVersion                 string
+				scheme                       *runtime.Scheme
+				decoder                      runtime.Decoder
+				clusterWithoutImages         *extensionscontroller.Cluster
+				cluster                      *extensionscontroller.Cluster
+				infrastructureProviderStatus *api.InfrastructureStatus
+				w                            *extensionsv1alpha1.Worker
 			)
 
 			BeforeEach(func() {
@@ -295,6 +296,41 @@ var _ = Describe("Machines", func() {
 					Shoot: clusterWithoutImages.Shoot,
 				}
 
+				infrastructureProviderStatus = &api.InfrastructureStatus{
+					VPC: api.VPCStatus{
+						ID: vpcID,
+						Subnets: []api.Subnet{
+							{
+								ID:      subnetZone1,
+								Purpose: "nodes",
+								Zone:    zone1,
+							},
+							{
+								ID:      subnetZone2,
+								Purpose: "nodes",
+								Zone:    zone2,
+							},
+						},
+						SecurityGroups: []api.SecurityGroup{
+							{
+								ID:      securityGroupID,
+								Purpose: "nodes",
+							},
+						},
+					},
+					IAM: api.IAM{
+						InstanceProfiles: []api.InstanceProfile{
+							{
+								Name:    instanceProfileName,
+								Purpose: "nodes",
+							},
+						},
+					},
+					EC2: api.EC2{
+						KeyName: keyName,
+					},
+				}
+
 				w = &extensionsv1alpha1.Worker{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: namespace,
@@ -306,40 +342,7 @@ var _ = Describe("Machines", func() {
 						},
 						Region: region,
 						InfrastructureProviderStatus: &runtime.RawExtension{
-							Raw: encode(&api.InfrastructureStatus{
-								VPC: api.VPCStatus{
-									ID: vpcID,
-									Subnets: []api.Subnet{
-										{
-											ID:      subnetZone1,
-											Purpose: "nodes",
-											Zone:    zone1,
-										},
-										{
-											ID:      subnetZone2,
-											Purpose: "nodes",
-											Zone:    zone2,
-										},
-									},
-									SecurityGroups: []api.SecurityGroup{
-										{
-											ID:      securityGroupID,
-											Purpose: "nodes",
-										},
-									},
-								},
-								IAM: api.IAM{
-									InstanceProfiles: []api.InstanceProfile{
-										{
-											Name:    instanceProfileName,
-											Purpose: "nodes",
-										},
-									},
-								},
-								EC2: api.EC2{
-									KeyName: keyName,
-								},
-							}),
+							Raw: encode(infrastructureProviderStatus),
 						},
 						Pools: []extensionsv1alpha1.WorkerPool{
 							{
@@ -686,6 +689,30 @@ var _ = Describe("Machines", func() {
 					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(result).To(Equal(machineDeployments))
+				})
+				It("should deploy the expected machine classes when infrastructureProviderStatus.EC2 is missing keyName", func() {
+					infrastructureProviderStatus.EC2.KeyName = ""
+					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{
+						Raw: encode(infrastructureProviderStatus),
+					}
+					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
+
+					for _, machineClass := range machineClasses["machineClasses"].([]map[string]interface{}) {
+						delete(machineClass, "keyName")
+					}
+
+					// Test workerDelegate.DeployMachineClasses()
+					chartApplier.EXPECT().ApplyFromEmbeddedFS(
+						ctx,
+						charts.InternalChart,
+						filepath.Join("internal", "machineclass"),
+						namespace,
+						"machineclass",
+						kubernetes.Values(machineClasses),
+					)
+
+					err := workerDelegate.DeployMachineClasses(ctx)
+					Expect(err).NotTo(HaveOccurred())
 				})
 
 				Context("using workerConfig.iamInstanceProfile", func() {

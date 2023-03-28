@@ -364,10 +364,12 @@ EOF
 //= EC2 Key Pair
 //=====================================================================
 
+{{- if .sshPublicKey }}
 resource "aws_key_pair" "kubernetes" {
   key_name   = "{{ .clusterName }}-ssh-publickey"
   public_key = "{{ .sshPublicKey }}"
 }
+{{- end }}
 
 //=====================================================================
 //= Output variables
@@ -381,9 +383,11 @@ output "{{ .outputKeys.iamInstanceProfileNodes }}" {
   value = aws_iam_instance_profile.nodes.name
 }
 
+{{- if .sshPublicKey }}
 output "{{ .outputKeys.sshKeyName }}" {
   value = aws_key_pair.kubernetes.key_name
 }
+{{- end }}
 
 output "{{ .outputKeys.securityGroupsNodes }}" {
   value = aws_security_group.nodes.id
