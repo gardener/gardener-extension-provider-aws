@@ -49,16 +49,8 @@ spec:
         env:
         - name: CSI_ENDPOINT
           value: unix://{{ .Values.socketPath }}/csi.sock
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: cloudprovider
-              key: accessKeyID
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: cloudprovider
-              key: secretAccessKey
+        - name: AWS_SHARED_CREDENTIALS_FILE
+          value: /srv/cloudprovider/credentialsFile
         - name: AWS_REGION
           value: {{ .Values.region }}
 {{- if .Values.resources.driver }}
@@ -83,6 +75,8 @@ spec:
         volumeMounts:
         - name: socket-dir
           mountPath: {{ .Values.socketPath }}
+        - name: cloudprovider
+          mountPath: /srv/cloudprovider
 
       - name: aws-csi-provisioner
         image: {{ index .Values.images "csi-provisioner" }}
@@ -211,6 +205,9 @@ spec:
       volumes:
       - name: socket-dir
         emptyDir: {}
+      - name: cloudprovider
+        secret:
+          secretName: cloudprovider
       - name: kubeconfig-csi-attacher
         projected:
           defaultMode: 420
