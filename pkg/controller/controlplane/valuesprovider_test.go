@@ -362,6 +362,7 @@ var _ = Describe("ValuesProvider", func() {
 						"secrets": map[string]interface{}{
 							"server": "csi-snapshot-validation-server",
 						},
+						"topologyAwareRoutingEnabled": false,
 					},
 				}),
 			}))
@@ -395,6 +396,7 @@ var _ = Describe("ValuesProvider", func() {
 						"secrets": map[string]interface{}{
 							"server": "csi-snapshot-validation-server",
 						},
+						"topologyAwareRoutingEnabled": false,
 					},
 				}),
 			}))
