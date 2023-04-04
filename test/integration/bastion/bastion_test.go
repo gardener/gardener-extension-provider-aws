@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"sort"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -274,11 +275,32 @@ func getImageAMI(ctx context.Context, name string, awsClient *awsclient.Client) 
 				awssdk.String("x86_64"),
 			},
 		},
+		{
+			Name:   awssdk.String("is-public"),
+			Values: []*string{awssdk.String("true")},
+		},
+		{
+			Name:   awssdk.String("owner-alias"),
+			Values: []*string{awssdk.String("amazon")},
+		},
+		{
+			Name:   awssdk.String("state"),
+			Values: []*string{awssdk.String("available")},
+		},
 	}
 
 	result, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
 		Filters: filters,
 	})
+
+	sort.Slice(result.Images, func(i, j int) bool {
+		t1, err := time.Parse(time.RFC3339, *result.Images[i].CreationDate)
+		Expect(err).NotTo(HaveOccurred())
+		t2, err := time.Parse(time.RFC3339, *result.Images[j].CreationDate)
+		Expect(err).NotTo(HaveOccurred())
+		return t1.After(t2)
+	})
+
 	Expect(err).NotTo(HaveOccurred())
 	Expect(result.Images).ToNot(BeEmpty())
 	return *result.Images[0].Name
