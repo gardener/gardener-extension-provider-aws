@@ -170,8 +170,6 @@ var (
 					// csi-snapshot-validation-webhook
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotValidationName},
 					{Type: &corev1.Service{}, Name: aws.CSISnapshotValidationName},
-					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
 				},
 			},
 		},
@@ -232,6 +230,8 @@ var (
 					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIResizerName},
 					// csi-snapshot-validation-webhook
 					{Type: &admissionregistrationv1.ValidatingWebhookConfiguration{}, Name: aws.CSISnapshotValidationName},
+					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
 				},
 			},
 		},
