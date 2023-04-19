@@ -30,10 +30,17 @@ import (
 
 // Migrate deletes only the ConfigMaps and Secrets of the Terraformer.
 func (a *actuator) Migrate(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	return migrate(ctx, log, a.RESTConfig(), infrastructure, a.disableProjectedTokenMount)
+	flowState, err := a.getStateFromInfraStatus(ctx, infrastructure)
+	if err != nil {
+		return err
+	}
+	if flowState != nil {
+		return nil // nothing to do if already using new flow without Terraformer
+	}
+	return migrateTerraformer(ctx, log, a.RESTConfig(), infrastructure, a.disableProjectedTokenMount)
 }
 
-func migrate(
+func migrateTerraformer(
 	ctx context.Context,
 	logger logr.Logger,
 	restConfig *rest.Config,
