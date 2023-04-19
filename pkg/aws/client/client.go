@@ -325,7 +325,7 @@ func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix str
 	return nil
 }
 
-// CreateBucketIfNotExists creates the s3 bucket with name <bucket> in <region>. If it already exist,
+// CreateBucketIfNotExists creates the s3 bucket with name <bucket> in <region>. If it already exists,
 // no error is returned.
 func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region string) error {
 	createBucketInput := &s3.CreateBucketInput{
@@ -359,6 +359,19 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 					},
 				},
 			},
+		},
+	}); err != nil {
+		return err
+	}
+
+	// Block public access to the bucket
+	if _, err := c.S3.PutPublicAccessBlockWithContext(ctx, &s3.PutPublicAccessBlockInput{
+		Bucket: aws.String(bucket),
+		PublicAccessBlockConfiguration: &s3.PublicAccessBlockConfiguration{
+			BlockPublicAcls:       aws.Bool(true),
+			BlockPublicPolicy:     aws.Bool(true),
+			IgnorePublicAcls:      aws.Bool(true),
+			RestrictPublicBuckets: aws.Bool(true),
 		},
 	}); err != nil {
 		return err
