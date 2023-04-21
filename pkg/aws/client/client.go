@@ -377,6 +377,42 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 		return err
 	}
 
+	// Set bucket policy to deny non-HTTPS requests
+	bucketPolicy := map[string]interface{}{
+		"Version": "2012-10-17",
+		"Statement": []map[string]interface{}{
+			{
+				"Effect":    "Deny",
+				"Principal": "*",
+				"Action":    "s3:*",
+				"Resource": []string{
+					fmt.Sprintf("arn:aws:s3:::%s", bucket),
+					fmt.Sprintf("arn:aws:s3:::%s/*", bucket),
+				},
+				"Condition": map[string]interface{}{
+					"Bool": map[string]string{
+						"aws:SecureTransport": "false",
+					},
+					"NumericLessThan": map[string]string{
+						"s3:TlsVersion": "1.2",
+					},
+				},
+			},
+		},
+	}
+
+	bucketPolicyJSON, err := json.Marshal(bucketPolicy)
+	if err != nil {
+		return err
+	}
+
+	if _, err := c.S3.PutBucketPolicyWithContext(ctx, &s3.PutBucketPolicyInput{
+		Bucket: aws.String(bucket),
+		Policy: aws.String(string(bucketPolicyJSON)),
+	}); err != nil {
+		return err
+	}
+
 	// Set lifecycle rule to purge incomplete multipart upload orphaned because of force shutdown or rescheduling or networking issue with etcd-backup-restore.
 	putBucketLifecycleConfigurationInput := &s3.PutBucketLifecycleConfigurationInput{
 		Bucket: aws.String(bucket),
@@ -398,7 +434,7 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 		},
 	}
 
-	_, err := c.S3.PutBucketLifecycleConfigurationWithContext(ctx, putBucketLifecycleConfigurationInput)
+	_, err = c.S3.PutBucketLifecycleConfigurationWithContext(ctx, putBucketLifecycleConfigurationInput)
 	return err
 }
 
