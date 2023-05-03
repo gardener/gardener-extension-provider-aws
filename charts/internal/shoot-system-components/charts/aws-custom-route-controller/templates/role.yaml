@@ -22,6 +22,8 @@ rules:
 - apiGroups:
     - ""
   resources:
-    - "events"
+    - events
   verbs:
-    - "create"
+    - create
+    - patch
+    - update
