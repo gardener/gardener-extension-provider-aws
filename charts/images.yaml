@@ -154,7 +154,7 @@ images:
 - name: aws-custom-route-controller
   sourceRepository: github.com/gardener/aws-custom-route-controller
   repository: eu.gcr.io/gardener-project/gardener/aws-custom-route-controller
-  tag: "v0.6.0"
+  tag: "v0.7.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
