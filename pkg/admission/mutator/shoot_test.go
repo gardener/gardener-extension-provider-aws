@@ -35,7 +35,6 @@ import (
 )
 
 var _ = Describe("Shoot mutator", func() {
-
 	Describe("#Mutate", func() {
 		const namespace = "garden-dev"
 
@@ -65,6 +64,11 @@ var _ = Describe("Shoot mutator", func() {
 					SeedName: pointer.String("aws"),
 					Provider: gardencorev1beta1.Provider{
 						Type: aws.Type,
+						Workers: []gardencorev1beta1.Worker{
+							{
+								Name: "worker",
+							},
+						},
 					},
 					Region: "us-west-1",
 					Networking: &gardencorev1beta1.Networking{
@@ -86,6 +90,11 @@ var _ = Describe("Shoot mutator", func() {
 					SeedName: pointer.String("aws"),
 					Provider: gardencorev1beta1.Provider{
 						Type: aws.Type,
+						Workers: []gardencorev1beta1.Worker{
+							{
+								Name: "worker",
+							},
+						},
 					},
 					Region: "us-west-1",
 					Networking: &gardencorev1beta1.Networking{
@@ -96,8 +105,20 @@ var _ = Describe("Shoot mutator", func() {
 			}
 		})
 
-		Context("Mutate shoot networking providerconfig for type calico", func() {
+		Context("Workerless Shoot", func() {
+			BeforeEach(func() {
+				shoot.Spec.Provider.Workers = nil
+			})
 
+			It("should return without mutation", func() {
+				shootExpected := shoot.DeepCopy()
+				err := shootMutator.Mutate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(shoot).To(DeepEqual(shootExpected))
+			})
+		})
+
+		Context("Mutate shoot networking providerconfig for type calico", func() {
 			It("should return without mutation when shoot is in scheduled to new seed phase", func() {
 				shoot.Status.LastOperation = &gardencorev1beta1.LastOperation{
 					Description:    "test",
