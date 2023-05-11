@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver"
-	"github.com/gardener/gardener/extensions/pkg/controller"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
@@ -392,7 +391,7 @@ func (vp *valuesProvider) GetControlPlaneExposureChartValues(
 ) (map[string]interface{}, error) {
 	var address string
 
-	if !controller.IsHibernated(cluster) {
+	if !extensionscontroller.IsHibernated(cluster) {
 		// Get load balancer address of the kube-apiserver service
 		var err error
 		address, err = kutil.GetLoadBalancerIngress(ctx, vp.Client(), &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: cp.Namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}})
