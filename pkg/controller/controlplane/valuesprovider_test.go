@@ -158,7 +158,7 @@ var _ = Describe("ValuesProvider", func() {
 					},
 				},
 				Spec: gardencorev1beta1.ShootSpec{
-					Networking: gardencorev1beta1.Networking{
+					Networking: &gardencorev1beta1.Networking{
 						Pods: &cidr,
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{

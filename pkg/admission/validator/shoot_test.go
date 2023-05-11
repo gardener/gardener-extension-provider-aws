@@ -132,7 +132,7 @@ var _ = Describe("SecretBinding validator", func() {
 						},
 					},
 					Region: "us-west",
-					Networking: core.Networking{
+					Networking: &core.Networking{
 						Nodes: pointer.String("10.250.0.0/16"),
 					},
 				},
