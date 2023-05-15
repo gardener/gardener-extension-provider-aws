@@ -19,6 +19,8 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"math/big"
+	"net"
 	"reflect"
 	"strings"
 	"text/template"
@@ -35,8 +37,9 @@ import (
 )
 
 const (
-	defaultTimeout     = 90 * time.Second
-	defaultLongTimeout = 3 * time.Minute
+	defaultTimeout              = 90 * time.Second
+	defaultLongTimeout          = 3 * time.Minute
+	assignIpv6AddressOnCreation = true
 )
 
 // Reconcile creates and runs the flow to reconcile the AWS infrastructure.
@@ -155,10 +158,11 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	log := c.LogFromContext(ctx)
 	log.Info("using managed VPC")
 	desired := &awsclient.VPC{
-		Tags:               c.commonTags,
-		EnableDnsSupport:   true,
-		EnableDnsHostnames: true,
-		DhcpOptionsId:      c.state.Get(IdentifierDHCPOptions),
+		Tags:                         c.commonTags,
+		EnableDnsSupport:             true,
+		EnableDnsHostnames:           true,
+		AssignGeneratedIPv6CidrBlock: assignIpv6AddressOnCreation,
+		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
 	}
 	if c.config.Networks.VPC.CIDR == nil {
 		return fmt.Errorf("missing VPC CIDR")
@@ -181,6 +185,8 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+
+		c.state.Set(IPv6CidrBlock, created.IPv6CidrBlock)
 		c.state.Set(IdentifierVPC, created.VpcId)
 		if _, err := c.updater.UpdateVpc(ctx, desired, created); err != nil {
 			return err
@@ -376,6 +382,7 @@ outer:
 func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 	log := c.LogFromContext(ctx)
 	cidrBlock := "0.0.0.0/0"
+	ipv6CidrBlock := "::/0"
 	desired := &awsclient.RouteTable{
 		Tags:  c.commonTags,
 		VpcId: c.state.Get(IdentifierVPC),
@@ -383,6 +390,10 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 			{
 				DestinationCidrBlock: pointer.String(cidrBlock),
 				GatewayId:            c.state.Get(IdentifierInternetGateway),
+			},
+			{
+				DestinationIpv6CidrBlock: pointer.String(ipv6CidrBlock),
+				GatewayId:                c.state.Get(IdentifierInternetGateway),
 			},
 		},
 	}
@@ -513,7 +524,32 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 
 func (c *FlowContext) ensureZones(ctx context.Context) error {
 	var desired []*awsclient.Subnet
-	for _, zone := range c.config.Networks.Zones {
+	ipv6CidrBlock := c.state.Get(IPv6CidrBlock)
+	newPrefixLength := 64
+	var subnetCIDR1, subnetCIDR2, subnetCIDR3 string
+	var err error
+
+	for index, zone := range c.config.Networks.Zones {
+		if ipv6CidrBlock != nil {
+			subnetCIDR1, err = cidrSubnet(*ipv6CidrBlock, newPrefixLength, 1+3*index)
+			if err != nil {
+				fmt.Println("Error:", err)
+			} else {
+				fmt.Println("Subnet CIDR:", subnetCIDR1)
+			}
+			subnetCIDR2, err = cidrSubnet(*ipv6CidrBlock, newPrefixLength, 2+3*index)
+			if err != nil {
+				fmt.Println("Error:", err)
+			} else {
+				fmt.Println("Subnet CIDR:", subnetCIDR2)
+			}
+			subnetCIDR3, err = cidrSubnet(*ipv6CidrBlock, newPrefixLength, 3+3*index)
+			if err != nil {
+				fmt.Println("Error:", err)
+			} else {
+				fmt.Println("Subnet CIDR:", subnetCIDR3)
+			}
+		}
 		helper := c.zoneSuffixHelpers(zone.Name)
 		tagsWorkers := c.commonTagsWithSuffix(helper.GetSuffixSubnetWorkers())
 		tagsPublic := c.commonTagsWithSuffix(helper.GetSuffixSubnetPublic())
@@ -522,22 +558,28 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
 		desired = append(desired,
 			&awsclient.Subnet{
-				Tags:             tagsWorkers,
-				VpcId:            c.state.Get(IdentifierVPC),
-				CidrBlock:        zone.Workers,
-				AvailabilityZone: zone.Name,
+				Tags:                        tagsWorkers,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Workers,
+				Ipv6CidrBlocks:              []string{subnetCIDR1},
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: pointer.Bool(assignIpv6AddressOnCreation),
 			},
 			&awsclient.Subnet{
-				Tags:             tagsPublic,
-				VpcId:            c.state.Get(IdentifierVPC),
-				CidrBlock:        zone.Public,
-				AvailabilityZone: zone.Name,
+				Tags:                        tagsPublic,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Public,
+				Ipv6CidrBlocks:              []string{subnetCIDR2},
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: pointer.Bool(assignIpv6AddressOnCreation),
 			},
 			&awsclient.Subnet{
-				Tags:             tagsPrivate,
-				VpcId:            c.state.Get(IdentifierVPC),
-				CidrBlock:        zone.Internal,
-				AvailabilityZone: zone.Name,
+				Tags:                        tagsPrivate,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Internal,
+				Ipv6CidrBlocks:              []string{subnetCIDR3},
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: pointer.Bool(assignIpv6AddressOnCreation),
 			})
 	}
 	// update flow state if subnet suffixes have been added
@@ -567,6 +609,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		dependencies.Append(item.AvailabilityZone, taskID)
 	}
 	for _, pair := range toBeChecked {
+		c.Log.Info("Subnet Reconciliation-----------------------------")
 		taskID, err := c.addSubnetReconcileTasks(g, pair.desired, pair.current)
 		if err != nil {
 			return err
@@ -740,7 +783,10 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 		}
 	}
 	return func(ctx context.Context) error {
+
 		zoneChild.Set(subnetKey, current.SubnetId)
+		c.Log.Info("Ensure Subnet")
+
 		modified, err := c.updater.UpdateSubnet(ctx, desired, current)
 		if err != nil {
 			return err
@@ -1381,4 +1427,31 @@ func (c *FlowContext) getZone(item *awsclient.Subnet) *aws.Zone {
 
 func getZoneName(item *awsclient.Subnet) string {
 	return item.AvailabilityZone
+}
+
+func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error) {
+	_, ipNet, err := net.ParseCIDR(baseCIDR)
+	if err != nil {
+		return "", err
+	}
+
+	baseIP := ipNet.IP
+	maskSize, addrSize := ipNet.Mask.Size()
+
+	if newPrefixLength <= maskSize || newPrefixLength > addrSize {
+		return "", fmt.Errorf("invalid new prefix length")
+	}
+
+	subnetSize := big.NewInt(1)
+	subnetSize = subnetSize.Lsh(subnetSize, uint(addrSize-newPrefixLength))
+	offset := big.NewInt(int64(index))
+	offset = offset.Mul(offset, subnetSize)
+
+	ipInt := big.NewInt(0)
+	ipInt.SetBytes(baseIP)
+	ipInt = ipInt.Add(ipInt, offset)
+
+	subnetIP := net.IP(ipInt.Bytes())
+
+	return fmt.Sprintf("%s/%d", subnetIP.String(), newPrefixLength), nil
 }

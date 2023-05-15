@@ -60,6 +60,10 @@ func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (modifie
 	if err != nil {
 		return
 	}
+	modified, err = u.client.UpdateAmazonProvidedIPv6CidrBlock(ctx, desired, current)
+	if err != nil {
+		return
+	}
 	if !reflect.DeepEqual(desired.DhcpOptionsId, current.DhcpOptionsId) {
 		if err = u.client.AddVpcDhcpOptionAssociation(current.VpcId, desired.DhcpOptionsId); err != nil {
 			return
@@ -79,6 +83,7 @@ func (u *updater) updateVpcAttributes(ctx context.Context, desired, current *VPC
 		if err = u.client.UpdateVpcAttribute(ctx, current.VpcId, ec2.VpcAttributeNameEnableDnsSupport, desired.EnableDnsSupport); err != nil {
 			return
 		}
+
 		modified = true
 	}
 	if desired.EnableDnsHostnames != current.EnableDnsHostnames {
