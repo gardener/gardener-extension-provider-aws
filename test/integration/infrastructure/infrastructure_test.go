@@ -685,7 +685,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		if _, _, err := decoder.Decode(infra.Status.ProviderStatus.Raw, nil, newProviderStatus); err != nil {
 			return err
 		}
-		Expect(newProviderStatus).To(Equal(providerStatus))
+		Expect(newProviderStatus).To(integration.EqualInfrastructureStatus(providerStatus))
 	}
 
 	By("verify tags on subnet")
