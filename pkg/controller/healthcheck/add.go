@@ -84,8 +84,7 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				// no precheck needed, as the deployment is always created (with replicas=0 if not enabled, see valuesprovider.go)
 			},
 		},
-		// TODO(acumino): Remove this condition in a future release.
-		sets.New[gardencorev1beta1.ConditionType](gardencorev1beta1.ShootSystemComponentsHealthy),
+		sets.New[gardencorev1beta1.ConditionType](),
 	); err != nil {
 		return err
 	}
@@ -130,8 +129,7 @@ func RegisterHealthChecks(mgr manager.Manager, opts healthcheck.DefaultAddArgs) 
 				},
 			},
 		},
-		// TODO(acumino): Remove this condition in a future release.
-		sets.New[gardencorev1beta1.ConditionType](gardencorev1beta1.ShootSystemComponentsHealthy),
+		sets.New[gardencorev1beta1.ConditionType](),
 	)
 }
 

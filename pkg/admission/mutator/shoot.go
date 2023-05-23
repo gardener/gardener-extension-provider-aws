@@ -25,6 +25,7 @@ import (
 	"github.com/gardener/gardener-extension-networking-cilium/pkg/cilium"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,7 +53,6 @@ func (s *shoot) InjectScheme(scheme *runtime.Scheme) error {
 
 // Mutate mutates the given shoot object.
 func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
-
 	shoot, ok := new.(*gardencorev1beta1.Shoot)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", new)
@@ -80,6 +80,11 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 		return nil
 	}
 
+	// Skip if it's a workerless Shoot
+	if gardencorev1beta1helper.IsWorkerless(shoot) {
+		return nil
+	}
+
 	// Skip if shoot is in deletion phase
 	if shoot.DeletionTimestamp != nil || oldShoot != nil && oldShoot.DeletionTimestamp != nil {
 		return nil
@@ -98,69 +103,71 @@ func (s *shoot) Mutate(ctx context.Context, new, old client.Object) error {
 
 	overlayDisabled := false
 
-	switch shoot.Spec.Networking.Type {
-	case calico.ReleaseName:
-		overlay := &calicov1alpha1.Overlay{Enabled: false}
+	if shoot.Spec.Networking != nil && shoot.Spec.Networking.Type != nil {
+		switch *shoot.Spec.Networking.Type {
+		case calico.ReleaseName:
+			overlay := &calicov1alpha1.Overlay{Enabled: false}
 
-		networkConfig, err := s.decodeCalicoNetworkConfig(shoot.Spec.Networking.ProviderConfig)
-		if err != nil {
-			return err
-		}
-
-		if oldShoot == nil && networkConfig.Overlay == nil {
-			networkConfig.Overlay = overlay
-		}
-
-		if oldShoot != nil && networkConfig.Overlay == nil {
-			oldNetworkConfig, err := s.decodeCalicoNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
+			networkConfig, err := s.decodeCalicoNetworkConfig(shoot.Spec.Networking.ProviderConfig)
 			if err != nil {
 				return err
 			}
 
-			if oldNetworkConfig.Overlay != nil {
-				networkConfig.Overlay = oldNetworkConfig.Overlay
+			if oldShoot == nil && networkConfig.Overlay == nil {
+				networkConfig.Overlay = overlay
 			}
 
-		}
+			if oldShoot != nil && networkConfig.Overlay == nil {
+				oldNetworkConfig, err := s.decodeCalicoNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
+				if err != nil {
+					return err
+				}
 
-		if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
-			overlayDisabled = true
-		}
+				if oldNetworkConfig.Overlay != nil {
+					networkConfig.Overlay = oldNetworkConfig.Overlay
+				}
 
-		shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
-			Object: networkConfig,
-		}
+			}
 
-	case cilium.ReleaseName:
-		overlay := &ciliumv1alpha1.Overlay{Enabled: false}
+			if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
+				overlayDisabled = true
+			}
 
-		networkConfig, err := s.decodeCiliumNetworkConfig(shoot.Spec.Networking.ProviderConfig)
-		if err != nil {
-			return err
-		}
+			shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
+				Object: networkConfig,
+			}
 
-		if oldShoot == nil && networkConfig.Overlay == nil {
-			networkConfig.Overlay = overlay
-		}
+		case cilium.ReleaseName:
+			overlay := &ciliumv1alpha1.Overlay{Enabled: false}
 
-		if oldShoot != nil && networkConfig.Overlay == nil {
-			oldNetworkConfig, err := s.decodeCiliumNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
+			networkConfig, err := s.decodeCiliumNetworkConfig(shoot.Spec.Networking.ProviderConfig)
 			if err != nil {
 				return err
 			}
 
-			if oldNetworkConfig.Overlay != nil {
-				networkConfig.Overlay = oldNetworkConfig.Overlay
+			if oldShoot == nil && networkConfig.Overlay == nil {
+				networkConfig.Overlay = overlay
 			}
 
-		}
+			if oldShoot != nil && networkConfig.Overlay == nil {
+				oldNetworkConfig, err := s.decodeCiliumNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
+				if err != nil {
+					return err
+				}
 
-		if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
-			overlayDisabled = true
-		}
+				if oldNetworkConfig.Overlay != nil {
+					networkConfig.Overlay = oldNetworkConfig.Overlay
+				}
 
-		shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
-			Object: networkConfig,
+			}
+
+			if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
+				overlayDisabled = true
+			}
+
+			shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
+				Object: networkConfig,
+			}
 		}
 	}
 

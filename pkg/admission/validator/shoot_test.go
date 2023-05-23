@@ -39,8 +39,7 @@ import (
 	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
-var _ = Describe("SecretBinding validator", func() {
-
+var _ = Describe("Shoot validator", func() {
 	Describe("#Validate", func() {
 		const namespace = "garden-dev"
 
@@ -132,7 +131,7 @@ var _ = Describe("SecretBinding validator", func() {
 						},
 					},
 					Region: "us-west",
-					Networking: core.Networking{
+					Networking: &core.Networking{
 						Nodes: pointer.String("10.250.0.0/16"),
 					},
 				},
@@ -279,6 +278,17 @@ var _ = Describe("SecretBinding validator", func() {
 			It("should succeed for valid Shoot", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("Workerless Shoot", func() {
+			BeforeEach(func() {
+				shoot.Spec.Provider.Workers = nil
+			})
+
+			It("should not validate", func() {
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
