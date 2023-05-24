@@ -178,6 +178,19 @@ images:
       confidentiality_requirement: 'high'
       integrity_requirement: 'high'
       availability_requirement: 'low'
+- name: csi-volume-modifier
+  sourceRepository: github.com/awslabs/volume-modifier-for-k8s
+  repository: public.ecr.aws/ebs-csi-driver/volume-modifier-for-k8s
+  tag: "v0.1.0"
+  labels:
+    - name: 'gardener.cloud/cve-categorisation'
+      value:
+        network_exposure: 'private'
+        authentication_enforced: false
+        user_interaction: 'gardener-operator'
+        confidentiality_requirement: 'high'
+        integrity_requirement: 'high'
+        availability_requirement: 'low'
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: registry.k8s.io/sig-storage/csi-provisioner

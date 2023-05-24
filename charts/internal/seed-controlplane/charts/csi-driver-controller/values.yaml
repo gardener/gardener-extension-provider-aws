@@ -10,6 +10,7 @@ images:
   csi-liveness-probe: image-repository:image-tag
   csi-snapshot-controller: image-repository:image-tag
   csi-snapshot-validation-webhook: image-repository:image-tag
+  csi-volume-modifier: image-repository:image-tag
 
 socketPath: /var/lib/csi/sockets/pluginproxy
 region: region
@@ -51,6 +52,12 @@ resources:
       memory: 32Mi
     limits:
       memory: 300Mi
+  volumeModifier:
+    requests:
+      cpu: 20m
+      memory: 50Mi
+    limits:
+      memory: 400Mi
 
 vpa:
   resourcePolicy:
@@ -78,6 +85,10 @@ vpa:
       maxAllowed:
         cpu: 500m
         memory: 2G
+    volumemodifier:
+      maxAllowed:
+        cpu: 500m
+        memory: 2G
 
 csiSnapshotController:
   replicas: 1
@@ -101,3 +112,6 @@ csiSnapshotValidationWebhook:
   secrets:
     server: csi-snapshot-validation-server
   topologyAwareRoutingEnabled: false
+
+volumeModifier:
+  log: 2

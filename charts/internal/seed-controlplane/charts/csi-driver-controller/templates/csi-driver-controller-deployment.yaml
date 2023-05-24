@@ -78,6 +78,30 @@ spec:
         - name: cloudprovider
           mountPath: /srv/cloudprovider
 
+      - name: aws-csi-volume-modifier
+        image: {{ index .Values.images "csi-volume-modifier" }}
+        imagePullPolicy: IfNotPresent
+        args:
+          - --v={{ .Values.volumeModifier.log }}
+          - --csi-address=$(ADDRESS)
+          - --kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
+          - --leader-election
+          - --leader-election-namespace=kube-system
+        env:
+          - name: ADDRESS
+            value: {{ .Values.socketPath }}/csi.sock
+        resources:
+{{ toYaml .Values.resources.volumeModifier| indent 10 }}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+        volumeMounts:
+          - name: socket-dir
+            mountPath: {{ .Values.socketPath }}
+          - mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
+            name: kubeconfig-csi-volume-modifier
+            readOnly: true
+
       - name: aws-csi-provisioner
         image: {{ index .Values.images "csi-provisioner" }}
         imagePullPolicy: IfNotPresent
@@ -201,7 +225,6 @@ spec:
         volumeMounts:
         - name: socket-dir
           mountPath: /csi
-
       volumes:
       - name: socket-dir
         emptyDir: {}
@@ -271,4 +294,20 @@ spec:
                   - key: token
                     path: token
                 name: shoot-access-csi-resizer
+                optional: false
+      - name: kubeconfig-csi-volume-modifier
+        projected:
+          defaultMode: 420
+          sources:
+            - secret:
+                items:
+                  - key: kubeconfig
+                    path: kubeconfig
+                name: {{ .Values.global.genericTokenKubeconfigSecretName }}
+                optional: false
+            - secret:
+                items:
+                  - key: token
+                    path: token
+                name: shoot-access-csi-volume-modifier
                 optional: false

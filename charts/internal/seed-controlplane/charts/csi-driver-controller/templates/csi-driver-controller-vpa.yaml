@@ -49,6 +49,13 @@ spec:
         cpu: {{ .Values.vpa.resourcePolicy.livenessProbe.maxAllowed.cpu }}
         memory: {{ .Values.vpa.resourcePolicy.livenessProbe.maxAllowed.memory }}
       controlledValues: RequestsOnly
+    - containerName: aws-volume-modifier
+      minAllowed:
+        memory: {{ .Values.resources.volumeModifier.requests.memory }}
+      maxAllowed:
+        cpu: {{ .Values.vpa.resourcePolicy.volumemodifier.maxAllowed.cpu }}
+        memory: {{ .Values.vpa.resourcePolicy.volumemodifier.maxAllowed.memory }}
+      controlledValues: RequestsOnly
   targetRef:
     apiVersion: apps/v1
     kind: Deployment

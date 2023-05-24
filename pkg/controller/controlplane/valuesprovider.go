@@ -101,6 +101,7 @@ func shootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
 		gutil.NewShootAccessSecret(aws.CSIResizerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSISnapshotControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSISnapshotValidationName, namespace),
+		gutil.NewShootAccessSecret(aws.CSIVolumeModifierName, namespace),
 	}
 }
 
@@ -158,6 +159,7 @@ var (
 					aws.CSILivenessProbeImageName,
 					aws.CSISnapshotControllerImageName,
 					aws.CSISnapshotValidationWebhookImageName,
+					aws.CSIVolumeModifierImageName,
 				},
 				Objects: []*chart.Object{
 					// csi-driver-controller
@@ -232,6 +234,11 @@ var (
 					{Type: &admissionregistrationv1.ValidatingWebhookConfiguration{}, Name: aws.CSISnapshotValidationName},
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
+					// csi-volume-modifier
+					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
+					{Type: &rbacv1.Role{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
+					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
 				},
 			},
 		},
