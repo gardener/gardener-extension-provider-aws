@@ -53,6 +53,8 @@ const (
 	CSILivenessProbeImageName = "csi-liveness-probe"
 	// CSISnapshotValidationWebhookImageName is the name of the csi-snapshot-validation-webhook image.
 	CSISnapshotValidationWebhookImageName = "csi-snapshot-validation-webhook"
+	// CSIVolumeModifierImageName is the name of the csi-volume-modifier image.
+	CSIVolumeModifierImageName = "csi-volume-modifier"
 
 	// MachineControllerManagerImageName is the name of the MachineControllerManager image.
 	MachineControllerManagerImageName = "machine-controller-manager"
@@ -133,6 +135,8 @@ const (
 	LBReadvertiserDeploymentName = "aws-lb-readvertiser"
 	// CSISnapshotValidationName is the constant for the name of the csi-snapshot-validation-webhook component.
 	CSISnapshotValidationName = "csi-snapshot-validation"
+	// CSIVolumeModifierName is the constant for the name of the csi-volume-modifier.
+	CSIVolumeModifierName = "csi-volume-modifier"
 )
 
 var (
