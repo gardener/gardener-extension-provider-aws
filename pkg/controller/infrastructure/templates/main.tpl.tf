@@ -46,6 +46,11 @@ resource "aws_default_security_group" "default" {
 resource "aws_internet_gateway" "igw" {
   vpc_id = {{ .vpc.id }}
 
+  timeouts {
+    create = "10m"
+    delete = "10m"
+  }
+
 {{ commonTags .clusterName | indent 2 }}
 }
 {{- end}}
