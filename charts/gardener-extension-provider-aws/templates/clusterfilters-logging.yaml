@@ -3,6 +3,7 @@ kind: ClusterFilter
 metadata:
   labels:
     fluentbit.gardener/type: "seed"
+    fluentbit.gardener.cloud/type: "seed"
   name: cloud-controller-manager-aws-cloud-controller-manager
 spec:
   filters:
@@ -17,6 +18,7 @@ kind: ClusterFilter
 metadata:
   labels:
     fluentbit.gardener/type: "seed"
+    fluentbit.gardener.cloud/type: "seed"
   name: machine-controller-manager-aws-machine-controller-manager
 spec:
   filters:
@@ -31,6 +33,7 @@ kind: ClusterFilter
 metadata:
   labels:
     fluentbit.gardener/type: "seed"
+    fluentbit.gardener.cloud/type: "seed"
   name: machine-controller-manager-machine-controller-manager-provider-aws
 spec:
   filters:
@@ -45,6 +48,7 @@ kind: ClusterFilter
 metadata:
   labels:
     fluentbit.gardener/type: "seed"
+    fluentbit.gardener.cloud/type: "seed"
   name: csi-driver-controller-aws-csi
 spec:
   filters:
@@ -59,6 +63,7 @@ kind: ClusterFilter
 metadata:
   labels:
     fluentbit.gardener/type: "seed"
+    fluentbit.gardener.cloud/type: "seed"
   name: csi-snapshot-aws-csi
 spec:
   filters:
@@ -74,6 +79,7 @@ kind: ClusterFilter
 metadata:
   labels:
     fluentbit.gardener/type: "seed"
+    fluentbit.gardener.cloud/type: "seed"
   name: lb-readvertiser-aws-lb-readvertiser
 spec:
   filters:
@@ -83,27 +89,3 @@ spec:
       reserveData: true
   match: kubernetes.*lb-readvertiser*aws-lb-readvertiser*
 {{- end}}
----
-apiVersion: fluentbit.fluent.io/v1alpha2
-kind: ClusterFilter
-metadata:
-  labels:
-    fluentbit.gardener/type: "seed"
-  name: modify-provider-aws
-spec:
-  filters:
-  - modify:
-      conditions:
-        - keyValueMatches:
-            tag: ^kubernetes\.var\.log\.containers\.(cloud-controller-manager-.+?_.+?_aws-cloud-controller-manager|csi-driver-controller-.+?_.+?_aws-csi)
-      rules:
-        - add:
-            __gardener_multitenant_id__: operator;user
-  - modify:
-      conditions:
-        - keyValueMatches:
-            tag: ^kubernetes\.var\.log\.containers\.machine-controller-manager-.+?_.+?_(aws-machine-controller-manager|machine-controller-manager-provider-aws)
-      rules:
-        - add:
-            __gardener_multitenant_id__: operator;user
-  match:  kubernetes.*
