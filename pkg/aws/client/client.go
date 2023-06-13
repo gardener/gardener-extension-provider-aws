@@ -377,6 +377,14 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 		return err
 	}
 
+	// Handle bucket policy IAM ARN for different partitions (AWS region groups)
+	arnPartition := "aws"
+	if strings.HasPrefix(region, "cn-") {
+		arnPartition = "aws-cn" // China regions
+	} else if strings.HasPrefix(region, "us-gov-") {
+		arnPartition = "aws-us-gov" // AWS GovCloud (US) regions
+	}
+
 	// Set bucket policy to deny non-HTTPS requests
 	bucketPolicy := map[string]interface{}{
 		"Version": "2012-10-17",
@@ -386,8 +394,8 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 				"Principal": "*",
 				"Action":    "s3:*",
 				"Resource": []string{
-					fmt.Sprintf("arn:aws:s3:::%s", bucket),
-					fmt.Sprintf("arn:aws:s3:::%s/*", bucket),
+					fmt.Sprintf("arn:%s:s3:::%s", arnPartition, bucket),
+					fmt.Sprintf("arn:%s:s3:::%s/*", arnPartition, bucket),
 				},
 				"Condition": map[string]interface{}{
 					"Bool": map[string]string{
