@@ -378,6 +378,8 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 	}
 
 	// Handle bucket policy IAM ARN for different partitions (AWS region groups)
+	// Different available partitions in AWS are defined at
+	// https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
 	arnPartition := "aws"
 	if strings.HasPrefix(region, "cn-") {
 		arnPartition = "aws-cn" // China regions
