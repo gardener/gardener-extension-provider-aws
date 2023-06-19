@@ -204,21 +204,21 @@ type SecurityGroup struct {
 
 // Clone creates a copy.
 func (sg *SecurityGroup) Clone() *SecurityGroup {
-	copy := *sg
-	copy.Rules = copySlice(sg.Rules)
-	copy.Tags = sg.Tags.Clone()
-	return &copy
+	cp := *sg
+	cp.Rules = copySlice(sg.Rules)
+	cp.Tags = sg.Tags.Clone()
+	return &cp
 }
 
 // SortedClone creates a copy with sorted rules.
 func (sg *SecurityGroup) SortedClone() *SecurityGroup {
-	copy := sg.Clone()
-	sort.Slice(copy.Rules, func(i, j int) bool {
-		ri := copy.Rules[i].SortedClone()
-		rj := copy.Rules[j].SortedClone()
+	cp := sg.Clone()
+	sort.Slice(cp.Rules, func(i, j int) bool {
+		ri := cp.Rules[i].SortedClone()
+		rj := cp.Rules[j].SortedClone()
 		return ri.LessThan(rj)
 	})
-	return copy
+	return cp
 }
 
 // EquivalentRulesTo returns true if the security rules are equivalent to the rules of another security group.
@@ -299,16 +299,16 @@ type SecurityGroupRule struct {
 
 // Clone creates a copy.
 func (sgr *SecurityGroupRule) Clone() *SecurityGroupRule {
-	copy := *sgr
-	copy.CidrBlocks = copySlice(sgr.CidrBlocks)
-	return &copy
+	cp := *sgr
+	cp.CidrBlocks = copySlice(sgr.CidrBlocks)
+	return &cp
 }
 
 // SortedClone creates a copy with sorted CidrBlocks array for comparing and sorting.
 func (sgr *SecurityGroupRule) SortedClone() *SecurityGroupRule {
-	copy := sgr.Clone()
-	sort.Strings(copy.CidrBlocks)
-	return copy
+	cp := sgr.Clone()
+	sort.Strings(cp.CidrBlocks)
+	return cp
 }
 
 // LessThan compares to another securitry group role for ordering.
@@ -435,9 +435,9 @@ type Subnet struct {
 
 // Clone creates a copy.
 func (s *Subnet) Clone() *Subnet {
-	copy := *s
-	copy.Tags = s.Tags.Clone()
-	return &copy
+	cp := *s
+	cp.Tags = s.Tags.Clone()
+	return &cp
 }
 
 // ElasticIP contains the relevant fields for an EC2 elastic IP resource.

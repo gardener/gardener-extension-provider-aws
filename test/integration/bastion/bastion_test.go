@@ -191,17 +191,17 @@ var _ = Describe("Bastion tests", func() {
 		By("setup infrastructure")
 		infra := setupInfrastructure(ctx, log, awsClient, extensionscluster.ObjectMeta.Name)
 		framework.AddCleanupAction(func() {
-			teardownInfrastructure(ctx, log, awsClient, infra)
+			teardownInfrastructure(ctx, awsClient, infra)
 		})
 
 		By("setup shoot environment")
-		setupShootEnvironment(ctx, log, c, namespace, extensionscluster)
+		setupShootEnvironment(ctx, c, namespace, extensionscluster)
 		framework.AddCleanupAction(func() {
-			teardownShootEnvironment(ctx, log, c, namespace, extensionscluster)
+			teardownShootEnvironment(ctx, c, namespace, extensionscluster)
 		})
 
 		By("setup bastion")
-		bastion, options := setupBastion(ctx, log, awsClient, c, namespaceName, corecluster)
+		bastion, options := setupBastion(ctx, awsClient, c, namespaceName, corecluster)
 		framework.AddCleanupAction(func() {
 			teardownBastion(ctx, log, c, bastion)
 
@@ -287,13 +287,13 @@ func setupInfrastructure(ctx context.Context, log logr.Logger, awsClient *awscli
 	}
 }
 
-func teardownInfrastructure(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, infra *infrastructure) {
+func teardownInfrastructure(ctx context.Context, awsClient *awsclient.Client, infra *infrastructure) {
 	Expect(integration.DestroySubnet(ctx, log, awsClient, infra.SubnetID)).To(Succeed())
 	Expect(integration.DestroySecurityGroup(ctx, log, awsClient, infra.WorkerSecurityGroupID)).To(Succeed())
 	Expect(integration.DestroyVPC(ctx, log, awsClient, infra.VPCID)).To(Succeed())
 }
 
-func setupShootEnvironment(ctx context.Context, log logr.Logger, c client.Client, namespace *corev1.Namespace, cluster *extensionsv1alpha1.Cluster) {
+func setupShootEnvironment(ctx context.Context, c client.Client, namespace *corev1.Namespace, cluster *extensionsv1alpha1.Cluster) {
 	Expect(c.Create(ctx, namespace)).To(Succeed())
 	Expect(c.Create(ctx, cluster)).To(Succeed())
 
@@ -310,12 +310,12 @@ func setupShootEnvironment(ctx context.Context, log logr.Logger, c client.Client
 	Expect(c.Create(ctx, secret)).To(Succeed())
 }
 
-func teardownShootEnvironment(ctx context.Context, log logr.Logger, c client.Client, namespace *corev1.Namespace, cluster *extensionsv1alpha1.Cluster) {
+func teardownShootEnvironment(ctx context.Context, c client.Client, namespace *corev1.Namespace, cluster *extensionsv1alpha1.Cluster) {
 	Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
 	Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
 }
 
-func setupBastion(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, c client.Client, name string, cluster *controller.Cluster) (*extensionsv1alpha1.Bastion, *bastionctrl.Options) {
+func setupBastion(ctx context.Context, awsClient *awsclient.Client, c client.Client, name string, cluster *controller.Cluster) (*extensionsv1alpha1.Bastion, *bastionctrl.Options) {
 	bastion, err := newBastion(name)
 	Expect(err).NotTo(HaveOccurred())
 

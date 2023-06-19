@@ -73,7 +73,7 @@ func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Cli
 }
 
 // DestroySubnet deletes an existing subnet.
-func DestroySubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, subnetID string) error {
+func DestroySubnet(_ context.Context, _ logr.Logger, awsClient *awsclient.Client, subnetID string) error {
 	_, err := awsClient.EC2.DeleteSubnet(&ec2.DeleteSubnetInput{
 		SubnetId: awssdk.String(subnetID),
 	})

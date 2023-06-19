@@ -973,11 +973,8 @@ func (c *FlowContext) ensureRoutingTableAssociations(zoneName string) flow.TaskF
 			IdentifierZoneSubnetPrivate, IdentifierZoneSubnetPrivateRouteTableAssoc); err != nil {
 			return err
 		}
-		if err := c.ensureZoneRoutingTableAssociation(ctx, zoneName, true,
-			IdentifierZoneSubnetWorkers, IdentifierZoneSubnetWorkersRouteTableAssoc); err != nil {
-			return err
-		}
-		return nil
+		return c.ensureZoneRoutingTableAssociation(ctx, zoneName, true,
+			IdentifierZoneSubnetWorkers, IdentifierZoneSubnetWorkersRouteTableAssoc)
 	}
 }
 
@@ -1052,10 +1049,7 @@ func (c *FlowContext) ensureVPCEndpointZoneRoutingTableAssociation(ctx context.C
 	log := c.LogFromContext(ctx)
 	log.Info("creating...", "endpoint", endpointName)
 
-	if err := c.client.CreateVpcEndpointRouteTableAssociation(ctx, routeTable.RouteTableId, *vpcEndpointID); err != nil {
-		return err
-	}
-	return nil
+	return c.client.CreateVpcEndpointRouteTableAssociation(ctx, routeTable.RouteTableId, *vpcEndpointID)
 }
 
 func (c *FlowContext) deleteRoutingTableAssociations(zoneName string) flow.TaskFn {
@@ -1068,11 +1062,8 @@ func (c *FlowContext) deleteRoutingTableAssociations(zoneName string) flow.TaskF
 			IdentifierZoneSubnetPrivate, IdentifierZoneSubnetPrivateRouteTableAssoc); err != nil {
 			return err
 		}
-		if err := c.deleteZoneRoutingTableAssociation(ctx, zoneName, true,
-			IdentifierZoneSubnetWorkers, IdentifierZoneSubnetWorkersRouteTableAssoc); err != nil {
-			return err
-		}
-		return nil
+		return c.deleteZoneRoutingTableAssociation(ctx, zoneName, true,
+			IdentifierZoneSubnetWorkers, IdentifierZoneSubnetWorkersRouteTableAssoc)
 	}
 }
 

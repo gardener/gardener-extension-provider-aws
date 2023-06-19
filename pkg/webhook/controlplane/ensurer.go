@@ -71,12 +71,12 @@ func computeCSIMigrationCompleteFeatureGate(version string) (string, error) {
 }
 
 // EnsureKubeAPIServerDeployment ensures that the kube-apiserver deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, gctx gcontext.GardenContext, new, _ *appsv1.Deployment) error {
-	template := &new.Spec.Template
+func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
+	template := &newObj.Spec.Template
 	ps := &template.Spec
 
 	// TODO: This label approach is deprecated and no longer needed in the future. Remove it as soon as gardener/gardener@v1.75 has been released.
-	metav1.SetMetaDataLabel(&new.Spec.Template.ObjectMeta, gutil.NetworkPolicyLabel(aws.CSISnapshotValidationName, 443), v1beta1constants.LabelNetworkPolicyAllowed)
+	metav1.SetMetaDataLabel(&newObj.Spec.Template.ObjectMeta, gutil.NetworkPolicyLabel(aws.CSISnapshotValidationName, 443), v1beta1constants.LabelNetworkPolicyAllowed)
 
 	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
@@ -93,12 +93,12 @@ func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, gctx gconte
 		ensureEnvVars(c)
 	}
 
-	return e.ensureChecksumAnnotations(&new.Spec.Template)
+	return e.ensureChecksumAnnotations(&newObj.Spec.Template)
 }
 
 // EnsureKubeControllerManagerDeployment ensures that the kube-controller-manager deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gctx gcontext.GardenContext, new, _ *appsv1.Deployment) error {
-	template := &new.Spec.Template
+func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
+	template := &newObj.Spec.Template
 	ps := &template.Spec
 
 	cluster, err := gctx.GetCluster(ctx)
@@ -119,12 +119,12 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 
 	ensureKubeControllerManagerLabels(template)
 	ensureKubeControllerManagerVolumes(ps)
-	return e.ensureChecksumAnnotations(&new.Spec.Template)
+	return e.ensureChecksumAnnotations(&newObj.Spec.Template)
 }
 
 // EnsureKubeSchedulerDeployment ensures that the kube-scheduler deployment conforms to the provider requirements.
-func (e *ensurer) EnsureKubeSchedulerDeployment(ctx context.Context, gctx gcontext.GardenContext, new, _ *appsv1.Deployment) error {
-	template := &new.Spec.Template
+func (e *ensurer) EnsureKubeSchedulerDeployment(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
+	template := &newObj.Spec.Template
 	ps := &template.Spec
 
 	cluster, err := gctx.GetCluster(ctx)
@@ -144,8 +144,8 @@ func (e *ensurer) EnsureKubeSchedulerDeployment(ctx context.Context, gctx gconte
 }
 
 // EnsureClusterAutoscalerDeployment ensures that the cluster-autoscaler deployment conforms to the provider requirements.
-func (e *ensurer) EnsureClusterAutoscalerDeployment(ctx context.Context, gctx gcontext.GardenContext, new, _ *appsv1.Deployment) error {
-	template := &new.Spec.Template
+func (e *ensurer) EnsureClusterAutoscalerDeployment(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
+	template := &newObj.Spec.Template
 	ps := &template.Spec
 
 	cluster, err := gctx.GetCluster(ctx)
@@ -301,20 +301,20 @@ func (e *ensurer) ensureChecksumAnnotations(template *corev1.PodTemplateSpec) er
 }
 
 // EnsureKubeletServiceUnitOptions ensures that the kubelet.service unit options conform to the provider requirements.
-func (e *ensurer) EnsureKubeletServiceUnitOptions(_ context.Context, _ gcontext.GardenContext, kubeletVersion *semver.Version, new, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
-	if opt := extensionswebhook.UnitOptionWithSectionAndName(new, "Service", "ExecStart"); opt != nil {
+func (e *ensurer) EnsureKubeletServiceUnitOptions(_ context.Context, _ gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
+	if opt := extensionswebhook.UnitOptionWithSectionAndName(newObj, "Service", "ExecStart"); opt != nil {
 		command := extensionswebhook.DeserializeCommandLine(opt.Value)
 		command = ensureKubeletCommandLineArgs(command, kubeletVersion)
 		opt.Value = extensionswebhook.SerializeCommandLine(command, 1, " \\\n    ")
 	}
 
-	new = extensionswebhook.EnsureUnitOption(new, &unit.UnitOption{
+	newObj = extensionswebhook.EnsureUnitOption(newObj, &unit.UnitOption{
 		Section: "Service",
 		Name:    "ExecStartPre",
 		Value:   `/bin/sh -c 'hostnamectl set-hostname $(hostname -f)'`,
 	})
 
-	return new, nil
+	return newObj, nil
 }
 
 func ensureKubeletCommandLineArgs(command []string, kubeletVersion *semver.Version) []string {
@@ -326,23 +326,23 @@ func ensureKubeletCommandLineArgs(command []string, kubeletVersion *semver.Versi
 }
 
 // EnsureKubeletConfiguration ensures that the kubelet configuration conforms to the provider requirements.
-func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.GardenContext, kubeletVersion *semver.Version, new, _ *kubeletconfigv1beta1.KubeletConfiguration) error {
+func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ *kubeletconfigv1beta1.KubeletConfiguration) error {
 	csiMigrationCompleteFeatureGate, err := computeCSIMigrationCompleteFeatureGate(kubeletVersion.String())
 	if err != nil {
 		return err
 	}
 
-	if new.FeatureGates == nil {
-		new.FeatureGates = make(map[string]bool)
+	if newObj.FeatureGates == nil {
+		newObj.FeatureGates = make(map[string]bool)
 	}
 
-	new.FeatureGates["CSIMigration"] = true
-	new.FeatureGates["CSIMigrationAWS"] = true
+	newObj.FeatureGates["CSIMigration"] = true
+	newObj.FeatureGates["CSIMigrationAWS"] = true
 	// kubelets of new worker nodes can directly be started with the the <csiMigrationCompleteFeatureGate> feature gate
-	new.FeatureGates[csiMigrationCompleteFeatureGate] = true
+	newObj.FeatureGates[csiMigrationCompleteFeatureGate] = true
 
 	if versionutils.ConstraintK8sGreaterEqual123.Check(kubeletVersion) {
-		new.EnableControllerAttachDetach = pointer.Bool(true)
+		newObj.EnableControllerAttachDetach = pointer.Bool(true)
 	}
 
 	return nil
@@ -351,28 +351,28 @@ func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.Garde
 var regexFindProperty = regexp.MustCompile("net.ipv4.neigh.default.gc_thresh1[[:space:]]*=[[:space:]]*([[:alnum:]]+)")
 
 // EnsureKubernetesGeneralConfiguration ensures that the kubernetes general configuration conforms to the provider requirements.
-func (e *ensurer) EnsureKubernetesGeneralConfiguration(_ context.Context, _ gcontext.GardenContext, new, _ *string) error {
+func (e *ensurer) EnsureKubernetesGeneralConfiguration(_ context.Context, _ gcontext.GardenContext, newObj, _ *string) error {
 	// If the needed property exists, ensure the correct value
-	if regexFindProperty.MatchString(*new) {
-		res := regexFindProperty.ReplaceAll([]byte(*new), []byte("net.ipv4.neigh.default.gc_thresh1 = 0"))
-		*new = string(res)
+	if regexFindProperty.MatchString(*newObj) {
+		res := regexFindProperty.ReplaceAll([]byte(*newObj), []byte("net.ipv4.neigh.default.gc_thresh1 = 0"))
+		*newObj = string(res)
 		return nil
 	}
 
 	// If the property do not exist, append it in the end of the string
 	buf := bytes.Buffer{}
-	buf.WriteString(*new)
+	buf.WriteString(*newObj)
 	buf.WriteString("\n")
 	buf.WriteString("# AWS specific settings\n")
 	buf.WriteString("# See https://github.com/kubernetes/kubernetes/issues/23395\n")
 	buf.WriteString("net.ipv4.neigh.default.gc_thresh1 = 0")
 
-	*new = buf.String()
+	*newObj = buf.String()
 	return nil
 }
 
 // EnsureAdditionalUnits ensures that additional required system units are added.
-func (e *ensurer) EnsureAdditionalUnits(_ context.Context, _ gcontext.GardenContext, new, _ *[]extensionsv1alpha1.Unit) error {
+func (e *ensurer) EnsureAdditionalUnits(_ context.Context, _ gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.Unit) error {
 	var (
 		command              = "start"
 		trueVar              = true
@@ -391,7 +391,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 `
 	)
 
-	extensionswebhook.AppendUniqueUnit(new, extensionsv1alpha1.Unit{
+	extensionswebhook.AppendUniqueUnit(newObj, extensionsv1alpha1.Unit{
 		Name:    "custom-mtu.service",
 		Enable:  &trueVar,
 		Command: &command,
@@ -401,7 +401,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 }
 
 // EnsureAdditionalFiles ensures that additional required system files are added.
-func (e *ensurer) EnsureAdditionalFiles(_ context.Context, _ gcontext.GardenContext, new, _ *[]extensionsv1alpha1.File) error {
+func (e *ensurer) EnsureAdditionalFiles(_ context.Context, _ gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.File) error {
 	var (
 		permissions       int32 = 0755
 		customFileContent       = `#!/bin/sh
@@ -422,7 +422,7 @@ done
 `
 	)
 
-	appendUniqueFile(new, extensionsv1alpha1.File{
+	appendUniqueFile(newObj, extensionsv1alpha1.File{
 		Path:        "/opt/bin/mtu-customizer.sh",
 		Permissions: &permissions,
 		Content: extensionsv1alpha1.FileContent{

@@ -190,7 +190,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 
 // ingressPermissions converts the Ingress rules from the Bastion resource to EC2-compatible
 // IP permissions.
-func ingressPermissions(ctx context.Context, bastion *extensionsv1alpha1.Bastion) (*ec2.IpPermission, error) {
+func ingressPermissions(_ context.Context, bastion *extensionsv1alpha1.Bastion) (*ec2.IpPermission, error) {
 	permission := &ec2.IpPermission{
 		FromPort:   aws.Int64(SSHPort),
 		ToPort:     aws.Int64(SSHPort),
