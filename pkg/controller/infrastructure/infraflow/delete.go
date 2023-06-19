@@ -105,7 +105,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 
 func (c *FlowContext) deleteKubernetesLoadBalancersAndSecurityGroups(ctx context.Context) error {
 	if err := DestroyKubernetesLoadBalancersAndSecurityGroups(ctx, c.client, *c.state.Get(IdentifierVPC), c.namespace); err != nil {
-		return util.DetermineError(fmt.Errorf("Failed to destroy load balancers and security groups: %w", err), helper.KnownCodes)
+		return util.DetermineError(fmt.Errorf("failed to destroy load balancers and security groups: %w", err), helper.KnownCodes)
 	}
 
 	c.state.Set(MarkerLoadBalancersAndSecurityGroupsDestroyed, "true")
@@ -138,7 +138,7 @@ func DestroyKubernetesLoadBalancersAndSecurityGroups(ctx context.Context, awsCli
 	return nil
 }
 
-func (c *FlowContext) deleteDefaultSecurityGroup(ctx context.Context) error {
+func (c *FlowContext) deleteDefaultSecurityGroup(_ context.Context) error {
 	// nothing to do, it is deleted automatically together with VPC
 	c.state.SetAsDeleted(IdentifierDefaultSecurityGroup)
 	return nil

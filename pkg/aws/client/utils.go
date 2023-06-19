@@ -15,6 +15,6 @@
 package client
 
 func copySlice[T any](array []T) []T {
-	var copy []T
-	return append(copy, array...)
+	var cp []T
+	return append(cp, array...)
 }

@@ -28,7 +28,7 @@ import (
 
 // Restore takes the infrastructure state and deploys it as terraform state ConfigMap before calling the terraformer
 func (a *actuator) Restore(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
-	flowState, err := a.getStateFromInfraStatus(ctx, infrastructure)
+	flowState, err := a.getStateFromInfraStatus(infrastructure)
 	if err != nil {
 		return err
 	}

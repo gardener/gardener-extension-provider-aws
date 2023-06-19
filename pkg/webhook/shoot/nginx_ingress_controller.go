@@ -20,12 +20,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func (m *mutator) mutateNginxIngressControllerConfigMap(ctx context.Context, configmap *corev1.ConfigMap) error {
-	if configmap.Data == nil {
-		configmap.Data = make(map[string]string, 1)
+func (m *mutator) mutateNginxIngressControllerConfigMap(_ context.Context, configMap *corev1.ConfigMap) error {
+	if configMap.Data == nil {
+		configMap.Data = make(map[string]string, 1)
 	}
 
-	configmap.Data["use-proxy-protocol"] = "true"
+	configMap.Data["use-proxy-protocol"] = "true"
 
 	return nil
 }

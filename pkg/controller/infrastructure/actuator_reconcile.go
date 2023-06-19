@@ -41,7 +41,7 @@ import (
 )
 
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
-	flowState, err := a.getStateFromInfraStatus(ctx, infrastructure)
+	flowState, err := a.getStateFromInfraStatus(infrastructure)
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (a *actuator) shouldUseFlow(infrastructure *extensionsv1alpha1.Infrastructu
 		(cluster.Seed != nil && strings.EqualFold(cluster.Seed.Labels[awsapi.SeedLabelKeyUseFlow], "true"))
 }
 
-func (a *actuator) getStateFromInfraStatus(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure) (*infraflow.PersistentState, error) {
+func (a *actuator) getStateFromInfraStatus(infrastructure *extensionsv1alpha1.Infrastructure) (*infraflow.PersistentState, error) {
 	if infrastructure.Status.State != nil {
 		return infraflow.NewPersistentStateFromJSON(infrastructure.Status.State.Raw)
 	}

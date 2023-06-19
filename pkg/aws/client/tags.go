@@ -54,11 +54,11 @@ func (tags Tags) ToTagSpecifications(resourceType string) []*ec2.TagSpecificatio
 
 // ToEC2Tags exports the tags map as a EC2 Tag array.
 func (tags Tags) ToEC2Tags() []*ec2.Tag {
-	var copy []*ec2.Tag
+	var cp []*ec2.Tag
 	for k, v := range tags {
-		copy = append(copy, &ec2.Tag{Key: aws.String(k), Value: aws.String(v)})
+		cp = append(cp, &ec2.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
-	return copy
+	return cp
 }
 
 // ToFilters exports the tags map as a EC2 Filter array.
@@ -75,9 +75,9 @@ func (tags Tags) ToFilters() []*ec2.Filter {
 
 // Clone creates a copy of the tags aps
 func (tags Tags) Clone() Tags {
-	copy := Tags{}
+	cp := Tags{}
 	for k, v := range tags {
-		copy[k] = v
+		cp[k] = v
 	}
-	return copy
+	return cp
 }

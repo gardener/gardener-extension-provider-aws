@@ -61,7 +61,7 @@ func (a *actuator) InjectClient(client client.Client) error {
 }
 
 // Reconcile reconciles the DNSRecord.
-func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensionsv1alpha1.DNSRecord, cluster *extensionscontroller.Cluster) error {
+func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensionsv1alpha1.DNSRecord, _ *extensionscontroller.Cluster) error {
 	// Create AWS client
 	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
 	if err != nil {
@@ -101,7 +101,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensio
 }
 
 // Delete deletes the DNSRecord.
-func (a *actuator) Delete(ctx context.Context, log logr.Logger, dns *extensionsv1alpha1.DNSRecord, cluster *extensionscontroller.Cluster) error {
+func (a *actuator) Delete(ctx context.Context, log logr.Logger, dns *extensionsv1alpha1.DNSRecord, _ *extensionscontroller.Cluster) error {
 	// Create AWS client
 	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
 	if err != nil {
@@ -134,7 +134,7 @@ func (a *actuator) Restore(ctx context.Context, log logr.Logger, dns *extensions
 }
 
 // Migrate migrates the DNSRecord.
-func (a *actuator) Migrate(ctx context.Context, _ logr.Logger, dns *extensionsv1alpha1.DNSRecord, cluster *extensionscontroller.Cluster) error {
+func (a *actuator) Migrate(_ context.Context, _ logr.Logger, _ *extensionsv1alpha1.DNSRecord, _ *extensionscontroller.Cluster) error {
 	return nil
 }
 

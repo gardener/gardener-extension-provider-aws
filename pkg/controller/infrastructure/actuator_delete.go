@@ -37,7 +37,7 @@ import (
 )
 
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
-	state, err := a.getStateFromInfraStatus(ctx, infrastructure)
+	state, err := a.getStateFromInfraStatus(infrastructure)
 	if err != nil {
 		return err
 	}

@@ -50,7 +50,7 @@ func CreateSecurityGroup(ctx context.Context, awsClient *awsclient.Client, group
 }
 
 // DestroySecurityGroup deletes an existing security group.
-func DestroySecurityGroup(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, securityGroupID string) error {
+func DestroySecurityGroup(_ context.Context, _ logr.Logger, awsClient *awsclient.Client, securityGroupID string) error {
 	_, err := awsClient.EC2.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
 		GroupId: awssdk.String(securityGroupID),
 	})
