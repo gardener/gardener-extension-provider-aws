@@ -5,7 +5,6 @@ podNetwork: 192.168.0.0/16
 podAnnotations: {}
 podLabels: {}
 featureGates: {}
-  # CustomResourceValidation: true
   # RotateKubeletServerCertificate: false
 images:
   cloud-controller-manager: image-repository:image-tag

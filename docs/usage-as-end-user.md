@@ -257,7 +257,7 @@ apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: ControlPlaneConfig
 cloudControllerManager:
   featureGates:
-    CustomResourceValidation: true
+    RotateKubeletServerCertificate: true
   useCustomRouteController: true
 #loadBalancerController:
 #  enabled: true

@@ -59,7 +59,7 @@ spec:
     kind: ControlPlaneConfig
     cloudControllerManager:
       featureGates:
-        CustomResourceValidation: true
+        RotateKubeletServerCertificate: true
     storage:
       managedDefaultClass: false
   infrastructureProviderStatus:
