@@ -56,23 +56,23 @@ var _ = Describe("Ensurer", func() {
 		ctx  = context.TODO()
 
 		dummyContext   = gcontext.NewGardenContext(nil, nil)
-		eContextK8s120 = gcontext.NewInternalGardenContext(
+		eContextK8s122 = gcontext.NewInternalGardenContext(
 			&extensionscontroller.Cluster{
 				Shoot: &gardencorev1beta1.Shoot{
 					Spec: gardencorev1beta1.ShootSpec{
 						Kubernetes: gardencorev1beta1.Kubernetes{
-							Version: "1.20.0",
+							Version: "1.22.0",
 						},
 					},
 				},
 			},
 		)
-		eContextK8s121 = gcontext.NewInternalGardenContext(
+		eContextK8s123 = gcontext.NewInternalGardenContext(
 			&extensionscontroller.Cluster{
 				Shoot: &gardencorev1beta1.Shoot{
 					Spec: gardencorev1beta1.ShootSpec{
 						Kubernetes: gardencorev1beta1.Kubernetes{
-							Version: "1.21.0",
+							Version: "1.23.0",
 						},
 					},
 				},
@@ -124,18 +124,11 @@ var _ = Describe("Ensurer", func() {
 			ensurer = NewEnsurer(logger)
 		})
 
-		It("should add missing elements to kube-apiserver deployment (k8s = 1.20)", func() {
-			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s120, dep, nil)
+		It("should add missing elements to kube-apiserver deployment", func() {
+			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s123, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeAPIServerDeployment(dep, "1.20.0")
-		})
-
-		It("should add missing elements to kube-apiserver deployment (k8s >= 1.21)", func() {
-			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s121, dep, nil)
-			Expect(err).To(Not(HaveOccurred()))
-
-			checkKubeAPIServerDeployment(dep, "1.21.0")
+			checkKubeAPIServerDeployment(dep, "1.23.5")
 		})
 
 		It("should add missing elements to kube-apiserver deployment (k8s >= 1.27)", func() {
@@ -177,10 +170,10 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s120, dep, nil)
+			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s123, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeAPIServerDeployment(dep, "1.20.0")
+			checkKubeAPIServerDeployment(dep, "1.23.5")
 		})
 	})
 
@@ -218,18 +211,11 @@ var _ = Describe("Ensurer", func() {
 			Expect(err).To(Not(HaveOccurred()))
 		})
 
-		It("should add missing elements to kube-controller-manager deployment (k8s = 1.20 w/ CSI annotation)", func() {
-			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s120, dep, nil)
+		It("should add missing elements to kube-controller-manager deployment", func() {
+			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s123, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeControllerManagerDeployment(dep, "1.20.0")
-		})
-
-		It("should add missing elements to kube-controller-manager deployment (k8s >= 1.21 w/ CSI annotation)", func() {
-			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s121, dep, nil)
-			Expect(err).To(Not(HaveOccurred()))
-
-			checkKubeControllerManagerDeployment(dep, "1.21.0")
+			checkKubeControllerManagerDeployment(dep, "1.23.5")
 		})
 
 		It("should add missing elements to kube-controller-manager deployment (k8s >= 1.27 w/ CSI annotation)", func() {
@@ -271,10 +257,10 @@ var _ = Describe("Ensurer", func() {
 				}
 			)
 
-			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s120, dep, nil)
+			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s123, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeControllerManagerDeployment(dep, "1.20.0")
+			checkKubeControllerManagerDeployment(dep, "1.23.5")
 		})
 	})
 
@@ -303,18 +289,11 @@ var _ = Describe("Ensurer", func() {
 			ensurer = NewEnsurer(logger)
 		})
 
-		It("should add missing elements to kube-scheduler deployment (k8s = 1.20)", func() {
-			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s120, dep, nil)
+		It("should add missing elements to kube-scheduler deployment", func() {
+			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s123, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeSchedulerDeployment(dep, "1.20.0")
-		})
-
-		It("should add missing elements to kube-scheduler deployment (k8s >= 1.21)", func() {
-			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s121, dep, nil)
-			Expect(err).To(Not(HaveOccurred()))
-
-			checkKubeSchedulerDeployment(dep, "1.21.0")
+			checkKubeSchedulerDeployment(dep, "1.23.5")
 		})
 
 		It("should add missing elements to kube-scheduler deployment (k8s >= 1.27)", func() {
@@ -350,18 +329,11 @@ var _ = Describe("Ensurer", func() {
 			ensurer = NewEnsurer(logger)
 		})
 
-		It("should add missing elements to cluster-autoscaler deployment (k8s = 1.20)", func() {
-			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s120, dep, nil)
+		It("should add missing elements to cluster-autoscaler deployment", func() {
+			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s123, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkClusterAutoscalerDeployment(dep, "1.20.0")
-		})
-
-		It("should add missing elements to cluster-autoscaler deployment (k8s >= 1.21)", func() {
-			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s121, dep, nil)
-			Expect(err).To(Not(HaveOccurred()))
-
-			checkClusterAutoscalerDeployment(dep, "1.21.0")
+			checkClusterAutoscalerDeployment(dep, "1.23.5")
 		})
 	})
 
@@ -521,7 +493,7 @@ done
 		})
 
 		DescribeTable("should modify existing elements of kubelet.service unit options",
-			func(gctx gcontext.GardenContext, kubeletVersion *semver.Version, cloudProvider string, withControllerAttachDetachFlag bool) {
+			func(kubeletVersion *semver.Version, cloudProvider string, withControllerAttachDetachFlag bool) {
 				newUnitOptions := []*unit.UnitOption{
 					{
 						Section: "Service",
@@ -542,13 +514,13 @@ done
     --enable-controller-attach-detach=true`
 				}
 
-				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, gctx, kubeletVersion, oldUnitOptions, nil)
+				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, nil, kubeletVersion, oldUnitOptions, nil)
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(opts).To(Equal(newUnitOptions))
 			},
 
-			Entry("1.20 <= kubelet version < 1.23", eContextK8s120, semver.MustParse("1.20.0"), "external", true),
-			Entry("kubelet version >= 1.23", eContextK8s120, semver.MustParse("1.23.0"), "external", false),
+			Entry("1.22 <= kubelet version < 1.23", semver.MustParse("1.22.1"), "external", true),
+			Entry("kubelet version >= 1.23", semver.MustParse("1.23.0"), "external", false),
 		)
 	})
 
@@ -568,7 +540,7 @@ done
 		})
 
 		DescribeTable("should modify existing elements of kubelet configuration",
-			func(gctx gcontext.GardenContext, kubeletVersion *semver.Version, withCSIFeatureGates bool, csiMigrationCompleteFeatureGate string, enableControllerAttachDetach *bool) {
+			func(gctx gcontext.GardenContext, kubeletVersion *semver.Version, enableControllerAttachDetach *bool) {
 				newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
 					FeatureGates: map[string]bool{
 						"Foo": true,
@@ -577,23 +549,20 @@ done
 				}
 				kubeletConfig := *oldKubeletConfig
 
-				if withCSIFeatureGates {
-					if version.ConstraintK8sLess127.Check(kubeletVersion) {
-						newKubeletConfig.FeatureGates["CSIMigration"] = true
-						newKubeletConfig.FeatureGates["CSIMigrationAWS"] = true
-					}
-					newKubeletConfig.FeatureGates[csiMigrationCompleteFeatureGate] = true
+				if version.ConstraintK8sLess127.Check(kubeletVersion) {
+					newKubeletConfig.FeatureGates["CSIMigration"] = true
+					newKubeletConfig.FeatureGates["CSIMigrationAWS"] = true
 				}
+				newKubeletConfig.FeatureGates["InTreePluginAWSUnregister"] = true
 
-				err := ensurer.EnsureKubeletConfiguration(ctx, gctx, kubeletVersion, &kubeletConfig, nil)
+				err := ensurer.EnsureKubeletConfiguration(ctx, nil, kubeletVersion, &kubeletConfig, nil)
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(&kubeletConfig).To(Equal(newKubeletConfig))
 			},
 
-			Entry("1.20 <= kubelet < 1.21", eContextK8s120, semver.MustParse("1.20.0"), true, "CSIMigrationAWSComplete", nil),
-			Entry("1.21 <= kubelet < 1.23", eContextK8s121, semver.MustParse("1.21.0"), true, "InTreePluginAWSUnregister", nil),
-			Entry("kubelet >= 1.23", eContextK8s121, semver.MustParse("1.23.0"), true, "InTreePluginAWSUnregister", pointer.Bool(true)),
-			Entry("kubelet >= 1.27", eContextK8s121, semver.MustParse("1.27.1"), true, "InTreePluginAWSUnregister", pointer.Bool(true)),
+			Entry("1.22 <= kubelet < 1.23", eContextK8s122, semver.MustParse("1.22.0"), nil),
+			Entry("kubelet >= 1.23", eContextK8s123, semver.MustParse("1.23.0"), pointer.Bool(true)),
+			Entry("kubelet >= 1.27", eContextK8s127, semver.MustParse("1.27.1"), pointer.Bool(true)),
 		)
 	})
 
@@ -645,7 +614,6 @@ done
 })
 
 func checkKubeAPIServerDeployment(dep *appsv1.Deployment, k8sVersion string) {
-	k8sVersionAtLeast121, _ := version.CompareVersions(k8sVersion, ">=", "1.21")
 	k8sVersionAtLeast127, _ := version.CompareVersions(k8sVersion, ">=", "1.27")
 
 	// Check that the kube-apiserver container still exists and contains all needed command line args,
@@ -655,10 +623,8 @@ func checkKubeAPIServerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 
 	if k8sVersionAtLeast127 {
 		Expect(c.Command).To(ContainElement("--feature-gates=InTreePluginAWSUnregister=true"))
-	} else if k8sVersionAtLeast121 {
-		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	} else {
-		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,CSIMigrationAWSComplete=true"))
+		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
 	Expect(c.Command).NotTo(ContainElement("--cloud-provider=aws"))
 	Expect(c.Command).NotTo(ContainElement("--cloud-config=/etc/kubernetes/cloudprovider/cloudprovider.conf"))
@@ -672,7 +638,6 @@ func checkKubeAPIServerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 }
 
 func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, k8sVersion string) {
-	k8sVersionAtLeast121, _ := version.CompareVersions(k8sVersion, ">=", "1.21")
 	k8sVersionAtLeast127, _ := version.CompareVersions(k8sVersion, ">=", "1.27")
 
 	// Check that the kube-controller-manager container still exists and contains all needed command line args,
@@ -682,10 +647,8 @@ func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, k8sVersion str
 
 	if k8sVersionAtLeast127 {
 		Expect(c.Command).To(ContainElement("--feature-gates=InTreePluginAWSUnregister=true"))
-	} else if k8sVersionAtLeast121 {
-		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	} else {
-		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,CSIMigrationAWSComplete=true"))
+		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
 	Expect(c.Command).To(ContainElement("--cloud-provider=external"))
 	Expect(c.Command).NotTo(ContainElement("--cloud-config=/etc/kubernetes/cloudprovider/cloudprovider.conf"))
@@ -701,7 +664,6 @@ func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, k8sVersion str
 }
 
 func checkKubeSchedulerDeployment(dep *appsv1.Deployment, k8sVersion string) {
-	k8sVersionAtLeast121, _ := version.CompareVersions(k8sVersion, ">=", "1.21")
 	k8sVersionAtLeast127, _ := version.CompareVersions(k8sVersion, ">=", "1.27")
 
 	// Check that the kube-scheduler container still exists and contains all needed command line args.
@@ -710,15 +672,12 @@ func checkKubeSchedulerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 
 	if k8sVersionAtLeast127 {
 		Expect(c.Command).To(ContainElement("--feature-gates=InTreePluginAWSUnregister=true"))
-	} else if k8sVersionAtLeast121 {
-		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	} else {
-		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,CSIMigrationAWSComplete=true"))
+		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
 }
 
 func checkClusterAutoscalerDeployment(dep *appsv1.Deployment, k8sVersion string) {
-	k8sVersionAtLeast121, _ := version.CompareVersions(k8sVersion, ">=", "1.21")
 	k8sVersionAtLeast127, _ := version.CompareVersions(k8sVersion, ">=", "1.27")
 
 	// Check that the cluster-autoscaler container still exists and contains all needed command line args.
@@ -727,9 +686,7 @@ func checkClusterAutoscalerDeployment(dep *appsv1.Deployment, k8sVersion string)
 
 	if k8sVersionAtLeast127 {
 		Expect(c.Command).To(ContainElement("--feature-gates=InTreePluginAWSUnregister=true"))
-	} else if k8sVersionAtLeast121 {
-		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	} else {
-		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,CSIMigrationAWSComplete=true"))
+		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
 }
