@@ -26,11 +26,13 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	"github.com/gardener/gardener/pkg/component/machinecontrollermanager"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
@@ -38,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
 )
 
 // NewEnsurer creates a new controlplane ensurer.
@@ -55,6 +58,9 @@ type ensurer struct {
 	gardenletManagesMCM bool
 }
 
+// ImageVector is exposed for testing.
+var ImageVector = imagevector.ImageVector()
+
 // InjectClient injects the given client into the ensurer.
 func (e *ensurer) InjectClient(client client.Client) error {
 	e.client = client
@@ -66,6 +72,16 @@ func (e *ensurer) EnsureMachineControllerManagerDeployment(_ context.Context, _ 
 	if !e.gardenletManagesMCM {
 		return nil
 	}
+
+	image, err := ImageVector.FindImage(aws.MachineControllerManagerProviderAWSImageName)
+	if err != nil {
+		return err
+	}
+
+	newObj.Spec.Template.Spec.Containers = extensionswebhook.EnsureContainerWithName(
+		newObj.Spec.Template.Spec.Containers,
+		machinecontrollermanager.ProviderSidecarContainer(newObj.Namespace, aws.Name, image.String()),
+	)
 	return nil
 }
 
@@ -74,6 +90,24 @@ func (e *ensurer) EnsureMachineControllerManagerVPA(_ context.Context, _ gcontex
 	if !e.gardenletManagesMCM {
 		return nil
 	}
+	var (
+		minAllowed = corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("64Mi"),
+		}
+		maxAllowed = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("2"),
+			corev1.ResourceMemory: resource.MustParse("5G"),
+		}
+	)
+
+	if newObj.Spec.ResourcePolicy == nil {
+		newObj.Spec.ResourcePolicy = &vpaautoscalingv1.PodResourcePolicy{}
+	}
+
+	newObj.Spec.ResourcePolicy.ContainerPolicies = extensionswebhook.EnsureVPAContainerResourcePolicyWithName(
+		newObj.Spec.ResourcePolicy.ContainerPolicies,
+		machinecontrollermanager.ProviderSidecarVPAContainerPolicy(aws.Name, minAllowed, maxAllowed),
+	)
 	return nil
 }
 
