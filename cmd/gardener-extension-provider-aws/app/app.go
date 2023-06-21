@@ -50,6 +50,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
+	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
 	awscontrolplaneexposure "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
 )
 
@@ -226,6 +227,12 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			reconcileOpts.Completed().Apply(&awsbackupbucket.DefaultAddOptions.IgnoreOperationAnnotation)
 			reconcileOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.IgnoreOperationAnnotation)
 			workerCtrlOpts.Completed().Apply(&awsworker.DefaultAddOptions.Controller)
+
+			// TODO(rfranzke): Remove the GardenletManagesMCM fields as soon as the general options no longer support the
+			//  GardenletManagesMCM field.
+			awsworker.DefaultAddOptions.GardenletManagesMCM = generalOpts.Completed().GardenletManagesMCM
+			controlplanewebhook.GardenletManagesMCM = generalOpts.Completed().GardenletManagesMCM
+			healthcheck.GardenletManagesMCM = generalOpts.Completed().GardenletManagesMCM
 
 			atomicShootWebhookConfig, err := webhookOptions.Completed().AddToManager(ctx, mgr)
 			if err != nil {

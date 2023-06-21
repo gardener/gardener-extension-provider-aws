@@ -121,7 +121,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, false)
 		})
 
 		It("should add missing elements to kube-apiserver deployment", func() {
@@ -206,7 +206,7 @@ var _ = Describe("Ensurer", func() {
 			}
 			client = mockclient.NewMockClient(ctrl)
 
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, false)
 			err := ensurer.(inject.Client).InjectClient(client)
 			Expect(err).To(Not(HaveOccurred()))
 		})
@@ -286,7 +286,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, false)
 		})
 
 		It("should add missing elements to kube-scheduler deployment", func() {
@@ -326,7 +326,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, false)
 		})
 
 		It("should add missing elements to cluster-autoscaler deployment", func() {
@@ -364,7 +364,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger)
+			ensurer := NewEnsurer(logger, false)
 
 			// Call EnsureAdditionalUnits method and check the result
 			err := ensurer.EnsureAdditionalUnits(ctx, dummyContext, &units, nil)
@@ -412,7 +412,7 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger)
+			ensurer := NewEnsurer(logger, false)
 
 			// Call EnsureAdditionalFiles method and check the result
 			err := ensurer.EnsureAdditionalFiles(ctx, dummyContext, &files, nil)
@@ -458,7 +458,7 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger)
+			ensurer := NewEnsurer(logger, false)
 
 			// Call EnsureAdditionalFiles method and check the result
 			err := ensurer.EnsureAdditionalFiles(ctx, dummyContext, &files, nil)
@@ -476,7 +476,7 @@ done
 		)
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, false)
 			oldUnitOptions = []*unit.UnitOption{
 				{
 					Section: "Service",
@@ -531,7 +531,7 @@ done
 		)
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, false)
 			oldKubeletConfig = &kubeletconfigv1beta1.KubeletConfiguration{
 				FeatureGates: map[string]bool{
 					"Foo": true,
@@ -570,7 +570,7 @@ done
 		var ensurer genericmutator.Ensurer
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, false)
 		})
 
 		It("should modify existing elements of kubernetes general configuration", func() {
