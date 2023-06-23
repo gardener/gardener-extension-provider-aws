@@ -1474,10 +1474,13 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 			AssignIpv6AddressOnCreation: toAttributeBooleanValue(desired.AssignIpv6AddressOnCreation),
 			SubnetId:                    aws.String(current.SubnetId),
 		}
-		if _, err := c.EC2.ModifySubnetAttributeWithContext(ctx, input); err != nil {
-			return false, fmt.Errorf("updating AssignIpv6AddressOnCreation failed: %w", err)
+		associated , _ := c.CheckSubnetIPv6Cidr(current.SubnetId)
+		if trueOrFalse(desired.AssignIpv6AddressOnCreation) && current.Ipv6CidrBlocks != nil && associated{
+			if _, err := c.EC2.ModifySubnetAttributeWithContext(ctx, input); err != nil {
+				return false, fmt.Errorf("updating AssignIpv6AddressOnCreation failed: %w", err)
+			}
+			modified = true
 		}
-		modified = true
 	}
 	if trueOrFalse(current.EnableDns64) != trueOrFalse(desired.EnableDns64) {
 		input := &ec2.ModifySubnetAttributeInput{
@@ -1530,7 +1533,7 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 		modified = true
 	}
 	c.Logger.Info("Before Subnet Update")
-	if current.Ipv6CidrBlocks[0] != desired.Ipv6CidrBlocks[0] {
+	if (current.Ipv6CidrBlocks== nil && desired.Ipv6CidrBlocks != nil) || current.Ipv6CidrBlocks[0] != desired.Ipv6CidrBlocks[0] {
 		c.Logger.Info("Inside Subnet Update")
 		ipv6CidrBlockAssociated, err := c.CheckSubnetIPv6Cidr(current.SubnetId)
 		if err != nil {
