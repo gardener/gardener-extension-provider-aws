@@ -186,7 +186,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 			return err
 		}
 
-		c.state.Set(IPv6CidrBlock, created.IPv6CidrBlock)
+		c.state.Set(IdentifierVpcIPv6CidrBlock, created.IPv6CidrBlock)
 		c.state.Set(IdentifierVPC, created.VpcId)
 		if _, err := c.updater.UpdateVpc(ctx, desired, created); err != nil {
 			return err
@@ -524,7 +524,7 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 
 func (c *FlowContext) ensureZones(ctx context.Context) error {
 	var desired []*awsclient.Subnet
-	ipv6CidrBlock := c.state.Get(IPv6CidrBlock)
+	ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
 	newPrefixLength := 64
 	var subnetCIDR1, subnetCIDR2, subnetCIDR3 string
 	var err error
@@ -609,7 +609,6 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		dependencies.Append(item.AvailabilityZone, taskID)
 	}
 	for _, pair := range toBeChecked {
-		c.Log.Info("Subnet Reconciliation-----------------------------")
 		taskID, err := c.addSubnetReconcileTasks(g, pair.desired, pair.current)
 		if err != nil {
 			return err
@@ -785,8 +784,6 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 	return func(ctx context.Context) error {
 
 		zoneChild.Set(subnetKey, current.SubnetId)
-		c.Log.Info("Ensure Subnet")
-
 		modified, err := c.updater.UpdateSubnet(ctx, desired, current)
 		if err != nil {
 			return err

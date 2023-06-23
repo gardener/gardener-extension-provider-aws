@@ -83,7 +83,6 @@ func (u *updater) updateVpcAttributes(ctx context.Context, desired, current *VPC
 		if err = u.client.UpdateVpcAttribute(ctx, current.VpcId, ec2.VpcAttributeNameEnableDnsSupport, desired.EnableDnsSupport); err != nil {
 			return
 		}
-
 		modified = true
 	}
 	if desired.EnableDnsHostnames != current.EnableDnsHostnames {

@@ -681,20 +681,15 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	vpcID := *output.Vpc.VpcId
-
 	if desired.AssignGeneratedIPv6CidrBlock {
-
 		// Custom waiting loop
 		waitInput := &ec2.DescribeVpcsInput{
 			VpcIds: []*string{aws.String(vpcID)},
 		}
-
 		var ipv6CidrBlock string
 		maxRetries := 30
 		waitInterval := 10 * time.Second
-
 		for i := 0; i < maxRetries; i++ {
 			select {
 			case <-ctx.Done():
@@ -722,7 +717,6 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 		}
 		return nil, fmt.Errorf("No IPv6 CIDR Block was assigned to VPC")
 	}
-
 	return c.GetVpc(ctx, vpcID)
 }
 
@@ -771,15 +765,13 @@ func (c *Client) UpdateVpcAttribute(ctx context.Context, vpcId, attributeName st
 	}
 }
 
-// CheckVpcIPv6Cidr checks if the vpc has a IPv6 CIDR block assigned
+// CheckVpcIPv6Cidr checks if the vpc has an IPv6 CIDR block assigned
 func (c *Client) CheckVpcIPv6Cidr(vpcID string) (bool, error) {
-
 	input := &ec2.DescribeVpcsInput{
 		VpcIds: []*string{
 			aws.String(vpcID),
 		},
 	}
-
 	output, err := c.EC2.DescribeVpcs(input)
 	if err != nil {
 		return false, err
@@ -787,21 +779,18 @@ func (c *Client) CheckVpcIPv6Cidr(vpcID string) (bool, error) {
 	if len(output.Vpcs) == 0 {
 		return false, fmt.Errorf("VPC not found")
 	}
-
 	vpc := output.Vpcs[0]
 	for _, cidr := range vpc.Ipv6CidrBlockAssociationSet {
 		if *cidr.Ipv6CidrBlockState.State == "associated" {
 			return true, nil
 		}
 	}
-
 	return false, nil
 }
 
 // UpdateAmazonProvidedIPv6CidrBlock sets/updates the amazon provided IPv6 blocks.
 func (c *Client) UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired *VPC, current *VPC) (bool, error) {
 	modified := false
-
 	if current.VpcId != "" && (desired.AssignGeneratedIPv6CidrBlock != current.AssignGeneratedIPv6CidrBlock) {
 		ipv6CidrBlockAssociated, err := c.CheckVpcIPv6Cidr(current.VpcId)
 		if err != nil {
@@ -812,7 +801,6 @@ func (c *Client) UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired 
 			input := &ec2.AssociateVpcCidrBlockInput{
 				VpcId: aws.String(current.VpcId),
 			}
-
 			input.AmazonProvidedIpv6CidrBlock = aws.Bool(desired.AssignGeneratedIPv6CidrBlock)
 			_, err = c.EC2.AssociateVpcCidrBlockWithContext(ctx, input)
 			if err != nil {
@@ -1398,9 +1386,7 @@ func (c *Client) DeleteRouteTable(ctx context.Context, id string) error {
 
 // CreateSubnet creates an EC2 subnet resource.
 func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, error) {
-
 	input := &ec2.CreateSubnetInput{
-
 		AvailabilityZone:  aws.String(subnet.AvailabilityZone),
 		CidrBlock:         aws.String(subnet.CidrBlock),
 		Ipv6CidrBlock:     aws.String(subnet.Ipv6CidrBlocks[0]),
@@ -1439,15 +1425,13 @@ func (c *Client) describeSubnets(ctx context.Context, input *ec2.DescribeSubnets
 	return subnets, nil
 }
 
-// CheckSubnetIPv6Cidr checks if the subnet has a IPv6 CIDR block assigned
+// CheckSubnetIPv6Cidr checks if the subnet has an IPv6 CIDR block assigned
 func (c *Client) CheckSubnetIPv6Cidr(subnetID string) (bool, error) {
-
 	input := &ec2.DescribeSubnetsInput{
 		SubnetIds: []*string{
 			aws.String(subnetID),
 		},
 	}
-
 	output, err := c.EC2.DescribeSubnets(input)
 	if err != nil {
 		return false, err
@@ -1455,14 +1439,12 @@ func (c *Client) CheckSubnetIPv6Cidr(subnetID string) (bool, error) {
 	if len(output.Subnets) == 0 {
 		return false, fmt.Errorf("Subnet not found")
 	}
-
 	subnet := output.Subnets[0]
 	for _, cidr := range subnet.Ipv6CidrBlockAssociationSet {
 		if *cidr.Ipv6CidrBlockState.State == "associated" {
 			return true, nil
 		}
 	}
-
 	return false, nil
 }
 
@@ -1474,8 +1456,8 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 			AssignIpv6AddressOnCreation: toAttributeBooleanValue(desired.AssignIpv6AddressOnCreation),
 			SubnetId:                    aws.String(current.SubnetId),
 		}
-		associated , _ := c.CheckSubnetIPv6Cidr(current.SubnetId)
-		if trueOrFalse(desired.AssignIpv6AddressOnCreation) && current.Ipv6CidrBlocks != nil && associated{
+		associated, _ := c.CheckSubnetIPv6Cidr(current.SubnetId)
+		if trueOrFalse(desired.AssignIpv6AddressOnCreation) && current.Ipv6CidrBlocks != nil && associated {
 			if _, err := c.EC2.ModifySubnetAttributeWithContext(ctx, input); err != nil {
 				return false, fmt.Errorf("updating AssignIpv6AddressOnCreation failed: %w", err)
 			}
@@ -1532,16 +1514,11 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 		}
 		modified = true
 	}
-	c.Logger.Info("Before Subnet Update")
-	if (current.Ipv6CidrBlocks== nil && desired.Ipv6CidrBlocks != nil) || current.Ipv6CidrBlocks[0] != desired.Ipv6CidrBlocks[0] {
-		c.Logger.Info("Inside Subnet Update")
+	if (current.Ipv6CidrBlocks == nil && desired.Ipv6CidrBlocks != nil) || current.Ipv6CidrBlocks[0] != desired.Ipv6CidrBlocks[0] {
 		ipv6CidrBlockAssociated, err := c.CheckSubnetIPv6Cidr(current.SubnetId)
 		if err != nil {
 			return modified, err
 		}
-		c.Logger.Info("ipv6CidrBlockAssociated:" + fmt.Sprintf("%t", ipv6CidrBlockAssociated))
-		c.Logger.Info("Desired Block: " + desired.Ipv6CidrBlocks[0])
-
 		if !ipv6CidrBlockAssociated {
 			input := &ec2.AssociateSubnetCidrBlockInput{
 				Ipv6CidrBlock: &desired.Ipv6CidrBlocks[0],
