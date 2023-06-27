@@ -30,7 +30,7 @@ import (
 
 // Updater provides methods to update selected AWS client objects.
 type Updater interface {
-	UpdateVpc(ctx context.Context, desired, current *VPC) (modified bool, err error)
+	UpdateVpc(ctx context.Context, desired, current *VPC) (ipv6CidrBlock string, modified bool, err error)
 	UpdateSecurityGroup(ctx context.Context, desired, current *SecurityGroup) (modified bool, err error)
 	UpdateRouteTable(ctx context.Context, log logr.Logger, desired, current *RouteTable, controlledCidrBlocks ...string) (modified bool, err error)
 	UpdateSubnet(ctx context.Context, desired, current *Subnet) (modified bool, err error)
@@ -52,15 +52,15 @@ func NewUpdater(client Interface, ignoreTags *awsapi.IgnoreTags) Updater {
 	}
 }
 
-func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (modified bool, err error) {
+func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (ipv6CidrBlock string, modified bool, err error) {
 	if desired.CidrBlock != current.CidrBlock {
-		return false, fmt.Errorf("cannot change CIDR block")
+		return "", false, fmt.Errorf("cannot change CIDR block")
 	}
 	modified, err = u.updateVpcAttributes(ctx, desired, current)
 	if err != nil {
 		return
 	}
-	modified, err = u.client.UpdateAmazonProvidedIPv6CidrBlock(ctx, desired, current)
+	ipv6CidrBlock, modified, err = u.client.UpdateAmazonProvidedIPv6CidrBlock(ctx, desired, current)
 	if err != nil {
 		return
 	}
@@ -75,7 +75,7 @@ func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (modifie
 	if err != nil {
 		return
 	}
-	return modified || mod2, nil
+	return ipv6CidrBlock, modified || mod2, nil
 }
 
 func (u *updater) updateVpcAttributes(ctx context.Context, desired, current *VPC) (modified bool, err error) {

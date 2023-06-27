@@ -39,7 +39,7 @@ import (
 const (
 	defaultTimeout              = 90 * time.Second
 	defaultLongTimeout          = 3 * time.Minute
-	assignIpv6AddressOnCreation = true
+	assignIpv6AddressOnCreation = false
 )
 
 // Reconcile creates and runs the flow to reconcile the AWS infrastructure.
@@ -176,8 +176,12 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 
 	if current != nil {
 		c.state.Set(IdentifierVPC, current.VpcId)
-		if _, err := c.updater.UpdateVpc(ctx, desired, current); err != nil {
+		ipv6CidrBlock, _, err := c.updater.UpdateVpc(ctx, desired, current)
+		if err != nil {
 			return err
+		}
+		if ipv6CidrBlock != "" {
+			c.state.Set(IdentifierVpcIPv6CidrBlock, ipv6CidrBlock)
 		}
 	} else {
 		log.Info("creating...")
@@ -185,11 +189,14 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-
 		c.state.Set(IdentifierVpcIPv6CidrBlock, created.IPv6CidrBlock)
 		c.state.Set(IdentifierVPC, created.VpcId)
-		if _, err := c.updater.UpdateVpc(ctx, desired, created); err != nil {
+		ipv6CidrBlock, _, err := c.updater.UpdateVpc(ctx, desired, created)
+		if err != nil {
 			return err
+		}
+		if ipv6CidrBlock != "" {
+			c.state.Set(IdentifierVpcIPv6CidrBlock, ipv6CidrBlock)
 		}
 	}
 	return nil
@@ -391,11 +398,14 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 				DestinationCidrBlock: pointer.String(cidrBlock),
 				GatewayId:            c.state.Get(IdentifierInternetGateway),
 			},
-			{
-				DestinationIpv6CidrBlock: pointer.String(ipv6CidrBlock),
-				GatewayId:                c.state.Get(IdentifierInternetGateway),
-			},
 		},
+	}
+	if c.state.Get(IdentifierVpcIPv6CidrBlock) != nil {
+		route := awsclient.Route{
+			DestinationIpv6CidrBlock: pointer.String(ipv6CidrBlock),
+			GatewayId:                c.state.Get(IdentifierInternetGateway),
+		}
+		desired.Routes = append(desired.Routes, &route)
 	}
 	current, err := findExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
 		c.client.GetRouteTable, c.client.FindRouteTablesByTags)

@@ -66,7 +66,7 @@ type Interface interface {
 	CreateVpc(ctx context.Context, vpc *VPC) (*VPC, error)
 	AddVpcDhcpOptionAssociation(vpcId string, dhcpOptionsId *string) error
 	UpdateVpcAttribute(ctx context.Context, vpcId, attributeName string, value bool) error
-	UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired, current *VPC) (bool, error)
+	UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired, current *VPC) (string, bool, error)
 	DeleteVpc(ctx context.Context, id string) error
 	GetVpc(ctx context.Context, id string) (*VPC, error)
 	FindVpcsByTags(ctx context.Context, tags Tags) ([]*VPC, error)

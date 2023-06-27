@@ -789,12 +789,13 @@ func (c *Client) CheckVpcIPv6Cidr(vpcID string) (bool, error) {
 }
 
 // UpdateAmazonProvidedIPv6CidrBlock sets/updates the amazon provided IPv6 blocks.
-func (c *Client) UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired *VPC, current *VPC) (bool, error) {
+func (c *Client) UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired *VPC, current *VPC) (string, bool, error) {
+	ipv6CidrBlock := ""
 	modified := false
 	if current.VpcId != "" && (desired.AssignGeneratedIPv6CidrBlock != current.AssignGeneratedIPv6CidrBlock) {
 		ipv6CidrBlockAssociated, err := c.CheckVpcIPv6Cidr(current.VpcId)
 		if err != nil {
-			return modified, err
+			return ipv6CidrBlock, modified, err
 		}
 		if !ipv6CidrBlockAssociated {
 
@@ -802,14 +803,41 @@ func (c *Client) UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired 
 				VpcId: aws.String(current.VpcId),
 			}
 			input.AmazonProvidedIpv6CidrBlock = aws.Bool(desired.AssignGeneratedIPv6CidrBlock)
-			_, err = c.EC2.AssociateVpcCidrBlockWithContext(ctx, input)
+			_, err := c.EC2.AssociateVpcCidrBlockWithContext(ctx, input)
 			if err != nil {
-				return modified, err
+				return ipv6CidrBlock, modified, err
 			}
 			modified = true
+			// Custom waiting loop
+			waitInput := &ec2.DescribeVpcsInput{
+				VpcIds: []*string{aws.String(current.VpcId)},
+			}
+			maxRetries := 30
+			waitInterval := 10 * time.Second
+			for i := 0; i < maxRetries; i++ {
+				select {
+				case <-ctx.Done():
+					return ipv6CidrBlock, modified, ctx.Err()
+				case <-time.After(waitInterval):
+					resp, err := c.EC2.DescribeVpcs(waitInput)
+					if err != nil {
+						return ipv6CidrBlock, modified, fmt.Errorf("error describing VPC: %v", err)
+					}
+
+					if len(resp.Vpcs) > 0 {
+						for _, assoc := range resp.Vpcs[0].Ipv6CidrBlockAssociationSet {
+							if assoc != nil && aws.StringValue(assoc.Ipv6CidrBlockState.State) == "associated" {
+								ipv6CidrBlock = *assoc.Ipv6CidrBlock
+								return ipv6CidrBlock, modified, nil
+							}
+						}
+					}
+				}
+			}
+			return ipv6CidrBlock, modified, fmt.Errorf("No IPv6 CIDR Block was assigned to VPC")
 		}
 	}
-	return modified, nil
+	return ipv6CidrBlock, modified, nil
 }
 
 // AddVpcDhcpOptionAssociation associates existing DHCP options resource to VPC resource, both identified by id.
@@ -1389,9 +1417,11 @@ func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, err
 	input := &ec2.CreateSubnetInput{
 		AvailabilityZone:  aws.String(subnet.AvailabilityZone),
 		CidrBlock:         aws.String(subnet.CidrBlock),
-		Ipv6CidrBlock:     aws.String(subnet.Ipv6CidrBlocks[0]),
 		TagSpecifications: subnet.ToTagSpecifications(ec2.ResourceTypeSubnet),
 		VpcId:             subnet.VpcId,
+	}
+	if subnet.Ipv6CidrBlocks != nil && subnet.Ipv6CidrBlocks[0] != "" {
+		input.Ipv6CidrBlock = aws.String(subnet.Ipv6CidrBlocks[0])
 	}
 	output, err := c.EC2.CreateSubnetWithContext(ctx, input)
 	if err != nil {
@@ -1519,7 +1549,7 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 		if err != nil {
 			return modified, err
 		}
-		if !ipv6CidrBlockAssociated {
+		if !ipv6CidrBlockAssociated && desired.Ipv6CidrBlocks[0] != "" {
 			input := &ec2.AssociateSubnetCidrBlockInput{
 				Ipv6CidrBlock: &desired.Ipv6CidrBlocks[0],
 				SubnetId:      aws.String(current.SubnetId),
