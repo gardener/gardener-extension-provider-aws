@@ -1246,6 +1246,22 @@ func (mr *MockInterfaceMockRecorder) RevokeSecurityGroupRules(arg0, arg1, arg2 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecurityGroupRules", reflect.TypeOf((*MockInterface)(nil).RevokeSecurityGroupRules), arg0, arg1, arg2)
 }
 
+// UpdateAmazonProvidedIPv6CidrBlock mocks base method.
+func (m *MockInterface) UpdateAmazonProvidedIPv6CidrBlock(arg0 context.Context, arg1, arg2 *client.VPC) (string, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateAmazonProvidedIPv6CidrBlock", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// UpdateAmazonProvidedIPv6CidrBlock indicates an expected call of UpdateAmazonProvidedIPv6CidrBlock.
+func (mr *MockInterfaceMockRecorder) UpdateAmazonProvidedIPv6CidrBlock(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAmazonProvidedIPv6CidrBlock", reflect.TypeOf((*MockInterface)(nil).UpdateAmazonProvidedIPv6CidrBlock), arg0, arg1, arg2)
+}
+
 // UpdateAssumeRolePolicy mocks base method.
 func (m *MockInterface) UpdateAssumeRolePolicy(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()

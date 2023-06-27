@@ -251,6 +251,11 @@ func (in *InfrastructureConfig) DeepCopyInto(out *InfrastructureConfig) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.EnableDualstack != nil {
+		in, out := &in.EnableDualstack, &out.EnableDualstack
+		*out = new(bool)
+		**out = **in
+	}
 	in.Networks.DeepCopyInto(&out.Networks)
 	if in.IgnoreTags != nil {
 		in, out := &in.IgnoreTags, &out.IgnoreTags

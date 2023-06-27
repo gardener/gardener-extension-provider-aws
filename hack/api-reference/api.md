@@ -187,6 +187,17 @@ default: true</p>
 </tr>
 <tr>
 <td>
+<code>enableDualstack</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>EnableDualstack specifies whether dualstack or IPv4 should be supported.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>networks</code></br>
 <em>
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Networks">

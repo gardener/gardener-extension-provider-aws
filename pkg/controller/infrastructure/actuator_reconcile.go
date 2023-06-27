@@ -406,6 +406,11 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		enableECRAccess = *v
 	}
 
+	enableDualstack := false
+	if v := infrastructureConfig.EnableDualstack; v != nil {
+		enableDualstack = *v
+	}
+
 	if tags := infrastructureConfig.IgnoreTags; tags != nil {
 		ignoreTagKeys = tags.Keys
 		ignoreTagKeyPrefixes = tags.KeyPrefixes
@@ -419,6 +424,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			"vpc": createVPC,
 		},
 		"enableECRAccess": enableECRAccess,
+		"enableDualstack": enableDualstack,
 		"sshPublicKey":    string(infrastructure.Spec.SSHPublicKey),
 		"vpc": map[string]interface{}{
 			"id":                vpcID,

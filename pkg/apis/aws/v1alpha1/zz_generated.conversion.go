@@ -502,6 +502,7 @@ func Convert_aws_IgnoreTags_To_v1alpha1_IgnoreTags(in *aws.IgnoreTags, out *Igno
 
 func autoConvert_v1alpha1_InfrastructureConfig_To_aws_InfrastructureConfig(in *InfrastructureConfig, out *aws.InfrastructureConfig, s conversion.Scope) error {
 	out.EnableECRAccess = (*bool)(unsafe.Pointer(in.EnableECRAccess))
+	out.EnableDualstack = (*bool)(unsafe.Pointer(in.EnableDualstack))
 	if err := Convert_v1alpha1_Networks_To_aws_Networks(&in.Networks, &out.Networks, s); err != nil {
 		return err
 	}
@@ -516,6 +517,7 @@ func Convert_v1alpha1_InfrastructureConfig_To_aws_InfrastructureConfig(in *Infra
 
 func autoConvert_aws_InfrastructureConfig_To_v1alpha1_InfrastructureConfig(in *aws.InfrastructureConfig, out *InfrastructureConfig, s conversion.Scope) error {
 	out.EnableECRAccess = (*bool)(unsafe.Pointer(in.EnableECRAccess))
+	out.EnableDualstack = (*bool)(unsafe.Pointer(in.EnableDualstack))
 	if err := Convert_aws_Networks_To_v1alpha1_Networks(&in.Networks, &out.Networks, s); err != nil {
 		return err
 	}

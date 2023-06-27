@@ -37,9 +37,8 @@ import (
 )
 
 const (
-	defaultTimeout              = 90 * time.Second
-	defaultLongTimeout          = 3 * time.Minute
-	assignIpv6AddressOnCreation = false
+	defaultTimeout     = 90 * time.Second
+	defaultLongTimeout = 3 * time.Minute
 )
 
 // Reconcile creates and runs the flow to reconcile the AWS infrastructure.
@@ -161,7 +160,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		Tags:                         c.commonTags,
 		EnableDnsSupport:             true,
 		EnableDnsHostnames:           true,
-		AssignGeneratedIPv6CidrBlock: assignIpv6AddressOnCreation,
+		AssignGeneratedIPv6CidrBlock: *c.config.EnableDualstack,
 		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
 	}
 	if c.config.Networks.VPC.CIDR == nil {
@@ -573,7 +572,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				CidrBlock:                   zone.Workers,
 				Ipv6CidrBlocks:              []string{subnetCIDR1},
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(assignIpv6AddressOnCreation),
+				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPublic,
@@ -581,7 +580,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				CidrBlock:                   zone.Public,
 				Ipv6CidrBlocks:              []string{subnetCIDR2},
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(assignIpv6AddressOnCreation),
+				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPrivate,
@@ -589,7 +588,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				CidrBlock:                   zone.Internal,
 				Ipv6CidrBlocks:              []string{subnetCIDR3},
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(assignIpv6AddressOnCreation),
+				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
 			})
 	}
 	// update flow state if subnet suffixes have been added
