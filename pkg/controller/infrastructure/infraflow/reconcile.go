@@ -175,6 +175,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 
 	if current != nil {
 		c.state.Set(IdentifierVPC, current.VpcId)
+		c.state.Set(IdentifierVpcIPv6CidrBlock, current.IPv6CidrBlock)
 		ipv6CidrBlock, _, err := c.updater.UpdateVpc(ctx, desired, current)
 		if err != nil {
 			return err
@@ -188,8 +189,8 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		c.state.Set(IdentifierVpcIPv6CidrBlock, created.IPv6CidrBlock)
 		c.state.Set(IdentifierVPC, created.VpcId)
+		c.state.Set(IdentifierVpcIPv6CidrBlock, created.IPv6CidrBlock)
 		ipv6CidrBlock, _, err := c.updater.UpdateVpc(ctx, desired, created)
 		if err != nil {
 			return err
@@ -567,26 +568,44 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
 		desired = append(desired,
 			&awsclient.Subnet{
-				Tags:                        tagsWorkers,
-				VpcId:                       c.state.Get(IdentifierVPC),
-				CidrBlock:                   zone.Workers,
-				Ipv6CidrBlocks:              []string{subnetCIDR1},
+				Tags:      tagsWorkers,
+				VpcId:     c.state.Get(IdentifierVPC),
+				CidrBlock: zone.Workers,
+				Ipv6CidrBlocks: func() []string {
+					if subnetCIDR1 != "" {
+						return []string{subnetCIDR1}
+					} else {
+						return nil
+					}
+				}(),
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
 			},
 			&awsclient.Subnet{
-				Tags:                        tagsPublic,
-				VpcId:                       c.state.Get(IdentifierVPC),
-				CidrBlock:                   zone.Public,
-				Ipv6CidrBlocks:              []string{subnetCIDR2},
+				Tags:      tagsPublic,
+				VpcId:     c.state.Get(IdentifierVPC),
+				CidrBlock: zone.Public,
+				Ipv6CidrBlocks: func() []string {
+					if subnetCIDR2 != "" {
+						return []string{subnetCIDR2}
+					} else {
+						return nil
+					}
+				}(),
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
 			},
 			&awsclient.Subnet{
-				Tags:                        tagsPrivate,
-				VpcId:                       c.state.Get(IdentifierVPC),
-				CidrBlock:                   zone.Internal,
-				Ipv6CidrBlocks:              []string{subnetCIDR3},
+				Tags:      tagsPrivate,
+				VpcId:     c.state.Get(IdentifierVPC),
+				CidrBlock: zone.Internal,
+				Ipv6CidrBlocks: func() []string {
+					if subnetCIDR3 != "" {
+						return []string{subnetCIDR3}
+					} else {
+						return nil
+					}
+				}(),
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
 			})

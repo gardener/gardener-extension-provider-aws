@@ -703,6 +703,7 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 			Kind:       "InfrastructureConfig",
 		},
 		EnableECRAccess: pointer.Bool(true),
+		EnableDualstack: pointer.Bool(true),
 		Networks: awsv1alpha1.Networks{
 			VPC: vpc,
 			Zones: []awsv1alpha1.Zone{
@@ -824,6 +825,7 @@ func verifyCreation(
 
 		sshPublicKeyDigest = "46:ca:46:0e:8e:1d:bc:0c:45:31:ee:0f:43:5f:9b:f1"
 		allCIDR            = "0.0.0.0/0"
+		allCIDRIPV6        = "::/0"
 	)
 
 	var (
@@ -854,6 +856,7 @@ func verifyCreation(
 				Value: awssdk.String(infra.Namespace),
 			},
 		}
+		ipv6CidrBlock *string
 	)
 
 	// vpc
@@ -866,6 +869,11 @@ func verifyCreation(
 	if providerConfig.Networks.VPC.CIDR != nil {
 		Expect(describeVpcsOutput.Vpcs[0].Tags).To(ConsistOf(defaultTags))
 		infrastructureIdentifier.vpcID = describeVpcsOutput.Vpcs[0].VpcId
+	}
+
+	// TODO. Check IPv6 CIDR here (assign_generated_ipv6_cidr_block = true)
+	if describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet != nil {
+		ipv6CidrBlock = describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
 	}
 
 	// dhcp options + dhcp options attachment
@@ -1043,6 +1051,7 @@ func verifyCreation(
 				workersSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(workersCIDR)))
+				// TODO. check for IPv6 CIDR block here
 				Expect(subnet.State).To(PointTo(Equal("available")))
 				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
 					{
@@ -1061,6 +1070,7 @@ func verifyCreation(
 				publicSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(publicCIDR)))
+				// TODO. check for IPv6 CIDR block here
 				Expect(subnet.State).To(PointTo(Equal("available")))
 				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
 					{
@@ -1083,6 +1093,7 @@ func verifyCreation(
 				internalSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(internalCIDR)))
+				// TODO. check for IPv6 CIDR block here
 				Expect(subnet.State).To(PointTo(Equal("available")))
 				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
 					{
@@ -1161,14 +1172,25 @@ func verifyCreation(
 				"Main": PointTo(Equal(true)),
 			}))))
 			foundExpectedRouteTables++
-			Expect(routeTable.Routes).To(ConsistOf([]*ec2.Route{
+			expectedRoutes := []*ec2.Route{
 				{
 					DestinationCidrBlock: cidr,
 					GatewayId:            awssdk.String("local"),
 					Origin:               awssdk.String("CreateRouteTable"),
 					State:                awssdk.String("active"),
 				},
-			}))
+			}
+			// TODO. this would be the bring your own VPC case as we don't test with configured ipv6 in providerConfig
+			if ipv6CidrBlock != nil {
+				expectedRoutes = append(expectedRoutes, &ec2.Route{
+					DestinationIpv6CidrBlock: ipv6CidrBlock,
+					GatewayId:                awssdk.String("local"),
+					Origin:                   awssdk.String("CreateRouteTable"),
+					State:                    awssdk.String("active"),
+				})
+			}
+
+			Expect(routeTable.Routes).To(ConsistOf(expectedRoutes))
 			infrastructureIdentifier.routeTableIDs = append(infrastructureIdentifier.routeTableIDs, routeTable.RouteTableId)
 		}
 		for _, tag := range routeTable.Tags {
@@ -1178,20 +1200,41 @@ func verifyCreation(
 					"Main":     PointTo(Equal(false)),
 					"SubnetId": PointTo(Equal(publicSubnetID)),
 				}))))
-				Expect(routeTable.Routes).To(ConsistOf([]*ec2.Route{
+
+				expectedRoutes := []*ec2.Route{
 					{
 						DestinationCidrBlock: cidr,
 						GatewayId:            awssdk.String("local"),
 						Origin:               awssdk.String("CreateRouteTable"),
 						State:                awssdk.String("active"),
 					},
+
 					{
 						DestinationCidrBlock: awssdk.String(allCIDR),
 						GatewayId:            describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId,
 						Origin:               awssdk.String("CreateRoute"),
 						State:                awssdk.String("active"),
 					},
-				}))
+				}
+				// This would be "the bring your own VPC" case as we don't test with configured ipv6 in providerConfig
+				if ipv6CidrBlock != nil {
+					expectedRoutes = append(expectedRoutes,
+						&ec2.Route{
+							DestinationIpv6CidrBlock: ipv6CidrBlock,
+							GatewayId:                awssdk.String("local"),
+							Origin:                   awssdk.String("CreateRouteTable"),
+							State:                    awssdk.String("active"),
+						},
+						&ec2.Route{
+							DestinationIpv6CidrBlock: awssdk.String(allCIDRIPV6),
+							GatewayId:                describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId,
+							Origin:                   awssdk.String("CreateRoute"),
+							State:                    awssdk.String("active"),
+						},
+					)
+				}
+				Expect(routeTable.Routes).To(ConsistOf(expectedRoutes))
+
 				Expect(routeTable.Tags).To(ConsistOf(defaultTags))
 				infrastructureIdentifier.routeTableIDs = append(infrastructureIdentifier.routeTableIDs, routeTable.RouteTableId)
 			}
@@ -1214,7 +1257,7 @@ func verifyCreation(
 						break
 					}
 				}
-				Expect(routeTable.Routes).To(ConsistOf([]*ec2.Route{
+				expectedRoutes := []*ec2.Route{
 					{
 						DestinationCidrBlock: cidr,
 						GatewayId:            awssdk.String("local"),
@@ -1233,7 +1276,17 @@ func verifyCreation(
 						Origin:                  awssdk.String("CreateRoute"),
 						State:                   awssdk.String("active"),
 					},
-				}))
+				}
+				// TODO. this would be the bring your own VPC case as we don't test with configured ipv6 in providerConfig
+				if ipv6CidrBlock != nil {
+					expectedRoutes = append(expectedRoutes, &ec2.Route{
+						DestinationIpv6CidrBlock: ipv6CidrBlock,
+						GatewayId:                awssdk.String("local"),
+						Origin:                   awssdk.String("CreateRouteTable"),
+						State:                    awssdk.String("active"),
+					})
+				}
+				Expect(routeTable.Routes).To(ConsistOf(expectedRoutes))
 				Expect(routeTable.Tags).To(ConsistOf([]*ec2.Tag{
 					{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),

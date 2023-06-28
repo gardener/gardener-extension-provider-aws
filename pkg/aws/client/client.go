@@ -893,9 +893,16 @@ func (c *Client) describeVpcs(ctx context.Context, input *ec2.DescribeVpcsInput)
 
 func (c *Client) fromVpc(ctx context.Context, item *ec2.Vpc, withAttributes bool) (*VPC, error) {
 	vpc := &VPC{
-		VpcId:           aws.StringValue(item.VpcId),
-		Tags:            FromTags(item.Tags),
-		CidrBlock:       aws.StringValue(item.CidrBlock),
+		VpcId:     aws.StringValue(item.VpcId),
+		Tags:      FromTags(item.Tags),
+		CidrBlock: aws.StringValue(item.CidrBlock),
+		// TODO. Needed to restore the state in case it is dropped.
+		IPv6CidrBlock: func() string {
+			if item.Ipv6CidrBlockAssociationSet != nil {
+				return aws.StringValue(item.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock)
+			}
+			return ""
+		}(),
 		DhcpOptionsId:   item.DhcpOptionsId,
 		InstanceTenancy: item.InstanceTenancy,
 		State:           item.State,
@@ -1544,7 +1551,8 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 		}
 		modified = true
 	}
-	if (current.Ipv6CidrBlocks == nil && desired.Ipv6CidrBlocks != nil) || current.Ipv6CidrBlocks[0] != desired.Ipv6CidrBlocks[0] {
+	c.Logger.Info("Before Subnet Update")
+	if desired.Ipv6CidrBlocks != nil && (current.Ipv6CidrBlocks == nil || current.Ipv6CidrBlocks[0] != desired.Ipv6CidrBlocks[0]) {
 		ipv6CidrBlockAssociated, err := c.CheckSubnetIPv6Cidr(current.SubnetId)
 		if err != nil {
 			return modified, err
