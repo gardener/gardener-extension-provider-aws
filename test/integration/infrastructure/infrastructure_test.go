@@ -703,7 +703,7 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 			Kind:       "InfrastructureConfig",
 		},
 		EnableECRAccess: pointer.Bool(true),
-		EnableDualstack: pointer.Bool(true),
+		EnableDualstack: pointer.Bool(false),
 		Networks: awsv1alpha1.Networks{
 			VPC: vpc,
 			Zones: []awsv1alpha1.Zone{
@@ -871,7 +871,6 @@ func verifyCreation(
 		infrastructureIdentifier.vpcID = describeVpcsOutput.Vpcs[0].VpcId
 	}
 
-	// TODO. Check IPv6 CIDR here (assign_generated_ipv6_cidr_block = true)
 	if describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet != nil {
 		ipv6CidrBlock = describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
 	}

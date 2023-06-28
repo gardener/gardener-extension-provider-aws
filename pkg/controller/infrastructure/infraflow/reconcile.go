@@ -810,7 +810,6 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 		}
 	}
 	return func(ctx context.Context) error {
-
 		zoneChild.Set(subnetKey, current.SubnetId)
 		modified, err := c.updater.UpdateSubnet(ctx, desired, current)
 		if err != nil {

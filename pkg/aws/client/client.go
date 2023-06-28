@@ -896,7 +896,6 @@ func (c *Client) fromVpc(ctx context.Context, item *ec2.Vpc, withAttributes bool
 		VpcId:     aws.StringValue(item.VpcId),
 		Tags:      FromTags(item.Tags),
 		CidrBlock: aws.StringValue(item.CidrBlock),
-		// TODO. Needed to restore the state in case it is dropped.
 		IPv6CidrBlock: func() string {
 			if item.Ipv6CidrBlockAssociationSet != nil {
 				return aws.StringValue(item.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock)
@@ -1551,7 +1550,6 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 		}
 		modified = true
 	}
-	c.Logger.Info("Before Subnet Update")
 	if desired.Ipv6CidrBlocks != nil && (current.Ipv6CidrBlocks == nil || current.Ipv6CidrBlocks[0] != desired.Ipv6CidrBlocks[0]) {
 		ipv6CidrBlockAssociated, err := c.CheckSubnetIPv6Cidr(current.SubnetId)
 		if err != nil {
