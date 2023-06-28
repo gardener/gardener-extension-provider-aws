@@ -153,7 +153,7 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.worker }}"
   availability_zone = "{{ $zone.name }}"
-{{- if $.enableDualstack }}
+{{- if and $.enableDualstack $.create.vpc}}
   ipv6_cidr_block = "${cidrsubnet(aws_vpc.vpc.ipv6_cidr_block, 8, (1 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = true
 {{- end }}
@@ -173,7 +173,7 @@ resource "aws_subnet" "private_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.internal }}"
   availability_zone = "{{ $zone.name }}"
-{{- if $.enableDualstack }}
+{{- if and $.enableDualstack $.create.vpc}}
   ipv6_cidr_block = "${cidrsubnet(aws_vpc.vpc.ipv6_cidr_block, 8, (2 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = true
 {{- end }}
@@ -211,7 +211,7 @@ resource "aws_subnet" "public_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.public }}"
   availability_zone = "{{ $zone.name }}"
-  {{- if $.enableDualstack }}
+{{- if and $.enableDualstack $.create.vpc}}
   ipv6_cidr_block = "${cidrsubnet(aws_vpc.vpc.ipv6_cidr_block, 8, (3 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = true
   {{- end }}
