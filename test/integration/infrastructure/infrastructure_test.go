@@ -237,7 +237,7 @@ var _ = Describe("Infrastructure tests", func() {
 			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseFlowRecoverState)
 			Expect(err).NotTo(HaveOccurred())
 		})
-		
+
 		It("should successfully create and delete (terraformer)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR:             pointer.String(vpcCIDR),
@@ -263,7 +263,7 @@ var _ = Describe("Infrastructure tests", func() {
 			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseTerraformer)
 			Expect(err).NotTo(HaveOccurred())
 		})
-		
+
 		It("should successfully create and delete (migration from terraformer)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR:             pointer.String(vpcCIDR),
@@ -897,7 +897,7 @@ func verifyCreation(
 		infrastructureIdentifier.vpcID = describeVpcsOutput.Vpcs[0].VpcId
 	}
 
-	if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil{
+	if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
 		Expect(describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet).ToNot(BeNil())
 		ipv6CidrBlock = describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
 	}
@@ -1098,7 +1098,7 @@ func verifyCreation(
 				publicSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(publicCIDR)))
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil{
+				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
 				}
 				Expect(subnet.State).To(PointTo(Equal("available")))
@@ -1123,7 +1123,7 @@ func verifyCreation(
 				internalSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(internalCIDR)))
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil{
+				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
 				}
 				Expect(subnet.State).To(PointTo(Equal("available")))
@@ -1213,7 +1213,7 @@ func verifyCreation(
 				},
 			}
 
-			if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil{
+			if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
 				expectedRoutes = append(expectedRoutes, &ec2.Route{
 					DestinationIpv6CidrBlock: ipv6CidrBlock,
 					GatewayId:                awssdk.String("local"),
@@ -1248,7 +1248,7 @@ func verifyCreation(
 						State:                awssdk.String("active"),
 					},
 				}
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil{
+				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
 					expectedRoutes = append(expectedRoutes,
 						&ec2.Route{
 							DestinationIpv6CidrBlock: ipv6CidrBlock,
@@ -1308,7 +1308,7 @@ func verifyCreation(
 						State:                   awssdk.String("active"),
 					},
 				}
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil{
+				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
 					expectedRoutes = append(expectedRoutes, &ec2.Route{
 						DestinationIpv6CidrBlock: ipv6CidrBlock,
 						GatewayId:                awssdk.String("local"),

@@ -579,7 +579,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 					}
 				}(),
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
+				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			},
 			&awsclient.Subnet{
 				Tags:      tagsPublic,
@@ -593,7 +593,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 					}
 				}(),
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
+				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			},
 			&awsclient.Subnet{
 				Tags:      tagsPrivate,
@@ -607,7 +607,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 					}
 				}(),
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(*c.config.EnableDualstack),
+				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			})
 	}
 	// update flow state if subnet suffixes have been added
