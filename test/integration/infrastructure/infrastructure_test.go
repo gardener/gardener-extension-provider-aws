@@ -230,7 +230,7 @@ var _ = Describe("Infrastructure tests", func() {
 				CIDR:             pointer.String(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
-			providerConfig.EnableDualstack = pointer.Bool(true)
+			providerConfig.EnableDualStack = pointer.Bool(true)
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -256,7 +256,7 @@ var _ = Describe("Infrastructure tests", func() {
 				CIDR:             pointer.String(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
-			providerConfig.EnableDualstack = pointer.Bool(true)
+			providerConfig.EnableDualStack = pointer.Bool(true)
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -729,7 +729,7 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 			Kind:       "InfrastructureConfig",
 		},
 		EnableECRAccess: pointer.Bool(true),
-		EnableDualstack: pointer.Bool(false),
+		EnableDualStack: pointer.Bool(false),
 		Networks: awsv1alpha1.Networks{
 			VPC: vpc,
 			Zones: []awsv1alpha1.Zone{
@@ -897,7 +897,7 @@ func verifyCreation(
 		infrastructureIdentifier.vpcID = describeVpcsOutput.Vpcs[0].VpcId
 	}
 
-	if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
+	if *providerConfig.EnableDualStack && providerConfig.Networks.VPC.ID == nil {
 		Expect(describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet).ToNot(BeNil())
 		ipv6CidrBlock = describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
 	}
@@ -1077,7 +1077,7 @@ func verifyCreation(
 				workersSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(workersCIDR)))
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
+				if *providerConfig.EnableDualStack && providerConfig.Networks.VPC.ID == nil {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
 				}
 				Expect(subnet.State).To(PointTo(Equal("available")))
@@ -1098,7 +1098,7 @@ func verifyCreation(
 				publicSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(publicCIDR)))
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
+				if *providerConfig.EnableDualStack && providerConfig.Networks.VPC.ID == nil {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
 				}
 				Expect(subnet.State).To(PointTo(Equal("available")))
@@ -1123,7 +1123,7 @@ func verifyCreation(
 				internalSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(internalCIDR)))
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
+				if *providerConfig.EnableDualStack && providerConfig.Networks.VPC.ID == nil {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
 				}
 				Expect(subnet.State).To(PointTo(Equal("available")))
@@ -1213,7 +1213,7 @@ func verifyCreation(
 				},
 			}
 
-			if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
+			if *providerConfig.EnableDualStack && providerConfig.Networks.VPC.ID == nil {
 				expectedRoutes = append(expectedRoutes, &ec2.Route{
 					DestinationIpv6CidrBlock: ipv6CidrBlock,
 					GatewayId:                awssdk.String("local"),
@@ -1248,7 +1248,7 @@ func verifyCreation(
 						State:                awssdk.String("active"),
 					},
 				}
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
+				if *providerConfig.EnableDualStack && providerConfig.Networks.VPC.ID == nil {
 					expectedRoutes = append(expectedRoutes,
 						&ec2.Route{
 							DestinationIpv6CidrBlock: ipv6CidrBlock,
@@ -1308,7 +1308,7 @@ func verifyCreation(
 						State:                   awssdk.String("active"),
 					},
 				}
-				if *providerConfig.EnableDualstack && providerConfig.Networks.VPC.ID == nil {
+				if *providerConfig.EnableDualStack && providerConfig.Networks.VPC.ID == nil {
 					expectedRoutes = append(expectedRoutes, &ec2.Route{
 						DestinationIpv6CidrBlock: ipv6CidrBlock,
 						GatewayId:                awssdk.String("local"),

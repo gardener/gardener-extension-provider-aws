@@ -792,7 +792,7 @@ func (c *Client) CheckVpcIPv6Cidr(vpcID string) (bool, error) {
 func (c *Client) UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired *VPC, current *VPC) (string, bool, error) {
 	ipv6CidrBlock := ""
 	modified := false
-	if current.VpcId != "" && (desired.AssignGeneratedIPv6CidrBlock != current.AssignGeneratedIPv6CidrBlock) {
+	if current.VpcId != "" && desired.AssignGeneratedIPv6CidrBlock != current.AssignGeneratedIPv6CidrBlock {
 		ipv6CidrBlockAssociated, err := c.CheckVpcIPv6Cidr(current.VpcId)
 		if err != nil {
 			return ipv6CidrBlock, modified, err
@@ -1492,7 +1492,10 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 			AssignIpv6AddressOnCreation: toAttributeBooleanValue(desired.AssignIpv6AddressOnCreation),
 			SubnetId:                    aws.String(current.SubnetId),
 		}
-		associated, _ := c.CheckSubnetIPv6Cidr(current.SubnetId)
+		associated, err := c.CheckSubnetIPv6Cidr(current.SubnetId)
+		if err != nil {
+			return modified, err
+		}
 		if trueOrFalse(desired.AssignIpv6AddressOnCreation) && current.Ipv6CidrBlocks != nil && associated {
 			if _, err := c.EC2.ModifySubnetAttributeWithContext(ctx, input); err != nil {
 				return false, fmt.Errorf("updating AssignIpv6AddressOnCreation failed: %w", err)

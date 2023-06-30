@@ -160,7 +160,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		Tags:                         c.commonTags,
 		EnableDnsSupport:             true,
 		EnableDnsHostnames:           true,
-		AssignGeneratedIPv6CidrBlock: *c.config.EnableDualstack,
+		AssignGeneratedIPv6CidrBlock: *c.config.EnableDualStack,
 		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
 	}
 	if c.config.Networks.VPC.CIDR == nil {
@@ -191,12 +191,9 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		}
 		c.state.Set(IdentifierVPC, created.VpcId)
 		c.state.Set(IdentifierVpcIPv6CidrBlock, created.IPv6CidrBlock)
-		ipv6CidrBlock, _, err := c.updater.UpdateVpc(ctx, desired, created)
+		_, _, err = c.updater.UpdateVpc(ctx, desired, created)
 		if err != nil {
 			return err
-		}
-		if ipv6CidrBlock != "" {
-			c.state.Set(IdentifierVpcIPv6CidrBlock, ipv6CidrBlock)
 		}
 	}
 	return nil
@@ -388,24 +385,23 @@ outer:
 
 func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 	log := c.LogFromContext(ctx)
-	cidrBlock := "0.0.0.0/0"
-	ipv6CidrBlock := "::/0"
+	allIPv4 := "0.0.0.0/0"
+	allIPv6 := "::/0"
 	desired := &awsclient.RouteTable{
 		Tags:  c.commonTags,
 		VpcId: c.state.Get(IdentifierVPC),
 		Routes: []*awsclient.Route{
 			{
-				DestinationCidrBlock: pointer.String(cidrBlock),
+				DestinationCidrBlock: pointer.String(allIPv4),
 				GatewayId:            c.state.Get(IdentifierInternetGateway),
 			},
 		},
 	}
 	if c.state.Get(IdentifierVpcIPv6CidrBlock) != nil {
-		route := awsclient.Route{
-			DestinationIpv6CidrBlock: pointer.String(ipv6CidrBlock),
+		desired.Routes = append(desired.Routes, &awsclient.Route{
+			DestinationIpv6CidrBlock: pointer.String(allIPv6),
 			GatewayId:                c.state.Get(IdentifierInternetGateway),
-		}
-		desired.Routes = append(desired.Routes, &route)
+		})
 	}
 	current, err := findExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
 		c.client.GetRouteTable, c.client.FindRouteTablesByTags)
@@ -416,7 +412,7 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 		c.state.Set(IdentifierMainRouteTable, current.RouteTableId)
 		c.state.SetObject(ObjectMainRouteTable, current)
 		log.Info("updating route table...")
-		if _, err := c.updater.UpdateRouteTable(ctx, log, desired, current, cidrBlock); err != nil {
+		if _, err := c.updater.UpdateRouteTable(ctx, log, desired, current, allIPv4); err != nil {
 			return err
 		}
 	} else {
@@ -534,30 +530,18 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 
 func (c *FlowContext) ensureZones(ctx context.Context) error {
 	var desired []*awsclient.Subnet
-	ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
-	newPrefixLength := 64
-	var subnetCIDR1, subnetCIDR2, subnetCIDR3 string
-	var err error
 
 	for index, zone := range c.config.Networks.Zones {
+		ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
+		subnetPrefixLength := 64
+		var subnetCIDRs []string
 		if ipv6CidrBlock != nil {
-			subnetCIDR1, err = cidrSubnet(*ipv6CidrBlock, newPrefixLength, 1+3*index)
-			if err != nil {
-				fmt.Println("Error:", err)
-			} else {
-				fmt.Println("Subnet CIDR:", subnetCIDR1)
-			}
-			subnetCIDR2, err = cidrSubnet(*ipv6CidrBlock, newPrefixLength, 2+3*index)
-			if err != nil {
-				fmt.Println("Error:", err)
-			} else {
-				fmt.Println("Subnet CIDR:", subnetCIDR2)
-			}
-			subnetCIDR3, err = cidrSubnet(*ipv6CidrBlock, newPrefixLength, 3+3*index)
-			if err != nil {
-				fmt.Println("Error:", err)
-			} else {
-				fmt.Println("Subnet CIDR:", subnetCIDR3)
+			for i := 0; i < 3; i++ {
+				subnetCIDR, err := cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, i+3*index)
+				if err != nil {
+					return err
+				}
+				subnetCIDRs = append(subnetCIDRs, subnetCIDR)
 			}
 		}
 		helper := c.zoneSuffixHelpers(zone.Name)
@@ -568,47 +552,35 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
 		desired = append(desired,
 			&awsclient.Subnet{
-				Tags:      tagsWorkers,
-				VpcId:     c.state.Get(IdentifierVPC),
-				CidrBlock: zone.Workers,
-				Ipv6CidrBlocks: func() []string {
-					if subnetCIDR1 != "" {
-						return []string{subnetCIDR1}
-					} else {
-						return nil
-					}
-				}(),
+				Tags:                        tagsWorkers,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Workers,
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			},
 			&awsclient.Subnet{
-				Tags:      tagsPublic,
-				VpcId:     c.state.Get(IdentifierVPC),
-				CidrBlock: zone.Public,
-				Ipv6CidrBlocks: func() []string {
-					if subnetCIDR2 != "" {
-						return []string{subnetCIDR2}
-					} else {
-						return nil
-					}
-				}(),
+				Tags:                        tagsPublic,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Public,
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			},
 			&awsclient.Subnet{
-				Tags:      tagsPrivate,
-				VpcId:     c.state.Get(IdentifierVPC),
-				CidrBlock: zone.Internal,
-				Ipv6CidrBlocks: func() []string {
-					if subnetCIDR3 != "" {
-						return []string{subnetCIDR3}
-					} else {
-						return nil
-					}
-				}(),
+				Tags:                        tagsPrivate,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Internal,
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			})
+
+		for i := 0; i < 3; i++ {
+			if len(subnetCIDRs) == 3 && subnetCIDRs[i] != "" {
+				desired[i].Ipv6CidrBlocks = []string{subnetCIDRs[i]}
+			} else {
+				desired[i].Ipv6CidrBlocks = nil
+			}
+		}
+
 	}
 	// update flow state if subnet suffixes have been added
 	if err := c.PersistState(ctx, true); err != nil {
@@ -1466,16 +1438,8 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 		return "", fmt.Errorf("invalid new prefix length")
 	}
 
-	subnetSize := big.NewInt(1)
-	subnetSize = subnetSize.Lsh(subnetSize, uint(addrSize-newPrefixLength))
-	offset := big.NewInt(int64(index))
-	offset = offset.Mul(offset, subnetSize)
-
-	ipInt := big.NewInt(0)
-	ipInt.SetBytes(baseIP)
-	ipInt = ipInt.Add(ipInt, offset)
-
-	subnetIP := net.IP(ipInt.Bytes())
+	offset := big.NewInt(int64(index)).Mul(big.NewInt(int64(index)), big.NewInt(1).Lsh(big.NewInt(1), uint(addrSize-newPrefixLength)))
+	subnetIP := net.IP(big.NewInt(0).SetBytes(baseIP).Add(big.NewInt(0).SetBytes(baseIP), offset).Bytes())
 
 	return fmt.Sprintf("%s/%d", subnetIP.String(), newPrefixLength), nil
 }

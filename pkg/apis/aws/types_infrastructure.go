@@ -29,8 +29,8 @@ type InfrastructureConfig struct {
 	// default: true
 	EnableECRAccess *bool
 
-	// EnableDualstack specifies whether dualstack or IPv4 should be supported.
-	EnableDualstack *bool
+	// EnableDualStack specifies whether dual-stack or IPv4-only should be supported.
+	EnableDualStack *bool
 
 	// Networks is the AWS specific network configuration (VPC, subnets, etc.)
 	Networks Networks

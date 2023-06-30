@@ -43,7 +43,7 @@ spec:
     apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
     kind: InfrastructureConfig
     enableECRAccess: true
-    enableDualstack: false
+    enableDualStack: false
     networks:
       vpc: # specify either 'id' or 'cidr'
       # id: vpc-123456

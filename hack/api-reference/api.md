@@ -187,13 +187,13 @@ default: true</p>
 </tr>
 <tr>
 <td>
-<code>enableDualstack</code></br>
+<code>enableDualStack</code></br>
 <em>
 bool
 </em>
 </td>
 <td>
-<p>EnableDualstack specifies whether dualstack or IPv4 should be supported.</p>
+<p>EnableDualStack specifies whether dual-stack or IPv4 should be supported.</p>
 </td>
 </tr>
 <tr>

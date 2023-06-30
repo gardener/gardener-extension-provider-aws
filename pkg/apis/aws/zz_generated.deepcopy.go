@@ -251,8 +251,8 @@ func (in *InfrastructureConfig) DeepCopyInto(out *InfrastructureConfig) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.EnableDualstack != nil {
-		in, out := &in.EnableDualstack, &out.EnableDualstack
+	if in.EnableDualStack != nil {
+		in, out := &in.EnableDualStack, &out.EnableDualStack
 		*out = new(bool)
 		**out = **in
 	}
