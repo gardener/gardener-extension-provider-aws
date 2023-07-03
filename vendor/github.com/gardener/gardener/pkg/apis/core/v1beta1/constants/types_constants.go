@@ -383,6 +383,9 @@ const (
 	// OperationRotateETCDEncryptionKeyComplete is a constant for an annotation on a Shoot indicating that the
 	// rotation of the ETCD encryption key shall be completed.
 	OperationRotateETCDEncryptionKeyComplete = "rotate-etcd-encryption-key-complete"
+	// SeedOperationRenewGardenAccessSecrets is a constant for an annotation on a Seed indicating that the
+	// all garden access secrets on the seed shall be renewed.
+	SeedOperationRenewGardenAccessSecrets = "renew-garden-access-secrets"
 
 	// SeedResourceManagerClass is the resource-class managed by the Gardener-Resource-Manager
 	// instance in the garden namespace on the seeds.
@@ -407,7 +410,7 @@ const (
 	// LabelMonitoring is a constant for a label for monitoring stack configurations
 	LabelMonitoring = "monitoring"
 	// LabelKeyCustomLoggingResource is the key of the label which is used from the operator to select the CustomResources which will be imported in the FluentBit configuration.
-	// TODO(Kristian-ZH): the label key has to be migrated to "fluentbit.gardener.cloud/type".
+	// TODO(nickytd): the label key has to be migrated to "fluentbit.gardener.cloud/type".
 	LabelKeyCustomLoggingResource = "fluentbit.gardener/type"
 	// LabelValueCustomLoggingResource is the value of the label which is used from the operator to select the CustomResources which will be imported in the FluentBit configuration.
 	LabelValueCustomLoggingResource = "seed"
@@ -664,6 +667,8 @@ const (
 
 	// SeedNginxIngressClass defines the ingress class for the seed nginx ingress controller
 	SeedNginxIngressClass = "nginx-ingress-gardener"
+	// ShootNginxIngressClass defines the ingress class for the shoot nginx ingress controller addon.
+	ShootNginxIngressClass = "nginx"
 	// IngressKindNginx defines nginx as kind as managed Seed ingress
 	IngressKindNginx = "nginx"
 

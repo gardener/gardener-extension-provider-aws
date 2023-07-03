@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.173
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/gardener/etcd-druid v0.18.1
-	github.com/gardener/gardener v1.73.1-0.20230620062713-b7ab1baf28f7
+	github.com/gardener/gardener v1.74.0
 	github.com/gardener/gardener-extension-networking-calico v1.27.1
 	github.com/gardener/gardener-extension-networking-cilium v1.18.0
 	github.com/gardener/machine-controller-manager v0.48.1

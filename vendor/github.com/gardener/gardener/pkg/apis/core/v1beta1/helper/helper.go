@@ -660,7 +660,7 @@ func IsAPIServerExposureManaged(obj metav1.Object) bool {
 }
 
 // FindPrimaryDNSProvider finds the primary provider among the given `providers`.
-// It returns the first provider in case no primary provider is available or the first one if multiple candidates are found.
+// It returns the first provider if multiple candidates are found.
 func FindPrimaryDNSProvider(providers []gardencorev1beta1.DNSProvider) *gardencorev1beta1.DNSProvider {
 	for _, provider := range providers {
 		if provider.Primary != nil && *provider.Primary {
@@ -1402,4 +1402,9 @@ func GetFailureToleranceType(shoot *gardencorev1beta1.Shoot) *gardencorev1beta1.
 // Topology-aware routing is enabled when the corresponding Seed setting is enabled and the Shoot has a multi-zonal control plane.
 func IsTopologyAwareRoutingForShootControlPlaneEnabled(seed *gardencorev1beta1.Seed, shoot *gardencorev1beta1.Shoot) bool {
 	return SeedSettingTopologyAwareRoutingEnabled(seed.Spec.Settings) && IsMultiZonalShootControlPlane(shoot)
+}
+
+// ShootHasOperationType returns true when the 'type' in the last operation matches the provided type.
+func ShootHasOperationType(lastOperation *gardencorev1beta1.LastOperation, lastOperationType gardencorev1beta1.LastOperationType) bool {
+	return lastOperation != nil && lastOperation.Type == lastOperationType
 }
