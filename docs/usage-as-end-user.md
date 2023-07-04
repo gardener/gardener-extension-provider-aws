@@ -261,17 +261,7 @@ cloudControllerManager:
   useCustomRouteController: true
 #loadBalancerController:
 #  enabled: true
-#  ingressClass:
-#    disabled: false
-#    isDefault: false
-#    ingressClassParamsSpec: # spec section of the IngressClassParams to be created,
-#                            # see https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams
-#        # for example:
-#        loadBalancerAttributes:
-#        - key: deletion_protection.enabled
-#          value: "true"
-#        - key: idle_timeout.timeout_seconds
-#          value: "120"
+#  ingressClassName: alb
 storage:
   managedDefaultClass: false
 ```
@@ -286,15 +276,25 @@ If enabled, it will add routes to the pod CIDRs for all nodes in the route table
 The `storage.managedDefaultClass` controls if the `default` storage / volume snapshot classes are marked as default by Gardener. Set it to `false` to [mark another storage / volume snapshot class as default](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) without Gardener overwriting this change. If unset, this field defaults to `true`.
 
 If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/) should be deployed, set `loadBalancerController.enabled` to `true`. 
-In this case,  an `IngressClass` named `alb` is created by default. To disable its creation, set `loadBalancerController.ingressClass.disabled` to `true`.
-To make `alb` the default `IngressClass`, set `loadBalancerController.ingressClass.isDefault` to `true`.
-Additionally, with `loadBalancerController.ingressClass.ingressClassParamsSpec` you can specify the `spec` section of the
-`IngressClassParams`, which will then be created in the shoot cluster. It is used to enforce settings for a set of Ingresses.
-For more details see [IngressClassParams](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams)
+In this case,  it is assumed that an `IngressClass` named `alb` is created **by the user**.
+You can overwrite the name by setting `loadBalancerController.ingressClassName`.
 
-Please note, that currently on the "instance" mode is supported. 
+Please note, that currently only the "instance" mode is supported. 
 
 ### Examples for `Ingress` and `Service` managed by the AWS Load Balancer Controller:
+
+0. Prerequites
+
+Make sure you have created an `IngressClass`. For more details about parameters, please see [AWS Load Balancer Controller - IngressClass](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.5/guide/ingress/ingress_class/)
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: alb # default name if not specified by `loadBalancerController.ingressClassName` 
+spec:
+  controller: ingress.k8s.aws/alb
+```
 
 1. Ingress
 
@@ -309,7 +309,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance # target-type "ip" NOT supported in Gardener
 spec:
-  ingressClassName: alb # IngressClass created by the control plane. You may create and use another one.
+  ingressClassName: alb
   rules:
     - http:
         paths:

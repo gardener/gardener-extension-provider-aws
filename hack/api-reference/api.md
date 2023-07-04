@@ -696,60 +696,6 @@ VPCStatus
 </tr>
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IngressClass">IngressClass
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.LoadBalancerControllerConfig">LoadBalancerControllerConfig</a>)
-</p>
-<p>
-<p>IngressClass controls creation and parameters of the ingress class named <code>alb</code></p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>disabled</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Disabled controls if the alb ingress class should be created.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>isDefault</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>IsDefault controls if the ingress class should be the default one.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>ingressClassParamsSpec</code></br>
-<em>
-k8s.io/apimachinery/pkg/runtime.RawExtension
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>IngressClassParamsSpec defines the spec of the IngressClassParams resource
-See <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams">https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams</a> for more details.</p>
-</td>
-</tr>
-</tbody>
-</table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">InstanceMetadataOptions
 </h3>
 <p>
@@ -865,16 +811,15 @@ bool
 </tr>
 <tr>
 <td>
-<code>ingressClass</code></br>
+<code>ingressClassName</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IngressClass">
-IngressClass
-</a>
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>IngressClass controls creation and parameters of the ingress class named <code>alb</code></p>
+<p>IngressClassName is the name of the ingress class the ALB controller will target. Default value is &lsquo;alb&rsquo;.
+If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb</p>
 </td>
 </tr>
 </tbody>

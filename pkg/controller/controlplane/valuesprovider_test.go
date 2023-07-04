@@ -88,7 +88,7 @@ var _ = Describe("ValuesProvider", func() {
 				}),
 			}
 		}
-		setLoadBalancerControllerEnabled = func(cp *extensionsv1alpha1.ControlPlane, ingressClass *apisawsv1alpha1.IngressClass) {
+		setLoadBalancerControllerEnabled = func(cp *extensionsv1alpha1.ControlPlane, ingressClassName *string) {
 			cp.Spec.ProviderConfig = &runtime.RawExtension{
 				Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
 					CloudControllerManager: &apisawsv1alpha1.CloudControllerManagerConfig{
@@ -97,8 +97,8 @@ var _ = Describe("ValuesProvider", func() {
 						},
 					},
 					LoadBalancerController: &apisawsv1alpha1.LoadBalancerControllerConfig{
-						Enabled:      true,
-						IngressClass: ingressClass,
+						Enabled:          true,
+						IngressClassName: ingressClassName,
 					},
 				}),
 			}
@@ -402,23 +402,10 @@ var _ = Describe("ValuesProvider", func() {
 			}))
 		})
 
-		It("should return correct control plane chart values (k8s >= 1.20) and ALB enabled with ingress class", func() {
-			ingressClass := &apisawsv1alpha1.IngressClass{
-				Disabled:               false,
-				IsDefault:              true,
-				IngressClassParamsSpec: &runtime.RawExtension{Raw: []byte(`{"group": "g1", "loadBalancerAttributes": [{"key": "foo", "value": "bar"}]}`)},
-			}
-			setLoadBalancerControllerEnabled(cp, ingressClass)
+		It("should return correct control plane chart values (k8s >= 1.20) and ALB enabled with ingress class name", func() {
+			setLoadBalancerControllerEnabled(cp, pointer.String("my-alb"))
 			albChartValues["replicaCount"] = 1 // chart is always deployed, but with 0 replicas when disabled
-			albChartValues["createIngressClassResource"] = true
-			albChartValues["ingressClassConfig"] = map[string]interface{}{"default": true}
-			albChartValues["ingressClassParams"] = map[string]interface{}{
-				"create": true,
-				"spec": map[string]interface{}{
-					"group":                  "g1",
-					"loadBalancerAttributes": []interface{}{map[string]interface{}{"key": "foo", "value": "bar"}},
-				},
-			}
+			albChartValues["ingressClass"] = "my-alb"
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
@@ -563,12 +550,7 @@ var _ = Describe("ValuesProvider", func() {
 
 		Context("shoot control plane chart values (k8s >= 1.20) and ALB enabled", func() {
 			It("should return correct shoot control plane chart when ca is secret found", func() {
-				ingressClass := &apisawsv1alpha1.IngressClass{
-					Disabled:               false,
-					IsDefault:              true,
-					IngressClassParamsSpec: &runtime.RawExtension{Raw: []byte(`{"group": "g1", "loadBalancerAttributes": [{"key": "foo", "value": "bar"}]}`)},
-				}
-				setLoadBalancerControllerEnabled(cp, ingressClass)
+				setLoadBalancerControllerEnabled(cp, nil)
 				albChartValues := map[string]interface{}{
 					"region":                "europe",
 					"enabled":               true,
@@ -577,17 +559,8 @@ var _ = Describe("ValuesProvider", func() {
 					"webhookTLS": map[string]interface{}{
 						"caCert": "",
 					},
-					"webhookURL":                 fmt.Sprintf("https://%s.%s:443", awsLoadBalancerControllerWebhook, namespace),
-					"replicaCount":               1,
-					"createIngressClassResource": true,
-					"ingressClassConfig":         map[string]interface{}{"default": true},
-					"ingressClassParams": map[string]interface{}{
-						"create": true,
-						"spec": map[string]interface{}{
-							"group":                  "g1",
-							"loadBalancerAttributes": []interface{}{map[string]interface{}{"key": "foo", "value": "bar"}},
-						},
-					},
+					"webhookURL":   fmt.Sprintf("https://%s.%s:443", awsLoadBalancerControllerWebhook, namespace),
+					"replicaCount": 1,
 				}
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())

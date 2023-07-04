@@ -45,7 +45,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/json"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -667,6 +666,10 @@ func getALBChartValues(
 			"caCert": string(caSecret.Data[secretutils.DataKeyCertificateBundle]),
 		},
 	}
+	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.IngressClassName != nil {
+		values["ingressClass"] = *cpConfig.LoadBalancerController.IngressClassName
+	}
+
 	if len(checksums) > 0 {
 		values["podAnnotations"] = map[string]interface{}{
 			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
@@ -678,21 +681,6 @@ func getALBChartValues(
 
 	if !isLoadBalancerControllerEnabled(cpConfig) {
 		values["replicaCount"] = 0
-	} else if ingressClass := cpConfig.LoadBalancerController.IngressClass; ingressClass != nil {
-		values["createIngressClassResource"] = !ingressClass.Disabled
-		values["ingressClassConfig"] = map[string]interface{}{
-			"default": ingressClass.IsDefault,
-		}
-		if ingressClass.IngressClassParamsSpec != nil {
-			spec := map[string]interface{}{}
-			if err := json.Unmarshal(ingressClass.IngressClassParamsSpec.Raw, &spec); err != nil {
-				return nil, fmt.Errorf("decoding IngressClassParamsSpec for the AWS Load Balancer failed: %w", err)
-			}
-			values["ingressClassParams"] = map[string]interface{}{
-				"create": true,
-				"spec":   spec,
-			}
-		}
 	}
 
 	return values, nil

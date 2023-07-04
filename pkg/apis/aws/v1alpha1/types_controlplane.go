@@ -16,7 +16,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
@@ -56,23 +55,10 @@ type LoadBalancerControllerConfig struct {
 	// Enabled controls if the ALB should be deployed.
 	Enabled bool `json:"enabled"`
 
-	// IngressClass controls creation and parameters of the ingress class named `alb`
+	// IngressClassName is the name of the ingress class the ALB controller will target. Default value is 'alb'.
+	// If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb
 	// +optional
-	IngressClass *IngressClass `json:"ingressClass,omitempty"`
-}
-
-// IngressClass controls creation and parameters of the ingress class named `alb`
-type IngressClass struct {
-	// Disabled controls if the alb ingress class should be created.
-	Disabled bool `json:"disabled,omitempty"`
-
-	// IsDefault controls if the ingress class should be the default one.
-	IsDefault bool `json:"isDefault,omitempty"`
-
-	// IngressClassParamsSpec defines the spec of the IngressClassParams resource
-	// See https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/ingress_class/#ingressclassparams for more details.
-	// +optional
-	IngressClassParamsSpec *runtime.RawExtension `json:"ingressClassParamsSpec,omitempty"`
+	IngressClassName *string `json:"ingressClassName,omitempty"`
 }
 
 // Storage contains configuration for storage in the cluster.

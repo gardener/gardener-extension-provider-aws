@@ -167,7 +167,7 @@ images:
 - name: aws-load-balancer-controller
   sourceRepository: github.com/kubernetes-sigs/aws-load-balancer-controller
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: "v2.4.7"
+  tag: "v2.5.3"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
