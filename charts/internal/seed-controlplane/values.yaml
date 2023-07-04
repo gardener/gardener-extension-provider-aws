@@ -7,3 +7,5 @@ csi-driver-controller:
   enabled: true
 aws-custom-route-controller:
   enabled: false
+aws-load-balancer-controller:
+  enabled: false

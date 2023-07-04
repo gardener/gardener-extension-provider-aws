@@ -29,6 +29,10 @@ type ControlPlaneConfig struct {
 	// +optional
 	CloudControllerManager *CloudControllerManagerConfig `json:"cloudControllerManager,omitempty"`
 
+	// LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
+	// +optional
+	LoadBalancerController *LoadBalancerControllerConfig `json:"loadBalancerController,omitempty"`
+
 	// Storage contains configuration for storage in the cluster.
 	// +optional
 	Storage *Storage `json:"storage,omitempty"`
@@ -44,6 +48,17 @@ type CloudControllerManagerConfig struct {
 	// Defaults to false.
 	// +optional
 	UseCustomRouteController *bool `json:"useCustomRouteController,omitempty"`
+}
+
+// LoadBalancerControllerConfig contains configuration settings for the optional aws-load-balancer-controller (ALB).
+type LoadBalancerControllerConfig struct {
+	// Enabled controls if the ALB should be deployed.
+	Enabled bool `json:"enabled"`
+
+	// IngressClassName is the name of the ingress class the ALB controller will target. Default value is 'alb'.
+	// If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb
+	// +optional
+	IngressClassName *string `json:"ingressClassName,omitempty"`
 }
 
 // Storage contains configuration for storage in the cluster.

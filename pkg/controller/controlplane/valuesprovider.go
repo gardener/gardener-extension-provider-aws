@@ -37,11 +37,14 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	v1 "k8s.io/api/policy/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -53,6 +56,7 @@ const (
 	caNameControlPlane               = "ca-" + aws.Name + "-controlplane"
 	cloudControllerManagerServerName = "cloud-controller-manager-server"
 	csiSnapshotValidationServerName  = aws.CSISnapshotValidationName + "-server"
+	awsLoadBalancerControllerWebhook = aws.AWSLoadBalancerControllerName + "-webhook-service"
 )
 
 func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfigWithOptions {
@@ -87,6 +91,18 @@ func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfig
 			// config in phase Completing
 			Options: []secretsmanager.GenerateOption{secretsmanager.SignedByCA(caNameControlPlane, secretsmanager.UseCurrentCA)},
 		},
+		{
+			Config: &secretutils.CertificateSecretConfig{
+				Name:                        awsLoadBalancerControllerWebhook,
+				CommonName:                  awsLoadBalancerControllerWebhook,
+				DNSNames:                    kutil.DNSNamesForService(awsLoadBalancerControllerWebhook, namespace),
+				CertType:                    secretutils.ServerCert,
+				SkipPublishingCACertificate: true,
+			},
+			// use current CA for signing server cert to prevent mismatches when dropping the old CA from the webhook
+			// config in phase Completing
+			Options: []secretsmanager.GenerateOption{secretsmanager.SignedByCA(caNameControlPlane, secretsmanager.UseCurrentCA)},
+		},
 	}
 }
 
@@ -94,6 +110,7 @@ func shootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
 	return []*gutil.ShootAccessSecret{
 		gutil.NewShootAccessSecret(aws.CloudControllerManagerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSCustomRouteControllerName, namespace),
+		gutil.NewShootAccessSecret(aws.AWSLoadBalancerControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIProvisionerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIAttacherName, namespace),
 		gutil.NewShootAccessSecret(aws.CSISnapshotterName, namespace),
@@ -108,6 +125,12 @@ func exposureShootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret
 	return []*gutil.ShootAccessSecret{
 		gutil.NewShootAccessSecret(aws.LBReadvertiserDeploymentName, namespace),
 	}
+}
+
+func makeUnstructured(gvk schema.GroupVersionKind) *unstructured.Unstructured {
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(gvk)
+	return obj
 }
 
 var (
@@ -145,6 +168,16 @@ var (
 					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
+				},
+			},
+			{
+				Name:   aws.AWSLoadBalancerControllerName,
+				Images: []string{aws.AWSLoacBalancerControllerImageName},
+				Objects: []*chart.Object{
+					{Type: &appsv1.Deployment{}, Name: aws.AWSLoadBalancerControllerName},
+					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSLoadBalancerControllerName},
+					{Type: &corev1.Service{}, Name: awsLoadBalancerControllerWebhook},
+					{Type: &corev1.Service{}, Name: aws.AWSLoadBalancerControllerName},
 				},
 			},
 			{
@@ -186,6 +219,20 @@ var (
 				Objects: []*chart.Object{
 					{Type: &rbacv1.ClusterRole{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
+				},
+			},
+			{
+				Name: aws.AWSLoadBalancerControllerName,
+				Path: filepath.Join(aws.InternalChartsPath, "aws-load-balancer-controller"),
+				Objects: []*chart.Object{
+					{Type: &rbacv1.Role{}, Name: aws.AWSLoadBalancerControllerName + "-leader-election-role"},
+					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSLoadBalancerControllerName + "-leader-election-rolebinding"},
+					{Type: &rbacv1.ClusterRole{}, Name: aws.AWSLoadBalancerControllerName + "-role"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.AWSLoadBalancerControllerName + "-rolebinding"},
+					{Type: &corev1.ServiceAccount{}, Name: aws.AWSLoadBalancerControllerName},
+					{Type: &admissionregistrationv1.MutatingWebhookConfiguration{}, Name: aws.AWSLoadBalancerControllerName + "-webhook"},
+					{Type: &admissionregistrationv1.ValidatingWebhookConfiguration{}, Name: aws.AWSLoadBalancerControllerName + "-webhook"},
+					{Type: &v1.PodDisruptionBudget{}, Name: aws.AWSLoadBalancerControllerName},
 				},
 			},
 			{
@@ -256,6 +303,13 @@ var (
 					{Type: &apiextensionsv1.CustomResourceDefinition{}, Name: "volumesnapshots.snapshot.storage.k8s.io"},
 				},
 			},
+			{
+				Name: "aws-load-balancer-controller",
+				Objects: []*chart.Object{
+					{Type: &apiextensionsv1.CustomResourceDefinition{}, Name: "ingressclassparams.elbv2.k8s.aws"},
+					{Type: &apiextensionsv1.CustomResourceDefinition{}, Name: "targetgroupbindings.elbv2.k8s.aws"},
+				},
+			},
 		},
 	}
 
@@ -320,12 +374,20 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		}
 	}
 
+	// Decode infrastructureProviderStatus
+	infraStatus := &apisaws.InfrastructureStatus{}
+	if cp.Spec.InfrastructureProviderStatus != nil {
+		if _, _, err := vp.Decoder().Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
+			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
+		}
+	}
+
 	// TODO(rfranzke): Delete this in a future release.
 	if err := kutil.DeleteObject(ctx, vp.Client(), &networkingv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "allow-kube-apiserver-to-csi-snapshot-validation", Namespace: cp.Namespace}}); err != nil {
 		return nil, fmt.Errorf("failed deleting legacy csi-snapshot-validation network policy: %w", err)
 	}
 
-	return getControlPlaneChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown)
+	return getControlPlaneChartValues(cpConfig, cp, infraStatus, cluster, secretsReader, checksums, scaledDown)
 }
 
 // GetControlPlaneShootChartValues returns the values for the control plane shoot chart applied by the generic actuator.
@@ -351,12 +413,22 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 // Currently the provider extension does not specify a control plane shoot CRDs chart. That's why we simply return empty values.
 func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 	_ context.Context,
-	_ *extensionsv1alpha1.ControlPlane,
+	cp *extensionsv1alpha1.ControlPlane,
 	_ *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
+	cpConfig := &apisaws.ControlPlaneConfig{}
+	if cp.Spec.ProviderConfig != nil {
+		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+		}
+	}
+
 	return map[string]interface{}{
 		"volumesnapshots": map[string]interface{}{
 			"enabled": true,
+		},
+		"aws-load-balancer-controller": map[string]interface{}{
+			"enabled": isLoadBalancerControllerEnabled(cpConfig),
 		},
 	}, nil
 }
@@ -439,6 +511,7 @@ func getConfigChartValues(
 func getControlPlaneChartValues(
 	cpConfig *apisaws.ControlPlaneConfig,
 	cp *extensionsv1alpha1.ControlPlane,
+	infraStatus *apisaws.InfrastructureStatus,
 	cluster *extensionscontroller.Cluster,
 	secretsReader secretsmanager.Reader,
 	checksums map[string]string,
@@ -454,6 +527,11 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
+	alb, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, infraStatus)
+	if err != nil {
+		return nil, err
+	}
+
 	csi, err := getCSIControllerChartValues(cp, cluster, secretsReader, checksums, scaledDown)
 	if err != nil {
 		return nil, err
@@ -463,9 +541,10 @@ func getControlPlaneChartValues(
 		"global": map[string]interface{}{
 			"genericTokenKubeconfigSecretName": extensionscontroller.GenericTokenKubeconfigSecretNameFromCluster(cluster),
 		},
-		aws.CloudControllerManagerName:   ccm,
-		aws.AWSCustomRouteControllerName: crc,
-		aws.CSIControllerName:            csi,
+		aws.CloudControllerManagerName:    ccm,
+		aws.AWSCustomRouteControllerName:  crc,
+		aws.AWSLoadBalancerControllerName: alb,
+		aws.CSIControllerName:             csi,
 	}, nil
 }
 
@@ -545,6 +624,71 @@ func getCRCChartValues(
 	return values, nil
 }
 
+// getALBChartValues collects and returns the aws-load-balancer-controller chart values.
+func getALBChartValues(
+	cpConfig *apisaws.ControlPlaneConfig,
+	cp *extensionsv1alpha1.ControlPlane,
+	cluster *extensionscontroller.Cluster,
+	secretsReader secretsmanager.Reader,
+	checksums map[string]string,
+	scaledDown bool,
+	infraStatus *apisaws.InfrastructureStatus,
+) (map[string]interface{}, error) {
+	shootChart := infraStatus == nil
+	if shootChart && !isLoadBalancerControllerEnabled(cpConfig) {
+		return map[string]interface{}{"enabled": false}, nil
+	}
+
+	secret, found := secretsReader.Get(awsLoadBalancerControllerWebhook)
+	if !found {
+		return nil, fmt.Errorf("secret %q not found", awsLoadBalancerControllerWebhook)
+	}
+	caSecret, found := secretsReader.Get(caNameControlPlane)
+	if !found {
+		return nil, fmt.Errorf("secret %q not found", caNameControlPlane)
+	}
+
+	// ALB chart is always enabled and deployment is controlled by the replicaCount
+	// to avoid similar issue like https://github.com/gardener/gardener-extension-provider-aws/issues/628
+	values := map[string]interface{}{
+		"enabled":               true,
+		"replicaCount":          extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
+		"region":                cp.Spec.Region,
+		"clusterName":           cp.Namespace,
+		"webhookCertSecretName": secret.Name,
+		"webhookURL":            fmt.Sprintf("https://%s-webhook-service.%s:443", aws.AWSLoadBalancerControllerName, cp.Namespace),
+		"webhookTLS": map[string]interface{}{
+			"caCert": string(caSecret.Data[secretutils.DataKeyCertificateBundle]),
+		},
+		"defaultTags": map[string]interface{}{
+			"KubernetesCluster":                     cp.Namespace,
+			"kubernetes.io/cluster/" + cp.Namespace: "owned",
+		},
+	}
+	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.IngressClassName != nil {
+		values["ingressClass"] = *cpConfig.LoadBalancerController.IngressClassName
+	}
+
+	if len(checksums) > 0 {
+		values["podAnnotations"] = map[string]interface{}{
+			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
+		}
+	}
+	if !shootChart {
+		values["vpcId"] = infraStatus.VPC.ID
+	}
+
+	if !isLoadBalancerControllerEnabled(cpConfig) {
+		values["replicaCount"] = 0
+	}
+
+	return values, nil
+}
+
+func isLoadBalancerControllerEnabled(cpConfig *apisaws.ControlPlaneConfig) bool {
+	return cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.Enabled
+}
+
 // getCSIControllerChartValues collects and returns the CSIController chart values.
 func getCSIControllerChartValues(
 	cp *extensionsv1alpha1.ControlPlane,
@@ -613,9 +757,15 @@ func getControlPlaneShootChartValues(
 		}
 	}
 
+	albValues, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, nil, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]interface{}{
-		aws.CloudControllerManagerName:   map[string]interface{}{"enabled": true},
-		aws.AWSCustomRouteControllerName: map[string]interface{}{"enabled": customRouteControllerEnabled},
-		aws.CSINodeName:                  csiDriverNodeValues,
+		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
+		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
+		aws.AWSLoadBalancerControllerName: albValues,
+		aws.CSINodeName:                   csiDriverNodeValues,
 	}, nil
 }

@@ -27,6 +27,9 @@ type ControlPlaneConfig struct {
 	// CloudControllerManager contains configuration settings for the cloud-controller-manager.
 	CloudControllerManager *CloudControllerManagerConfig
 
+	// LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
+	LoadBalancerController *LoadBalancerControllerConfig
+
 	// Storage contains configuration for storage in the cluster.
 	Storage *Storage
 }
@@ -39,6 +42,15 @@ type CloudControllerManagerConfig struct {
 	// UseCustomRouteController controls if custom route controller should be used.
 	// Defaults to false.
 	UseCustomRouteController *bool
+}
+
+// LoadBalancerControllerConfig contains configuration settings for the optional aws-load-balancer-controller (ALB).
+type LoadBalancerControllerConfig struct {
+	// Enabled controls if the ALB should be deployed.
+	Enabled bool
+	// IngressClassName is the name of the ingress class the ALB controller will target. Default value is 'alb'.
+	// If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb
+	IngressClassName *string
 }
 
 // Storage contains configuration for storage in the cluster.

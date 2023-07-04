@@ -164,7 +164,7 @@ resource "aws_subnet" "private_utility_z{{ $index }}" {
   tags = {
     Name = "{{ $.clusterName }}-private-utility-z{{ $index }}"
     "kubernetes.io/cluster/{{ $.clusterName }}"  = "1"
-    "kubernetes.io/role/internal-elb" = "use"
+    "kubernetes.io/role/internal-elb" = "1"
   }
 }
 
@@ -199,7 +199,7 @@ resource "aws_subnet" "public_utility_z{{ $index }}" {
   tags = {
     Name = "{{ $.clusterName }}-public-utility-z{{ $index }}"
     "kubernetes.io/cluster/{{ $.clusterName }}"  = "1"
-    "kubernetes.io/role/elb" = "use"
+    "kubernetes.io/role/elb" = "1"
   }
 }
 

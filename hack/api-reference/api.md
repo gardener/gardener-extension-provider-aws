@@ -113,6 +113,20 @@ CloudControllerManagerConfig
 </tr>
 <tr>
 <td>
+<code>loadBalancerController</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.LoadBalancerControllerConfig">
+LoadBalancerControllerConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>storage</code></br>
 <em>
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Storage">
@@ -763,6 +777,49 @@ string
 </td>
 <td>
 <p>Name is the name for this instance profile.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.LoadBalancerControllerConfig">LoadBalancerControllerConfig
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
+</p>
+<p>
+<p>LoadBalancerControllerConfig contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled controls if the ALB should be deployed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ingressClassName</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IngressClassName is the name of the ingress class the ALB controller will target. Default value is &lsquo;alb&rsquo;.
+If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb</p>
 </td>
 </tr>
 </tbody>
