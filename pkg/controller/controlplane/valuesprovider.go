@@ -233,11 +233,6 @@ var (
 					{Type: &admissionregistrationv1.MutatingWebhookConfiguration{}, Name: aws.AWSLoadBalancerControllerName + "-webhook"},
 					{Type: &admissionregistrationv1.ValidatingWebhookConfiguration{}, Name: aws.AWSLoadBalancerControllerName + "-webhook"},
 					{Type: &v1.PodDisruptionBudget{}, Name: aws.AWSLoadBalancerControllerName},
-					{Type: makeUnstructured(schema.GroupVersionKind{
-						Group:   "elbv2.k8s.aws",
-						Version: "v1beta1",
-						Kind:    "IngressClassParams"}), Name: "alb"},
-					{Type: &networkingv1.IngressClass{}, Name: ""},
 				},
 			},
 			{
@@ -664,6 +659,10 @@ func getALBChartValues(
 		"webhookURL":            fmt.Sprintf("https://%s-webhook-service.%s:443", aws.AWSLoadBalancerControllerName, cp.Namespace),
 		"webhookTLS": map[string]interface{}{
 			"caCert": string(caSecret.Data[secretutils.DataKeyCertificateBundle]),
+		},
+		"defaultTags": map[string]interface{}{
+			"KubernetesCluster":                     cp.Namespace,
+			"kubernetes.io/cluster/" + cp.Namespace: "owned",
 		},
 	}
 	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.IngressClassName != nil {

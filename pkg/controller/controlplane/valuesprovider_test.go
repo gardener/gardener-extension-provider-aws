@@ -284,6 +284,10 @@ var _ = Describe("ValuesProvider", func() {
 					"caCert": "",
 				},
 				"webhookURL": fmt.Sprintf("https://%s.%s:443", awsLoadBalancerControllerWebhook, namespace),
+				"defaultTags": map[string]interface{}{
+					"KubernetesCluster":          "test",
+					"kubernetes.io/cluster/test": "owned",
+				},
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 				},
@@ -561,6 +565,10 @@ var _ = Describe("ValuesProvider", func() {
 					},
 					"webhookURL":   fmt.Sprintf("https://%s.%s:443", awsLoadBalancerControllerWebhook, namespace),
 					"replicaCount": 1,
+					"defaultTags": map[string]interface{}{
+						"KubernetesCluster":          "test",
+						"kubernetes.io/cluster/test": "owned",
+					},
 				}
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
