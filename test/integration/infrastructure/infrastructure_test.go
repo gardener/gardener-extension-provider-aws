@@ -1065,7 +1065,7 @@ func verifyCreation(
 				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
 					{
 						Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
-						Value: awssdk.String("use"),
+						Value: awssdk.String("1"),
 					},
 					{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
@@ -1087,7 +1087,7 @@ func verifyCreation(
 				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
 					{
 						Key:   awssdk.String(kubernetesRoleTagPrefix + "internal-elb"),
-						Value: awssdk.String("use"),
+						Value: awssdk.String("1"),
 					},
 					{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
