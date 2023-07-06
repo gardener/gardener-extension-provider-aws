@@ -38,8 +38,8 @@ const (
 	TagKeyRolePrivateELB = "kubernetes.io/role/internal-elb"
 	// TagValueCluster is the tag value for the cluster tag
 	TagValueCluster = "1"
-	// TagValueUse is the tag value for the ELB tag keys
-	TagValueUse = "use"
+	// TagValueELB is the tag value for the ELB tag keys
+	TagValueELB = "1"
 
 	// IdentifierVPC is the key for the VPC id
 	IdentifierVPC = "VPC"

@@ -517,9 +517,9 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		helper := c.zoneSuffixHelpers(zone.Name)
 		tagsWorkers := c.commonTagsWithSuffix(helper.GetSuffixSubnetWorkers())
 		tagsPublic := c.commonTagsWithSuffix(helper.GetSuffixSubnetPublic())
-		tagsPublic[TagKeyRolePublicELB] = TagValueUse
+		tagsPublic[TagKeyRolePublicELB] = TagValueELB
 		tagsPrivate := c.commonTagsWithSuffix(helper.GetSuffixSubnetPrivate())
-		tagsPrivate[TagKeyRolePrivateELB] = TagValueUse
+		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
 		desired = append(desired,
 			&awsclient.Subnet{
 				Tags:             tagsWorkers,
