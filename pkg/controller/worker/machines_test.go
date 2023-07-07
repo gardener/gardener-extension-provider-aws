@@ -485,7 +485,6 @@ var _ = Describe("Machines", func() {
 							},
 						},
 						"instanceMetadataOptions": map[string]interface{}{},
-						"srcAndDstChecksEnabled":  false,
 					}
 
 					var (

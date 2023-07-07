@@ -165,7 +165,6 @@ func (w *workerDelegate) generateMachineConfig() error {
 				},
 				"blockDevices":            blockDevices,
 				"instanceMetadataOptions": instanceMetadataOptions,
-				"srcAndDstChecksEnabled":  false,
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
