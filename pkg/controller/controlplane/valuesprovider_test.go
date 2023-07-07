@@ -93,7 +93,7 @@ var _ = Describe("ValuesProvider", func() {
 				Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
 					CloudControllerManager: &apisawsv1alpha1.CloudControllerManagerConfig{
 						FeatureGates: map[string]bool{
-							"CustomResourceValidation": true,
+							"RotateKubeletServerCertificate": true,
 						},
 					},
 					LoadBalancerController: &apisawsv1alpha1.LoadBalancerControllerConfig{
@@ -375,17 +375,17 @@ var _ = Describe("ValuesProvider", func() {
 			}))
 		})
 
-		It("should return correct control plane chart values (k8s >= 1.20) and ALB enabled", func() {
+		It("should return correct control plane chart values and ALB enabled", func() {
 			setLoadBalancerControllerEnabled(cp, nil)
 			albChartValues["replicaCount"] = 1 // chart is always deployed, but with 0 replicas when disabled
-			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"global": map[string]interface{}{
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
+					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
@@ -409,18 +409,18 @@ var _ = Describe("ValuesProvider", func() {
 			}))
 		})
 
-		It("should return correct control plane chart values (k8s >= 1.20) and ALB enabled with ingress class name", func() {
+		It("should return correct control plane chart values and ALB enabled with ingress class name", func() {
 			setLoadBalancerControllerEnabled(cp, pointer.String("my-alb"))
 			albChartValues["replicaCount"] = 1 // chart is always deployed, but with 0 replicas when disabled
 			albChartValues["ingressClass"] = "my-alb"
-			values, err := vp.GetControlPlaneChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, checksums, false)
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"global": map[string]interface{}{
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": clusterK8sAtLeast120.Shoot.Spec.Kubernetes.Version,
+					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
@@ -540,7 +540,7 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSCustomRouteControllerName:  enabledTrue,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.20.1",
+						"kubernetesVersion": "1.24.1",
 						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
@@ -555,7 +555,7 @@ var _ = Describe("ValuesProvider", func() {
 			})
 		})
 
-		Context("shoot control plane chart values (k8s >= 1.20) and ALB enabled", func() {
+		Context("shoot control plane chart values and ALB enabled", func() {
 			It("should return correct shoot control plane chart when ca is secret found", func() {
 				setLoadBalancerControllerEnabled(cp, nil)
 				albChartValues := map[string]interface{}{
@@ -573,7 +573,7 @@ var _ = Describe("ValuesProvider", func() {
 						"kubernetes.io/cluster/test": "owned",
 					},
 				}
-				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, clusterK8sAtLeast120, fakeSecretsManager, nil)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, cluster, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:    enabledTrue,
@@ -706,7 +706,7 @@ var _ = Describe("ValuesProvider", func() {
 
 		It("should return correct control plane shoot CRDs if ALB is enabled", func() {
 			setLoadBalancerControllerEnabled(cp, nil)
-			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, clusterK8sAtLeast120)
+			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"volumesnapshots":                 map[string]interface{}{"enabled": true},
