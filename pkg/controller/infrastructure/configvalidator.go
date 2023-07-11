@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
@@ -33,7 +32,7 @@ import (
 
 // configValidator implements ConfigValidator for aws infrastructure resources.
 type configValidator struct {
-	common.ClientContext
+	client           client.Client
 	awsClientFactory awsclient.Factory
 	logger           logr.Logger
 }
@@ -60,7 +59,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	}
 
 	// Create AWS client
-	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c.Client(), infra.Spec.SecretRef, false)
+	credentials, err := aws.GetCredentialsFromSecretRef(ctx, c.client, infra.Spec.SecretRef, false)
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not get AWS credentials: %+v", err)))
 		return allErrs

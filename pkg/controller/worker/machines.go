@@ -81,7 +81,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 	)
 
 	infrastructureStatus := &awsapi.InfrastructureStatus{}
-	if _, _, err := w.Decoder().Decode(w.worker.Spec.InfrastructureProviderStatus.Raw, nil, infrastructureStatus); err != nil {
+	if _, _, err := w.decoder.Decode(w.worker.Spec.InfrastructureProviderStatus.Raw, nil, infrastructureStatus); err != nil {
 		return err
 	}
 
@@ -95,7 +95,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 
 		workerConfig := &awsapi.WorkerConfig{}
 		if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
-			if _, _, err := w.Decoder().Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
+			if _, _, err := w.decoder.Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
 				return fmt.Errorf("could not decode provider config: %+v", err)
 			}
 		}

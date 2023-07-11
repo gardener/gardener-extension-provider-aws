@@ -59,16 +59,16 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructur
 	infrastructureStatus, state, err := ReconcileWithTerraformer(
 		ctx,
 		log,
-		a.RESTConfig(),
-		a.Client(),
-		a.Decoder(),
+		a.restConfig,
+		a.client,
+		a.decoder,
 		infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState),
 		a.disableProjectedTokenMount,
 	)
 	if err != nil {
 		return err
 	}
-	return updateProviderStatusTf(ctx, a.Client(), infrastructure, infrastructureStatus, state)
+	return updateProviderStatusTf(ctx, a.client, infrastructure, infrastructureStatus, state)
 }
 
 // shouldUseFlow checks if flow reconciliation should be used, by any of these conditions:
@@ -112,7 +112,7 @@ func (a *actuator) migrateFromTerraformerState(ctx context.Context, log logr.Log
 
 func (a *actuator) decodeInfrastructureConfig(infrastructure *extensionsv1alpha1.Infrastructure) (*awsapi.InfrastructureConfig, error) {
 	infrastructureConfig := &awsapi.InfrastructureConfig{}
-	if _, _, err := a.Decoder().Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
+	if _, _, err := a.decoder.Decode(infrastructure.Spec.ProviderConfig.Raw, nil, infrastructureConfig); err != nil {
 		return nil, fmt.Errorf("could not decode provider config: %w", err)
 	}
 	return infrastructureConfig, nil
@@ -136,7 +136,7 @@ func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
 		return nil, err
 	}
 
-	awsClient, err := aws.NewClientFromSecretRef(ctx, a.Client(), infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
+	awsClient, err := aws.NewClientFromSecretRef(ctx, a.client, infrastructure.Spec.SecretRef, infrastructure.Spec.Region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new AWS client: %w", err)
 	}
@@ -148,7 +148,7 @@ func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
 	persistor := func(ctx context.Context, flatState shared.FlatMap) error {
 		state := infraflow.NewPersistentStateFromFlatMap(flatState)
 		infra := &extensionsv1alpha1.Infrastructure{}
-		if err := a.Client().Get(ctx, infraObjectKey, infra); err != nil {
+		if err := a.client.Get(ctx, infraObjectKey, infra); err != nil {
 			return err
 		}
 		return a.updateStatusState(ctx, infra, state)
@@ -166,7 +166,7 @@ func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
 }
 
 func (a *actuator) cleanupTerraformerResources(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure) error {
-	tf, err := newTerraformer(log, a.RESTConfig(), aws.TerraformerPurposeInfra, infrastructure, a.disableProjectedTokenMount)
+	tf, err := newTerraformer(log, a.restConfig, aws.TerraformerPurposeInfra, infrastructure, a.disableProjectedTokenMount)
 	if err != nil {
 		return fmt.Errorf("could not create terraformer object: %w", err)
 	}
@@ -208,7 +208,7 @@ func (a *actuator) updateStatusState(ctx context.Context, infra *extensionsv1alp
 		return err
 	}
 
-	return updateProviderStatus(ctx, a.Client(), infra, infrastructureStatus, stateBytes)
+	return updateProviderStatus(ctx, a.client, infra, infrastructureStatus, stateBytes)
 }
 
 func computeProviderStatusFromFlowState(config *awsapi.InfrastructureConfig, state *infraflow.PersistentState) (*awsv1alpha1.InfrastructureStatus, error) {

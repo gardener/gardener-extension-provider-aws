@@ -37,7 +37,7 @@ func (a *actuator) Migrate(ctx context.Context, log logr.Logger, infrastructure 
 	if flowState != nil {
 		return nil // nothing to do if already using new flow without Terraformer
 	}
-	return migrateTerraformer(ctx, log, a.RESTConfig(), infrastructure, a.disableProjectedTokenMount)
+	return migrateTerraformer(ctx, log, a.restConfig, infrastructure, a.disableProjectedTokenMount)
 }
 
 func migrateTerraformer(

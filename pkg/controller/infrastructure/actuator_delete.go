@@ -45,7 +45,7 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, infrastructure *
 		return a.deleteWithFlow(ctx, log, infrastructure, cluster, state)
 	}
 
-	return Delete(ctx, log, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure, a.disableProjectedTokenMount)
+	return Delete(ctx, log, a.restConfig, a.client, a.decoder, infrastructure, a.disableProjectedTokenMount)
 }
 
 func (a *actuator) deleteWithFlow(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure,

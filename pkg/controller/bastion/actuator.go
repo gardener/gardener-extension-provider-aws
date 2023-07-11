@@ -21,7 +21,6 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/extensions/pkg/controller/bastion"
-	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -29,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -46,7 +46,7 @@ const (
 )
 
 type actuator struct {
-	common.ClientContext
+	client client.Client
 }
 
 func newActuator() bastion.Actuator {
@@ -57,7 +57,7 @@ func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1
 	secret := &corev1.Secret{}
 	key := kubernetes.Key(bastion.Namespace, v1beta1constants.SecretNameCloudProvider)
 
-	if err := a.Client().Get(ctx, key, secret); err != nil {
+	if err := a.client.Get(ctx, key, secret); err != nil {
 		return nil, fmt.Errorf("failed to find %q Secret: %w", v1beta1constants.SecretNameCloudProvider, err)
 	}
 
