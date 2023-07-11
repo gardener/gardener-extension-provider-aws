@@ -105,8 +105,8 @@ func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfig
 	}
 }
 
-func shootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
-	return []*gutil.ShootAccessSecret{
+func shootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
+	return []*gutil.AccessSecret{
 		gutil.NewShootAccessSecret(aws.CloudControllerManagerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSCustomRouteControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSLoadBalancerControllerName, namespace),
@@ -120,8 +120,8 @@ func shootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
 	}
 }
 
-func exposureShootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
-	return []*gutil.ShootAccessSecret{
+func exposureShootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
+	return []*gutil.AccessSecret{
 		gutil.NewShootAccessSecret(aws.LBReadvertiserDeploymentName, namespace),
 	}
 }
