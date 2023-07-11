@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -49,8 +50,10 @@ type actuator struct {
 	client client.Client
 }
 
-func newActuator() bastion.Actuator {
-	return &actuator{}
+func newActuator(mgr manager.Manager) bastion.Actuator {
+	return &actuator{
+		client: mgr.GetClient(),
+	}
 }
 
 func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1.Bastion, shoot *gardencorev1beta1.Shoot) (*awsclient.Client, error) {

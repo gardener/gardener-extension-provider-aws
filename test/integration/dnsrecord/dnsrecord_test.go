@@ -161,7 +161,7 @@ var _ = BeforeSuite(func() {
 	Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
 	Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
 
-	Expect(dnsrecordctrl.AddToManagerWithOptions(mgr, dnsrecordctrl.AddOptions{
+	Expect(dnsrecordctrl.AddToManagerWithOptions(ctx, mgr, dnsrecordctrl.AddOptions{
 		RateLimiter: dnsrecordctrl.RateLimiterOptions{
 			Limit:       rate.Inf,
 			WaitTimeout: 1 * time.Second,

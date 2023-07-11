@@ -15,6 +15,8 @@
 package infrastructure
 
 import (
+	"context"
+
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,17 +44,17 @@ type AddOptions struct {
 
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
 // The opts.Reconciler is being set with a newly instantiated actuator.
-func AddToManagerWithOptions(mgr manager.Manager, opts AddOptions) error {
-	return infrastructure.Add(mgr, infrastructure.AddArgs{
-		Actuator:          NewActuator(opts.DisableProjectedTokenMount),
-		ConfigValidator:   NewConfigValidator(awsclient.FactoryFunc(awsclient.NewInterface), log.Log),
+func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddOptions) error {
+	return infrastructure.Add(ctx, mgr, infrastructure.AddArgs{
+		Actuator:          NewActuator(mgr, opts.DisableProjectedTokenMount),
+		ConfigValidator:   NewConfigValidator(mgr, awsclient.FactoryFunc(awsclient.NewInterface), log.Log),
 		ControllerOptions: opts.Controller,
-		Predicates:        infrastructure.DefaultPredicates(opts.IgnoreOperationAnnotation),
+		Predicates:        infrastructure.DefaultPredicates(ctx, mgr, opts.IgnoreOperationAnnotation),
 		Type:              aws.Type,
 	})
 }
 
 // AddToManager adds a controller with the default Options.
-func AddToManager(mgr manager.Manager) error {
-	return AddToManagerWithOptions(mgr, DefaultAddOptions)
+func AddToManager(ctx context.Context, mgr manager.Manager) error {
+	return AddToManagerWithOptions(ctx, mgr, DefaultAddOptions)
 }

@@ -26,9 +26,11 @@ import (
 	"github.com/gardener/gardener/pkg/utils/chart"
 	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
@@ -44,14 +46,19 @@ type delegateFactory struct {
 }
 
 // NewActuator creates a new Actuator that updates the status of the handled WorkerPoolConfigs.
-func NewActuator(gardenletManagesMCM bool) worker.Actuator {
+func NewActuator(mgr manager.Manager, gardenletManagesMCM bool) (worker.Actuator, error) {
 	var (
 		mcmName              string
 		mcmChartSeed         *chart.Chart
 		mcmChartShoot        *chart.Chart
 		imageVector          imagevectorutils.ImageVector
 		chartRendererFactory extensionscontroller.ChartRendererFactory
-		workerDelegate       = &delegateFactory{}
+		workerDelegate       = &delegateFactory{
+			client:     mgr.GetClient(),
+			decoder:    serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+			restConfig: mgr.GetConfig(),
+			scheme:     mgr.GetScheme(),
+		}
 	)
 
 	if !gardenletManagesMCM {
@@ -63,6 +70,7 @@ func NewActuator(gardenletManagesMCM bool) worker.Actuator {
 	}
 
 	return genericactuator.NewActuator(
+		mgr,
 		workerDelegate,
 		mcmName,
 		mcmChartSeed,
@@ -91,7 +99,6 @@ func (d *delegateFactory) WorkerDelegate(_ context.Context, worker *extensionsv1
 	return NewWorkerDelegate(
 		d.client,
 		d.decoder,
-		d.restConfig,
 		d.scheme,
 
 		seedChartApplier,
@@ -103,10 +110,9 @@ func (d *delegateFactory) WorkerDelegate(_ context.Context, worker *extensionsv1
 }
 
 type workerDelegate struct {
-	client     client.Client
-	decoder    runtime.Decoder
-	restConfig *rest.Config
-	scheme     *runtime.Scheme
+	client  client.Client
+	decoder runtime.Decoder
+	scheme  *runtime.Scheme
 
 	seedChartApplier gardener.ChartApplier
 	serverVersion    string
@@ -124,7 +130,6 @@ type workerDelegate struct {
 func NewWorkerDelegate(
 	client client.Client,
 	decoder runtime.Decoder,
-	restConfig *rest.Config,
 	scheme *runtime.Scheme,
 
 	seedChartApplier gardener.ChartApplier,
@@ -138,10 +143,9 @@ func NewWorkerDelegate(
 		return nil, err
 	}
 	return &workerDelegate{
-		client:     client,
-		decoder:    decoder,
-		restConfig: restConfig,
-		scheme:     scheme,
+		client:  client,
+		decoder: decoder,
+		scheme:  scheme,
 
 		seedChartApplier: seedChartApplier,
 		serverVersion:    serverVersion,

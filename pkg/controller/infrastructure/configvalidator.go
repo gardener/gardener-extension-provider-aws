@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -38,8 +39,9 @@ type configValidator struct {
 }
 
 // NewConfigValidator creates a new ConfigValidator.
-func NewConfigValidator(awsClientFactory awsclient.Factory, logger logr.Logger) infrastructure.ConfigValidator {
+func NewConfigValidator(mgr manager.Manager, awsClientFactory awsclient.Factory, logger logr.Logger) infrastructure.ConfigValidator {
 	return &configValidator{
+		client:           mgr.GetClient(),
 		awsClientFactory: awsClientFactory,
 		logger:           logger.WithName("aws-infrastructure-config-validator"),
 	}

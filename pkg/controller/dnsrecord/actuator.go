@@ -30,6 +30,7 @@ import (
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -49,15 +50,11 @@ type actuator struct {
 }
 
 // NewActuator creates a new dnsrecord.Actuator.
-func NewActuator(awsClientFactory awsclient.Factory) dnsrecord.Actuator {
+func NewActuator(mgr manager.Manager, awsClientFactory awsclient.Factory) dnsrecord.Actuator {
 	return &actuator{
+		client:           mgr.GetClient(),
 		awsClientFactory: awsClientFactory,
 	}
-}
-
-func (a *actuator) InjectClient(client client.Client) error {
-	a.client = client
-	return nil
 }
 
 // Reconcile reconciles the DNSRecord.

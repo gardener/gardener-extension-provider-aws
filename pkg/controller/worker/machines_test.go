@@ -74,7 +74,7 @@ var _ = Describe("Machines", func() {
 	})
 
 	Context("workerDelegate", func() {
-		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, nil, nil, "", nil, nil)
+		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, nil, "", nil, nil)
 
 		Describe("#MachineClassKind", func() {
 			It("should return the correct kind of the machine class", func() {
@@ -443,7 +443,7 @@ var _ = Describe("Machines", func() {
 				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted))
 				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, clusterWithoutImages)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, clusterWithoutImages)
 			})
 
 			Describe("machine images", func() {
@@ -634,7 +634,7 @@ var _ = Describe("Machines", func() {
 				})
 
 				It("should return machine deployments with AWS CSI Label", func() {
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 
 					Expect(err).NotTo(HaveOccurred())
@@ -642,7 +642,7 @@ var _ = Describe("Machines", func() {
 				})
 
 				It("should return the expected machine deployments for profile image types", func() {
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 					// Test workerDelegate.DeployMachineClasses()
 					chartApplier.EXPECT().ApplyFromEmbeddedFS(
@@ -696,7 +696,7 @@ var _ = Describe("Machines", func() {
 					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{
 						Raw: encode(infrastructureProviderStatus),
 					}
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 					for _, machineClass := range machineClasses["machineClasses"].([]map[string]interface{}) {
 						delete(machineClass, "keyName")
@@ -743,7 +743,7 @@ var _ = Describe("Machines", func() {
 						})}
 						modifyExpectedMachineClasses(map[string]interface{}{"name": iamInstanceProfileName})
 
-						workerDelegate, _ := NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 						chartApplier.EXPECT().ApplyFromEmbeddedFS(
 							ctx,
@@ -765,7 +765,7 @@ var _ = Describe("Machines", func() {
 						})}
 						modifyExpectedMachineClasses(map[string]interface{}{"arn": iamInstanceProfileARN})
 
-						workerDelegate, _ := NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 						chartApplier.EXPECT().ApplyFromEmbeddedFS(
 							ctx,
@@ -783,7 +783,7 @@ var _ = Describe("Machines", func() {
 				It("should return err when the infrastructure provider status cannot be decoded", func() {
 					// Deliberately setting InfrastructureProviderStatus to empty
 					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
-					workerDelegate, _ := NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 					err := workerDelegate.DeployMachineClasses(context.TODO())
 					Expect(err).To(HaveOccurred())
@@ -792,7 +792,7 @@ var _ = Describe("Machines", func() {
 
 			It("should fail because the version is invalid", func() {
 				clusterWithoutImages.Shoot.Spec.Kubernetes.Version = "invalid"
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -802,7 +802,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the infrastructure status cannot be decoded", func() {
 				w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -814,7 +814,7 @@ var _ = Describe("Machines", func() {
 					Raw: encode(&api.InfrastructureStatus{}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -835,7 +835,7 @@ var _ = Describe("Machines", func() {
 					}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -845,7 +845,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the ami for this region cannot be found", func() {
 				w.Spec.Region = "another-region"
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -855,7 +855,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the ami for this architecture cannot be found", func() {
 				w.Spec.Pools[0].Architecture = pointer.String(archARM)
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -885,7 +885,7 @@ var _ = Describe("Machines", func() {
 					}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -895,7 +895,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the volume size cannot be decoded", func() {
 				w.Spec.Pools[0].Volume.Size = "not-decodeable"
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -916,7 +916,7 @@ var _ = Describe("Machines", func() {
 					NodeConditions:         testNodeConditions,
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, nil, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				resultSettings := result[0].MachineConfiguration
