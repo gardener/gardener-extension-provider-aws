@@ -63,6 +63,10 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 		c.ensureVpc,
 		Timeout(defaultTimeout), Dependencies(ensureDhcpOptions))
 
+	ensureVpcIPv6CidrBloc := c.AddTask(g, "ensure IPv6 CIDR Block",
+		c.ensureVpcIPv6CidrBlock,
+		DoIf(createVPC), Timeout(defaultTimeout), Dependencies(ensureVpc))
+
 	ensureDefaultSecurityGroup := c.AddTask(g, "ensure default security group",
 		c.ensureDefaultSecurityGroup,
 		DoIf(createVPC), Timeout(defaultTimeout), Dependencies(ensureVpc))
@@ -77,7 +81,7 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 	ensureMainRouteTable := c.AddTask(g, "ensure main route table",
 		c.ensureMainRouteTable,
-		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureDefaultSecurityGroup, ensureInternetGateway))
+		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway))
 
 	ensureNodesSecurityGroup := c.AddTask(g, "ensure nodes security group",
 		c.ensureNodesSecurityGroup,
@@ -85,7 +89,7 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 	_ = c.AddTask(g, "ensure zones resources",
 		c.ensureZones,
-		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureMainRouteTable))
+		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
 
 	ensureIAMRole := c.AddTask(g, "ensure IAM role",
 		c.ensureIAMRole,
@@ -176,12 +180,9 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	if current != nil {
 		c.state.Set(IdentifierVPC, current.VpcId)
 		c.state.Set(IdentifierVpcIPv6CidrBlock, current.IPv6CidrBlock)
-		ipv6CidrBlock, _, err := c.updater.UpdateVpc(ctx, desired, current)
+		_, err := c.updater.UpdateVpc(ctx, desired, current)
 		if err != nil {
 			return err
-		}
-		if ipv6CidrBlock != "" {
-			c.state.Set(IdentifierVpcIPv6CidrBlock, ipv6CidrBlock)
 		}
 	} else {
 		log.Info("creating...")
@@ -190,12 +191,25 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 			return err
 		}
 		c.state.Set(IdentifierVPC, created.VpcId)
-		c.state.Set(IdentifierVpcIPv6CidrBlock, created.IPv6CidrBlock)
-		_, _, err = c.updater.UpdateVpc(ctx, desired, created)
+		_, err = c.updater.UpdateVpc(ctx, desired, created)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
+	current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+		c.client.GetVpc, c.client.FindVpcsByTags)
+	if err != nil {
+		return err
+	}
+	ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, *c.config.EnableDualStack, current.VpcId)
+	if err != nil {
+		return err
+	}
+	c.state.Set(IdentifierVpcIPv6CidrBlock, ipv6CidrBlock)
 	return nil
 }
 

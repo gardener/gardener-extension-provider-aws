@@ -1247,13 +1247,12 @@ func (mr *MockInterfaceMockRecorder) RevokeSecurityGroupRules(arg0, arg1, arg2 i
 }
 
 // UpdateAmazonProvidedIPv6CidrBlock mocks base method.
-func (m *MockInterface) UpdateAmazonProvidedIPv6CidrBlock(arg0 context.Context, arg1, arg2 *client.VPC) (string, bool, error) {
+func (m *MockInterface) UpdateAmazonProvidedIPv6CidrBlock(arg0 context.Context, arg1, arg2 *client.VPC) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateAmazonProvidedIPv6CidrBlock", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateAmazonProvidedIPv6CidrBlock indicates an expected call of UpdateAmazonProvidedIPv6CidrBlock.
@@ -1303,6 +1302,21 @@ func (m *MockInterface) UpdateVpcAttribute(arg0 context.Context, arg1, arg2 stri
 func (mr *MockInterfaceMockRecorder) UpdateVpcAttribute(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVpcAttribute", reflect.TypeOf((*MockInterface)(nil).UpdateVpcAttribute), arg0, arg1, arg2, arg3)
+}
+
+// WaitForIPv6Cidr mocks base method.
+func (m *MockInterface) WaitForIPv6Cidr(arg0 context.Context, arg1 bool, arg2 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WaitForIPv6Cidr", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WaitForIPv6Cidr indicates an expected call of WaitForIPv6Cidr.
+func (mr *MockInterfaceMockRecorder) WaitForIPv6Cidr(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForIPv6Cidr", reflect.TypeOf((*MockInterface)(nil).WaitForIPv6Cidr), arg0, arg1, arg2)
 }
 
 // WaitForNATGatewayAvailable mocks base method.

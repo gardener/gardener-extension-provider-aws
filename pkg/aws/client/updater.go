@@ -30,7 +30,7 @@ import (
 
 // Updater provides methods to update selected AWS client objects.
 type Updater interface {
-	UpdateVpc(ctx context.Context, desired, current *VPC) (ipv6CidrBlock string, modified bool, err error)
+	UpdateVpc(ctx context.Context, desired, current *VPC) (modified bool, err error)
 	UpdateSecurityGroup(ctx context.Context, desired, current *SecurityGroup) (modified bool, err error)
 	UpdateRouteTable(ctx context.Context, log logr.Logger, desired, current *RouteTable, controlledCidrBlocks ...string) (modified bool, err error)
 	UpdateSubnet(ctx context.Context, desired, current *Subnet) (modified bool, err error)
@@ -52,15 +52,11 @@ func NewUpdater(client Interface, ignoreTags *awsapi.IgnoreTags) Updater {
 	}
 }
 
-func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (ipv6CidrBlock string, modified bool, err error) {
+func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (modified bool, err error) {
 	if desired.CidrBlock != current.CidrBlock {
-		return "", false, fmt.Errorf("cannot change CIDR block")
+		return false, fmt.Errorf("cannot change CIDR block")
 	}
 	modified, err = u.updateVpcAttributes(ctx, desired, current)
-	if err != nil {
-		return
-	}
-	ipv6CidrBlock, modified, err = u.client.UpdateAmazonProvidedIPv6CidrBlock(ctx, desired, current)
 	if err != nil {
 		return
 	}
@@ -70,12 +66,17 @@ func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (ipv6Cid
 		}
 		modified = true
 	}
-
-	mod2, err := u.UpdateEC2Tags(ctx, current.VpcId, desired.Tags, current.Tags)
+	ipv6Modified, err := u.client.UpdateAmazonProvidedIPv6CidrBlock(ctx, desired, current)
+	modified = modified || ipv6Modified
 	if err != nil {
 		return
 	}
-	return ipv6CidrBlock, modified || mod2, nil
+	ec2TagsModified, err := u.UpdateEC2Tags(ctx, current.VpcId, desired.Tags, current.Tags)
+	modified = modified || ec2TagsModified
+	if err != nil {
+		return
+	}
+	return
 }
 
 func (u *updater) updateVpcAttributes(ctx context.Context, desired, current *VPC) (modified bool, err error) {
