@@ -134,7 +134,7 @@ func Delete(
 				}
 
 				if err := infraflow.DestroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
-					return util.DetermineError(fmt.Errorf("Failed to destroy load balancers and security groups: %w", err), helper.KnownCodes)
+					return util.DetermineError(fmt.Errorf("failed to destroy load balancers and security groups: %w", err), helper.KnownCodes)
 				}
 
 				return nil
