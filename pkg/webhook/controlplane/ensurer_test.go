@@ -28,7 +28,6 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 	testutils "github.com/gardener/gardener/pkg/utils/test"
 	"github.com/gardener/gardener/pkg/utils/version"
@@ -43,7 +42,6 @@ import (
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/pointer"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
@@ -184,7 +182,6 @@ var _ = Describe("Ensurer", func() {
 
 	Describe("#EnsureKubeControllerManagerDeployment", func() {
 		var (
-			client  *mockclient.MockClient
 			dep     *appsv1.Deployment
 			ensurer genericmutator.Ensurer
 		)
@@ -209,11 +206,8 @@ var _ = Describe("Ensurer", func() {
 					},
 				},
 			}
-			client = mockclient.NewMockClient(ctrl)
 
 			ensurer = NewEnsurer(logger, false)
-			err := ensurer.(inject.Client).InjectClient(client)
-			Expect(err).To(Not(HaveOccurred()))
 		})
 
 		It("should add missing elements to kube-controller-manager deployment", func() {

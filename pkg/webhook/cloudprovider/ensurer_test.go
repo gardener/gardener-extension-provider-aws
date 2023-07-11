@@ -22,11 +22,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 )
@@ -38,10 +35,10 @@ func TestController(t *testing.T) {
 
 var _ = Describe("Ensurer", func() {
 	var (
-		logger  = log.Log.WithName("aws-cloudprovider-webhook-test")
-		ctx     = context.TODO()
+		logger = log.Log.WithName("aws-cloudprovider-webhook-test")
+		ctx    = context.TODO()
+
 		ensurer cloudprovider.Ensurer
-		scheme  *runtime.Scheme
 
 		secret *corev1.Secret
 	)
@@ -54,12 +51,7 @@ var _ = Describe("Ensurer", func() {
 			},
 		}
 
-		scheme = runtime.NewScheme()
-		install.Install(scheme)
 		ensurer = NewEnsurer(logger)
-
-		err := ensurer.(inject.Scheme).InjectScheme(scheme)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Describe("#EnsureCloudProviderSecret", func() {
