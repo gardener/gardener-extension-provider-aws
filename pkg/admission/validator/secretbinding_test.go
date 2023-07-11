@@ -22,12 +22,12 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
+	mockmanager "github.com/gardener/gardener/pkg/mock/controller-runtime/manager"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -45,6 +45,7 @@ var _ = Describe("SecretBinding validator", func() {
 			secretBindingValidator extensionswebhook.Validator
 
 			ctrl      *gomock.Controller
+			mgr       *mockmanager.MockManager
 			apiReader *mockclient.MockReader
 
 			ctx           = context.TODO()
@@ -60,11 +61,12 @@ var _ = Describe("SecretBinding validator", func() {
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 
-			secretBindingValidator = validator.NewSecretBindingValidator()
-			apiReader = mockclient.NewMockReader(ctrl)
+			mgr = mockmanager.NewMockManager(ctrl)
 
-			err := secretBindingValidator.(inject.APIReader).InjectAPIReader(apiReader)
-			Expect(err).NotTo(HaveOccurred())
+			apiReader = mockclient.NewMockReader(ctrl)
+			mgr.EXPECT().GetAPIReader().Return(apiReader)
+
+			secretBindingValidator = validator.NewSecretBindingValidator(mgr)
 		})
 
 		AfterEach(func() {
