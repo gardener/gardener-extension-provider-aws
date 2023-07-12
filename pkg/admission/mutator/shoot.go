@@ -26,7 +26,6 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
-	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -87,17 +86,6 @@ func (s *shoot) Mutate(_ context.Context, newObj, oldObj client.Object) error {
 
 	// Skip if shoot is in deletion phase
 	if shoot.DeletionTimestamp != nil || oldShoot != nil && oldShoot.DeletionTimestamp != nil {
-		return nil
-	}
-
-	// Source/destination checks are only disabled for kubernetes >= 1.22
-	// See https://github.com/gardener/machine-controller-manager-provider-aws/issues/36 for details
-	greaterEqual122, err := versionutils.CompareVersions(shoot.Spec.Kubernetes.Version, ">=", "1.22")
-	if err != nil {
-		return err
-	}
-
-	if !greaterEqual122 {
 		return nil
 	}
 

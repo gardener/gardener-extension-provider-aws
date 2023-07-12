@@ -29,8 +29,6 @@ This extension controller supports the following Kubernetes versions:
 | Kubernetes 1.24 | 1.24.0+     | [![Gardener v1.24 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.24%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.24%20AWS) |
 | Kubernetes 1.23 | 1.23.0+     | [![Gardener v1.23 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.23%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.23%20AWS) |
 | Kubernetes 1.22 | 1.22.0+     | [![Gardener v1.22 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.22%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.22%20AWS) |
-| Kubernetes 1.21 | 1.21.0+     | [![Gardener v1.21 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.21%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.21%20AWS) |
-| Kubernetes 1.20 | 1.20.0+     | [![Gardener v1.20 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.20%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.20%20AWS) |
 
 Please take a look [here](https://github.com/gardener/gardener/blob/master/docs/usage/supported_k8s_versions.md) to see which versions are supported by Gardener in general.
 

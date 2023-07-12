@@ -97,14 +97,6 @@ var _ = Describe("Shoot validation", func() {
 				Expect(errorList).To(BeEmpty())
 			})
 
-			It("should pass when the kubernetes version is higher to the CSI migration version", func() {
-				worker.Kubernetes = &core.WorkerKubernetes{Version: pointer.String("1.20.0")}
-
-				errorList := ValidateWorker(worker, awsZones, nil, field.NewPath("workers").Index(0))
-
-				Expect(errorList).To(BeEmpty())
-			})
-
 			It("should pass because the worker is configured correctly", func() {
 				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath(""))
 

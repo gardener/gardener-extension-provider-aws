@@ -245,7 +245,7 @@ var _ = Describe("Machines", func() {
 
 				machineConfiguration = &machinev1alpha1.MachineConfiguration{}
 
-				shootVersionMajorMinor = "1.20"
+				shootVersionMajorMinor = "1.25"
 				shootVersion = shootVersionMajorMinor + ".3"
 
 				clusterWithoutImages = &extensionscontroller.Cluster{
@@ -634,13 +634,14 @@ var _ = Describe("Machines", func() {
 					}
 				})
 
-				It("should return machine deployments with AWS CSI Label (k8s=1.20)", func() {
+				It("should return machine deployments with AWS CSI Label", func() {
 					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 
 					Expect(err).NotTo(HaveOccurred())
 					Expect(result).To(Equal(machineDeployments))
 				})
+
 				It("should return the expected machine deployments for profile image types", func() {
 					workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster)
 
@@ -690,6 +691,7 @@ var _ = Describe("Machines", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(result).To(Equal(machineDeployments))
 				})
+
 				It("should deploy the expected machine classes when infrastructureProviderStatus.EC2 is missing keyName", func() {
 					infrastructureProviderStatus.EC2.KeyName = ""
 					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{
