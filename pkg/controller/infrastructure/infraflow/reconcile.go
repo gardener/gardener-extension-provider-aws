@@ -1452,8 +1452,7 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 		return "", fmt.Errorf("invalid new prefix length")
 	}
 
-	offset := big.NewInt(int64(index)).Mul(big.NewInt(int64(index)), big.NewInt(1).Lsh(big.NewInt(1), uint(addrSize-newPrefixLength)))
-	subnetIP := net.IP(big.NewInt(0).SetBytes(baseIP).Add(big.NewInt(0).SetBytes(baseIP), offset).Bytes())
-
+	offset := big.NewInt(0).Mul(big.NewInt(int64(index)), big.NewInt(0).Lsh(big.NewInt(1), uint(addrSize-newPrefixLength)))
+	subnetIP := net.IP(big.NewInt(0).Add(big.NewInt(0).SetBytes(baseIP), offset).Bytes())
 	return fmt.Sprintf("%s/%d", subnetIP.String(), newPrefixLength), nil
 }

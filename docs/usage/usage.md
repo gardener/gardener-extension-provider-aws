@@ -186,6 +186,7 @@ It only applies for those worker pools whose `iamInstanceProfile` is not set.
   }
   ```
 </details>
+
 The `enableDualStack` flag specifies whether dual-stack or IPv4-only should be supported by the infrastructure.
 When the flag is set to true an amazon provided IPv6 CIDR block will be attached to the VPC, all subnets will receive a `/64` block from it and a route entry is added to the main route table to route all IPv6 traffic over the IGW. 
 

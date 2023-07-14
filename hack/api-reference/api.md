@@ -193,7 +193,7 @@ bool
 </em>
 </td>
 <td>
-<p>EnableDualStack specifies whether dual-stack or IPv4 should be supported.</p>
+<p>EnableDualStack specifies whether dual-stack or IPv4-only should be supported.</p>
 </td>
 </tr>
 <tr>
