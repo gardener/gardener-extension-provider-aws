@@ -100,6 +100,13 @@ func (w *workerDelegate) generateMachineConfig() error {
 			}
 		}
 
+		infrastructureConfig := &awsapi.InfrastructureConfig{}
+		if w.cluster.Shoot.Spec.Provider.InfrastructureConfig != nil && w.cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw != nil {
+			if _, _, err := w.decoder.Decode(w.cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw, nil, infrastructureConfig); err != nil {
+				return fmt.Errorf("could not decode provider config: %+v", err)
+			}
+		}
+
 		workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashData(pool)...)
 		if err != nil {
 			return err
@@ -165,6 +172,12 @@ func (w *workerDelegate) generateMachineConfig() error {
 				},
 				"blockDevices":            blockDevices,
 				"instanceMetadataOptions": instanceMetadataOptions,
+			}
+
+			if infrastructureConfig.DualStack != nil && infrastructureConfig.DualStack.Enabled {
+				networkInterfaces, _ := machineClassSpec["networkInterfaces"].([]map[string]interface{})
+				networkInterfaces[0]["ipv6AddressCount"] = 1
+				networkInterfaces[0]["ipv6PrefixCount"] = 1
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
