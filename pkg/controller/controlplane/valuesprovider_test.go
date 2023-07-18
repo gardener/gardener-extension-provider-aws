@@ -26,6 +26,7 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
+	mockmanager "github.com/gardener/gardener/pkg/mock/controller-runtime/manager"
 	"github.com/gardener/gardener/pkg/utils"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
 	fakesecretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager/fake"
@@ -40,7 +41,6 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -56,6 +56,7 @@ var _ = Describe("ValuesProvider", func() {
 	var (
 		ctrl         *gomock.Controller
 		c            *mockclient.MockClient
+		mgr          *mockmanager.MockManager
 		encoder      runtime.Encoder
 		ctx          context.Context
 		scheme       *runtime.Scheme
@@ -203,9 +204,11 @@ var _ = Describe("ValuesProvider", func() {
 		enabledFalse = map[string]interface{}{"enabled": false}
 
 		ctrl = gomock.NewController(GinkgoT())
-		vp = NewValuesProvider()
-
-		Expect(vp.(inject.Scheme).InjectScheme(scheme)).To(Succeed())
+		c = mockclient.NewMockClient(ctrl)
+		mgr = mockmanager.NewMockManager(ctrl)
+		mgr.EXPECT().GetClient().Return(c)
+		mgr.EXPECT().GetScheme().Return(scheme)
+		vp = NewValuesProvider(mgr)
 
 		fakeClient = fakeclient.NewClientBuilder().Build()
 		fakeSecretsManager = fakesecretsmanager.New(fakeClient, namespace)
@@ -295,10 +298,6 @@ var _ = Describe("ValuesProvider", func() {
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 				},
 			}
-			c = mockclient.NewMockClient(ctrl)
-
-			err := vp.(inject.Client).InjectClient(c)
-			Expect(err).NotTo(HaveOccurred())
 
 			By("creating secrets managed outside of this package for whose secretsmanager.Get() will be called")
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca-provider-aws-controlplane", Namespace: namespace}})).To(Succeed())
@@ -494,11 +493,6 @@ var _ = Describe("ValuesProvider", func() {
 
 	Describe("#GetControlPlaneShootChartValues", func() {
 		BeforeEach(func() {
-			c = mockclient.NewMockClient(ctrl)
-
-			err := vp.(inject.Client).InjectClient(c)
-			Expect(err).NotTo(HaveOccurred())
-
 			By("creating secrets managed outside of this package for whose secretsmanager.Get() will be called")
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca-provider-aws-controlplane", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "csi-snapshot-validation-server", Namespace: namespace}})).To(Succeed())
@@ -717,8 +711,6 @@ var _ = Describe("ValuesProvider", func() {
 
 	Describe("#GetControlPlaneExposureChartValues", func() {
 		var (
-			c *mockclient.MockClient
-
 			cpService = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      v1beta1constants.DeploymentNameKubeAPIServer,
@@ -733,13 +725,6 @@ var _ = Describe("ValuesProvider", func() {
 				},
 			}
 		)
-
-		BeforeEach(func() {
-			c = mockclient.NewMockClient(ctrl)
-
-			err := vp.(inject.Client).InjectClient(c)
-			Expect(err).NotTo(HaveOccurred())
-		})
 
 		It("should return correct control plane exposure chart values", func() {
 			serviceKey := client.ObjectKey{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}

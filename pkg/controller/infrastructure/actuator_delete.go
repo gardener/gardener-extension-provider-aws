@@ -45,7 +45,7 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, infrastructure *
 		return a.deleteWithFlow(ctx, log, infrastructure, cluster, state)
 	}
 
-	return Delete(ctx, log, a.RESTConfig(), a.Client(), a.Decoder(), infrastructure, a.disableProjectedTokenMount)
+	return Delete(ctx, log, a.restConfig, a.client, a.decoder, infrastructure, a.disableProjectedTokenMount)
 }
 
 func (a *actuator) deleteWithFlow(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure,
@@ -134,7 +134,7 @@ func Delete(
 				}
 
 				if err := infraflow.DestroyKubernetesLoadBalancersAndSecurityGroups(ctx, awsClient, vpcID, infrastructure.Namespace); err != nil {
-					return util.DetermineError(fmt.Errorf("Failed to destroy load balancers and security groups: %w", err), helper.KnownCodes)
+					return util.DetermineError(fmt.Errorf("failed to destroy load balancers and security groups: %w", err), helper.KnownCodes)
 				}
 
 				return nil

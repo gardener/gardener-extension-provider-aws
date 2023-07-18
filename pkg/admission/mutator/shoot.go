@@ -31,23 +31,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
 // NewShootMutator returns a new instance of a shoot mutator.
-func NewShootMutator() extensionswebhook.Mutator {
-	return &shoot{}
+func NewShootMutator(mgr manager.Manager) extensionswebhook.Mutator {
+	return &shoot{
+		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+	}
 }
 
 type shoot struct {
 	decoder runtime.Decoder
-}
-
-// InjectScheme injects the given scheme into the validator.
-func (s *shoot) InjectScheme(scheme *runtime.Scheme) error {
-	s.decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
-	return nil
 }
 
 // Mutate mutates the given shoot object.

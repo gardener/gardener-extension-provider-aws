@@ -30,14 +30,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 // NewShootValidator returns a new instance of a shoot validator.
-func NewShootValidator() extensionswebhook.Validator {
-	return &shoot{}
+func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
+	return &shoot{
+		client:         mgr.GetClient(),
+		scheme:         mgr.GetScheme(),
+		decoder:        serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+		lenientDecoder: serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
+	}
 }
 
 type shoot struct {
@@ -45,20 +51,6 @@ type shoot struct {
 	decoder        runtime.Decoder
 	lenientDecoder runtime.Decoder
 	scheme         *runtime.Scheme
-}
-
-// InjectScheme injects the given scheme into the validator.
-func (s *shoot) InjectScheme(scheme *runtime.Scheme) error {
-	s.scheme = scheme
-	s.decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
-	s.lenientDecoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
-	return nil
-}
-
-// InjectClient injects the given client into the validator.
-func (s *shoot) InjectClient(client client.Client) error {
-	s.client = client
-	return nil
 }
 
 // Validate validates the given shoot object.

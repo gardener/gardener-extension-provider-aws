@@ -23,6 +23,7 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
+	mockmanager "github.com/gardener/gardener/pkg/mock/controller-runtime/manager"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
@@ -46,10 +46,19 @@ func TestController(t *testing.T) {
 }
 
 var _ = Describe("Mutate", func() {
-	var ctrl *gomock.Controller
+	var (
+		ctrl *gomock.Controller
+		c    *mockclient.MockClient
+		mgr  *mockmanager.MockManager
+	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
+		c = mockclient.NewMockClient(ctrl)
+
+		mgr = mockmanager.NewMockManager(ctrl)
+
+		mgr.EXPECT().GetClient().Return(c)
 	})
 
 	AfterEach(func() {
@@ -65,9 +74,9 @@ var _ = Describe("Mutate", func() {
 
 		Context("create", func() {
 			BeforeEach(func() {
-				mutator = New(logger)
+				mutator = New(mgr, logger)
 				ctx = context.TODO()
-				c := mockclient.NewMockClient(ctrl)
+
 				c.EXPECT().Get(ctx, client.ObjectKey{Name: shootNamespace}, gomock.AssignableToTypeOf(&extensionsv1alpha1.Cluster{})).
 					DoAndReturn(
 						func(_ context.Context, _ types.NamespacedName, obj *extensionsv1alpha1.Cluster, _ ...client.GetOption) error {
@@ -81,8 +90,7 @@ var _ = Describe("Mutate", func() {
 							}
 							return nil
 						})
-				err := mutator.(inject.Client).InjectClient(c)
-				Expect(err).NotTo(HaveOccurred())
+
 				cluster = &controller.Cluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: shootNamespace,
@@ -128,7 +136,7 @@ var _ = Describe("Mutate", func() {
 
 		Context("update", func() {
 			BeforeEach(func() {
-				mutator = New(logger)
+				mutator = New(mgr, logger)
 				cluster = &controller.Cluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: shootNamespace,

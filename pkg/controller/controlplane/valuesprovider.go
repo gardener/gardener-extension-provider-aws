@@ -22,7 +22,6 @@ import (
 
 	"github.com/Masterminds/semver"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
-	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -43,9 +42,11 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
@@ -106,8 +107,8 @@ func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfig
 	}
 }
 
-func shootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
-	return []*gutil.ShootAccessSecret{
+func shootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
+	return []*gutil.AccessSecret{
 		gutil.NewShootAccessSecret(aws.CloudControllerManagerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSCustomRouteControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSLoadBalancerControllerName, namespace),
@@ -121,16 +122,10 @@ func shootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
 	}
 }
 
-func exposureShootAccessSecretsFunc(namespace string) []*gutil.ShootAccessSecret {
-	return []*gutil.ShootAccessSecret{
+func exposureShootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
+	return []*gutil.AccessSecret{
 		gutil.NewShootAccessSecret(aws.LBReadvertiserDeploymentName, namespace),
 	}
-}
-
-func makeUnstructured(gvk schema.GroupVersionKind) *unstructured.Unstructured {
-	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(gvk)
-	return obj
 }
 
 var (
@@ -330,13 +325,17 @@ var (
 )
 
 // NewValuesProvider creates a new ValuesProvider for the generic actuator.
-func NewValuesProvider() genericactuator.ValuesProvider {
-	return &valuesProvider{}
+func NewValuesProvider(mgr manager.Manager) genericactuator.ValuesProvider {
+	return &valuesProvider{
+		client:  mgr.GetClient(),
+		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
+	}
 }
 
 // valuesProvider is a ValuesProvider that provides AWS-specific values for the 2 charts applied by the generic actuator.
 type valuesProvider struct {
-	common.ClientContext
+	client  client.Client
+	decoder runtime.Decoder
 }
 
 // GetConfigChartValues returns the values for the config chart applied by the generic actuator.
@@ -348,7 +347,7 @@ func (vp *valuesProvider) GetConfigChartValues(
 	// Decode infrastructureProviderStatus
 	infraStatus := &apisaws.InfrastructureStatus{}
 	if cp.Spec.InfrastructureProviderStatus != nil {
-		if _, _, err := vp.Decoder().Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
+		if _, _, err := vp.decoder.Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
 			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
 		}
 	}
@@ -369,7 +368,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	// Decode providerConfig
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
-		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
+		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
 			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
 		}
 	}
@@ -377,13 +376,13 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	// Decode infrastructureProviderStatus
 	infraStatus := &apisaws.InfrastructureStatus{}
 	if cp.Spec.InfrastructureProviderStatus != nil {
-		if _, _, err := vp.Decoder().Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
+		if _, _, err := vp.decoder.Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
 			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
 		}
 	}
 
 	// TODO(rfranzke): Delete this in a future release.
-	if err := kutil.DeleteObject(ctx, vp.Client(), &networkingv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "allow-kube-apiserver-to-csi-snapshot-validation", Namespace: cp.Namespace}}); err != nil {
+	if err := kutil.DeleteObject(ctx, vp.client, &networkingv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "allow-kube-apiserver-to-csi-snapshot-validation", Namespace: cp.Namespace}}); err != nil {
 		return nil, fmt.Errorf("failed deleting legacy csi-snapshot-validation network policy: %w", err)
 	}
 
@@ -401,7 +400,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	// Decode providerConfig
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
-		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
+		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
 			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
 		}
 	}
@@ -418,7 +417,7 @@ func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 ) (map[string]interface{}, error) {
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
-		if _, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
+		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
 			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
 		}
 	}
@@ -443,7 +442,7 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 
 	if cp.Spec.ProviderConfig != nil {
 		cpConfig := &apisaws.ControlPlaneConfig{}
-		_, _, err := vp.Decoder().Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig)
+		_, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig)
 		if err != nil {
 			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
 		}
@@ -474,7 +473,7 @@ func (vp *valuesProvider) GetControlPlaneExposureChartValues(
 	if !extensionscontroller.IsHibernated(cluster) {
 		// Get load balancer address of the kube-apiserver service
 		var err error
-		address, err = kutil.GetLoadBalancerIngress(ctx, vp.Client(), &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: cp.Namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}})
+		address, err = kutil.GetLoadBalancerIngress(ctx, vp.client, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: cp.Namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}})
 		if err != nil {
 			return nil, fmt.Errorf("could not get kube-apiserver service load balancer address: %w", err)
 		}

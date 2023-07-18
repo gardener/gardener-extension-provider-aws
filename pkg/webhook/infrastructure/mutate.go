@@ -23,6 +23,7 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
@@ -33,16 +34,11 @@ type mutator struct {
 }
 
 // New returns a new Infrastructure mutator that uses mutateFunc to perform the mutation.
-func New(logger logr.Logger) extensionswebhook.Mutator {
+func New(mgr manager.Manager, logger logr.Logger) extensionswebhook.Mutator {
 	return &mutator{
+		client: mgr.GetClient(),
 		logger: logger,
 	}
-}
-
-// InjectClient injects the given client into the ensurer.
-func (m *mutator) InjectClient(client client.Client) error {
-	m.client = client
-	return nil
 }
 
 // Mutate mutates the given object on creation and adds the annotation `aws.provider.extensions.gardener.cloud/use-flow=true`

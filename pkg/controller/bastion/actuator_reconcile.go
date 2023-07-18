@@ -74,7 +74,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, bastion *exte
 	// Bastion resource to notify upstream about the ready instance
 	patch := client.MergeFrom(bastion.DeepCopy())
 	bastion.Status.Ingress = endpoints.public
-	return a.Client().Status().Patch(ctx, bastion, patch)
+	return a.client.Status().Patch(ctx, bastion, patch)
 }
 
 func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *Options) (string, error) {

@@ -54,9 +54,9 @@ func (a *actuator) restoreWithTerraformer(ctx context.Context, log logr.Logger, 
 	infrastructureStatus, state, err := ReconcileWithTerraformer(
 		ctx,
 		log,
-		a.RESTConfig(),
-		a.Client(),
-		a.Decoder(),
+		a.restConfig,
+		a.client,
+		a.decoder,
 		infrastructure,
 		terraformer.CreateOrUpdateState{State: &terraformState.Data},
 		a.disableProjectedTokenMount,
@@ -65,5 +65,5 @@ func (a *actuator) restoreWithTerraformer(ctx context.Context, log logr.Logger, 
 		return err
 	}
 
-	return updateProviderStatusTf(ctx, a.Client(), infrastructure, infrastructureStatus, state)
+	return updateProviderStatusTf(ctx, a.client, infrastructure, infrastructureStatus, state)
 }

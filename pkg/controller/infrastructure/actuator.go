@@ -17,27 +17,35 @@ package infrastructure
 import (
 	"time"
 
-	"github.com/gardener/gardener/extensions/pkg/controller/common"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
 )
 
 type actuator struct {
-	common.RESTConfigContext
+	client                     client.Client
+	decoder                    runtime.Decoder
+	restConfig                 *rest.Config
 	disableProjectedTokenMount bool
 }
 
 // NewActuator creates a new Actuator that updates the status of the handled Infrastructure resources.
-func NewActuator(disableProjectedTokenMount bool) infrastructure.Actuator {
+func NewActuator(mgr manager.Manager, disableProjectedTokenMount bool) infrastructure.Actuator {
 	return &actuator{
+		client:                     mgr.GetClient(),
+		decoder:                    serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
+		restConfig:                 mgr.GetConfig(),
 		disableProjectedTokenMount: disableProjectedTokenMount,
 	}
 }

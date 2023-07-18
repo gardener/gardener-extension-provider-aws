@@ -157,7 +157,7 @@ var _ = BeforeSuite(func() {
 	Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
 	Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
 
-	Expect(bastionctrl.AddToManager(mgr)).To(Succeed())
+	Expect(bastionctrl.AddToManager(ctx, mgr)).To(Succeed())
 
 	var mgrContext context.Context
 	mgrContext, mgrCancel = context.WithCancel(ctx)
