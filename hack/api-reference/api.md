@@ -187,13 +187,15 @@ default: true</p>
 </tr>
 <tr>
 <td>
-<code>enableDualStack</code></br>
+<code>dualStack</code></br>
 <em>
-bool
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.DualStack">
+DualStack
+</a>
 </em>
 </td>
 <td>
-<p>EnableDualStack specifies whether dual-stack or IPv4-only should be supported.</p>
+<p>DualStack specifies whether dual-stack or IPv4-only should be supported.</p>
 </td>
 </tr>
 <tr>
@@ -478,6 +480,36 @@ string
 <td>
 <em>(Optional)</em>
 <p>SnapshotID is the ID of the snapshot.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.DualStack">DualStack
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
+</p>
+<p>
+<p>DualStack specifies whether dual-stack or IPv4-only should be supported.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled specifies if dual-stack is enabled or not.</p>
 </td>
 </tr>
 </tbody>

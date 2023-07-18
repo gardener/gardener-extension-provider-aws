@@ -31,8 +31,8 @@ type InfrastructureConfig struct {
 	// +optional
 	EnableECRAccess *bool `json:"enableECRAccess,omitempty"`
 
-	// EnableDualStack specifies whether dual-stack or IPv4-only should be supported.
-	EnableDualStack *bool `json:"enableDualStack,omitempty"`
+	// DualStack specifies whether dual-stack or IPv4-only should be supported.
+	DualStack *DualStack `json:"dualStack,omitempty"`
 
 	// Networks is the AWS specific network configuration (VPC, subnets, etc.)
 	Networks Networks `json:"networks"`
@@ -177,4 +177,10 @@ type SecurityGroup struct {
 	Purpose string `json:"purpose"`
 	// ID is the subnet id.
 	ID string `json:"id"`
+}
+
+// DualStack specifies whether dual-stack or IPv4-only should be supported.
+type DualStack struct {
+	// Enabled specifies if dual-stack is enabled or not.
+	Enabled bool `json:"enabled"`
 }

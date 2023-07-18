@@ -164,7 +164,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		Tags:                         c.commonTags,
 		EnableDnsSupport:             true,
 		EnableDnsHostnames:           true,
-		AssignGeneratedIPv6CidrBlock: *c.config.EnableDualStack,
+		AssignGeneratedIPv6CidrBlock: c.config.DualStack.Enabled,
 		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
 	}
 	if c.config.Networks.VPC.CIDR == nil {
@@ -200,16 +200,18 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
-	current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
-		c.client.GetVpc, c.client.FindVpcsByTags)
-	if err != nil {
-		return err
+	if c.config.DualStack.Enabled {
+		current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+			c.client.GetVpc, c.client.FindVpcsByTags)
+		if err != nil {
+			return err
+		}
+		ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, current.VpcId)
+		if err != nil {
+			return err
+		}
+		c.state.Set(IdentifierVpcIPv6CidrBlock, ipv6CidrBlock)
 	}
-	ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, *c.config.EnableDualStack, current.VpcId)
-	if err != nil {
-		return err
-	}
-	c.state.Set(IdentifierVpcIPv6CidrBlock, ipv6CidrBlock)
 	return nil
 }
 

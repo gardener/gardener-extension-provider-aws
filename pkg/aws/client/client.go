@@ -686,42 +686,39 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 }
 
 // WaitForIPv6Cidr waits for the ipv6 cidr block association
-func (c *Client) WaitForIPv6Cidr(ctx context.Context, dualStack bool, vpcID string) (string, error) {
-	if dualStack {
-		// Custom waiting loop
-		waitInput := &ec2.DescribeVpcsInput{
-			VpcIds: []*string{aws.String(vpcID)},
-		}
-		var ipv6CidrBlock string
-		maxRetries := 30
-		waitInterval := 10 * time.Second
-		for i := 0; i < maxRetries; i++ {
-			select {
-			case <-ctx.Done():
-				return "", ctx.Err()
-			case <-time.After(waitInterval):
-				resp, err := c.EC2.DescribeVpcs(waitInput)
-				if err != nil {
-					return "", fmt.Errorf("error describing VPC: %v", err)
-				}
-				if len(resp.Vpcs) > 0 {
-					for _, assoc := range resp.Vpcs[0].Ipv6CidrBlockAssociationSet {
-						if assoc != nil && aws.StringValue(assoc.Ipv6CidrBlockState.State) == "associated" {
-							ipv6CidrBlock = *assoc.Ipv6CidrBlock
-							vpc, err := c.GetVpc(ctx, vpcID)
-							if err != nil {
-								return "", err
-							}
-							vpc.IPv6CidrBlock = ipv6CidrBlock
-							return ipv6CidrBlock, nil
+func (c *Client) WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
+	// Custom waiting loop
+	waitInput := &ec2.DescribeVpcsInput{
+		VpcIds: []*string{aws.String(vpcID)},
+	}
+	var ipv6CidrBlock string
+	maxRetries := 30
+	waitInterval := 10 * time.Second
+	for i := 0; i < maxRetries; i++ {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(waitInterval):
+			resp, err := c.EC2.DescribeVpcs(waitInput)
+			if err != nil {
+				return "", fmt.Errorf("error describing VPC: %v", err)
+			}
+			if len(resp.Vpcs) > 0 {
+				for _, assoc := range resp.Vpcs[0].Ipv6CidrBlockAssociationSet {
+					if assoc != nil && aws.StringValue(assoc.Ipv6CidrBlockState.State) == "associated" {
+						ipv6CidrBlock = *assoc.Ipv6CidrBlock
+						vpc, err := c.GetVpc(ctx, vpcID)
+						if err != nil {
+							return "", err
 						}
+						vpc.IPv6CidrBlock = ipv6CidrBlock
+						return ipv6CidrBlock, nil
 					}
 				}
 			}
 		}
-		return "", fmt.Errorf("No IPv6 CIDR Block was assigned to VPC")
 	}
-	return "", nil
+	return "", fmt.Errorf("No IPv6 CIDR Block was assigned to VPC")
 }
 
 // UpdateVpcAttribute sets/updates a VPC attribute if needed.

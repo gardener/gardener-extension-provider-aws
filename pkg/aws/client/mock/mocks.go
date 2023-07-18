@@ -1305,18 +1305,18 @@ func (mr *MockInterfaceMockRecorder) UpdateVpcAttribute(arg0, arg1, arg2, arg3 i
 }
 
 // WaitForIPv6Cidr mocks base method.
-func (m *MockInterface) WaitForIPv6Cidr(arg0 context.Context, arg1 bool, arg2 string) (string, error) {
+func (m *MockInterface) WaitForIPv6Cidr(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WaitForIPv6Cidr", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "WaitForIPv6Cidr", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WaitForIPv6Cidr indicates an expected call of WaitForIPv6Cidr.
-func (mr *MockInterfaceMockRecorder) WaitForIPv6Cidr(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) WaitForIPv6Cidr(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForIPv6Cidr", reflect.TypeOf((*MockInterface)(nil).WaitForIPv6Cidr), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForIPv6Cidr", reflect.TypeOf((*MockInterface)(nil).WaitForIPv6Cidr), arg0, arg1)
 }
 
 // WaitForNATGatewayAvailable mocks base method.
