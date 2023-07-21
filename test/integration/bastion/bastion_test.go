@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"sort"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -63,7 +64,7 @@ const (
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
 	bastionImageVersion = "20.04.20210223"
-	bastionAMI          = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230216"
+	bastionAMI          = "ubuntu/images/hvm-ssd/ubuntu-jammy*"
 )
 
 var (
@@ -182,7 +183,8 @@ var _ = BeforeSuite(func() {
 	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
 	Expect(err).NotTo(HaveOccurred())
 
-	amiID := determineBastionImage(ctx, awsClient)
+	imageAMI := getImageAMI(ctx, bastionAMI, awsClient)
+	amiID := determineBastionImage(ctx, imageAMI, awsClient)
 	extensionscluster, corecluster = newCluster(namespaceName, amiID)
 })
 
@@ -237,12 +239,12 @@ var _ = Describe("Bastion tests", func() {
 	})
 })
 
-func determineBastionImage(ctx context.Context, awsClient *awsclient.Client) string {
+func determineBastionImage(ctx context.Context, name string, awsClient *awsclient.Client) string {
 	output, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
 		Filters: []*ec2.Filter{
 			{
 				Name:   awssdk.String("name"),
-				Values: awssdk.StringSlice([]string{bastionAMI}),
+				Values: awssdk.StringSlice([]string{name}),
 			},
 		},
 	})
@@ -251,6 +253,57 @@ func determineBastionImage(ctx context.Context, awsClient *awsclient.Client) str
 	Expect(output.Images).To(HaveLen(1))
 
 	return *output.Images[0].ImageId
+}
+
+func getImageAMI(ctx context.Context, name string, awsClient *awsclient.Client) string {
+	filters := []*ec2.Filter{
+		{
+			Name: awssdk.String("name"),
+			Values: []*string{
+				awssdk.String(name),
+			},
+		},
+		{
+			Name: awssdk.String("virtualization-type"),
+			Values: []*string{
+				awssdk.String("hvm"),
+			},
+		},
+		{
+			Name: awssdk.String("architecture"),
+			Values: []*string{
+				awssdk.String("x86_64"),
+			},
+		},
+		{
+			Name:   awssdk.String("is-public"),
+			Values: []*string{awssdk.String("true")},
+		},
+		{
+			Name:   awssdk.String("owner-alias"),
+			Values: []*string{awssdk.String("amazon")},
+		},
+		{
+			Name:   awssdk.String("state"),
+			Values: []*string{awssdk.String("available")},
+		},
+	}
+
+	result, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
+		Filters: filters,
+	})
+
+	sort.Slice(result.Images, func(i, j int) bool {
+		t1, err := time.Parse(time.RFC3339, *result.Images[i].CreationDate)
+		Expect(err).NotTo(HaveOccurred())
+		t2, err := time.Parse(time.RFC3339, *result.Images[j].CreationDate)
+		Expect(err).NotTo(HaveOccurred())
+		return t1.After(t2)
+	})
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(result.Images).ToNot(BeEmpty())
+	return *result.Images[0].Name
 }
 
 func normaliseCIDR(cidr string) string {
