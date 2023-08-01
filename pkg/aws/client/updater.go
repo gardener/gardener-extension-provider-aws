@@ -66,12 +66,17 @@ func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (modifie
 		}
 		modified = true
 	}
-
-	mod2, err := u.UpdateEC2Tags(ctx, current.VpcId, desired.Tags, current.Tags)
+	ipv6Modified, err := u.client.UpdateAmazonProvidedIPv6CidrBlock(ctx, desired, current)
+	modified = modified || ipv6Modified
 	if err != nil {
 		return
 	}
-	return modified || mod2, nil
+	ec2TagsModified, err := u.UpdateEC2Tags(ctx, current.VpcId, desired.Tags, current.Tags)
+	modified = modified || ec2TagsModified
+	if err != nil {
+		return
+	}
+	return
 }
 
 func (u *updater) updateVpcAttributes(ctx context.Context, desired, current *VPC) (modified bool, err error) {

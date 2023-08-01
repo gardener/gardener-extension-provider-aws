@@ -30,6 +30,9 @@ resource "aws_vpc" "vpc" {
   cidr_block           = "{{ .vpc.cidr }}"
   enable_dns_support   = true
   enable_dns_hostnames = true
+  {{ if .dualStack.enabled }}
+  assign_generated_ipv6_cidr_block = true
+  {{ end }}
 
 {{ commonTags .clusterName | indent 2 }}
 }
@@ -83,6 +86,18 @@ resource "aws_route" "public" {
     create = "5m"
   }
 }
+
+{{ if and .dualStack.enabled .create.vpc }}
+resource "aws_route" "public-ipv6" {
+  route_table_id         = aws_route_table.routetable_main.id
+  destination_ipv6_cidr_block = "::/0"
+  gateway_id             = {{ .vpc.internetGatewayID }}
+
+  timeouts {
+    create = "5m"
+  }
+}
+{{ end }}
 
 resource "aws_security_group" "nodes" {
   name        = "{{ .clusterName }}-nodes"
@@ -138,7 +153,10 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.worker }}"
   availability_zone = "{{ $zone.name }}"
-
+{{- if and $.dualStack.enabled $.create.vpc}}
+  ipv6_cidr_block = "${cidrsubnet(aws_vpc.vpc.ipv6_cidr_block, 8, (({{ $index }} * 3)))}"
+  assign_ipv6_address_on_creation = false
+{{- end }}
   timeouts {
     create = "5m"
     delete = "5m"
@@ -155,7 +173,10 @@ resource "aws_subnet" "private_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.internal }}"
   availability_zone = "{{ $zone.name }}"
-
+{{- if and $.dualStack.enabled $.create.vpc}}
+  ipv6_cidr_block = "${cidrsubnet(aws_vpc.vpc.ipv6_cidr_block, 8, (1 + ({{ $index }} * 3)))}"
+  assign_ipv6_address_on_creation = false
+{{- end }}
   timeouts {
     create = "5m"
     delete = "5m"
@@ -190,7 +211,10 @@ resource "aws_subnet" "public_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.public }}"
   availability_zone = "{{ $zone.name }}"
-
+{{- if and $.dualStack.enabled $.create.vpc}}
+  ipv6_cidr_block = "${cidrsubnet(aws_vpc.vpc.ipv6_cidr_block, 8, (2 + ({{ $index }} * 3)))}"
+  assign_ipv6_address_on_creation = false
+  {{- end }}
   timeouts {
     create = "5m"
     delete = "5m"

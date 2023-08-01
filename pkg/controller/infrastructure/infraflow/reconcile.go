@@ -19,6 +19,8 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"math/big"
+	"net"
 	"reflect"
 	"strings"
 	"text/template"
@@ -61,6 +63,10 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 		c.ensureVpc,
 		Timeout(defaultTimeout), Dependencies(ensureDhcpOptions))
 
+	ensureVpcIPv6CidrBloc := c.AddTask(g, "ensure IPv6 CIDR Block",
+		c.ensureVpcIPv6CidrBlock,
+		DoIf(createVPC), Timeout(defaultTimeout), Dependencies(ensureVpc))
+
 	ensureDefaultSecurityGroup := c.AddTask(g, "ensure default security group",
 		c.ensureDefaultSecurityGroup,
 		DoIf(createVPC), Timeout(defaultTimeout), Dependencies(ensureVpc))
@@ -75,7 +81,7 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 	ensureMainRouteTable := c.AddTask(g, "ensure main route table",
 		c.ensureMainRouteTable,
-		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureDefaultSecurityGroup, ensureInternetGateway))
+		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway))
 
 	ensureNodesSecurityGroup := c.AddTask(g, "ensure nodes security group",
 		c.ensureNodesSecurityGroup,
@@ -83,7 +89,7 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 	_ = c.AddTask(g, "ensure zones resources",
 		c.ensureZones,
-		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureMainRouteTable))
+		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
 
 	ensureIAMRole := c.AddTask(g, "ensure IAM role",
 		c.ensureIAMRole,
@@ -155,10 +161,11 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	log := c.LogFromContext(ctx)
 	log.Info("using managed VPC")
 	desired := &awsclient.VPC{
-		Tags:               c.commonTags,
-		EnableDnsSupport:   true,
-		EnableDnsHostnames: true,
-		DhcpOptionsId:      c.state.Get(IdentifierDHCPOptions),
+		Tags:                         c.commonTags,
+		EnableDnsSupport:             true,
+		EnableDnsHostnames:           true,
+		AssignGeneratedIPv6CidrBlock: c.config.DualStack != nil && c.config.DualStack.Enabled,
+		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
 	}
 	if c.config.Networks.VPC.CIDR == nil {
 		return fmt.Errorf("missing VPC CIDR")
@@ -172,7 +179,9 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 
 	if current != nil {
 		c.state.Set(IdentifierVPC, current.VpcId)
-		if _, err := c.updater.UpdateVpc(ctx, desired, current); err != nil {
+		c.state.Set(IdentifierVpcIPv6CidrBlock, current.IPv6CidrBlock)
+		_, err := c.updater.UpdateVpc(ctx, desired, current)
+		if err != nil {
 			return err
 		}
 	} else {
@@ -182,9 +191,26 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 			return err
 		}
 		c.state.Set(IdentifierVPC, created.VpcId)
-		if _, err := c.updater.UpdateVpc(ctx, desired, created); err != nil {
+		_, err = c.updater.UpdateVpc(ctx, desired, created)
+		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
+	if c.config.DualStack != nil && c.config.DualStack.Enabled {
+		current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+			c.client.GetVpc, c.client.FindVpcsByTags)
+		if err != nil {
+			return err
+		}
+		ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, current.VpcId)
+		if err != nil {
+			return err
+		}
+		c.state.Set(IdentifierVpcIPv6CidrBlock, ipv6CidrBlock)
 	}
 	return nil
 }
@@ -375,16 +401,23 @@ outer:
 
 func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 	log := c.LogFromContext(ctx)
-	cidrBlock := "0.0.0.0/0"
+	allIPv4 := "0.0.0.0/0"
+	allIPv6 := "::/0"
 	desired := &awsclient.RouteTable{
 		Tags:  c.commonTags,
 		VpcId: c.state.Get(IdentifierVPC),
 		Routes: []*awsclient.Route{
 			{
-				DestinationCidrBlock: pointer.String(cidrBlock),
+				DestinationCidrBlock: pointer.String(allIPv4),
 				GatewayId:            c.state.Get(IdentifierInternetGateway),
 			},
 		},
+	}
+	if c.state.Get(IdentifierVpcIPv6CidrBlock) != nil {
+		desired.Routes = append(desired.Routes, &awsclient.Route{
+			DestinationIpv6CidrBlock: pointer.String(allIPv6),
+			GatewayId:                c.state.Get(IdentifierInternetGateway),
+		})
 	}
 	current, err := findExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
 		c.client.GetRouteTable, c.client.FindRouteTablesByTags)
@@ -395,7 +428,7 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 		c.state.Set(IdentifierMainRouteTable, current.RouteTableId)
 		c.state.SetObject(ObjectMainRouteTable, current)
 		log.Info("updating route table...")
-		if _, err := c.updater.UpdateRouteTable(ctx, log, desired, current, cidrBlock); err != nil {
+		if _, err := c.updater.UpdateRouteTable(ctx, log, desired, current, allIPv4); err != nil {
 			return err
 		}
 	} else {
@@ -513,7 +546,20 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 
 func (c *FlowContext) ensureZones(ctx context.Context) error {
 	var desired []*awsclient.Subnet
-	for _, zone := range c.config.Networks.Zones {
+
+	for index, zone := range c.config.Networks.Zones {
+		ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
+		subnetPrefixLength := 64
+		var subnetCIDRs []string
+		if ipv6CidrBlock != nil {
+			for i := 0; i < 3; i++ {
+				subnetCIDR, err := cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, i+3*index)
+				if err != nil {
+					return err
+				}
+				subnetCIDRs = append(subnetCIDRs, subnetCIDR)
+			}
+		}
 		helper := c.zoneSuffixHelpers(zone.Name)
 		tagsWorkers := c.commonTagsWithSuffix(helper.GetSuffixSubnetWorkers())
 		tagsPublic := c.commonTagsWithSuffix(helper.GetSuffixSubnetPublic())
@@ -522,23 +568,35 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
 		desired = append(desired,
 			&awsclient.Subnet{
-				Tags:             tagsWorkers,
-				VpcId:            c.state.Get(IdentifierVPC),
-				CidrBlock:        zone.Workers,
-				AvailabilityZone: zone.Name,
+				Tags:                        tagsWorkers,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Workers,
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			},
 			&awsclient.Subnet{
-				Tags:             tagsPublic,
-				VpcId:            c.state.Get(IdentifierVPC),
-				CidrBlock:        zone.Public,
-				AvailabilityZone: zone.Name,
+				Tags:                        tagsPublic,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Public,
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			},
 			&awsclient.Subnet{
-				Tags:             tagsPrivate,
-				VpcId:            c.state.Get(IdentifierVPC),
-				CidrBlock:        zone.Internal,
-				AvailabilityZone: zone.Name,
+				Tags:                        tagsPrivate,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				CidrBlock:                   zone.Internal,
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: pointer.Bool(false),
 			})
+
+		for i := 0; i < 3; i++ {
+			if len(subnetCIDRs) == 3 && subnetCIDRs[i] != "" {
+				desired[i].Ipv6CidrBlocks = []string{subnetCIDRs[i]}
+			} else {
+				desired[i].Ipv6CidrBlocks = nil
+			}
+		}
+
 	}
 	// update flow state if subnet suffixes have been added
 	if err := c.PersistState(ctx, true); err != nil {
@@ -1381,4 +1439,22 @@ func (c *FlowContext) getZone(item *awsclient.Subnet) *aws.Zone {
 
 func getZoneName(item *awsclient.Subnet) string {
 	return item.AvailabilityZone
+}
+
+func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error) {
+	_, ipNet, err := net.ParseCIDR(baseCIDR)
+	if err != nil {
+		return "", err
+	}
+
+	baseIP := ipNet.IP
+	maskSize, addrSize := ipNet.Mask.Size()
+
+	if newPrefixLength <= maskSize || newPrefixLength > addrSize {
+		return "", fmt.Errorf("invalid new prefix length")
+	}
+
+	offset := big.NewInt(0).Mul(big.NewInt(int64(index)), big.NewInt(0).Lsh(big.NewInt(1), uint(addrSize-newPrefixLength)))
+	subnetIP := net.IP(big.NewInt(0).Add(big.NewInt(0).SetBytes(baseIP), offset).Bytes())
+	return fmt.Sprintf("%s/%d", subnetIP.String(), newPrefixLength), nil
 }

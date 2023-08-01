@@ -206,7 +206,10 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Internal, newConfig.Networks.Zones[i].Internal, idxPath.Child("internal"))...)
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Workers, newConfig.Networks.Zones[i].Workers, idxPath.Child("workers"))...)
 	}
-
+	if oldConfig.DualStack != nil && oldConfig.DualStack.Enabled && (newConfig.DualStack == nil || !newConfig.DualStack.Enabled) {
+		dualStackPath := field.NewPath("dualStack.enabled")
+		allErrs = append(allErrs, field.Forbidden(dualStackPath, "field can't be changed from \"true\" to \"false\""))
+	}
 	return allErrs
 }
 

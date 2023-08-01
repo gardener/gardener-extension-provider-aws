@@ -124,6 +124,8 @@ An example `InfrastructureConfig` for the AWS extension looks as follows:
 apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: InfrastructureConfig
 enableECRAccess: true
+dualStack:
+  enabled: false
 networks:
   vpc: # specify either 'id' or 'cidr'
   # id: vpc-123456
@@ -185,6 +187,10 @@ It only applies for those worker pools whose `iamInstanceProfile` is not set.
   }
   ```
 </details>
+
+The `dualStack.enabled` flag specifies whether dual-stack or IPv4-only should be supported by the infrastructure.
+When the flag is set to true an Amazon provided IPv6 CIDR block will be attached to the VPC.
+All subnets will receive a `/64` block from it and a route entry is added to the main route table to route all IPv6 traffic over the IGW. 
 
 The `networks.vpc` section describes whether you want to create the shoot cluster in an already existing VPC or whether to create a new one:
 

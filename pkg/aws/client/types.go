@@ -64,8 +64,10 @@ type Interface interface {
 	FindVpcDhcpOptionsByTags(ctx context.Context, tags Tags) ([]*DhcpOptions, error)
 	DeleteVpcDhcpOptions(ctx context.Context, id string) error
 	CreateVpc(ctx context.Context, vpc *VPC) (*VPC, error)
+	WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, error)
 	AddVpcDhcpOptionAssociation(vpcId string, dhcpOptionsId *string) error
 	UpdateVpcAttribute(ctx context.Context, vpcId, attributeName string, value bool) error
+	UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired *VPC, current *VPC) (bool, error)
 	DeleteVpc(ctx context.Context, id string) error
 	GetVpc(ctx context.Context, id string) (*VPC, error)
 	FindVpcsByTags(ctx context.Context, tags Tags) ([]*VPC, error)
@@ -183,13 +185,15 @@ type DhcpOptions struct {
 // VPC contains the relevant fields of a EC2 VPC resource.
 type VPC struct {
 	Tags
-	VpcId              string
-	CidrBlock          string
-	EnableDnsSupport   bool
-	EnableDnsHostnames bool
-	DhcpOptionsId      *string
-	InstanceTenancy    *string
-	State              *string
+	VpcId                        string
+	CidrBlock                    string
+	IPv6CidrBlock                string
+	EnableDnsSupport             bool
+	EnableDnsHostnames           bool
+	AssignGeneratedIPv6CidrBlock bool
+	DhcpOptionsId                *string
+	InstanceTenancy              *string
+	State                        *string
 }
 
 // SecurityGroup contains the relevant fields of a EC2 security group resource.
@@ -398,10 +402,11 @@ type RouteTable struct {
 
 // Route contains the relevant fields for a route of an EC2 route table resource.
 type Route struct {
-	DestinationCidrBlock    *string
-	GatewayId               *string
-	NatGatewayId            *string
-	DestinationPrefixListId *string
+	DestinationCidrBlock     *string
+	DestinationIpv6CidrBlock *string
+	GatewayId                *string
+	NatGatewayId             *string
+	DestinationPrefixListId  *string
 }
 
 // RouteTableAssociation contains the relevant fields for a route association of an EC2 route table resource.
