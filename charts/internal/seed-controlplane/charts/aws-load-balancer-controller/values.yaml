@@ -51,8 +51,6 @@ securityContext:
 terminationGracePeriodSeconds: 10
 
 resources:
-  limits:
-    memory: 512Mi
   requests:
     memory: 128Mi
 

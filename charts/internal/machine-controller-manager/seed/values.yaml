@@ -38,8 +38,6 @@ resources:
     requests:
       cpu: 31m
       memory: 70Mi
-    limits:
-      memory: 1024Mi
   mcmProviderAWS:
     requests:
       cpu: 30m

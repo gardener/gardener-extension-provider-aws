@@ -24,7 +24,5 @@ resources:
   requests:
     cpu: 30m
     memory: 50Mi
-  limits:
-    memory: 128Mi
 
 enabled: false
