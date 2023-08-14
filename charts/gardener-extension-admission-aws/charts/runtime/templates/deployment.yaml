@@ -50,7 +50,7 @@ spec:
         - --kubeconfig=/etc/gardener-extension-admission-aws/kubeconfig/kubeconfig
         {{- end }}
         {{- if .Values.global.projectedKubeconfig }}
-        - --kubeconfig= {{ required ".Values.global.projectedKubeconfig.baseMountPath is required" .Values.global.projectedKubeconfig.baseMountPath }}/kubeconfig
+        - --kubeconfig={{ required ".Values.global.projectedKubeconfig.baseMountPath is required" .Values.global.projectedKubeconfig.baseMountPath }}/kubeconfig
         {{- end }}
         {{- if .Values.global.metricsPort }}
         - --metrics-bind-address=:{{ .Values.global.metricsPort }}
