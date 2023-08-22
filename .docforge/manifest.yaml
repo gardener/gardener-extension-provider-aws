@@ -34,6 +34,6 @@ structure:
       title: Tutorials
       weight: 4
       categories:
-        - Developers
+        - Users
   nodesSelector:
     path: /docs/tutorials
