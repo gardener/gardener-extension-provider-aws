@@ -32,10 +32,12 @@ import (
 	gardenerhealthz "github.com/gardener/gardener/pkg/healthz"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/component-base/version/verflag"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -184,7 +186,11 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 					return fmt.Errorf("error ensuring the machine CRDs: %w", err)
 				}
 			}
-			mgr, err := manager.New(restOpts.Completed().Config, mgrOpts.Completed().Options())
+			mopts := mgrOpts.Completed().Options()
+			mopts.ClientDisableCacheFor = []client.Object{
+				&corev1.Secret{},
+			}
+			mgr, err := manager.New(restOpts.Completed().Config, mopts)
 			if err != nil {
 				return fmt.Errorf("could not instantiate manager: %w", err)
 			}
