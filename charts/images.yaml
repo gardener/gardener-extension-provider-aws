@@ -167,7 +167,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: public.ecr.aws/ebs-csi-driver/aws-ebs-csi-driver
-  tag: "v1.19.0"
+  tag: "v1.22.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -180,7 +180,7 @@ images:
 - name: csi-volume-modifier
   sourceRepository: github.com/awslabs/volume-modifier-for-k8s
   repository: public.ecr.aws/ebs-csi-driver/volume-modifier-for-k8s
-  tag: "v0.1.0"
+  tag: "v0.1.2"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
