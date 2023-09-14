@@ -15,6 +15,7 @@
 package worker
 
 import (
+	"github.com/gardener/gardener/pkg/api/extensions"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -53,4 +54,20 @@ func MachineNodeInfoHasChanged() predicate.Predicate {
 			return true
 		},
 	}
+}
+
+// WorkerSkipStateUpdateAnnotation is a Worker annotation that instructs the worker-state controller to do not reconcile the corresponding Worker.
+const WorkerSkipStateUpdateAnnotation = "worker.gardener.cloud/skip-state-update"
+
+// S is a predicate deciding whether the Worker is not annotated to skip state updates.
+func WorkerStateUpdateIsNotSkipped() predicate.Predicate {
+	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+		acc, err := extensions.Accessor(obj)
+		if err != nil {
+			return false
+		}
+
+		_, found := acc.GetAnnotations()[WorkerSkipStateUpdateAnnotation]
+		return !found
+	})
 }
