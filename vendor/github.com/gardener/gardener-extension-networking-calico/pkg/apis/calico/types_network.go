@@ -77,6 +77,8 @@ type NetworkConfig struct {
 	EbpfDataplane *EbpfDataplane
 	// Overlay enables the network overlay
 	Overlay *Overlay
+	// SnatToUpstreamDNS enables the masquerading of packets to the upstream dns server (default: enabled)
+	SnatToUpstreamDNS *SnatToUpstreamDNS
 
 	// DEPRECATED.
 	// IPIP is the IPIP Mode for the IPv4 Pool (e.g. Always, Never, CrossSubnet)
@@ -121,5 +123,13 @@ type EbpfDataplane struct {
 
 type Overlay struct {
 	// Enabled enables the network overlay.
+	Enabled bool
+	// CreatePodRoutes installs routes to pods on all cluster nodes.
+	// This will only work if the cluster nodes share a single L2 network.
+	CreatePodRoutes *bool
+}
+
+// SnatToUpstreamDNS enables the masquerading of packets to the upstream dns server
+type SnatToUpstreamDNS struct {
 	Enabled bool
 }

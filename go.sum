@@ -135,10 +135,10 @@ github.com/gardener/etcd-druid v0.19.1 h1:ENy1GTYNz6CREr6czLBhQPlACtlOsWYkZlvcg9
 github.com/gardener/etcd-druid v0.19.1/go.mod h1:l4pOUbvQS7lWAcLssOtM7jtFex8YtwoT7o5LggNSz/Y=
 github.com/gardener/gardener v1.77.5 h1:HxjXZdsUKJlA3TxfBFnTH9ou2RraFhEu7Y9FiCyMUJI=
 github.com/gardener/gardener v1.77.5/go.mod h1:j09i1oopewewr+OaT+3Q5Zk9Depw1r5liWSDvub21yM=
-github.com/gardener/gardener-extension-networking-calico v1.27.1 h1:q/lsdqbwV+qlwNPxlqFxGeqKMDwPk+dPhUGXjxObzGE=
-github.com/gardener/gardener-extension-networking-calico v1.27.1/go.mod h1:MURFRmYPHiXSfmJ82S3nXH3qGcszeYQwhMVKn/J5XoU=
-github.com/gardener/gardener-extension-networking-cilium v1.18.0 h1:LNBMqVAkltHBDkP+C5Vq/dFgve/YOG8MIvTJJuWWCtU=
-github.com/gardener/gardener-extension-networking-cilium v1.18.0/go.mod h1:bXE/CwHLju+AMsqYXdFIQTt1r+GRHOTW8hJ9EIR84Z0=
+github.com/gardener/gardener-extension-networking-calico v1.36.0 h1:HMfwZUe34ZDQDQhFxIljX7EEpl8Ct/QrD3rpbIJj6K0=
+github.com/gardener/gardener-extension-networking-calico v1.36.0/go.mod h1:GFmktIEzLxrOV6uNrCREeKjIkwYK6TlVOEPP7dffjAM=
+github.com/gardener/gardener-extension-networking-cilium v1.28.0 h1:DoPeMcwqXIJhnF0YPfYmiKHixi+uCUrV7r8BRHJ9sQ4=
+github.com/gardener/gardener-extension-networking-cilium v1.28.0/go.mod h1:Cuf+cRerSi4ACL7hlNpA7EKYHhUkT62LmAU7ypenDFk=
 github.com/gardener/hvpa-controller/api v0.5.0 h1:f4F3O7YUrenwh4S3TgPREPiB287JjjUiUL18OqPLyAA=
 github.com/gardener/hvpa-controller/api v0.5.0/go.mod h1:QQl3ELkCaki+8RhXl0FZMfvnm0WCGwGJlGmrxJj6lvM=
 github.com/gardener/machine-controller-manager v0.48.1 h1:Oxr5e6gRm7P40Ds4nGlga/0nmfF7cH4rOfjthR6Mm38=
@@ -332,7 +332,6 @@ github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORN
 github.com/kr/pretty v0.2.0/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
-github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/pty v1.1.5/go.mod h1:9r2w37qlBe7rQ6e1fg1S/9xpWHSnaqNdHD3WcMdbPDA=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
@@ -421,7 +420,6 @@ github.com/pelletier/go-toml/v2 v2.0.0-beta.8/go.mod h1:r9LEWfGN8R5k0VXJ+0BkIe7M
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
 github.com/pierrec/lz4 v2.6.1+incompatible h1:9UY3+iC23yxF0UfGaYrGplQ+79Rg+h/q9FV9ix19jjM=
 github.com/pierrec/lz4 v2.6.1+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
-github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
