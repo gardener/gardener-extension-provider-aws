@@ -16,34 +16,6 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
   repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.22.17"
-  targetVersion: "1.22.x"
-  labels:
-  - name: 'gardener.cloud/cve-categorisation'
-    value:
-      network_exposure: 'protected'
-      authentication_enforced: false
-      user_interaction: 'gardener-operator'
-      confidentiality_requirement: 'high'
-      integrity_requirement: 'high'
-      availability_requirement: 'low'
-- name: cloud-controller-manager
-  sourceRepository: github.com/gardener/cloud-provider-aws
-  repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
-  tag: "v1.23.15"
-  targetVersion: "1.23.x"
-  labels:
-  - name: 'gardener.cloud/cve-categorisation'
-    value:
-      network_exposure: 'protected'
-      authentication_enforced: false
-      user_interaction: 'gardener-operator'
-      confidentiality_requirement: 'high'
-      integrity_requirement: 'high'
-      availability_requirement: 'low'
-- name: cloud-controller-manager
-  sourceRepository: github.com/gardener/cloud-provider-aws
-  repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
   tag: "v1.24.13"
   targetVersion: "1.24.x"
   labels:
