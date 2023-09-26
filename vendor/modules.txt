@@ -137,7 +137,7 @@ github.com/fsnotify/fsnotify
 # github.com/gardener/etcd-druid v0.19.1
 ## explicit; go 1.20
 github.com/gardener/etcd-druid/api/v1alpha1
-# github.com/gardener/gardener v1.77.5-0.20230918111125-6f8f8a1bdb9a
+# github.com/gardener/gardener v1.77.5
 ## explicit; go 1.20
 github.com/gardener/gardener/.github
 github.com/gardener/gardener/.github/ISSUE_TEMPLATE
