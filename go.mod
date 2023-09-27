@@ -9,8 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.173
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/gardener/etcd-druid v0.19.1
-	// TODO(ialidzhikov): Use a release version (not commit) when there is a release containing https://github.com/gardener/gardener/pull/8494 (or any of the other cherry-picks).
-	github.com/gardener/gardener v1.77.5-0.20230918111125-6f8f8a1bdb9a
+	github.com/gardener/gardener v1.77.5
 	github.com/gardener/gardener-extension-networking-calico v1.27.1
 	github.com/gardener/gardener-extension-networking-cilium v1.18.0
 	github.com/gardener/machine-controller-manager v0.48.1
