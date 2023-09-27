@@ -27,14 +27,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
+	"github.com/gardener/gardener-extension-provider-aws/charts"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 var (
 	mcmChart = &chart.Chart{
-		Name:   aws.MachineControllerManagerName,
-		Path:   filepath.Join(aws.InternalChartsPath, aws.MachineControllerManagerName, "seed"),
-		Images: []string{aws.MachineControllerManagerImageName, aws.MachineControllerManagerProviderAWSImageName},
+		Name:       aws.MachineControllerManagerName,
+		EmbeddedFS: &charts.InternalChart,
+		Path:       filepath.Join(charts.InternalChartsPath, aws.MachineControllerManagerName, "seed"),
+		Images:     []string{aws.MachineControllerManagerImageName, aws.MachineControllerManagerProviderAWSImageName},
 		Objects: []*chart.Object{
 			{Type: &appsv1.Deployment{}, Name: aws.MachineControllerManagerName},
 			{Type: &corev1.Service{}, Name: aws.MachineControllerManagerName},
@@ -46,8 +48,9 @@ var (
 	}
 
 	mcmShootChart = &chart.Chart{
-		Name: aws.MachineControllerManagerName,
-		Path: filepath.Join(aws.InternalChartsPath, aws.MachineControllerManagerName, "shoot"),
+		Name:       aws.MachineControllerManagerName,
+		EmbeddedFS: &charts.InternalChart,
+		Path:       filepath.Join(charts.InternalChartsPath, aws.MachineControllerManagerName, "shoot"),
 		Objects: []*chart.Object{
 			{Type: &rbacv1.ClusterRole{}, Name: fmt.Sprintf("extensions.gardener.cloud:%s:%s", aws.Name, aws.MachineControllerManagerName)},
 			{Type: &rbacv1.ClusterRoleBinding{}, Name: fmt.Sprintf("extensions.gardener.cloud:%s:%s", aws.Name, aws.MachineControllerManagerName)},
