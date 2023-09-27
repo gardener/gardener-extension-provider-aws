@@ -60,6 +60,9 @@ spec:
                     path: token
                 name: shoot-access-aws-load-balancer-controller
                 optional: false
+      - name: cloudprovider
+        secret:
+          secretName: cloudprovider
       # end provider-aws-specific
       {{- with .Values.extraVolumes }}
       {{ toYaml . | nindent 6 }}
@@ -169,16 +172,8 @@ spec:
         # end provider-aws-specific
         env:
         # start provider-aws-specific
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: cloudprovider
-              key: accessKeyID
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: cloudprovider
-              key: secretAccessKey
+        - name: AWS_SHARED_CREDENTIALS_FILE
+          value: /srv/cloudprovider/credentialsFile
         # end provider-aws-specific
         {{- if .Values.env }}
         {{- range $key, $value := .Values.env }}
@@ -201,6 +196,8 @@ spec:
         - name: kubeconfig
           mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
           readOnly: true
+        - name: cloudprovider
+          mountPath: /srv/cloudprovider
         # end provider-aws-specific
         {{- with .Values.extraVolumeMounts }}
         {{ toYaml . | nindent 8 }}
