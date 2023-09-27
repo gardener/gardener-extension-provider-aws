@@ -10,8 +10,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/gardener/etcd-druid v0.19.1
 	github.com/gardener/gardener v1.77.5
-	github.com/gardener/gardener-extension-networking-calico v1.27.1
-	github.com/gardener/gardener-extension-networking-cilium v1.18.0
 	github.com/gardener/machine-controller-manager v0.48.1
 	github.com/go-logr/logr v1.2.4
 	github.com/onsi/ginkgo/v2 v2.9.2

@@ -16,13 +16,10 @@ package mutator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
-	calicov1alpha1 "github.com/gardener/gardener-extension-networking-calico/pkg/apis/calico/v1alpha1"
-	"github.com/gardener/gardener-extension-networking-calico/pkg/calico"
-	ciliumv1alpha1 "github.com/gardener/gardener-extension-networking-cilium/pkg/apis/cilium/v1alpha1"
-	"github.com/gardener/gardener-extension-networking-cilium/pkg/cilium"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
@@ -89,70 +86,37 @@ func (s *shoot) Mutate(_ context.Context, newObj, oldObj client.Object) error {
 	overlayDisabled := false
 
 	if shoot.Spec.Networking != nil && shoot.Spec.Networking.Type != nil {
-		switch *shoot.Spec.Networking.Type {
-		case calico.ReleaseName:
-			overlay := &calicov1alpha1.Overlay{Enabled: false}
+		networkConfig, err := s.decodeNetworkConfig(shoot.Spec.Networking.ProviderConfig)
+		if err != nil {
+			return err
+		}
 
-			networkConfig, err := s.decodeCalicoNetworkConfig(shoot.Spec.Networking.ProviderConfig)
+		if oldShoot == nil && networkConfig["overlay"] == nil {
+			networkConfig["overlay"] = map[string]bool{"enabled": false}
+		}
+
+		if oldShoot != nil && networkConfig["overlay"] == nil {
+			oldNetworkConfig, err := s.decodeNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
 			if err != nil {
 				return err
 			}
 
-			if oldShoot == nil && networkConfig.Overlay == nil {
-				networkConfig.Overlay = overlay
+			if oldNetworkConfig["overlay"] != nil {
+				networkConfig["overlay"] = oldNetworkConfig["overlay"]
 			}
-
-			if oldShoot != nil && networkConfig.Overlay == nil {
-				oldNetworkConfig, err := s.decodeCalicoNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
-				if err != nil {
-					return err
-				}
-
-				if oldNetworkConfig.Overlay != nil {
-					networkConfig.Overlay = oldNetworkConfig.Overlay
-				}
-
-			}
-
-			if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
+		}
+		if overlay, ok := networkConfig["overlay"].(map[string]bool); ok {
+			if !overlay["enabled"] {
 				overlayDisabled = true
 			}
+		}
 
-			shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
-				Object: networkConfig,
-			}
-
-		case cilium.ReleaseName:
-			overlay := &ciliumv1alpha1.Overlay{Enabled: false}
-
-			networkConfig, err := s.decodeCiliumNetworkConfig(shoot.Spec.Networking.ProviderConfig)
-			if err != nil {
-				return err
-			}
-
-			if oldShoot == nil && networkConfig.Overlay == nil {
-				networkConfig.Overlay = overlay
-			}
-
-			if oldShoot != nil && networkConfig.Overlay == nil {
-				oldNetworkConfig, err := s.decodeCiliumNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
-				if err != nil {
-					return err
-				}
-
-				if oldNetworkConfig.Overlay != nil {
-					networkConfig.Overlay = oldNetworkConfig.Overlay
-				}
-
-			}
-
-			if networkConfig.Overlay != nil && !networkConfig.Overlay.Enabled {
-				overlayDisabled = true
-			}
-
-			shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
-				Object: networkConfig,
-			}
+		modifiedJSON, err := json.Marshal(networkConfig)
+		if err != nil {
+			return err
+		}
+		shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
+			Raw: modifiedJSON,
 		}
 	}
 
@@ -201,22 +165,15 @@ func (s *shoot) decodeControlplaneConfig(controlPlaneConfig *runtime.RawExtensio
 	return cp, nil
 }
 
-func (s *shoot) decodeCalicoNetworkConfig(network *runtime.RawExtension) (*calicov1alpha1.NetworkConfig, error) {
-	networkConfig := &calicov1alpha1.NetworkConfig{}
-	if network != nil && network.Raw != nil {
-		if _, _, err := s.decoder.Decode(network.Raw, nil, networkConfig); err != nil {
-			return nil, err
+func (s *shoot) decodeNetworkConfig(network *runtime.RawExtension) (map[string]interface{}, error) {
+	var networkConfig map[string]interface{}
+	if network == nil || network.Raw == nil {
+		network = &runtime.RawExtension{
+			Raw: []byte(`{}`),
 		}
 	}
-	return networkConfig, nil
-}
-
-func (s *shoot) decodeCiliumNetworkConfig(network *runtime.RawExtension) (*ciliumv1alpha1.NetworkConfig, error) {
-	networkConfig := &ciliumv1alpha1.NetworkConfig{}
-	if network != nil && network.Raw != nil {
-		if _, _, err := s.decoder.Decode(network.Raw, nil, networkConfig); err != nil {
-			return nil, err
-		}
+	if err := json.Unmarshal(network.Raw, &networkConfig); err != nil {
+		return nil, err
 	}
 	return networkConfig, nil
 }

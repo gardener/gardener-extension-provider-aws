@@ -135,10 +135,6 @@ github.com/gardener/etcd-druid v0.19.1 h1:ENy1GTYNz6CREr6czLBhQPlACtlOsWYkZlvcg9
 github.com/gardener/etcd-druid v0.19.1/go.mod h1:l4pOUbvQS7lWAcLssOtM7jtFex8YtwoT7o5LggNSz/Y=
 github.com/gardener/gardener v1.77.5 h1:HxjXZdsUKJlA3TxfBFnTH9ou2RraFhEu7Y9FiCyMUJI=
 github.com/gardener/gardener v1.77.5/go.mod h1:j09i1oopewewr+OaT+3Q5Zk9Depw1r5liWSDvub21yM=
-github.com/gardener/gardener-extension-networking-calico v1.27.1 h1:q/lsdqbwV+qlwNPxlqFxGeqKMDwPk+dPhUGXjxObzGE=
-github.com/gardener/gardener-extension-networking-calico v1.27.1/go.mod h1:MURFRmYPHiXSfmJ82S3nXH3qGcszeYQwhMVKn/J5XoU=
-github.com/gardener/gardener-extension-networking-cilium v1.18.0 h1:LNBMqVAkltHBDkP+C5Vq/dFgve/YOG8MIvTJJuWWCtU=
-github.com/gardener/gardener-extension-networking-cilium v1.18.0/go.mod h1:bXE/CwHLju+AMsqYXdFIQTt1r+GRHOTW8hJ9EIR84Z0=
 github.com/gardener/hvpa-controller/api v0.5.0 h1:f4F3O7YUrenwh4S3TgPREPiB287JjjUiUL18OqPLyAA=
 github.com/gardener/hvpa-controller/api v0.5.0/go.mod h1:QQl3ELkCaki+8RhXl0FZMfvnm0WCGwGJlGmrxJj6lvM=
 github.com/gardener/machine-controller-manager v0.48.1 h1:Oxr5e6gRm7P40Ds4nGlga/0nmfF7cH4rOfjthR6Mm38=
