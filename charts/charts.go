@@ -23,3 +23,7 @@ import (
 //
 //go:embed internal
 var InternalChart embed.FS
+
+const (
+	InternalChartsPath = "internal"
+)

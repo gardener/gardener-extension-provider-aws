@@ -38,8 +38,8 @@ import (
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/pointer"
 
+	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/imagevector"
 )
 
 // NewEnsurer creates a new controlplane ensurer.
