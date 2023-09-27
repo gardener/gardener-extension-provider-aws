@@ -44,6 +44,11 @@ type shoot struct {
 	decoder runtime.Decoder
 }
 
+const (
+	overlayKey = "overlay"
+	enabledKey = "enabled"
+)
+
 // Mutate mutates the given shoot object.
 func (s *shoot) Mutate(_ context.Context, newObj, oldObj client.Object) error {
 	shoot, ok := newObj.(*gardencorev1beta1.Shoot)
@@ -85,28 +90,29 @@ func (s *shoot) Mutate(_ context.Context, newObj, oldObj client.Object) error {
 
 	overlayDisabled := false
 
-	if shoot.Spec.Networking != nil && shoot.Spec.Networking.Type != nil {
+	if shoot.Spec.Networking != nil {
 		networkConfig, err := s.decodeNetworkConfig(shoot.Spec.Networking.ProviderConfig)
 		if err != nil {
 			return err
 		}
 
-		if oldShoot == nil && networkConfig["overlay"] == nil {
-			networkConfig["overlay"] = map[string]bool{"enabled": false}
+		if oldShoot == nil && networkConfig[overlayKey] == nil {
+			networkConfig[overlayKey] = map[string]interface{}{enabledKey: false}
 		}
 
-		if oldShoot != nil && networkConfig["overlay"] == nil {
+		if oldShoot != nil && networkConfig[overlayKey] == nil {
 			oldNetworkConfig, err := s.decodeNetworkConfig(oldShoot.Spec.Networking.ProviderConfig)
 			if err != nil {
 				return err
 			}
 
-			if oldNetworkConfig["overlay"] != nil {
-				networkConfig["overlay"] = oldNetworkConfig["overlay"]
+			if oldNetworkConfig[overlayKey] != nil {
+				networkConfig[overlayKey] = oldNetworkConfig[overlayKey]
 			}
 		}
-		if overlay, ok := networkConfig["overlay"].(map[string]bool); ok {
-			if !overlay["enabled"] {
+
+		if overlay, ok := networkConfig[overlayKey].(map[string]interface{}); ok {
+			if !overlay[enabledKey].(bool) {
 				overlayDisabled = true
 			}
 		}
