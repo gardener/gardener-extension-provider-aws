@@ -340,10 +340,10 @@ func (e *ensurer) ensureChecksumAnnotations(template *corev1.PodTemplateSpec) er
 }
 
 // EnsureKubeletServiceUnitOptions ensures that the kubelet.service unit options conform to the provider requirements.
-func (e *ensurer) EnsureKubeletServiceUnitOptions(_ context.Context, _ gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
+func (e *ensurer) EnsureKubeletServiceUnitOptions(_ context.Context, _ gcontext.GardenContext, _ *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
 	if opt := extensionswebhook.UnitOptionWithSectionAndName(newObj, "Service", "ExecStart"); opt != nil {
 		command := extensionswebhook.DeserializeCommandLine(opt.Value)
-		command = ensureKubeletCommandLineArgs(command, kubeletVersion)
+		command = ensureKubeletCommandLineArgs(command)
 		opt.Value = extensionswebhook.SerializeCommandLine(command, 1, " \\\n    ")
 	}
 
@@ -356,12 +356,8 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(_ context.Context, _ gcontext.
 	return newObj, nil
 }
 
-func ensureKubeletCommandLineArgs(command []string, kubeletVersion *semver.Version) []string {
-	command = extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
-	if !versionutils.ConstraintK8sGreaterEqual123.Check(kubeletVersion) {
-		command = extensionswebhook.EnsureStringWithPrefix(command, "--enable-controller-attach-detach=", "true")
-	}
-	return command
+func ensureKubeletCommandLineArgs(command []string) []string {
+	return extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
 }
 
 // EnsureKubeletConfiguration ensures that the kubelet configuration conforms to the provider requirements.
@@ -376,10 +372,7 @@ func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.Garde
 	}
 
 	newObj.FeatureGates["InTreePluginAWSUnregister"] = true
-
-	if versionutils.ConstraintK8sGreaterEqual123.Check(kubeletVersion) {
-		newObj.EnableControllerAttachDetach = pointer.Bool(true)
-	}
+	newObj.EnableControllerAttachDetach = pointer.Bool(true)
 
 	return nil
 }
