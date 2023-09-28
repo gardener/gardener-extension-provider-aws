@@ -174,9 +174,7 @@ func (s *shoot) decodeControlplaneConfig(controlPlaneConfig *runtime.RawExtensio
 func (s *shoot) decodeNetworkConfig(network *runtime.RawExtension) (map[string]interface{}, error) {
 	var networkConfig map[string]interface{}
 	if network == nil || network.Raw == nil {
-		network = &runtime.RawExtension{
-			Raw: []byte(`{}`),
-		}
+		return map[string]interface{}{}, nil
 	}
 	if err := json.Unmarshal(network.Raw, &networkConfig); err != nil {
 		return nil, err
