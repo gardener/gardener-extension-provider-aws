@@ -48,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/gardener/gardener-extension-provider-aws/charts"
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -130,8 +131,9 @@ func exposureShootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
 
 var (
 	configChart = &chart.Chart{
-		Name: "cloud-provider-config",
-		Path: filepath.Join(aws.InternalChartsPath, "cloud-provider-config"),
+		Name:       "cloud-provider-config",
+		EmbeddedFS: &charts.InternalChart,
+		Path:       filepath.Join(charts.InternalChartsPath, "cloud-provider-config"),
 		Objects: []*chart.Object{
 			{
 				Type: &corev1.ConfigMap{},
@@ -141,8 +143,9 @@ var (
 	}
 
 	controlPlaneChart = &chart.Chart{
-		Name: "seed-controlplane",
-		Path: filepath.Join(aws.InternalChartsPath, "seed-controlplane"),
+		Name:       "seed-controlplane",
+		EmbeddedFS: &charts.InternalChart,
+		Path:       filepath.Join(charts.InternalChartsPath, "seed-controlplane"),
 		SubCharts: []*chart.Chart{
 			{
 				Name:   aws.CloudControllerManagerName,
@@ -164,6 +167,7 @@ var (
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
 				},
+				SubCharts: nil,
 			},
 			{
 				Name:   aws.AWSLoadBalancerControllerName,
@@ -205,12 +209,18 @@ var (
 	}
 
 	controlPlaneShootChart = &chart.Chart{
-		Name: "shoot-system-components",
-		Path: filepath.Join(aws.InternalChartsPath, "shoot-system-components"),
+		Name:       "shoot-system-components",
+		EmbeddedFS: &charts.InternalChart,
+		Path:       filepath.Join(charts.InternalChartsPath, "shoot-system-components"),
 		SubCharts: []*chart.Chart{
 			{
+				Name: aws.CloudControllerManagerName,
+				Objects: []*chart.Object{
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "extensions.gardener.cloud:provider-aws:cloud-controller-manager"},
+				},
+			},
+			{
 				Name: aws.AWSCustomRouteControllerName,
-				Path: filepath.Join(aws.InternalChartsPath, "aws-custom-route-controller"),
 				Objects: []*chart.Object{
 					{Type: &rbacv1.ClusterRole{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
@@ -218,7 +228,6 @@ var (
 			},
 			{
 				Name: aws.AWSLoadBalancerControllerName,
-				Path: filepath.Join(aws.InternalChartsPath, "aws-load-balancer-controller"),
 				Objects: []*chart.Object{
 					{Type: &rbacv1.Role{}, Name: aws.AWSLoadBalancerControllerName + "-leader-election-role"},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSLoadBalancerControllerName + "-leader-election-rolebinding"},
@@ -287,8 +296,9 @@ var (
 	}
 
 	controlPlaneShootCRDsChart = &chart.Chart{
-		Name: "shoot-crds",
-		Path: filepath.Join(aws.InternalChartsPath, "shoot-crds"),
+		Name:       "shoot-crds",
+		EmbeddedFS: &charts.InternalChart,
+		Path:       filepath.Join(charts.InternalChartsPath, "shoot-crds"),
 		SubCharts: []*chart.Chart{
 			{
 				Name: "volumesnapshots",
@@ -309,14 +319,16 @@ var (
 	}
 
 	storageClassChart = &chart.Chart{
-		Name: "shoot-storageclasses",
-		Path: filepath.Join(aws.InternalChartsPath, "shoot-storageclasses"),
+		Name:       "shoot-storageclasses",
+		EmbeddedFS: &charts.InternalChart,
+		Path:       filepath.Join(charts.InternalChartsPath, "shoot-storageclasses"),
 	}
 
 	cpExposureChart = &chart.Chart{
-		Name:   aws.LBReadvertiserDeploymentName,
-		Path:   filepath.Join(aws.InternalChartsPath, aws.LBReadvertiserDeploymentName),
-		Images: []string{aws.AWSLBReadvertiserImageName},
+		Name:       aws.LBReadvertiserDeploymentName,
+		EmbeddedFS: &charts.InternalChart,
+		Path:       filepath.Join(charts.InternalChartsPath, aws.LBReadvertiserDeploymentName),
+		Images:     []string{aws.AWSLBReadvertiserImageName},
 		Objects: []*chart.Object{
 			{Type: &appsv1.Deployment{}, Name: aws.LBReadvertiserDeploymentName},
 			{Type: extensionscontroller.GetVerticalPodAutoscalerObject(), Name: aws.LBReadvertiserDeploymentName + "-vpa"},
@@ -409,7 +421,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
-// Currently the provider extension does not specify a control plane shoot CRDs chart. That's why we simply return empty values.
+// Currently, the provider extension does not specify a control plane shoot CRDs chart. That's why we simply return empty values.
 func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 	_ context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
@@ -449,7 +461,7 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 
 		// internal types should NOT be used when embeding.
 		// There should not be any defaulting for internal types.
-		// This checks is to be 100% sure that we won't hit nil dereference.
+		// This check is to be 100% sure that we won't hit nil dereference.
 		if cpConfig.Storage != nil && cpConfig.Storage.ManagedDefaultClass != nil {
 			managedDefaultClass = *cpConfig.Storage.ManagedDefaultClass
 		}
