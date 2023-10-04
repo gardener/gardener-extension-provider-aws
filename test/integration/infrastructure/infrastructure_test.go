@@ -56,6 +56,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
@@ -162,7 +163,9 @@ var _ = BeforeSuite(func() {
 
 	By("setup manager")
 	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: "0",
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
 	})
 	Expect(err).ToNot(HaveOccurred())
 
