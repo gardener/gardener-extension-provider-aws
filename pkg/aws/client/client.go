@@ -1967,13 +1967,13 @@ func (c *Client) DeleteEC2Tags(ctx context.Context, resources []string, tags Tag
 // PollImmediateUntil runs the 'condition' before waiting for the interval.
 // 'condition' will always be invoked at least once.
 func (c *Client) PollImmediateUntil(ctx context.Context, condition wait.ConditionWithContextFunc) error {
-	return wait.PollImmediateUntilWithContext(ctx, c.PollInterval, condition)
+	return wait.PollUntilContextCancel(ctx, c.PollInterval, true, condition)
 }
 
 // PollUntil tries a condition func until it returns true,
 // an error or the specified context is cancelled or expired.
 func (c *Client) PollUntil(ctx context.Context, condition wait.ConditionWithContextFunc) error {
-	return wait.PollUntilWithContext(ctx, c.PollInterval, condition)
+	return wait.PollUntilContextCancel(ctx, c.PollInterval, false, condition)
 }
 
 // IsNotFoundError returns true if the given error is a awserr.Error indicating that an AWS resource was not found.
