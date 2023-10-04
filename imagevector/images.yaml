@@ -59,7 +59,21 @@ images:
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
   tag: "v1.27.1"
-  targetVersion: ">= 1.27"
+  targetVersion: "1.27.x"
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'protected'
+      authentication_enforced: false
+      user_interaction: 'gardener-operator'
+      confidentiality_requirement: 'high'
+      integrity_requirement: 'high'
+      availability_requirement: 'low'
+- name: cloud-controller-manager
+  sourceRepository: github.com/kubernetes/cloud-provider-aws
+  repository: registry.k8s.io/provider-aws/cloud-controller-manager
+  tag: "v1.28.1"
+  targetVersion: ">= 1.28"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
