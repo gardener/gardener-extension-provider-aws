@@ -1,6 +1,6 @@
 module github.com/gardener/gardener-extension-provider-aws
 
-go 1.20
+go 1.21
 
 require (
 	github.com/Masterminds/semver v1.5.0
