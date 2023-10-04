@@ -61,6 +61,7 @@ const (
 	// WorkerlessShoots allows creation of Shoot clusters with no worker pools.
 	// owner: @acumino @ary1992 @shafeeqes
 	// alpha: v1.70.0
+	// beta: v1.79.0
 	WorkerlessShoots featuregate.Feature = "WorkerlessShoots"
 
 	// MachineControllerManagerDeployment enables Gardener to take over the deployment of the
@@ -75,6 +76,7 @@ const (
 	// depend on the ScalingClass
 	// owner: @voelzmo, @andrerun
 	// alpha: v1.73.0
+	// beta: v1.79.0
 	DisableScalingClassesForShoots featuregate.Feature = "DisableScalingClassesForShoots"
 
 	// ContainerdRegistryHostsDir enables registry configuration in containerd based on the hosts directory pattern.
@@ -124,9 +126,9 @@ var AllFeatureGates = map[featuregate.Feature]featuregate.FeatureSpec{
 	CoreDNSQueryRewriting:              {Default: false, PreRelease: featuregate.Alpha},
 	IPv6SingleStack:                    {Default: false, PreRelease: featuregate.Alpha},
 	MutableShootSpecNetworkingNodes:    {Default: false, PreRelease: featuregate.Alpha},
-	WorkerlessShoots:                   {Default: false, PreRelease: featuregate.Alpha},
+	WorkerlessShoots:                   {Default: true, PreRelease: featuregate.Beta},
 	MachineControllerManagerDeployment: {Default: false, PreRelease: featuregate.Alpha},
-	DisableScalingClassesForShoots:     {Default: false, PreRelease: featuregate.Alpha},
+	DisableScalingClassesForShoots:     {Default: true, PreRelease: featuregate.Beta},
 	ContainerdRegistryHostsDir:         {Default: false, PreRelease: featuregate.Alpha},
 }
 
