@@ -62,7 +62,7 @@ func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddO
 		nil, exposureShootAccessSecretsFunc,
 		configChart, controlPlaneChart, controlPlaneShootChart, controlPlaneShootCRDsChart, storageClassChart, cpExposureChart,
 		NewValuesProvider(mgr), extensionscontroller.ChartRendererFactoryFunc(util.NewChartRendererForShoot),
-		imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhookConfig, opts.WebhookServerNamespace, defaultServer.Options.Port)
+		imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhookConfig, opts.WebhookServerNamespace, int32(defaultServer.Options.Port))
 	if err != nil {
 		return err
 	}
