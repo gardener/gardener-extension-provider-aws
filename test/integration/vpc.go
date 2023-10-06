@@ -39,7 +39,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 	}
 	vpcID := createVpcOutput.Vpc.VpcId
 
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
 		log.Info("Waiting until vpc is available...", "vpcID", *vpcID)
 
 		describeVpcOutput, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
@@ -55,7 +55,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		}
 
 		return true, nil
-	}, ctx.Done()); err != nil {
+	}); err != nil {
 		return "", "", err
 	}
 
@@ -97,7 +97,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		return "", "", err
 	}
 
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
 		log.Info("Waiting until internet gateway is attached to vpc...", "internetGatewayID", *igwID, "vpcID", *vpcID)
 
 		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
@@ -116,7 +116,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		}
 
 		return true, nil
-	}, ctx.Done()); err != nil {
+	}); err != nil {
 		return "", "", err
 	}
 
@@ -146,7 +146,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 		return err
 	}
 
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
 		log.Info("Waiting until internet gateway is detached from vpc...", "internetGatewayID", *igwID, "vpcID", vpcID)
 
 		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
@@ -158,7 +158,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 		igw := describeIgwOutput.InternetGateways[0]
 
 		return len(igw.Attachments) == 0, nil
-	}, ctx.Done()); err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -169,7 +169,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 		return err
 	}
 
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
 		log.Info("Waiting until internet gateway is deleted...", "internetGatewayID", *igwID)
 
 		_, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
@@ -185,7 +185,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 		}
 
 		return false, nil
-	}, ctx.Done()); err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -196,7 +196,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 		return err
 	}
 
-	return wait.PollUntil(5*time.Second, func() (bool, error) {
+	return wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
 		log.Info("Waiting until vpc is deleted...", "vpcID", vpcID)
 
 		_, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
@@ -212,5 +212,5 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 		}
 
 		return false, nil
-	}, ctx.Done())
+	})
 }

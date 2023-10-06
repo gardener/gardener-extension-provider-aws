@@ -49,7 +49,7 @@ func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Cli
 
 	subnetID := output.Subnet.SubnetId
 
-	if err := wait.PollUntil(5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
 		log.Info("Waiting until subnet is available...", "subnetID", *subnetID)
 
 		output, err := awsClient.EC2.DescribeSubnets(&ec2.DescribeSubnetsInput{
@@ -65,7 +65,7 @@ func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Cli
 		}
 
 		return true, nil
-	}, ctx.Done()); err != nil {
+	}); err != nil {
 		return "", err
 	}
 

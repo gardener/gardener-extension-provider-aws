@@ -34,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/component-base/version/verflag"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -61,14 +60,13 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 		generalOpts = &controllercmd.GeneralOptions{}
 		restOpts    = &controllercmd.RESTOptions{}
 		mgrOpts     = &controllercmd.ManagerOptions{
-			LeaderElection:             true,
-			LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
-			LeaderElectionID:           controllercmd.LeaderElectionNameID(aws.Name),
-			LeaderElectionNamespace:    os.Getenv("LEADER_ELECTION_NAMESPACE"),
-			WebhookServerPort:          443,
-			WebhookCertDir:             "/tmp/gardener-extensions-cert",
-			MetricsBindAddress:         ":8080",
-			HealthBindAddress:          ":8081",
+			LeaderElection:          true,
+			LeaderElectionID:        controllercmd.LeaderElectionNameID(aws.Name),
+			LeaderElectionNamespace: os.Getenv("LEADER_ELECTION_NAMESPACE"),
+			WebhookServerPort:       443,
+			WebhookCertDir:          "/tmp/gardener-extensions-cert",
+			MetricsBindAddress:      ":8080",
+			HealthBindAddress:       ":8081",
 		}
 		configFileOpts = &awscmd.ConfigOptions{}
 
@@ -177,8 +175,12 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			util.ApplyClientConnectionConfigurationToRESTConfig(configFileOpts.Completed().Config.ClientConnection, restOpts.Completed().Config)
 
 			mopts := mgrOpts.Completed().Options()
-			mopts.ClientDisableCacheFor = []client.Object{
-				&corev1.Secret{},
+			mopts.Client = client.Options{
+				Cache: &client.CacheOptions{
+					DisableFor: []client.Object{
+						&corev1.Secret{},
+					},
+				},
 			}
 			mgr, err := manager.New(restOpts.Completed().Config, mopts)
 			if err != nil {

@@ -24,3 +24,9 @@ issues:
   # typecheck:
   - "undeclared name: `.*`"
   - "\".*\" imported but not used"
+
+linters-settings:
+  revive:
+    rules:
+    - name: duplicated-imports
+    - name: unused-parameter
