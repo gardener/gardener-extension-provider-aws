@@ -80,6 +80,10 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, bastion *extensi
 	return nil
 }
 
+func (a *actuator) ForceDelete(_ context.Context, _ logr.Logger, _ *extensionsv1alpha1.Bastion, _ *controller.Cluster) error {
+	return nil
+}
+
 func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
 	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.WorkerSecurityGroupName)
 	if err != nil {
