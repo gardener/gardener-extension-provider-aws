@@ -45,6 +45,10 @@ spec:
           - name: csi-snapshot-validation
             mountPath: /etc/csi-snapshot-validation
             readOnly: true
+        readinessProbe:
+          tcpSocket:
+            port: 443
+          initialDelaySeconds: 5
       volumes:
         - name: kubeconfig
           projected:
