@@ -1,1 +1,0 @@
-../../../../seed-controlplane/charts/aws-load-balancer-controller/templates/helpers.tpl
