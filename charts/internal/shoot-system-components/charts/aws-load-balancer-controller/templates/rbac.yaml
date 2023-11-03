@@ -84,7 +84,7 @@ rules:
 - apiGroups: [""]
   resources: [nodes, namespaces, endpoints]
   verbs: [get, list, watch]
-{{- if .Values.clusterSecretsPermissions.allowAllSecrets }}
+{{- if (and .Values.clusterSecretsPermissions .Values.clusterSecretsPermissions.allowAllSecrets) }}
 - apiGroups: [""]
   resources: [secrets]
   verbs: [get, list, watch]
