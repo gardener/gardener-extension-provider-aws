@@ -14,7 +14,9 @@
 
 package worker
 
-import "context"
+import (
+	"context"
+)
 
 // DeployMachineDependencies implements genericactuator.WorkerDelegate.
 func (w *workerDelegate) DeployMachineDependencies(_ context.Context) error {
