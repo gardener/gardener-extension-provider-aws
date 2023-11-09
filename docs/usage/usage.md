@@ -585,3 +585,17 @@ This extension supports `gardener/gardener`'s `WorkerPoolKubernetesVersion` feat
 ## Shoot CA Certificate and `ServiceAccount` Signing Key Rotation
 
 This extension supports `gardener/gardener`'s `ShootCARotation` and `ShootSARotation` feature gates since `gardener-extension-provider-aws@v1.36`.
+
+## Flow Infrastructure Reconciler
+
+The extension offers two different reconciler implementations for the infrastructure resource:
+- terraform-based
+- native Go SDK based (dubbed the "flow"-based implementation)
+
+The default implementation currently is the terraform reconciler which uses the `https://github.com/gardener/terraformer` as the backend for managing the shoot's infrastructure. 
+
+The "flow" implementation is a newer implementation that is trying to solve issues we faced with managing terraform infrastructure on Kubernetes. The goal is to have more control over the reconciliation process and be able to perform fine-grained tuning over it. The implementation is completely backwards-compatible and offers a migration route from the legacy terraformer implementation. 
+
+For most users there will be no noticable difference However for certain use-cases, users may notice a slight deviation from the previous behavior. For example, with flow-based infrastructure users may be able to perform certain modifications to infrastructure resources without having them reconciled back by terraform. Operations that would degrade the shoot infrastructure are still expected to be reverted back. 
+
+For the time-being, to take advantage of the flow reconcilier users have to "opt-in". To do that you need to annotate your shoot with: `aws.provider.extensions.gardener.cloud/use-flow="true"`. For existing shoots, the migration will take place on the next infrastructure reconciliation (on maintenance window or if other infrastructure changes are requested). 
