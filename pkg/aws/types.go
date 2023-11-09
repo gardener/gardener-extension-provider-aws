@@ -56,8 +56,6 @@ const (
 	// CSIVolumeModifierImageName is the name of the csi-volume-modifier image.
 	CSIVolumeModifierImageName = "csi-volume-modifier"
 
-	// MachineControllerManagerImageName is the name of the MachineControllerManager image.
-	MachineControllerManagerImageName = "machine-controller-manager"
 	// MachineControllerManagerProviderAWSImageName is the name of the MachineController AWS image.
 	MachineControllerManagerProviderAWSImageName = "machine-controller-manager-provider-aws"
 	// TerraformerImageName is the name of the Terraformer image.

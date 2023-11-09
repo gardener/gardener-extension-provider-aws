@@ -25,7 +25,6 @@ import (
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
-	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -75,18 +74,6 @@ var _ = Describe("Machines", func() {
 
 	Context("workerDelegate", func() {
 		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, nil, "", nil, nil)
-
-		Describe("#MachineClassKind", func() {
-			It("should return the correct kind of the machine class", func() {
-				Expect(workerDelegate.MachineClassKind()).To(Equal("MachineClass"))
-			})
-		})
-
-		Describe("#MachineClassList", func() {
-			It("should return the correct type for the machine class list", func() {
-				Expect(workerDelegate.MachineClassList()).To(Equal(&machinev1alpha1.MachineClassList{}))
-			})
-		})
 
 		Describe("#GenerateMachineDeployments, #DeployMachineClasses", func() {
 			var (
@@ -959,5 +946,5 @@ func addNameAndSecretToMachineClass(class map[string]interface{}, name string, c
 		"name":      credentialsSecretRef.Name,
 		"namespace": credentialsSecretRef.Namespace,
 	}
-	class["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass}
+	class["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
 }
