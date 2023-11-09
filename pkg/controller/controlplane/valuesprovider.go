@@ -131,7 +131,7 @@ func exposureShootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
 var (
 	configChart = &chart.Chart{
 		Name:       "cloud-provider-config",
-		EmbeddedFS: &charts.InternalChart,
+		EmbeddedFS: charts.InternalChart,
 		Path:       filepath.Join(charts.InternalChartsPath, "cloud-provider-config"),
 		Objects: []*chart.Object{
 			{
@@ -143,7 +143,7 @@ var (
 
 	controlPlaneChart = &chart.Chart{
 		Name:       "seed-controlplane",
-		EmbeddedFS: &charts.InternalChart,
+		EmbeddedFS: charts.InternalChart,
 		Path:       filepath.Join(charts.InternalChartsPath, "seed-controlplane"),
 		SubCharts: []*chart.Chart{
 			{
@@ -209,7 +209,7 @@ var (
 
 	controlPlaneShootChart = &chart.Chart{
 		Name:       "shoot-system-components",
-		EmbeddedFS: &charts.InternalChart,
+		EmbeddedFS: charts.InternalChart,
 		Path:       filepath.Join(charts.InternalChartsPath, "shoot-system-components"),
 		SubCharts: []*chart.Chart{
 			{
@@ -296,7 +296,7 @@ var (
 
 	controlPlaneShootCRDsChart = &chart.Chart{
 		Name:       "shoot-crds",
-		EmbeddedFS: &charts.InternalChart,
+		EmbeddedFS: charts.InternalChart,
 		Path:       filepath.Join(charts.InternalChartsPath, "shoot-crds"),
 		SubCharts: []*chart.Chart{
 			{
@@ -319,13 +319,13 @@ var (
 
 	storageClassChart = &chart.Chart{
 		Name:       "shoot-storageclasses",
-		EmbeddedFS: &charts.InternalChart,
+		EmbeddedFS: charts.InternalChart,
 		Path:       filepath.Join(charts.InternalChartsPath, "shoot-storageclasses"),
 	}
 
 	cpExposureChart = &chart.Chart{
 		Name:       aws.LBReadvertiserDeploymentName,
-		EmbeddedFS: &charts.InternalChart,
+		EmbeddedFS: charts.InternalChart,
 		Path:       filepath.Join(charts.InternalChartsPath, aws.LBReadvertiserDeploymentName),
 		Images:     []string{aws.AWSLBReadvertiserImageName},
 		Objects: []*chart.Object{
