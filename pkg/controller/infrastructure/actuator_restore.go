@@ -65,5 +65,5 @@ func (a *actuator) restoreWithTerraformer(ctx context.Context, log logr.Logger, 
 		return err
 	}
 
-	return updateProviderStatusTf(ctx, a.client, infrastructure, infrastructureStatus, state)
+	return a.updateProviderStatusTf(ctx, a.client, infrastructure, infrastructureStatus, state)
 }
