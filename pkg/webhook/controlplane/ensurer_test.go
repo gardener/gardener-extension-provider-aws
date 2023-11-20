@@ -348,11 +348,8 @@ RemainAfterExit=yes
 ExecStart=/opt/bin/mtu-customizer.sh
 `
 
-				command = "start"
-				trueVar = true
-
 				oldUnit        = extensionsv1alpha1.Unit{Name: "oldunit"}
-				additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: &trueVar, Command: &command, Content: &customMTUUnitContent}
+				additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: pointer.Bool(true), Command: extensionsv1alpha1.UnitCommandPtr(extensionsv1alpha1.CommandStart), Content: &customMTUUnitContent}
 
 				units = []extensionsv1alpha1.Unit{oldUnit}
 			)

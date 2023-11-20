@@ -394,8 +394,6 @@ func (e *ensurer) EnsureKubernetesGeneralConfiguration(_ context.Context, _ gcon
 // EnsureAdditionalUnits ensures that additional required system units are added.
 func (e *ensurer) EnsureAdditionalUnits(_ context.Context, _ gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.Unit) error {
 	var (
-		command              = "start"
-		trueVar              = true
 		customMTUUnitContent = `[Unit]
 Description=Apply a custom MTU to network interfaces
 After=network.target
@@ -413,8 +411,8 @@ ExecStart=/opt/bin/mtu-customizer.sh
 
 	extensionswebhook.AppendUniqueUnit(newObj, extensionsv1alpha1.Unit{
 		Name:    "custom-mtu.service",
-		Enable:  &trueVar,
-		Command: &command,
+		Enable:  pointer.Bool(true),
+		Command: extensionsv1alpha1.UnitCommandPtr(extensionsv1alpha1.CommandStart),
 		Content: &customMTUUnitContent,
 	})
 	return nil
