@@ -65,7 +65,7 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 	ensureVpcIPv6CidrBloc := c.AddTask(g, "ensure IPv6 CIDR Block",
 		c.ensureVpcIPv6CidrBlock,
-		DoIf(createVPC), Timeout(defaultTimeout), Dependencies(ensureVpc))
+		Timeout(defaultTimeout), Dependencies(ensureVpc))
 
 	ensureDefaultSecurityGroup := c.AddTask(g, "ensure default security group",
 		c.ensureDefaultSecurityGroup,
@@ -261,6 +261,9 @@ func (c *FlowContext) validateVpc(ctx context.Context, item *awsclient.VPC) erro
 			return fmt.Errorf("missing DhcpConfiguration '%s'='%s' (actual: %s)",
 				k, strings.Join(v, ","), strings.Join(options.DhcpConfigurations[k], ","))
 		}
+	}
+	if c.config.DualStack != nil && c.config.DualStack.Enabled && item.IPv6CidrBlock == "" {
+		return fmt.Errorf("VPC has no ipv6 CIDR")
 	}
 	return nil
 }

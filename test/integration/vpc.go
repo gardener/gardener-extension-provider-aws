@@ -29,10 +29,11 @@ import (
 
 // CreateVPC creates a new VPC and waits for it to become available. It returns
 // the VPC ID, the Internet Gateway ID or an error in case something unexpected happens.
-func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames bool) (string, string, error) {
+func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames, dualstack bool) (string, string, error) {
 	createVpcOutput, err := awsClient.EC2.CreateVpc(&ec2.CreateVpcInput{
-		TagSpecifications: awsclient.Tags{"Name": "aws-infrastructure-it-create-vpc"}.ToTagSpecifications(ec2.ResourceTypeVpc),
-		CidrBlock:         awssdk.String(vpcCIDR),
+		TagSpecifications:           awsclient.Tags{"Name": "aws-infrastructure-it-create-vpc"}.ToTagSpecifications(ec2.ResourceTypeVpc),
+		CidrBlock:                   awssdk.String(vpcCIDR),
+		AmazonProvidedIpv6CidrBlock: awssdk.Bool(dualstack),
 	})
 	if err != nil {
 		return "", "", err
