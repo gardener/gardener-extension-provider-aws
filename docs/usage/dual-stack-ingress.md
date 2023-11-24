@@ -52,6 +52,8 @@ spec:
 ...
 ```
 
+When `infrastructureConfig.networks.vpc.id` is set to the ID of an existing VPC, please make sure that your VPC has an [Amazon-provided IPv6 CIDR block added](https://docs.aws.amazon.com/vpc/latest/userguide/modify-vpcs.html#vpc-associate-ipv6-cidr).
+
 After adapting the shoot specification and reconciling the cluster, dual-stack load balancers can be created using
 kubernetes services objects.
 
