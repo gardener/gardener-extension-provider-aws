@@ -339,6 +339,31 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should successfully create and delete (terraformer) with dualstack enabled", func() {
+			enableDnsHostnames := true
+			assignIPv6CidrBlock := true
+			vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vpcID).NotTo(BeEmpty())
+			Expect(igwID).NotTo(BeEmpty())
+
+			framework.AddCleanupAction(func() {
+				Expect(integration.DestroyVPC(ctx, log, awsClient, vpcID)).To(Succeed())
+			})
+
+			providerConfig := newProviderConfig(awsv1alpha1.VPC{
+				ID:               &vpcID,
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			})
+			providerConfig.DualStack.Enabled = true
+
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseTerraformer)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("should successfully create and delete (flow)", func() {
 			enableDnsHostnames := true
 			assignIPv6CidrBlock := false
