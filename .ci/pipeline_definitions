@@ -3,6 +3,13 @@ gardener-extension-provider-aws:
   base_definition:
     repo: ~
     traits:
+      component_descriptor:
+        component_labels:
+        - name: 'cloud.gardener.cnudie/responsibles'
+          value:
+          - type: 'githubTeam'
+            teamname: 'gardener/gardener-extension-provider-aws-maintainers'
+            github_hostname: 'github.com'
       version:
         preprocess: 'inject-commit-hash'
       publish:
