@@ -64,7 +64,7 @@ gardener-extension-provider-aws:
           - test-integration.sh
           trait_depends:
           - publish
-          image: 'eu.gcr.io/gardener-project/gardener/testmachinery/testmachinery-run:stable'
+          image: 'europe-docker.pkg.dev/gardener-project/releases/testmachinery/testmachinery-run:stable'
       traits:
         version:
           preprocess: 'finalize'
