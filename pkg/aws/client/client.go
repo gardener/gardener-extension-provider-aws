@@ -670,6 +670,20 @@ func (c *Client) DeleteVpcDhcpOptions(ctx context.Context, id string) error {
 	return ignoreNotFound(err)
 }
 
+// RetryableIPv6CIDRError is a custom error type.
+type RetryableIPv6CIDRError struct{}
+
+// Error prints the error message of the RetryableIPv6CIDRError error.
+func (e *RetryableIPv6CIDRError) Error() string {
+	return "no ipv6 CIDR assigned"
+}
+
+// RetryableIPv6CIDRError returns true if the error indicates that getting the IPv6 CIDR can be retried.
+func IsRetryableIPv6CIDRError(err error) bool {
+	_, ok := err.(*RetryableIPv6CIDRError)
+	return ok
+}
+
 // CreateVpc creates a VPC resource.
 func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 	input := &ec2.CreateVpcInput{
@@ -687,11 +701,7 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 
 // WaitForIPv6Cidr waits for the ipv6 cidr block association
 func (c *Client) WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
-	// Custom waiting loop
-	waitInput := &ec2.DescribeVpcsInput{
-		VpcIds: []*string{aws.String(vpcID)},
-	}
-	var ipv6CidrBlock string
+
 	maxRetries := 30
 	waitInterval := 10 * time.Second
 	for i := 0; i < maxRetries; i++ {
@@ -699,26 +709,41 @@ func (c *Client) WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, err
 		case <-ctx.Done():
 			return "", ctx.Err()
 		case <-time.After(waitInterval):
-			resp, err := c.EC2.DescribeVpcs(waitInput)
-			if err != nil {
-				return "", fmt.Errorf("error describing VPC: %v", err)
+			ipv6CidrBlock, err := c.GetIPv6Cidr(ctx, vpcID)
+			if err == nil {
+				return ipv6CidrBlock, nil
 			}
-			if len(resp.Vpcs) > 0 {
-				for _, assoc := range resp.Vpcs[0].Ipv6CidrBlockAssociationSet {
-					if assoc != nil && aws.StringValue(assoc.Ipv6CidrBlockState.State) == "associated" {
-						ipv6CidrBlock = *assoc.Ipv6CidrBlock
-						vpc, err := c.GetVpc(ctx, vpcID)
-						if err != nil {
-							return "", err
-						}
-						vpc.IPv6CidrBlock = ipv6CidrBlock
-						return ipv6CidrBlock, nil
-					}
-				}
+			if !IsRetryableIPv6CIDRError(err) {
+				return "", err
 			}
 		}
 	}
-	return "", fmt.Errorf("No IPv6 CIDR Block was assigned to VPC")
+	return "", fmt.Errorf("no IPv6 CIDR Block was assigned to VPC")
+}
+
+func (c *Client) GetIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
+	var ipv6CidrBlock string
+	describeVPCInput := &ec2.DescribeVpcsInput{
+		VpcIds: []*string{aws.String(vpcID)},
+	}
+	resp, err := c.EC2.DescribeVpcs(describeVPCInput)
+	if err != nil {
+		return "", fmt.Errorf("error describing VPC: %v", err)
+	}
+	if len(resp.Vpcs) > 0 {
+		for _, assoc := range resp.Vpcs[0].Ipv6CidrBlockAssociationSet {
+			if assoc != nil && aws.StringValue(assoc.Ipv6CidrBlockState.State) == "associated" {
+				ipv6CidrBlock = *assoc.Ipv6CidrBlock
+				vpc, err := c.GetVpc(ctx, vpcID)
+				if err != nil {
+					return "", err
+				}
+				vpc.IPv6CidrBlock = ipv6CidrBlock
+				return ipv6CidrBlock, nil
+			}
+		}
+	}
+	return "", &RetryableIPv6CIDRError{}
 }
 
 // UpdateVpcAttribute sets/updates a VPC attribute if needed.

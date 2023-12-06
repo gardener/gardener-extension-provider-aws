@@ -64,6 +64,7 @@ type Interface interface {
 	FindVpcDhcpOptionsByTags(ctx context.Context, tags Tags) ([]*DhcpOptions, error)
 	DeleteVpcDhcpOptions(ctx context.Context, id string) error
 	CreateVpc(ctx context.Context, vpc *VPC) (*VPC, error)
+	GetIPv6Cidr(ctx context.Context, vpcID string) (string, error)
 	WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, error)
 	AddVpcDhcpOptionAssociation(vpcId string, dhcpOptionsId *string) error
 	UpdateVpcAttribute(ctx context.Context, vpcId, attributeName string, value bool) error
