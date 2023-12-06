@@ -211,7 +211,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 
 			machineClassSpec["name"] = className
 			machineClassSpec["labels"] = map[string]string{corev1.LabelZoneFailureDomain: zone}
-			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass}
+			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
 
 			machineClasses = append(machineClasses, machineClassSpec)
 		}

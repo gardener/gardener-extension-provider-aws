@@ -16,46 +16,12 @@ package worker
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
 
-	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	"github.com/gardener/gardener/pkg/utils/chart"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 
-	"github.com/gardener/gardener-extension-provider-aws/charts"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-)
-
-var (
-	mcmChart = &chart.Chart{
-		Name:       aws.MachineControllerManagerName,
-		EmbeddedFS: &charts.InternalChart,
-		Path:       filepath.Join(charts.InternalChartsPath, aws.MachineControllerManagerName, "seed"),
-		Images:     []string{aws.MachineControllerManagerImageName, aws.MachineControllerManagerProviderAWSImageName},
-		Objects: []*chart.Object{
-			{Type: &appsv1.Deployment{}, Name: aws.MachineControllerManagerName},
-			{Type: &corev1.Service{}, Name: aws.MachineControllerManagerName},
-			{Type: &corev1.ServiceAccount{}, Name: aws.MachineControllerManagerName},
-			{Type: &corev1.Secret{}, Name: aws.MachineControllerManagerName},
-			{Type: extensionscontroller.GetVerticalPodAutoscalerObject(), Name: aws.MachineControllerManagerVpaName},
-			{Type: &corev1.ConfigMap{}, Name: aws.MachineControllerManagerMonitoringConfigName},
-		},
-	}
-
-	mcmShootChart = &chart.Chart{
-		Name:       aws.MachineControllerManagerName,
-		EmbeddedFS: &charts.InternalChart,
-		Path:       filepath.Join(charts.InternalChartsPath, aws.MachineControllerManagerName, "shoot"),
-		Objects: []*chart.Object{
-			{Type: &rbacv1.ClusterRole{}, Name: fmt.Sprintf("extensions.gardener.cloud:%s:%s", aws.Name, aws.MachineControllerManagerName)},
-			{Type: &rbacv1.ClusterRoleBinding{}, Name: fmt.Sprintf("extensions.gardener.cloud:%s:%s", aws.Name, aws.MachineControllerManagerName)},
-		},
-	}
 )
 
 func (w *workerDelegate) GetMachineControllerManagerChartValues(ctx context.Context) (map[string]interface{}, error) {

@@ -142,7 +142,8 @@ func Delete(
 				}
 
 				return nil
-			}).RetryUntilTimeout(10*time.Second, 5*time.Minute).DoIf(configExists),
+			}).RetryUntilTimeout(10*time.Second, 5*time.Minute),
+			SkipIf: !configExists,
 		})
 
 		_ = g.Add(flow.Task{

@@ -43,17 +43,15 @@ import (
 )
 
 // NewEnsurer creates a new controlplane ensurer.
-func NewEnsurer(logger logr.Logger, gardenletManagesMCM bool) genericmutator.Ensurer {
+func NewEnsurer(logger logr.Logger) genericmutator.Ensurer {
 	return &ensurer{
-		logger:              logger.WithName("aws-controlplane-ensurer"),
-		gardenletManagesMCM: gardenletManagesMCM,
+		logger: logger.WithName("aws-controlplane-ensurer"),
 	}
 }
 
 type ensurer struct {
 	genericmutator.NoopEnsurer
-	logger              logr.Logger
-	gardenletManagesMCM bool
+	logger logr.Logger
 }
 
 // ImageVector is exposed for testing.
@@ -61,10 +59,6 @@ var ImageVector = imagevector.ImageVector()
 
 // EnsureMachineControllerManagerDeployment ensures that the machine-controller-manager deployment conforms to the provider requirements.
 func (e *ensurer) EnsureMachineControllerManagerDeployment(_ context.Context, _ gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
-	if !e.gardenletManagesMCM {
-		return nil
-	}
-
 	image, err := ImageVector.FindImage(aws.MachineControllerManagerProviderAWSImageName)
 	if err != nil {
 		return err
@@ -79,9 +73,6 @@ func (e *ensurer) EnsureMachineControllerManagerDeployment(_ context.Context, _ 
 
 // EnsureMachineControllerManagerVPA ensures that the machine-controller-manager VPA conforms to the provider requirements.
 func (e *ensurer) EnsureMachineControllerManagerVPA(_ context.Context, _ gcontext.GardenContext, newObj, _ *vpaautoscalingv1.VerticalPodAutoscaler) error {
-	if !e.gardenletManagesMCM {
-		return nil
-	}
 	var (
 		minAllowed = corev1.ResourceList{
 			corev1.ResourceMemory: resource.MustParse("64Mi"),
@@ -403,8 +394,6 @@ func (e *ensurer) EnsureKubernetesGeneralConfiguration(_ context.Context, _ gcon
 // EnsureAdditionalUnits ensures that additional required system units are added.
 func (e *ensurer) EnsureAdditionalUnits(_ context.Context, _ gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.Unit) error {
 	var (
-		command              = "start"
-		trueVar              = true
 		customMTUUnitContent = `[Unit]
 Description=Apply a custom MTU to network interfaces
 After=network.target
@@ -422,8 +411,8 @@ ExecStart=/opt/bin/mtu-customizer.sh
 
 	extensionswebhook.AppendUniqueUnit(newObj, extensionsv1alpha1.Unit{
 		Name:    "custom-mtu.service",
-		Enable:  &trueVar,
-		Command: &command,
+		Enable:  pointer.Bool(true),
+		Command: extensionsv1alpha1.UnitCommandPtr(extensionsv1alpha1.CommandStart),
 		Content: &customMTUUnitContent,
 	})
 	return nil
