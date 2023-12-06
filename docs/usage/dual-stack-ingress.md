@@ -47,8 +47,8 @@ spec:
     controlPlaneConfig:
       apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
       kind: ControlPlaneConfig
-        loadBalancerController:
-          enabled: true
+      loadBalancerController:
+        enabled: true
 ...
 ```
 
