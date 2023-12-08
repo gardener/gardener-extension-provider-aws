@@ -122,12 +122,6 @@ func shootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
 	}
 }
 
-func exposureShootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
-	return []*gutil.AccessSecret{
-		gutil.NewShootAccessSecret(aws.LBReadvertiserDeploymentName, namespace),
-	}
-}
-
 var (
 	configChart = &chart.Chart{
 		Name:       "cloud-provider-config",
@@ -322,17 +316,6 @@ var (
 		EmbeddedFS: charts.InternalChart,
 		Path:       filepath.Join(charts.InternalChartsPath, "shoot-storageclasses"),
 	}
-
-	cpExposureChart = &chart.Chart{
-		Name:       aws.LBReadvertiserDeploymentName,
-		EmbeddedFS: charts.InternalChart,
-		Path:       filepath.Join(charts.InternalChartsPath, aws.LBReadvertiserDeploymentName),
-		Images:     []string{aws.AWSLBReadvertiserImageName},
-		Objects: []*chart.Object{
-			{Type: &appsv1.Deployment{}, Name: aws.LBReadvertiserDeploymentName},
-			{Type: extensionscontroller.GetVerticalPodAutoscalerObject(), Name: aws.LBReadvertiserDeploymentName + "-vpa"},
-		},
-	}
 )
 
 // NewValuesProvider creates a new ValuesProvider for the generic actuator.
@@ -345,6 +328,7 @@ func NewValuesProvider(mgr manager.Manager) genericactuator.ValuesProvider {
 
 // valuesProvider is a ValuesProvider that provides AWS-specific values for the 2 charts applied by the generic actuator.
 type valuesProvider struct {
+	genericactuator.NoopValuesProvider
 	client  client.Client
 	decoder runtime.Decoder
 }
@@ -468,32 +452,6 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 
 	return map[string]interface{}{
 		"managedDefaultClass": managedDefaultClass,
-	}, nil
-}
-
-// GetControlPlaneExposureChartValues deploys the aws-lb-readvertiser.
-func (vp *valuesProvider) GetControlPlaneExposureChartValues(
-	ctx context.Context,
-	cp *extensionsv1alpha1.ControlPlane,
-	cluster *extensionscontroller.Cluster,
-	_ secretsmanager.Reader,
-	_ map[string]string,
-) (map[string]interface{}, error) {
-	var address string
-
-	if !extensionscontroller.IsHibernated(cluster) {
-		// Get load balancer address of the kube-apiserver service
-		var err error
-		address, err = kutil.GetLoadBalancerIngress(ctx, vp.client, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: cp.Namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}})
-		if err != nil {
-			return nil, fmt.Errorf("could not get kube-apiserver service load balancer address: %w", err)
-		}
-	}
-
-	return map[string]interface{}{
-		"domain":                           address,
-		"replicas":                         extensionscontroller.GetReplicas(cluster, 1),
-		"genericTokenKubeconfigSecretName": extensionscontroller.GenericTokenKubeconfigSecretNameFromCluster(cluster),
 	}, nil
 }
 

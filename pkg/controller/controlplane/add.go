@@ -51,8 +51,8 @@ type AddOptions struct {
 func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddOptions) error {
 	actuator, err := genericactuator.NewActuator(mgr, aws.Name,
 		secretConfigsFunc, shootAccessSecretsFunc,
-		nil, exposureShootAccessSecretsFunc,
-		configChart, controlPlaneChart, controlPlaneShootChart, controlPlaneShootCRDsChart, storageClassChart, cpExposureChart,
+		nil, nil,
+		configChart, controlPlaneChart, controlPlaneShootChart, controlPlaneShootCRDsChart, storageClassChart, nil,
 		NewValuesProvider(mgr), extensionscontroller.ChartRendererFactoryFunc(util.NewChartRendererForShoot),
 		imagevector.ImageVector(), aws.CloudProviderConfigName, opts.ShootWebhookConfig, opts.WebhookServerNamespace)
 	if err != nil {

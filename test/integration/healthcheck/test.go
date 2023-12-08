@@ -26,11 +26,8 @@
 				- delete the deployment 'cloud-controller-manager' and verify health check conditions in the ControlPlane status.
 			1.2) HealthCondition Type: Shoot SystemComponentsHealthy
 				- update the ManagedResource 'extension-controlplane-shoot' with an unhealthy condition and verify health check conditions in the ControlPlane status.
-		2) ControlPlane (Type: Exposure)
-			2.1) HealthCondition Type: Shoot ControlPlaneHealthy
-				- delete the deployment 'aws-lb-readvertiser' and verify health check conditions in the ControlPlane status.
-		3) Worker
-			3.1) HealthCondition Type: Shoot EveryNodeReady
+		2) Worker
+			2.1) HealthCondition Type: Shoot EveryNodeReady
 				- delete a machine of the shoot cluster and verify the health check conditions in the Worker status report a missing node.
  **/
 
@@ -74,15 +71,6 @@ var _ = ginkgo.Describe("AWS integration test: health checks", func() {
 		ginkgo.Context("Condition type: ShootSystemComponentsHealthy", func() {
 			f.Serial().Release().CIt(fmt.Sprintf("ControlPlane CRD should contain unhealthy condition due to ManagedResource ('%s') unhealthy", genericcontrolplaneactuator.ControlPlaneShootChartResourceName), func(ctx context.Context) {
 				err := healthcheckoperation.ControlPlaneHealthCheckWithManagedResource(ctx, setupContextTimeout, f, genericcontrolplaneactuator.ControlPlaneShootChartResourceName, gardencorev1beta1.ShootSystemComponentsHealthy)
-				framework.ExpectNoError(err)
-			}, timeout)
-		})
-	})
-
-	ginkgo.Context("ControlPlane-exposure", func() {
-		ginkgo.Context("Condition type: ShootControlPlaneHealthy", func() {
-			f.Serial().Release().CIt(fmt.Sprintf("ControlPlane CRD should contain unhealthy condition because the deployment '%s' cannot be found in the shoot namespace in the seed", aws.LBReadvertiserDeploymentName), func(ctx context.Context) {
-				err := healthcheckoperation.ControlPlaneHealthCheckDeleteSeedDeployment(ctx, f, fmt.Sprintf("%s-exposure", f.Shoot.GetName()), aws.LBReadvertiserDeploymentName, gardencorev1beta1.ShootControlPlaneHealthy)
 				framework.ExpectNoError(err)
 			}, timeout)
 		})
