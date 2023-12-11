@@ -708,37 +708,6 @@ var _ = Describe("ValuesProvider", func() {
 			}))
 		})
 	})
-
-	Describe("#GetControlPlaneExposureChartValues", func() {
-		var (
-			cpService = &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      v1beta1constants.DeploymentNameKubeAPIServer,
-					Namespace: namespace,
-				},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{
-						Ingress: []corev1.LoadBalancerIngress{
-							{IP: "10.10.10.1"},
-						},
-					},
-				},
-			}
-		)
-
-		It("should return correct control plane exposure chart values", func() {
-			serviceKey := client.ObjectKey{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeAPIServer}
-			c.EXPECT().Get(ctx, serviceKey, gomock.AssignableToTypeOf(&corev1.Service{})).DoAndReturn(clientGet(cpService))
-
-			values, err := vp.GetControlPlaneExposureChartValues(ctx, cp, cluster, fakeSecretsManager, checksums)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
-				"domain":                           "10.10.10.1",
-				"replicas":                         1,
-			}))
-		})
-	})
 })
 
 func clientGet(result runtime.Object) interface{} {
