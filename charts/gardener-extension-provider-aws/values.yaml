@@ -1,5 +1,5 @@
 image:
-  repository: eu.gcr.io/gardener-project/gardener/extensions/provider-aws
+  repository: europe-docker.pkg.dev/gardener-project/public/gardener/extensions/provider-aws
   tag: latest
   pullPolicy: IfNotPresent
 

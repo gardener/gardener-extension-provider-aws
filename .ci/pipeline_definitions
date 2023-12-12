@@ -2,6 +2,7 @@ gardener-extension-provider-aws:
   base_definition:
     traits:
       component_descriptor:
+        ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
         component_labels:
         - name: 'cloud.gardener.cnudie/responsibles'
           value:
@@ -14,7 +15,7 @@ gardener-extension-provider-aws:
         oci-builder: 'docker-buildx'
         dockerimages:
           gardener-extension-provider-aws:
-            image: 'eu.gcr.io/gardener-project/gardener/extensions/provider-aws'
+            image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/provider-aws
             dockerfile: 'Dockerfile'
             target: gardener-extension-provider-aws
             resource_labels:
@@ -27,7 +28,7 @@ gardener-extension-provider-aws:
                 integrity_requirement: 'high'
                 availability_requirement: 'high'
           gardener-extension-admission-aws:
-            image: 'eu.gcr.io/gardener-project/gardener/extensions/admission-aws'
+            image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/admission-aws
             dockerfile: 'Dockerfile'
             target: gardener-extension-admission-aws
             resource_labels:
@@ -43,6 +44,8 @@ gardener-extension-provider-aws:
     head-update:
       traits:
         component_descriptor:
+          ocm_repository_mappings:
+            - repository: europe-docker.pkg.dev/gardener-project/releases
           retention_policy: 'clean-snapshots'
         draft_release: ~
         options:
@@ -50,7 +53,9 @@ gardener-extension-provider-aws:
     pull-request:
       traits:
         pull-request: ~
-        component_descriptor: ~
+        component_descriptor:
+          ocm_repository_mappings:
+            - repository: europe-docker.pkg.dev/gardener-project/releases
         options:
           public_build_logs: true
     release:
@@ -64,6 +69,8 @@ gardener-extension-provider-aws:
       traits:
         version:
           preprocess: 'finalize'
+        component_descriptor:
+          ocm_repository: europe-docker.pkg.dev/gardener-project/releases
         release:
           nextversion: 'bump_minor'
           next_version_callback: '.ci/prepare_release'
@@ -74,11 +81,12 @@ gardener-extension-provider-aws:
             internal_scp_workspace:
               channel_name: 'C9CEBQPGE' #sap-tech-gardener
               slack_cfg_name: 'scp_workspace'
-        component_descriptor: ~
         publish:
           oci-builder: 'docker-buildx'
           dockerimages:
             gardener-extension-provider-aws:
+              image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/provider-aws
               tag_as_latest: true
             gardener-extension-admission-aws:
+              image: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/admission-aws
               tag_as_latest: true
