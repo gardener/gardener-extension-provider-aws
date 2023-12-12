@@ -1,7 +1,5 @@
 gardener-extension-provider-aws:
-  template: 'default'
   base_definition:
-    repo: ~
     traits:
       component_descriptor:
         component_labels:
@@ -16,7 +14,6 @@ gardener-extension-provider-aws:
         oci-builder: 'docker-buildx'
         dockerimages:
           gardener-extension-provider-aws:
-            registry: 'gcr-readwrite'
             image: 'eu.gcr.io/gardener-project/gardener/extensions/provider-aws'
             dockerfile: 'Dockerfile'
             target: gardener-extension-provider-aws
@@ -30,7 +27,6 @@ gardener-extension-provider-aws:
                 integrity_requirement: 'high'
                 availability_requirement: 'high'
           gardener-extension-admission-aws:
-            registry: 'gcr-readwrite'
             image: 'eu.gcr.io/gardener-project/gardener/extensions/admission-aws'
             dockerfile: 'Dockerfile'
             target: gardener-extension-admission-aws
