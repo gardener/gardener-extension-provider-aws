@@ -15,26 +15,16 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/secret-gardener-extension-admission-aws-cert: {{ include (print $.Template.BasePath "/secret-cert.yaml") . | sha256sum }}
         {{- if .Values.global.kubeconfig }}
         checksum/gardener-extension-admission-aws-kubeconfig: {{ include (print $.Template.BasePath "/secret-kubeconfig.yaml") . | sha256sum }}
         {{- end }}
       labels:
         networking.gardener.cloud/to-dns: allowed
         networking.resources.gardener.cloud/to-virtual-garden-kube-apiserver-tcp-443: allowed
+        networking.gardener.cloud/to-runtime-apiserver: allowed
 {{ include "labels" . | indent 8 }}
     spec:
-      {{- if not .Values.global.virtualGarden.enabled }}
       serviceAccountName: {{ include "name" . }}
-      {{- else if and .Values.global.virtualGarden.enabled .Values.global.virtualGarden.user.name }}
-        {{- if .Values.global.serviceAccountTokenVolumeProjection.enabled }}
-      serviceAccountName: {{ include "name" . }}
-        {{- else }}
-      serviceAccountName: default
-        {{- end }}
-      {{- else }}
-      serviceAccountName: default
-      {{- end }}
       {{- if .Values.global.kubeconfig }}
       automountServiceAccountToken: false
       {{- end }}
@@ -45,7 +35,13 @@ spec:
         command:
         - /gardener-extension-admission-aws
         - --webhook-config-server-port={{ .Values.global.webhookConfig.serverPort }}
-        - --webhook-config-cert-dir=/etc/gardener-extension-admission-aws/srv
+        {{- if .Values.global.virtualGarden.enabled }}
+        - --webhook-config-mode=url
+        - --webhook-config-url={{ printf "%s.%s" (include "name" .) (.Release.Namespace) }}
+        {{- else }}
+        - --webhook-config-mode=service
+        {{- end }}
+        - --webhook-config-namespace={{ .Release.Namespace }}
         {{- if .Values.global.kubeconfig }}
         - --kubeconfig=/etc/gardener-extension-admission-aws/kubeconfig/kubeconfig
         {{- end }}
@@ -68,6 +64,11 @@ spec:
             port: {{ .Values.global.healthPort }}
             scheme: HTTP
           initialDelaySeconds: 5
+        {{- if .Values.global.virtualGarden.enabled }}
+        env:
+        - name: SOURCE_CLUSTER
+          value: enabled
+        {{- end }}
         ports:
         - name: webhook-server
           containerPort: {{ .Values.global.webhookConfig.serverPort }}
@@ -77,9 +78,6 @@ spec:
 {{ toYaml .Values.global.resources | nindent 10 }}
 {{- end }}
         volumeMounts:
-        - name: gardener-extension-admission-aws-cert
-          mountPath: /etc/gardener-extension-admission-aws/srv
-          readOnly: true
         {{- if .Values.global.kubeconfig }}
         - name: gardener-extension-admission-aws-kubeconfig
           mountPath: /etc/gardener-extension-admission-aws/kubeconfig
@@ -96,10 +94,6 @@ spec:
           readOnly: true
         {{- end }}
       volumes:
-      - name: gardener-extension-admission-aws-cert
-        secret:
-          secretName: gardener-extension-admission-aws-cert
-          defaultMode: 420
       {{- if .Values.global.kubeconfig }}
       - name: gardener-extension-admission-aws-kubeconfig
         secret:
