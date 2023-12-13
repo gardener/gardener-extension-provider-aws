@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.173
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.20.1
-	github.com/gardener/gardener v1.83.2
+	github.com/gardener/gardener v1.83.3
 	github.com/gardener/machine-controller-manager v0.50.0
 	github.com/go-logr/logr v1.2.4
 	github.com/onsi/ginkgo/v2 v2.12.1
