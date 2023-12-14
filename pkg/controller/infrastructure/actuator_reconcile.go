@@ -366,6 +366,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		vpcID             = "aws_vpc.vpc.id"
 		vpcCIDR           = ""
 		internetGatewayID = "aws_internet_gateway.igw.id"
+		ipv6CidrBlock     = "aws_vpc.vpc.ipv6_cidr_block"
 
 		ignoreTagKeys        []string
 		ignoreTagKeyPrefixes []string
@@ -385,6 +386,11 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		}
 		vpcID = strconv.Quote(existingVpcID)
 		internetGatewayID = strconv.Quote(existingInternetGatewayID)
+		existingIPv6CidrBlock, err := awsClient.WaitForIPv6Cidr(ctx, existingVpcID)
+		if err != nil {
+			return nil, err
+		}
+		ipv6CidrBlock = strconv.Quote(existingIPv6CidrBlock)
 
 	case infrastructureConfig.Networks.VPC.CIDR != nil:
 		vpcCIDR = *infrastructureConfig.Networks.VPC.CIDR
@@ -434,6 +440,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			"dhcpDomainName":    dhcpDomainName,
 			"internetGatewayID": internetGatewayID,
 			"gatewayEndpoints":  infrastructureConfig.Networks.VPC.GatewayEndpoints,
+			"ipv6CidrBlock":     ipv6CidrBlock,
 		},
 		"clusterName": infrastructure.Namespace,
 		"zones":       zones,

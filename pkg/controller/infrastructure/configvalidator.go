@@ -75,7 +75,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	// Validate infrastructure config
 	if config.Networks.VPC.ID != nil {
 		logger.Info("Validating infrastructure networks.vpc.id")
-		allErrs = append(allErrs, c.validateVPC(ctx, awsClient, *config.Networks.VPC.ID, infra.Spec.Region, field.NewPath("networks", "vpc", "id"))...)
+		allErrs = append(allErrs, c.validateVPC(ctx, awsClient, *config.Networks.VPC.ID, infra.Spec.Region, field.NewPath("networks", "vpc", "id"), config.DualStack != nil && config.DualStack.Enabled)...)
 	}
 
 	var (
@@ -97,7 +97,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	return allErrs
 }
 
-func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.Interface, vpcID, region string, fldPath *field.Path) field.ErrorList {
+func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.Interface, vpcID, region string, fldPath *field.Path, dualStack bool) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Verify that the VPC exists and the enableDnsSupport and enableDnsHostnames VPC attributes are both true
@@ -113,6 +113,14 @@ func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.I
 		}
 		if !value {
 			allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("VPC attribute %s must be set to true", attribute)))
+		}
+	}
+
+	if dualStack {
+		_, err := awsClient.GetIPv6Cidr(ctx, vpcID)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("VPC %s has no ipv6 CIDR", vpcID)))
+			return allErrs
 		}
 	}
 

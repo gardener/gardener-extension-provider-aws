@@ -964,6 +964,21 @@ func (mr *MockInterfaceMockRecorder) GetIAMRolePolicy(arg0, arg1, arg2 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).GetIAMRolePolicy), arg0, arg1, arg2)
 }
 
+// GetIPv6Cidr mocks base method.
+func (m *MockInterface) GetIPv6Cidr(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIPv6Cidr", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetIPv6Cidr indicates an expected call of GetIPv6Cidr.
+func (mr *MockInterfaceMockRecorder) GetIPv6Cidr(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPv6Cidr", reflect.TypeOf((*MockInterface)(nil).GetIPv6Cidr), arg0, arg1)
+}
+
 // GetInternetGateway mocks base method.
 func (m *MockInterface) GetInternetGateway(arg0 context.Context, arg1 string) (*client.InternetGateway, error) {
 	m.ctrl.T.Helper()
