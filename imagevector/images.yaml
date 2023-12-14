@@ -1,7 +1,7 @@
 images:
 - name: terraformer
   sourceRepository: github.com/gardener/terraformer
-  repository: eu.gcr.io/gardener-project/gardener/terraformer-aws
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/terraformer-aws
   tag: "v2.23.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -15,7 +15,7 @@ images:
 
 - name: cloud-controller-manager
   sourceRepository: github.com/gardener/cloud-provider-aws
-  repository: eu.gcr.io/gardener-project/kubernetes/cloud-provider-aws
+  repository: europe-docker.pkg.dev/gardener-project/releases/kubernetes/cloud-provider-aws
   tag: "v1.24.13"
   targetVersion: "1.24.x"
   labels:
@@ -85,7 +85,7 @@ images:
       availability_requirement: 'low'
 - name: machine-controller-manager
   sourceRepository: github.com/gardener/machine-controller-manager
-  repository: eu.gcr.io/gardener-project/gardener/machine-controller-manager
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/machine-controller-manager
   tag: "v0.50.1"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -98,7 +98,7 @@ images:
       availability_requirement: 'low'
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
-  repository: eu.gcr.io/gardener-project/gardener/machine-controller-manager-provider-aws
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/machine-controller-manager-provider-aws
   tag: "v0.19.2"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -112,7 +112,7 @@ images:
 
 - name: aws-lb-readvertiser
   sourceRepository: github.com/gardener/aws-lb-readvertiser
-  repository: eu.gcr.io/gardener-project/gardener/aws-lb-readvertiser
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-lb-readvertiser
   tag: "v0.9.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -125,7 +125,7 @@ images:
       availability_requirement: 'high'
 - name: aws-custom-route-controller
   sourceRepository: github.com/gardener/aws-custom-route-controller
-  repository: eu.gcr.io/gardener-project/gardener/aws-custom-route-controller
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-custom-route-controller
   tag: "v0.7.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
