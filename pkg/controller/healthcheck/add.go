@@ -91,26 +91,6 @@ func RegisterHealthChecks(ctx context.Context, mgr manager.Manager, opts healthc
 		return err
 	}
 
-	if err := healthcheck.DefaultRegistration(
-		ctx,
-		aws.Type,
-		extensionsv1alpha1.SchemeGroupVersion.WithKind(extensionsv1alpha1.ControlPlaneResource),
-		func() client.ObjectList { return &extensionsv1alpha1.ControlPlaneList{} },
-		func() extensionsv1alpha1.Object { return &extensionsv1alpha1.ControlPlane{} },
-		mgr,
-		opts,
-		[]predicate.Predicate{extensionspredicate.HasPurpose(extensionsv1alpha1.Exposure)},
-		[]healthcheck.ConditionTypeToHealthCheck{
-			{
-				ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
-				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.LBReadvertiserDeploymentName),
-			},
-		},
-		sets.Set[gardencorev1beta1.ConditionType]{},
-	); err != nil {
-		return err
-	}
-
 	return healthcheck.DefaultRegistration(
 		ctx,
 		aws.Type,

@@ -72,20 +72,3 @@ spec:
       parser: kube-apiserver-parser
       reserveData: true
   match: kubernetes.*csi-snapshot*aws-csi*
----
-{{ if eq .Values.gardener.seed.provider "aws" }}
-apiVersion: fluentbit.fluent.io/v1alpha2
-kind: ClusterFilter
-metadata:
-  labels:
-    fluentbit.gardener/type: "seed"
-    fluentbit.gardener.cloud/type: "seed"
-  name: lb-readvertiser-aws-lb-readvertiser
-spec:
-  filters:
-  - parser:
-      keyName: log
-      parser: lb-readvertiser-parser
-      reserveData: true
-  match: kubernetes.*lb-readvertiser*aws-lb-readvertiser*
-{{- end}}

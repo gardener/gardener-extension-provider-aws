@@ -26,8 +26,6 @@ const (
 	// represents the maximum number of volumes attachable for all nodes.
 	VolumeAttachLimit = "aws.provider.extensions.gardener.cloud/volume-attach-limit"
 
-	// AWSLBReadvertiserImageName is the name of the AWSLBReadvertiser image.
-	AWSLBReadvertiserImageName = "aws-lb-readvertiser"
 	// CloudControllerManagerImageName is the name of the cloud-controller-manager image.
 	CloudControllerManagerImageName = "cloud-controller-manager"
 	// AWSCustomRouteControllerImageName is the name of the aws-custom-route-controller image.
@@ -131,8 +129,6 @@ const (
 	CSINodeDriverRegistrarName = "csi-node-driver-registrar"
 	// CSILivenessProbeName is a constant for the name of the csi-liveness-probe component.
 	CSILivenessProbeName = "csi-liveness-probe"
-	// LBReadvertiserDeploymentName is the constant for the name of the AWS LB Readvertiser deployment
-	LBReadvertiserDeploymentName = "aws-lb-readvertiser"
 	// CSISnapshotValidationName is the constant for the name of the csi-snapshot-validation-webhook component.
 	CSISnapshotValidationName = "csi-snapshot-validation"
 	// CSIVolumeModifierName is the constant for the name of the csi-volume-modifier.
