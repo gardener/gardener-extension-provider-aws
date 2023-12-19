@@ -4,6 +4,4 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SOURCE_PATH="$(dirname $0)/.."
-
-"$SOURCE_PATH"/vendor/github.com/gardener/gardener/hack/.ci/component_descriptor "$SOURCE_PATH"
+"$(dirname $0)"/hack/component_descriptor "$(dirname $0)"/..
