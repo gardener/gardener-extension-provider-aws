@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -75,10 +76,12 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensio
 		return err
 	}
 
+	stack := getIPStack(dns)
+
 	// Create or update DNS recordset
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
 	log.Info("Creating or updating DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
-	if err := awsClient.CreateOrUpdateDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
+	if err := awsClient.CreateOrUpdateDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl, stack); err != nil {
 		return wrapAWSClientError(err, fmt.Sprintf("could not create or update DNS recordset in zone %s with name %s, type %s, and values %v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values))
 	}
 
@@ -86,7 +89,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensio
 	if dns.Status.LastOperation == nil || dns.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeCreate {
 		name, recordType := dnsrecord.GetMetaRecordName(dns.Spec.Name), "TXT"
 		log.Info("Deleting meta DNS recordset", "zone", zone, "name", name, "type", recordType, "dnsrecord", kutil.ObjectName(dns))
-		if err := awsClient.DeleteDNSRecordSet(ctx, zone, name, recordType, nil, 0); err != nil {
+		if err := awsClient.DeleteDNSRecordSet(ctx, zone, name, recordType, nil, 0, stack); err != nil {
 			return wrapAWSClientError(err, fmt.Sprintf("could not delete meta DNS recordset in zone %s with name %s and type %s", zone, name, recordType))
 		}
 	}
@@ -115,10 +118,12 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, dns *extensionsv
 		return err
 	}
 
+	stack := getIPStack(dns)
+
 	// Delete DNS recordset
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
 	log.Info("Deleting DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
-	if err := awsClient.DeleteDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl); err != nil {
+	if err := awsClient.DeleteDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl, stack); err != nil {
 		return wrapAWSClientError(err, fmt.Sprintf("could not delete DNS recordset in zone %s with name %s, type %s, and values %v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values))
 	}
 
@@ -185,4 +190,15 @@ func wrapAWSClientError(err error, message string) error {
 		}
 	}
 	return wrappedErr
+}
+
+func getIPStack(dns *extensionsv1alpha1.DNSRecord) awsclient.IPStack {
+	switch dns.Annotations[awsapi.AnnotationKeyIPStack] {
+	case string(awsclient.IPStackIPv6):
+		return awsclient.IPStackIPv6
+	case string(awsclient.IPStackIPDualStack):
+		return awsclient.IPStackIPDualStack
+	default:
+		return awsclient.IPStackIPv4
+	}
 }

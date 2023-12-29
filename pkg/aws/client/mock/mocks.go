@@ -196,17 +196,17 @@ func (mr *MockInterfaceMockRecorder) CreateNATGateway(arg0, arg1 interface{}) *g
 }
 
 // CreateOrUpdateDNSRecordSet mocks base method.
-func (m *MockInterface) CreateOrUpdateDNSRecordSet(arg0 context.Context, arg1, arg2, arg3 string, arg4 []string, arg5 int64) error {
+func (m *MockInterface) CreateOrUpdateDNSRecordSet(arg0 context.Context, arg1, arg2, arg3 string, arg4 []string, arg5 int64, arg6 client.IPStack) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateOrUpdateDNSRecordSet", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "CreateOrUpdateDNSRecordSet", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateOrUpdateDNSRecordSet indicates an expected call of CreateOrUpdateDNSRecordSet.
-func (mr *MockInterfaceMockRecorder) CreateOrUpdateDNSRecordSet(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateOrUpdateDNSRecordSet(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrUpdateDNSRecordSet", reflect.TypeOf((*MockInterface)(nil).CreateOrUpdateDNSRecordSet), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrUpdateDNSRecordSet", reflect.TypeOf((*MockInterface)(nil).CreateOrUpdateDNSRecordSet), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // CreateRoute mocks base method.
@@ -357,17 +357,17 @@ func (mr *MockInterfaceMockRecorder) DeleteBucketIfExists(arg0, arg1 interface{}
 }
 
 // DeleteDNSRecordSet mocks base method.
-func (m *MockInterface) DeleteDNSRecordSet(arg0 context.Context, arg1, arg2, arg3 string, arg4 []string, arg5 int64) error {
+func (m *MockInterface) DeleteDNSRecordSet(arg0 context.Context, arg1, arg2, arg3 string, arg4 []string, arg5 int64, arg6 client.IPStack) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteDNSRecordSet", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "DeleteDNSRecordSet", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteDNSRecordSet indicates an expected call of DeleteDNSRecordSet.
-func (mr *MockInterfaceMockRecorder) DeleteDNSRecordSet(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteDNSRecordSet(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDNSRecordSet", reflect.TypeOf((*MockInterface)(nil).DeleteDNSRecordSet), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDNSRecordSet", reflect.TypeOf((*MockInterface)(nil).DeleteDNSRecordSet), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // DeleteEC2Tags mocks base method.
