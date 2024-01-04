@@ -113,7 +113,7 @@ func NewAdmissionCommand(ctx context.Context) *cobra.Command {
 				managerOptions.LeaderElectionConfig = sourceClusterConfig
 			}
 
-			mgr, err := manager.New(restOpts.Completed().Config, mgrOpts.Completed().Options())
+			mgr, err := manager.New(restOpts.Completed().Config, managerOptions)
 			if err != nil {
 				return fmt.Errorf("could not instantiate manager: %w", err)
 			}
