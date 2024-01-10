@@ -17,7 +17,7 @@ package v1alpha1
 import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
@@ -45,13 +45,13 @@ func SetDefaults_Storage(obj *Storage) {
 // SetDefaults_RegionAMIMapping set the architecture of machine ami image.
 func SetDefaults_RegionAMIMapping(obj *RegionAMIMapping) {
 	if obj.Architecture == nil {
-		obj.Architecture = pointer.String(v1beta1constants.ArchitectureAMD64)
+		obj.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
 	}
 }
 
 // SetDefaults_MachineImage set the architecture of machine image.
 func SetDefaults_MachineImage(obj *MachineImage) {
 	if obj.Architecture == nil {
-		obj.Architecture = pointer.String(v1beta1constants.ArchitectureAMD64)
+		obj.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
 	}
 }

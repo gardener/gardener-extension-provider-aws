@@ -17,7 +17,9 @@ package controlplane
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"regexp"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/coreos/go-systemd/v22/unit"
@@ -35,23 +37,36 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	kubeletconfigv1 "k8s.io/kubelet/config/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
+const (
+	ecrCredentialConfigLocation = "/opt/gardener/ecr-credential-provider-config.json"
+	ecrCredentialBinLocation    = "/opt/bin/"
+)
+
 // NewEnsurer creates a new controlplane ensurer.
-func NewEnsurer(logger logr.Logger) genericmutator.Ensurer {
+func NewEnsurer(logger logr.Logger, client client.Client, nodeAgentEnabled bool) genericmutator.Ensurer {
 	return &ensurer{
-		logger: logger.WithName("aws-controlplane-ensurer"),
+		logger:           logger.WithName("aws-controlplane-ensurer"),
+		client:           client,
+		nodeAgentEnabled: nodeAgentEnabled,
 	}
 }
 
 type ensurer struct {
 	genericmutator.NoopEnsurer
-	logger logr.Logger
+	logger           logr.Logger
+	client           client.Client
+	nodeAgentEnabled bool
 }
 
 // ImageVector is exposed for testing.
@@ -331,10 +346,40 @@ func (e *ensurer) ensureChecksumAnnotations(template *corev1.PodTemplateSpec) er
 }
 
 // EnsureKubeletServiceUnitOptions ensures that the kubelet.service unit options conform to the provider requirements.
-func (e *ensurer) EnsureKubeletServiceUnitOptions(_ context.Context, _ gcontext.GardenContext, _ *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
+func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
 	if opt := extensionswebhook.UnitOptionWithSectionAndName(newObj, "Service", "ExecStart"); opt != nil {
 		command := extensionswebhook.DeserializeCommandLine(opt.Value)
-		command = ensureKubeletCommandLineArgs(command)
+		command = extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
+
+		cluster, err := gctx.GetCluster(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		k8sGreaterEqual127, err := versionutils.CompareVersions(kubeletVersion.String(), ">=", "1.27")
+		if err != nil {
+			return nil, err
+		}
+
+		// the ECR feature only works with node agent.
+		if e.nodeAgentEnabled && k8sGreaterEqual127 {
+			infra := &extensionsv1alpha1.Infrastructure{}
+			if err := e.client.Get(ctx, client.ObjectKey{
+				Namespace: cluster.ObjectMeta.Name,
+				Name:      cluster.Shoot.Name,
+			}, infra); err != nil {
+				return nil, err
+			}
+			infraConfig, err := helper.InfrastructureConfigFromInfrastructure(infra)
+			if err != nil {
+				return nil, err
+			}
+
+			if ptr.Deref(infraConfig.EnableECRAccess, true) {
+				command = ensureKubeletECRProviderCommandLineArgs(command)
+			}
+		}
+
 		opt.Value = extensionswebhook.SerializeCommandLine(command, 1, " \\\n    ")
 	}
 
@@ -347,8 +392,10 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(_ context.Context, _ gcontext.
 	return newObj, nil
 }
 
-func ensureKubeletCommandLineArgs(command []string) []string {
-	return extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
+func ensureKubeletECRProviderCommandLineArgs(command []string) []string {
+	command = extensionswebhook.EnsureStringWithPrefix(command, "--image-credential-provider-config=", ecrCredentialConfigLocation)
+	command = extensionswebhook.EnsureStringWithPrefix(command, "--image-credential-provider-bin-dir=", ecrCredentialBinLocation)
+	return command
 }
 
 // EnsureKubeletConfiguration ensures that the kubelet configuration conforms to the provider requirements.
@@ -418,8 +465,74 @@ ExecStart=/opt/bin/mtu-customizer.sh
 	return nil
 }
 
-// EnsureAdditionalFiles ensures that additional required system files are added.
-func (e *ensurer) EnsureAdditionalFiles(_ context.Context, _ gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.File) error {
+func (e *ensurer) credentialProviderBinaryFile() (*extensionsv1alpha1.File, error) {
+	image, err := imagevector.ImageVector().FindImage(aws.ECRCredentialProviderImageName)
+	if err != nil {
+		return nil, err
+	}
+	config := &extensionsv1alpha1.File{
+		Path:        v1beta1constants.OperatingSystemConfigFilePathBinaries + "/ecr-credential-provider",
+		Permissions: pointer.Int32(0755),
+		Content: extensionsv1alpha1.FileContent{
+			ImageRef: &extensionsv1alpha1.FileContentImageRef{
+
+				Image:           image.String(),
+				FilePathInImage: "/bin/ecr-credential-provider",
+			},
+		},
+	}
+	return config, nil
+}
+
+func (e *ensurer) credentialProviderConfigFile() (*extensionsv1alpha1.File, error) {
+	var (
+		permissions int32 = 0755
+	)
+	cacheDuration, err := time.ParseDuration("1h")
+	if err != nil {
+		return nil, err
+	}
+	credentialProvider := kubeletconfigv1.CredentialProvider{
+		APIVersion: "credentialprovider.kubelet.k8s.io/v1",
+		Name:       "ecr-credential-provider",
+		// The hardcoded list is generated from the set between the official documentation and some kubernetes files:
+		// https://cloud-provider-aws.sigs.k8s.io/credential_provider/
+		// https://github.com/kubernetes/kubernetes/blob/master/test/e2e_node/remote/utils.go#L65
+		MatchImages: []string{
+			"*.dkr.ecr.*.amazonaws.com",
+			"*.dkr.ecr.*.amazonaws.com.cn",
+			"*.dkr.ecr-fips.*.amazonaws.com",
+			"*.dkr.ecr.us-iso-east-1.c2s.ic.gov",
+			"*.dkr.ecr.us-isob-east-1.sc2s.sgov.gov",
+		},
+		DefaultCacheDuration: &metav1.Duration{Duration: cacheDuration},
+	}
+	config := kubeletconfigv1.CredentialProviderConfig{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: kubeletconfigv1.SchemeGroupVersion.String(),
+			Kind:       "CredentialProviderConfig",
+		},
+		Providers: []kubeletconfigv1.CredentialProvider{
+			credentialProvider,
+		},
+	}
+
+	configJson, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	return &extensionsv1alpha1.File{
+		Path:        ecrCredentialConfigLocation,
+		Permissions: &permissions,
+		Content: extensionsv1alpha1.FileContent{
+			Inline: &extensionsv1alpha1.FileContentInline{
+				Data: string(configJson),
+			},
+		},
+	}, nil
+}
+
+func (e *ensurer) ensureMTUFiles() extensionsv1alpha1.File {
 	var (
 		permissions       int32 = 0755
 		customFileContent       = `#!/bin/sh
@@ -440,7 +553,7 @@ done
 `
 	)
 
-	*newObj = extensionswebhook.EnsureFileWithPath(*newObj, extensionsv1alpha1.File{
+	return extensionsv1alpha1.File{
 		Path:        "/opt/bin/mtu-customizer.sh",
 		Permissions: &permissions,
 		Content: extensionsv1alpha1.FileContent{
@@ -449,6 +562,54 @@ done
 				Data:     customFileContent,
 			},
 		},
-	})
+	}
+}
+
+// EnsureAdditionalFiles ensures that additional required system files are added.
+func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.File) error {
+	*newObj = extensionswebhook.EnsureFileWithPath(*newObj, e.ensureMTUFiles())
+
+	cluster, err := gctx.GetCluster(ctx)
+	if err != nil {
+		return err
+	}
+
+	k8sGreaterEqual127, err := versionutils.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", "1.27")
+	if err != nil {
+		return err
+	}
+
+	// return early
+	if !(e.nodeAgentEnabled && k8sGreaterEqual127) {
+		return nil
+	}
+
+	infra := &extensionsv1alpha1.Infrastructure{}
+	if err := e.client.Get(ctx, client.ObjectKey{
+		Namespace: cluster.ObjectMeta.Name,
+		Name:      cluster.Shoot.Name,
+	}, infra); err != nil {
+		return err
+	}
+
+	infraConfig, err := helper.InfrastructureConfigFromInfrastructure(infra)
+	if err != nil {
+		return err
+	}
+
+	if ptr.Deref(infraConfig.EnableECRAccess, true) {
+		binConfig, err := e.credentialProviderBinaryFile()
+		if err != nil {
+			return err
+		}
+		credConfig, err := e.credentialProviderConfigFile()
+		if err != nil {
+			return err
+		}
+
+		*newObj = extensionswebhook.EnsureFileWithPath(*newObj, *binConfig)
+		*newObj = extensionswebhook.EnsureFileWithPath(*newObj, *credConfig)
+	}
+
 	return nil
 }

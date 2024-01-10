@@ -58,6 +58,8 @@ const (
 	MachineControllerManagerProviderAWSImageName = "machine-controller-manager-provider-aws"
 	// TerraformerImageName is the name of the Terraformer image.
 	TerraformerImageName = "terraformer"
+	// ECRCredentialHelperImageName image is the name of the image containing the ecr-credential-helper binary.
+	ECRCredentialProviderImageName = "ecr-credential-provider"
 
 	// AccessKeyID is a constant for the key in a cloud provider secret and backup secret that holds the AWS access key id.
 	AccessKeyID = "accessKeyID"

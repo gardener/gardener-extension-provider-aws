@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
@@ -128,7 +129,7 @@ outerDelete:
 			// ignore VPC endpoint route table associations
 			continue outerDelete
 		}
-		routeCidrBlock := pointer.StringDeref(cr.DestinationCidrBlock, "")
+		routeCidrBlock := ptr.Deref(cr.DestinationCidrBlock, "")
 		found := false
 		for _, cidr := range controlledCidrBlocks {
 			if routeCidrBlock == cidr {

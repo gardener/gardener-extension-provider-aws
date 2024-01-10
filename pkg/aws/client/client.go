@@ -45,7 +45,7 @@ import (
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -1216,7 +1216,7 @@ func (c *Client) DeleteInternetGateway(ctx context.Context, id string) error {
 func (c *Client) CreateVpcEndpoint(ctx context.Context, endpoint *VpcEndpoint) (*VpcEndpoint, error) {
 	input := &ec2.CreateVpcEndpointInput{
 		ServiceName: aws.String(endpoint.ServiceName),
-		//TagSpecifications: endpoint.ToTagSpecifications(ec2.ResourceTypeClientVpnEndpoint),
+		// TagSpecifications: endpoint.ToTagSpecifications(ec2.ResourceTypeClientVpnEndpoint),
 		VpcId: endpoint.VpcId,
 	}
 	output, err := c.EC2.CreateVpcEndpointWithContext(ctx, input)
@@ -1224,7 +1224,7 @@ func (c *Client) CreateVpcEndpoint(ctx context.Context, endpoint *VpcEndpoint) (
 		return nil, err
 	}
 	return &VpcEndpoint{
-		//Tags:          FromTags(output.VpcEndpoint.Tags),
+		// Tags:          FromTags(output.VpcEndpoint.Tags),
 		VpcEndpointId: aws.StringValue(output.VpcEndpoint.VpcEndpointId),
 		VpcId:         output.VpcEndpoint.VpcId,
 		ServiceName:   aws.StringValue(output.VpcEndpoint.ServiceName),
@@ -2094,7 +2094,7 @@ func fromIpPermission(groupId string, ipPerm *ec2.IpPermission, ruleType Securit
 		if err != nil {
 			return nil, err
 		}
-		rule.Foreign = pointer.String(string(data))
+		rule.Foreign = ptr.To(string(data))
 	}
 	return rule, nil
 }
