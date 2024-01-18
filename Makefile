@@ -87,8 +87,8 @@ start-admission:
         $(WEBHOOK_PARAM)
 
 .PHONY: hook-me
-hook-me:
-	bash $(GARDENER_HACK_DIR)/hook-me.sh $(EXTENSION_NAMESPACE) $$(kubectl get namespace | grep $(NAME) | head -n1| cut -d" " -f1) $(WEBHOOK_CONFIG_PORT)
+hook-me: $(KUBECTL)
+	bash $(GARDENER_HACK_DIR)/hook-me.sh $(EXTENSION_NAMESPACE) $$(kubectl get namespace -o custom-columns=NAME:.metadata.name | grep $(NAME) | head -n1) $(WEBHOOK_CONFIG_PORT)
 
 #################################################################
 # Rules related to binary build, Docker image build and release #
