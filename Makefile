@@ -71,7 +71,6 @@ start:
 		--gardener-version="v1.39.0" \
 		--heartbeat-namespace=$(EXTENSION_NAMESPACE) \
 		--heartbeat-renew-interval-seconds=30 \
-		--gardenlet-manages-mcm=true \
 		--webhook-config-service-port=443 \
 		--metrics-bind-address=:8080 \
 		--health-bind-address=:8081 \
