@@ -68,7 +68,8 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructur
 	if err != nil {
 		return err
 	}
-	return updateProviderStatusTf(ctx, a.client, infrastructure, infrastructureStatus, state)
+
+	return a.updateProviderStatusTf(ctx, a.client, infrastructure, infrastructureStatus, state)
 }
 
 // shouldUseFlow checks if flow reconciliation should be used, by any of these conditions:
@@ -208,7 +209,30 @@ func (a *actuator) updateStatusState(ctx context.Context, infra *extensionsv1alp
 		return err
 	}
 
-	return updateProviderStatus(ctx, a.client, infra, infrastructureStatus, stateBytes)
+	egressCIDRs, err := a.computeEgressCIDRs(ctx, infra)
+	if err != nil {
+		return err
+	}
+	return updateProviderStatus(ctx, a.client, infra, infrastructureStatus, stateBytes, egressCIDRs)
+}
+
+func (a *actuator) computeEgressCIDRs(ctx context.Context, infra *extensionsv1alpha1.Infrastructure) ([]string, error) {
+	awsClient, err := aws.NewClientFromSecretRef(ctx, a.client, infra.Spec.SecretRef, infra.Spec.Region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new AWS client: %w", err)
+	}
+
+	var egressIPs []string
+	nats, err := awsClient.FindNATGatewaysByTags(ctx, map[string]string{
+		fmt.Sprintf(infraflow.TagKeyClusterTemplate, infra.Namespace): infraflow.TagValueCluster,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, nat := range nats {
+		egressIPs = append(egressIPs, fmt.Sprintf("%s/32", nat.PublicIP))
+	}
+	return egressIPs, nil
 }
 
 func computeProviderStatusFromFlowState(config *awsapi.InfrastructureConfig, state *infraflow.PersistentState) (*awsv1alpha1.InfrastructureStatus, error) {
@@ -464,7 +488,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	return terraformInfraConfig, nil
 }
 
-func updateProviderStatusTf(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, state *terraformer.RawState) error {
+func (a *actuator) updateProviderStatusTf(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, state *terraformer.RawState) error {
 	var stateBytes []byte
 	if state != nil {
 		var err error
@@ -473,14 +497,19 @@ func updateProviderStatusTf(ctx context.Context, c client.Client, infrastructure
 			return err
 		}
 	}
-	return updateProviderStatus(ctx, c, infrastructure, infrastructureStatus, stateBytes)
+
+	egressCIDRs, err := a.computeEgressCIDRs(ctx, infrastructure)
+	if err != nil {
+		return err
+	}
+	return updateProviderStatus(ctx, c, infrastructure, infrastructureStatus, stateBytes, egressCIDRs)
 }
 
-func updateProviderStatus(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, stateBytes []byte) error {
-
+func updateProviderStatus(ctx context.Context, c client.Client, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureStatus *awsv1alpha1.InfrastructureStatus, stateBytes []byte, egressCIDRs []string) error {
 	patch := client.MergeFrom(infrastructure.DeepCopy())
 	infrastructure.Status.ProviderStatus = &runtime.RawExtension{Object: infrastructureStatus}
 	infrastructure.Status.State = &runtime.RawExtension{Raw: stateBytes}
+	infrastructure.Status.EgressCIDRs = egressCIDRs
 	return c.Status().Patch(ctx, infrastructure, patch)
 }
 
