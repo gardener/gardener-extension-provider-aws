@@ -90,6 +90,12 @@ spec:
         env:
           - name: ADDRESS
             value: {{ .Values.socketPath }}/csi.sock
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            value: "kube-system"
         resources:
 {{ toYaml .Values.resources.volumeModifier| indent 10 }}
         securityContext:
