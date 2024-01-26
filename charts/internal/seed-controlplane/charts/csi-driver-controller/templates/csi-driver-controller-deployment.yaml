@@ -88,6 +88,15 @@ spec:
           - --leader-election
           - --leader-election-namespace=kube-system
         env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          # while this is named aptly as POD_NAMESPACE it is only used to filter the namespace for the lease informer. Since
+          # our control plane lives on a different cluster using the actual pod namespace does not make sense. Instead we use
+          # the place where the external-resizer creates its lease.
+          - name: POD_NAMESPACE
+            value: "kube-system"
           - name: ADDRESS
             value: {{ .Values.socketPath }}/csi.sock
         resources:
