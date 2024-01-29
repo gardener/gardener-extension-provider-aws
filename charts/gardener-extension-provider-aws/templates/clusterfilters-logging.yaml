@@ -19,36 +19,6 @@ metadata:
   labels:
     fluentbit.gardener/type: "seed"
     fluentbit.gardener.cloud/type: "seed"
-  name: machine-controller-manager-aws-machine-controller-manager
-spec:
-  filters:
-  - parser:
-      keyName: log
-      parser: kube-apiserver-parser
-      reserveData: true
-  match: kubernetes.*machine-controller-manager*aws-machine-controller-manager*
----
-apiVersion: fluentbit.fluent.io/v1alpha2
-kind: ClusterFilter
-metadata:
-  labels:
-    fluentbit.gardener/type: "seed"
-    fluentbit.gardener.cloud/type: "seed"
-  name: machine-controller-manager-machine-controller-manager-provider-aws
-spec:
-  filters:
-  - parser:
-      keyName: log
-      parser: kube-apiserver-parser
-      reserveData: true
-  match: kubernetes.*machine-controller-manager*machine-controller-manager-provider-aws*
----
-apiVersion: fluentbit.fluent.io/v1alpha2
-kind: ClusterFilter
-metadata:
-  labels:
-    fluentbit.gardener/type: "seed"
-    fluentbit.gardener.cloud/type: "seed"
   name: csi-driver-controller-aws-csi
 spec:
   filters:
