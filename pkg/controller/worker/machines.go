@@ -191,6 +191,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 					InstanceType: pool.MachineType,
 					Region:       w.worker.Spec.Region,
 					Zone:         zone,
+					Architecture: &arch,
 				}
 			} else if pool.NodeTemplate != nil {
 				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
@@ -198,6 +199,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 					InstanceType: pool.MachineType,
 					Region:       w.worker.Spec.Region,
 					Zone:         zone,
+					Architecture: &arch,
 				}
 			}
 
