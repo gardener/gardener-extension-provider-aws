@@ -75,6 +75,8 @@ const (
 	IdentifierZoneSubnetWorkersRouteTableAssoc = "SubnetWorkersRouteTableAssoc"
 	// IdentifierVpcIPv6CidrBlock is the IPv6 CIDR block attached to the vpc
 	IdentifierVpcIPv6CidrBlock = "VPCIPv6CidrBlock"
+	// IdentifierEgressCIDRs is the key for the slice containing egress CIDRs strings.
+	IdentifierEgressCIDRs = "EgressCIDRs"
 	// NameIAMRole is the key for the name of the IAM role
 	NameIAMRole = "IAMRoleName"
 	// NameIAMInstanceProfile is the key for the name of the IAM instance profile

@@ -87,9 +87,13 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 		c.ensureNodesSecurityGroup,
 		Timeout(defaultTimeout), Dependencies(ensureVpc))
 
-	_ = c.AddTask(g, "ensure zones resources",
+	ensureZones := c.AddTask(g, "ensure zones resources",
 		c.ensureZones,
 		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
+
+	_ = c.AddTask(g, "ensure egress CIDRs",
+		c.ensureEgressCIDRs,
+		Timeout(defaultLongTimeout), Dependencies(ensureZones))
 
 	ensureIAMRole := c.AddTask(g, "ensure IAM role",
 		c.ensureIAMRole,
@@ -544,6 +548,22 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
+	var egressIPs []string
+	tags := awsclient.Tags{
+		c.tagKeyCluster(): TagValueCluster,
+	}
+	nats, err := c.client.FindNATGatewaysByTags(ctx, tags)
+	if err != nil {
+		return err
+	}
+	for _, nat := range nats {
+		egressIPs = append(egressIPs, fmt.Sprintf("%s/32", nat.PublicIP))
+	}
+	c.state.Set(IdentifierEgressCIDRs, strings.Join(egressIPs, ","))
 	return nil
 }
 

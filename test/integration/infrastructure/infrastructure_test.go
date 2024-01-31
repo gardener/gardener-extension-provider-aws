@@ -1246,6 +1246,17 @@ func verifyCreation(
 	}))
 	infrastructureIdentifier.natGatewayID = describeNatGatewaysOutput.NatGateways[0].NatGatewayId
 
+	var egressCIDRs []string
+	for _, ngo := range describeNatGatewaysOutput.NatGateways {
+		for _, nga := range ngo.NatGatewayAddresses {
+			if nga.PublicIp != nil {
+				egressCIDRs = append(egressCIDRs, fmt.Sprintf("%s/32", *nga.PublicIp))
+
+			}
+		}
+	}
+	Expect(infra.Status.EgressCIDRs).To(ConsistOf(egressCIDRs))
+
 	// route tables + routes
 
 	describeRouteTablesOutput, err := awsClient.EC2.DescribeRouteTablesWithContext(ctx, &ec2.DescribeRouteTablesInput{Filters: vpcIDFilter})

@@ -103,7 +103,7 @@ func (a *actuator) migrateFromTerraformerState(ctx context.Context, log logr.Log
 		return nil, fmt.Errorf("migration from terraform state failed: %w", err)
 	}
 
-	if err := a.updateStatusState(ctx, infrastructure, state); err != nil {
+	if err := a.updateStatusState(ctx, infrastructure, state, nil); err != nil {
 		return nil, fmt.Errorf("updating status state failed: %w", err)
 	}
 	log.Info("terraform state migrated successfully")
@@ -127,7 +127,7 @@ func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
 			return nil, fmt.Errorf("cleaning up terraformer resources failed: %w", err)
 		}
 		oldState.SetTerraformCleanedUp()
-		if err := a.updateStatusState(ctx, infrastructure, oldState); err != nil {
+		if err := a.updateStatusState(ctx, infrastructure, oldState, nil); err != nil {
 			return nil, fmt.Errorf("updating status state failed: %w", err)
 		}
 	}
@@ -152,7 +152,12 @@ func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
 		if err := a.client.Get(ctx, infraObjectKey, infra); err != nil {
 			return err
 		}
-		return a.updateStatusState(ctx, infra, state)
+
+		var egressCIDRs []string
+		if v, ok := flatState[infraflow.IdentifierEgressCIDRs]; ok {
+			egressCIDRs = strings.Split(v, ",")
+		}
+		return a.updateStatusState(ctx, infra, state, egressCIDRs)
 	}
 
 	var oldFlatState shared.FlatMap
@@ -193,7 +198,7 @@ func (a *actuator) reconcileWithFlow(ctx context.Context, log logr.Logger, infra
 	return flowContext.PersistState(ctx, true)
 }
 
-func (a *actuator) updateStatusState(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, state *infraflow.PersistentState) error {
+func (a *actuator) updateStatusState(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, state *infraflow.PersistentState, egressCIDRs []string) error {
 	infrastructureConfig, err := a.decodeInfrastructureConfig(infra)
 	if err != nil {
 		return err
@@ -209,10 +214,10 @@ func (a *actuator) updateStatusState(ctx context.Context, infra *extensionsv1alp
 		return err
 	}
 
-	egressCIDRs, err := a.computeEgressCIDRs(ctx, infra)
-	if err != nil {
-		return err
+	if egressCIDRs == nil {
+		egressCIDRs = infra.Status.EgressCIDRs
 	}
+
 	return updateProviderStatus(ctx, a.client, infra, infrastructureStatus, stateBytes, egressCIDRs)
 }
 
