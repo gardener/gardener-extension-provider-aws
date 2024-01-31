@@ -410,11 +410,14 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		}
 		vpcID = strconv.Quote(existingVpcID)
 		internetGatewayID = strconv.Quote(existingInternetGatewayID)
-		existingIPv6CidrBlock, err := awsClient.WaitForIPv6Cidr(ctx, existingVpcID)
-		if err != nil {
-			return nil, err
+		// if dual stack is enabled, then we wait for until the target VPC has a ipv6 CIDR assigned.
+		if infrastructureConfig.DualStack != nil && infrastructureConfig.DualStack.Enabled {
+			existingIPv6CidrBlock, err := awsClient.WaitForIPv6Cidr(ctx, existingVpcID)
+			if err != nil {
+				return nil, err
+			}
+			ipv6CidrBlock = strconv.Quote(existingIPv6CidrBlock)
 		}
-		ipv6CidrBlock = strconv.Quote(existingIPv6CidrBlock)
 
 	case infrastructureConfig.Networks.VPC.CIDR != nil:
 		vpcCIDR = *infrastructureConfig.Networks.VPC.CIDR
