@@ -506,6 +506,9 @@ func (a *actuator) updateProviderStatusTf(ctx context.Context, c client.Client, 
 		}
 	}
 
+	// For the TF reconciler, we will compute the NAT Gateway IPs using an external call. If the credentials were incorrect,
+	// or another error prevented a successful terraformer run, the error would reported before the updateProviderStatusTf.
+	// Hence we can freely make the external API call to get the NAT Gateways here.
 	egressCIDRs, err := a.computeEgressCIDRs(ctx, infrastructure)
 	if err != nil {
 		return err
