@@ -440,7 +440,7 @@ done
 `
 	)
 
-	appendUniqueFile(newObj, extensionsv1alpha1.File{
+	*newObj = extensionswebhook.EnsureFileWithPath(*newObj, extensionsv1alpha1.File{
 		Path:        "/opt/bin/mtu-customizer.sh",
 		Permissions: &permissions,
 		Content: extensionsv1alpha1.FileContent{
@@ -451,17 +451,4 @@ done
 		},
 	})
 	return nil
-}
-
-// appendUniqueFile appends a unit file only if it does not exist, otherwise overwrite content of previous files
-func appendUniqueFile(files *[]extensionsv1alpha1.File, file extensionsv1alpha1.File) {
-	resFiles := make([]extensionsv1alpha1.File, 0, len(*files))
-
-	for _, f := range *files {
-		if f.Path != file.Path {
-			resFiles = append(resFiles, f)
-		}
-	}
-
-	*files = append(resFiles, file)
 }
