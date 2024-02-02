@@ -59,7 +59,8 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 			return err
 		}
 	}
-
+	fmt.Println(">>>>>>>>>>>>>>>>> MCC <<<<<<<<<<<<<<<<")
+	fmt.Println(w.machineClasses)
 	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join(charts.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 
@@ -172,6 +173,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 			}
 
 			if workerConfig.NodeTemplate != nil {
+				fmt.Println(">>>>>>>>>>>>> In WorkerConfig <<<<<<<<<<<<<")
 				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
 					Capacity:     workerConfig.NodeTemplate.Capacity,
 					InstanceType: pool.MachineType,
@@ -180,6 +182,7 @@ func (w *workerDelegate) generateMachineConfig() error {
 					Architecture: &arch,
 				}
 			} else if pool.NodeTemplate != nil {
+				fmt.Println(">>>>>>>>>>>>> In Pool <<<<<<<<<<<<<")
 				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
 					Capacity:     pool.NodeTemplate.Capacity,
 					InstanceType: pool.MachineType,
