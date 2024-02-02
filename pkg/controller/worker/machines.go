@@ -35,6 +35,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	"sigs.k8s.io/yaml"
 )
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
@@ -52,6 +53,15 @@ func (w *workerDelegate) MachineClass() client.Object {
 	return &machinev1alpha1.MachineClass{}
 }
 
+func PrettyPrintObject(obj interface{}) error {
+	d, err := yaml.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	fmt.Print(string(d))
+	return nil
+}
+
 // DeployMachineClasses generates and creates the AWS specific machine classes.
 func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 	if w.machineClasses == nil {
@@ -60,7 +70,9 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 		}
 	}
 	fmt.Println(">>>>>>>>>>>>>>>>> MCC <<<<<<<<<<<<<<<<")
-	fmt.Println(w.machineClasses)
+	fmt.Println(PrettyPrintObject(w.machineClasses))
+	fmt.Println(">>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<")
+	//fmt.Println((w.machineClasses[0]["nodeTemplate"]).(machinev1alpha1.NodeTemplate).Architecture)
 	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join(charts.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 
