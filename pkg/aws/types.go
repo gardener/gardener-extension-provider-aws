@@ -67,6 +67,14 @@ const (
 	SharedCredentialsFile = "credentialsFile"
 	// Region is a constant for the key in a backup secret that holds the AWS region.
 	Region = "region"
+	// Endpoint is a custom endpoint to use for example for S3 compatible storage
+	Endpoint = "endpoint"
+	// Boolean for enabling path-style addressing for S3 compatible storage
+	S3ForcePathStyle = "s3ForcePathStyle"
+	// InsecureSkipVerify controls whether a client verifies the server's certificate chain and host name
+	InsecureSkipVerify = "insecureSkipVerify"
+	// RootCA to be added to the list of root certificate authorities that clients use when verifying server certificates
+	TrustedCaCert = "trustedCaCert"
 	// DNSAccessKeyID is a constant for the key in a DNS secret that holds the AWS access key id.
 	DNSAccessKeyID = "AWS_ACCESS_KEY_ID"
 	// DNSSecretAccessKey is a constant for the key in a DNS secret that holds the AWS secret access key.
@@ -136,7 +144,11 @@ var (
 
 // Credentials stores AWS credentials.
 type Credentials struct {
-	AccessKeyID     []byte
-	SecretAccessKey []byte
-	Region          []byte
+	AccessKeyID        []byte
+	SecretAccessKey    []byte
+	Region             []byte
+	Endpoint           []byte
+	S3ForcePathStyle   bool
+	InsecureSkipVerify bool
+	TrustedCaCert      []byte
 }

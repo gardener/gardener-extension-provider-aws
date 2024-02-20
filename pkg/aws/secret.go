@@ -17,6 +17,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -59,10 +60,24 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*Credentia
 
 	region, _ := getSecretDataValue(secret, Region, altRegionKey, false)
 
+	endpoint, _ := getSecretDataValue(secret, Endpoint, nil, false)
+
+	s3ForcePathStyle, _ := getSecretDataValue(secret, S3ForcePathStyle, nil, false)
+	s3ForcePathStyleBool, _ := strconv.ParseBool(string(s3ForcePathStyle))
+
+	insecureSkipVerify, _ := getSecretDataValue(secret, InsecureSkipVerify, nil, false)
+	insecureSkipVerifyBool, _ := strconv.ParseBool(string(insecureSkipVerify))
+
+	trustedCaCert, _ := getSecretDataValue(secret, TrustedCaCert, nil, false)
+
 	return &Credentials{
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		Region:          region,
+		AccessKeyID:        accessKeyID,
+		SecretAccessKey:    secretAccessKey,
+		Region:             region,
+		Endpoint:           endpoint,
+		S3ForcePathStyle:   s3ForcePathStyleBool,
+		InsecureSkipVerify: insecureSkipVerifyBool,
+		TrustedCaCert:      trustedCaCert,
 	}, nil
 }
 
@@ -73,7 +88,20 @@ func NewClientFromSecretRef(ctx context.Context, client client.Client, secretRef
 	if err != nil {
 		return nil, err
 	}
-	return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), region)
+
+	if credentials.Endpoint != nil {
+		return awsclient.NewS3CompatClient(
+			string(credentials.AccessKeyID),
+			string(credentials.SecretAccessKey),
+			region,
+			string(credentials.Endpoint),
+			credentials.TrustedCaCert,
+			credentials.S3ForcePathStyle,
+			credentials.InsecureSkipVerify,
+		)
+	} else {
+		return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), region)
+	}
 }
 
 func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, required bool) ([]byte, error) {

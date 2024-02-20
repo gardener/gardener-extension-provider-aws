@@ -16,8 +16,11 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"reflect"
 	"strings"
@@ -106,6 +109,55 @@ func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
 		Route53RateLimiterWaitTimeout: 1 * time.Second,
 		Logger:                        log.Log.WithName("aws-client"),
 		PollInterval:                  5 * time.Second,
+	}, nil
+}
+
+func NewS3CompatClient(accessKeyID, secretAccessKey, region string, endpoint string, trustedCaCert []byte, s3ForcePathStyle, insecureSkipVerify bool) (*Client, error) {
+	var (
+		awsConfig = &aws.Config{
+			Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
+		}
+		config = &aws.Config{
+			Region:           aws.String(region),
+			Endpoint:         &endpoint,
+			S3ForcePathStyle: &s3ForcePathStyle,
+		}
+	)
+
+	httpClient := http.DefaultClient
+
+	if insecureSkipVerify {
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: insecureSkipVerify,
+			},
+		}
+	}
+
+	if trustedCaCert != nil {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(trustedCaCert)
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:            caCertPool,
+				InsecureSkipVerify: false,
+				MinVersion:         tls.VersionTLS13,
+			},
+		}
+
+	}
+
+	config.HTTPClient = httpClient
+
+	s, err := session.NewSession(awsConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		S3:           s3.New(s, config),
+		Logger:       log.Log.WithName("aws-client"),
+		PollInterval: 5 * time.Second,
 	}, nil
 }
 
