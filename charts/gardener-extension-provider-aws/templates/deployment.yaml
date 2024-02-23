@@ -69,6 +69,10 @@ spec:
         - --webhook-config-server-port={{ .Values.webhookConfig.serverPort }}
         - --disable-controllers={{ .Values.disableControllers | join "," }}
         - --disable-webhooks={{ .Values.disableWebhooks | join "," }}
+        {{- if .Values.gardener.gardenlet.featureGates }}
+        - --gardenlet-uses-gardener-node-agent={{ .Values.gardener.gardenlet.featureGates.UseGardenerNodeAgent }}
+        {{- end }}
+
         {{- if .Values.metricsPort }}
         - --metrics-bind-address=:{{ .Values.metricsPort }}
         {{- end }}

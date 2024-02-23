@@ -28,6 +28,7 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 	testutils "github.com/gardener/gardener/pkg/utils/test"
 	"github.com/gardener/gardener/pkg/utils/version"
@@ -38,11 +39,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/gardener/gardener-extension-provider-aws/imagevector"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
@@ -56,6 +62,7 @@ func TestController(t *testing.T) {
 var _ = Describe("Ensurer", func() {
 	var (
 		ctrl *gomock.Controller
+		c    *mockclient.MockClient
 		ctx  = context.TODO()
 
 		dummyContext   = gcontext.NewGardenContext(nil, nil)
@@ -72,7 +79,13 @@ var _ = Describe("Ensurer", func() {
 		)
 		eContextK8s127 = gcontext.NewInternalGardenContext(
 			&extensionscontroller.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "shoot--project--foo",
+				},
 				Shoot: &gardencorev1beta1.Shoot{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
 					Spec: gardencorev1beta1.ShootSpec{
 						Kubernetes: gardencorev1beta1.Kubernetes{
 							Version: "1.27.1",
@@ -81,10 +94,34 @@ var _ = Describe("Ensurer", func() {
 				},
 			},
 		)
+		infraConfig    *v1alpha1.InfrastructureConfig
+		infrastructure *extensionsv1alpha1.Infrastructure
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
+		c = mockclient.NewMockClient(ctrl)
+
+		infraConfig = &v1alpha1.InfrastructureConfig{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: v1alpha1.SchemeGroupVersion.String(),
+				Kind:       "InfrastructureConfig",
+			},
+		}
+		infrastructure = &extensionsv1alpha1.Infrastructure{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: extensionsv1alpha1.SchemeGroupVersion.String(),
+				Kind:       "Infrastructure",
+			},
+			Spec: extensionsv1alpha1.InfrastructureSpec{
+				DefaultSpec: extensionsv1alpha1.DefaultSpec{
+					Type: aws.Type,
+					ProviderConfig: &runtime.RawExtension{
+						Object: infraConfig,
+					},
+				},
+			},
+		}
 	})
 
 	AfterEach(func() {
@@ -113,7 +150,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 		})
 
 		It("should add missing elements to kube-apiserver deployment (k8s < 1.27)", func() {
@@ -196,7 +233,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 		})
 
 		It("should add missing elements to kube-controller-manager deployment (k8s < 1.27)", func() {
@@ -274,7 +311,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 		})
 
 		It("should add missing elements to kube-scheduler deployment (k8s < 1.27)", func() {
@@ -314,7 +351,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 		})
 
 		It("should add missing elements to cluster-autoscaler deployment (>= 1.27)", func() {
@@ -355,20 +392,19 @@ ExecStart=/opt/bin/mtu-customizer.sh
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger)
+			ensurer := NewEnsurer(logger, c, true)
 
 			// Call EnsureAdditionalUnits method and check the result
-			err := ensurer.EnsureAdditionalUnits(ctx, dummyContext, &units, nil)
+			err := ensurer.EnsureAdditionalUnits(ctx, eContextK8s126, &units, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(units).To(ConsistOf(oldUnit, additionalUnit))
 		})
 	})
 
 	Describe("#EnsureAdditionalFiles", func() {
-		It("should add additional files to the current ones", func() {
-			var (
-				permissions       int32 = 0755
-				customFileContent       = `#!/bin/sh
+		var (
+			permissions       int32 = 0755
+			customFileContent       = `#!/bin/sh
 
 for interface_path in $(find /sys/class/net  -type l -print)
 do
@@ -384,9 +420,66 @@ do
 	ip link set dev ${interface} mtu 1460
 done
 `
+			ecrConfig = `{"kind":"CredentialProviderConfig","apiVersion":"kubelet.config.k8s.io/v1","providers":[{"name":"ecr-credential-provider","matchImages":["*.dkr.ecr.*.amazonaws.com","*.dkr.ecr.*.amazonaws.com.cn","*.dkr.ecr-fips.*.amazonaws.com","*.dkr.ecr.us-iso-east-1.c2s.ic.gov","*.dkr.ecr.us-isob-east-1.sc2s.sgov.gov"],"defaultCacheDuration":"1h0m0s","apiVersion":"credentialprovider.kubelet.k8s.io/v1"}]}`
+			filePath  = "/opt/bin/mtu-customizer.sh"
+		)
+		It("should add additional files to the current ones in k8s >=v1.27", func() {
+			image, err := imagevector.ImageVector().FindImage(aws.ECRCredentialProviderImageName)
+			Expect(err).NotTo(HaveOccurred())
+			var (
+				oldFile = extensionsv1alpha1.File{Path: "oldpath"}
+				ecrBin  = extensionsv1alpha1.File{
+					Path:        "/opt/bin/ecr-credential-provider",
+					Permissions: ptr.To(int32(0755)),
+					Content: extensionsv1alpha1.FileContent{
+						ImageRef: &extensionsv1alpha1.FileContentImageRef{
+							Image:           image.String(),
+							FilePathInImage: "/bin/ecr-credential-provider",
+						},
+					},
+				}
+				ecrConfig = extensionsv1alpha1.File{
+					Path:        "/opt/gardener/ecr-credential-provider-config.json",
+					Permissions: ptr.To(int32(0755)),
+					Content: extensionsv1alpha1.FileContent{
+						Inline: &extensionsv1alpha1.FileContentInline{
+							Data: ecrConfig,
+						},
+					},
+				}
 
-				filePath = "/opt/bin/mtu-customizer.sh"
+				additionalFile = extensionsv1alpha1.File{
+					Path:        filePath,
+					Permissions: &permissions,
+					Content: extensionsv1alpha1.FileContent{
+						Inline: &extensionsv1alpha1.FileContentInline{
+							Encoding: "",
+							Data:     customFileContent,
+						},
+					},
+				}
 
+				files = []extensionsv1alpha1.File{oldFile}
+			)
+
+			c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
+				func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
+					*infra = *infrastructure
+					return nil
+				},
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(logger, c, true)
+
+			// Call EnsureAdditionalFiles method and check the result
+			err = ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(files).To(ConsistOf(oldFile, additionalFile, ecrConfig, ecrBin))
+		})
+
+		It("should not add credential provider files to the current ones if k8s <= v1.26", func() {
+			var (
 				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
 				additionalFile = extensionsv1alpha1.File{
 					Path:        filePath,
@@ -403,36 +496,76 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger)
+			ensurer := NewEnsurer(logger, c, true)
 
 			// Call EnsureAdditionalFiles method and check the result
-			err := ensurer.EnsureAdditionalFiles(ctx, dummyContext, &files, nil)
+			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s126, &files, nil)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(files).To(ConsistOf(oldFile, additionalFile))
+		})
+
+		It("should not add credential provider files to the current ones if ECRAccess is disabled", func() {
+			var (
+				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
+				additionalFile = extensionsv1alpha1.File{
+					Path:        filePath,
+					Permissions: &permissions,
+					Content: extensionsv1alpha1.FileContent{
+						Inline: &extensionsv1alpha1.FileContentInline{
+							Encoding: "",
+							Data:     customFileContent,
+						},
+					},
+				}
+
+				files = []extensionsv1alpha1.File{oldFile}
+			)
+
+			infraConfig.EnableECRAccess = ptr.To(false)
+			c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
+				func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
+					*infra = *infrastructure
+					return nil
+				},
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(logger, c, true)
+
+			// Call EnsureAdditionalFiles method and check the result
+			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(files).To(ConsistOf(oldFile, additionalFile))
+		})
+
+		It("should add additional files to the current ones", func() {
+			var (
+				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
+				additionalFile = extensionsv1alpha1.File{
+					Path:        filePath,
+					Permissions: &permissions,
+					Content: extensionsv1alpha1.FileContent{
+						Inline: &extensionsv1alpha1.FileContentInline{
+							Encoding: "",
+							Data:     customFileContent,
+						},
+					},
+				}
+
+				files = []extensionsv1alpha1.File{oldFile}
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(logger, c, true)
+
+			// Call EnsureAdditionalFiles method and check the result
+			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s126, &files, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(files).To(ConsistOf(oldFile, additionalFile))
 		})
 
 		It("should overwrite existing files of the current ones", func() {
 			var (
-				permissions       int32 = 0755
-				customFileContent       = `#!/bin/sh
-
-for interface_path in $(find /sys/class/net  -type l -print)
-do
-	interface=$(basename ${interface_path})
-
-	if ls -l ${interface_path} | grep -q virtual
-	then
-		echo skipping virtual interface: ${interface}
-		continue
-	fi
-
-	echo changing mtu of non-virtual interface: ${interface}
-	ip link set dev ${interface} mtu 1460
-done
-`
-
-				filePath = "/opt/bin/mtu-customizer.sh"
-
 				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
 				additionalFile = extensionsv1alpha1.File{
 					Path:        filePath,
@@ -449,10 +582,10 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger)
+			ensurer := NewEnsurer(logger, c, true)
 
 			// Call EnsureAdditionalFiles method and check the result
-			err := ensurer.EnsureAdditionalFiles(ctx, dummyContext, &files, nil)
+			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s126, &files, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(files).To(ConsistOf(oldFile, additionalFile))
 			Expect(files).To(HaveLen(2))
@@ -463,11 +596,12 @@ done
 		var (
 			ensurer               genericmutator.Ensurer
 			oldUnitOptions        []*unit.UnitOption
+			newUnitOptions        []*unit.UnitOption
 			hostnamectlUnitOption *unit.UnitOption
 		)
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 			oldUnitOptions = []*unit.UnitOption{
 				{
 					Section: "Service",
@@ -481,32 +615,56 @@ done
 				Name:    "ExecStartPre",
 				Value:   `/bin/sh -c 'hostnamectl set-hostname $(hostname -f)'`,
 			}
+
+			newUnitOptions = []*unit.UnitOption{
+				{
+					Section: "Service",
+					Name:    "ExecStart",
+					Value: `/opt/bin/hyperkube kubelet \
+    --config=/var/lib/kubelet/config/kubelet` + addCmdOption("--cloud-provider=external"),
+				},
+				hostnamectlUnitOption,
+			}
 		})
 
-		DescribeTable("should modify existing elements of kubelet.service unit options",
-			func(kubeletVersion *semver.Version, cloudProvider string) {
-				newUnitOptions := []*unit.UnitOption{
-					{
-						Section: "Service",
-						Name:    "ExecStart",
-						Value: `/opt/bin/hyperkube kubelet \
-    --config=/var/lib/kubelet/config/kubelet`,
-					},
-					hostnamectlUnitOption,
-				}
-
-				if cloudProvider != "" {
-					newUnitOptions[0].Value += ` \
-    --cloud-provider=` + cloudProvider
-				}
-
-				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, nil, kubeletVersion, oldUnitOptions, nil)
+		Context("should modify existing elements of kubelet.service unit options", func() {
+			It("kubelet version <= 1.26", func() {
+				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s126, semver.MustParse("1.26.0"), oldUnitOptions, nil)
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(opts).To(Equal(newUnitOptions))
-			},
+			})
 
-			Entry("kubelet version >= 1.24", semver.MustParse("1.24.0"), "external"),
-		)
+			It("kubelet version >= 1.27 without ECR access", func() {
+				c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
+					func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
+						*infra = *infrastructure
+
+						infraConfig.EnableECRAccess = ptr.To(false)
+						return nil
+					},
+				).AnyTimes()
+
+				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s127, semver.MustParse("1.27.0"), oldUnitOptions, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(opts).To(Equal(newUnitOptions))
+			})
+
+			It("kubelet version >= 1.27 with ECR Access", func() {
+				newUnitOptions[0].Value += addCmdOption("--image-credential-provider-config=/opt/gardener/ecr-credential-provider-config.json")
+				newUnitOptions[0].Value += addCmdOption("--image-credential-provider-bin-dir=/opt/bin/")
+
+				c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
+					func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
+						*infra = *infrastructure
+						return nil
+					},
+				).AnyTimes()
+
+				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s127, semver.MustParse("1.27.0"), oldUnitOptions, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(opts).To(Equal(newUnitOptions))
+			})
+		})
 	})
 
 	Describe("#EnsureKubeletConfiguration", func() {
@@ -516,7 +674,7 @@ done
 		)
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 			oldKubeletConfig = &kubeletconfigv1beta1.KubeletConfiguration{
 				FeatureGates: map[string]bool{
 					"Foo": true,
@@ -554,7 +712,7 @@ done
 		var ensurer genericmutator.Ensurer
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 		})
 
 		It("should modify existing elements of kubernetes general configuration", func() {
@@ -604,7 +762,7 @@ done
 
 		BeforeEach(func() {
 			deployment = &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: "foo"}}
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 			DeferCleanup(testutils.WithVar(&ImageVector, imagevectorutils.ImageVector{{
 				Name:       "machine-controller-manager-provider-aws",
 				Repository: "foo",
@@ -664,7 +822,7 @@ done
 
 		BeforeEach(func() {
 			vpa = &vpaautoscalingv1.VerticalPodAutoscaler{}
-			ensurer = NewEnsurer(logger)
+			ensurer = NewEnsurer(logger, c, true)
 		})
 
 		It("should inject the sidecar container policy", func() {
@@ -763,4 +921,10 @@ func checkClusterAutoscalerDeployment(dep *appsv1.Deployment, k8sVersion string)
 	} else {
 		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
+}
+
+// add option adds 4 spaces to indent the input s.
+func addCmdOption(s string) string {
+	return ` \
+    ` + s
 }

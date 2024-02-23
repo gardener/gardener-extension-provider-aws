@@ -49,7 +49,6 @@ type InfrastructureConfig struct {
 // InfrastructureStatus contains information about created infrastructure resources.
 type InfrastructureStatus struct {
 	metav1.TypeMeta
-
 	// EC2 contains information about the created AWS EC2 resources.
 	EC2 EC2
 	// IAM contains information about the created AWS IAM resources.
