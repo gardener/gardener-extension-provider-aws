@@ -22,4 +22,6 @@ const (
 	SeedLabelKeyUseFlow = AnnotationKeyUseFlow
 	// SeedLabelUseFlowValueNew is the value to restrict flow reconciliation to new shoot clusters
 	SeedLabelUseFlowValueNew = "new"
+	// AnnotationKeyIPStack is the annotation key to set the IP stack for a DNSRecord.
+	AnnotationKeyIPStack = "dns.gardener.cloud/ip-stack"
 )

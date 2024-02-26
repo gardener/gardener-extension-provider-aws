@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -52,8 +53,9 @@ import (
 )
 
 var (
-	accessKeyID     = flag.String("access-key-id", "", "AWS access key id")
-	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
+	accessKeyID      = flag.String("access-key-id", "", "AWS access key id")
+	secretAccessKey  = flag.String("secret-access-key", "", "AWS secret access key")
+	ipv4Loadbalancer = flag.String("known-ipv4-loadbalancer", "", "known existing IPv4 loadbalancer on elb.eu-west-1.amazonaws.com")
 )
 
 func validateFlags() {
@@ -202,7 +204,7 @@ var _ = BeforeSuite(func() {
 	zoneID = createDNSHostedZone(ctx, awsClient, zoneName)
 })
 
-var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, beforeCreate, beforeUpdate, beforeDelete func()) {
+var runTest = func(dns *extensionsv1alpha1.DNSRecord, stack awsclient.IPStack, newValues []string, beforeCreate, beforeUpdate, beforeDelete func()) {
 	if beforeCreate != nil {
 		beforeCreate()
 	}
@@ -237,7 +239,7 @@ var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, before
 	getDNSRecordAndVerifyStatus(ctx, c, dns, zoneID)
 
 	By("verifying that the AWS DNS recordset exists and matches dnsrecord")
-	verifyDNSRecordSet(ctx, awsClient, dns)
+	verifyDNSRecordSet(ctx, awsClient, dns, stack)
 
 	By("verifying that the meta AWS DNS recordset does not exist")
 	verifyMetaDNSRecordSetDeleted(ctx, awsClient, dns)
@@ -260,7 +262,7 @@ var runTest = func(dns *extensionsv1alpha1.DNSRecord, newValues []string, before
 		getDNSRecordAndVerifyStatus(ctx, c, dns, zoneID)
 
 		By("verifying that the AWS DNS recordset exists and matches dnsrecord")
-		verifyDNSRecordSet(ctx, awsClient, dns)
+		verifyDNSRecordSet(ctx, awsClient, dns, stack)
 	}
 }
 
@@ -268,43 +270,67 @@ var _ = Describe("DNSRecord tests", func() {
 	Context("when a DNS recordset doesn't exist and is not changed or deleted before dnsrecord deletion", func() {
 		It("should successfully create and delete a dnsrecord of type A", func() {
 			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, pointer.Int64(300))
-			runTest(dns, nil, nil, nil, nil)
+			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 		})
 
 		It("should successfully create and delete a dnsrecord of type CNAME", func() {
 			dns := newDNSRecord(testName, zoneName, pointer.String(zoneID), extensionsv1alpha1.DNSRecordTypeCNAME, []string{"foo.example.com"}, pointer.Int64(600))
-			runTest(dns, nil, nil, nil, nil)
+			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 		})
 
-		It("should successfully create and delete a dnsrecord of type CNAME as an alias target", func() {
+		It("should successfully create and delete a dnsrecord of type CNAME as an alias target (IPv4)", func() {
 			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeCNAME, []string{"foo.elb.eu-west-1.amazonaws.com"}, nil)
-			runTest(dns, nil, nil, nil, nil)
+			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
+		})
+
+		It("should successfully create and delete a dnsrecord of type CNAME as an alias target (IPv6)", func() {
+			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeCNAME, []string{"foo.elb.eu-west-1.amazonaws.com"}, nil)
+			dns.Annotations = map[string]string{awsapi.AnnotationKeyIPStack: string(awsclient.IPStackIPv6)}
+			runTest(dns, awsclient.IPStackIPv6, nil, nil, nil, nil)
+		})
+
+		It("should successfully create and delete a dnsrecord of type CNAME as an alias target (dual-stack)", func() {
+			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeCNAME, []string{"foo.elb.eu-west-1.amazonaws.com"}, nil)
+			dns.Annotations = map[string]string{awsapi.AnnotationKeyIPStack: string(awsclient.IPStackIPDualStack)}
+			runTest(dns, awsclient.IPStackIPDualStack, nil, nil, nil, nil)
+		})
+
+		It("should successfully create and delete a dnsrecord of type CNAME as an alias target for a known IPv4 loadbalancer", func() {
+			if ipv4Loadbalancer == nil {
+				Skip("--known-ipv4-loadbalancer not set")
+			} else {
+				Expect(strings.HasSuffix(*ipv4Loadbalancer, "elb.eu-west-1.amazonaws.com"))
+				dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeCNAME, []string{*ipv4Loadbalancer}, nil)
+				runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
+			}
 		})
 
 		It("should successfully create and delete a dnsrecord of type TXT", func() {
 			dns := newDNSRecord(testName, zoneName, pointer.String(zoneID), extensionsv1alpha1.DNSRecordTypeTXT, []string{"foo", "bar"}, nil)
-			runTest(dns, nil, nil, nil, nil)
+			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 		})
 	})
 
 	Context("when a DNS recordset exists and is changed before dnsrecord update and deletion", func() {
 		It("should successfully create, update, and delete a dnsrecord", func() {
 			dns := newDNSRecord(testName, zoneName, pointer.String(zoneID), extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, pointer.Int64(300))
+			stack := awsclient.IPStackIPv4
 			runTest(
 				dns,
+				stack,
 				[]string{"3.3.3.3", "1.1.1.1"},
 				func() {
 					By("creating AWS DNS recordset and its meta recordset")
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120)).To(Succeed())
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, "comment-"+dns.Spec.Name, route53.RRTypeTxt, []string{"foo"}, 600)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, "comment-"+dns.Spec.Name, route53.RRTypeTxt, []string{"foo"}, 600, stack)).To(Succeed())
 				},
 				func() {
 					By("updating AWS DNS recordset")
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
 				},
 				func() {
 					By("updating AWS DNS recordset")
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
 				},
 			)
 		})
@@ -313,17 +339,19 @@ var _ = Describe("DNSRecord tests", func() {
 	Context("when a DNS recordset exists and is deleted before dnsrecord deletion", func() {
 		It("should successfully create and delete a dnsrecord", func() {
 			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, pointer.Int64(300))
+			stack := awsclient.IPStackIPv4
 			runTest(
 				dns,
+				stack,
 				nil,
 				func() {
 					By("creating AWS DNS recordset")
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
 				},
 				nil,
 				func() {
 					By("deleting AWS DNS recordset")
-					Expect(awsClient.DeleteDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, nil, 0)).To(Succeed())
+					Expect(awsClient.DeleteDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, nil, 0, stack)).To(Succeed())
 				},
 			)
 		})
@@ -419,55 +447,75 @@ func deleteDNSHostedZone(ctx context.Context, awsClient *awsclient.Client, zoneI
 	Expect(awsClient.DeleteDNSHostedZone(ctx, zoneID)).To(Succeed())
 }
 
-func verifyDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *extensionsv1alpha1.DNSRecord) {
+func verifyDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *extensionsv1alpha1.DNSRecord, stack awsclient.IPStack) {
 	recordType := getRecordType(dns)
-	rrs, err := awsClient.GetDNSRecordSet(ctx, *dns.Status.Zone, dns.Spec.Name, recordType)
+	rrss, err := awsClient.GetDNSRecordSets(ctx, *dns.Status.Zone, dns.Spec.Name, recordType)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(rrs).NotTo(BeNil())
-	Expect(rrs.Name).To(PointTo(Equal(ensureTrailingDot(dns.Spec.Name))))
-	Expect(rrs.Type).To(PointTo(Equal(recordType)))
+	Expect(rrss).NotTo(BeNil())
 	if !expectAliasTarget(dns) {
+		Expect(rrss).To(HaveLen(1))
+		rrs := rrss[0]
+		Expect(rrs.Name).To(PointTo(Equal(ensureTrailingDot(dns.Spec.Name))))
+		Expect(rrs.Type).To(PointTo(Equal(recordType)))
 		Expect(rrs.ResourceRecords).To(ConsistOf(resourceRecords(recordType, dns.Spec.Values)))
 		Expect(rrs.AliasTarget).To(BeNil())
 		Expect(rrs.TTL).To(PointTo(Equal(pointer.Int64Deref(dns.Spec.TTL, 120))))
 	} else {
-		Expect(rrs.ResourceRecords).To(BeEmpty())
-		Expect(rrs.AliasTarget).To(Equal(&route53.AliasTarget{
-			DNSName:              pointer.String(ensureTrailingDot(dns.Spec.Values[0])),
-			HostedZoneId:         pointer.String("Z2IFOLAFXWLO4F"), // zone ID for elb.eu-west-1.amazonaws.com
-			EvaluateTargetHealth: pointer.Bool(true),
-		}))
-		Expect(rrs.TTL).To(BeNil())
+		expectedTypes := awsclient.GetAliasRecordTypes(stack)
+		Expect(rrss).To(HaveLen(len(expectedTypes))) // we
+		for _, rrs := range rrss {
+			Expect(rrs.Name).To(PointTo(Equal(ensureTrailingDot(dns.Spec.Name))))
+			Expect(rrs.ResourceRecords).To(BeEmpty())
+			var expectedHostedZoneId string
+			switch {
+			case strings.HasSuffix(dns.Spec.Values[0], ".elb.eu-west-1.amazonaws.com"):
+				expectedHostedZoneId = "Z2IFOLAFXWLO4F"
+			case strings.HasSuffix(dns.Spec.Values[0], ".eu-west-1.elb.amazonaws.com"):
+				expectedHostedZoneId = "Z32O12XQLNTSW2"
+			default:
+				Fail(fmt.Sprintf("unexpected value: %s", dns.Spec.Values[0]))
+			}
+			Expect(rrs.AliasTarget).To(Equal(&route53.AliasTarget{
+				DNSName:              pointer.String(ensureTrailingDot(dns.Spec.Values[0])),
+				HostedZoneId:         pointer.String(expectedHostedZoneId),
+				EvaluateTargetHealth: pointer.Bool(true),
+			}))
+			Expect(rrs.TTL).To(BeNil())
+			found := false
+			for _, expectedType := range expectedTypes {
+				if expectedType == pointer.StringDeref(rrs.Type, "") {
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue())
+		}
 	}
 }
 
 func verifyDNSRecordSetDeleted(ctx context.Context, awsClient *awsclient.Client, dns *extensionsv1alpha1.DNSRecord) {
-	rrs, err := awsClient.GetDNSRecordSet(ctx, *dns.Status.Zone, dns.Spec.Name, getRecordType(dns))
+	rrss, err := awsClient.GetDNSRecordSets(ctx, *dns.Status.Zone, dns.Spec.Name, getRecordType(dns))
 	Expect(err).NotTo(HaveOccurred())
-	Expect(rrs).To(BeNil())
+	Expect(rrss).To(BeNil())
 }
 
 func verifyMetaDNSRecordSetDeleted(ctx context.Context, awsClient *awsclient.Client, dns *extensionsv1alpha1.DNSRecord) {
-	rrs, err := awsClient.GetDNSRecordSet(ctx, *dns.Status.Zone, "comment-"+dns.Spec.Name, route53.RRTypeTxt)
+	rrss, err := awsClient.GetDNSRecordSets(ctx, *dns.Status.Zone, "comment-"+dns.Spec.Name, route53.RRTypeTxt)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(rrs).To(BeNil())
+	Expect(rrss).To(BeNil())
 }
 
 func deleteDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *extensionsv1alpha1.DNSRecord) {
-	err := awsClient.DeleteDNSRecordSet(ctx, *dns.Status.Zone, dns.Spec.Name, getRecordType(dns), nil, 0)
+	err := awsClient.DeleteDNSRecordSet(ctx, *dns.Status.Zone, dns.Spec.Name, getRecordType(dns), nil, 0, awsclient.IPStackIPv4)
 	Expect(err).NotTo(HaveOccurred())
 }
 
 func getRecordType(dns *extensionsv1alpha1.DNSRecord) string {
-	if expectAliasTarget(dns) {
-		return route53.RRTypeA
-	}
 	return string(dns.Spec.RecordType)
 }
 
 func expectAliasTarget(dns *extensionsv1alpha1.DNSRecord) bool {
 	return dns.Spec.RecordType == extensionsv1alpha1.DNSRecordTypeCNAME &&
-		strings.HasSuffix(dns.Spec.Values[0], ".elb.eu-west-1.amazonaws.com")
+		(strings.HasSuffix(dns.Spec.Values[0], ".elb.eu-west-1.amazonaws.com") || strings.HasSuffix(dns.Spec.Values[0], ".eu-west-1.elb.amazonaws.com"))
 }
 
 func resourceRecords(recordType string, values []string) []*route53.ResourceRecord {

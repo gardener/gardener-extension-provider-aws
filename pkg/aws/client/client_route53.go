@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/route53"
+	"github.com/gardener/external-dns-management/pkg/controller/provider/aws/data"
 )
 
 // GetDNSHostedZones returns a map of all DNS hosted zone names mapped to their IDs.
@@ -91,8 +92,9 @@ func normalizeZoneId(zoneId string) string {
 
 // CreateOrUpdateDNSRecordSet creates or updates the DNS recordset in the DNS hosted zone with the given zone ID,
 // with the given name, type, values, and TTL.
-func (c *Client) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
-	rrs := newResourceRecordSet(name, recordType, newResourceRecords(recordType, values), ttl)
+// A CNAME record for AWS load balancers in a known zone may be mapped to A and/or AAAA recordsets with alias target.
+func (c *Client) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64, stack IPStack) error {
+	rrs := newResourceRecordSets(name, recordType, newResourceRecords(recordType, values), ttl, stack)
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return err
 	}
@@ -100,74 +102,78 @@ func (c *Client) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, r
 	return err
 }
 
-// DeleteDNSRecordSet deletes the DNS recordset in the DNS hosted zone with the given zone ID,
+// DeleteDNSRecordSet deletes the DNS recordset(s) in the DNS hosted zone with the given zone ID,
 // with the given name, type, values, and TTL.
-// If values is empty and TTL is 0, the actual state will be determined by reading the recordset from the zone.
-// Otherwise, an attempt will be made to delete the recordset with the given values / TTL. If this results in a
-// "values do not match" error, the actual state will again be determined by reading the recordset from the zone, and
-// a second attempt to delete it will be made.
+// If values is empty and TTL is 0 or if there are potential alias targets for a CNAME type, the actual state will be
+// determined by reading the recordset(s) from the zone.
+// Otherwise, an attempt will be made to delete the recordset with the given values / TTL.
 // The idea is to ensure a consistent and foolproof behavior while sending as few requests as possible to avoid
 // rate limit issues.
-func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64) error {
-	var (
-		err error
-		rrs *route53.ResourceRecordSet
-	)
-	if len(values) == 0 && ttl == 0 {
-		// No values / ttl were specified, so get the resource recordset from the zone
-		rrs, err = c.GetDNSRecordSet(ctx, zoneId, name, recordType)
-		if err != nil {
+func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64, stack IPStack) error {
+	if len(values) > 0 && ttl > 0 && !isPotentialAliasTarget(recordType, values[0]) {
+		// try deletion with known values, but only if it is no CNAME record with potential alias target records.
+		// For CNAME records we don't know if the record(s) have been created with or without target records, as the list of
+		// canonicalHostedZoneIds may have changed in the meantime.
+		rrss := newResourceRecordSets(name, recordType, newResourceRecords(recordType, values), ttl, stack)
+		if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 			return err
 		}
-		if rrs == nil {
+		if _, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrss)); err == nil {
 			return nil
 		}
-	} else {
-		rrs = newResourceRecordSet(name, recordType, newResourceRecords(recordType, values), ttl)
+		// if there is any error, fallback to read/delete
+	}
+	rrss, err := c.GetDNSRecordSets(ctx, zoneId, name, recordType)
+	if err != nil {
+		return err
+	}
+	if len(rrss) == 0 {
+		return nil
 	}
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return err
 	}
-	_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrs))
-	if isValuesDoNotMatchError(err) && len(values) > 0 && ttl > 0 {
-		// The actual values / ttl are different from the given values / ttl
-		// Get the resource recordset from the zone and try again
-		rrs, err = c.GetDNSRecordSet(ctx, zoneId, name, getRecordType(recordType, values[0]))
-		if err != nil {
-			return err
-		}
-		if rrs == nil {
-			return nil
-		}
-		if err := c.waitForRoute53RateLimiter(ctx); err != nil {
-			return err
-		}
-		_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrs))
-	}
+	_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrss))
 	return ignoreResourceRecordSetNotFound(err)
 }
 
-// GetDNSRecordSet returns the DNS recordset in the DNS hosted zone with the given zone ID, and with the given name and type.
-func (c *Client) GetDNSRecordSet(ctx context.Context, zoneId, name, recordType string) (*route53.ResourceRecordSet, error) {
+// GetDNSRecordSets returns the DNS recordset(s) in the DNS hosted zone with the given zone ID, and with the given name and type.
+// For record type CNAME there may be multiple DNS recordsets if mapped to alias targets A or AAAA recordsets.
+func (c *Client) GetDNSRecordSets(ctx context.Context, zoneId, name, recordType string) ([]*route53.ResourceRecordSet, error) {
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return nil, err
 	}
-	out, err := c.Route53.ListResourceRecordSetsWithContext(ctx, &route53.ListResourceRecordSetsInput{
+	input := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    aws.String(zoneId),
 		MaxItems:        aws.String("1"),
 		StartRecordName: aws.String(name),
 		StartRecordType: aws.String(recordType),
-	})
+	}
+	if recordType == route53.RRTypeCname {
+		input.MaxItems = aws.String("5") // potential CNAME, AliasTarget A and AliasTarget AAAA
+		input.StartRecordType = nil
+	}
+	out, err := c.Route53.ListResourceRecordSetsWithContext(ctx, input)
 	if ignoreResourceRecordSetNotFound(err) != nil {
 		return nil, err
 	}
 	if out == nil || len(out.ResourceRecordSets) == 0 { // no records in zone
 		return nil, nil
 	}
-	if rrs := out.ResourceRecordSets[0]; normalizeName(aws.StringValue(rrs.Name)) == name && aws.StringValue(rrs.Type) == recordType {
-		return out.ResourceRecordSets[0], nil
+	var recordSets []*route53.ResourceRecordSet
+	for _, rrs := range out.ResourceRecordSets {
+		if normalizeName(aws.StringValue(rrs.Name)) == name {
+			switch aws.StringValue(rrs.Type) {
+			case recordType:
+				recordSets = append(recordSets, rrs)
+			case route53.RRTypeA, route53.RRTypeAaaa:
+				if recordType == route53.RRTypeCname && rrs.AliasTarget != nil {
+					recordSets = append(recordSets, rrs)
+				}
+			}
+		}
 	}
-	return nil, nil
+	return recordSets, nil
 }
 
 func (c *Client) waitForRoute53RateLimiter(ctx context.Context) error {
@@ -183,16 +189,18 @@ func (c *Client) waitForRoute53RateLimiter(ctx context.Context) error {
 	return nil
 }
 
-func newChangeResourceRecordSetsInput(zoneId, action string, rrs *route53.ResourceRecordSet) *route53.ChangeResourceRecordSetsInput {
+func newChangeResourceRecordSetsInput(zoneId, action string, rrss []*route53.ResourceRecordSet) *route53.ChangeResourceRecordSetsInput {
+	var changes []*route53.Change
+	for _, rrs := range rrss {
+		changes = append(changes, &route53.Change{
+			Action:            aws.String(action),
+			ResourceRecordSet: rrs,
+		})
+	}
 	return &route53.ChangeResourceRecordSetsInput{
 		HostedZoneId: aws.String(zoneId),
 		ChangeBatch: &route53.ChangeBatch{
-			Changes: []*route53.Change{
-				{
-					Action:            aws.String(action),
-					ResourceRecordSet: rrs,
-				},
-			},
+			Changes: changes,
 		},
 	}
 }
@@ -216,105 +224,60 @@ func newResourceRecords(recordType string, values []string) []*route53.ResourceR
 	return resourceRecords
 }
 
-func newResourceRecordSet(name, recordType string, resourceRecords []*route53.ResourceRecord, ttl int64) *route53.ResourceRecordSet {
+func newResourceRecordSets(name, recordType string, resourceRecords []*route53.ResourceRecord, ttl int64, stack IPStack) []*route53.ResourceRecordSet {
 	if recordType == route53.RRTypeCname {
-		if zoneId := canonicalHostedZoneId(aws.StringValue(resourceRecords[0].Value)); zoneId != "" {
-			return &route53.ResourceRecordSet{
-				Name: aws.String(name),
-				Type: aws.String(route53.RRTypeA),
-				AliasTarget: &route53.AliasTarget{
-					DNSName:              resourceRecords[0].Value,
-					HostedZoneId:         aws.String(zoneId),
-					EvaluateTargetHealth: aws.Bool(true),
-				},
+		loadBalanceHostname := aws.StringValue(resourceRecords[0].Value)
+		// if it is a loadbalancer in a known canoncial hosted zone, create resource sets with alias targets for IPv4 and/or IPv6
+		if zoneId := canonicalHostedZoneId(loadBalanceHostname); zoneId != "" {
+			var rrss []*route53.ResourceRecordSet
+			for _, recordType := range GetAliasRecordTypes(stack) {
+				rrs := &route53.ResourceRecordSet{
+					Name: aws.String(name),
+					Type: aws.String(recordType),
+					AliasTarget: &route53.AliasTarget{
+						DNSName:              &loadBalanceHostname,
+						HostedZoneId:         aws.String(zoneId),
+						EvaluateTargetHealth: aws.Bool(true),
+					},
+				}
+				rrss = append(rrss, rrs)
 			}
+			return rrss
 		}
 	}
-	return &route53.ResourceRecordSet{
-		Name:            aws.String(name),
-		Type:            aws.String(recordType),
-		ResourceRecords: resourceRecords,
-		TTL:             aws.Int64(ttl),
+	return []*route53.ResourceRecordSet{
+		{
+			Name:            aws.String(name),
+			Type:            aws.String(recordType),
+			ResourceRecords: resourceRecords,
+			TTL:             aws.Int64(ttl),
+		},
 	}
 }
 
-func getRecordType(recordType, value string) string {
+// GetAliasRecordTypes determinate the alias record types needed, depending on the requested IPStack.
+func GetAliasRecordTypes(stack IPStack) []string {
+	switch stack {
+	case IPStackIPv6:
+		return []string{route53.RRTypeAaaa}
+	case IPStackIPDualStack:
+		return []string{route53.RRTypeA, route53.RRTypeAaaa}
+	default:
+		return []string{route53.RRTypeA}
+	}
+}
+
+func isPotentialAliasTarget(recordType, value string) bool {
 	if recordType == route53.RRTypeCname {
 		if zoneId := canonicalHostedZoneId(value); zoneId != "" {
-			return route53.RRTypeA
+			return true
 		}
 	}
-	return recordType
+	return false
 }
 
 var (
-	// original code: https://github.com/kubernetes-sigs/external-dns/blob/master/provider/aws/aws.go
-	// see: https://docs.aws.amazon.com/general/latest/gr/elb.html
-	canonicalHostedZoneIds = map[string]string{
-		// Application Load Balancers and Classic Load Balancers
-		"us-east-2.elb.amazonaws.com":         "Z3AADJGX6KTTL2",
-		"us-east-1.elb.amazonaws.com":         "Z35SXDOTRQ7X7K",
-		"us-west-1.elb.amazonaws.com":         "Z368ELLRRE2KJ0",
-		"us-west-2.elb.amazonaws.com":         "Z1H1FL5HABSF5",
-		"ca-central-1.elb.amazonaws.com":      "ZQSVJUPU6J1EY",
-		"ap-east-1.elb.amazonaws.com":         "Z3DQVH9N71FHZ0",
-		"ap-south-1.elb.amazonaws.com":        "ZP97RAFLXTNZK",
-		"ap-south-2.elb.amazonaws.com":        "Z0173938T07WNTVAEPZN",
-		"ap-northeast-2.elb.amazonaws.com":    "ZWKZPGTI48KDX",
-		"ap-northeast-3.elb.amazonaws.com":    "Z5LXEXXYW11ES",
-		"ap-southeast-1.elb.amazonaws.com":    "Z1LMS91P8CMLE5",
-		"ap-southeast-2.elb.amazonaws.com":    "Z1GM3OXH4ZPM65",
-		"ap-southeast-3.elb.amazonaws.com":    "Z08888821HLRG5A9ZRTER",
-		"ap-northeast-1.elb.amazonaws.com":    "Z14GRHDCWA56QT",
-		"eu-central-1.elb.amazonaws.com":      "Z215JYRZR1TBD5",
-		"eu-central-2.elb.amazonaws.com":      "Z06391101F2ZOEP8P5EB3",
-		"eu-west-1.elb.amazonaws.com":         "Z32O12XQLNTSW2",
-		"eu-west-2.elb.amazonaws.com":         "ZHURV8PSTC4K8",
-		"eu-west-3.elb.amazonaws.com":         "Z3Q77PNBQS71R4",
-		"eu-north-1.elb.amazonaws.com":        "Z23TAZ6LKFMNIO",
-		"eu-south-1.elb.amazonaws.com":        "Z3ULH7SSC9OV64",
-		"eu-south-2.elb.amazonaws.com":        "Z0956581394HF5D5LXGAP",
-		"sa-east-1.elb.amazonaws.com":         "Z2P70J7HTTTPLU",
-		"cn-north-1.elb.amazonaws.com.cn":     "Z1GDH35T77C1KE",
-		"cn-northwest-1.elb.amazonaws.com.cn": "ZM7IZAIOVVDZF",
-		"us-gov-west-1.elb.amazonaws.com":     "Z33AYJ8TM3BH4J",
-		"us-gov-east-1.elb.amazonaws.com":     "Z166TLBEWOO7G0",
-		"me-south-1.elb.amazonaws.com":        "ZS929ML54UICD",
-		"me-central-1.elb.amazonaws.com":      "Z08230872XQRWHG2XF6I",
-		"af-south-1.elb.amazonaws.com":        "Z268VQBMOI5EKX",
-		// Network Load Balancers
-		"elb.us-east-2.amazonaws.com":         "ZLMOA37VPKANP",
-		"elb.us-east-1.amazonaws.com":         "Z26RNL4JYFTOTI",
-		"elb.us-west-1.amazonaws.com":         "Z24FKFUX50B4VW",
-		"elb.us-west-2.amazonaws.com":         "Z18D5FSROUN65G",
-		"elb.ca-central-1.amazonaws.com":      "Z2EPGBW3API2WT",
-		"elb.ap-east-1.amazonaws.com":         "Z12Y7K3UBGUAD1",
-		"elb.ap-south-1.amazonaws.com":        "ZVDDRBQ08TROA",
-		"elb.ap-south-2.amazonaws.com":        "Z0711778386UTO08407HT",
-		"elb.ap-northeast-2.amazonaws.com":    "ZIBE1TIR4HY56",
-		"elb.ap-southeast-1.amazonaws.com":    "ZKVM4W9LS7TM",
-		"elb.ap-southeast-2.amazonaws.com":    "ZCT6FZBF4DROD",
-		"elb.ap-southeast-3.amazonaws.com":    "Z01971771FYVNCOVWJU1G",
-		"elb.ap-northeast-1.amazonaws.com":    "Z31USIVHYNEOWT",
-		"elb.eu-central-1.amazonaws.com":      "Z3F0SRJ5LGBH90",
-		"elb.eu-central-2.amazonaws.com":      "Z02239872DOALSIDCX66S",
-		"elb.eu-west-1.amazonaws.com":         "Z2IFOLAFXWLO4F",
-		"elb.eu-west-2.amazonaws.com":         "ZD4D7Y8KGAS4G",
-		"elb.eu-west-3.amazonaws.com":         "Z1CMS0P5QUZ6D5",
-		"elb.eu-north-1.amazonaws.com":        "Z1UDT6IFJ4EJM",
-		"elb.eu-south-1.amazonaws.com":        "Z23146JA1KNAFP",
-		"elb.eu-south-2.amazonaws.com":        "Z1011216NVTVYADP1SSV",
-		"elb.sa-east-1.amazonaws.com":         "ZTK26PT1VY4CU",
-		"elb.cn-north-1.amazonaws.com.cn":     "Z3QFB96KMJ7ED6",
-		"elb.cn-northwest-1.amazonaws.com.cn": "ZQEIKTCZ8352D",
-		"elb.us-gov-west-1.amazonaws.com":     "ZMG1MZ2THAWF1",
-		"elb.us-gov-east-1.amazonaws.com":     "Z1ZSMQQ6Q24QQ8",
-		"elb.me-south-1.amazonaws.com":        "Z3QSRYVP46NYYV",
-		"elb.me-central-1.amazonaws.com":      "Z00282643NTTLPANJJG2P",
-		"elb.af-south-1.amazonaws.com":        "Z203XCE67M25HM",
-		// Global Accelerator
-		"awsglobalaccelerator.com": "Z2BJ6XQ5FK7U4H",
-	}
+	canonicalHostedZoneIds = data.CanonicalHostedZones()
 )
 
 // canonicalHostedZoneId returns the matching canonical hosted zone ID for the given hostname, if found.
@@ -352,13 +315,6 @@ func ignoreHostedZoneNotFound(err error) error {
 		return nil
 	}
 	return err
-}
-
-func isValuesDoNotMatchError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && strings.Contains(aerr.Message(), "the values provided do not match the current values") {
-		return true
-	}
-	return false
 }
 
 // IsNoSuchHostedZoneError returns true if the error indicates a non-existing route53 hosted zone.
