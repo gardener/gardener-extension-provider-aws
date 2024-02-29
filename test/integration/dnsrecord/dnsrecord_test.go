@@ -296,13 +296,13 @@ var _ = Describe("DNSRecord tests", func() {
 		})
 
 		It("should successfully create and delete a dnsrecord of type CNAME as an alias target for a known IPv4 loadbalancer", func() {
-			if ipv4Loadbalancer == nil {
+			if len(pointer.StringDeref(ipv4Loadbalancer, "")) == 0 {
 				Skip("--known-ipv4-loadbalancer not set")
-			} else {
-				Expect(strings.HasSuffix(*ipv4Loadbalancer, "elb.eu-west-1.amazonaws.com"))
-				dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeCNAME, []string{*ipv4Loadbalancer}, nil)
-				runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 			}
+
+			Expect(strings.HasSuffix(*ipv4Loadbalancer, "elb.eu-west-1.amazonaws.com"))
+			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeCNAME, []string{*ipv4Loadbalancer}, nil)
+			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 		})
 
 		It("should successfully create and delete a dnsrecord of type TXT", func() {
