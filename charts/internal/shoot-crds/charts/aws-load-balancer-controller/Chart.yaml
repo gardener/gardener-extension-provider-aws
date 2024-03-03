@@ -1,4 +1,4 @@
 apiVersion: v1
 description: A Helm chart for aws-load-balancer-controller CRDs.
 name: aws-load-balancer-controller
-version: 0.1.0
+version: 0.2.0

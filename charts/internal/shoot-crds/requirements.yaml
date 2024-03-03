@@ -5,5 +5,5 @@ dependencies:
   condition: volumesnapshots.enabled
 - name: aws-load-balancer-controller
   repository: http://localhost:10191
-  version: 0.1.0
+  version: 0.2.0
   condition: aws-load-balancer-controller.enabled
