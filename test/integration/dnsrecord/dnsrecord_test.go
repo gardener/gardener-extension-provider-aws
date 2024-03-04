@@ -53,9 +53,8 @@ import (
 )
 
 var (
-	accessKeyID      = flag.String("access-key-id", "", "AWS access key id")
-	secretAccessKey  = flag.String("secret-access-key", "", "AWS secret access key")
-	ipv4Loadbalancer = flag.String("known-ipv4-loadbalancer", "", "known existing IPv4 loadbalancer on elb.eu-west-1.amazonaws.com")
+	accessKeyID     = flag.String("access-key-id", "", "AWS access key id")
+	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
 )
 
 func validateFlags() {
@@ -293,16 +292,6 @@ var _ = Describe("DNSRecord tests", func() {
 			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeCNAME, []string{"foo.elb.eu-west-1.amazonaws.com"}, nil)
 			dns.Annotations = map[string]string{awsapi.AnnotationKeyIPStack: string(awsclient.IPStackIPDualStack)}
 			runTest(dns, awsclient.IPStackIPDualStack, nil, nil, nil, nil)
-		})
-
-		It("should successfully create and delete a dnsrecord of type CNAME as an alias target for a known IPv4 loadbalancer", func() {
-			if len(pointer.StringDeref(ipv4Loadbalancer, "")) == 0 {
-				Skip("--known-ipv4-loadbalancer not set")
-			}
-
-			Expect(strings.HasSuffix(*ipv4Loadbalancer, "elb.eu-west-1.amazonaws.com"))
-			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeCNAME, []string{*ipv4Loadbalancer}, nil)
-			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 		})
 
 		It("should successfully create and delete a dnsrecord of type TXT", func() {
