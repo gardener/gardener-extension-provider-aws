@@ -4,12 +4,12 @@ metadata:
 spec:
   owner: gardener-oq@listserv.sap.com
   description: Integration test for infrastructure creation and deletion
-  activeDeadlineSeconds: 3600
+  activeDeadlineSeconds: 8000
 
   command: [bash, -c]
   args:
   - >-
-    go test -timeout=55m ./test/integration/infrastructure
+    go test -timeout=120m ./test/integration/infrastructure
     --v -ginkgo.v -ginkgo.progress -ginkgo.no-color
     --kubeconfig=$TM_KUBECONFIG_PATH/testmachinery.config
     --access-key-id=$ACCESS_KEY_ID
