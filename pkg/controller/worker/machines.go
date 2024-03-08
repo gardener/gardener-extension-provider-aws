@@ -187,6 +187,13 @@ func (w *workerDelegate) generateMachineConfig() error {
 				}
 			}
 
+			if pool.MachineImage.Name != "" && pool.MachineImage.Version != "" {
+				machineClassSpec["operatingSystem"] = map[string]interface{}{
+					"operatingSystemName":    pool.MachineImage.Name,
+					"operatingSystemVersion": pool.MachineImage.Version,
+				}
+			}
+
 			var (
 				deploymentName          = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
 				className               = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)

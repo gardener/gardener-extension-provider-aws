@@ -471,6 +471,10 @@ var _ = Describe("Machines", func() {
 							},
 						},
 						"instanceMetadataOptions": map[string]interface{}{},
+						"operatingSystem": map[string]interface{}{
+							"operatingSystemName":    machineImageName,
+							"operatingSystemVersion": machineImageVersion,
+						},
 					}
 
 					var (
