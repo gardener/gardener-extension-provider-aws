@@ -38,7 +38,7 @@ spec:
     kind: Shoot
     spec:
       kubernetes:
-        version: 1.24.3
+        version: 1.28.2
     status:
       lastOperation:
         state: Succeeded

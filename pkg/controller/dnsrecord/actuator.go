@@ -85,15 +85,6 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensio
 		return wrapAWSClientError(err, fmt.Sprintf("could not create or update DNS recordset in zone %s with name %s, type %s, and values %v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values))
 	}
 
-	// Delete meta DNS recordset if exists
-	if dns.Status.LastOperation == nil || dns.Status.LastOperation.Type == gardencorev1beta1.LastOperationTypeCreate {
-		name, recordType := dnsrecord.GetMetaRecordName(dns.Spec.Name), "TXT"
-		log.Info("Deleting meta DNS recordset", "zone", zone, "name", name, "type", recordType, "dnsrecord", kutil.ObjectName(dns))
-		if err := awsClient.DeleteDNSRecordSet(ctx, zone, name, recordType, nil, 0, stack); err != nil {
-			return wrapAWSClientError(err, fmt.Sprintf("could not delete meta DNS recordset in zone %s with name %s and type %s", zone, name, recordType))
-		}
-	}
-
 	// Update resource status
 	patch := client.MergeFrom(dns.DeepCopy())
 	dns.Status.Zone = &zone

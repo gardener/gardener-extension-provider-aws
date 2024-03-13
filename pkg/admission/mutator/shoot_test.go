@@ -64,7 +64,7 @@ var _ = Describe("Shoot mutator", func() {
 				},
 				Spec: gardencorev1beta1.ShootSpec{
 					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: "1.24.7",
+						Version: "1.28.2",
 					},
 					SeedName: pointer.String("aws"),
 					Provider: gardencorev1beta1.Provider{
@@ -90,7 +90,7 @@ var _ = Describe("Shoot mutator", func() {
 				},
 				Spec: gardencorev1beta1.ShootSpec{
 					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: "1.24.7",
+						Version: "1.28.2",
 					},
 					SeedName: pointer.String("aws"),
 					Provider: gardencorev1beta1.Provider{
