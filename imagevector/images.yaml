@@ -14,20 +14,6 @@ images:
       availability_requirement: 'low'
 
 - name: cloud-controller-manager
-  sourceRepository: github.com/gardener/cloud-provider-aws
-  repository: europe-docker.pkg.dev/gardener-project/releases/kubernetes/cloud-provider-aws
-  tag: "v1.24.13"
-  targetVersion: "1.24.x"
-  labels:
-  - name: 'gardener.cloud/cve-categorisation'
-    value:
-      network_exposure: 'protected'
-      authentication_enforced: false
-      user_interaction: 'gardener-operator'
-      confidentiality_requirement: 'high'
-      integrity_requirement: 'high'
-      availability_requirement: 'low'
-- name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
   tag: "v1.25.14"

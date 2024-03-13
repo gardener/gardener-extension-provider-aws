@@ -186,7 +186,7 @@ var _ = Describe("ValuesProvider", func() {
 						Pods: &cidr,
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: "1.24.1",
+						Version: "1.28.2",
 						VerticalPodAutoscaler: &gardencorev1beta1.VerticalPodAutoscaler{
 							Enabled: true,
 						},
@@ -509,7 +509,7 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.24.1",
+						"kubernetesVersion": "1.28.2",
 						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
@@ -518,7 +518,6 @@ var _ = Describe("ValuesProvider", func() {
 							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
-						"pspDisabled": false,
 					}),
 				}))
 			})
@@ -534,7 +533,7 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSCustomRouteControllerName:  enabledTrue,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.24.1",
+						"kubernetesVersion": "1.28.2",
 						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
@@ -543,7 +542,6 @@ var _ = Describe("ValuesProvider", func() {
 							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
-						"pspDisabled": false,
 					}),
 				}))
 			})
@@ -574,7 +572,7 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: albChartValues,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.24.1",
+						"kubernetesVersion": "1.28.2",
 						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
@@ -583,67 +581,6 @@ var _ = Describe("ValuesProvider", func() {
 							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 							"caBundle": "",
 						},
-						"pspDisabled": false,
-					}),
-				}))
-			})
-		})
-
-		Context("podSecurityPolicy", func() {
-			It("should return correct shoot control plane chart when PodSecurityPolicy admission plugin is not disabled in the shoot", func() {
-				cluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
-					AdmissionPlugins: []gardencorev1beta1.AdmissionPlugin{
-						{
-							Name: "PodSecurityPolicy",
-						},
-					},
-				}
-				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, cluster, fakeSecretsManager, nil)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName:    enabledTrue,
-					aws.AWSCustomRouteControllerName:  enabledFalse,
-					aws.AWSLoadBalancerControllerName: enabledFalse,
-					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.24.1",
-						"vpaEnabled":        true,
-						"driver": map[string]interface{}{
-							"volumeAttachLimit": "42",
-						},
-						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-							"caBundle": "",
-						},
-						"pspDisabled": false,
-					}),
-				}))
-			})
-			It("should return correct shoot control plane chart when PodSecurityPolicy admission plugin is disabled in the shoot", func() {
-				cluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
-					AdmissionPlugins: []gardencorev1beta1.AdmissionPlugin{
-						{
-							Name:     "PodSecurityPolicy",
-							Disabled: pointer.Bool(true),
-						},
-					},
-				}
-				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, cluster, fakeSecretsManager, nil)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(values).To(Equal(map[string]interface{}{
-					aws.CloudControllerManagerName:    enabledTrue,
-					aws.AWSCustomRouteControllerName:  enabledFalse,
-					aws.AWSLoadBalancerControllerName: enabledFalse,
-					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.24.1",
-						"vpaEnabled":        true,
-						"driver": map[string]interface{}{
-							"volumeAttachLimit": "42",
-						},
-						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-							"caBundle": "",
-						},
-						"pspDisabled": true,
 					}),
 				}))
 			})
