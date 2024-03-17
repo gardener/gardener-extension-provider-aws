@@ -18,7 +18,6 @@ kind: MachineClass
 metadata:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}
-{{- if or $machineClass.operatingSystem $machineClass.labels }}
   labels:
     {{- if $machineClass.operatingSystem }}
 {{ toYaml $machineClass.operatingSystem | indent 4 }}
@@ -26,7 +25,6 @@ metadata:
     {{- if $machineClass.labels }}
 {{ toYaml $machineClass.labels | indent 4 }}
     {{- end }}
-{{- end }}
 {{- if $machineClass.nodeTemplate }}
 nodeTemplate:
   capacity:
