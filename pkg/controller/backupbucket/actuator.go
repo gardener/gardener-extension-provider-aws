@@ -17,6 +17,7 @@ package backupbucket
 import (
 	"context"
 
+	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -43,6 +44,15 @@ func (a *actuator) Reconcile(ctx context.Context, _ logr.Logger, bb *extensionsv
 	awsClient, err := aws.NewClientFromSecretRef(ctx, a.client, bb.Spec.SecretRef, bb.Spec.Region)
 	if err != nil {
 		return util.DetermineError(err, helper.KnownCodes)
+	}
+
+	secret, err := extensionscontroller.GetSecretByReference(ctx, a.client, &bb.Spec.SecretRef)
+	if err != nil {
+		return err
+	}
+
+	if secret.Data["endpoint"] != nil {
+		return util.DetermineError(awsClient.S3CompatCreateBucketIfNotExists(ctx, bb.Name, bb.Spec.Region), helper.KnownCodes)
 	}
 
 	return util.DetermineError(awsClient.CreateBucketIfNotExists(ctx, bb.Name, bb.Spec.Region), helper.KnownCodes)
