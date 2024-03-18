@@ -500,6 +500,29 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 	return err
 }
 
+// S3CreateBucketIfNotExists creates the s3 bucket with name <bucket> in <region>. If it already exists,
+// no error is returned. This function works with S3 compatible storage like Minio.
+func (c *Client) S3CompatCreateBucketIfNotExists(ctx context.Context, bucket, region string) error {
+	createBucketInput := &s3.CreateBucketInput{
+		Bucket: aws.String(bucket),
+		ACL:    aws.String(s3.BucketCannedACLPrivate),
+		CreateBucketConfiguration: &s3.CreateBucketConfiguration{
+			LocationConstraint: aws.String(region),
+		},
+	}
+
+	if _, err := c.S3.CreateBucketWithContext(ctx, createBucketInput); err != nil {
+		if aerr, ok := err.(awserr.Error); !ok {
+			return err
+		} else if aerr.Code() != s3.ErrCodeBucketAlreadyExists && aerr.Code() != s3.ErrCodeBucketAlreadyOwnedByYou {
+			return err
+		}
+	}
+
+	return nil
+
+}
+
 // DeleteBucketIfExists deletes the s3 bucket with name <bucket>. If it does not exist,
 // no error is returned.
 func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error {

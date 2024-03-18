@@ -44,6 +44,7 @@ type Interface interface {
 	// S3 wrappers
 	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
 	CreateBucketIfNotExists(ctx context.Context, bucket, region string) error
+	S3CompatCreateBucketIfNotExists(ctx context.Context, bucket, region string) error
 	DeleteBucketIfExists(ctx context.Context, bucket string) error
 
 	// Route53 wrappers
