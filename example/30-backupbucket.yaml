@@ -8,6 +8,9 @@ type: Opaque
 data:
 # accessKeyID: base64(access-key-id)
 # secretAccessKey: base64(secret-access-key)
+# endpoint: base64(custom endpoint for S3 compatible object storage)
+# s3ForcePathStyle: base64(force path style for storing objects, necessary for S3 compatible storage)
+# trustedCaCert: base64(trusted ca certificate in pem format. Necessary custom CAs)
 ---
 apiVersion: extensions.gardener.cloud/v1alpha1
 kind: BackupBucket
