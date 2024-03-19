@@ -380,33 +380,48 @@ spec:
 
 > Note: The AWS extension does not support EBS volume (root & data volumes) encryption with [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk). Support for [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) is out of scope for now. Only [AWS managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk) is supported.
 
-Additionally, it is possible to provide further AWS-specific values for configuring the worker pools.
-It can be provided in `.spec.provider.workers[].providerConfig` and is evaluated by the AWS worker controller when it reconciles the shoot machines.
+Additionally, it is possible to provide further AWS-specific values for configuring the worker pools. The additional configuration must be specified in the `providerConfig` field of the respective worker.
+```yaml
+spec:
+  provider:
+    workers:
+      - name: cpu-worker
+        ...
+        providerConfig:
+          # AWS worker config 
+```
+The configuration will be evaluated when the provider-aws will reconcile the worker pools for the respective shoot.
 
 An example `WorkerConfig` for the AWS extension looks as follows:
 
 ```yaml
-apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-kind: WorkerConfig
-volume:
-  iops: 10000
-  throughput: 200 
-dataVolumes:
-- name: kubelet-dir
-  iops: 12345
-  throughput: 150
-  snapshotID: snap-1234
-iamInstanceProfile: # (specify either ARN or name)
-  name: my-profile
-instanceMetadataOptions:
-  httpTokens: required
-  httpPutResponseHopLimit: 2
-# arn: my-instance-profile-arn
-nodeTemplate: # (to be specified only if the node capacity would be different from cloudprofile info during runtime)
-  capacity:
-    cpu: 2
-    gpu: 0
-    memory: 50Gi
+spec:
+  provider:
+    workers:
+      - name: cpu-worker
+        ...
+        providerConfig:
+            apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+            kind: WorkerConfig
+            volume:
+              iops: 10000
+              throughput: 200 
+            dataVolumes:
+            - name: kubelet-dir
+              iops: 12345
+              throughput: 150
+              snapshotID: snap-1234
+            iamInstanceProfile: # (specify either ARN or name)
+              name: my-profile
+            instanceMetadataOptions:
+              httpTokens: required
+              httpPutResponseHopLimit: 2
+            # arn: my-instance-profile-arn
+            nodeTemplate: # (to be specified only if the node capacity would be different from cloudprofile info during runtime)
+              capacity:
+                cpu: 2
+                gpu: 0
+                memory: 50Gi
 ```
 
 The `.volume.iops` is the number of I/O operations per second (IOPS) that the volume supports.
