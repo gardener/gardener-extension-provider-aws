@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -42,6 +43,15 @@ func (w *workerDelegate) MachineClass() client.Object {
 	return &machinev1alpha1.MachineClass{}
 }
 
+func PrettyPrintObject(obj interface{}) error {
+	d, err := yaml.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	fmt.Print(string(d))
+	return nil
+}
+
 // DeployMachineClasses generates and creates the AWS specific machine classes.
 func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 	if w.machineClasses == nil {
@@ -49,7 +59,10 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 			return err
 		}
 	}
-
+	fmt.Println(">>>>>>>>>>>>>>>>> MCC <<<<<<<<<<<<<<<<")
+	fmt.Println(PrettyPrintObject(w.machineClasses))
+	fmt.Println(">>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<")
+	//fmt.Println((w.machineClasses[0]["nodeTemplate"]).(machinev1alpha1.NodeTemplate).Architecture)
 	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join(charts.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 
@@ -162,18 +175,22 @@ func (w *workerDelegate) generateMachineConfig() error {
 			}
 
 			if workerConfig.NodeTemplate != nil {
+				fmt.Println(">>>>>>>>>>>>> In WorkerConfig <<<<<<<<<<<<<")
 				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
 					Capacity:     workerConfig.NodeTemplate.Capacity,
 					InstanceType: pool.MachineType,
 					Region:       w.worker.Spec.Region,
 					Zone:         zone,
+					Architecture: &arch,
 				}
 			} else if pool.NodeTemplate != nil {
+				fmt.Println(">>>>>>>>>>>>> In Pool <<<<<<<<<<<<<")
 				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
 					Capacity:     pool.NodeTemplate.Capacity,
 					InstanceType: pool.MachineType,
 					Region:       w.worker.Spec.Region,
 					Zone:         zone,
+					Architecture: &arch,
 				}
 			}
 
