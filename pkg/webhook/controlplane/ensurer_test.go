@@ -672,7 +672,7 @@ done
 		})
 
 		DescribeTable("should modify existing elements of kubelet configuration",
-			func(gctx gcontext.GardenContext, kubeletVersion *semver.Version) {
+			func(kubeletVersion *semver.Version) {
 				newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
 					FeatureGates: map[string]bool{
 						"Foo": true,
@@ -692,8 +692,8 @@ done
 				Expect(&kubeletConfig).To(Equal(newKubeletConfig))
 			},
 
-			Entry("kubelet < 1.26", eContextK8s126, semver.MustParse("1.26.0")),
-			Entry("kubelet >= 1.27", eContextK8s127, semver.MustParse("1.27.1")),
+			Entry("kubelet < 1.26", semver.MustParse("1.26.0")),
+			Entry("kubelet >= 1.27", semver.MustParse("1.27.1")),
 		)
 	})
 

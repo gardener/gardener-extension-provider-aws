@@ -137,7 +137,7 @@ var _ = Describe("Actuator", func() {
 			awsClient.EXPECT().GetDNSHostedZones(ctx).Return(zones, nil)
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).Return(nil)
 			sw.EXPECT().Patch(ctx, gomock.AssignableToTypeOf(&extensionsv1alpha1.DNSRecord{}), gomock.Any()).DoAndReturn(
-				func(_ context.Context, obj *extensionsv1alpha1.DNSRecord, _ client.Patch, opts ...client.PatchOption) error {
+				func(_ context.Context, obj *extensionsv1alpha1.DNSRecord, _ client.Patch, _ ...client.PatchOption) error {
 					Expect(obj.Status).To(Equal(extensionsv1alpha1.DNSRecordStatus{
 						Zone: ptr.To(zone),
 					}))

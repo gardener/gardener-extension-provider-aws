@@ -638,7 +638,7 @@ var _ = Describe("ValuesProvider", func() {
 })
 
 func clientGet(result runtime.Object) interface{} {
-	return func(ctx context.Context, key client.ObjectKey, obj runtime.Object, _ ...client.GetOption) error {
+	return func(_ context.Context, _ client.ObjectKey, obj runtime.Object, _ ...client.GetOption) error {
 		switch obj.(type) {
 		case *corev1.Service:
 			*obj.(*corev1.Service) = *result.(*corev1.Service)
