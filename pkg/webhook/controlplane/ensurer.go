@@ -18,7 +18,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/component/machinecontrollermanager"
+	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	"github.com/go-logr/logr"
@@ -449,7 +449,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 	extensionswebhook.AppendUniqueUnit(newObj, extensionsv1alpha1.Unit{
 		Name:    "custom-mtu.service",
 		Enable:  pointer.Bool(true),
-		Command: extensionsv1alpha1.UnitCommandPtr(extensionsv1alpha1.CommandStart),
+		Command: ptr.To(extensionsv1alpha1.CommandStart),
 		Content: &customMTUUnitContent,
 	})
 	return nil
