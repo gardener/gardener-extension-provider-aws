@@ -376,7 +376,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 `
 
 				oldUnit        = extensionsv1alpha1.Unit{Name: "oldunit"}
-				additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: pointer.Bool(true), Command: extensionsv1alpha1.UnitCommandPtr(extensionsv1alpha1.CommandStart), Content: &customMTUUnitContent}
+				additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: pointer.Bool(true), Command: ptr.To(extensionsv1alpha1.CommandStart), Content: &customMTUUnitContent}
 
 				units = []extensionsv1alpha1.Unit{oldUnit}
 			)
