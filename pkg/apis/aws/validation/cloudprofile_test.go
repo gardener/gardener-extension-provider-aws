@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
@@ -31,7 +31,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 									{
 										Name:         "eu",
 										AMI:          "ami-1234",
-										Architecture: pointer.String("amd64"),
+										Architecture: ptr.To("amd64"),
 									},
 								},
 							},
@@ -93,7 +93,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 						Versions: []apisaws.MachineImageVersion{
 							{
 								Version: "1.2.3",
-								Regions: []apisaws.RegionAMIMapping{{Architecture: pointer.String("amd64")}},
+								Regions: []apisaws.RegionAMIMapping{{Architecture: ptr.To("amd64")}},
 							},
 						},
 					},
@@ -111,7 +111,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 			})
 
 			It("should forbid unsupported machine image architecture configuration", func() {
-				cloudProfileConfig.MachineImages[0].Versions[0].Regions[0].Architecture = pointer.String("foo")
+				cloudProfileConfig.MachineImages[0].Versions[0].Regions[0].Architecture = ptr.To("foo")
 
 				errorList := ValidateCloudProfileConfig(cloudProfileConfig, field.NewPath("root"))
 

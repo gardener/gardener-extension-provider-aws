@@ -11,12 +11,11 @@ import (
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	"github.com/gardener/gardener/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/config"
 )
@@ -33,8 +32,8 @@ var (
 var _ = Describe("Ensurer", func() {
 	var (
 		etcdStorage = &config.ETCDStorage{
-			ClassName: pointer.String("gardener.cloud-fast"),
-			Capacity:  utils.QuantityPtr(resource.MustParse("80Gi")),
+			ClassName: ptr.To("gardener.cloud-fast"),
+			Capacity:  ptr.To(resource.MustParse("80Gi")),
 		}
 
 		dummyContext = gcontext.NewGardenContext(nil, nil)

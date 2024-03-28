@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
@@ -25,7 +25,7 @@ var _ = Describe("Shoot validation", func() {
 
 		It("should return no error because nodes CIDR was provided", func() {
 			networking := &core.Networking{
-				Nodes: pointer.String("1.2.3.4/5"),
+				Nodes: ptr.To("1.2.3.4/5"),
 			}
 
 			errorList := ValidateNetworking(networking, networkingPath)
@@ -58,7 +58,7 @@ var _ = Describe("Shoot validation", func() {
 			worker = core.Worker{
 				Name: "worker1",
 				Volume: &core.Volume{
-					Type:       pointer.String("Volume"),
+					Type:       ptr.To("Volume"),
 					VolumeSize: "30G",
 				},
 				Zones: []string{
@@ -107,7 +107,7 @@ var _ = Describe("Shoot validation", func() {
 			})
 
 			It("should forbid because volume type io1 is used but no worker config provided", func() {
-				worker.Volume.Type = pointer.String(string(apisaws.VolumeTypeIO1))
+				worker.Volume.Type = ptr.To(string(apisaws.VolumeTypeIO1))
 
 				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{}, field.NewPath("workers").Index(0))
 
@@ -124,7 +124,7 @@ var _ = Describe("Shoot validation", func() {
 			})
 
 			It("should allow because volume type io1 and worker config provided", func() {
-				worker.Volume.Type = pointer.String(string(apisaws.VolumeTypeIO1))
+				worker.Volume.Type = ptr.To(string(apisaws.VolumeTypeIO1))
 				worker.ProviderConfig = &runtime.RawExtension{}
 
 				errorList := ValidateWorker(worker, awsZones, &apisaws.WorkerConfig{Volume: &apisaws.Volume{IOPS: &iops}}, field.NewPath("workers").Index(0))
@@ -164,7 +164,7 @@ var _ = Describe("Shoot validation", func() {
 					worker.DataVolumes = append(worker.DataVolumes, core.DataVolume{
 						Name:       fmt.Sprintf("foo%d", i),
 						VolumeSize: "20Gi",
-						Type:       pointer.String("foo"),
+						Type:       ptr.To("foo"),
 					})
 				}
 

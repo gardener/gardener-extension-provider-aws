@@ -7,7 +7,7 @@ package helper_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
@@ -69,13 +69,13 @@ var _ = Describe("Helper", func() {
 			expectResults(machineImage, expectedMachineImage, err, expectErr)
 		},
 
-		Entry("list is nil", nil, "foo", "1.2.3", pointer.String("foo"), nil, true),
-		Entry("empty list", []api.MachineImage{}, "foo", "1.2.3", pointer.String("foo"), nil, true),
-		Entry("entry not found (no name)", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "foo", "1.2.ś", pointer.String("foo"), nil, true),
-		Entry("entry not found (no version)", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "foo", "1.2.3", pointer.String("foo"), nil, true),
-		Entry("entry not found (no architecture)", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: pointer.String("bar")}}, "foo", "1.2.3", pointer.String("foo"), nil, true),
-		Entry("entry exists if architecture is nil", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "bar", "1.2.3", pointer.String("amd64"), &api.MachineImage{Name: "bar", Version: "1.2.3", Architecture: pointer.String("amd64")}, false),
-		Entry("entry exists", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: pointer.String("foo")}}, "bar", "1.2.3", pointer.String("foo"), &api.MachineImage{Name: "bar", Version: "1.2.3", Architecture: pointer.String("foo")}, false),
+		Entry("list is nil", nil, "foo", "1.2.3", ptr.To("foo"), nil, true),
+		Entry("empty list", []api.MachineImage{}, "foo", "1.2.3", ptr.To("foo"), nil, true),
+		Entry("entry not found (no name)", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "foo", "1.2.ś", ptr.To("foo"), nil, true),
+		Entry("entry not found (no version)", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "foo", "1.2.3", ptr.To("foo"), nil, true),
+		Entry("entry not found (no architecture)", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: ptr.To("bar")}}, "foo", "1.2.3", ptr.To("foo"), nil, true),
+		Entry("entry exists if architecture is nil", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "bar", "1.2.3", ptr.To("amd64"), &api.MachineImage{Name: "bar", Version: "1.2.3", Architecture: ptr.To("amd64")}, false),
+		Entry("entry exists", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: ptr.To("foo")}}, "bar", "1.2.3", ptr.To("foo"), &api.MachineImage{Name: "bar", Version: "1.2.3", Architecture: ptr.To("foo")}, false),
 	)
 
 	DescribeTable("#FindAMIForRegion",
@@ -92,14 +92,14 @@ var _ = Describe("Helper", func() {
 			}
 		},
 
-		Entry("list is nil", nil, "ubuntu", "1", "europe", pointer.String("foo"), ""),
+		Entry("list is nil", nil, "ubuntu", "1", "europe", ptr.To("foo"), ""),
 
-		Entry("profile empty list", []api.MachineImages{}, "ubuntu", "1", "europe", pointer.String("foo"), ""),
-		Entry("profile entry not found (image does not exist)", makeProfileMachineImages("debian", "1", "europe", "0", pointer.String("foo")), "ubuntu", "1", "europe", pointer.String("foo"), ""),
-		Entry("profile entry not found (version does not exist)", makeProfileMachineImages("ubuntu", "2", "europe", "0", pointer.String("foo")), "ubuntu", "1", "europe", pointer.String("foo"), ""),
-		Entry("profile entry not found (architecture does not exist)", makeProfileMachineImages("ubuntu", "1", "europe", "0", pointer.String("bar")), "ubuntu", "1", "europe", pointer.String("foo"), ""),
-		Entry("profile entry", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234", pointer.String("foo")), "ubuntu", "1", "europe", pointer.String("foo"), "ami-1234"),
-		Entry("profile non matching region", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234", pointer.String("foo")), "ubuntu", "1", "china", pointer.String("foo"), ""),
+		Entry("profile empty list", []api.MachineImages{}, "ubuntu", "1", "europe", ptr.To("foo"), ""),
+		Entry("profile entry not found (image does not exist)", makeProfileMachineImages("debian", "1", "europe", "0", ptr.To("foo")), "ubuntu", "1", "europe", ptr.To("foo"), ""),
+		Entry("profile entry not found (version does not exist)", makeProfileMachineImages("ubuntu", "2", "europe", "0", ptr.To("foo")), "ubuntu", "1", "europe", ptr.To("foo"), ""),
+		Entry("profile entry not found (architecture does not exist)", makeProfileMachineImages("ubuntu", "1", "europe", "0", ptr.To("bar")), "ubuntu", "1", "europe", ptr.To("foo"), ""),
+		Entry("profile entry", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234", ptr.To("foo")), "ubuntu", "1", "europe", ptr.To("foo"), "ami-1234"),
+		Entry("profile non matching region", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234", ptr.To("foo")), "ubuntu", "1", "china", ptr.To("foo"), ""),
 	)
 
 	DescribeTable("#FindDataVolumeByName",

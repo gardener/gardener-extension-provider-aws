@@ -13,7 +13,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -147,7 +146,7 @@ outerCreate:
 		if err = u.client.CreateRoute(ctx, current.RouteTableId, dr); err != nil {
 			return
 		}
-		log.Info("Created route", "cidr", pointer.StringDeref(dr.DestinationCidrBlock, ""))
+		log.Info("Created route", "cidr", ptr.Deref(dr.DestinationCidrBlock, ""))
 		modified = true
 	}
 	return

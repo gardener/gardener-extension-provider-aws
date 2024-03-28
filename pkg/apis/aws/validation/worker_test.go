@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
@@ -251,7 +251,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			It("should forbid specifying an invalid IAM name", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
-					Name: pointer.String(""),
+					Name: ptr.To(""),
 				}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
@@ -264,7 +264,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			It("should forbid specifying an invalid IAM arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
-					ARN: pointer.String(""),
+					ARN: ptr.To(""),
 				}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
@@ -300,7 +300,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should allow disabling IMDS from pods", func() {
 				v := apisaws.HTTPTokensRequired
 				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
-					HTTPPutResponseHopLimit: pointer.Int64(1),
+					HTTPPutResponseHopLimit: ptr.To[int64](1),
 					HTTPTokens:              &v,
 				}
 
@@ -324,7 +324,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			It("httpPutResponseHopLimit should only contain valid values", func() {
 				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
-					HTTPPutResponseHopLimit: pointer.Int64(100),
+					HTTPPutResponseHopLimit: ptr.To[int64](100),
 				}
 
 				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)

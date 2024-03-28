@@ -40,7 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -138,7 +138,7 @@ var _ = BeforeSuite(func() {
 
 	By("starting test environment")
 	testEnv = &envtest.Environment{
-		UseExistingCluster: pointer.Bool(true),
+		UseExistingCluster: ptr.To(true),
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
 				filepath.Join(repoRoot, "example", "20-crd-extensions.gardener.cloud_clusters.yaml"),
@@ -207,7 +207,7 @@ var _ = Describe("Infrastructure tests", func() {
 	Context("with infrastructure that requests new vpc (networks.vpc.cidr)", func() {
 		It("should successfully create and delete (flow)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             pointer.String(vpcCIDR),
+				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 
@@ -220,7 +220,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete (flow) with dualstack enabled", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             pointer.String(vpcCIDR),
+				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 			providerConfig.DualStack.Enabled = true
@@ -233,7 +233,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete (terraformer)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             pointer.String(vpcCIDR),
+				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 
@@ -246,7 +246,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete (terraformer) with dualstack enabled", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             pointer.String(vpcCIDR),
+				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 			providerConfig.DualStack.Enabled = true
@@ -259,7 +259,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete (migration from terraformer)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             pointer.String(vpcCIDR),
+				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
 
@@ -407,7 +407,7 @@ var _ = Describe("Infrastructure tests", func() {
 	Context("with invalid credentials", func() {
 		It("should fail creation but succeed deletion (terraformer)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR: pointer.String(vpcCIDR),
+				CIDR: ptr.To(vpcCIDR),
 			})
 
 			namespaceName, err := generateNamespaceName()
@@ -502,7 +502,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should fail creation but succeed deletion (flow)", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR: pointer.String(vpcCIDR),
+				CIDR: ptr.To(vpcCIDR),
 			})
 
 			namespaceName, err := generateNamespaceName()
@@ -705,7 +705,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	}
 
 	By("verify infrastructure creation")
-	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, pointer.String(vpcCIDR), s3GatewayEndpoint)
+	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint)
 
 	By("add tags to subnet")
 	// add some ignored and not ignored tags to subnet and verify that ignored tags are not removed in the next reconciliation
@@ -774,7 +774,7 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
 			Kind:       "InfrastructureConfig",
 		},
-		EnableECRAccess: pointer.Bool(true),
+		EnableECRAccess: ptr.To(true),
 		DualStack:       &awsv1alpha1.DualStack{Enabled: false},
 		Networks: awsv1alpha1.Networks{
 			VPC: vpc,
