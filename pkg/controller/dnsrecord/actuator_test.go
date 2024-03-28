@@ -14,16 +14,16 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
-	mockmanager "github.com/gardener/gardener/pkg/mock/controller-runtime/manager"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
+	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
+	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -139,7 +139,7 @@ var _ = Describe("Actuator", func() {
 			sw.EXPECT().Patch(ctx, gomock.AssignableToTypeOf(&extensionsv1alpha1.DNSRecord{}), gomock.Any()).DoAndReturn(
 				func(_ context.Context, obj *extensionsv1alpha1.DNSRecord, _ client.Patch, opts ...client.PatchOption) error {
 					Expect(obj.Status).To(Equal(extensionsv1alpha1.DNSRecordStatus{
-						Zone: pointer.String(zone),
+						Zone: ptr.To(zone),
 					}))
 					return nil
 				},
@@ -150,7 +150,7 @@ var _ = Describe("Actuator", func() {
 		})
 
 		It("should fail if creating the DNS record set failed", func() {
-			dns.Spec.Zone = pointer.String(zone)
+			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
 				Return(errors.New("test"))
@@ -162,7 +162,7 @@ var _ = Describe("Actuator", func() {
 		})
 
 		It("should fail with ERR_CONFIGURATION_PROBLEM if there is no such hosted zone", func() {
-			dns.Spec.Zone = pointer.String(zone)
+			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
 				Return(awserr.New(route53.ErrCodeNoSuchHostedZone, "", nil))
@@ -175,7 +175,7 @@ var _ = Describe("Actuator", func() {
 		})
 
 		It("should fail with ERR_CONFIGURATION_PROBLEM if the domain name is not permitted in the zone", func() {
-			dns.Spec.Zone = pointer.String(zone)
+			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
 				Return(awserr.New(route53.ErrCodeInvalidChangeBatch, "RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com.", nil))
@@ -190,7 +190,7 @@ var _ = Describe("Actuator", func() {
 
 	Describe("#Delete", func() {
 		It("should delete the DNSRecord", func() {
-			dns.Status.Zone = pointer.String(zone)
+			dns.Status.Zone = ptr.To(zone)
 
 			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
 				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {

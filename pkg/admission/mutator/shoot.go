@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -127,13 +127,13 @@ func (s *shoot) Mutate(_ context.Context, newObj, oldObj client.Object) error {
 
 	if overlayDisabled {
 		if controlPlaneConfig.CloudControllerManager.UseCustomRouteController == nil {
-			controlPlaneConfig.CloudControllerManager.UseCustomRouteController = pointer.Bool(true)
+			controlPlaneConfig.CloudControllerManager.UseCustomRouteController = ptr.To(true)
 		} else {
 			*controlPlaneConfig.CloudControllerManager.UseCustomRouteController = true
 		}
 	} else {
 		if controlPlaneConfig.CloudControllerManager.UseCustomRouteController == nil {
-			controlPlaneConfig.CloudControllerManager.UseCustomRouteController = pointer.Bool(false)
+			controlPlaneConfig.CloudControllerManager.UseCustomRouteController = ptr.To(false)
 		} else {
 			*controlPlaneConfig.CloudControllerManager.UseCustomRouteController = false
 		}

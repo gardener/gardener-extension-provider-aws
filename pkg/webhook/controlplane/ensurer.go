@@ -18,7 +18,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/component/machinecontrollermanager"
+	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	"github.com/go-logr/logr"
@@ -29,7 +29,6 @@ import (
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1 "k8s.io/kubelet/config/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -400,7 +399,7 @@ func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.Garde
 	}
 
 	newObj.FeatureGates["InTreePluginAWSUnregister"] = true
-	newObj.EnableControllerAttachDetach = pointer.Bool(true)
+	newObj.EnableControllerAttachDetach = ptr.To(true)
 
 	return nil
 }
@@ -448,8 +447,8 @@ ExecStart=/opt/bin/mtu-customizer.sh
 
 	extensionswebhook.AppendUniqueUnit(newObj, extensionsv1alpha1.Unit{
 		Name:    "custom-mtu.service",
-		Enable:  pointer.Bool(true),
-		Command: extensionsv1alpha1.UnitCommandPtr(extensionsv1alpha1.CommandStart),
+		Enable:  ptr.To(true),
+		Command: ptr.To(extensionsv1alpha1.CommandStart),
 		Content: &customMTUUnitContent,
 	})
 	return nil
@@ -462,7 +461,7 @@ func (e *ensurer) credentialProviderBinaryFile() (*extensionsv1alpha1.File, erro
 	}
 	config := &extensionsv1alpha1.File{
 		Path:        v1beta1constants.OperatingSystemConfigFilePathBinaries + "/ecr-credential-provider",
-		Permissions: pointer.Int32(0755),
+		Permissions: ptr.To[int32](0755),
 		Content: extensionsv1alpha1.FileContent{
 			ImageRef: &extensionsv1alpha1.FileContentImageRef{
 

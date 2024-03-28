@@ -20,8 +20,8 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	mockkubernetes "github.com/gardener/gardener/pkg/client/kubernetes/mock"
-	mockclient "github.com/gardener/gardener/pkg/mock/controller-runtime/client"
 	"github.com/gardener/gardener/pkg/utils"
+	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/charts"
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -249,7 +249,7 @@ var _ = Describe("Machines", func() {
 										{
 											Name:         region,
 											AMI:          machineImageAMI,
-											Architecture: pointer.String(archAMD),
+											Architecture: ptr.To(archAMD),
 										},
 									},
 								},
@@ -328,7 +328,7 @@ var _ = Describe("Machines", func() {
 								MaxSurge:       maxSurgePool1,
 								MaxUnavailable: maxUnavailablePool1,
 								MachineType:    machineType,
-								Architecture:   pointer.String(archAMD),
+								Architecture:   ptr.To(archAMD),
 								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
 									Capacity: nodeCapacity,
 								},
@@ -649,7 +649,7 @@ var _ = Describe("Machines", func() {
 								Name:         machineImageName,
 								Version:      machineImageVersion,
 								AMI:          machineImageAMI,
-								Architecture: pointer.String(archAMD),
+								Architecture: ptr.To(archAMD),
 							},
 						},
 					}
@@ -834,7 +834,7 @@ var _ = Describe("Machines", func() {
 			})
 
 			It("should fail because the ami for this architecture cannot be found", func() {
-				w.Spec.Pools[0].Architecture = pointer.String(archARM)
+				w.Spec.Pools[0].Architecture = ptr.To(archARM)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
@@ -909,6 +909,40 @@ var _ = Describe("Machines", func() {
 				Expect(resultSettings.MachineHealthTimeout).To(Equal(&testHealthTimeout))
 				Expect(resultSettings.MaxEvictRetries).To(Equal(&testMaxEvictRetries))
 				Expect(resultSettings.NodeConditions).To(Equal(&resultNodeConditions))
+			})
+
+			It("should set expected cluster-autoscaler annotations on the machine deployment", func() {
+				w.Spec.Pools[0].ClusterAutoscaler = &extensionsv1alpha1.ClusterAutoscalerOptions{
+					MaxNodeProvisionTime:             ptr.To(metav1.Duration{Duration: time.Minute}),
+					ScaleDownGpuUtilizationThreshold: ptr.To("0.4"),
+					ScaleDownUnneededTime:            ptr.To(metav1.Duration{Duration: 2 * time.Minute}),
+					ScaleDownUnreadyTime:             ptr.To(metav1.Duration{Duration: 3 * time.Minute}),
+					ScaleDownUtilizationThreshold:    ptr.To("0.5"),
+				}
+				w.Spec.Pools[1].ClusterAutoscaler = nil
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).NotTo(BeNil())
+
+				Expect(result[0].ClusterAutoscalerAnnotations).NotTo(BeNil())
+				Expect(result[1].ClusterAutoscalerAnnotations).NotTo(BeNil())
+				Expect(result[2].ClusterAutoscalerAnnotations).To(BeNil())
+				Expect(result[3].ClusterAutoscalerAnnotations).To(BeNil())
+
+				Expect(result[0].ClusterAutoscalerAnnotations[extensionsv1alpha1.MaxNodeProvisionTimeAnnotation]).To(Equal("1m0s"))
+				Expect(result[0].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownGpuUtilizationThresholdAnnotation]).To(Equal("0.4"))
+				Expect(result[0].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUnneededTimeAnnotation]).To(Equal("2m0s"))
+				Expect(result[0].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUnreadyTimeAnnotation]).To(Equal("3m0s"))
+				Expect(result[0].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUtilizationThresholdAnnotation]).To(Equal("0.5"))
+
+				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.MaxNodeProvisionTimeAnnotation]).To(Equal("1m0s"))
+				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownGpuUtilizationThresholdAnnotation]).To(Equal("0.4"))
+				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUnneededTimeAnnotation]).To(Equal("2m0s"))
+				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUnreadyTimeAnnotation]).To(Equal("3m0s"))
+				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUtilizationThresholdAnnotation]).To(Equal("0.5"))
 			})
 		})
 	})
