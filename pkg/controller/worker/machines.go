@@ -15,6 +15,7 @@ import (
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/utils"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
@@ -25,7 +26,6 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 )
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
