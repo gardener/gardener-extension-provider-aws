@@ -10,7 +10,7 @@ import (
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -34,7 +34,7 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*Credentia
 
 	var altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey *string
 	if allowDNSKeys {
-		altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey = pointer.String(DNSAccessKeyID), pointer.String(DNSSecretAccessKey), pointer.String(DNSRegion)
+		altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey = ptr.To(DNSAccessKeyID), ptr.To(DNSSecretAccessKey), ptr.To(DNSRegion)
 	}
 
 	accessKeyID, err := getSecretDataValue(secret, AccessKeyID, altAccessKeyIDKey, true)

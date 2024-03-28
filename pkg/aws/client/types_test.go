@@ -10,7 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
@@ -60,7 +60,7 @@ var _ = Describe("SecurityGroup", func() {
 		sg1 = &SecurityGroup{
 			GroupId:   "sg-1",
 			GroupName: "sg1",
-			VpcId:     pointer.String("vpc-1"),
+			VpcId:     ptr.To("vpc-1"),
 			Rules:     rules1,
 		}
 		clone1  = sg1.SortedClone()
@@ -68,13 +68,13 @@ var _ = Describe("SecurityGroup", func() {
 		sg2     = &SecurityGroup{
 			GroupId:   "sg-2",
 			GroupName: "sg2",
-			VpcId:     pointer.String("vpc-1"),
+			VpcId:     ptr.To("vpc-1"),
 			Rules:     rules2,
 		}
 		sg3 = &SecurityGroup{
 			GroupId:   "sg-3",
 			GroupName: "sg3",
-			VpcId:     pointer.String("vpc-1"),
+			VpcId:     ptr.To("vpc-1"),
 		}
 	)
 

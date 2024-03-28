@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -376,7 +375,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 `
 
 				oldUnit        = extensionsv1alpha1.Unit{Name: "oldunit"}
-				additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: pointer.Bool(true), Command: ptr.To(extensionsv1alpha1.CommandStart), Content: &customMTUUnitContent}
+				additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: ptr.To(true), Command: ptr.To(extensionsv1alpha1.CommandStart), Content: &customMTUUnitContent}
 
 				units = []extensionsv1alpha1.Unit{oldUnit}
 			)
@@ -678,7 +677,7 @@ done
 					FeatureGates: map[string]bool{
 						"Foo": true,
 					},
-					EnableControllerAttachDetach: pointer.Bool(true),
+					EnableControllerAttachDetach: ptr.To(true),
 				}
 				kubeletConfig := *oldKubeletConfig
 
@@ -707,7 +706,7 @@ done
 
 		It("should modify existing elements of kubernetes general configuration", func() {
 			var (
-				modifiedData = pointer.String("# Default Socket Send Buffer\n" +
+				modifiedData = ptr.To("# Default Socket Send Buffer\n" +
 					"net.core.wmem_max = 16777216\n" +
 					"# AWS specific settings\n" +
 					"# See https://github.com/kubernetes/kubernetes/issues/23395\n" +
@@ -730,7 +729,7 @@ done
 
 		It("should add needed elements of kubernetes general configuration", func() {
 			var (
-				data   = pointer.String("# Default Socket Send Buffer\nnet.core.wmem_max = 16777216")
+				data   = ptr.To("# Default Socket Send Buffer\nnet.core.wmem_max = 16777216")
 				result = "# Default Socket Send Buffer\n" +
 					"net.core.wmem_max = 16777216\n" +
 					"# AWS specific settings\n" +
@@ -756,7 +755,7 @@ done
 			DeferCleanup(testutils.WithVar(&ImageVector, imagevectorutils.ImageVector{{
 				Name:       "machine-controller-manager-provider-aws",
 				Repository: "foo",
-				Tag:        pointer.String("bar"),
+				Tag:        ptr.To("bar"),
 			}}))
 		})
 

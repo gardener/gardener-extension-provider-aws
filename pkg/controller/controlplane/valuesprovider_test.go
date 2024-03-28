@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -74,7 +74,7 @@ var _ = Describe("ValuesProvider", func() {
 						FeatureGates: map[string]bool{
 							"RotateKubeletServerCertificate": true,
 						},
-						UseCustomRouteController: pointer.Bool(true),
+						UseCustomRouteController: ptr.To(true),
 					},
 				}),
 			}
@@ -399,7 +399,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct control plane chart values and ALB enabled with ingress class name", func() {
-			setLoadBalancerControllerEnabled(cp, pointer.String("my-alb"))
+			setLoadBalancerControllerEnabled(cp, ptr.To("my-alb"))
 			albChartValues["replicaCount"] = 1 // chart is always deployed, but with 0 replicas when disabled
 			albChartValues["ingressClass"] = "my-alb"
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
@@ -589,7 +589,7 @@ var _ = Describe("ValuesProvider", func() {
 		It("should return correct storage class chart values and default is set to true", func() {
 			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
 				Storage: &apisawsv1alpha1.Storage{
-					ManagedDefaultClass: pointer.Bool(true),
+					ManagedDefaultClass: ptr.To(true),
 				},
 			})
 
@@ -603,7 +603,7 @@ var _ = Describe("ValuesProvider", func() {
 		It("should return correct storage class chart values and default is set to false", func() {
 			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
 				Storage: &apisawsv1alpha1.Storage{
-					ManagedDefaultClass: pointer.Bool(false),
+					ManagedDefaultClass: ptr.To(false),
 				},
 			})
 

@@ -27,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -258,12 +258,12 @@ var runTest = func(dns *extensionsv1alpha1.DNSRecord, stack awsclient.IPStack, n
 var _ = Describe("DNSRecord tests", func() {
 	Context("when a DNS recordset doesn't exist and is not changed or deleted before dnsrecord deletion", func() {
 		It("should successfully create and delete a dnsrecord of type A", func() {
-			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, pointer.Int64(300))
+			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, ptr.To[int64](300))
 			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 		})
 
 		It("should successfully create and delete a dnsrecord of type CNAME", func() {
-			dns := newDNSRecord(testName, zoneName, pointer.String(zoneID), extensionsv1alpha1.DNSRecordTypeCNAME, []string{"foo.example.com"}, pointer.Int64(600))
+			dns := newDNSRecord(testName, zoneName, ptr.To(zoneID), extensionsv1alpha1.DNSRecordTypeCNAME, []string{"foo.example.com"}, ptr.To[int64](600))
 			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 		})
 
@@ -285,14 +285,14 @@ var _ = Describe("DNSRecord tests", func() {
 		})
 
 		It("should successfully create and delete a dnsrecord of type TXT", func() {
-			dns := newDNSRecord(testName, zoneName, pointer.String(zoneID), extensionsv1alpha1.DNSRecordTypeTXT, []string{"foo", "bar"}, nil)
+			dns := newDNSRecord(testName, zoneName, ptr.To(zoneID), extensionsv1alpha1.DNSRecordTypeTXT, []string{"foo", "bar"}, nil)
 			runTest(dns, awsclient.IPStackIPv4, nil, nil, nil, nil)
 		})
 	})
 
 	Context("when a DNS recordset exists and is changed before dnsrecord update and deletion", func() {
 		It("should successfully create, update, and delete a dnsrecord", func() {
-			dns := newDNSRecord(testName, zoneName, pointer.String(zoneID), extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, pointer.Int64(300))
+			dns := newDNSRecord(testName, zoneName, ptr.To(zoneID), extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, ptr.To[int64](300))
 			stack := awsclient.IPStackIPv4
 			runTest(
 				dns,
@@ -317,7 +317,7 @@ var _ = Describe("DNSRecord tests", func() {
 
 	Context("when a DNS recordset exists and is deleted before dnsrecord deletion", func() {
 		It("should successfully create and delete a dnsrecord", func() {
-			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, pointer.Int64(300))
+			dns := newDNSRecord(testName, zoneName, nil, extensionsv1alpha1.DNSRecordTypeA, []string{"1.1.1.1", "2.2.2.2"}, ptr.To[int64](300))
 			stack := awsclient.IPStackIPv4
 			runTest(
 				dns,
@@ -438,7 +438,7 @@ func verifyDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *e
 		Expect(rrs.Type).To(PointTo(Equal(recordType)))
 		Expect(rrs.ResourceRecords).To(ConsistOf(resourceRecords(recordType, dns.Spec.Values)))
 		Expect(rrs.AliasTarget).To(BeNil())
-		Expect(rrs.TTL).To(PointTo(Equal(pointer.Int64Deref(dns.Spec.TTL, 120))))
+		Expect(rrs.TTL).To(PointTo(Equal(ptr.Deref(dns.Spec.TTL, 120))))
 	} else {
 		expectedTypes := awsclient.GetAliasRecordTypes(stack)
 		Expect(rrss).To(HaveLen(len(expectedTypes))) // we
@@ -455,14 +455,14 @@ func verifyDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *e
 				Fail(fmt.Sprintf("unexpected value: %s", dns.Spec.Values[0]))
 			}
 			Expect(rrs.AliasTarget).To(Equal(&route53.AliasTarget{
-				DNSName:              pointer.String(ensureTrailingDot(dns.Spec.Values[0])),
-				HostedZoneId:         pointer.String(expectedHostedZoneId),
-				EvaluateTargetHealth: pointer.Bool(true),
+				DNSName:              ptr.To(ensureTrailingDot(dns.Spec.Values[0])),
+				HostedZoneId:         ptr.To(expectedHostedZoneId),
+				EvaluateTargetHealth: ptr.To(true),
 			}))
 			Expect(rrs.TTL).To(BeNil())
 			found := false
 			for _, expectedType := range expectedTypes {
-				if expectedType == pointer.StringDeref(rrs.Type, "") {
+				if expectedType == ptr.Deref(rrs.Type, "") {
 					found = true
 				}
 			}
@@ -504,7 +504,7 @@ func resourceRecords(recordType string, values []string) []*route53.ResourceReco
 			value = ensureQuoted(value)
 		}
 		resourceRecords = append(resourceRecords, &route53.ResourceRecord{
-			Value: pointer.String(value),
+			Value: ptr.To(value),
 		})
 	}
 	return resourceRecords

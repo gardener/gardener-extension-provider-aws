@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
@@ -99,7 +99,7 @@ var _ = Describe("Shoot validator", func() {
 								},
 								Networks: apisawsv1alpha1.Networks{
 									VPC: apisawsv1alpha1.VPC{
-										CIDR: pointer.String("10.250.0.0/16"),
+										CIDR: ptr.To("10.250.0.0/16"),
 									},
 									Zones: []apisawsv1alpha1.Zone{
 										{
@@ -117,7 +117,7 @@ var _ = Describe("Shoot validator", func() {
 								Name: "worker-1",
 								Volume: &core.Volume{
 									VolumeSize: "50Gi",
-									Type:       pointer.String(gp2type),
+									Type:       ptr.To(gp2type),
 								},
 								Zones: []string{"zone1"},
 							},
@@ -125,7 +125,7 @@ var _ = Describe("Shoot validator", func() {
 					},
 					Region: "us-west",
 					Networking: &core.Networking{
-						Nodes: pointer.String("10.250.0.0/16"),
+						Nodes: ptr.To("10.250.0.0/16"),
 					},
 				},
 			}

@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -405,14 +405,14 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 		VpcId: c.state.Get(IdentifierVPC),
 		Routes: []*awsclient.Route{
 			{
-				DestinationCidrBlock: pointer.String(allIPv4),
+				DestinationCidrBlock: ptr.To(allIPv4),
 				GatewayId:            c.state.Get(IdentifierInternetGateway),
 			},
 		},
 	}
 	if c.state.Get(IdentifierVpcIPv6CidrBlock) != nil {
 		desired.Routes = append(desired.Routes, &awsclient.Route{
-			DestinationIpv6CidrBlock: pointer.String(allIPv6),
+			DestinationIpv6CidrBlock: ptr.To(allIPv6),
 			GatewayId:                c.state.Get(IdentifierInternetGateway),
 		})
 	}
@@ -452,7 +452,7 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		Tags:        c.commonTagsWithSuffix("nodes"),
 		GroupName:   groupName,
 		VpcId:       c.state.Get(IdentifierVPC),
-		Description: pointer.String("Security group for nodes"),
+		Description: ptr.To("Security group for nodes"),
 		Rules: []*awsclient.SecurityGroupRule{
 			{
 				Type:     awsclient.SecurityGroupRuleTypeIngress,
@@ -585,21 +585,21 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				VpcId:                       c.state.Get(IdentifierVPC),
 				CidrBlock:                   zone.Workers,
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(false),
+				AssignIpv6AddressOnCreation: ptr.To(false),
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPublic,
 				VpcId:                       c.state.Get(IdentifierVPC),
 				CidrBlock:                   zone.Public,
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(false),
+				AssignIpv6AddressOnCreation: ptr.To(false),
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPrivate,
 				VpcId:                       c.state.Get(IdentifierVPC),
 				CidrBlock:                   zone.Internal,
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: pointer.Bool(false),
+				AssignIpv6AddressOnCreation: ptr.To(false),
 			})
 
 		for i := 0; i < 3; i++ {
@@ -978,7 +978,7 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 			VpcId: c.state.Get(IdentifierVPC),
 			Routes: []*awsclient.Route{
 				{
-					DestinationCidrBlock: pointer.String(cidrBlock),
+					DestinationCidrBlock: ptr.To(cidrBlock),
 					NatGatewayId:         child.Get(IdentifierZoneNATGateway),
 				},
 			},

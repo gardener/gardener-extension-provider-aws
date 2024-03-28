@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -90,7 +90,7 @@ var _ = Describe("ConfigValidator", func() {
 						Raw: encode(&apisaws.InfrastructureConfig{
 							Networks: apisaws.Networks{
 								VPC: apisaws.VPC{
-									ID: pointer.String(vpcID),
+									ID: ptr.To(vpcID),
 								},
 							},
 						}),
@@ -239,13 +239,13 @@ var _ = Describe("ConfigValidator", func() {
 						VPC: apisaws.VPC{},
 						Zones: []apisaws.Zone{
 							{
-								ElasticIPAllocationID: pointer.String("eipalloc-0e2669d4b46150ee4"),
+								ElasticIPAllocationID: ptr.To("eipalloc-0e2669d4b46150ee4"),
 							},
 							{
-								ElasticIPAllocationID: pointer.String("eipalloc-0e2669d4b46150ee5"),
+								ElasticIPAllocationID: ptr.To("eipalloc-0e2669d4b46150ee5"),
 							},
 							{
-								ElasticIPAllocationID: pointer.String("eipalloc-0e2669d4b46150ee6"),
+								ElasticIPAllocationID: ptr.To("eipalloc-0e2669d4b46150ee6"),
 							},
 						},
 					},
@@ -264,9 +264,9 @@ var _ = Describe("ConfigValidator", func() {
 
 			It("should succeed - all EIPs exist and are already associated to the Shoot's NAT Gateways", func() {
 				mapping := map[string]*string{
-					"eipalloc-0e2669d4b46150ee4": pointer.String("eipassoc-0f8ff66536587824b"),
-					"eipalloc-0e2669d4b46150ee5": pointer.String("eipassoc-0f8ff66536587824c"),
-					"eipalloc-0e2669d4b46150ee6": pointer.String("eipassoc-0f8ff66536587824d"),
+					"eipalloc-0e2669d4b46150ee4": ptr.To("eipassoc-0f8ff66536587824b"),
+					"eipalloc-0e2669d4b46150ee5": ptr.To("eipassoc-0f8ff66536587824c"),
+					"eipalloc-0e2669d4b46150ee6": ptr.To("eipassoc-0f8ff66536587824d"),
 				}
 				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
 				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.New[string]("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5", "eipalloc-0e2669d4b46150ee6"), nil)
@@ -313,8 +313,8 @@ var _ = Describe("ConfigValidator", func() {
 
 			It("should fail - some of the Elastic IP Addresses exist, some do not", func() {
 				mapping := map[string]*string{
-					"eipalloc-0e2669d4b46150ee4": pointer.String("eipassoc-0f8ff66536587824b"),
-					"eipalloc-0e2669d4b46150ee5": pointer.String("eipassoc-0f8ff66536587824c"),
+					"eipalloc-0e2669d4b46150ee4": ptr.To("eipassoc-0f8ff66536587824b"),
+					"eipalloc-0e2669d4b46150ee5": ptr.To("eipassoc-0f8ff66536587824c"),
 				}
 				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
 				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.New[string]("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
@@ -330,9 +330,9 @@ var _ = Describe("ConfigValidator", func() {
 
 			It("should fail - Elastic IP Addresses exist are already associated with another resource", func() {
 				mapping := map[string]*string{
-					"eipalloc-0e2669d4b46150ee4": pointer.String("eipassoc-0f8ff66536587824b"),
-					"eipalloc-0e2669d4b46150ee5": pointer.String("eipassoc-0f8ff66536587824c"),
-					"eipalloc-0e2669d4b46150ee6": pointer.String("eipassoc-0f8ff66536587824d"),
+					"eipalloc-0e2669d4b46150ee4": ptr.To("eipassoc-0f8ff66536587824b"),
+					"eipalloc-0e2669d4b46150ee5": ptr.To("eipassoc-0f8ff66536587824c"),
+					"eipalloc-0e2669d4b46150ee6": ptr.To("eipassoc-0f8ff66536587824d"),
 				}
 				awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
 				awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.New[string]("eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)

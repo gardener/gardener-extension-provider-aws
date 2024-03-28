@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/charts"
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -249,7 +249,7 @@ var _ = Describe("Machines", func() {
 										{
 											Name:         region,
 											AMI:          machineImageAMI,
-											Architecture: pointer.String(archAMD),
+											Architecture: ptr.To(archAMD),
 										},
 									},
 								},
@@ -328,7 +328,7 @@ var _ = Describe("Machines", func() {
 								MaxSurge:       maxSurgePool1,
 								MaxUnavailable: maxUnavailablePool1,
 								MachineType:    machineType,
-								Architecture:   pointer.String(archAMD),
+								Architecture:   ptr.To(archAMD),
 								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
 									Capacity: nodeCapacity,
 								},
@@ -649,7 +649,7 @@ var _ = Describe("Machines", func() {
 								Name:         machineImageName,
 								Version:      machineImageVersion,
 								AMI:          machineImageAMI,
-								Architecture: pointer.String(archAMD),
+								Architecture: ptr.To(archAMD),
 							},
 						},
 					}
@@ -834,7 +834,7 @@ var _ = Describe("Machines", func() {
 			})
 
 			It("should fail because the ami for this architecture cannot be found", func() {
-				w.Spec.Pools[0].Architecture = pointer.String(archARM)
+				w.Spec.Pools[0].Architecture = ptr.To(archARM)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 

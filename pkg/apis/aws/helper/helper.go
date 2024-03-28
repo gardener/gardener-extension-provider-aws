@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
@@ -79,9 +79,9 @@ func FindSubnetForPurposeAndZone(subnets []api.Subnet, purpose, zone string) (*a
 func FindMachineImage(machineImages []api.MachineImage, name, version string, arch *string) (*api.MachineImage, error) {
 	for _, machineImage := range machineImages {
 		if machineImage.Architecture == nil {
-			machineImage.Architecture = pointer.String(v1beta1constants.ArchitectureAMD64)
+			machineImage.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
 		}
-		if machineImage.Name == name && machineImage.Version == version && pointer.StringEqual(arch, machineImage.Architecture) {
+		if machineImage.Name == name && machineImage.Version == version && ptr.Equal(arch, machineImage.Architecture) {
 			return &machineImage, nil
 		}
 	}
@@ -102,7 +102,7 @@ func FindAMIForRegionFromCloudProfile(cloudProfileConfig *api.CloudProfileConfig
 					continue
 				}
 				for _, mapping := range version.Regions {
-					if regionName == mapping.Name && pointer.StringEqual(arch, mapping.Architecture) {
+					if regionName == mapping.Name && ptr.Equal(arch, mapping.Architecture) {
 						return mapping.AMI, nil
 					}
 				}
