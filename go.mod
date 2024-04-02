@@ -51,7 +51,7 @@ require (
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/fluent/fluent-operator/v2 v2.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/gardener/cert-management v0.12.1 // indirect
+	github.com/gardener/cert-management v0.13.0 // indirect
 	github.com/gardener/hvpa-controller/api v0.15.0 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/errors v0.20.4 // indirect
