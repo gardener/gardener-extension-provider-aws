@@ -1,0 +1,16 @@
+# see https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+- package-ecosystem: "gomod"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+  allow:
+  - dependency-name: "github.com/gardener/gardener"
+    dependency-type: "direct"
+  - dependency-type: "indirect"
+- package-ecosystem: "docker"
+  directory: "/"
+  schedule:
+    interval: "weekly"
