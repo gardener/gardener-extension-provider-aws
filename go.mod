@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.173
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
-	github.com/gardener/external-dns-management v0.17.1
+	github.com/gardener/external-dns-management v0.18.3
 	github.com/gardener/gardener v1.91.1
 	github.com/gardener/machine-controller-manager v0.52.0
 	github.com/go-logr/logr v1.4.1
@@ -74,7 +74,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
-	github.com/imdario/mergo v0.3.13 // indirect
+	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ironcore-dev/vgopath v0.1.4 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
@@ -124,7 +124,7 @@ require (
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
@@ -133,8 +133,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.14.3 // indirect
-	istio.io/api v1.19.8 // indirect
-	istio.io/client-go v1.19.8 // indirect
+	istio.io/api v1.20.2 // indirect
+	istio.io/client-go v1.20.2 // indirect
 	k8s.io/apiserver v0.29.3 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/klog v1.0.0 // indirect
