@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
-	github.com/aws/aws-sdk-go v1.51.12
+	github.com/aws/aws-sdk-go v1.51.13
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
 	github.com/gardener/external-dns-management v0.18.3
