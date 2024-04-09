@@ -50,6 +50,16 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		return "", "", err
 	}
 
+	_, err = awsClient.EC2.ModifyVpcAttribute(&ec2.ModifyVpcAttributeInput{
+		EnableDnsSupport: &ec2.AttributeBooleanValue{
+			Value: awssdk.Bool(true),
+		},
+		VpcId: vpcID,
+	})
+	if err != nil {
+		return "", "", err
+	}
+
 	if enableDnsHostnames {
 		_, err = awsClient.EC2.ModifyVpcAttribute(&ec2.ModifyVpcAttributeInput{
 			EnableDnsHostnames: &ec2.AttributeBooleanValue{
@@ -60,16 +70,6 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		if err != nil {
 			return "", "", err
 		}
-	}
-
-	_, err = awsClient.EC2.ModifyVpcAttribute(&ec2.ModifyVpcAttributeInput{
-		EnableDnsSupport: &ec2.AttributeBooleanValue{
-			Value: awssdk.Bool(true),
-		},
-		VpcId: vpcID,
-	})
-	if err != nil {
-		return "", "", err
 	}
 
 	createIgwOutput, err := awsClient.EC2.CreateInternetGateway(&ec2.CreateInternetGatewayInput{
