@@ -21,8 +21,6 @@ import (
 
 var (
 	logger = log.Log.WithName("aws-controlplane-webhook")
-	// NodeAgentEnabled indicates whether the gardener node-agent feature flag is enabled in gardenlet.
-	NodeAgentEnabled bool
 )
 
 // AddToManager creates a webhook and adds it to the manager.
@@ -37,7 +35,7 @@ func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 			{Obj: &vpaautoscalingv1.VerticalPodAutoscaler{}},
 			{Obj: &extensionsv1alpha1.OperatingSystemConfig{}},
 		},
-		Mutator: genericmutator.NewMutator(mgr, NewEnsurer(logger, mgr.GetClient(), NodeAgentEnabled), oscutils.NewUnitSerializer(),
+		Mutator: genericmutator.NewMutator(mgr, NewEnsurer(logger, mgr.GetClient()), oscutils.NewUnitSerializer(),
 			kubelet.NewConfigCodec(fciCodec), fciCodec, logger),
 	})
 }

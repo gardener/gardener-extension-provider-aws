@@ -139,7 +139,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 		})
 
 		It("should add missing elements to kube-apiserver deployment (k8s < 1.27)", func() {
@@ -222,7 +222,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 		})
 
 		It("should add missing elements to kube-controller-manager deployment (k8s < 1.27)", func() {
@@ -300,7 +300,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 		})
 
 		It("should add missing elements to kube-scheduler deployment (k8s < 1.27)", func() {
@@ -340,7 +340,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 		})
 
 		It("should add missing elements to cluster-autoscaler deployment (>= 1.27)", func() {
@@ -381,7 +381,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger, c, true)
+			ensurer := NewEnsurer(logger, c)
 
 			// Call EnsureAdditionalUnits method and check the result
 			err := ensurer.EnsureAdditionalUnits(ctx, eContextK8s126, &units, nil)
@@ -459,7 +459,7 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger, c, true)
+			ensurer := NewEnsurer(logger, c)
 
 			// Call EnsureAdditionalFiles method and check the result
 			err = ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
@@ -485,7 +485,7 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger, c, true)
+			ensurer := NewEnsurer(logger, c)
 
 			// Call EnsureAdditionalFiles method and check the result
 			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s126, &files, nil)
@@ -519,7 +519,7 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger, c, true)
+			ensurer := NewEnsurer(logger, c)
 
 			// Call EnsureAdditionalFiles method and check the result
 			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
@@ -545,7 +545,7 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger, c, true)
+			ensurer := NewEnsurer(logger, c)
 
 			// Call EnsureAdditionalFiles method and check the result
 			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s126, &files, nil)
@@ -571,7 +571,7 @@ done
 			)
 
 			// Create ensurer
-			ensurer := NewEnsurer(logger, c, true)
+			ensurer := NewEnsurer(logger, c)
 
 			// Call EnsureAdditionalFiles method and check the result
 			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s126, &files, nil)
@@ -590,7 +590,7 @@ done
 		)
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 			oldUnitOptions = []*unit.UnitOption{
 				{
 					Section: "Service",
@@ -663,7 +663,7 @@ done
 		)
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 			oldKubeletConfig = &kubeletconfigv1beta1.KubeletConfiguration{
 				FeatureGates: map[string]bool{
 					"Foo": true,
@@ -701,7 +701,7 @@ done
 		var ensurer genericmutator.Ensurer
 
 		BeforeEach(func() {
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 		})
 
 		It("should modify existing elements of kubernetes general configuration", func() {
@@ -751,7 +751,7 @@ done
 
 		BeforeEach(func() {
 			deployment = &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: "foo"}}
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 			DeferCleanup(testutils.WithVar(&ImageVector, imagevectorutils.ImageVector{{
 				Name:       "machine-controller-manager-provider-aws",
 				Repository: "foo",
@@ -811,7 +811,7 @@ done
 
 		BeforeEach(func() {
 			vpa = &vpaautoscalingv1.VerticalPodAutoscaler{}
-			ensurer = NewEnsurer(logger, c, true)
+			ensurer = NewEnsurer(logger, c)
 		})
 
 		It("should inject the sidecar container policy", func() {

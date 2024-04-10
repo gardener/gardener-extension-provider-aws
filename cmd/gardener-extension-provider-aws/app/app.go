@@ -42,7 +42,6 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
 	awscontrolplaneexposure "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
 )
 
@@ -240,9 +239,6 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			reconcileOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.IgnoreOperationAnnotation)
 			workerCtrlOpts.Completed().Apply(&awsworker.DefaultAddOptions.Controller)
 			awsworker.DefaultAddOptions.GardenCluster = gardenCluster
-
-			// TODO(KA): remove when gardener-node-agent becomes default
-			controlplane.NodeAgentEnabled = generalOpts.Completed().GardenletUsesGardenerNodeAgent
 
 			atomicShootWebhookConfig, err := webhookOptions.Completed().AddToManager(ctx, mgr, nil)
 			if err != nil {
