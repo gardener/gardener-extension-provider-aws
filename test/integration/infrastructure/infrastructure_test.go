@@ -1215,14 +1215,14 @@ func verifyCreation(
 	describeNatGatewaysOutput, err := awsClient.EC2.DescribeNatGatewaysWithContext(ctx, &ec2.DescribeNatGatewaysInput{Filter: vpcIDFilter})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeNatGatewaysOutput.NatGateways).To(HaveLen(1))
-	Expect(describeNatGatewaysOutput.NatGateways[0].NatGatewayAddresses).To(ConsistOf([]*ec2.NatGatewayAddress{
-		{
-			AllocationId:       describeAddressesOutput.Addresses[0].AllocationId,
-			NetworkInterfaceId: describeAddressesOutput.Addresses[0].NetworkInterfaceId,
-			PrivateIp:          describeAddressesOutput.Addresses[0].PrivateIpAddress,
-			PublicIp:           describeAddressesOutput.Addresses[0].PublicIp,
-		},
-	}))
+	Expect(describeNatGatewaysOutput.NatGateways[0].NatGatewayAddresses).To(HaveLen(1))
+
+	natGatewayAddress := describeNatGatewaysOutput.NatGateways[0].NatGatewayAddresses[0]
+	Expect(natGatewayAddress).To(HaveField("AllocationId", Equal(describeAddressesOutput.Addresses[0].AllocationId)))
+	Expect(natGatewayAddress).To(HaveField("NetworkInterfaceId", Equal(describeAddressesOutput.Addresses[0].NetworkInterfaceId)))
+	Expect(natGatewayAddress).To(HaveField("PrivateIp", Equal(describeAddressesOutput.Addresses[0].PrivateIpAddress)))
+	Expect(natGatewayAddress).To(HaveField("PublicIp", Equal(describeAddressesOutput.Addresses[0].PublicIp)))
+
 	Expect(describeNatGatewaysOutput.NatGateways[0].SubnetId).To(PointTo(Equal(publicSubnetID)))
 	Expect(describeNatGatewaysOutput.NatGateways[0].Tags).To(ConsistOf([]*ec2.Tag{
 		{

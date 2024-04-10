@@ -230,9 +230,6 @@ var runTest = func(dns *extensionsv1alpha1.DNSRecord, stack awsclient.IPStack, n
 	By("verifying that the AWS DNS recordset exists and matches dnsrecord")
 	verifyDNSRecordSet(ctx, awsClient, dns, stack)
 
-	By("verifying that the meta AWS DNS recordset does not exist")
-	verifyMetaDNSRecordSetDeleted(ctx, awsClient, dns)
-
 	if len(newValues) > 0 {
 		if beforeUpdate != nil {
 			beforeUpdate()
@@ -299,9 +296,8 @@ var _ = Describe("DNSRecord tests", func() {
 				stack,
 				[]string{"3.3.3.3", "1.1.1.1"},
 				func() {
-					By("creating AWS DNS recordset and its meta recordset")
+					By("creating AWS DNS recordset")
 					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, "comment-"+dns.Spec.Name, route53.RRTypeTxt, []string{"foo"}, 600, stack)).To(Succeed())
 				},
 				func() {
 					By("updating AWS DNS recordset")
@@ -473,12 +469,6 @@ func verifyDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *e
 
 func verifyDNSRecordSetDeleted(ctx context.Context, awsClient *awsclient.Client, dns *extensionsv1alpha1.DNSRecord) {
 	rrss, err := awsClient.GetDNSRecordSets(ctx, *dns.Status.Zone, dns.Spec.Name, getRecordType(dns))
-	Expect(err).NotTo(HaveOccurred())
-	Expect(rrss).To(BeNil())
-}
-
-func verifyMetaDNSRecordSetDeleted(ctx context.Context, awsClient *awsclient.Client, dns *extensionsv1alpha1.DNSRecord) {
-	rrss, err := awsClient.GetDNSRecordSets(ctx, *dns.Status.Zone, "comment-"+dns.Spec.Name, route53.RRTypeTxt)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(rrss).To(BeNil())
 }
