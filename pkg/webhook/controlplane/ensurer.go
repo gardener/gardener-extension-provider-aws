@@ -43,19 +43,17 @@ const (
 )
 
 // NewEnsurer creates a new controlplane ensurer.
-func NewEnsurer(logger logr.Logger, client client.Client, nodeAgentEnabled bool) genericmutator.Ensurer {
+func NewEnsurer(logger logr.Logger, client client.Client) genericmutator.Ensurer {
 	return &ensurer{
-		logger:           logger.WithName("aws-controlplane-ensurer"),
-		client:           client,
-		nodeAgentEnabled: nodeAgentEnabled,
+		logger: logger.WithName("aws-controlplane-ensurer"),
+		client: client,
 	}
 }
 
 type ensurer struct {
 	genericmutator.NoopEnsurer
-	logger           logr.Logger
-	client           client.Client
-	nodeAgentEnabled bool
+	logger logr.Logger
+	client client.Client
 }
 
 // ImageVector is exposed for testing.
@@ -350,8 +348,7 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcon
 			return nil, err
 		}
 
-		// the ECR feature only works with node agent.
-		if e.nodeAgentEnabled && k8sGreaterEqual127 {
+		if k8sGreaterEqual127 {
 			infra := &extensionsv1alpha1.Infrastructure{}
 			if err := e.client.Get(ctx, client.ObjectKey{
 				Namespace: cluster.ObjectMeta.Name,
@@ -569,7 +566,7 @@ func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.Garde
 	}
 
 	// return early
-	if !(e.nodeAgentEnabled && k8sGreaterEqual127) {
+	if !k8sGreaterEqual127 {
 		return nil
 	}
 
