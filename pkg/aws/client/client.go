@@ -209,7 +209,7 @@ func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNames
 func (c *Client) GetVPCAttribute(ctx context.Context, vpcID string, attribute string) (bool, error) {
 	vpcAttribute, err := c.EC2.DescribeVpcAttributeWithContext(ctx, &ec2.DescribeVpcAttributeInput{VpcId: &vpcID, Attribute: aws.String(attribute)})
 	if err != nil {
-		return false, ignoreNotFound(err)
+		return false, err
 	}
 
 	switch attribute {
