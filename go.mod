@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.51.16
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
-	github.com/gardener/external-dns-management v0.18.3
+	github.com/gardener/external-dns-management v0.18.4
 	github.com/gardener/gardener v1.91.1
 	github.com/gardener/machine-controller-manager v0.52.0
 	github.com/go-logr/logr v1.4.1
