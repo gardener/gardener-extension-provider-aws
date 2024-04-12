@@ -68,6 +68,11 @@ providerSpec:
     httpTokens: {{ $machineClass.instanceMetadataOptions.httpTokens }}
     {{- end }}
 {{- end }}
+{{- if $machineClass.cpuOptions }}
+  cpuOptions:
+    coreCount: {{ $machineClass.cpuOptions.coreCount }}
+    threadsPerCore: {{ $machineClass.cpuOptions.threadsPerCore }}
+{{- end }}
 secretRef:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}

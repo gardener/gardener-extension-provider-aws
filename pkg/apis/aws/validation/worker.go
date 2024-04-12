@@ -82,6 +82,7 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	}
 
 	allErrs = append(allErrs, validateInstanceMetadata(workerConfig.InstanceMetadataOptions, fldPath.Child("instanceMetadataOptions"))...)
+	allErrs = append(allErrs, validateCpuOptions(workerConfig.CpuOptions, fldPath.Child("cpuOptions"))...)
 
 	return allErrs
 }
@@ -133,5 +134,26 @@ func validateInstanceMetadata(md *apisaws.InstanceMetadataOptions, fldPath *fiel
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("httpTokens"), *md.HTTPTokens, fmt.Sprintf("only the following values are allowed: %v", validValues)))
 		}
 	}
+	return allErrs
+}
+
+func validateCpuOptions(cpuOptions *apisaws.CpuOptions, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if cpuOptions == nil {
+		return allErrs
+	}
+
+	if cpuOptions.CoreCount == nil {
+		allErrs = append(allErrs, field.Required(fldPath.Child("coreCount"), "CoreCount is required"))
+	}
+
+	if cpuOptions.ThreadsPerCore == nil {
+		allErrs = append(allErrs, field.Required(fldPath.Child("threadsPerCore"), "ThreadsPerCore is required"))
+	}
+
+	if threadsPerCore := *cpuOptions.ThreadsPerCore; threadsPerCore > 2 || threadsPerCore < 1 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("threadsPerCore"), threadsPerCore, "ThreadsPerCore must be either '1' or '2'"))
+	}
+
 	return allErrs
 }

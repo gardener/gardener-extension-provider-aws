@@ -201,6 +201,13 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				}
 			}
 
+			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
+				machineClassSpec["cpuOptions"] = map[string]int64{
+					"coreCount":      *cpuOptions.CoreCount,
+					"threadsPerCore": *cpuOptions.ThreadsPerCore,
+				}
+			}
+
 			if pool.MachineImage.Name != "" && pool.MachineImage.Version != "" {
 				machineClassSpec["operatingSystem"] = map[string]interface{}{
 					"operatingSystemName":    pool.MachineImage.Name,
