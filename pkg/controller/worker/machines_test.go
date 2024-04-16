@@ -289,7 +289,7 @@ var _ = Describe("Machines", func() {
 										{
 											Name:         region,
 											AMI:          machineImageAMI,
-											Architecture: pointer.String(archARM),
+											Architecture: ptr.To(archARM),
 										},
 									},
 								},
