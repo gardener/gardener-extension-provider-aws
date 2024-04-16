@@ -1,6 +1,7 @@
 module github.com/gardener/gardener-extension-provider-aws
 
 go 1.22
+toolchain go1.22.2
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -10,7 +11,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
 	github.com/gardener/external-dns-management v0.18.4
-	github.com/gardener/gardener v1.91.1
+	github.com/gardener/gardener v1.92.1
 	github.com/gardener/machine-controller-manager v0.52.0
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.17.1
@@ -19,7 +20,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.11.0
 	go.uber.org/mock v0.4.0
-	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
+	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.20.0
 	k8s.io/api v0.29.3
@@ -136,7 +137,6 @@ require (
 	helm.sh/helm/v3 v3.14.3 // indirect
 	istio.io/api v1.20.2 // indirect
 	istio.io/client-go v1.20.2 // indirect
-	k8s.io/apiserver v0.29.3 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
