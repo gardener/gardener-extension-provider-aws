@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
-	github.com/aws/aws-sdk-go v1.51.16
+	github.com/aws/aws-sdk-go v1.51.21
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
 	github.com/gardener/external-dns-management v0.18.4
@@ -25,13 +25,13 @@ require (
 	k8s.io/api v0.29.3
 	k8s.io/apiextensions-apiserver v0.29.3
 	k8s.io/apimachinery v0.29.3
-	k8s.io/autoscaler/vertical-pod-autoscaler v1.0.0
+	k8s.io/autoscaler/vertical-pod-autoscaler v1.1.0
 	k8s.io/client-go v0.29.3
 	k8s.io/code-generator v0.29.3
 	k8s.io/component-base v0.29.3
 	k8s.io/kubelet v0.29.3
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
-	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime v0.17.3
 	sigs.k8s.io/controller-tools v0.14.0
 )
 
