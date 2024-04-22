@@ -1,12 +1,13 @@
 module github.com/gardener/gardener-extension-provider-aws
 
 go 1.22
+toolchain go1.22.2
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
-	github.com/aws/aws-sdk-go v1.51.21
+	github.com/aws/aws-sdk-go v1.51.25
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
 	github.com/gardener/external-dns-management v0.18.5
@@ -14,7 +15,7 @@ require (
 	github.com/gardener/machine-controller-manager v0.52.0
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.17.1
-	github.com/onsi/gomega v1.32.0
+	github.com/onsi/gomega v1.33.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.11.0
@@ -22,17 +23,17 @@ require (
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.20.0
-	k8s.io/api v0.29.3
-	k8s.io/apiextensions-apiserver v0.29.3
-	k8s.io/apimachinery v0.29.3
+	k8s.io/api v0.30.0
+	k8s.io/apiextensions-apiserver v0.30.0
+	k8s.io/apimachinery v0.30.0
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.1.0
-	k8s.io/client-go v0.29.3
-	k8s.io/code-generator v0.29.3
-	k8s.io/component-base v0.29.3
-	k8s.io/kubelet v0.29.3
+	k8s.io/client-go v0.30.0
+	k8s.io/code-generator v0.30.0
+	k8s.io/component-base v0.30.0
+	k8s.io/kubelet v0.30.0
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 	sigs.k8s.io/controller-runtime v0.17.3
-	sigs.k8s.io/controller-tools v0.14.0
+	sigs.k8s.io/controller-tools v0.15.0
 )
 
 require (
@@ -136,12 +137,13 @@ require (
 	helm.sh/helm/v3 v3.14.3 // indirect
 	istio.io/api v1.20.2 // indirect
 	istio.io/client-go v1.20.2 // indirect
-	k8s.io/apiserver v0.29.3 // indirect
+	k8s.io/apiserver v0.30.0 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
+	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-aggregator v0.29.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/metrics v0.29.3 // indirect
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20231015215740-bf15e44028f9 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
