@@ -1,6 +1,6 @@
 module github.com/gardener/gardener-extension-provider-aws
 
-go 1.22.1
+go 1.22.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -9,8 +9,8 @@ require (
 	github.com/aws/aws-sdk-go v1.51.13
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
-	github.com/gardener/external-dns-management v0.18.3
-	github.com/gardener/gardener v1.91.1
+	github.com/gardener/external-dns-management v0.18.5
+	github.com/gardener/gardener v1.91.4
 	github.com/gardener/machine-controller-manager v0.52.0
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.17.1
@@ -118,7 +118,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/mod v0.16.0 // indirect
-	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
