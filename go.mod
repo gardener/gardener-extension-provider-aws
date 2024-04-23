@@ -1,6 +1,6 @@
 module github.com/gardener/gardener-extension-provider-aws
 
-go 1.22
+go 1.22.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -10,7 +10,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
 	github.com/gardener/external-dns-management v0.18.5
-	github.com/gardener/gardener v1.91.1
+	github.com/gardener/gardener v1.91.4
 	github.com/gardener/machine-controller-manager v0.52.0
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.17.1
