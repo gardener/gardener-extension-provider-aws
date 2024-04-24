@@ -9,7 +9,7 @@ clientConnection:
 etcd:
   storage:
     className: gardener.cloud-fast
-    capacity: 80Gi
+    capacity: 25Gi
 #  backup:
 #    schedule: "0 */24 * * *"
 #healthCheckConfig:

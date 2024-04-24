@@ -85,7 +85,7 @@ config:
   etcd:
     storage:
       className: gardener.cloud-fast
-      capacity: 80Gi
+      capacity: 25Gi
       provisioner: kubernetes.io/aws-ebs
       volumeBindingMode: WaitForFirstConsumer
       encrypted: true

@@ -33,7 +33,7 @@ var _ = Describe("Ensurer", func() {
 	var (
 		etcdStorage = &config.ETCDStorage{
 			ClassName: ptr.To("gardener.cloud-fast"),
-			Capacity:  ptr.To(resource.MustParse("80Gi")),
+			Capacity:  ptr.To(resource.MustParse("25Gi")),
 		}
 
 		dummyContext = gcontext.NewGardenContext(nil, nil)
@@ -116,7 +116,7 @@ var _ = Describe("Ensurer", func() {
 
 func checkETCDMain(etcd *druidv1alpha1.Etcd) {
 	Expect(*etcd.Spec.StorageClass).To(Equal("gardener.cloud-fast"))
-	Expect(*etcd.Spec.StorageCapacity).To(Equal(resource.MustParse("80Gi")))
+	Expect(*etcd.Spec.StorageCapacity).To(Equal(resource.MustParse("25Gi")))
 }
 
 func checkETCDEvents(etcd *druidv1alpha1.Etcd) {
