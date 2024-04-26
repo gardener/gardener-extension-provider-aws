@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/Masterminds/semver/v3"
+	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -20,6 +22,7 @@ import (
 	"github.com/gardener/gardener/pkg/utils"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -27,6 +30,18 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
+
+var (
+	// TODO(KA): replace with pkg/utils/version when v1.30 is supported.
+	// TODO(KA): remove when k8s versions < v1.30 are deprecated
+	ConstraintK8sGreaterEqual130 *semver.Constraints
+)
+
+func init() {
+	var err error
+	ConstraintK8sGreaterEqual130, err = semver.NewConstraint(">= 1.30-0")
+	utilruntime.Must(err)
+}
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
 func (w *workerDelegate) MachineClassKind() string {
@@ -119,7 +134,10 @@ func (w *workerDelegate) generateMachineConfig() error {
 			return err
 		}
 
-		instanceMetadataOptions := computeInstanceMetadata(workerConfig)
+		instanceMetadataOptions, err := ComputeInstanceMetadata(workerConfig, w.cluster)
+		if err != nil {
+			return err
+		}
 
 		for zoneIndex, zone := range pool.Zones {
 			zoneIdx := int32(zoneIndex)
@@ -368,10 +386,23 @@ func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructure
 	return nil, fmt.Errorf("unable to compute IAM instance profile configuration")
 }
 
-func computeInstanceMetadata(workerConfig *awsapi.WorkerConfig) map[string]interface{} {
+// ComputeInstanceMetadata calculates the InstanceMetadata options for a particular worker pool.
+func ComputeInstanceMetadata(workerConfig *awsapi.WorkerConfig, cluster *controller.Cluster) (map[string]interface{}, error) {
 	res := make(map[string]interface{})
-	if workerConfig.InstanceMetadataOptions == nil {
-		return res
+
+	// apply new defaults for k8s >= v1.30 to require the use of IMDSv2, unless explicitly opted out.
+	if workerConfig == nil || workerConfig.InstanceMetadataOptions == nil {
+		k8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
+		if err != nil {
+			return nil, err
+		}
+
+		if ConstraintK8sGreaterEqual130.Check(k8sVersion) {
+			res["httpPutResponseHopLimit"] = int64(2)
+			res["httpTokens"] = string(awsapi.HTTPTokensRequired)
+		}
+
+		return res, nil
 	}
 
 	if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
@@ -379,8 +410,8 @@ func computeInstanceMetadata(workerConfig *awsapi.WorkerConfig) map[string]inter
 	}
 
 	if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
-		res["httpTokens"] = *workerConfig.InstanceMetadataOptions.HTTPTokens
+		res["httpTokens"] = string(*workerConfig.InstanceMetadataOptions.HTTPTokens)
 	}
 
-	return res
+	return res, nil
 }
