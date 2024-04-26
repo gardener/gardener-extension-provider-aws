@@ -221,7 +221,7 @@ var _ = Describe("Machines", func() {
 
 				machineConfiguration = &machinev1alpha1.MachineConfiguration{}
 
-				shootVersionMajorMinor = "1.25"
+				shootVersionMajorMinor = "1.29"
 				shootVersion = shootVersionMajorMinor + ".3"
 
 				clusterWithoutImages = &extensionscontroller.Cluster{
@@ -944,6 +944,52 @@ var _ = Describe("Machines", func() {
 				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUnreadyTimeAnnotation]).To(Equal("3m0s"))
 				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUtilizationThresholdAnnotation]).To(Equal("0.5"))
 			})
+		})
+
+		Describe("InstanceMetadata", func() {
+			var (
+				workerConfig *api.WorkerConfig
+				cluster      *extensionscontroller.Cluster
+			)
+			BeforeEach(func() {
+				cluster = &extensionscontroller.Cluster{
+					Shoot: &gardencorev1beta1.Shoot{
+						Spec: gardencorev1beta1.ShootSpec{
+							Kubernetes: gardencorev1beta1.Kubernetes{
+								Version: "v1.29.0",
+							},
+						},
+					},
+				}
+				workerConfig = &api.WorkerConfig{
+					InstanceMetadataOptions: nil,
+				}
+			})
+			It("should calculate correct IMDS for k8s <1.30", func() {
+				res, err := ComputeInstanceMetadata(workerConfig, cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(BeEmpty())
+			})
+			It("should calculate correct IMDS for k8s >=1.30", func() {
+				cluster.Shoot.Spec.Kubernetes.Version = "v1.30.0"
+
+				res, err := ComputeInstanceMetadata(workerConfig, cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(2)))
+				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
+			})
+			It("should calculate correct IMDS with user options", func() {
+				workerConfig.InstanceMetadataOptions = &api.InstanceMetadataOptions{
+					HTTPTokens:              ptr.To(api.HTTPTokensRequired),
+					HTTPPutResponseHopLimit: ptr.To(int64(5)),
+				}
+
+				res, err := ComputeInstanceMetadata(workerConfig, cluster)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(5)))
+				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
+			})
+
 		})
 	})
 })
