@@ -56,7 +56,7 @@ var _ = Describe("Ensurer", func() {
 			checkETCDMain(etcd)
 		})
 
-		It("should modify existing elements of etcd-main statefulset", func() {
+		It("should modify existing elements of etcd-main statefulset which are not 80Gi", func() {
 			var (
 				r    = resource.MustParse("10Gi")
 				etcd = &druidv1alpha1.Etcd{
@@ -74,6 +74,34 @@ var _ = Describe("Ensurer", func() {
 			err := ensurer.EnsureETCD(ctx, dummyContext, etcd, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			checkETCDMain(etcd)
+		})
+
+		It("should not modify existing elements of etcd-main statefulset which are 80Gi", func() {
+			var (
+				rOld    = resource.MustParse("80Gi")
+				oldEtcd = &druidv1alpha1.Etcd{
+					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
+					Spec: druidv1alpha1.EtcdSpec{
+						StorageCapacity: &rOld,
+					},
+				}
+				rNew    = resource.MustParse("10Gi")
+				newEtcd = &druidv1alpha1.Etcd{
+					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
+					Spec: druidv1alpha1.EtcdSpec{
+						StorageCapacity: &rNew,
+					},
+				}
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(etcdStorage, logger)
+
+			// Call EnsureETCDStatefulSet method and check the result
+			err := ensurer.EnsureETCD(ctx, dummyContext, newEtcd, oldEtcd)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(*newEtcd.Spec.StorageClass).To(Equal("gardener.cloud-fast"))
+			Expect(*newEtcd.Spec.StorageCapacity).To(Equal(resource.MustParse("80Gi")))
 		})
 
 		It("should add or modify elements to etcd-events statefulset", func() {
