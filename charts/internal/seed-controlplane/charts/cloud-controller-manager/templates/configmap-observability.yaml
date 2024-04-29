@@ -1,3 +1,4 @@
+{{- if not .Values.gep19Monitoring }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -50,8 +51,4 @@ data:
       - source_labels: [ __name__ ]
         regex: ^(rest_client_requests_total|process_max_fds|process_open_fds)$
         action: keep
-
-  observedComponents: |
-    observedPods:
-    - podPrefix: cloud-controller-manager
-      isExposedToUser: true
+{{- end }}
