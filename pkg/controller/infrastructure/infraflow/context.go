@@ -148,7 +148,7 @@ func (c *FlowContext) GetInfrastructureConfig() *awsapi.InfrastructureConfig {
 }
 
 func (c *FlowContext) hasVPC() bool {
-	return !c.state.IsAlreadyDeleted(IdentifierVPC)
+	return c.state.Get(IdentifierVPC) != nil
 }
 
 func (c *FlowContext) commonTagsWithSuffix(suffix string) awsclient.Tags {
