@@ -40,7 +40,7 @@ var _ = Describe("Ensurer", func() {
 	)
 
 	Describe("#EnsureETCD", func() {
-		It("should add or modify elements to etcd-main statefulset", func() {
+		It("should add an etcd-main storage configuration when etcd-main is new and does not specify a storage configuration", func() {
 			var (
 				etcd = &druidv1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
@@ -53,10 +53,10 @@ var _ = Describe("Ensurer", func() {
 			// Call EnsureETCDStatefulSet method and check the result
 			err := ensurer.EnsureETCD(ctx, dummyContext, etcd, nil)
 			Expect(err).To(Not(HaveOccurred()))
-			checkETCDMain(etcd)
+			checkNewETCDMain(etcd)
 		})
 
-		It("should modify existing elements of etcd-main statefulset which are not 80Gi", func() {
+		It("should modify an etcd-main storage configuration when etcd-main is new and specifies a storage configuration", func() {
 			var (
 				r    = resource.MustParse("10Gi")
 				etcd = &druidv1alpha1.Etcd{
@@ -73,10 +73,10 @@ var _ = Describe("Ensurer", func() {
 			// Call EnsureETCDStatefulSet method and check the result
 			err := ensurer.EnsureETCD(ctx, dummyContext, etcd, nil)
 			Expect(err).To(Not(HaveOccurred()))
-			checkETCDMain(etcd)
+			checkNewETCDMain(etcd)
 		})
 
-		It("should not modify existing elements of etcd-main statefulset which are 80Gi", func() {
+		It("should not modify an etcd-main storage configuration when etcd-main is old with volume size 80Gi", func() {
 			var (
 				rOld    = resource.MustParse("80Gi")
 				oldEtcd = &druidv1alpha1.Etcd{
@@ -85,8 +85,8 @@ var _ = Describe("Ensurer", func() {
 						StorageCapacity: &rOld,
 					},
 				}
-				rNew    = resource.MustParse("10Gi")
-				newEtcd = &druidv1alpha1.Etcd{
+				rNew         = resource.MustParse("10Gi")
+				modifiedEtcd = &druidv1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
 					Spec: druidv1alpha1.EtcdSpec{
 						StorageCapacity: &rNew,
@@ -98,13 +98,39 @@ var _ = Describe("Ensurer", func() {
 			ensurer := NewEnsurer(etcdStorage, logger)
 
 			// Call EnsureETCDStatefulSet method and check the result
-			err := ensurer.EnsureETCD(ctx, dummyContext, newEtcd, oldEtcd)
+			err := ensurer.EnsureETCD(ctx, dummyContext, modifiedEtcd, oldEtcd)
 			Expect(err).To(Not(HaveOccurred()))
-			Expect(*newEtcd.Spec.StorageClass).To(Equal("gardener.cloud-fast"))
-			Expect(*newEtcd.Spec.StorageCapacity).To(Equal(resource.MustParse("80Gi")))
+			checkOldETCDMain(modifiedEtcd)
 		})
 
-		It("should add or modify elements to etcd-events statefulset", func() {
+		It("should not modify an etcd-main storage configuration when etcd-main is old with volume size 25Gi", func() {
+			var (
+				rOld    = resource.MustParse("25Gi")
+				oldEtcd = &druidv1alpha1.Etcd{
+					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
+					Spec: druidv1alpha1.EtcdSpec{
+						StorageCapacity: &rOld,
+					},
+				}
+				rNew         = resource.MustParse("10Gi")
+				modifiedEtcd = &druidv1alpha1.Etcd{
+					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
+					Spec: druidv1alpha1.EtcdSpec{
+						StorageCapacity: &rNew,
+					},
+				}
+			)
+
+			// Create ensurer
+			ensurer := NewEnsurer(etcdStorage, logger)
+
+			// Call EnsureETCDStatefulSet method and check the result
+			err := ensurer.EnsureETCD(ctx, dummyContext, modifiedEtcd, oldEtcd)
+			Expect(err).To(Not(HaveOccurred()))
+			checkNewETCDMain(modifiedEtcd)
+		})
+
+		It("should add an etcd-events storage configuration when etcd-events is new and does not specify a storage configuration", func() {
 			var (
 				etcd = &druidv1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDEvents},
@@ -120,7 +146,7 @@ var _ = Describe("Ensurer", func() {
 			checkETCDEvents(etcd)
 		})
 
-		It("should modify existing elements of etcd-events statefulset", func() {
+		It("should always modify an existing etcd-events storage configuration", func() {
 			var (
 				r    = resource.MustParse("20Gi")
 				etcd = &druidv1alpha1.Etcd{
@@ -142,11 +168,19 @@ var _ = Describe("Ensurer", func() {
 	})
 })
 
-func checkETCDMain(etcd *druidv1alpha1.Etcd) {
+// checkOldETCDMain tests older Etcds which have volumes of size 80Gi
+func checkOldETCDMain(etcd *druidv1alpha1.Etcd) {
+	Expect(*etcd.Spec.StorageClass).To(Equal("gardener.cloud-fast"))
+	Expect(*etcd.Spec.StorageCapacity).To(Equal(resource.MustParse("80Gi")))
+}
+
+// checkNewETCDMain tests newer Etcds which have volumes of size 25Gi
+func checkNewETCDMain(etcd *druidv1alpha1.Etcd) {
 	Expect(*etcd.Spec.StorageClass).To(Equal("gardener.cloud-fast"))
 	Expect(*etcd.Spec.StorageCapacity).To(Equal(resource.MustParse("25Gi")))
 }
 
 func checkETCDEvents(etcd *druidv1alpha1.Etcd) {
 	Expect(*etcd.Spec.StorageClass).To(Equal(""))
+	Expect(*etcd.Spec.StorageCapacity).To(Equal(resource.MustParse("10Gi")))
 }

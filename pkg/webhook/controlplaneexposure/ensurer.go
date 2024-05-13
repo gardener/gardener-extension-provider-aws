@@ -36,7 +36,7 @@ func (e *ensurer) EnsureETCD(_ context.Context, _ gcontext.GardenContext, newObj
 	capacity := resource.MustParse("10Gi")
 	class := ""
 
-	// for newly created Etcd
+	// for newly created Etcds
 	if newObj.Name == v1beta1constants.ETCDMain && e.etcdStorage != nil {
 		if e.etcdStorage.Capacity != nil {
 			capacity = *e.etcdStorage.Capacity
