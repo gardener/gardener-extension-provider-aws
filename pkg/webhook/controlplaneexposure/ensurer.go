@@ -33,31 +33,30 @@ type ensurer struct {
 
 // EnsureETCD ensures that the etcd conform to the provider requirements.
 func (e *ensurer) EnsureETCD(_ context.Context, _ gcontext.GardenContext, newObj, oldObj *druidv1alpha1.Etcd) error {
-	// ensure old etcds with volumes of size 80Gi are not resized while running
-	if oldObj != nil && oldObj.Name == v1beta1constants.ETCDMain {
-		capacity := resource.MustParse("80Gi")
-		class := ""
-		if oldObj.Spec.StorageCapacity != nil && *(oldObj.Spec.StorageCapacity) == capacity {
-			if oldObj.Spec.StorageClass != nil {
-				class = *oldObj.Spec.StorageClass
-			} else if e.etcdStorage.ClassName != nil {
-				class = *e.etcdStorage.ClassName
-			}
-			newObj.Spec.StorageClass = &class
-			newObj.Spec.StorageCapacity = &capacity
-			return nil
-		}
-	}
-
 	capacity := resource.MustParse("10Gi")
 	class := ""
 
+	// for newly created Etcd
 	if newObj.Name == v1beta1constants.ETCDMain && e.etcdStorage != nil {
 		if e.etcdStorage.Capacity != nil {
 			capacity = *e.etcdStorage.Capacity
 		}
 		if e.etcdStorage.ClassName != nil {
 			class = *e.etcdStorage.ClassName
+		}
+	}
+
+	// ensure old Etcds which are created are not resized
+	if oldObj != nil && oldObj.Name == v1beta1constants.ETCDMain && e.etcdStorage != nil {
+		if oldObj.Spec.StorageClass != nil {
+			class = *oldObj.Spec.StorageClass
+		} else if e.etcdStorage.ClassName != nil {
+			class = *e.etcdStorage.ClassName
+		}
+		if oldObj.Spec.StorageCapacity != nil {
+			capacity = *oldObj.Spec.StorageCapacity
+		} else if e.etcdStorage.Capacity != nil {
+			capacity = *e.etcdStorage.Capacity
 		}
 	}
 
