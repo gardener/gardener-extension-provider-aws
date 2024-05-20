@@ -57,9 +57,9 @@ spec:
   providerConfig:
     apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
     kind: ControlPlaneConfig
-    cloudControllerManager:
-      featureGates:
-        RotateKubeletServerCertificate: true
+  # cloudControllerManager:
+  #   featureGates:
+  #     SomeKubernetesFeature: true
     storage:
       managedDefaultClass: false
   infrastructureProviderStatus:

@@ -262,12 +262,12 @@ An example `ControlPlaneConfig` for the AWS extension looks as follows:
 apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: ControlPlaneConfig
 cloudControllerManager:
-  featureGates:
-    RotateKubeletServerCertificate: true
+# featureGates:
+#   SomeKubernetesFeature: true
   useCustomRouteController: true
-#loadBalancerController:
-#  enabled: true
-#  ingressClassName: alb
+# loadBalancerController:
+#   enabled: true
+#   ingressClassName: alb
 storage:
   managedDefaultClass: false
 ```
