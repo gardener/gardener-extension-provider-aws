@@ -3,9 +3,6 @@ kind: Service
 metadata:
   name: {{ include "aws-load-balancer-controller.fullname" . }}
   namespace: {{ .Release.Namespace }}
-  annotations:
-    networking.resources.gardener.cloud/from-policy-pod-label-selector: all-scrape-targets
-    networking.resources.gardener.cloud/from-policy-allowed-ports: '[{"port":8080,"protocol":"TCP"}]'
 spec:
   type: ClusterIP
   clusterIP: None
