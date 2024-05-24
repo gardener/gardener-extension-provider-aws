@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.53.7
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
-	github.com/gardener/external-dns-management v0.18.5
+	github.com/gardener/external-dns-management v0.18.6
 	github.com/gardener/gardener v1.95.1
 	github.com/gardener/machine-controller-manager v0.53.0
 	github.com/go-logr/logr v1.4.2
@@ -125,16 +125,15 @@ require (
 	golang.org/x/term v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto v0.0.0-20240116215550-a9fa1716bcac // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240116215550-a9fa1716bcac // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240318140521-94a12d6c2237 // indirect
 	google.golang.org/protobuf v1.34.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.14.4 // indirect
-	istio.io/api v1.21.2 // indirect
-	istio.io/client-go v1.21.1 // indirect
+	istio.io/api v1.22.0 // indirect
+	istio.io/client-go v1.22.0 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
