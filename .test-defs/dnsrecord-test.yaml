@@ -15,4 +15,4 @@ spec:
     --access-key-id=$DNS_ACCESS_KEY_ID
     --secret-access-key=$DNS_SECRET_ACCESS_KEY
 
-  image: golang:1.22.2
+  image: golang:1.22.3
