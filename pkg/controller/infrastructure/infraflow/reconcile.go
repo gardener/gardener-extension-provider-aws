@@ -1342,6 +1342,10 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 		return err
 	}
 
+	if len(c.infraSpec.SSHPublicKey) == 0 {
+		return c.deleteKeyPair(ctx)
+	}
+
 	specFingerprint := fmt.Sprintf("%x", md5.Sum(c.infraSpec.SSHPublicKey))
 	if current != nil {
 		// check for foreign key replacement
