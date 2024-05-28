@@ -32,16 +32,31 @@ type ensurer struct {
 }
 
 // EnsureETCD ensures that the etcd conform to the provider requirements.
-func (e *ensurer) EnsureETCD(_ context.Context, _ gcontext.GardenContext, newObj, _ *druidv1alpha1.Etcd) error {
+func (e *ensurer) EnsureETCD(_ context.Context, _ gcontext.GardenContext, newObj, oldObj *druidv1alpha1.Etcd) error {
 	capacity := resource.MustParse("10Gi")
 	class := ""
 
+	// for newly created Etcds
 	if newObj.Name == v1beta1constants.ETCDMain && e.etcdStorage != nil {
 		if e.etcdStorage.Capacity != nil {
 			capacity = *e.etcdStorage.Capacity
 		}
 		if e.etcdStorage.ClassName != nil {
 			class = *e.etcdStorage.ClassName
+		}
+	}
+
+	// ensure old Etcds which are created are not resized
+	if oldObj != nil && oldObj.Name == v1beta1constants.ETCDMain && e.etcdStorage != nil {
+		if oldObj.Spec.StorageClass != nil {
+			class = *oldObj.Spec.StorageClass
+		} else if e.etcdStorage.ClassName != nil {
+			class = *e.etcdStorage.ClassName
+		}
+		if oldObj.Spec.StorageCapacity != nil {
+			capacity = *oldObj.Spec.StorageCapacity
+		} else if e.etcdStorage.Capacity != nil {
+			capacity = *e.etcdStorage.Capacity
 		}
 	}
 
