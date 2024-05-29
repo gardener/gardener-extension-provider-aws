@@ -7,6 +7,7 @@ package bastion
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -140,8 +141,14 @@ func getCloudProfileConfig(cluster *extensions.Cluster) (*awsv1alpha1.CloudProfi
 // determineImageID finds the first AMI that is configured for the same region as the shoot cluster.
 // If no image is found, an error is returned.
 func determineImageID(shoot *gardencorev1beta1.Shoot, providerConfig *awsv1alpha1.CloudProfileConfig) (string, error) {
+	// TODO(hebelsan): remove version hack after bastion image is well defined, e.g. in cloudProfile
+	// only allow garden linux versions 1312.x.x because they have ssh enabled by default
+	re := regexp.MustCompile(`^1312\.\d+\.\d+$`)
 	for _, image := range providerConfig.MachineImages {
 		for _, version := range image.Versions {
+			if !re.MatchString(version.Version) {
+				continue
+			}
 			for _, region := range version.Regions {
 				if region.Name == shoot.Spec.Region {
 					return region.AMI, nil
