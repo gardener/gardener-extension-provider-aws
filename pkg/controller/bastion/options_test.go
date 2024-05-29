@@ -14,7 +14,7 @@ import (
 
 var _ = Describe("Bastion Options", func() {
 	var region = "test-region"
-	var image = "test-image"
+	var image = "gardenlinux"
 	var ami = "test-ami"
 	var cloudProfileConfig *apisaws.CloudProfileConfig
 	var shoot *v1beta1.Shoot
@@ -45,20 +45,28 @@ var _ = Describe("Bastion Options", func() {
 	})
 
 	Context("determineImageID", func() {
-		var supportedVersion = "1312.2.0"
-		var unsupportedVersion = "1443.1.0"
+		var supportedGardenLinuxVersion = "1312.2.0"
+		var unsupportedGardenLinuxVersion = "1443.1.0"
 
 		It("should find imageID", func() {
-			cloudProfileConfig.MachineImages[0].Versions[0].Version = supportedVersion
+			cloudProfileConfig.MachineImages[0].Versions[0].Version = supportedGardenLinuxVersion
 			foundAmi, err := determineImageID(shoot, cloudProfileConfig)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(foundAmi).To(Equal(ami))
 		})
 
 		It("should fail for unsupported image version", func() {
-			cloudProfileConfig.MachineImages[0].Versions[0].Version = unsupportedVersion
+			cloudProfileConfig.MachineImages[0].Versions[0].Version = unsupportedGardenLinuxVersion
 			_, err := determineImageID(shoot, cloudProfileConfig)
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("unsupported image version should pass for none gardenlinux images", func() {
+			cloudProfileConfig.MachineImages[0].Versions[0].Version = unsupportedGardenLinuxVersion
+			cloudProfileConfig.MachineImages[0].Name = "ubuntu"
+			foundAmi, err := determineImageID(shoot, cloudProfileConfig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(foundAmi).To(Equal(ami))
 		})
 	})
 })

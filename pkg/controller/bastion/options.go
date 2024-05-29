@@ -146,7 +146,7 @@ func determineImageID(shoot *gardencorev1beta1.Shoot, providerConfig *awsv1alpha
 	re := regexp.MustCompile(`^1312\.\d+\.\d+$`)
 	for _, image := range providerConfig.MachineImages {
 		for _, version := range image.Versions {
-			if !re.MatchString(version.Version) {
+			if image.Name == "gardenlinux" && !re.MatchString(version.Version) {
 				continue
 			}
 			for _, region := range version.Regions {

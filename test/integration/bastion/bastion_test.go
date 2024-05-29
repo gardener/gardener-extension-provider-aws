@@ -54,7 +54,7 @@ const (
 	vpcCIDR             = "10.250.0.0/16"
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
-	imageVersion        = "1312.2.0" // not the real version - only used in the cloudProfile
+	imageVersion        = "20.04.20210223" // not the real version - only used in the cloudProfile
 	imageName           = "ubuntu/images/hvm-ssd/ubuntu-jammy*"
 )
 
