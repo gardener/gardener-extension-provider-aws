@@ -5,10 +5,11 @@
 package bastion
 
 import (
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
 var _ = Describe("Bastion Options", func() {
