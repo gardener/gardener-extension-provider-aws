@@ -54,8 +54,8 @@ const (
 	vpcCIDR             = "10.250.0.0/16"
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
-	bastionImageVersion = "20.04.20210223"
-	bastionAMI          = "ubuntu/images/hvm-ssd/ubuntu-jammy*"
+	imageVersion        = "20.04.20210223" // not the real version - only used in the cloudProfile
+	imageName           = "ubuntu/images/hvm-ssd/ubuntu-jammy*"
 )
 
 var (
@@ -176,7 +176,7 @@ var _ = BeforeSuite(func() {
 	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
 	Expect(err).NotTo(HaveOccurred())
 
-	imageAMI := getImageAMI(ctx, bastionAMI, awsClient)
+	imageAMI := getImageAMI(ctx, imageName, awsClient)
 	amiID := determineBastionImage(ctx, imageAMI, awsClient)
 	extensionscluster, corecluster = newCluster(namespaceName, amiID)
 })
@@ -402,7 +402,7 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 					Name: "ubuntu",
 					Versions: []awsv1alpha1.MachineImageVersion{
 						{
-							Version: bastionImageVersion,
+							Version: imageVersion,
 							Regions: []awsv1alpha1.RegionAMIMapping{
 								{
 									Name: *region,
