@@ -10,27 +10,27 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.22.0
 	github.com/gardener/external-dns-management v0.18.6
-	github.com/gardener/gardener v1.95.1
+	github.com/gardener/gardener v1.96.2
 	github.com/gardener/machine-controller-manager v0.53.0
 	github.com/go-logr/logr v1.4.2
-	github.com/onsi/ginkgo/v2 v2.18.0
+	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.74.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.11.0
 	go.uber.org/mock v0.4.0
-	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f
+	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.21.0
 	k8s.io/api v0.29.5
 	k8s.io/apiextensions-apiserver v0.29.5
 	k8s.io/apimachinery v0.29.5
-	k8s.io/autoscaler/vertical-pod-autoscaler v1.1.1
+	k8s.io/autoscaler/vertical-pod-autoscaler v1.1.2
 	k8s.io/client-go v0.29.5
 	k8s.io/code-generator v0.29.5
 	k8s.io/component-base v0.29.5
-	k8s.io/kubelet v0.29.4
+	k8s.io/kubelet v0.29.5
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 	sigs.k8s.io/controller-runtime v0.17.5
 	sigs.k8s.io/controller-tools v0.14.0
@@ -52,7 +52,7 @@ require (
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/fluent/fluent-operator/v2 v2.8.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/gardener/cert-management v0.14.2 // indirect
+	github.com/gardener/cert-management v0.14.3 // indirect
 	github.com/gardener/hvpa-controller/api v0.15.0 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/errors v0.20.4 // indirect
@@ -137,9 +137,9 @@ require (
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
-	k8s.io/kube-aggregator v0.29.4 // indirect
+	k8s.io/kube-aggregator v0.29.5 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
-	k8s.io/metrics v0.29.4 // indirect
+	k8s.io/metrics v0.29.5 // indirect
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20231015215740-bf15e44028f9 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
