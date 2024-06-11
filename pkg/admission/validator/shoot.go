@@ -189,7 +189,7 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 		return err
 	}
 
-	if err := s.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
+	if err := s.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath); err != nil {
 		return err
 	}
 
@@ -197,13 +197,30 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 }
 
 func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, fldPath *field.Path) error {
-	cloudProfile := &gardencorev1beta1.CloudProfile{}
+	var (
+		cloudProfile = &gardencorev1beta1.CloudProfile{}
+		allErrs      = field.ErrorList{}
+	)
+
 	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
 		return err
 	}
 
-	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
-		return errList.ToAggregate()
+	awsCloudProfile, err := decodeCloudProfileConfig(s.decoder, cloudProfile.Spec.ProviderConfig)
+	if err != nil {
+		return err
+	}
+
+	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfile, fldPath.Child("infrastructureConfig")); len(errList) != 0 {
+		allErrs = append(allErrs, errList...)
+	}
+
+	if errList := awsvalidation.ValidateShootConfigAgainstCloudProfile(shoot, awsCloudProfile, fldPath); len(errList) != 0 {
+		allErrs = append(allErrs, errList...)
+	}
+
+	if len(allErrs) != 0 {
+		return allErrs.ToAggregate()
 	}
 
 	return nil

@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
@@ -63,6 +64,66 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 	}
 
 	return allErrs
+}
+
+// ValidateShootConfigAgainstCloudProfile validates the shoot with respect to the given (AWS) CloudProfile
+func ValidateShootConfigAgainstCloudProfile(shoot *core.Shoot, awsCloudProfile *aws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	region := shoot.Spec.Region
+	for i, w := range shoot.Spec.Provider.Workers {
+
+		image := w.Machine.Image
+		architecture := w.Machine.Architecture
+
+		// if image is nil a default image is selected from the cloudProfile which therefore trivially exists.
+		if image == nil {
+			continue
+		}
+		if !hasImageVersion(awsCloudProfile, image, architecture, region) {
+			var errorDetail string
+			if architecture != nil {
+				errorDetail = fmt.Sprintf("no entry for image '%v' (version: '%v') with architecture '%v' in region '%v' found in cloud profile", image.Name, image.Version, *architecture, region)
+			} else {
+				errorDetail = fmt.Sprintf("no entry for image '%v' (version: '%v') in region '%v' found in cloud profile", image.Name, image.Version, region)
+			}
+			allErrs = append(
+				allErrs,
+				field.Invalid(
+					fldPath.Child("workers").Index(i).Child("machine", "image"),
+					image,
+					errorDetail,
+				),
+			)
+		}
+	}
+	return allErrs
+}
+
+// check if the given cloudProfile has an entry corresponding to the given image for the given region. If architecture is non-nil,
+// it will be included in the search.
+func hasImageVersion(cloudProfile *aws.CloudProfileConfig, image *core.ShootMachineImage, architecture *string, region string) bool {
+	for _, m := range cloudProfile.MachineImages {
+		if image.Name != m.Name {
+			continue
+		}
+		for _, v := range m.Versions {
+			if image.Version != v.Version {
+				continue
+			}
+			for _, r := range v.Regions {
+				if region != r.Name {
+					continue
+				}
+				// If an architecture is given and the region-entry is only valid for a certain architecture, they must match as well.
+				if arch := r.Architecture; architecture != nil && arch != nil && *architecture != *arch {
+					continue
+				}
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ValidateInfrastructureConfig validates a InfrastructureConfig object.
