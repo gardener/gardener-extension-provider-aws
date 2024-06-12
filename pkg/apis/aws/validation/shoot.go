@@ -73,6 +73,18 @@ func ValidateWorker(worker core.Worker, zones []apisaws.Zone, workerConfig *apis
 	return allErrs
 }
 
+// ValidateShootConfigAgainstCloudProfileOnCreation validates the shoot with respect to the given (AWS) CloudProfile. It is intended to be called only on shoot creation.
+func ValidateShootConfigAgainstCloudProfileOnCreation(shoot *core.Shoot, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	region := shoot.Spec.Region
+	for i, w := range shoot.Spec.Provider.Workers {
+		allErrs = append(allErrs, ValidateWorkerConfigAgainstCloudProfile(w, region, awsCloudProfile, fldPath.Child("workers").Index(i))...,
+		)
+	}
+	return allErrs
+}
+
 // ValidateWorkersUpdate validates updates on `workers`
 func ValidateWorkersUpdate(oldWorkers, newWorkers []core.Worker, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}

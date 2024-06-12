@@ -86,6 +86,25 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	return allErrs
 }
 
+func ValidateWorkerConfigAgainstCloudProfile(worker core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	var (
+		allErrs      = field.ErrorList{}
+		image        = worker.Machine.Image
+		architecture = worker.Machine.Architecture
+	)
+
+	// if image is nil a default image is selected from the cloudProfile which therefore trivially exists.
+	if image == nil {
+		return allErrs
+	}
+
+	if _, err := apisawshelper.FindAMIForRegionFromCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture); err != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("machine", "image"), image, fmt.Sprint(err)))
+
+	}
+	return allErrs
+}
+
 func validateResourceQuantityValue(key corev1.ResourceName, value resource.Quantity, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 

@@ -178,8 +178,10 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 }
 
 func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) error {
-	fldPath := field.NewPath("spec", "provider")
-
+	var (
+		fldPath      = field.NewPath("spec", "provider")
+		cloudProfile = &gardencorev1beta1.CloudProfile{}
+	)
 	if shoot.Spec.Provider.InfrastructureConfig == nil {
 		return field.Required(fldPath.Child("infrastructureConfig"), "InfrastructureConfig must be set for AWS shoots")
 	}
@@ -188,19 +190,6 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 	if err != nil {
 		return err
 	}
-
-	if err := s.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath); err != nil {
-		return err
-	}
-
-	return s.validateShoot(ctx, shoot)
-}
-
-func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, fldPath *field.Path) error {
-	var (
-		cloudProfile = &gardencorev1beta1.CloudProfile{}
-		allErrs      = field.ErrorList{}
-	)
 
 	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
 		return err
@@ -211,16 +200,25 @@ func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Sho
 		return err
 	}
 
-	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfile, fldPath.Child("infrastructureConfig")); len(errList) != 0 {
-		allErrs = append(allErrs, errList...)
+	if err := s.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
+		return err
 	}
 
-	if errList := awsvalidation.ValidateShootConfigAgainstCloudProfile(shoot, awsCloudProfile, fldPath); len(errList) != 0 {
-		allErrs = append(allErrs, errList...)
+	if errList := awsvalidation.ValidateShootConfigAgainstCloudProfileOnCreation(shoot, awsCloudProfile, fldPath.Child("infrastructureConfig")); len(errList) != 0 {
+		return errList.ToAggregate()
 	}
 
-	if len(allErrs) != 0 {
-		return allErrs.ToAggregate()
+	return s.validateShoot(ctx, shoot)
+}
+
+func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, fldPath *field.Path) error {
+	cloudProfile := &gardencorev1beta1.CloudProfile{}
+	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
+		return err
+	}
+
+	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
+		return errList.ToAggregate()
 	}
 
 	return nil
