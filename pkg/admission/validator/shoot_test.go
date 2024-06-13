@@ -63,6 +63,11 @@ var _ = Describe("Shoot validator", func() {
 
 			shootValidator = validator.NewShootValidator(mgr)
 
+			regionName := "us-west"
+			imageName := "Foo"
+			imageVersion := "1.0.0"
+			architecture := ptr.To("analog")
+
 			cloudProfile = &gardencorev1beta1.CloudProfile{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "aws",
@@ -70,7 +75,7 @@ var _ = Describe("Shoot validator", func() {
 				Spec: gardencorev1beta1.CloudProfileSpec{
 					Regions: []gardencorev1beta1.Region{
 						{
-							Name: "us-west",
+							Name: regionName,
 							Zones: []gardencorev1beta1.AvailabilityZone{
 								{
 									Name: "zone1",
@@ -81,8 +86,34 @@ var _ = Describe("Shoot validator", func() {
 							},
 						},
 					},
+					ProviderConfig: &runtime.RawExtension{
+						Raw: encode(&apisawsv1alpha1.CloudProfileConfig{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: apisawsv1alpha1.SchemeGroupVersion.String(),
+								Kind:       "CloudProfileConfig",
+							},
+							MachineImages: []apisawsv1alpha1.MachineImages{
+								{
+									Name: imageName,
+									Versions: []apisawsv1alpha1.MachineImageVersion{
+										{
+											Version: imageVersion,
+											Regions: []apisawsv1alpha1.RegionAMIMapping{
+												{
+													Name:         regionName,
+													AMI:          "Bar",
+													Architecture: architecture,
+												},
+											},
+										},
+									},
+								},
+							},
+						}),
+					},
 				},
 			}
+
 			shoot = &core.Shoot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -120,10 +151,17 @@ var _ = Describe("Shoot validator", func() {
 									Type:       ptr.To(gp2type),
 								},
 								Zones: []string{"zone1"},
+								Machine: core.Machine{
+									Image: &core.ShootMachineImage{
+										Name:    imageName,
+										Version: imageVersion,
+									},
+									Architecture: architecture,
+								},
 							},
 						},
 					},
-					Region: "us-west",
+					Region: regionName,
 					Networking: &core.Networking{
 						Nodes: ptr.To("10.250.0.0/16"),
 					},
