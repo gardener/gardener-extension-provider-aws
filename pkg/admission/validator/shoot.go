@@ -175,7 +175,16 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return err
 	}
 
+	awsCloudProfile, err := decodeCloudProfileConfig(s.decoder, cloudProfile.Spec.ProviderConfig)
+	if err != nil {
+		return err
+	}
+
 	if errList := awsvalidation.ValidateWorkersUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, fldPath.Child("workers")); len(errList) != 0 {
+		return errList.ToAggregate()
+	}
+
+	if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, fldPath.Child("workers")); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 
@@ -209,7 +218,7 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 		return err
 	}
 
-	if errList := awsvalidation.ValidateShootConfigAgainstCloudProfileOnCreation(shoot, awsCloudProfile, fldPath.Child("infrastructureConfig")); len(errList) != 0 {
+	if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnCreation(shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, fldPath.Child("workers")); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 

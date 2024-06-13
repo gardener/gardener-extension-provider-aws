@@ -86,21 +86,40 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	return allErrs
 }
 
-func ValidateWorkerConfigAgainstCloudProfile(worker core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
-	var (
-		allErrs      = field.ErrorList{}
-		image        = worker.Machine.Image
-		architecture = worker.Machine.Architecture
-	)
+func ValidateWorkersAgainstCloudProfileOnCreation(workers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
 
-	// if image is nil a default image is selected from the cloudProfile which therefore trivially exists.
-	if image == nil {
-		return allErrs
-	}
+	allErrs = append(allErrs, validateWorkersConfigAgainstCloudProfile(workers, region, awsCloudProfile, fldPath)...)
 
-	if _, err := apisawshelper.FindAMIForRegionFromCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture); err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("machine", "image"), image, fmt.Sprint(err)))
+	return allErrs
+}
 
+func ValidateWorkersAgainstCloudProfileOnUpdate(oldWorkers, newWorkers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Validate the existence of the images the new/updated workers are to use. Validating the images used by old workers is not possible at this point, as they might
+	// have been removed from the CloudProfile already.
+	allErrs = append(allErrs, validateWorkersConfigAgainstCloudProfile(newWorkers, region, awsCloudProfile, fldPath)...)
+
+	return allErrs
+}
+
+func validateWorkersConfigAgainstCloudProfile(workers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for i, w := range workers {
+		var (
+			image        = w.Machine.Image
+			architecture = w.Machine.Architecture
+		)
+		// if image is nil a default image is selected from the cloudProfile which therefore trivially exists.
+		if image == nil {
+			continue
+		}
+
+		if _, err := apisawshelper.FindAMIForRegionFromCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture); err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("machine", "image"), image, fmt.Sprint(err)))
+		}
 	}
 	return allErrs
 }
