@@ -45,6 +45,11 @@ var _ = Describe("Shoot validator", func() {
 			ctx             = context.TODO()
 			cloudProfileKey = client.ObjectKey{Name: "aws"}
 			gp2type         = string(apisaws.VolumeTypeGP2)
+
+			regionName   = "us-west"
+			imageName    = "Foo"
+			imageVersion = "1.0.0"
+			architecture = ptr.To("analog")
 		)
 
 		BeforeEach(func() {
@@ -62,11 +67,6 @@ var _ = Describe("Shoot validator", func() {
 			mgr.EXPECT().GetClient().Return(c)
 
 			shootValidator = validator.NewShootValidator(mgr)
-
-			regionName := "us-west"
-			imageName := "Foo"
-			imageVersion := "1.0.0"
-			architecture := ptr.To("analog")
 
 			cloudProfile = &gardencorev1beta1.CloudProfile{
 				ObjectMeta: metav1.ObjectMeta{
@@ -219,6 +219,58 @@ var _ = Describe("Shoot validator", func() {
 					"Type":  Equal(field.ErrorTypeNotSupported),
 					"Field": Equal("spec.provider.infrastructureConfig.network.zones[0].name"),
 				}))))
+			})
+
+			It("should return err when worker image is not present in CloudConfiguration", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.Provider.Workers[0].Machine = core.Machine{
+					Image: &core.ShootMachineImage{
+						Name:    "Bar",
+						Version: imageVersion,
+					},
+					Architecture: architecture,
+				}
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.provider.workers[0].machine.image"),
+				}))))
+			})
+
+			It("should return err when worker image is not present in CloudConfiguration on update", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				newShoot := shoot.DeepCopy()
+				newShoot.Spec.Provider.Workers[0].Machine = core.Machine{
+					Image: &core.ShootMachineImage{
+						Name:    "Bar",
+						Version: imageVersion,
+					},
+					Architecture: architecture,
+				}
+
+				err := shootValidator.Validate(ctx, newShoot, shoot)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.provider.workers[0].machine.image"),
+				}))))
+			})
+
+			It("should not err when old worker image is not present in CloudConfiguration on update", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				newShoot := shoot.DeepCopy()
+				shoot.Spec.Provider.Workers[0].Machine = core.Machine{
+					Image: &core.ShootMachineImage{
+						Name:    "Bar",
+						Version: imageVersion,
+					},
+					Architecture: architecture,
+				}
+
+				err := shootValidator.Validate(ctx, newShoot, shoot)
+				Expect(err).To(Not(HaveOccurred()))
 			})
 
 			It("should return err when networking is invalid", func() {
