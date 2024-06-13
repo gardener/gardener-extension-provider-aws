@@ -94,7 +94,7 @@ func ValidateWorkersAgainstCloudProfileOnCreation(workers []core.Worker, region 
 	return allErrs
 }
 
-func ValidateWorkersAgainstCloudProfileOnUpdate(oldWorkers, newWorkers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+func ValidateWorkersAgainstCloudProfileOnUpdate(_, newWorkers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Validate the existence of the images the new/updated workers are to use. Validating the images used by old workers is not possible at this point, as they might
