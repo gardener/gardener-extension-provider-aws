@@ -89,37 +89,47 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 func ValidateWorkersAgainstCloudProfileOnCreation(workers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	allErrs = append(allErrs, validateWorkersConfigAgainstCloudProfile(workers, region, awsCloudProfile, fldPath)...)
-
+	for i, w := range workers {
+		allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(w, region, awsCloudProfile, fldPath.Index(i))...)
+	}
 	return allErrs
 }
 
-func ValidateWorkersAgainstCloudProfileOnUpdate(_, newWorkers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+func ValidateWorkersAgainstCloudProfileOnUpdate(oldWorkers, newWorkers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Validate the existence of the images the new/updated workers are to use. Validating the images used by old workers is not possible at this point, as they might
 	// have been removed from the CloudProfile already.
-	allErrs = append(allErrs, validateWorkersConfigAgainstCloudProfile(newWorkers, region, awsCloudProfile, fldPath)...)
+	for i, newWorker := range newWorkers {
+		var w core.Worker
+		for _, oldWorker := range oldWorkers {
+			if newWorker.Name == oldWorker.Name {
+				w = oldWorker
+			}
+		}
+		// Validate only new Workers or those whose image has changed.
+		if w.Name == "" || newWorker.Machine.Image != w.Machine.Image {
+			fmt.Printf("Validating %v", newWorker.Name)
+			allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(newWorker, region, awsCloudProfile, fldPath.Index(i))...)
+		}
+	}
 
 	return allErrs
 }
 
-func validateWorkersConfigAgainstCloudProfile(workers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
+func validateWorkerConfigAgainstCloudProfile(worker core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	var (
+		allErrs      = field.ErrorList{}
+		image        = worker.Machine.Image
+		architecture = worker.Machine.Architecture
+	)
+	// if image is nil a default image is selected from the cloudProfile which therefore trivially exists.
+	if image == nil {
+		return allErrs
+	}
 
-	for i, w := range workers {
-		var (
-			image        = w.Machine.Image
-			architecture = w.Machine.Architecture
-		)
-		// if image is nil a default image is selected from the cloudProfile which therefore trivially exists.
-		if image == nil {
-			continue
-		}
-
-		if _, err := apisawshelper.FindAMIForRegionFromCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture); err != nil {
-			allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("machine", "image"), image, fmt.Sprint(err)))
-		}
+	if _, err := apisawshelper.FindAMIForRegionFromCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture); err != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("machine", "image"), image, fmt.Sprint(err)))
 	}
 	return allErrs
 }
