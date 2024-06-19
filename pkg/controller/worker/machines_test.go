@@ -152,7 +152,7 @@ var _ = Describe("Machines", func() {
 				region = "eu-west-1"
 
 				machineImageName = "my-os"
-				machineImageVersion = "123"
+				machineImageVersion = "123.4.5-pre+build123"
 				machineImageAMI = "ami-123456"
 
 				vpcID = "vpc-1234"
@@ -482,7 +482,7 @@ var _ = Describe("Machines", func() {
 						"instanceMetadataOptions": map[string]interface{}{},
 						"operatingSystem": map[string]interface{}{
 							"operatingSystemName":    machineImageName,
-							"operatingSystemVersion": machineImageVersion,
+							"operatingSystemVersion": strings.Replace(machineImageVersion, "+", "_", -1),
 						},
 					}
 
