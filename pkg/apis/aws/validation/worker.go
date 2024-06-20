@@ -86,6 +86,55 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	return allErrs
 }
 
+func ValidateWorkersAgainstCloudProfileOnCreation(workers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for i, w := range workers {
+		allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(w, region, awsCloudProfile, fldPath.Index(i))...)
+	}
+	return allErrs
+}
+
+func ValidateWorkersAgainstCloudProfileOnUpdate(oldWorkers, newWorkers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Validate the existence of the images the new/updated workers are to use. Validating the images used by old workers is not possible at this point, as they might
+	// have been removed from the CloudProfile already.
+	for i, newWorker := range newWorkers {
+		var w core.Worker
+		for _, oldWorker := range oldWorkers {
+			if newWorker.Name == oldWorker.Name {
+				w = oldWorker
+				break
+			}
+		}
+		// Validate only new Workers (i.e. the cases where w was not reassigned above) or those whose image has changed.
+		if w.Name == "" || newWorker.Machine.Image != w.Machine.Image {
+			fmt.Printf("Validating %v", newWorker.Name)
+			allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(newWorker, region, awsCloudProfile, fldPath.Index(i))...)
+		}
+	}
+
+	return allErrs
+}
+
+func validateWorkerConfigAgainstCloudProfile(worker core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+	var (
+		allErrs      = field.ErrorList{}
+		image        = worker.Machine.Image
+		architecture = worker.Machine.Architecture
+	)
+	// if image is nil a default image is selected from the cloudProfile which therefore trivially exists.
+	if image == nil {
+		return allErrs
+	}
+
+	if _, err := apisawshelper.FindAMIForRegionFromCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture); err != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("machine", "image"), image, fmt.Sprint(err)))
+	}
+	return allErrs
+}
+
 func validateResourceQuantityValue(key corev1.ResourceName, value resource.Quantity, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 

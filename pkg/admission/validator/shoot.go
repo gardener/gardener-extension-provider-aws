@@ -139,6 +139,7 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 	var (
 		fldPath            = field.NewPath("spec", "provider")
 		infraConfigFldPath = fldPath.Child("infrastructureConfig")
+		cloudProfile       = &gardencorev1beta1.CloudProfile{}
 	)
 
 	// InfrastructureConfig update
@@ -148,6 +149,10 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 
 	infraConfig, err := decodeInfrastructureConfig(s.decoder, shoot.Spec.Provider.InfrastructureConfig, infraConfigFldPath)
 	if err != nil {
+		return err
+	}
+
+	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
 		return err
 	}
 
@@ -166,7 +171,12 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		}
 	}
 
-	if err := s.validateAgainstCloudProfile(ctx, shoot, oldInfraConfig, infraConfig, infraConfigFldPath); err != nil {
+	if err := s.validateAgainstCloudProfile(ctx, shoot, oldInfraConfig, infraConfig, cloudProfile, infraConfigFldPath); err != nil {
+		return err
+	}
+
+	awsCloudProfile, err := decodeCloudProfileConfig(s.decoder, cloudProfile.Spec.ProviderConfig)
+	if err != nil {
 		return err
 	}
 
@@ -174,12 +184,18 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return errList.ToAggregate()
 	}
 
+	if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, fldPath.Child("workers")); len(errList) != 0 {
+		return errList.ToAggregate()
+	}
+
 	return s.validateShoot(ctx, shoot)
 }
 
 func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) error {
-	fldPath := field.NewPath("spec", "provider")
-
+	var (
+		fldPath      = field.NewPath("spec", "provider")
+		cloudProfile = &gardencorev1beta1.CloudProfile{}
+	)
 	if shoot.Spec.Provider.InfrastructureConfig == nil {
 		return field.Required(fldPath.Child("infrastructureConfig"), "InfrastructureConfig must be set for AWS shoots")
 	}
@@ -189,19 +205,27 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 		return err
 	}
 
-	if err := s.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
+	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
 		return err
+	}
+
+	awsCloudProfile, err := decodeCloudProfileConfig(s.decoder, cloudProfile.Spec.ProviderConfig)
+	if err != nil {
+		return err
+	}
+
+	if err := s.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, cloudProfile, fldPath.Child("infrastructureConfig")); err != nil {
+		return err
+	}
+
+	if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnCreation(shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, fldPath.Child("workers")); len(errList) != 0 {
+		return errList.ToAggregate()
 	}
 
 	return s.validateShoot(ctx, shoot)
 }
 
-func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, fldPath *field.Path) error {
-	cloudProfile := &gardencorev1beta1.CloudProfile{}
-	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
-		return err
-	}
-
+func (s *shoot) validateAgainstCloudProfile(_ context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, cloudProfile *gardencorev1beta1.CloudProfile, fldPath *field.Path) error {
 	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
