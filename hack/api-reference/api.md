@@ -330,6 +330,19 @@ InstanceMetadataOptions
 <p>InstanceMetadataOptions contains configuration for controlling access to the metadata API.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>cpuOptions</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CpuOptions">
+CpuOptions
+</a>
+</em>
+</td>
+<td>
+<p>CpuOptions contains detailed configuration for the number of cores and threads for the instance.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus
@@ -422,6 +435,47 @@ bool
 <em>(Optional)</em>
 <p>UseCustomRouteController controls if custom route controller should be used.
 Defaults to false.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CpuOptions">CpuOptions
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+</p>
+<p>
+<p>CpuOptions contains detailed configuration for the number of cores and threads for the instance.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>coreCount</code></br>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>CoreCount specifies the number of CPU cores per instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>threadsPerCore</code></br>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>ThreadsPerCore sets the number of threads per core. Must be either &lsquo;1&rsquo; (disable multi-threading) or &lsquo;2&rsquo;.</p>
 </td>
 </tr>
 </tbody>

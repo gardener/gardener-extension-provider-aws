@@ -190,7 +190,7 @@ It only applies for those worker pools whose `iamInstanceProfile` is not set.
 
 The `dualStack.enabled` flag specifies whether dual-stack or IPv4-only should be supported by the infrastructure.
 When the flag is set to true an Amazon provided IPv6 CIDR block will be attached to the VPC.
-All subnets will receive a `/64` block from it and a route entry is added to the main route table to route all IPv6 traffic over the IGW. 
+All subnets will receive a `/64` block from it and a route entry is added to the main route table to route all IPv6 traffic over the IGW.
 
 The `networks.vpc` section describes whether you want to create the shoot cluster in an already existing VPC or whether to create a new one:
 
@@ -247,7 +247,7 @@ infrastructure reconciliation. By default, all tags that are added outside of Ga
 reconciliation will be removed during the next reconciliation. This field allows users and automation to add
 custom tags on AWS resources created and managed by Gardener without loosing them on the next reconciliation.
 Tags can ignored either by specifying exact key values (`ignoreTags.keys`) or key prefixes (`ignoreTags.keyPrefixes`).
-In both cases it is forbidden to ignore the `Name` tag or any tag starting with `kubernetes.io` or `gardener.cloud`.  
+In both cases it is forbidden to ignore the `Name` tag or any tag starting with `kubernetes.io` or `gardener.cloud`.
 Please note though, that the tags are only ignored on resources created on behalf of the `Infrastructure` CR (i.e. VPC,
 subnets, security groups, keypair, etc.), while tags on machines, volumes, etc. are not in the scope of this controller.
 
@@ -281,11 +281,11 @@ If enabled, it will add routes to the pod CIDRs for all nodes in the route table
 
 The `storage.managedDefaultClass` controls if the `default` storage / volume snapshot classes are marked as default by Gardener. Set it to `false` to [mark another storage / volume snapshot class as default](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) without Gardener overwriting this change. If unset, this field defaults to `true`.
 
-If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/) should be deployed, set `loadBalancerController.enabled` to `true`. 
+If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/) should be deployed, set `loadBalancerController.enabled` to `true`.
 In this case,  it is assumed that an `IngressClass` named `alb` is created **by the user**.
 You can overwrite the name by setting `loadBalancerController.ingressClassName`.
 
-Please note, that currently only the "instance" mode is supported. 
+Please note, that currently only the "instance" mode is supported.
 
 ### Examples for `Ingress` and `Service` managed by the AWS Load Balancer Controller:
 
@@ -297,7 +297,7 @@ Make sure you have created an `IngressClass`. For more details about parameters,
 apiVersion: networking.k8s.io/v1
 kind: IngressClass
 metadata:
-  name: alb # default name if not specified by `loadBalancerController.ingressClassName` 
+  name: alb # default name if not specified by `loadBalancerController.ingressClassName`
 spec:
   controller: ingress.k8s.aws/alb
 ```
@@ -388,7 +388,7 @@ spec:
       - name: cpu-worker
         ...
         providerConfig:
-          # AWS worker config 
+          # AWS worker config
 ```
 The configuration will be evaluated when the provider-aws will reconcile the worker pools for the respective shoot.
 
@@ -405,7 +405,7 @@ spec:
             kind: WorkerConfig
             volume:
               iops: 10000
-              throughput: 200 
+              throughput: 200
             dataVolumes:
             - name: kubelet-dir
               iops: 12345
@@ -445,10 +445,16 @@ The `instanceMetadataOptions` controls access to the instance metadata service (
 - disable access to IMDS - `httpTokens = "required"`
 
 > Note: The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers  **NOT** running in the host network.
-> By default on host network IMDSv2 is already enabled (but not accessible from inside the pods). 
+> By default on host network IMDSv2 is already enabled (but not accessible from inside the pods).
 > It is currently not possible to create a VM with complete restriction to the IMDS service. It is however possible to restrict access from inside the pods by setting `httpTokens` to `required` and not setting `httpPutResponseHopLimit` (or setting it to 1).
 
-You can find more information regarding the options in the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html). 
+You can find more information regarding the options in the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html).
+
+`cpuOptions` grants more finegrained control over the worker's CPU configuration. It has two attributes:
+- `coreCount`: Specify a custom amount of cores the instance should be configured with.
+- `threadsPerCore`: How many threads should there be on each core. Set to `1` to disable multi-threading.
+
+Note that if you decide to configure `cpuOptions` _both_ these values need to be provided. For a list of valid combinations of these values refer to the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cpu-options-supported-instances-values.html).
 
 
 ## Example `Shoot` manifest (one availability zone)
@@ -607,10 +613,10 @@ The extension offers two different reconciler implementations for the infrastruc
 - terraform-based
 - native Go SDK based (dubbed the "flow"-based implementation)
 
-The default implementation currently is the terraform reconciler which uses the `https://github.com/gardener/terraformer` as the backend for managing the shoot's infrastructure. 
+The default implementation currently is the terraform reconciler which uses the `https://github.com/gardener/terraformer` as the backend for managing the shoot's infrastructure.
 
-The "flow" implementation is a newer implementation that is trying to solve issues we faced with managing terraform infrastructure on Kubernetes. The goal is to have more control over the reconciliation process and be able to perform fine-grained tuning over it. The implementation is completely backwards-compatible and offers a migration route from the legacy terraformer implementation. 
+The "flow" implementation is a newer implementation that is trying to solve issues we faced with managing terraform infrastructure on Kubernetes. The goal is to have more control over the reconciliation process and be able to perform fine-grained tuning over it. The implementation is completely backwards-compatible and offers a migration route from the legacy terraformer implementation.
 
-For most users there will be no noticable difference. However for certain use-cases, users may notice a slight deviation from the previous behavior. For example, with flow-based infrastructure users may be able to perform certain modifications to infrastructure resources without having them reconciled back by terraform. Operations that would degrade the shoot infrastructure are still expected to be reverted back. 
+For most users there will be no noticable difference. However for certain use-cases, users may notice a slight deviation from the previous behavior. For example, with flow-based infrastructure users may be able to perform certain modifications to infrastructure resources without having them reconciled back by terraform. Operations that would degrade the shoot infrastructure are still expected to be reverted back.
 
 For the time-being, to take advantage of the flow reconcilier users have to "opt-in" by annotating the shoot manifest with: `aws.provider.extensions.gardener.cloud/use-flow="true"`. For existing shoots with this annotation, the migration will take place on the next infrastructure reconciliation (on maintenance window or if other infrastructure changes are requested). The migration is not revertible.

@@ -26,6 +26,8 @@ type WorkerConfig struct {
 	IAMInstanceProfile *IAMInstanceProfile
 	// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
 	InstanceMetadataOptions *InstanceMetadataOptions
+	// CpuOptions contains detailed configuration for the number of cores and threads for the instance.
+	CpuOptions *CpuOptions `json:"cpuOptions,omitempty"`
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -129,4 +131,12 @@ type InstanceMetadataOptions struct {
 	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
 	// Valid values are between 1 and 64.
 	HTTPPutResponseHopLimit *int64
+}
+
+// CpuOptions contains detailed configuration for the number of cores and threads for the instance.
+type CpuOptions struct {
+	// CoreCount specifies the number of CPU cores per instance.
+	CoreCount *int64
+	// ThreadsPerCore sets the number of threads per core. Must be either '1' (disable multi-threading) or '2'.
+	ThreadsPerCore *int64
 }
