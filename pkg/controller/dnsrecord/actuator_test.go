@@ -178,6 +178,19 @@ var _ = Describe("Actuator", func() {
 			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
+				Return(awserr.New(route53.ErrCodeNoSuchHostedZone, "", nil))
+
+			err := a.Reconcile(ctx, logger, dns, nil)
+			Expect(err).To(HaveOccurred())
+			coder, ok := err.(gardencorev1beta1helper.Coder)
+			Expect(ok).To(BeTrue())
+			Expect(coder.Codes()).To(Equal([]gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem}))
+		})
+
+		It("should fail with ERR_CONFIGURATION_PROBLEM when there is no such hosted zone", func() {
+			dns.Spec.Zone = ptr.To(zone)
+
+			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
 				Return(awserr.New(route53.ErrCodeInvalidChangeBatch, "RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com.", nil))
 
 			err := a.Reconcile(ctx, logger, dns, nil)
@@ -189,9 +202,7 @@ var _ = Describe("Actuator", func() {
 	})
 
 	Describe("#Delete", func() {
-		It("should delete the DNSRecord", func() {
-			dns.Status.Zone = ptr.To(zone)
-
+		BeforeEach(func() {
 			c.EXPECT().Get(ctx, kutil.Key(namespace, name), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
 				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
 					*obj = *secret
@@ -199,6 +210,36 @@ var _ = Describe("Actuator", func() {
 				},
 			)
 			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, aws.DefaultDNSRegion).Return(awsClient, nil)
+
+		})
+
+		It("should fail with ERR_CONFIGURATION_PROBLEM if the domain name is not permitted in the zone", func() {
+			dns.Spec.Zone = ptr.To(zone)
+
+			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
+				Return(awserr.New(route53.ErrCodeInvalidChangeBatch, "RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com.", nil))
+
+			err := a.Delete(ctx, logger, dns, nil)
+			Expect(err).To(HaveOccurred())
+
+			coder, ok := err.(gardencorev1beta1helper.Coder)
+			Expect(ok).To(BeTrue())
+			Expect(coder.Codes()).To(Equal([]gardencorev1beta1.ErrorCode{gardencorev1beta1.ErrorConfigurationProblem}))
+		})
+
+		It("should not fail when there is no such hosted zone", func() {
+			dns.Spec.Zone = ptr.To(zone)
+
+			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
+				Return(awserr.New(route53.ErrCodeNoSuchHostedZone, "", nil))
+
+			err := a.Delete(ctx, logger, dns, nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete the DNSRecord", func() {
+			dns.Status.Zone = ptr.To(zone)
+
 			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).Return(nil)
 
 			err := a.Delete(ctx, logger, dns, nil)
