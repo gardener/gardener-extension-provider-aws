@@ -14,7 +14,6 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/utils/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -48,7 +47,7 @@ func newActuator(mgr manager.Manager) bastion.Actuator {
 
 func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1.Bastion, shoot *gardencorev1beta1.Shoot) (*awsclient.Client, error) {
 	secret := &corev1.Secret{}
-	key := kubernetes.Key(bastion.Namespace, v1beta1constants.SecretNameCloudProvider)
+	key := client.ObjectKey{Namespace: bastion.Namespace, Name: v1beta1constants.SecretNameCloudProvider}
 
 	if err := a.client.Get(ctx, key, secret); err != nil {
 		return nil, fmt.Errorf("failed to find %q Secret: %w", v1beta1constants.SecretNameCloudProvider, err)
