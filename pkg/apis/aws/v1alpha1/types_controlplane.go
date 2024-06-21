@@ -23,6 +23,10 @@ type ControlPlaneConfig struct {
 	// +optional
 	LoadBalancerController *LoadBalancerControllerConfig `json:"loadBalancerController,omitempty"`
 
+	// IPAMController contains configuration settings for the optional aws-ipam-controller.
+	// +optional
+	IPAMController *IPAMControllerConfig `json:"ipamController,omitempty"`
+
 	// Storage contains configuration for storage in the cluster.
 	// +optional
 	Storage *Storage `json:"storage,omitempty"`
@@ -49,6 +53,12 @@ type LoadBalancerControllerConfig struct {
 	// If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb
 	// +optional
 	IngressClassName *string `json:"ingressClassName,omitempty"`
+}
+
+// IPAMControllerConfig contains configuration settings for the optional aws-ipam-controller.
+type IPAMControllerConfig struct {
+	// Enabled controls if the IPAM controller should be deployed.
+	Enabled bool `json:"enabled"`
 }
 
 // Storage contains configuration for storage in the cluster.

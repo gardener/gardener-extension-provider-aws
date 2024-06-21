@@ -137,6 +137,21 @@ images:
       confidentiality_requirement: 'high'
       integrity_requirement: 'high'
       availability_requirement: 'low'
+- name: aws-ipam-controller
+  sourceRepository: github.com/gardener/aws-ipam-controller
+#  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-ipam-controller
+#  tag: "v0.1.0"
+  repository: docktofuture/ipam-controller
+  tag: "v75"
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'protected'
+      authentication_enforced: false
+      user_interaction: 'gardener-operator'
+      confidentiality_requirement: 'high'
+      integrity_requirement: 'high'
+      availability_requirement: 'low'
 - name: aws-load-balancer-controller
   sourceRepository: github.com/kubernetes-sigs/aws-load-balancer-controller
   # We cannot use the upstream repository here as it is not reachable using IPv6.

@@ -15,3 +15,7 @@ dependencies:
   repository: http://localhost:10191
   version: 0.1.0
   condition: aws-load-balancer-controller.enabled
+- name: aws-ipam-controller
+  repository: http://localhost:10191
+  version: 0.1.0
+  condition: aws-ipam-controller.enabled

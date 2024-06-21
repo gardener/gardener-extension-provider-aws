@@ -20,6 +20,9 @@ type ControlPlaneConfig struct {
 	// LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
 	LoadBalancerController *LoadBalancerControllerConfig
 
+	// IPAMController contains configuration settings for the optional aws-ipam-controller.
+	IPAMController *IPAMControllerConfig
+
 	// Storage contains configuration for storage in the cluster.
 	Storage *Storage
 }
@@ -41,6 +44,12 @@ type LoadBalancerControllerConfig struct {
 	// IngressClassName is the name of the ingress class the ALB controller will target. Default value is 'alb'.
 	// If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb
 	IngressClassName *string
+}
+
+// IPAMControllerConfig contains configuration settings for the optional aws-ipam-controller.
+type IPAMControllerConfig struct {
+	// Enabled controls if the IPAM controller should be deployed.
+	Enabled bool
 }
 
 // Storage contains configuration for storage in the cluster.
