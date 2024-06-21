@@ -39,7 +39,7 @@ spec:
         imagePullPolicy: IfNotPresent
         command:
         - /bin/aws-cloud-controller-manager
-        - --allocate-node-cidrs=true
+        - --allocate-node-cidrs={{ not .Values.ipamControllerEnabled }}
         - --cloud-provider=aws
         - --cloud-config=/etc/kubernetes/cloudprovider/cloudprovider.conf
         - --cluster-cidr={{ .Values.podNetwork }}
