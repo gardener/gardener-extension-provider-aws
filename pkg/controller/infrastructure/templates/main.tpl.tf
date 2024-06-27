@@ -363,7 +363,12 @@ resource "aws_iam_role_policy" "nodes" {
     {
       "Effect": "Allow",
       "Action": [
-        "ec2:DescribeInstances"
+        "ec2:DescribeInstances",
+        "logs:CreateLogStream",
+        "logs:DescribeLogStreams",
+        "logs:PutLogEvents",
+        "logs:PutRetentionPolicy",
+        "logs:CreateLogGroup"
       ],
       "Resource": [
         "*"
