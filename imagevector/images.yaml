@@ -99,8 +99,8 @@ images:
       availability_requirement: 'low'
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
-  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/machine-controller-manager-provider-aws
-  tag: "v0.20.0"
+  repository:  docktofuture/machine-controller-manager-provider-aws
+  tag: "v1"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -114,6 +114,21 @@ images:
   sourceRepository: github.com/gardener/aws-custom-route-controller
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-custom-route-controller
   tag: "v0.8.0"
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'protected'
+      authentication_enforced: false
+      user_interaction: 'gardener-operator'
+      confidentiality_requirement: 'high'
+      integrity_requirement: 'high'
+      availability_requirement: 'low'
+- name: aws-ipam-controller
+  sourceRepository: github.com/gardener/aws-ipam-controller
+#  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-ipam-controller
+#  tag: "v0.1.0"
+  repository: docktofuture/ipam-controller
+  tag: "v75"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
