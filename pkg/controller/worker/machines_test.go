@@ -85,8 +85,9 @@ var _ = Describe("Machines", func() {
 				securityGroupID       string
 				keyName               string
 
-				archAMD string
-				archARM string
+				archAMD  string
+				archARM  string
+				archFAKE string
 
 				volumeType       string
 				volumeSize       int
@@ -126,9 +127,11 @@ var _ = Describe("Machines", func() {
 
 				labels map[string]string
 
-				nodeCapacity      corev1.ResourceList
-				nodeTemplateZone1 machinev1alpha1.NodeTemplate
-				nodeTemplateZone2 machinev1alpha1.NodeTemplate
+				nodeCapacity           corev1.ResourceList
+				nodeTemplatePool1Zone1 machinev1alpha1.NodeTemplate
+				nodeTemplatePool2Zone1 machinev1alpha1.NodeTemplate
+				nodeTemplatePool1Zone2 machinev1alpha1.NodeTemplate
+				nodeTemplatePool2Zone2 machinev1alpha1.NodeTemplate
 
 				machineConfiguration *machinev1alpha1.MachineConfiguration
 
@@ -166,6 +169,7 @@ var _ = Describe("Machines", func() {
 
 				archAMD = "amd64"
 				archARM = "arm64"
+				archFAKE = "fake"
 
 				volumeType = "normal"
 				volumeSize = 20
@@ -210,18 +214,34 @@ var _ = Describe("Machines", func() {
 					"gpu":    resource.MustParse("1"),
 					"memory": resource.MustParse("128Gi"),
 				}
-				nodeTemplateZone1 = machinev1alpha1.NodeTemplate{
+				nodeTemplatePool1Zone1 = machinev1alpha1.NodeTemplate{
 					Capacity:     nodeCapacity,
 					InstanceType: machineType,
 					Region:       region,
 					Zone:         zone1,
+					Architecture: &archAMD,
 				}
-
-				nodeTemplateZone2 = machinev1alpha1.NodeTemplate{
+				nodeTemplatePool1Zone2 = machinev1alpha1.NodeTemplate{
 					Capacity:     nodeCapacity,
 					InstanceType: machineType,
 					Region:       region,
 					Zone:         zone2,
+					Architecture: &archAMD,
+				}
+
+				nodeTemplatePool2Zone1 = machinev1alpha1.NodeTemplate{
+					Capacity:     nodeCapacity,
+					InstanceType: machineType,
+					Region:       region,
+					Zone:         zone1,
+					Architecture: &archARM,
+				}
+				nodeTemplatePool2Zone2 = machinev1alpha1.NodeTemplate{
+					Capacity:     nodeCapacity,
+					InstanceType: machineType,
+					Region:       region,
+					Zone:         zone2,
+					Architecture: &archARM,
 				}
 
 				machineConfiguration = &machinev1alpha1.MachineConfiguration{}
@@ -255,6 +275,21 @@ var _ = Describe("Machines", func() {
 											Name:         region,
 											AMI:          machineImageAMI,
 											Architecture: ptr.To(archAMD),
+										},
+									},
+								},
+							},
+						},
+						{
+							Name: machineImageName,
+							Versions: []apiv1alpha1.MachineImageVersion{
+								{
+									Version: machineImageVersion,
+									Regions: []apiv1alpha1.RegionAMIMapping{
+										{
+											Name:         region,
+											AMI:          machineImageAMI,
+											Architecture: ptr.To(archARM),
 										},
 									},
 								},
@@ -394,6 +429,7 @@ var _ = Describe("Machines", func() {
 							{
 								Name:           namePool2,
 								Minimum:        minPool2,
+								Architecture:   ptr.To(archARM),
 								Maximum:        maxPool2,
 								MaxSurge:       maxSurgePool2,
 								MaxUnavailable: maxUnavailablePool2,
@@ -573,10 +609,10 @@ var _ = Describe("Machines", func() {
 					addNameAndSecretToMachineClass(machineClassPool2Zone1, machineClassWithHashPool2Zone1, w.Spec.SecretRef)
 					addNameAndSecretToMachineClass(machineClassPool2Zone2, machineClassWithHashPool2Zone2, w.Spec.SecretRef)
 
-					addNodeTemplateToMachineClass(machineClassPool1Zone1, nodeTemplateZone1)
-					addNodeTemplateToMachineClass(machineClassPool1Zone2, nodeTemplateZone2)
-					addNodeTemplateToMachineClass(machineClassPool2Zone1, nodeTemplateZone1)
-					addNodeTemplateToMachineClass(machineClassPool2Zone2, nodeTemplateZone2)
+					addNodeTemplateToMachineClass(machineClassPool1Zone1, nodeTemplatePool1Zone1)
+					addNodeTemplateToMachineClass(machineClassPool1Zone2, nodeTemplatePool1Zone2)
+					addNodeTemplateToMachineClass(machineClassPool2Zone1, nodeTemplatePool2Zone1)
+					addNodeTemplateToMachineClass(machineClassPool2Zone2, nodeTemplatePool2Zone2)
 
 					machineClasses = map[string]interface{}{"machineClasses": []map[string]interface{}{
 						machineClassPool1Zone1,
@@ -674,6 +710,12 @@ var _ = Describe("Machines", func() {
 								Version:      machineImageVersion,
 								AMI:          machineImageAMI,
 								Architecture: ptr.To(archAMD),
+							},
+							{
+								Name:         machineImageName,
+								Version:      machineImageVersion,
+								AMI:          machineImageAMI,
+								Architecture: ptr.To(archARM),
 							},
 						},
 					}
@@ -864,7 +906,7 @@ var _ = Describe("Machines", func() {
 			})
 
 			It("should fail because the ami for this architecture cannot be found", func() {
-				w.Spec.Pools[0].Architecture = ptr.To(archARM)
+				w.Spec.Pools[0].Architecture = ptr.To(archFAKE)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 

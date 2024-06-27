@@ -6,6 +6,7 @@ machineClasses:
   region: eu-west-1
   machineType: m4.xlarge
   nodeTemplate:
+    architecture: amd64
     capacity:
       cpu: 4
       gpu: 0
