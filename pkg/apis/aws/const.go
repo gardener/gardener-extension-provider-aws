@@ -7,6 +7,8 @@ package aws
 const (
 	// AnnotationKeyUseFlow is the annotation key used to enable reconciliation with flow instead of terraformer.
 	AnnotationKeyUseFlow = "aws.provider.extensions.gardener.cloud/use-flow"
+	// GlobalAnnotationKeyUseFlow is the annotation key used to enable reconciliation with flow instead of terraformer.
+	GlobalAnnotationKeyUseFlow = "provider.extensions.gardener.cloud/use-flow"
 	// SeedLabelKeyUseFlow is the label for seeds to enable flow reconciliation for all of its shoots if value is `true`
 	// or for new shoots only with value `new`
 	SeedLabelKeyUseFlow = AnnotationKeyUseFlow
