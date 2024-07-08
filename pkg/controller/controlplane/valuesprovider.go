@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
@@ -646,11 +647,16 @@ func getIPAMChartValues(
 		}
 	}
 
+	podNetwork := "192.168.0.0/16"
+	if slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, v1beta1.IPFamilyIPv4) {
+		podNetwork = extensionscontroller.GetPodNetwork(cluster)
+	}
+
 	values := map[string]interface{}{
 		"enabled":     true,
 		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName": cp.Namespace,
-		"podNetwork":  extensionscontroller.GetPodNetwork(cluster),
+		"podNetwork":  podNetwork,
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
 		},

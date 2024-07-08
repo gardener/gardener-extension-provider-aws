@@ -252,7 +252,7 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				"nodeCIDRMaskSizeIPv6": int32(64),
 				"enabled":              true,
-				"podNetwork":           "10.250.0.0/19",
+				"podNetwork":           "192.168.0.0/16",
 				"podLabels": map[string]interface{}{
 					"maintenance.gardener.cloud/restart": "true",
 				},
