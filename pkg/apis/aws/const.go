@@ -17,3 +17,8 @@ const (
 	// AnnotationKeyIPStack is the annotation key to set the IP stack for a DNSRecord.
 	AnnotationKeyIPStack = "dns.gardener.cloud/ip-stack"
 )
+
+var (
+	// ValidFlowAnnotations is a list of all the available annotations to indicate the use of the flow reconciler.
+	ValidFlowAnnotations = []string{AnnotationKeyUseFlow, GlobalAnnotationKeyUseFlow}
+)

@@ -16,6 +16,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	defaultInformerPeriod = 10 * time.Second
+)
+
 // TaskOption contains options for created flow tasks
 type TaskOption struct {
 	Dependencies []flow.TaskIDer
@@ -38,19 +42,17 @@ func DoIf(condition bool) TaskOption {
 	return TaskOption{DoIf: ptr.To(condition)}
 }
 
-// FlowStatePersistor persists the flat map to the provider status
-type FlowStatePersistor func(ctx context.Context, flatMap FlatMap) error
-
 // BasicFlowContext provides logic for persisting the state and add tasks to the flow graph.
 type BasicFlowContext struct {
-	Log logr.Logger
+	log logr.Logger
 
 	exporter                StateExporter
 	persistorLock           sync.Mutex
-	flowStatePersistor      FlowStatePersistor
+	persistFn               flow.TaskFn
 	lastPersistedGeneration int64
 	lastPersistedAt         time.Time
 	PersistInterval         time.Duration
+	span                    bool // additional logs
 }
 
 // StateExporter knows how to export the internal state to a flat string map.
@@ -62,44 +64,47 @@ type StateExporter interface {
 }
 
 // NewBasicFlowContext creates a new `BasicFlowContext`.
-func NewBasicFlowContext(log logr.Logger, exporter StateExporter, persistor FlowStatePersistor) *BasicFlowContext {
+func NewBasicFlowContext(log logr.Logger, exporter StateExporter, persistor flow.TaskFn) *BasicFlowContext {
 	flowContext := &BasicFlowContext{
-		Log:                log,
-		exporter:           exporter,
-		flowStatePersistor: persistor,
-		PersistInterval:    10 * time.Second,
+		log:             log,
+		exporter:        exporter,
+		persistFn:       persistor,
+		PersistInterval: 10 * time.Second,
+		span:            true,
 	}
 	return flowContext
 }
 
 // PersistState persists the internal state to the provider status if it has changed and force is true
 // or it has not been persisted during the `PersistInterval`.
-func (c *BasicFlowContext) PersistState(ctx context.Context, force bool) error {
+func (c *BasicFlowContext) PersistState(ctx context.Context) error {
 	c.persistorLock.Lock()
 	defer c.persistorLock.Unlock()
 
-	if !force && c.lastPersistedAt.Add(c.PersistInterval).After(time.Now()) {
-		return nil
-	}
-	currentGeneration := c.exporter.CurrentGeneration()
-	if c.lastPersistedGeneration == currentGeneration {
-		return nil
-	}
-	if c.flowStatePersistor != nil {
-		newState := c.exporter.ExportAsFlatMap()
-		if err := c.flowStatePersistor(ctx, newState); err != nil {
-			return err
-		}
-	}
-	c.lastPersistedGeneration = currentGeneration
-	c.lastPersistedAt = time.Now()
-	return nil
+	//if !force && c.lastPersistedAt.Add(c.PersistInterval).After(time.Now()) {
+	//	return nil
+	//}
+	//currentGeneration := c.exporter.CurrentGeneration()
+	//if c.lastPersistedGeneration == currentGeneration {
+	//	return nil
+	//}
+	//if c.persistFn != nil {
+	//	//newState := c.exporter.ExportAsFlatMap()
+	//	if err := c.persistFn(ctx); err != nil {
+	//		return err
+	//	}
+	//}
+	//c.lastPersistedGeneration = currentGeneration
+	//c.lastPersistedAt = time.Now()
+	//return nil
+
+	return c.persistFn(ctx)
 }
 
 // LogFromContext returns the log from the context when called within a task function added with the `AddTask` method.
 func (c *BasicFlowContext) LogFromContext(ctx context.Context) logr.Logger {
 	if log, err := logr.FromContext(ctx); err != nil {
-		return c.Log
+		return c.log
 	} else {
 		return log
 	}
@@ -144,19 +149,35 @@ func (c *BasicFlowContext) AddTask(g *flow.Graph, name string, fn flow.TaskFn, o
 
 func (c *BasicFlowContext) wrapTaskFn(flowName, taskName string, fn flow.TaskFn) flow.TaskFn {
 	return func(ctx context.Context) error {
-		taskCtx := logf.IntoContext(ctx, c.Log.WithValues("flow", flowName, "task", taskName))
-		err := fn(taskCtx)
+		log := c.log.WithValues("flow", flowName, "task", taskName)
+		ctx = logf.IntoContext(ctx, log)
+		if c.persistFn != nil {
+			defer func() {
+				err := c.PersistState(ctx)
+				if err != nil {
+					log.Error(err, "failed to persist state")
+				}
+			}()
+		}
+
+		w := InformOnWaiting(log, defaultInformerPeriod, fmt.Sprintf("still trying to [%s]...", taskName))
+		ctx = w.IntoContext(ctx)
+		defer w.Done()
+
+		var beforeTs time.Time
+		if c.span {
+			beforeTs = time.Now()
+		}
+		err := fn(ctx)
+		if c.span {
+			log.Info(fmt.Sprintf("task finished - total execution time: %v", time.Since(beforeTs)))
+		}
 		if err != nil {
 			// don't wrap error with '%w', as otherwise the error context get lost
-			err = fmt.Errorf("failed to %s: %s", taskName, err)
+			err = fmt.Errorf("failed to %q: %s", taskName, err)
+			return err
 		}
-		if perr := c.PersistState(taskCtx, false); perr != nil {
-			if err != nil {
-				c.Log.Error(perr, "persisting state failed")
-			} else {
-				err = perr
-			}
-		}
-		return err
+
+		return nil
 	}
 }

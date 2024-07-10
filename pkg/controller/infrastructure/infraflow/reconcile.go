@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -33,12 +34,17 @@ const (
 
 // Reconcile creates and runs the flow to reconcile the AWS infrastructure.
 func (c *FlowContext) Reconcile(ctx context.Context) error {
+	c.BasicFlowContext = NewBasicFlowContext(c.log, c.state, c.persistState)
 	g := c.buildReconcileGraph()
 	f := g.Compile()
-	if err := f.Run(ctx, flow.Opts{Log: c.Log}); err != nil {
-		return flow.Causes(err)
+	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
+		c.log.Error(err, "flow reconciliation failed")
+		return errors.Join(flow.Causes(err), c.persistState(ctx))
 	}
-	return nil
+
+	status := c.computeInfrastructureStatus()
+	state := c.computeInfrastructureState()
+	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, status, state, nil)
 }
 
 func (c *FlowContext) buildReconcileGraph() *flow.Graph {
@@ -612,7 +618,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 
 	}
 	// update flow state if subnet suffixes have been added
-	if err := c.PersistState(ctx, true); err != nil {
+	if err := c.PersistState(ctx); err != nil {
 		return err
 	}
 	current, err := c.collectExistingSubnets(ctx)
@@ -649,7 +655,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		c.addZoneReconcileTasks(g, &zone, dependencies.Get(zone.Name))
 	}
 	f := g.Compile()
-	if err := f.Run(ctx, flow.Opts{Log: c.Log}); err != nil {
+	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
 		return flow.Causes(err)
 	}
 	return nil
@@ -921,7 +927,7 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 			created, err := c.client.CreateNATGateway(ctx, desired)
 			if created != nil {
 				waiter.UpdateMessage("waiting until available...")
-				if perr := c.PersistState(ctx, true); perr != nil {
+				if perr := c.PersistState(ctx); perr != nil {
 					log.Info("persisting state failed", "error", perr)
 				}
 				child.Set(IdentifierZoneNATGateway, created.NATGatewayId)

@@ -25,7 +25,7 @@ type testFlowContext struct {
 	state shared.Whiteboard
 }
 
-func newTestFlowContext(log logr.Logger, state shared.Whiteboard, persistor shared.FlowStatePersistor) *testFlowContext {
+func newTestFlowContext(log logr.Logger, state shared.Whiteboard, persistor flow.TaskFn) *testFlowContext {
 	return &testFlowContext{
 		BasicFlowContext: *shared.NewBasicFlowContext(log, state, persistor),
 		state:            state,
@@ -42,12 +42,12 @@ var _ = Describe("BasicFlowContext", func() {
 			forceTask3Error     = false
 			persistedData       shared.FlatMap
 			persistCallCount    = 0
-			persistor           = func(_ context.Context, data shared.FlatMap) error {
+			persistor           = func(_ context.Context) error {
 				if forcePersistorError {
 					return fmt.Errorf("forced persistor error")
 				}
 				persistedData = shared.FlatMap{}
-				for k, v := range data {
+				for k, v := range state.ExportAsFlatMap() {
 					persistedData[k] = v
 				}
 				persistCallCount++
@@ -66,31 +66,31 @@ var _ = Describe("BasicFlowContext", func() {
 
 		By("persists only if needed", func() {
 			c.state.Set("key1", "id1")
-			err = c.PersistState(ctx, false)
+			err = c.PersistState(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(persistCallCount).To(Equal(1))
 
 			// no immediate persistence with force = false
 			c.state.Set("key2", "id2")
-			err = c.PersistState(ctx, false)
+			err = c.PersistState(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(persistCallCount).To(Equal(1))
 
 			// persist after interval
 			time.Sleep(c.PersistInterval)
-			err = c.PersistState(ctx, false)
+			err = c.PersistState(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(persistCallCount).To(Equal(2))
 
 			// immediate persistence with force = true
 			c.state.Set("key2", "id2b")
-			err = c.PersistState(ctx, true)
+			err = c.PersistState(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(persistCallCount).To(Equal(3))
 			Expect(persistedData).To(Equal(expectedData1))
 
 			// no change, no persist call in backend
-			err = c.PersistState(ctx, true)
+			err = c.PersistState(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(persistCallCount).To(Equal(3))
 		})

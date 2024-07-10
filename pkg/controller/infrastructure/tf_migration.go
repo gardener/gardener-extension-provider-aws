@@ -10,6 +10,7 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -17,14 +18,15 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
 
-func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones []awsapi.Zone) (*infraflow.PersistentState, error) {
+func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones []awsapi.Zone) (*awsapi.InfrastructureState, error) {
 	var (
+		flowState = &awsapi.InfrastructureState{
+			Data: map[string]string{},
+		}
 		tfRawState *terraformer.RawState
 		tfState    *shared.TerraformState
 		err        error
 	)
-
-	flowState := infraflow.NewPersistentState()
 
 	if rawExtension == nil {
 		return flowState, nil
@@ -101,12 +103,12 @@ func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones 
 	setFlowStateData(flowState, infraflow.NameKeyPair,
 		tfState.GetManagedResourceInstanceAttribute("aws_key_pair", "nodes", "key_pair_id"))
 
-	flowState.SetMigratedFromTerraform()
+	setFlowStateData(flowState, infraflow.MarkerMigratedFromTerraform, ptr.To("true"))
 
 	return flowState, nil
 }
 
-func setFlowStateData(state *infraflow.PersistentState, key string, id *string) {
+func setFlowStateData(state *awsapi.InfrastructureState, key string, id *string) {
 	if id == nil {
 		delete(state.Data, key)
 	} else {

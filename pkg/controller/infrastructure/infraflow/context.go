@@ -5,14 +5,21 @@
 package infraflow
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
@@ -101,45 +108,201 @@ const (
 	MarkerLoadBalancersAndSecurityGroupsDestroyed = "LoadBalancersAndSecurityGroupsDestroyed"
 )
 
+// Opts contain options to initiliaze a FlowContext
+type Opts struct {
+	Log            logr.Logger
+	ClientFactory  awsclient.Interface
+	Infrastructure *extensionsv1alpha1.Infrastructure
+	State          *awsapi.InfrastructureState
+	AwsClient      awsclient.Interface
+	RuntimeClient  client.Client
+	Config         *awsapi.InfrastructureConfig
+	OldState       shared.FlatMap
+}
+
 // FlowContext contains the logic to reconcile or delete the AWS infrastructure.
 type FlowContext struct {
-	shared.BasicFlowContext
-	state      shared.Whiteboard
-	namespace  string
-	infraSpec  extensionsv1alpha1.InfrastructureSpec
-	config     *awsapi.InfrastructureConfig
-	client     awsclient.Interface
-	updater    awsclient.Updater
-	commonTags awsclient.Tags
+	log           logr.Logger
+	state         shared.Whiteboard
+	namespace     string
+	infra         *extensionsv1alpha1.Infrastructure
+	infraSpec     extensionsv1alpha1.InfrastructureSpec
+	config        *awsapi.InfrastructureConfig
+	client        awsclient.Interface
+	runtimeClient client.Client
+	updater       awsclient.Updater
+	commonTags    awsclient.Tags
+	*shared.BasicFlowContext
 }
 
 // NewFlowContext creates a new FlowContext object
-func NewFlowContext(log logr.Logger, awsClient awsclient.Interface,
-	infra *extensionsv1alpha1.Infrastructure, config *awsapi.InfrastructureConfig,
-	oldState shared.FlatMap, persistor shared.FlowStatePersistor) (*FlowContext, error) {
-
+func NewFlowContext(opts Opts) (*FlowContext, error) {
 	whiteboard := shared.NewWhiteboard()
-	if oldState != nil {
-		whiteboard.ImportFromFlatMap(oldState)
+	if opts.OldState != nil {
+		whiteboard.ImportFromFlatMap(opts.OldState)
+	}
+
+	infraConfig, err := helper.InfrastructureConfigFromInfrastructure(opts.Infrastructure)
+	if err != nil {
+		return nil, err
 	}
 
 	flowContext := &FlowContext{
-		BasicFlowContext: *shared.NewBasicFlowContext(log, whiteboard, persistor),
-		state:            whiteboard,
-		namespace:        infra.Namespace,
-		infraSpec:        infra.Spec,
-		config:           config,
-		client:           awsClient,
-		updater:          awsclient.NewUpdater(awsClient, config.IgnoreTags),
+		log:       opts.Log,
+		state:     whiteboard,
+		namespace: opts.Infrastructure.Namespace,
+		infraSpec: opts.Infrastructure.Spec,
+		config:    infraConfig,
+		updater:   awsclient.NewUpdater(opts.AwsClient, opts.Config.IgnoreTags),
+		infra:     opts.Infrastructure,
+		// TODO no need for two clients
+		client:        opts.AwsClient,
+		runtimeClient: opts.RuntimeClient,
 	}
 	flowContext.commonTags = awsclient.Tags{
 		flowContext.tagKeyCluster(): TagValueCluster,
-		TagKeyName:                  infra.Namespace,
+		TagKeyName:                  opts.Infrastructure.Namespace,
 	}
-	if config.Networks.VPC.ID != nil {
-		flowContext.state.SetPtr(IdentifierVPC, config.Networks.VPC.ID)
+	if opts.Config.Networks.VPC.ID != nil {
+		flowContext.state.SetPtr(IdentifierVPC, opts.Config.Networks.VPC.ID)
 	}
 	return flowContext, nil
+}
+
+func (fctx *FlowContext) persistState(ctx context.Context) error {
+	var egressCIDRs []string
+	if v := fctx.state.Get(IdentifierEgressCIDRs); v != nil {
+		egressCIDRs = strings.Split(*v, ",")
+	}
+	return PatchProviderStatusAndState(ctx, fctx.runtimeClient, fctx.infra, nil, fctx.computeInfrastructureState(), egressCIDRs)
+}
+
+func PatchProviderStatusAndState(
+	ctx context.Context,
+	runtimeClient client.Client,
+	infra *extensionsv1alpha1.Infrastructure,
+	status *awsv1alpha1.InfrastructureStatus,
+	state *runtime.RawExtension,
+	egressCIDRs []string,
+) error {
+	patch := client.MergeFrom(infra.DeepCopy())
+	if status != nil {
+		infra.Status.ProviderStatus = &runtime.RawExtension{Object: status}
+	}
+
+	if egressCIDRs != nil {
+		infra.Status.EgressCIDRs = egressCIDRs
+	}
+
+	if state != nil {
+		infra.Status.State = state
+	}
+
+	// do not make a patch request if nothing has changed.
+	if data, err := patch.Data(infra); err != nil {
+		return fmt.Errorf("failed getting patch data for infra %s: %w", infra.Name, err)
+	} else if string(data) == `{}` {
+		return nil
+	}
+
+	return runtimeClient.Status().Patch(ctx, infra, patch)
+}
+
+func (fctx *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureStatus {
+	status := &awsv1alpha1.InfrastructureStatus{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "InfrastructureStatus",
+		},
+	}
+
+	vpcID := ptr.Deref(fctx.state.Get(IdentifierVPC), "")
+	groupID := ptr.Deref(fctx.state.Get(IdentifierNodesSecurityGroup), "")
+	ec2KeyName := ptr.Deref(fctx.state.Get(NameKeyPair), "")
+	iamInstanceProfileName := ptr.Deref(fctx.state.Get(NameIAMInstanceProfile), "")
+	arnIamRole := ptr.Deref(fctx.state.Get(ARNIAMRole), "")
+
+	if fctx.config.Networks.VPC.ID != nil {
+		vpcID = *fctx.config.Networks.VPC.ID
+	}
+
+	if vpcID != "" {
+		var subnets []awsv1alpha1.Subnet
+		prefix := ChildIdZones + shared.Separator
+		for k, v := range fctx.state.AsMap() {
+			if !shared.IsValidValue(v) {
+				continue
+			}
+			if strings.HasPrefix(k, prefix) {
+				parts := strings.Split(k, shared.Separator)
+				if len(parts) != 3 {
+					continue
+				}
+				var purpose string
+				switch parts[2] {
+				case IdentifierZoneSubnetPublic:
+					purpose = awsapi.PurposePublic
+				case IdentifierZoneSubnetWorkers:
+					purpose = awsapi.PurposeNodes
+				default:
+					continue
+				}
+				subnets = append(subnets, awsv1alpha1.Subnet{
+					ID:      v,
+					Purpose: purpose,
+					Zone:    parts[1],
+				})
+			}
+		}
+
+		status.VPC = awsv1alpha1.VPCStatus{
+			ID:      vpcID,
+			Subnets: subnets,
+		}
+		if groupID != "" {
+			status.VPC.SecurityGroups = []awsv1alpha1.SecurityGroup{
+				{
+					Purpose: awsapi.PurposeNodes,
+					ID:      groupID,
+				},
+			}
+		}
+	}
+
+	if ec2KeyName != "" {
+		status.EC2.KeyName = ec2KeyName
+	}
+
+	if iamInstanceProfileName != "" {
+		status.IAM.InstanceProfiles = []awsv1alpha1.InstanceProfile{
+			{
+				Purpose: awsapi.PurposeNodes,
+				Name:    iamInstanceProfileName,
+			},
+		}
+	}
+	if arnIamRole != "" {
+		status.IAM.Roles = []awsv1alpha1.Role{
+			{
+				Purpose: awsapi.PurposeNodes,
+				ARN:     arnIamRole,
+			},
+		}
+	}
+
+	return status
+}
+
+func (fctx *FlowContext) computeInfrastructureState() *runtime.RawExtension {
+	return &runtime.RawExtension{
+		Object: &awsv1alpha1.InfrastructureState{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+				Kind:       "InfrastructureState",
+			},
+			Data: fctx.state.ExportAsFlatMap(),
+		},
+	}
 }
 
 // GetInfrastructureConfig returns the InfrastructureConfig object

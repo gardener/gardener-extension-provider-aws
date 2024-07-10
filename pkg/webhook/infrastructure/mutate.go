@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	extensionscontextwebhook "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -18,6 +17,8 @@ import (
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 type mutator struct {

@@ -23,9 +23,10 @@ func (c *FlowContext) Delete(ctx context.Context) error {
 		// nothing to do, e.g. if cluster was created with wrong credentials
 		return nil
 	}
+	c.BasicFlowContext = NewBasicFlowContext(c.log, c.state, c.persistState)
 	g := c.buildDeleteGraph()
 	f := g.Compile()
-	if err := f.Run(ctx, flow.Opts{Log: c.Log}); err != nil {
+	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
 		return flow.Causes(err)
 	}
 	return nil
@@ -273,7 +274,7 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 		return err
 	}
 	f := g.Compile()
-	if err := f.Run(ctx, flow.Opts{Log: c.Log}); err != nil {
+	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
 		return flow.Causes(err)
 	}
 	return nil

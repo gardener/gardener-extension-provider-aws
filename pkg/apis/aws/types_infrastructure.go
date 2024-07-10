@@ -164,3 +164,12 @@ type DualStack struct {
 	// Enabled specifies if dual-stack is enabled or not.
 	Enabled bool
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// InfrastructureState is the state which is persisted as part of the infrastructure status.
+type InfrastructureState struct {
+	metav1.TypeMeta
+
+	Data map[string]string
+}
