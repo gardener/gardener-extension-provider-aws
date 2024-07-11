@@ -293,36 +293,6 @@ var _ = Describe("Ensurer", func() {
 		})
 
 		It("should disable allocateNodeCIDRs flag of kube-controller-manager deployment", func() {
-			var (
-				dep = &appsv1.Deployment{
-					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: v1beta1constants.DeploymentNameKubeControllerManager},
-					Spec: appsv1.DeploymentSpec{
-						Template: corev1.PodTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Labels: map[string]string{
-									v1beta1constants.LabelNetworkPolicyToBlockedCIDRs: v1beta1constants.LabelNetworkPolicyAllowed,
-								},
-							},
-							Spec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Name: "kube-controller-manager",
-										Command: []string{
-											"--cloud-provider=?",
-											"--cloud-config=?",
-											"--external-cloud-volume-plugin=?",
-										},
-										Env: []corev1.EnvVar{
-											{Name: "AWS_ACCESS_KEY_ID", Value: "?"},
-											{Name: "AWS_SECRET_ACCESS_KEY", Value: "?"},
-										},
-									},
-								},
-							},
-						},
-					},
-				}
-			)
 			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s127, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
