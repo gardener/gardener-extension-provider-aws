@@ -14,3 +14,5 @@ etcd:
 #    schedule: "0 */24 * * *"
 #healthCheckConfig:
 #  syncPeriod: 30s
+featureGates:
+  enableIPAMController: false

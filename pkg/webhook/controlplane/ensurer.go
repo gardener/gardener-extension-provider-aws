@@ -16,6 +16,7 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
@@ -36,6 +37,7 @@ import (
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 )
 
 const (
@@ -149,7 +151,11 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-controller-manager"); c != nil {
 		allocateNodeCIDRs := true
-		if cpConfig.IPAMController != nil && cpConfig.IPAMController.Enabled {
+		if cluster.Shoot.Spec.Networking != nil &&
+			(len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
+				cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 ||
+				len(cluster.Shoot.Spec.Networking.IPFamilies) == 2) &&
+			features.ExtensionFeatureGate.Enabled(features.EnableIPAMController) {
 			allocateNodeCIDRs = false
 		}
 		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion, allocateNodeCIDRs)

@@ -268,8 +268,6 @@ cloudControllerManager:
 # loadBalancerController:
 #   enabled: true
 #   ingressClassName: alb
-# ipamController:
-#   enabled: true
 storage:
   managedDefaultClass: false
 ```
