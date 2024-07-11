@@ -16,6 +16,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
@@ -24,6 +25,7 @@ import (
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -180,6 +182,12 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				},
 				"blockDevices":            blockDevices,
 				"instanceMetadataOptions": instanceMetadataOptions,
+			}
+
+			if sets.New[v1beta1.IPFamily](w.cluster.Shoot.Spec.Networking.IPFamilies...).Has(v1beta1.IPFamilyIPv6) {
+				networkInterfaces, _ := machineClassSpec["networkInterfaces"].([]map[string]interface{})
+				networkInterfaces[0]["ipv6AddressCount"] = 1
+				networkInterfaces[0]["ipv6PrefixCount"] = 1
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
