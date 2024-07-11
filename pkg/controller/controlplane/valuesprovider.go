@@ -13,12 +13,14 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils/chart"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
+	"k8s.io/apimachinery/pkg/util/sets"
 	secretutils "github.com/gardener/gardener/pkg/utils/secrets"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -327,7 +329,7 @@ type valuesProvider struct {
 func (vp *valuesProvider) GetConfigChartValues(
 	_ context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
-	_ *extensionscontroller.Cluster,
+	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
 	// Decode infrastructureProviderStatus
 	infraStatus := &apisaws.InfrastructureStatus{}
@@ -337,8 +339,10 @@ func (vp *valuesProvider) GetConfigChartValues(
 		}
 	}
 
+	ipFamilies := cluster.Shoot.Spec.Networking.IPFamilies
+
 	// Get config chart values
-	return getConfigChartValues(infraStatus, cp)
+	return getConfigChartValues(infraStatus, cp, ipFamilies)
 }
 
 // GetControlPlaneChartValues returns the values for the control plane chart applied by the generic actuator.
@@ -457,6 +461,7 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 func getConfigChartValues(
 	infraStatus *apisaws.InfrastructureStatus,
 	cp *extensionsv1alpha1.ControlPlane,
+	ipFamilies []v1beta1.IPFamily,
 ) (map[string]interface{}, error) {
 	// Get the first subnet with purpose "public"
 	subnet, err := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposePublic)
@@ -465,12 +470,18 @@ func getConfigChartValues(
 	}
 
 	// Collect config chart values
-	return map[string]interface{}{
+	config := map[string]interface{}{
 		"vpcID":       infraStatus.VPC.ID,
 		"subnetID":    subnet.ID,
 		"clusterName": cp.Namespace,
 		"zone":        subnet.Zone,
-	}, nil
+	}
+
+	if sets.New[v1beta1.IPFamily](ipFamilies...).Has(v1beta1.IPFamilyIPv6) {
+		config["nodeIPFamilies"] = "ipv6"
+	}
+
+	return config, nil
 }
 
 // getControlPlaneChartValues collects and returns the control plane chart values.
