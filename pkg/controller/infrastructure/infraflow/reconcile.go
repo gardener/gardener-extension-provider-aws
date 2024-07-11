@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
@@ -72,13 +73,17 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 		c.ensureInternetGateway,
 		DoIf(createVPC), Timeout(defaultTimeout), Dependencies(ensureVpc))
 
+	ensureEgressOnlyInternetGateway := c.AddTask(g, "ensure egress only gateway ",
+		c.ensureEgressOnlyInternetGateway,
+		DoIf(createVPC), Timeout(defaultTimeout), Dependencies(ensureVpc))
+
 	_ = c.AddTask(g, "ensure gateway endpoints",
 		c.ensureGatewayEndpoints,
 		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureDefaultSecurityGroup, ensureInternetGateway))
 
 	ensureMainRouteTable := c.AddTask(g, "ensure main route table",
 		c.ensureMainRouteTable,
-		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway))
+		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway, ensureEgressOnlyInternetGateway))
 
 	ensureNodesSecurityGroup := c.AddTask(g, "ensure nodes security group",
 		c.ensureNodesSecurityGroup,
@@ -165,10 +170,11 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		Tags:                         c.commonTags,
 		EnableDnsSupport:             true,
 		EnableDnsHostnames:           true,
-		AssignGeneratedIPv6CidrBlock: c.config.DualStack != nil && c.config.DualStack.Enabled,
+		AssignGeneratedIPv6CidrBlock: (c.config.DualStack != nil && c.config.DualStack.Enabled) || sets.New[v1beta1.IPFamily](c.ipFamilies...).Has(v1beta1.IPFamilyIPv6),
 		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
 	}
-	if c.config.Networks.VPC.CIDR == nil {
+
+	if isIPv4(c.ipFamilies) && c.config.Networks.VPC.CIDR == nil {
 		return fmt.Errorf("missing VPC CIDR")
 	}
 	desired.CidrBlock = *c.config.Networks.VPC.CIDR
@@ -201,8 +207,8 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
-	if c.config.DualStack != nil && c.config.DualStack.Enabled {
-		current, err := FindExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || sets.New[v1beta1.IPFamily](c.ipFamilies...).Has(v1beta1.IPFamilyIPv6) {
+		current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
 			c.client.GetVpc, c.client.FindVpcsByTags)
 		if err != nil {
 			return err
@@ -236,6 +242,14 @@ func (c *FlowContext) ensureExistingVpc(ctx context.Context) error {
 		return fmt.Errorf("Internet Gateway not found for VPC %s", vpcID)
 	}
 	c.state.Set(IdentifierInternetGateway, gw.InternetGatewayId)
+
+	if sets.New[v1beta1.IPFamily](c.ipFamilies...).Has(v1beta1.IPFamilyIPv6) {
+		eogw, err := c.client.FindEgressOnlyInternetGatewayByVPC(ctx, vpcID)
+		if err != nil || eogw == nil {
+			return fmt.Errorf("Egress Only Internet Gateway not found for VPC %s", vpcID)
+		}
+		c.state.Set(IdentifierEgressOnlyInternetGateway, eogw.EgressOnlyInternetGatewayId)
+	}
 	return nil
 }
 
@@ -263,7 +277,7 @@ func (c *FlowContext) validateVpc(ctx context.Context, item *awsclient.VPC) erro
 				k, strings.Join(v, ","), strings.Join(options.DhcpConfigurations[k], ","))
 		}
 	}
-	if c.config.DualStack != nil && c.config.DualStack.Enabled && item.IPv6CidrBlock == "" {
+	if (sets.New[v1beta1.IPFamily](c.ipFamilies...).Has(v1beta1.IPFamilyIPv6) || (c.config.DualStack != nil && c.config.DualStack.Enabled)) && item.IPv6CidrBlock == "" {
 		return fmt.Errorf("VPC has no ipv6 CIDR")
 	}
 	return nil
@@ -455,6 +469,10 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
+
+	isIPv6 := sets.New[v1beta1.IPFamily](c.ipFamilies...).Has(v1beta1.IPFamilyIPv6)
+	isIPv4 := sets.New[v1beta1.IPFamily](c.ipFamilies...).Has(v1beta1.IPFamilyIPv4)
+
 	desired := &awsclient.SecurityGroup{
 		Tags:        c.commonTagsWithSuffix("nodes"),
 		GroupName:   groupName,
@@ -467,56 +485,116 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 				Self:     true,
 			},
 			{
-				Type:       awsclient.SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
-				Protocol:   "tcp",
-				CidrBlocks: []string{"0.0.0.0/0"},
+				Type:     awsclient.SecurityGroupRuleTypeIngress,
+				FromPort: 30000,
+				ToPort:   32767,
+				Protocol: "tcp",
+				CidrBlocks: func() []string {
+					if isIPv4 {
+						return []string{"0.0.0.0/0"}
+					}
+					return nil
+				}(),
+				CidrBlocksv6: func() []string {
+					if isIPv6 {
+						return []string{"::/0"}
+					}
+					return nil
+				}(),
 			},
 			{
-				Type:       awsclient.SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
-				Protocol:   "udp",
-				CidrBlocks: []string{"0.0.0.0/0"},
+				Type:     awsclient.SecurityGroupRuleTypeIngress,
+				FromPort: 30000,
+				ToPort:   32767,
+				Protocol: "udp",
+				CidrBlocks: func() []string {
+					if isIPv4 {
+						return []string{"0.0.0.0/0"}
+					}
+					return nil
+				}(),
+				CidrBlocksv6: func() []string {
+					if isIPv6 {
+						return []string{"::/0"}
+					}
+					return nil
+				}(),
 			},
 			{
-				Type:       awsclient.SecurityGroupRuleTypeEgress,
-				Protocol:   "-1",
-				CidrBlocks: []string{"0.0.0.0/0"},
+				Type:     awsclient.SecurityGroupRuleTypeEgress,
+				Protocol: "-1",
+				CidrBlocks: func() []string {
+					if isIPv4 {
+						return []string{"0.0.0.0/0"}
+					}
+					return nil
+				}(),
+				CidrBlocksv6: func() []string {
+					if isIPv6 {
+						return []string{"::/0"}
+					}
+					return nil
+				}(),
 			},
 		},
 	}
-	for _, zone := range c.config.Networks.Zones {
-		desired.Rules = append(desired.Rules,
-			&awsclient.SecurityGroupRule{
-				Type:       awsclient.SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
-				Protocol:   "tcp",
-				CidrBlocks: []string{zone.Internal},
-			},
-			&awsclient.SecurityGroupRule{
-				Type:       awsclient.SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
-				Protocol:   "udp",
-				CidrBlocks: []string{zone.Internal},
-			},
-			&awsclient.SecurityGroupRule{
-				Type:       awsclient.SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
-				Protocol:   "tcp",
-				CidrBlocks: []string{zone.Public},
-			},
-			&awsclient.SecurityGroupRule{
-				Type:       awsclient.SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
-				Protocol:   "udp",
-				CidrBlocks: []string{zone.Public},
-			})
+
+	for index, zone := range c.config.Networks.Zones {
+
+		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
+			Type:     awsclient.SecurityGroupRuleTypeIngress,
+			FromPort: 30000,
+			ToPort:   32767,
+			Protocol: "tcp",
+		}
+
+		ruleNodesInternalUDP := &awsclient.SecurityGroupRule{
+			Type:     awsclient.SecurityGroupRuleTypeIngress,
+			FromPort: 30000,
+			ToPort:   32767,
+			Protocol: "udp",
+		}
+
+		ruleNodesPublicTCP := &awsclient.SecurityGroupRule{
+			Type:     awsclient.SecurityGroupRuleTypeIngress,
+			FromPort: 30000,
+			ToPort:   32767,
+			Protocol: "tcp",
+		}
+
+		ruleNodesPublicUDP := &awsclient.SecurityGroupRule{
+			Type:     awsclient.SecurityGroupRuleTypeIngress,
+			FromPort: 30000,
+			ToPort:   32767,
+			Protocol: "udp",
+		}
+
+		if isIPv4 {
+			ruleNodesInternalTCP.CidrBlocks = []string{zone.Internal}
+			ruleNodesInternalUDP.CidrBlocks = []string{zone.Internal}
+			ruleNodesPublicTCP.CidrBlocks = []string{zone.Public}
+			ruleNodesPublicUDP.CidrBlocks = []string{zone.Public}
+		}
+
+		if isIPv6 {
+			ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
+			if ipv6CidrBlock != nil {
+				subnetPrefixLength := 64
+				internalSubnetCidrIPv6, err := cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 2+3*index)
+				if err != nil {
+					return err
+				}
+				publicSubnetCidrIPv6, err := cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 3+3*index)
+				if err != nil {
+					return err
+				}
+				ruleNodesInternalTCP.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
+				ruleNodesInternalUDP.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
+				ruleNodesPublicTCP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
+				ruleNodesPublicUDP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
+			}
+		}
+		desired.Rules = append(desired.Rules, ruleNodesInternalTCP, ruleNodesInternalUDP, ruleNodesPublicTCP, ruleNodesPublicUDP)
 	}
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
@@ -588,35 +666,45 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
 		desired = append(desired,
 			&awsclient.Subnet{
-				Tags:                        tagsWorkers,
-				VpcId:                       c.state.Get(IdentifierVPC),
-				CidrBlock:                   zone.Workers,
-				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: ptr.To(false),
+				Tags:                                    tagsWorkers,
+				VpcId:                                   c.state.Get(IdentifierVPC),
+				AvailabilityZone:                        zone.Name,
+				AssignIpv6AddressOnCreation:             ptr.To(isIPv6(c.ipFamilies)),
+				Ipv6Native:                              ptr.To(!isIPv4(c.ipFamilies)),
+				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPublic,
 				VpcId:                       c.state.Get(IdentifierVPC),
-				CidrBlock:                   zone.Public,
 				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: ptr.To(false),
+				AssignIpv6AddressOnCreation: ptr.To(isIPv6(c.ipFamilies)),
+				CidrBlock: func(cidr string) string {
+					if cidr == "" {
+						return "10.0.32.0/20"
+					}
+					return cidr
+				}(zone.Public),
 			},
 			&awsclient.Subnet{
-				Tags:                        tagsPrivate,
-				VpcId:                       c.state.Get(IdentifierVPC),
-				CidrBlock:                   zone.Internal,
-				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: ptr.To(false),
-			})
+				Tags:                                    tagsPrivate,
+				VpcId:                                   c.state.Get(IdentifierVPC),
+				AvailabilityZone:                        zone.Name,
+				AssignIpv6AddressOnCreation:             ptr.To(isIPv6(c.ipFamilies)),
+				Ipv6Native:                              ptr.To(!isIPv4(c.ipFamilies)),
+				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
+			},
+		)
+		for i, cidrBlock := range []string{zone.Workers, zone.Public, zone.Internal} {
+			if isIPv4(c.ipFamilies) {
+				desired[i].CidrBlock = cidrBlock
+			}
+		}
 
 		for i := 0; i < 3; i++ {
 			if len(subnetCIDRs) == 3 && subnetCIDRs[i] != "" {
 				desired[i+3*index].Ipv6CidrBlocks = []string{subnetCIDRs[i]}
-			} else {
-				desired[i+3*index].Ipv6CidrBlocks = nil
 			}
 		}
-
 	}
 	// update flow state if subnet suffixes have been added
 	if err := c.PersistState(ctx); err != nil {
@@ -627,7 +715,10 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		return err
 	}
 	toBeDeleted, toBeCreated, toBeChecked := diffByID(desired, current, func(item *awsclient.Subnet) string {
-		return *item.VpcId + "-" + item.AvailabilityZone + "-" + item.CidrBlock
+		if item.Ipv6CidrBlocks != nil {
+			return item.AvailabilityZone + "-" + item.Ipv6CidrBlocks[0]
+		}
+		return item.AvailabilityZone + "-" + item.CidrBlock
 	})
 
 	g := flow.NewGraph("AWS infrastructure reconcilation: zones")
@@ -940,7 +1031,6 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 				return err
 			}
 		}
-
 		return nil
 	}
 }
@@ -975,23 +1065,68 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 	}
 }
 
+func (c *FlowContext) ensureEgressOnlyInternetGateway(ctx context.Context) error {
+	if isIPv6(c.ipFamilies) {
+
+		log := c.LogFromContext(ctx)
+		desired := &awsclient.EgressOnlyInternetGateway{
+			Tags:  c.commonTags,
+			VpcId: c.state.Get(IdentifierVPC),
+		}
+		current, err := findExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
+			c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags)
+		if err != nil {
+			return err
+		}
+
+		if current != nil {
+			c.state.Set(IdentifierEgressOnlyInternetGateway, current.EgressOnlyInternetGatewayId)
+			if _, err := c.updater.UpdateEC2Tags(ctx, current.EgressOnlyInternetGatewayId, c.commonTags, current.Tags); err != nil {
+				return err
+			}
+		} else {
+			log.Info("creating...")
+			created, err := c.client.CreateEgressOnlyInternetGateway(ctx, desired)
+			if err != nil {
+				return err
+			}
+			c.state.Set(IdentifierEgressOnlyInternetGateway, created.EgressOnlyInternetGatewayId)
+		}
+	}
+	return nil
+}
+
 func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
 		log := LogFromContext(ctx)
 		child := c.getSubnetZoneChild(zoneName)
 		id := child.Get(IdentifierZoneRouteTable)
-		cidrBlock := "0.0.0.0/0"
-		desired := &awsclient.RouteTable{
-			Tags:  c.commonTagsWithSuffix(fmt.Sprintf("private-%s", zoneName)),
-			VpcId: c.state.Get(IdentifierVPC),
-			Routes: []*awsclient.Route{
-				{
-					DestinationCidrBlock: ptr.To(cidrBlock),
-					NatGatewayId:         child.Get(IdentifierZoneNATGateway),
-				},
-			},
+
+		allIPv4 := "0.0.0.0/0"
+		allIPv6 := "::/0"
+
+		routes := []*awsclient.Route{}
+
+		routes = append(routes, &awsclient.Route{
+			DestinationCidrBlock: ptr.To(allIPv4),
+			NatGatewayId:         child.Get(IdentifierZoneNATGateway),
+		})
+
+		if c.ipFamilies == nil || sets.New[v1beta1.IPFamily](c.ipFamilies...).Has(v1beta1.IPFamilyIPv6) {
+
+			routes = append(routes, &awsclient.Route{
+				DestinationIpv6CidrBlock:    ptr.To(allIPv6),
+				EgressOnlyInternetGatewayId: c.state.Get(IdentifierEgressOnlyInternetGateway),
+			})
 		}
-		current, err := FindExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+
+		desired := &awsclient.RouteTable{
+			Tags:   c.commonTagsWithSuffix(fmt.Sprintf("private-%s", zoneName)),
+			VpcId:  c.state.Get(IdentifierVPC),
+			Routes: routes,
+		}
+
+		current, err := findExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
 		if err != nil {
 			return err
 		}
@@ -1010,7 +1145,7 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 			}
 			child.Set(IdentifierZoneRouteTable, created.RouteTableId)
 			child.SetObject(ObjectZoneRouteTable, created)
-			if _, err := c.updater.UpdateRouteTable(ctx, log, desired, created, cidrBlock); err != nil {
+			if _, err := c.updater.UpdateRouteTable(ctx, log, desired, created, allIPv4); err != nil {
 				return err
 			}
 		}
@@ -1402,7 +1537,7 @@ func (c *FlowContext) getSubnetZoneChild(zoneName string) Whiteboard {
 
 func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (zoneName, subnetKey string, err error) {
 	zone := c.getZone(item)
-	if zone == nil {
+	if zone == nil || !isIPv4(c.ipFamilies) {
 		// zone may have been deleted from spec, need to find subnetKey on other ways
 		zoneName = item.AvailabilityZone
 		if item.SubnetId != "" {
@@ -1420,17 +1555,17 @@ func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (zoneName, subnetKey 
 			for _, key := range []string{IdentifierZoneSubnetWorkers, IdentifierZoneSubnetPublic, IdentifierZoneSubnetPrivate} {
 				switch key {
 				case IdentifierZoneSubnetWorkers:
-					if value == helper.GetSuffixSubnetWorkers() {
+					if value == fmt.Sprintf("%s-%s", c.namespace, helper.GetSuffixSubnetWorkers()) {
 						subnetKey = key
 						return
 					}
 				case IdentifierZoneSubnetPublic:
-					if value == helper.GetSuffixSubnetPublic() {
+					if value == fmt.Sprintf("%s-%s", c.namespace, helper.GetSuffixSubnetPublic()) {
 						subnetKey = key
 						return
 					}
 				case IdentifierZoneSubnetPrivate:
-					if value == helper.GetSuffixSubnetPrivate() {
+					if value == fmt.Sprintf("%s-%s", c.namespace, helper.GetSuffixSubnetPrivate()) {
 						subnetKey = key
 						return
 					}

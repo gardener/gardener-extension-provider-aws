@@ -184,7 +184,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				"instanceMetadataOptions": instanceMetadataOptions,
 			}
 
-			if sets.New[v1beta1.IPFamily](w.cluster.Shoot.Spec.Networking.IPFamilies...).Has(v1beta1.IPFamilyIPv6) {
+			if isIPv6(w.cluster) {
 				networkInterfaces, _ := machineClassSpec["networkInterfaces"].([]map[string]interface{})
 				networkInterfaces[0]["ipv6AddressCount"] = 1
 				networkInterfaces[0]["ipv6PrefixCount"] = 1
@@ -471,4 +471,18 @@ func ComputeInstanceMetadata(workerConfig *awsapi.WorkerConfig, cluster *control
 	}
 
 	return res, nil
+}
+
+func isIPv6(c *controller.Cluster) bool {
+	networking := c.Shoot.Spec.Networking
+	if networking != nil {
+		ipFamilies := networking.IPFamilies
+		if ipFamilies != nil {
+			ipFamilySet := sets.New[v1beta1.IPFamily](ipFamilies...)
+			if ipFamilySet.Has(v1beta1.IPFamilyIPv6) {
+				return true
+			}
+		}
+	}
+	return false
 }

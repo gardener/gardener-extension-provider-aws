@@ -46,6 +46,8 @@ const (
 	IdentifierDefaultSecurityGroup = "DefaultSecurityGroup"
 	// IdentifierInternetGateway is the key for the id of the internet gateway resource
 	IdentifierInternetGateway = "InternetGateway"
+	// IdentifierEgressOnlyInternetGateway is the key for the id of the internet gateway resource
+	IdentifierEgressOnlyInternetGateway = "EgressOnlyInternetGateway"
 	// IdentifierMainRouteTable is the key for the id of the main route table
 	IdentifierMainRouteTable = "MainRouteTable"
 	// IdentifierNodesSecurityGroup is the key for the id of the nodes security group

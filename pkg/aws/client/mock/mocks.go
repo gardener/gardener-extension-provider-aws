@@ -126,6 +126,21 @@ func (mr *MockInterfaceMockRecorder) CreateEC2Tags(arg0, arg1, arg2 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEC2Tags", reflect.TypeOf((*MockInterface)(nil).CreateEC2Tags), arg0, arg1, arg2)
 }
 
+// CreateEgressOnlyInternetGateway mocks base method.
+func (m *MockInterface) CreateEgressOnlyInternetGateway(arg0 context.Context, arg1 *client.EgressOnlyInternetGateway) (*client.EgressOnlyInternetGateway, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateEgressOnlyInternetGateway", arg0, arg1)
+	ret0, _ := ret[0].(*client.EgressOnlyInternetGateway)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateEgressOnlyInternetGateway indicates an expected call of CreateEgressOnlyInternetGateway.
+func (mr *MockInterfaceMockRecorder) CreateEgressOnlyInternetGateway(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).CreateEgressOnlyInternetGateway), arg0, arg1)
+}
+
 // CreateElasticIP mocks base method.
 func (m *MockInterface) CreateElasticIP(arg0 context.Context, arg1 *client.ElasticIP) (*client.ElasticIP, error) {
 	m.ctrl.T.Helper()
@@ -418,6 +433,20 @@ func (mr *MockInterfaceMockRecorder) DeleteELBV2(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteELBV2", reflect.TypeOf((*MockInterface)(nil).DeleteELBV2), arg0, arg1)
 }
 
+// DeleteEgressOnlyInternetGateway mocks base method.
+func (m *MockInterface) DeleteEgressOnlyInternetGateway(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEgressOnlyInternetGateway", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteEgressOnlyInternetGateway indicates an expected call of DeleteEgressOnlyInternetGateway.
+func (mr *MockInterfaceMockRecorder) DeleteEgressOnlyInternetGateway(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).DeleteEgressOnlyInternetGateway), arg0, arg1)
+}
+
 // DeleteElasticIP mocks base method.
 func (m *MockInterface) DeleteElasticIP(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -685,6 +714,36 @@ func (mr *MockInterfaceMockRecorder) FindDefaultSecurityGroupByVpcId(arg0, arg1 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindDefaultSecurityGroupByVpcId", reflect.TypeOf((*MockInterface)(nil).FindDefaultSecurityGroupByVpcId), arg0, arg1)
 }
 
+// FindEgressOnlyInternetGatewayByVPC mocks base method.
+func (m *MockInterface) FindEgressOnlyInternetGatewayByVPC(arg0 context.Context, arg1 string) (*client.EgressOnlyInternetGateway, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindEgressOnlyInternetGatewayByVPC", arg0, arg1)
+	ret0, _ := ret[0].(*client.EgressOnlyInternetGateway)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindEgressOnlyInternetGatewayByVPC indicates an expected call of FindEgressOnlyInternetGatewayByVPC.
+func (mr *MockInterfaceMockRecorder) FindEgressOnlyInternetGatewayByVPC(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEgressOnlyInternetGatewayByVPC", reflect.TypeOf((*MockInterface)(nil).FindEgressOnlyInternetGatewayByVPC), arg0, arg1)
+}
+
+// FindEgressOnlyInternetGatewaysByTags mocks base method.
+func (m *MockInterface) FindEgressOnlyInternetGatewaysByTags(arg0 context.Context, arg1 client.Tags) ([]*client.EgressOnlyInternetGateway, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindEgressOnlyInternetGatewaysByTags", arg0, arg1)
+	ret0, _ := ret[0].([]*client.EgressOnlyInternetGateway)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindEgressOnlyInternetGatewaysByTags indicates an expected call of FindEgressOnlyInternetGatewaysByTags.
+func (mr *MockInterfaceMockRecorder) FindEgressOnlyInternetGatewaysByTags(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEgressOnlyInternetGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindEgressOnlyInternetGatewaysByTags), arg0, arg1)
+}
+
 // FindElasticIPsByTags mocks base method.
 func (m *MockInterface) FindElasticIPsByTags(arg0 context.Context, arg1 client.Tags) ([]*client.ElasticIP, error) {
 	m.ctrl.T.Helper()
@@ -908,6 +967,21 @@ func (m *MockInterface) GetDNSHostedZones(arg0 context.Context) (map[string]stri
 func (mr *MockInterfaceMockRecorder) GetDNSHostedZones(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSHostedZones", reflect.TypeOf((*MockInterface)(nil).GetDNSHostedZones), arg0)
+}
+
+// GetEgressOnlyInternetGateway mocks base method.
+func (m *MockInterface) GetEgressOnlyInternetGateway(arg0 context.Context, arg1 string) (*client.EgressOnlyInternetGateway, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEgressOnlyInternetGateway", arg0, arg1)
+	ret0, _ := ret[0].(*client.EgressOnlyInternetGateway)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEgressOnlyInternetGateway indicates an expected call of GetEgressOnlyInternetGateway.
+func (mr *MockInterfaceMockRecorder) GetEgressOnlyInternetGateway(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetEgressOnlyInternetGateway), arg0, arg1)
 }
 
 // GetElasticIP mocks base method.

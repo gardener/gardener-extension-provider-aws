@@ -36,7 +36,7 @@ resource "aws_vpc" "vpc" {
   {{ end }}
   enable_dns_support   = true
   enable_dns_hostnames = true
-  {{ if .dualStack.enabled }}
+  {{ if or .dualStack.enabled .isIPv6  }}
   assign_generated_ipv6_cidr_block = true
   {{ end }}
 
@@ -265,12 +265,9 @@ resource "aws_security_group_rule" "nodes_udp_internal_z{{ $index }}" {
 
 resource "aws_subnet" "public_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
-  {{ if $.isIPv4 }}
   cidr_block        = "{{ $zone.public }}"
-  {{ end }}
   availability_zone = "{{ $zone.name }}"
   {{ if $.isIPv6 }}
-  ipv6_native = true
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"
   enable_resource_name_dns_aaaa_record_on_launch = true
@@ -300,9 +297,9 @@ resource "aws_security_group_rule" "nodes_tcp_public_z{{ $index }}" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "tcp"
-  {{ if $.isIPv4 }}
+  //{{ if $.isIPv4 }}
   cidr_blocks       = ["{{ $zone.public }}"]
-  {{ end}}
+  //{{ end}}
   {{ if $.isIPv6 }}
   ipv6_cidr_blocks   = ["${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"]
   {{ end}}
@@ -314,16 +311,15 @@ resource "aws_security_group_rule" "nodes_udp_public_z{{ $index }}" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "udp"
-  {{ if $.isIPv4 }}
+  //{{ if $.isIPv4 }}
   cidr_blocks       = ["{{ $zone.public }}"]
-  {{ end}}
+  //{{ end}}
   {{ if $.isIPv6 }}
   ipv6_cidr_blocks   = ["${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"]
   {{ end}}
   security_group_id = aws_security_group.nodes.id
 }
 
-{{- if .isIPv4 }}
 {{- if not $zone.elasticIPAllocationID }}
 resource "aws_eip" "eip_natgw_z{{ $index }}" {
   vpc = true
@@ -358,10 +354,9 @@ resource "aws_route" "private_utility_z{{ $index }}_nat" {
     create = "5m"
   }
 }
-{{- end}}
 
 {{- if $.isIPv6 }}
-resource "aws_route" "private_utility_z{{ $index }}_nat" {
+resource "aws_route" "private_utility_z{{ $index }}_egw" {
   route_table_id         = aws_route_table.routetable_private_utility_z{{ $index }}.id
   destination_ipv6_cidr_block = "::/0"
   egress_only_gateway_id = aws_egress_only_internet_gateway.egw.id

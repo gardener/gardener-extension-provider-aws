@@ -77,6 +77,10 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 		c.deleteInternetGateway,
 		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout), Dependencies(deleteGatewayEndpoints, deleteMainRouteTable))
 
+	deleteEgressOnlyInternetGateway := c.AddTask(g, "delete egress only internet gateway",
+		c.deleteEgressOnlyInternetGateway,
+		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout), Dependencies(deleteZones))
+
 	deleteDefaultSecurityGroup := c.AddTask(g, "delete default security group",
 		c.deleteDefaultSecurityGroup,
 		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout), Dependencies(deleteGatewayEndpoints))
@@ -84,7 +88,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 	deleteVpc := c.AddTask(g, "delete VPC",
 		c.deleteVpc,
 		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout),
-		Dependencies(deleteInternetGateway, deleteDefaultSecurityGroup, deleteNodesSecurityGroup, destroyLoadBalancersAndSecurityGroups))
+		Dependencies(deleteInternetGateway, deleteDefaultSecurityGroup, deleteNodesSecurityGroup, destroyLoadBalancersAndSecurityGroups, deleteEgressOnlyInternetGateway))
 
 	_ = c.AddTask(g, "delete DHCP options for VPC",
 		c.deleteDhcpOptions,
@@ -155,6 +159,26 @@ func (c *FlowContext) deleteInternetGateway(ctx context.Context) error {
 			return err
 		}
 		c.state.Delete(IdentifierInternetGateway)
+	}
+	return nil
+}
+
+func (c *FlowContext) deleteEgressOnlyInternetGateway(ctx context.Context) error {
+	if c.state.IsAlreadyDeleted(IdentifierEgressOnlyInternetGateway) {
+		return nil
+	}
+	log := c.LogFromContext(ctx)
+	current, err := findExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
+		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags)
+	if err != nil {
+		return err
+	}
+	if current != nil {
+		log.Info("deleting...", "EgressOnlyInternetGatewayId", current.EgressOnlyInternetGatewayId)
+		if err := c.client.DeleteEgressOnlyInternetGateway(ctx, current.EgressOnlyInternetGatewayId); err != nil {
+			return err
+		}
+		c.state.SetAsDeleted(IdentifierEgressOnlyInternetGateway)
 	}
 	return nil
 }

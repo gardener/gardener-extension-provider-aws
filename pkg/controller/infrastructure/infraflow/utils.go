@@ -10,9 +10,11 @@ import (
 	"reflect"
 	"time"
 
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
 	"go.uber.org/atomic"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
@@ -180,4 +182,12 @@ func deref[T any](ts []*T) []T {
 		res = append(res, *t)
 	}
 	return res
+}
+
+func isIPv6(ipfamilies []gardencorev1beta1.IPFamily) bool {
+	return sets.New[gardencorev1beta1.IPFamily](ipfamilies...).Has(gardencorev1beta1.IPFamilyIPv6)
+}
+
+func isIPv4(ipfamilies []gardencorev1beta1.IPFamily) bool {
+	return sets.New[gardencorev1beta1.IPFamily](ipfamilies...).Has(gardencorev1beta1.IPFamilyIPv4)
 }
