@@ -108,7 +108,7 @@ const (
 	MarkerLoadBalancersAndSecurityGroupsDestroyed = "LoadBalancersAndSecurityGroupsDestroyed"
 )
 
-// Opts contain options to initiliaze a FlowContext
+// Opts contain options to initialize a FlowContext
 type Opts struct {
 	Log            logr.Logger
 	ClientFactory  awsclient.Interface
@@ -116,7 +116,6 @@ type Opts struct {
 	State          *awsapi.InfrastructureState
 	AwsClient      awsclient.Interface
 	RuntimeClient  client.Client
-	Config         *awsapi.InfrastructureConfig
 	OldState       shared.FlatMap
 }
 
@@ -153,7 +152,7 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		namespace: opts.Infrastructure.Namespace,
 		infraSpec: opts.Infrastructure.Spec,
 		config:    infraConfig,
-		updater:   awsclient.NewUpdater(opts.AwsClient, opts.Config.IgnoreTags),
+		updater:   awsclient.NewUpdater(opts.AwsClient, infraConfig.IgnoreTags),
 		infra:     opts.Infrastructure,
 		// TODO no need for two clients
 		client:        opts.AwsClient,
@@ -163,8 +162,8 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		flowContext.tagKeyCluster(): TagValueCluster,
 		TagKeyName:                  opts.Infrastructure.Namespace,
 	}
-	if opts.Config.Networks.VPC.ID != nil {
-		flowContext.state.SetPtr(IdentifierVPC, opts.Config.Networks.VPC.ID)
+	if infraConfig.Networks.VPC.ID != nil {
+		flowContext.state.SetPtr(IdentifierVPC, infraConfig.Networks.VPC.ID)
 	}
 	return flowContext, nil
 }
