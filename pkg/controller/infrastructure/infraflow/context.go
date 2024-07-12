@@ -147,14 +147,13 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 	}
 
 	flowContext := &FlowContext{
-		log:       opts.Log,
-		state:     whiteboard,
-		namespace: opts.Infrastructure.Namespace,
-		infraSpec: opts.Infrastructure.Spec,
-		config:    infraConfig,
-		updater:   awsclient.NewUpdater(opts.AwsClient, infraConfig.IgnoreTags),
-		infra:     opts.Infrastructure,
-		// TODO no need for two clients
+		log:           opts.Log,
+		state:         whiteboard,
+		namespace:     opts.Infrastructure.Namespace,
+		infraSpec:     opts.Infrastructure.Spec,
+		config:        infraConfig,
+		updater:       awsclient.NewUpdater(opts.AwsClient, infraConfig.IgnoreTags),
+		infra:         opts.Infrastructure,
 		client:        opts.AwsClient,
 		runtimeClient: opts.RuntimeClient,
 	}

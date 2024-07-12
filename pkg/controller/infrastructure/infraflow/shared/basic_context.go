@@ -50,10 +50,6 @@ type BasicFlowContext struct {
 	persistorLock sync.Mutex
 	persistFn     flow.TaskFn
 	span          bool // additional logs
-
-	//lastPersistedGeneration int64
-	//lastPersistedAt         time.Time
-	//PersistInterval         time.Duration
 }
 
 // StateExporter knows how to export the internal state to a flat string map.
@@ -71,7 +67,6 @@ func NewBasicFlowContext(log logr.Logger, exporter StateExporter, persistor flow
 		exporter:  exporter,
 		persistFn: persistor,
 		span:      true,
-		//PersistInterval: 10 * time.Second,
 	}
 	return flowContext
 }
@@ -80,23 +75,6 @@ func NewBasicFlowContext(log logr.Logger, exporter StateExporter, persistor flow
 func (c *BasicFlowContext) PersistState(ctx context.Context) error {
 	c.persistorLock.Lock()
 	defer c.persistorLock.Unlock()
-
-	//if !force && c.lastPersistedAt.Add(c.PersistInterval).After(time.Now()) {
-	//	return nil
-	//}
-	//currentGeneration := c.exporter.CurrentGeneration()
-	//if c.lastPersistedGeneration == currentGeneration {
-	//	return nil
-	//}
-	//if c.persistFn != nil {
-	//	//newState := c.exporter.ExportAsFlatMap()
-	//	if err := c.persistFn(ctx); err != nil {
-	//		return err
-	//	}
-	//}
-	//c.lastPersistedGeneration = currentGeneration
-	//c.lastPersistedAt = time.Now()
-	//return nil
 
 	return c.persistFn(ctx)
 }

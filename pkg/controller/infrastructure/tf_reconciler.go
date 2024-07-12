@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
@@ -422,4 +423,36 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		terraformInfraConfig["outputKeys"].(map[string]interface{})["sshKeyName"] = aws.SSHKeyName
 	}
 	return terraformInfraConfig, nil
+}
+
+func computeProviderStatusSubnets(infrastructure *api.InfrastructureConfig, values map[string]string) ([]v1alpha1.Subnet, error) {
+	var subnetsToReturn []v1alpha1.Subnet
+
+	for key, value := range values {
+		var prefix, purpose string
+		if strings.HasPrefix(key, aws.SubnetPublicPrefix) {
+			prefix = aws.SubnetPublicPrefix
+			purpose = api.PurposePublic
+		}
+		if strings.HasPrefix(key, aws.SubnetNodesPrefix) {
+			prefix = aws.SubnetNodesPrefix
+			purpose = v1alpha1.PurposeNodes
+		}
+
+		if len(prefix) == 0 {
+			continue
+		}
+
+		zoneID, err := strconv.Atoi(strings.TrimPrefix(key, prefix))
+		if err != nil {
+			return nil, err
+		}
+		subnetsToReturn = append(subnetsToReturn, v1alpha1.Subnet{
+			ID:      value,
+			Purpose: purpose,
+			Zone:    infrastructure.Networks.Zones[zoneID].Name,
+		})
+	}
+
+	return subnetsToReturn, nil
 }
