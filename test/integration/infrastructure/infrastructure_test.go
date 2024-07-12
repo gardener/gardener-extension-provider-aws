@@ -55,7 +55,6 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	"github.com/gardener/gardener-extension-provider-aws/test/integration"
 )
 
@@ -715,12 +714,18 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	oldState := infra.Status.State
 	if flow == fuUseFlowRecoverState {
 		By("drop state for testing recover")
+
 		patch := client.MergeFrom(infra.DeepCopy())
+		infra.Status.LastOperation = nil
 		infra.Status.ProviderStatus = nil
-		state, err := infraflow.NewPersistentState().ToJSON()
-		Expect(err).To(Succeed())
-		infra.Status.State = &runtime.RawExtension{Raw: state}
-		err = c.Status().Patch(ctx, infra, patch)
+		infra.Status.State = nil
+		Expect(c.Status().Patch(ctx, infra, patch)).To(Succeed())
+
+		Expect(c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra)).To(Succeed())
+
+		patch = client.MergeFrom(infra.DeepCopy())
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
+		err = c.Patch(ctx, infra, patch)
 		Expect(err).To(Succeed())
 	}
 
