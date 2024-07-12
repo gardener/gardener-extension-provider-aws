@@ -85,7 +85,7 @@ func (a *actuator) reconcile(ctx context.Context, logger logr.Logger, selectorFn
 //func (a *actuator) shouldUseFlow(infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) bool {
 //	return strings.EqualFold(infrastructure.Annotations[awsapi.AnnotationKeyUseFlow], "true") ||
 //		(cluster.Shoot != nil && strings.EqualFold(cluster.Shoot.Annotations[awsapi.AnnotationKeyUseFlow], "true")) ||
-//		(cluster.Seed != nil && strings.EqualFold(cluster.Seed.Labels[awsapi.SeedLabelKeyUseFlow], "true"))
+//		(cluster.Seed != nil && strings.EqualFold(cluster.Seed.Labels[awsapi.SeedAnnotationKeyUseFlow], "true"))
 //}
 
 //func (a *actuator) getStateFromInfraStatus(infrastructure *extensionsv1alpha1.Infrastructure) (*infraflow.PersistentState, error) {

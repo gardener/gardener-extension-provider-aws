@@ -169,12 +169,8 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 	return flowContext, nil
 }
 
-func (fctx *FlowContext) persistState(ctx context.Context) error {
-	var egressCIDRs []string
-	if v := fctx.state.Get(IdentifierEgressCIDRs); v != nil {
-		egressCIDRs = strings.Split(*v, ",")
-	}
-	return PatchProviderStatusAndState(ctx, fctx.runtimeClient, fctx.infra, nil, fctx.computeInfrastructureState(), egressCIDRs)
+func (c *FlowContext) persistState(ctx context.Context) error {
+	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, nil, c.computeInfrastructureState(), c.getEgressCIDRs())
 }
 
 func PatchProviderStatusAndState(
@@ -188,10 +184,9 @@ func PatchProviderStatusAndState(
 	patch := client.MergeFrom(infra.DeepCopy())
 	if status != nil {
 		infra.Status.ProviderStatus = &runtime.RawExtension{Object: status}
-	}
-
-	if egressCIDRs != nil {
-		infra.Status.EgressCIDRs = egressCIDRs
+		if egressCIDRs != nil {
+			infra.Status.EgressCIDRs = egressCIDRs
+		}
 	}
 
 	if state != nil {
@@ -208,7 +203,7 @@ func PatchProviderStatusAndState(
 	return runtimeClient.Status().Patch(ctx, infra, patch)
 }
 
-func (fctx *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureStatus {
+func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureStatus {
 	status := &awsv1alpha1.InfrastructureStatus{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
@@ -216,20 +211,20 @@ func (fctx *FlowContext) computeInfrastructureStatus() *awsv1alpha1.Infrastructu
 		},
 	}
 
-	vpcID := ptr.Deref(fctx.state.Get(IdentifierVPC), "")
-	groupID := ptr.Deref(fctx.state.Get(IdentifierNodesSecurityGroup), "")
-	ec2KeyName := ptr.Deref(fctx.state.Get(NameKeyPair), "")
-	iamInstanceProfileName := ptr.Deref(fctx.state.Get(NameIAMInstanceProfile), "")
-	arnIamRole := ptr.Deref(fctx.state.Get(ARNIAMRole), "")
+	vpcID := ptr.Deref(c.state.Get(IdentifierVPC), "")
+	groupID := ptr.Deref(c.state.Get(IdentifierNodesSecurityGroup), "")
+	ec2KeyName := ptr.Deref(c.state.Get(NameKeyPair), "")
+	iamInstanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
+	arnIamRole := ptr.Deref(c.state.Get(ARNIAMRole), "")
 
-	if fctx.config.Networks.VPC.ID != nil {
-		vpcID = *fctx.config.Networks.VPC.ID
+	if c.config.Networks.VPC.ID != nil {
+		vpcID = *c.config.Networks.VPC.ID
 	}
 
 	if vpcID != "" {
 		var subnets []awsv1alpha1.Subnet
 		prefix := ChildIdZones + shared.Separator
-		for k, v := range fctx.state.AsMap() {
+		for k, v := range c.state.AsMap() {
 			if !shared.IsValidValue(v) {
 				continue
 			}
@@ -293,14 +288,14 @@ func (fctx *FlowContext) computeInfrastructureStatus() *awsv1alpha1.Infrastructu
 	return status
 }
 
-func (fctx *FlowContext) computeInfrastructureState() *runtime.RawExtension {
+func (c *FlowContext) computeInfrastructureState() *runtime.RawExtension {
 	return &runtime.RawExtension{
 		Object: &awsv1alpha1.InfrastructureState{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
 				Kind:       "InfrastructureState",
 			},
-			Data: fctx.state.ExportAsFlatMap(),
+			Data: c.state.ExportAsFlatMap(),
 		},
 	}
 }
@@ -308,6 +303,13 @@ func (fctx *FlowContext) computeInfrastructureState() *runtime.RawExtension {
 // GetInfrastructureConfig returns the InfrastructureConfig object
 func (c *FlowContext) GetInfrastructureConfig() *awsapi.InfrastructureConfig {
 	return c.config
+}
+
+func (c *FlowContext) getEgressCIDRs() []string {
+	if v := c.state.Get(IdentifierEgressCIDRs); v != nil {
+		return strings.Split(*v, ",")
+	}
+	return nil
 }
 
 func (c *FlowContext) hasVPC() bool {

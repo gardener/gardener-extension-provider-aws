@@ -78,10 +78,10 @@ func (m *mutator) Mutate(ctx context.Context, new, old client.Object) error {
 	} else if v, ok := cluster.Shoot.Annotations[aws.AnnotationKeyUseFlow]; ok {
 		newInfra.Annotations[aws.AnnotationKeyUseFlow] = v
 		mutated = true
-	} else if old == nil && cluster.Seed.Annotations[aws.SeedLabelKeyUseFlow] == aws.SeedLabelUseFlowValueNew {
+	} else if old == nil && cluster.Seed.Annotations[aws.SeedAnnotationKeyUseFlow] == aws.SeedAnnotationUseFlowValueNew {
 		newInfra.Annotations[aws.AnnotationKeyUseFlow] = "true"
 		mutated = true
-	} else if v := cluster.Seed.Annotations[aws.SeedLabelKeyUseFlow]; strings.EqualFold(v, "true") {
+	} else if v := cluster.Seed.Annotations[aws.SeedAnnotationKeyUseFlow]; strings.EqualFold(v, "true") {
 		newInfra.Annotations[aws.AnnotationKeyUseFlow] = "true"
 		mutated = true
 	}

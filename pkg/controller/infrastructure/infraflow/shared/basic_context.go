@@ -46,13 +46,14 @@ func DoIf(condition bool) TaskOption {
 type BasicFlowContext struct {
 	log logr.Logger
 
-	exporter                StateExporter
-	persistorLock           sync.Mutex
-	persistFn               flow.TaskFn
-	lastPersistedGeneration int64
-	lastPersistedAt         time.Time
-	PersistInterval         time.Duration
-	span                    bool // additional logs
+	exporter      StateExporter
+	persistorLock sync.Mutex
+	persistFn     flow.TaskFn
+	span          bool // additional logs
+
+	//lastPersistedGeneration int64
+	//lastPersistedAt         time.Time
+	//PersistInterval         time.Duration
 }
 
 // StateExporter knows how to export the internal state to a flat string map.
@@ -66,17 +67,16 @@ type StateExporter interface {
 // NewBasicFlowContext creates a new `BasicFlowContext`.
 func NewBasicFlowContext(log logr.Logger, exporter StateExporter, persistor flow.TaskFn) *BasicFlowContext {
 	flowContext := &BasicFlowContext{
-		log:             log,
-		exporter:        exporter,
-		persistFn:       persistor,
-		PersistInterval: 10 * time.Second,
-		span:            true,
+		log:       log,
+		exporter:  exporter,
+		persistFn: persistor,
+		span:      true,
+		//PersistInterval: 10 * time.Second,
 	}
 	return flowContext
 }
 
-// PersistState persists the internal state to the provider status if it has changed and force is true
-// or it has not been persisted during the `PersistInterval`.
+// PersistState persists the internal state to the provider status
 func (c *BasicFlowContext) PersistState(ctx context.Context) error {
 	c.persistorLock.Lock()
 	defer c.persistorLock.Unlock()
@@ -99,15 +99,6 @@ func (c *BasicFlowContext) PersistState(ctx context.Context) error {
 	//return nil
 
 	return c.persistFn(ctx)
-}
-
-// LogFromContext returns the log from the context when called within a task function added with the `AddTask` method.
-func (c *BasicFlowContext) LogFromContext(ctx context.Context) logr.Logger {
-	if log, err := logr.FromContext(ctx); err != nil {
-		return c.log
-	} else {
-		return log
-	}
 }
 
 // AddTask adds a wrapped task for the given task function and options.
@@ -180,4 +171,12 @@ func (c *BasicFlowContext) wrapTaskFn(flowName, taskName string, fn flow.TaskFn)
 
 		return nil
 	}
+}
+
+// LogFromContext returns the log from the context when called within a task function added with the `AddTask` method. If no logger is present, a new noop-logger will be returned.
+func LogFromContext(ctx context.Context) logr.Logger {
+	if log, err := logr.FromContext(ctx); err == nil {
+		return log
+	}
+	return logr.New(nil)
 }

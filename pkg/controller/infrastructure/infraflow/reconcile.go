@@ -44,7 +44,8 @@ func (c *FlowContext) Reconcile(ctx context.Context) error {
 
 	status := c.computeInfrastructureStatus()
 	state := c.computeInfrastructureState()
-	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, status, state, nil)
+	egressCIDRs := c.getEgressCIDRs()
+	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, status, state, egressCIDRs)
 }
 
 func (c *FlowContext) buildReconcileGraph() *flow.Graph {
@@ -126,7 +127,7 @@ func (c *FlowContext) getDesiredDhcpOptions() *awsclient.DhcpOptions {
 }
 
 func (c *FlowContext) ensureDhcpOptions(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	desired := c.getDesiredDhcpOptions()
 	current, err := findExisting(ctx, c.state.Get(IdentifierDHCPOptions), c.commonTags,
 		c.client.GetVpcDhcpOptions, c.client.FindVpcDhcpOptionsByTags)
@@ -158,7 +159,7 @@ func (c *FlowContext) ensureVpc(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	log.Info("using managed VPC")
 	desired := &awsclient.VPC{
 		Tags:                         c.commonTags,
@@ -217,7 +218,7 @@ func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
 
 func (c *FlowContext) ensureExistingVpc(ctx context.Context) error {
 	vpcID := *c.config.Networks.VPC.ID
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	log.Info("using configured VPC", "vpc", vpcID)
 	current, err := c.client.GetVpc(ctx, vpcID)
 	if err != nil {
@@ -287,7 +288,7 @@ func (c *FlowContext) ensureDefaultSecurityGroup(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureInternetGateway(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	desired := &awsclient.InternetGateway{
 		Tags:  c.commonTags,
 		VpcId: c.state.Get(IdentifierVPC),
@@ -321,7 +322,7 @@ func (c *FlowContext) ensureInternetGateway(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureGatewayEndpoints(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	child := c.state.GetChild(ChildIdVPCEndpoints)
 	var desired []*awsclient.VpcEndpoint
 	for _, endpoint := range c.config.Networks.VPC.GatewayEndpoints {
@@ -403,7 +404,7 @@ outer:
 }
 
 func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	allIPv4 := "0.0.0.0/0"
 	allIPv6 := "::/0"
 	desired := &awsclient.RouteTable{
@@ -452,7 +453,7 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
 	desired := &awsclient.SecurityGroup{
 		Tags:        c.commonTagsWithSuffix("nodes"),
@@ -789,7 +790,7 @@ func (c *FlowContext) deleteSubnet(subnetKey string, item *awsclient.Subnet) flo
 		if zoneChild.IsAlreadyDeleted(subnetKey) {
 			return nil
 		}
-		log := c.LogFromContext(ctx)
+		log := LogFromContext(ctx)
 		log.Info("deleting...", "SubnetID", item.SubnetId)
 		waiter := informOnWaiting(log, 10*time.Second, "still deleting...", "SubnetID", item.SubnetId)
 		err := c.client.DeleteSubnet(ctx, item.SubnetId)
@@ -806,7 +807,7 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 	zoneChild := c.getSubnetZoneChildByItem(desired)
 	if current == nil {
 		return func(ctx context.Context) error {
-			log := c.LogFromContext(ctx)
+			log := LogFromContext(ctx)
 			log.Info("creating...")
 			created, err := c.client.CreateSubnet(ctx, desired)
 			if err != nil {
@@ -823,7 +824,7 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 			return err
 		}
 		if modified {
-			log := c.LogFromContext(ctx)
+			log := LogFromContext(ctx)
 			log.Info("updated")
 		}
 		return nil
@@ -835,7 +836,7 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 		if zone.ElasticIPAllocationID != nil {
 			return nil
 		}
-		log := c.LogFromContext(ctx)
+		log := LogFromContext(ctx)
 		helper := c.zoneSuffixHelpers(zone.Name)
 		child := c.getSubnetZoneChild(zone.Name)
 		id := child.Get(IdentifierZoneNATGWElasticIP)
@@ -879,7 +880,7 @@ func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 			return err
 		}
 		if current != nil {
-			log := c.LogFromContext(ctx)
+			log := LogFromContext(ctx)
 			log.Info("deleting...", "AllocationId", current.AllocationId)
 			waiter := informOnWaiting(log, 10*time.Second, "still deleting...", "AllocationId", current.AllocationId)
 			err = c.client.DeleteElasticIP(ctx, current.AllocationId)
@@ -895,7 +896,7 @@ func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 
 func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 	return func(ctx context.Context) error {
-		log := c.LogFromContext(ctx)
+		log := LogFromContext(ctx)
 		child := c.getSubnetZoneChild(zone.Name)
 		helper := c.zoneSuffixHelpers(zone.Name)
 		desired := &awsclient.NATGateway{
@@ -949,7 +950,7 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 		if child.IsAlreadyDeleted(IdentifierZoneNATGateway) {
 			return nil
 		}
-		log := c.LogFromContext(ctx)
+		log := LogFromContext(ctx)
 		helper := c.zoneSuffixHelpers(zoneName)
 		tags := c.commonTagsWithSuffix(helper.GetSuffixNATGateway())
 		current, err := findExisting(ctx, child.Get(IdentifierZoneNATGateway), tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
@@ -975,7 +976,7 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 
 func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
-		log := c.LogFromContext(ctx)
+		log := LogFromContext(ctx)
 		child := c.getSubnetZoneChild(zoneName)
 		id := child.Get(IdentifierZoneRouteTable)
 		cidrBlock := "0.0.0.0/0"
@@ -1019,7 +1020,7 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 
 func (c *FlowContext) deletePrivateRoutingTable(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
-		log := c.LogFromContext(ctx)
+		log := LogFromContext(ctx)
 		child := c.getSubnetZoneChild(zoneName)
 		if child.IsAlreadyDeleted(IdentifierZoneRouteTable) {
 			return nil
@@ -1082,7 +1083,7 @@ func (c *FlowContext) ensureZoneRoutingTableAssociation(ctx context.Context, zon
 			return nil
 		}
 	}
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	log.Info("creating...")
 	assocID, err := c.client.CreateRouteTableAssociation(ctx, routeTable.RouteTableId, *subnetID)
 	if err != nil {
@@ -1123,7 +1124,7 @@ func (c *FlowContext) ensureVPCEndpointZoneRoutingTableAssociation(ctx context.C
 			return nil
 		}
 	}
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	log.Info("creating...", "endpoint", endpointName)
 
 	return c.client.CreateVpcEndpointRouteTableAssociation(ctx, routeTable.RouteTableId, *vpcEndpointID)
@@ -1180,7 +1181,7 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 		child.SetAsDeleted(assocKey)
 		return nil
 	}
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	log.Info("deleting...", "RouteTableAssociationId", *assocID)
 	if err := c.client.DeleteRouteTableAssociation(ctx, *assocID); err != nil {
 		return err
@@ -1190,7 +1191,7 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 }
 
 func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	desired := &awsclient.IAMRole{
 		RoleName: fmt.Sprintf("%s-nodes", c.namespace),
 		Path:     "/",
@@ -1232,7 +1233,7 @@ func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureIAMInstanceProfile(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	desired := &awsclient.IAMInstanceProfile{
 		InstanceProfileName: fmt.Sprintf("%s-nodes", c.namespace),
 		Path:                "/",
@@ -1294,7 +1295,7 @@ const iamRolePolicyTemplate = `{
 }`
 
 func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	enableECRAccess := true
 	if v := c.config.EnableECRAccess; v != nil {
 		enableECRAccess = *v
@@ -1338,7 +1339,7 @@ func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	desired := &awsclient.KeyPairInfo{
 		Tags:    c.commonTags,
 		KeyName: fmt.Sprintf("%s-ssh-publickey", c.namespace),
