@@ -14,7 +14,6 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -102,17 +101,6 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 		if errList := awsvalidation.ValidateControlPlaneConfig(controlPlaneConfig, shoot.Spec.Kubernetes.Version, fldPath.Child("controlPlaneConfig")); len(errList) != 0 {
 			return errList.ToAggregate()
 		}
-	}
-
-	// WorkerConfig and Shoot workers
-	shootV1beta1 := &gardencorev1beta1.Shoot{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: gardencorev1beta1.SchemeGroupVersion.String(),
-			Kind:       "Shoot",
-		},
-	}
-	if err := s.scheme.Convert(shoot, shootV1beta1, nil); err != nil {
-		return err
 	}
 
 	fldPath = fldPath.Child("workers")
