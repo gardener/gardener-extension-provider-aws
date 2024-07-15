@@ -100,7 +100,7 @@ images:
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/machine-controller-manager-provider-aws
-  tag: "v0.20.0"
+  tag: "v0.20.1"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
