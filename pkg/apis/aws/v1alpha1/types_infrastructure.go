@@ -35,6 +35,16 @@ type InfrastructureConfig struct {
 	// for details of the underlying terraform implementation.
 	// +optional
 	IgnoreTags *IgnoreTags `json:"ignoreTags,omitempty"`
+
+	// Pods are the CIDRs of the pod network.
+	// +optional
+	Pods []string `json:"pods,omitempty"`
+	// Nodes are the CIDRs of the node network.
+	// +optional
+	Nodes []string `json:"nodes,omitempty"`
+	// Services are the CIDRs of the service network.
+	// +optional
+	Services []string `json:"services,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

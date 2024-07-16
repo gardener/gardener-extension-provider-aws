@@ -292,6 +292,21 @@ func (in *InfrastructureConfig) DeepCopyInto(out *InfrastructureConfig) {
 		*out = new(IgnoreTags)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Pods != nil {
+		in, out := &in.Pods, &out.Pods
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Nodes != nil {
+		in, out := &in.Nodes, &out.Nodes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Services != nil {
+		in, out := &in.Services, &out.Services
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

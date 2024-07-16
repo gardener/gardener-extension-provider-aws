@@ -230,6 +230,42 @@ See <a href="https://registry.terraform.io/providers/hashicorp/aws/latest/docs/g
 for details of the underlying terraform implementation.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>pods</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Pods are the CIDRs of the pod network.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>nodes</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Nodes are the CIDRs of the node network.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>services</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Services are the CIDRs of the service network.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig

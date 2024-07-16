@@ -557,6 +557,9 @@ func autoConvert_v1alpha1_InfrastructureConfig_To_aws_InfrastructureConfig(in *I
 		return err
 	}
 	out.IgnoreTags = (*aws.IgnoreTags)(unsafe.Pointer(in.IgnoreTags))
+	out.Pods = *(*[]string)(unsafe.Pointer(&in.Pods))
+	out.Nodes = *(*[]string)(unsafe.Pointer(&in.Nodes))
+	out.Services = *(*[]string)(unsafe.Pointer(&in.Services))
 	return nil
 }
 
@@ -572,6 +575,9 @@ func autoConvert_aws_InfrastructureConfig_To_v1alpha1_InfrastructureConfig(in *a
 		return err
 	}
 	out.IgnoreTags = (*IgnoreTags)(unsafe.Pointer(in.IgnoreTags))
+	out.Pods = *(*[]string)(unsafe.Pointer(&in.Pods))
+	out.Nodes = *(*[]string)(unsafe.Pointer(&in.Nodes))
+	out.Services = *(*[]string)(unsafe.Pointer(&in.Services))
 	return nil
 }
 

@@ -31,6 +31,12 @@ import (
 )
 
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
+
+	err := a.setCIDRRangesForInfraStatus(ctx, infrastructure, cluster)
+	if err != nil {
+		return err
+	}
+
 	flowState, err := a.getStateFromInfraStatus(infrastructure)
 	if err != nil {
 		return err
@@ -616,4 +622,37 @@ func computeProviderStatusSubnets(infrastructure *awsapi.InfrastructureConfig, v
 	}
 
 	return subnetsToReturn, nil
+}
+
+func (a *actuator) setCIDRRangesForInfraStatus(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
+
+	patch := client.MergeFrom(infrastructure.DeepCopy())
+
+	infrastructureConfig, err := a.decodeInfrastructureConfig(infrastructure)
+	if err != nil {
+		return err
+	}
+
+	infrastructure.Status.Networking = &extensionsv1alpha1.InfrastructureStatusNetworking{}
+
+	if cluster.Shoot.Spec.Networking.Nodes != nil {
+		infrastructure.Status.Networking.Nodes = []string{*cluster.Shoot.Spec.Networking.Nodes}
+	}
+	if infrastructureConfig.Nodes != nil {
+		infrastructure.Status.Networking.Nodes = append(infrastructure.Status.Networking.Nodes, infrastructureConfig.Nodes...)
+	}
+	if cluster.Shoot.Spec.Networking.Pods != nil {
+		infrastructure.Status.Networking.Pods = []string{*cluster.Shoot.Spec.Networking.Pods}
+	}
+	if infrastructureConfig.Pods != nil {
+		infrastructure.Status.Networking.Pods = append(infrastructure.Status.Networking.Pods, infrastructureConfig.Pods...)
+	}
+	if cluster.Shoot.Spec.Networking.Services != nil {
+		infrastructure.Status.Networking.Services = []string{*cluster.Shoot.Spec.Networking.Services}
+	}
+	if infrastructureConfig.Services != nil {
+		infrastructure.Status.Networking.Services = append(infrastructure.Status.Networking.Services, infrastructureConfig.Services...)
+	}
+
+	return a.client.Status().Patch(ctx, infrastructure, patch)
 }
