@@ -16,7 +16,7 @@ import (
 
 var (
 	featureGates = map[string]bool{
-		string(features.EnableIPAMController): true,
+		string(features.EnableIPAMController): false,
 	}
 )
 

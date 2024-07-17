@@ -38,6 +38,7 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 )
 
 const (
@@ -586,6 +587,64 @@ var _ = Describe("ValuesProvider", func() {
 					},
 				}),
 			}))
+		})
+
+		It("should return correct control plane chart values and IPAM enabled with IPv4 Shoot and feature gate set", func() {
+			featureGates := map[string]bool{
+				string(features.EnableIPAMController): true,
+			}
+			features.RegisterExtensionFeatureGate()
+
+			err := features.ExtensionFeatureGate.SetFromMap(featureGates)
+			if err != nil {
+				Fail(fmt.Sprintf("failed to register feature gates: %v", err))
+			}
+			cluster.Shoot.Spec.Networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4, gardencorev1beta1.IPFamilyIPv6}
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
+				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": true,
+				}),
+				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.AWSIPAMControllerName: utils.MergeMaps(ipamChartValues, map[string]interface{}{
+					"mode":       "dual-stack",
+					"replicas":   1,
+					"podNetwork": cidr,
+				}),
+				aws.AWSLoadBalancerControllerName: albChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+						"topologyAwareRoutingEnabled": false,
+					},
+				}),
+			}))
+			featureGates = map[string]bool{
+				string(features.EnableIPAMController): false,
+			}
+			features.RegisterExtensionFeatureGate()
+
+			err = features.ExtensionFeatureGate.SetFromMap(featureGates)
+			if err != nil {
+				Fail(fmt.Sprintf("failed to register feature gates: %v", err))
+			}
 		})
 
 		DescribeTable("topologyAwareRoutingEnabled value",

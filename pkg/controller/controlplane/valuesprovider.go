@@ -558,11 +558,9 @@ func getCCMChartValues(
 		return nil, fmt.Errorf("secret %q not found", cloudControllerManagerServerName)
 	}
 
-	ipamControllerEnabled := features.ExtensionFeatureGate.Enabled(features.EnableIPAMController)
-	// IPAM Controller is disabled for IPv4
-	if cluster.Shoot.Spec.Networking != nil &&
-		len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
-		cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv4 {
+	ipamControllerEnabled := true
+	// IPAM Controller is disabled for IPv4 if feature gate is not set
+	if isIPv4(cluster) && !features.ExtensionFeatureGate.Enabled(features.EnableIPAMController) {
 		ipamControllerEnabled = false
 	}
 
@@ -634,31 +632,25 @@ func getIPAMChartValues(
 ) (map[string]interface{}, error) {
 
 	mode := "ipv4"
-	if cluster.Shoot.Spec.Networking != nil &&
-		len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
-		cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 {
+	if isIPv6(cluster) {
 		mode = "ipv6"
 	}
-	if cluster.Shoot.Spec.Networking != nil &&
-		len(cluster.Shoot.Spec.Networking.IPFamilies) == 2 {
+	if isDualStack(cluster) {
 		mode = "dual-stack"
 	}
 
 	nodeCidrMaskSizeIPv4 := int32(24)
 	nodeCidrMaskSizeIPv6 := int32(64)
 	if cluster.Shoot.Spec.Kubernetes.KubeControllerManager != nil && cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize != nil {
-		if cluster.Shoot.Spec.Networking != nil &&
-			len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
-			cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv4 {
+		if isIPv4(cluster) {
 			nodeCidrMaskSizeIPv4 = *cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize
 		}
-		if cluster.Shoot.Spec.Networking != nil &&
-			len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
-			cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 {
+		if isIPv6(cluster) {
 			nodeCidrMaskSizeIPv6 = *cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize
 		}
 	}
 
+	// podNetwork is default IPv4 range for aws-ipam-controller in case IPv6 is used.
 	podNetwork := "192.168.0.0/16"
 	if slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, v1beta1.IPFamilyIPv4) {
 		podNetwork = extensionscontroller.GetPodNetwork(cluster)
@@ -680,11 +672,7 @@ func getIPAMChartValues(
 		"nodeCIDRMaskSizeIPv4": nodeCidrMaskSizeIPv4,
 		"nodeCIDRMaskSizeIPv6": nodeCidrMaskSizeIPv6,
 	}
-	enabled := (cluster.Shoot.Spec.Networking != nil &&
-		(len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
-			cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 ||
-			len(cluster.Shoot.Spec.Networking.IPFamilies) == 2)) &&
-		features.ExtensionFeatureGate.Enabled(features.EnableIPAMController)
+	enabled := isIPv6(cluster) || isDualStack(cluster)
 
 	if !enabled {
 		values["replicas"] = 0
@@ -809,11 +797,9 @@ func getControlPlaneShootChartValues(
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
-	ipamControllerEnabled := features.ExtensionFeatureGate.Enabled(features.EnableIPAMController)
-	// IPAM Controller is disabled for IPv4
-	if cluster.Shoot.Spec.Networking != nil &&
-		len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
-		cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv4 {
+	ipamControllerEnabled := true
+	// IPAM Controller is disabled for IPv4 if feature gate is not set
+	if isIPv4(cluster) && !features.ExtensionFeatureGate.Enabled(features.EnableIPAMController) {
 		ipamControllerEnabled = false
 	}
 
@@ -845,4 +831,30 @@ func getControlPlaneShootChartValues(
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
 	}, nil
+}
+
+func isIPv4(cluster *extensionscontroller.Cluster) bool {
+	if cluster.Shoot.Spec.Networking != nil &&
+		len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
+		cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv4 {
+		return true
+	}
+	return false
+}
+
+func isIPv6(cluster *extensionscontroller.Cluster) bool {
+	if cluster.Shoot.Spec.Networking != nil &&
+		len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
+		cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 {
+		return true
+	}
+	return false
+}
+
+func isDualStack(cluster *extensionscontroller.Cluster) bool {
+	if cluster.Shoot.Spec.Networking != nil &&
+		len(cluster.Shoot.Spec.Networking.IPFamilies) == 2 {
+		return true
+	}
+	return false
 }
