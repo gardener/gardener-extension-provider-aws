@@ -113,19 +113,16 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			}))))
 		})
 
-		It("should return errors for a invalid nodetemplate configuration", func() {
+		It("should return error for an empty nodetemplate capacity", func() {
 			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
-				Capacity: corev1.ResourceList{
-					"memory": resource.MustParse("50Gi"),
-					"gpu":    resource.MustParse("0"),
-				},
+				Capacity: corev1.ResourceList{},
 			}
 			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 				"Type":   Equal(field.ErrorTypeRequired),
 				"Field":  Equal("config.nodeTemplate.capacity"),
-				"Detail": Equal("cpu is a mandatory field"),
+				"Detail": Equal("capacity must not be empty"),
 			}))))
 		})
 
