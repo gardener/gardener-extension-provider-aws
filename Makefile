@@ -24,6 +24,7 @@ EXTENSION_NAMESPACE	:= garden
 GARDEN_KUBECONFIG ?=
 
 PLATFORM := linux/amd64
+RECONCILER := flow
 
 WEBHOOK_PARAM := --webhook-config-url=$(WEBHOOK_CONFIG_URL)
 ifeq ($(WEBHOOK_CONFIG_MODE), service)
@@ -166,7 +167,8 @@ integration-test-infra:
 		--kubeconfig=${KUBECONFIG} \
 		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
-		--region=$(REGION)
+		--region=$(REGION) \
+		--reconciler=$(RECONCILER)
 
 .PHONY: integration-test-bastion
 integration-test-bastion:
