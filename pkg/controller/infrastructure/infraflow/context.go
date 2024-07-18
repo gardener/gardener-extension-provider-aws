@@ -161,9 +161,9 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		flowContext.tagKeyCluster(): TagValueCluster,
 		TagKeyName:                  opts.Infrastructure.Namespace,
 	}
-	if infraConfig.Networks.VPC.ID != nil {
-		flowContext.state.SetPtr(IdentifierVPC, infraConfig.Networks.VPC.ID)
-	}
+	// if infraConfig.Networks.VPC.ID != nil {
+	// 	flowContext.state.SetPtr(IdentifierVPC, infraConfig.Networks.VPC.ID)
+	// }
 	return flowContext, nil
 }
 
