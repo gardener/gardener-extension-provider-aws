@@ -116,7 +116,6 @@ type Opts struct {
 	State          *awsapi.InfrastructureState
 	AwsClient      awsclient.Interface
 	RuntimeClient  client.Client
-	OldState       shared.FlatMap
 }
 
 // FlowContext contains the logic to reconcile or delete the AWS infrastructure.
@@ -137,8 +136,8 @@ type FlowContext struct {
 // NewFlowContext creates a new FlowContext object
 func NewFlowContext(opts Opts) (*FlowContext, error) {
 	whiteboard := shared.NewWhiteboard()
-	if opts.OldState != nil {
-		whiteboard.ImportFromFlatMap(opts.OldState)
+	if opts.State != nil {
+		whiteboard.ImportFromFlatMap(opts.State.Data)
 	}
 
 	infraConfig, err := helper.InfrastructureConfigFromInfrastructure(opts.Infrastructure)
