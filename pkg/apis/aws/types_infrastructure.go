@@ -32,6 +32,13 @@ type InfrastructureConfig struct {
 	// See https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources
 	// for details of the underlying terraform implementation.
 	IgnoreTags *IgnoreTags
+
+	// Pods are the CIDRs of the pod network.
+	Pods []string
+	// Nodes are the CIDRs of the node network.
+	Nodes []string
+	// Services are the CIDRs of the service network.
+	Services []string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
