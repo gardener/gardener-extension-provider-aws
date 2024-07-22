@@ -468,7 +468,8 @@ metadata:
   name: johndoe-aws
   namespace: garden-dev
 spec:
-  cloudProfileName: aws
+  cloudProfile:
+    name: aws
   region: eu-central-1
   secretBindingName: core-aws
   provider:
@@ -531,7 +532,8 @@ metadata:
   name: johndoe-aws
   namespace: garden-dev
 spec:
-  cloudProfileName: aws
+  cloudProfile:
+    name: aws
   region: eu-central-1
   secretBindingName: core-aws
   provider:

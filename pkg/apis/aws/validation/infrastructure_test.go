@@ -101,14 +101,14 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			})
 
 			It("should pass because zone is configured in CloudProfile", func() {
-				errorList := ValidateInfrastructureConfigAgainstCloudProfile(nil, infrastructureConfig, shoot, cloudProfile, &field.Path{})
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(nil, infrastructureConfig, shoot, &cloudProfile.Spec, &field.Path{})
 
 				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should forbid because zone is not specified in CloudProfile", func() {
 				infrastructureConfig.Networks.Zones[0].Name = "not-available"
-				errorList := ValidateInfrastructureConfigAgainstCloudProfile(nil, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(nil, infrastructureConfig, shoot, &cloudProfile.Spec, field.NewPath("spec"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeNotSupported),
@@ -118,7 +118,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			It("should forbid because zone is duplicate", func() {
 				infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, infrastructureConfig.Networks.Zones[0])
-				errorList := ValidateInfrastructureConfigAgainstCloudProfile(nil, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(nil, infrastructureConfig, shoot, &cloudProfile.Spec, field.NewPath("spec"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeDuplicate),
@@ -129,7 +129,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			It("should forbid zone update because zone is duplicate", func() {
 				oldInfra := infrastructureConfig.DeepCopy()
 				infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, infrastructureConfig.Networks.Zones[0])
-				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infrastructureConfig, shoot, &cloudProfile.Spec, field.NewPath("spec"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeDuplicate),
@@ -141,7 +141,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				infrastructureConfig.Networks.Zones[0].Name = "not-available"
 				oldInfrastructureConfig := infrastructureConfig.DeepCopy()
 
-				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfrastructureConfig, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfrastructureConfig, infrastructureConfig, shoot, &cloudProfile.Spec, field.NewPath("spec"))
 
 				Expect(errorList).To(BeEmpty())
 			})
@@ -150,7 +150,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				oldInfrastructureConfig := infrastructureConfig.DeepCopy()
 				infrastructureConfig.Networks.Zones[0].Name = "not-available"
 
-				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfrastructureConfig, infrastructureConfig, shoot, cloudProfile, field.NewPath("spec"))
+				errorList := ValidateInfrastructureConfigAgainstCloudProfile(oldInfrastructureConfig, infrastructureConfig, shoot, &cloudProfile.Spec, field.NewPath("spec"))
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeNotSupported),

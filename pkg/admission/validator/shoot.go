@@ -13,6 +13,7 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	"github.com/gardener/gardener/pkg/utils/gardener"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -27,7 +28,6 @@ import (
 func NewShootValidator(mgr manager.Manager) extensionswebhook.Validator {
 	return &shoot{
 		client:         mgr.GetClient(),
-		scheme:         mgr.GetScheme(),
 		decoder:        serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 		lenientDecoder: serializer.NewCodecFactory(mgr.GetScheme()).UniversalDecoder(),
 	}
@@ -37,7 +37,6 @@ type shoot struct {
 	client         client.Client
 	decoder        runtime.Decoder
 	lenientDecoder runtime.Decoder
-	scheme         *runtime.Scheme
 }
 
 // Validate validates the given shoot object.
@@ -52,15 +51,28 @@ func (s *shoot) Validate(ctx context.Context, new, old client.Object) error {
 		return nil
 	}
 
+	shootV1Beta1 := &gardencorev1beta1.Shoot{}
+	err := gardencorev1beta1.Convert_core_Shoot_To_v1beta1_Shoot(shoot, shootV1Beta1, nil)
+	if err != nil {
+		return err
+	}
+	cloudProfile, err := gardener.GetCloudProfile(ctx, s.client, shootV1Beta1)
+	if err != nil {
+		return err
+	}
+	if cloudProfile == nil {
+		return fmt.Errorf("cloudprofile could not be found")
+	}
+
 	if old != nil {
 		oldShoot, ok := old.(*core.Shoot)
 		if !ok {
 			return fmt.Errorf("wrong object type %T for old object", old)
 		}
-		return s.validateShootUpdate(ctx, oldShoot, shoot)
+		return s.validateShootUpdate(ctx, oldShoot, shoot, &cloudProfile.Spec)
 	}
 
-	return s.validateShootCreation(ctx, shoot)
+	return s.validateShootCreation(ctx, shoot, &cloudProfile.Spec)
 }
 
 func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
@@ -121,7 +133,7 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 	return nil
 }
 
-func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.Shoot) error {
+func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec) error {
 	var (
 		fldPath            = field.NewPath("spec", "provider")
 		infraConfigFldPath = fldPath.Child("infrastructureConfig")
@@ -136,7 +148,7 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return err
 	}
 
-	awsCloudProfile, infraConfig, err := s.baseShootValidation(ctx, shoot, oldInfraConfig, fldPath)
+	awsCloudProfile, infraConfig, err := s.baseShootValidation(ctx, shoot, cloudProfileSpec, oldInfraConfig, fldPath)
 	if err != nil {
 		return err
 	}
@@ -158,12 +170,12 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 	return s.validateShoot(ctx, shoot)
 }
 
-func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) error {
+func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec) error {
 	var (
 		fldPath = field.NewPath("spec", "provider")
 	)
 
-	awsCloudProfile, _, err := s.baseShootValidation(ctx, shoot, nil, fldPath)
+	awsCloudProfile, _, err := s.baseShootValidation(ctx, shoot, cloudProfileSpec, nil, fldPath)
 	if err != nil {
 		return err
 	}
@@ -175,9 +187,8 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 	return s.validateShoot(ctx, shoot)
 }
 
-func (s *shoot) baseShootValidation(ctx context.Context, shoot *core.Shoot, oldInfraConfig *api.InfrastructureConfig, fldPath *field.Path) (*api.CloudProfileConfig, *api.InfrastructureConfig, error) {
+func (s *shoot) baseShootValidation(ctx context.Context, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec, oldInfraConfig *api.InfrastructureConfig, fldPath *field.Path) (*api.CloudProfileConfig, *api.InfrastructureConfig, error) {
 	var (
-		commonCloudProfile = &gardencorev1beta1.CloudProfile{}
 		infraConfigFldPath = fldPath.Child("infrastructureConfig")
 	)
 
@@ -190,28 +201,23 @@ func (s *shoot) baseShootValidation(ctx context.Context, shoot *core.Shoot, oldI
 		return nil, nil, err
 	}
 
-	if shoot.Spec.CloudProfile == nil {
+	if cloudProfileSpec == nil {
 		return nil, nil, fmt.Errorf("shoot.spec.cloudprofile must not be nil <nil>")
 	}
-
-	if err := s.client.Get(ctx, client.ObjectKey{Name: shoot.Spec.CloudProfile.Name}, commonCloudProfile); err != nil {
-		return nil, nil, err
-	}
-
-	awsCloudProfile, err := decodeCloudProfileConfig(s.decoder, commonCloudProfile.Spec.ProviderConfig)
+	awsCloudProfile, err := decodeCloudProfileConfig(s.decoder, cloudProfileSpec.ProviderConfig)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if err = s.validateAgainstCloudProfile(ctx, shoot, oldInfraConfig, infraConfig, commonCloudProfile, infraConfigFldPath); err != nil {
+	if err = s.validateAgainstCloudProfile(ctx, shoot, oldInfraConfig, infraConfig, cloudProfileSpec, infraConfigFldPath); err != nil {
 		return nil, nil, err
 	}
 
 	return awsCloudProfile, infraConfig, nil
 }
 
-func (s *shoot) validateAgainstCloudProfile(_ context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, cloudProfile *gardencorev1beta1.CloudProfile, fldPath *field.Path) error {
-	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
+func (s *shoot) validateAgainstCloudProfile(_ context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec, fldPath *field.Path) error {
+	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfileSpec, fldPath); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 
