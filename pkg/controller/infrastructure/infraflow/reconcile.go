@@ -707,14 +707,15 @@ func (c *FlowContext) collectExistingSubnets(ctx context.Context) ([]*awsclient.
 	if err != nil {
 		return nil, err
 	}
-outer:
 	for _, item := range foundByTags {
-		for _, currentItem := range current {
-			if item.SubnetId == currentItem.SubnetId {
-				continue outer
+		func() {
+			for _, currentItem := range current {
+				if item.SubnetId == currentItem.SubnetId {
+					return
+				}
 			}
-		}
-		current = append(current, item)
+			current = append(current, item)
+		}()
 	}
 	return current, nil
 }
