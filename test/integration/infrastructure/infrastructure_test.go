@@ -531,13 +531,15 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 
 	oldState := infra.Status.State.DeepCopy()
 	// Update the infra resource to trigger a migration.
-	if *reconciler == reconcilerMigrateTF {
+	switch *reconciler {
+	case reconcilerMigrateTF:
 		By("verifying terraform migration")
 		patch := client.MergeFrom(infra.DeepCopy())
 		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
 		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, awsapi.AnnotationKeyUseFlow, "true")
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
 		Expect(c.Patch(ctx, infra, patch)).To(Succeed())
-	} else if *reconciler == reconcilerRecoverState {
+	case reconcilerRecoverState:
 		By("drop state for testing recovery")
 
 		patch := client.MergeFrom(infra.DeepCopy())
@@ -550,12 +552,13 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 
 		patch = client.MergeFrom(infra.DeepCopy())
 		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
 		err = c.Patch(ctx, infra, patch)
 		Expect(err).To(Succeed())
-	} else {
-		By("second reconciliation")
+	default:
 		patch := client.MergeFrom(infra.DeepCopy())
 		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
 		Expect(c.Patch(ctx, infra, patch)).To(Succeed())
 	}
 
