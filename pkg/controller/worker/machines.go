@@ -314,35 +314,8 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 }
 
 func (w *workerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
-	var additionalData []string
+	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
 
-	if pool.Volume != nil && pool.Volume.Encrypted != nil {
-		additionalData = append(additionalData, strconv.FormatBool(*pool.Volume.Encrypted))
-	}
-
-	for _, dv := range pool.DataVolumes {
-		additionalData = append(additionalData, dv.Size)
-
-		if dv.Type != nil {
-			additionalData = append(additionalData, *dv.Type)
-		}
-
-		if dv.Encrypted != nil {
-			additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
-		}
-	}
-
-	if opts := workerConfig.CpuOptions; opts != nil {
-		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
-		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
-	}
-
-	workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster, additionalData, additionalData)
-	if err != nil {
-		return "", err
-	}
-
-	return workerPoolHash, nil
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -390,7 +363,7 @@ func computeEBSDeviceNameForIndex(index int) (string, error) {
 	return deviceNamePrefix + deviceNameSuffix[index:index+1], nil
 }
 
-func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool) []string {
+func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData []string
 
 	if pool.Volume != nil && pool.Volume.Encrypted != nil {
@@ -407,6 +380,33 @@ func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool) []string {
 		if dv.Encrypted != nil {
 			additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
 		}
+	}
+
+	return additionalData
+}
+
+func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
+	var additionalData []string
+
+	if pool.Volume != nil && pool.Volume.Encrypted != nil {
+		additionalData = append(additionalData, strconv.FormatBool(*pool.Volume.Encrypted))
+	}
+
+	for _, dv := range pool.DataVolumes {
+		additionalData = append(additionalData, dv.Size)
+
+		if dv.Type != nil {
+			additionalData = append(additionalData, *dv.Type)
+		}
+
+		if dv.Encrypted != nil {
+			additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
+		}
+	}
+
+	if opts := workerConfig.CpuOptions; opts != nil {
+		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
+		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
 	}
 
 	return additionalData
