@@ -8,7 +8,7 @@ require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
 	github.com/aws/aws-sdk-go v1.54.20
 	github.com/coreos/go-systemd/v22 v22.5.0
-	github.com/gardener/etcd-druid v0.22.2
+	github.com/gardener/etcd-druid v0.22.3
 	github.com/gardener/external-dns-management v0.20.0
 	github.com/gardener/gardener v1.97.1
 	github.com/gardener/machine-controller-manager v0.53.1
