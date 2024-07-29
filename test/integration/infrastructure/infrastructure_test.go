@@ -593,7 +593,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		if _, _, err := decoder.Decode(infra.Status.ProviderStatus.Raw, nil, &newProviderStatus); err != nil {
 			return err
 		}
-		Expect(newProviderStatus).To(integration.EqualInfrastructureStatus(providerStatus))
+		Expect(&newProviderStatus).To(integration.EqualInfrastructureStatus(providerStatus))
 	}
 
 	return nil
