@@ -627,7 +627,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		return err
 	}
 	toBeDeleted, toBeCreated, toBeChecked := diffByID(desired, current, func(item *awsclient.Subnet) string {
-		return item.AvailabilityZone + "-" + item.CidrBlock
+		return *item.VpcId + "-" + item.AvailabilityZone + "-" + item.CidrBlock
 	})
 
 	g := flow.NewGraph("AWS infrastructure reconcilation: zones")
@@ -703,7 +703,7 @@ func (c *FlowContext) collectExistingSubnets(ctx context.Context) ([]*awsclient.
 		}
 		current = found
 	}
-	foundByTags, err := c.client.FindSubnetsByTags(ctx, c.clusterTags())
+	foundSubnets, err := c.client.FindSubnets(ctx, awsclient.WithFilters().WithVpcId(*c.state.Get(IdentifierVPC)).WithTags(c.clusterTags()).Build())
 	if err != nil {
 		return nil, err
 	}
