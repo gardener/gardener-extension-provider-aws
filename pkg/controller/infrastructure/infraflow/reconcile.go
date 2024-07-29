@@ -707,7 +707,7 @@ func (c *FlowContext) collectExistingSubnets(ctx context.Context) ([]*awsclient.
 	if err != nil {
 		return nil, err
 	}
-	for _, item := range foundByTags {
+	for _, item := range foundSubnets {
 		func() {
 			for _, currentItem := range current {
 				if item.SubnetId == currentItem.SubnetId {
@@ -788,7 +788,7 @@ func (c *FlowContext) addSubnetDeletionTasks(g *flow.Graph, item *awsclient.Subn
 func (c *FlowContext) deleteSubnet(subnetKey string, item *awsclient.Subnet) flow.TaskFn {
 	zoneChild := c.getSubnetZoneChildByItem(item)
 	return func(ctx context.Context) error {
-		if zoneChild.IsAlreadyDeleted(subnetKey) {
+		if zoneChild.Get(subnetKey) == nil {
 			return nil
 		}
 		log := LogFromContext(ctx)
@@ -799,7 +799,7 @@ func (c *FlowContext) deleteSubnet(subnetKey string, item *awsclient.Subnet) flo
 		if err != nil {
 			return err
 		}
-		zoneChild.SetAsDeleted(subnetKey)
+		zoneChild.Delete(subnetKey)
 		return nil
 	}
 }
@@ -871,7 +871,7 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
 		child := c.getSubnetZoneChild(zoneName)
-		if child.IsAlreadyDeleted(IdentifierZoneNATGWElasticIP) {
+		if child.Get(IdentifierZoneNATGWElasticIP) == nil {
 			return nil
 		}
 		helper := c.zoneSuffixHelpers(zoneName)
@@ -890,7 +890,7 @@ func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 				return err
 			}
 		}
-		child.SetAsDeleted(IdentifierZoneNATGWElasticIP)
+		child.Delete(IdentifierZoneNATGWElasticIP)
 		return nil
 	}
 }
@@ -948,7 +948,7 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
 		child := c.getSubnetZoneChild(zoneName)
-		if child.IsAlreadyDeleted(IdentifierZoneNATGateway) {
+		if child.Get(IdentifierZoneNATGateway) == nil {
 			return nil
 		}
 		log := LogFromContext(ctx)
@@ -970,7 +970,7 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 				return err
 			}
 		}
-		child.SetAsDeleted(IdentifierZoneNATGateway)
+		child.Delete(IdentifierZoneNATGateway)
 		return nil
 	}
 }
@@ -1023,7 +1023,7 @@ func (c *FlowContext) deletePrivateRoutingTable(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
 		log := LogFromContext(ctx)
 		child := c.getSubnetZoneChild(zoneName)
-		if child.IsAlreadyDeleted(IdentifierZoneRouteTable) {
+		if child.Get(IdentifierZoneRouteTable) == nil {
 			return nil
 		}
 		tags := c.commonTagsWithSuffix(fmt.Sprintf("private-%s", zoneName))
@@ -1037,7 +1037,7 @@ func (c *FlowContext) deletePrivateRoutingTable(zoneName string) flow.TaskFn {
 				return err
 			}
 		}
-		child.SetAsDeleted(IdentifierZoneRouteTable)
+		child.Delete(IdentifierZoneRouteTable)
 		return nil
 	}
 }
@@ -1149,7 +1149,7 @@ func (c *FlowContext) deleteRoutingTableAssociations(zoneName string) flow.TaskF
 func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zoneName string,
 	zoneRouteTable bool, subnetKey, assocKey string) error {
 	child := c.getSubnetZoneChild(zoneName)
-	if child.IsAlreadyDeleted(assocKey) {
+	if child.Get(assocKey) == nil {
 		return nil
 	}
 	subnetID := child.Get(subnetKey)
@@ -1179,7 +1179,7 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 		}
 	}
 	if assocID == nil {
-		child.SetAsDeleted(assocKey)
+		child.Delete(assocKey)
 		return nil
 	}
 	log := LogFromContext(ctx)
@@ -1187,7 +1187,7 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 	if err := c.client.DeleteRouteTableAssociation(ctx, *assocID); err != nil {
 		return err
 	}
-	child.SetAsDeleted(assocKey)
+	child.Delete(assocKey)
 	return nil
 }
 
