@@ -85,15 +85,24 @@ func findExisting[T any](ctx context.Context, id *string, tags awsclient.Tags,
 	if len(found) == 0 {
 		return nil, nil
 	}
-	if len(selector) > 0 {
-		for _, item := range found {
-			if selector[0](item) {
-				return item, nil
-			}
+
+	if len(selector) == 0 {
+		if len(found) > 1 {
+			return nil, fmt.Errorf("multiple matches found")
 		}
-		return nil, nil
+		return found[0], nil
 	}
-	return found[0], nil
+
+	var res *T
+	for _, item := range found {
+		if selector[0](item) {
+			if res != nil {
+				return nil, fmt.Errorf("multiple matches found")
+			}
+			res = item
+		}
+	}
+	return res, nil
 }
 
 type waiter struct {
