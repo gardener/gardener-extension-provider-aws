@@ -12,6 +12,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
@@ -98,6 +99,25 @@ var _ = Describe("Mutate", func() {
 					},
 				},
 			}
+		})
+
+		Context("control plane migration", func() {
+			It("should do nothing if the shoot is in restore", func() {
+				cluster.Seed.Annotations[aws.SeedAnnotationKeyUseFlow] = "true"
+				newInfra := &extensionsv1alpha1.Infrastructure{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dummy",
+						Namespace: shootNamespace,
+						Annotations: map[string]string{
+							v1beta1constants.GardenerOperation: v1beta1constants.GardenerOperationWaitForState,
+						},
+					},
+				}
+
+				err := mutator.Mutate(ctx, newInfra, nil)
+				Expect(err).To(BeNil())
+				Expect(newInfra.Annotations[aws.AnnotationKeyUseFlow]).To(BeEmpty())
+			})
 		})
 
 		Context("infrastructure creation", func() {
