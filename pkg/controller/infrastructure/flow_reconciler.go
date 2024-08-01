@@ -48,7 +48,7 @@ func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha
 		infraState *awsapi.InfrastructureState
 		err        error
 	)
-	f.log.Info("reconcileWithFlow")
+	f.log.V(1).Info("reconcileWithFlow")
 
 	// when the function is called, we may have: a. no state, b. terraform state (migration) or c. flow state. In case of a TF state
 	// because no explicit migration to the new flow format is necessary, we simply return an empty state.
@@ -92,7 +92,7 @@ func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha
 
 // Delete deletes the infrastructure resource using the flow reconciler.
 func (f *FlowReconciler) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, _ *controller.Cluster) error {
-	f.log.Info("deleteWithFlow")
+	f.log.V(1).Info("deleteWithFlow")
 
 	awsClient, err := aws.NewClientFromSecretRef(ctx, f.client, infra.Spec.SecretRef, infra.Spec.Region)
 	if err != nil {
@@ -192,8 +192,6 @@ func (f *FlowReconciler) migrateFromTerraform(ctx context.Context, infra *extens
 	if err := infraflow.PatchProviderStatusAndState(ctx, f.client, infra, infrastructureStatus, &runtime.RawExtension{Object: state}, nil); err != nil {
 		return nil, fmt.Errorf("updating status state failed: %w", err)
 	}
-
-	f.log.Info("terraform state migrated successfully")
 
 	return state, nil
 }
