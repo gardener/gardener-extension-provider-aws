@@ -160,9 +160,6 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		flowContext.tagKeyCluster(): TagValueCluster,
 		TagKeyName:                  opts.Infrastructure.Namespace,
 	}
-	// if infraConfig.Networks.VPC.ID != nil {
-	// 	flowContext.state.SetPtr(IdentifierVPC, infraConfig.Networks.VPC.ID)
-	// }
 	return flowContext, nil
 }
 
@@ -212,7 +209,7 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 	groupID := ptr.Deref(c.state.Get(IdentifierNodesSecurityGroup), "")
 	ec2KeyName := ptr.Deref(c.state.Get(NameKeyPair), "")
 	iamInstanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
-	arnIamRole := ptr.Deref(c.state.Get(ARNIAMRole), "")
+	arnIAMRole := ptr.Deref(c.state.Get(ARNIAMRole), "")
 
 	if c.config.Networks.VPC.ID != nil {
 		vpcID = *c.config.Networks.VPC.ID
@@ -273,11 +270,11 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 			},
 		}
 	}
-	if arnIamRole != "" {
+	if arnIAMRole != "" {
 		status.IAM.Roles = []awsv1alpha1.Role{
 			{
 				Purpose: awsapi.PurposeNodes,
-				ARN:     arnIamRole,
+				ARN:     arnIAMRole,
 			},
 		}
 	}
