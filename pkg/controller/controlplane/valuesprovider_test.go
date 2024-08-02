@@ -232,7 +232,7 @@ var _ = Describe("ValuesProvider", func() {
 			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
 				"replicas":    1,
 				"clusterName": namespace,
-				"podNetwork":  []string{cidr},
+				"podNetwork":  cidr,
 				"podLabels": map[string]interface{}{
 					"maintenance.gardener.cloud/restart": "true",
 				},
@@ -266,7 +266,7 @@ var _ = Describe("ValuesProvider", func() {
 				"enabled":     true,
 				"replicas":    0,
 				"clusterName": "test",
-				"podNetwork":  []string{"10.250.0.0/19"},
+				"podNetwork":  "10.250.0.0/19",
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 				},
