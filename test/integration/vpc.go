@@ -19,14 +19,15 @@ import (
 
 // CreateVPC creates a new VPC and waits for it to become available. It returns
 // the VPC ID, the Internet Gateway ID or an error in case something unexpected happens.
-func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames, dualstack bool) (string, string, error) {
+func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames, dualstack bool, egressOnlyIG bool) (string, string, string, error) {
+
 	createVpcOutput, err := awsClient.EC2.CreateVpc(&ec2.CreateVpcInput{
 		TagSpecifications:           awsclient.Tags{"Name": "aws-infrastructure-it-create-vpc"}.ToTagSpecifications(ec2.ResourceTypeVpc),
 		CidrBlock:                   awssdk.String(vpcCIDR),
 		AmazonProvidedIpv6CidrBlock: awssdk.Bool(dualstack),
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	vpcID := createVpcOutput.Vpc.VpcId
 
@@ -47,7 +48,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 
 		return true, nil
 	}); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	_, err = awsClient.EC2.ModifyVpcAttribute(&ec2.ModifyVpcAttributeInput{
@@ -57,7 +58,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		VpcId: vpcID,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	if enableDnsHostnames {
@@ -68,15 +69,15 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 			VpcId: vpcID,
 		})
 		if err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 
 	createIgwOutput, err := awsClient.EC2.CreateInternetGateway(&ec2.CreateInternetGatewayInput{
-		TagSpecifications: awsclient.Tags{"Name": "aws-infrastructure-it-create-vpc"}.ToTagSpecifications(ec2.ResourceTypeInternetGateway),
+		TagSpecifications: awsclient.Tags{"Name": "aws-d046309-it-create-vpc"}.ToTagSpecifications(ec2.ResourceTypeInternetGateway),
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	igwID := createIgwOutput.InternetGateway.InternetGatewayId
 
@@ -85,7 +86,7 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		VpcId:             vpcID,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
@@ -105,13 +106,25 @@ func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client
 		if *igw.Attachments[0].State != "available" {
 			return false, nil
 		}
-
 		return true, nil
 	}); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
-	return *vpcID, *igwID, nil
+	egressOnlyIGID := ""
+	if egressOnlyIG {
+		createEoIgwOutput, err := awsClient.EC2.CreateEgressOnlyInternetGateway(&ec2.CreateEgressOnlyInternetGatewayInput{
+			TagSpecifications: awsclient.Tags{"Name": "aws-d046309-it-create-vpc"}.ToTagSpecifications(ec2.ResourceTypeEgressOnlyInternetGateway),
+			VpcId:             vpcID,
+		})
+		if err != nil {
+			return "", "", "", err
+		}
+
+		egressOnlyIGID = *createEoIgwOutput.EgressOnlyInternetGateway.EgressOnlyInternetGatewayId
+	}
+
+	return *vpcID, *igwID, egressOnlyIGID, nil
 }
 
 // DestroyVPC deletes the Internet Gateway and the VPC itself.
@@ -180,6 +193,51 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 		return err
 	}
 
+	describeEgressOnlyInternetGatewaysOutput, err := awsClient.EC2.DescribeEgressOnlyInternetGatewaysWithContext(ctx, &ec2.DescribeEgressOnlyInternetGatewaysInput{})
+	if err != nil {
+		return err
+	}
+
+	var eoigs []*ec2.EgressOnlyInternetGateway
+	for _, item := range describeEgressOnlyInternetGatewaysOutput.EgressOnlyInternetGateways {
+		if *item.Attachments[0].VpcId == vpcID {
+			eoigs = append(eoigs, item)
+		}
+	}
+
+	if eoigs != nil {
+		eoigwID := eoigs[0].EgressOnlyInternetGatewayId
+
+		_, err = awsClient.EC2.DeleteEgressOnlyInternetGateway(&ec2.DeleteEgressOnlyInternetGatewayInput{
+			EgressOnlyInternetGatewayId: eoigwID,
+		})
+		if err != nil {
+			return err
+		}
+
+		if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
+			log.Info("Waiting until egress only internet gateway is deleted...", "internetGatewayID", *eoigwID)
+
+			eogw, err := awsClient.EC2.DescribeEgressOnlyInternetGateways(&ec2.DescribeEgressOnlyInternetGatewaysInput{
+				EgressOnlyInternetGatewayIds: []*string{eoigwID},
+			})
+			if err != nil {
+				ec2err, ok := err.(awserr.Error)
+				if ok && ec2err.Code() == "InvalidEgressOnlyInternetGatewayID.NotFound" {
+					return true, nil
+				}
+				log.Info("Error deleting egress only internet gateway", "error", err)
+				return true, err
+			}
+			// I didn't see a NotFound error, however EgressOnlyInternetGateways is nil when the gateway is not found.
+			if eogw.EgressOnlyInternetGateways == nil {
+				return true, nil
+			}
+			return false, nil
+		}); err != nil {
+			return err
+		}
+	}
 	_, err = awsClient.EC2.DeleteVpc(&ec2.DeleteVpcInput{
 		VpcId: &vpcID,
 	})

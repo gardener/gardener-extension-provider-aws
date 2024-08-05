@@ -14,10 +14,12 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -35,15 +37,23 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructur
 	if err != nil {
 		return err
 	}
+
+	var ipfamilies []v1beta1.IPFamily
+	if cluster.Shoot.Spec.Networking != nil {
+		ipfamilies = cluster.Shoot.Spec.Networking.IPFamilies
+	} else {
+		ipfamilies = []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
+	}
+
 	if flowState != nil {
-		return a.reconcileWithFlow(ctx, log, infrastructure, flowState)
+		return a.reconcileWithFlow(ctx, log, infrastructure, flowState, ipfamilies)
 	}
 	if a.shouldUseFlow(infrastructure, cluster) {
 		flowState, err = a.migrateFromTerraformerState(ctx, log, infrastructure)
 		if err != nil {
 			return err
 		}
-		return a.reconcileWithFlow(ctx, log, infrastructure, flowState)
+		return a.reconcileWithFlow(ctx, log, infrastructure, flowState, ipfamilies)
 	}
 
 	infrastructureStatus, state, err := ReconcileWithTerraformer(
@@ -54,6 +64,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, infrastructur
 		a.decoder,
 		infrastructure, terraformer.StateConfigMapInitializerFunc(terraformer.CreateState),
 		a.disableProjectedTokenMount,
+		ipfamilies,
 	)
 	if err != nil {
 		return err
@@ -110,7 +121,7 @@ func (a *actuator) decodeInfrastructureConfig(infrastructure *extensionsv1alpha1
 }
 
 func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
-	infrastructure *extensionsv1alpha1.Infrastructure, oldState *infraflow.PersistentState) (*infraflow.FlowContext, error) {
+	infrastructure *extensionsv1alpha1.Infrastructure, oldState *infraflow.PersistentState, ipFamilies []v1beta1.IPFamily) (*infraflow.FlowContext, error) {
 	if oldState.MigratedFromTerraform() && !oldState.TerraformCleanedUp() {
 		err := a.cleanupTerraformerResources(ctx, log, infrastructure)
 		if err != nil {
@@ -158,7 +169,7 @@ func (a *actuator) createFlowContext(ctx context.Context, log logr.Logger,
 		oldFlatState = oldState.ToFlatMap()
 	}
 
-	return infraflow.NewFlowContext(log, awsClient, infrastructure, infrastructureConfig, oldFlatState, persistor)
+	return infraflow.NewFlowContext(log, awsClient, infrastructure, infrastructureConfig, oldFlatState, persistor, ipFamilies)
 }
 
 func (a *actuator) cleanupTerraformerResources(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure) error {
@@ -174,10 +185,10 @@ func (a *actuator) cleanupTerraformerResources(ctx context.Context, log logr.Log
 }
 
 func (a *actuator) reconcileWithFlow(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure,
-	oldState *infraflow.PersistentState) error {
+	oldState *infraflow.PersistentState, ipFamilies []v1beta1.IPFamily) error {
 	log.Info("reconcileWithFlow")
 
-	flowContext, err := a.createFlowContext(ctx, log, infrastructure, oldState)
+	flowContext, err := a.createFlowContext(ctx, log, infrastructure, oldState, ipFamilies)
 	if err != nil {
 		return err
 	}
@@ -329,6 +340,7 @@ func ReconcileWithTerraformer(
 	infrastructure *extensionsv1alpha1.Infrastructure,
 	stateInitializer terraformer.StateConfigMapInitializer,
 	disableProjectedTokenMount bool,
+	ipFamilies []v1beta1.IPFamily,
 ) (
 	*awsv1alpha1.InfrastructureStatus,
 	*terraformer.RawState,
@@ -344,7 +356,7 @@ func ReconcileWithTerraformer(
 		return nil, nil, util.DetermineError(fmt.Errorf("failed to create new AWS client: %+v", err), helper.KnownCodes)
 	}
 
-	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, awsClient)
+	terraformConfig, err := generateTerraformInfraConfig(ctx, infrastructure, infrastructureConfig, awsClient, ipFamilies)
 	if err != nil {
 		return nil, nil, util.DetermineError(fmt.Errorf("failed to generate Terraform config: %+v", err), helper.KnownCodes)
 	}
@@ -378,7 +390,7 @@ func ReconcileWithTerraformer(
 	return computeProviderStatus(ctx, tf, infrastructureConfig)
 }
 
-func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig, awsClient awsclient.Interface) (map[string]interface{}, error) {
+func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *awsapi.InfrastructureConfig, awsClient awsclient.Interface, ipFamilies []v1beta1.IPFamily) (map[string]interface{}, error) {
 	var (
 		dhcpDomainName    = "ec2.internal"
 		createVPC         = true
@@ -395,6 +407,18 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		dhcpDomainName = fmt.Sprintf("%s.compute.internal", infrastructure.Spec.Region)
 	}
 
+	isIPv4 := true
+	isIPv6 := false
+	if sets.New[v1beta1.IPFamily](ipFamilies...).Has(v1beta1.IPFamilyIPv6) {
+		isIPv4 = false
+		isIPv6 = true
+	}
+
+	enableDualStack := false
+	if infrastructureConfig.DualStack != nil {
+		enableDualStack = infrastructureConfig.DualStack.Enabled
+	}
+
 	switch {
 	case infrastructureConfig.Networks.VPC.ID != nil:
 		createVPC = false
@@ -405,8 +429,9 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		}
 		vpcID = strconv.Quote(existingVpcID)
 		internetGatewayID = strconv.Quote(existingInternetGatewayID)
-		// if dual stack is enabled, then we wait for until the target VPC has a ipv6 CIDR assigned.
-		if infrastructureConfig.DualStack != nil && infrastructureConfig.DualStack.Enabled {
+
+		// if dual stack is enabled or ipFamily is IPv6, then we wait for until the target VPC has a ipv6 CIDR assigned.
+		if enableDualStack || isIPv6 {
 			existingIPv6CidrBlock, err := awsClient.WaitForIPv6Cidr(ctx, existingVpcID)
 			if err != nil {
 				return nil, err
@@ -421,9 +446,14 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	var zones []map[string]interface{}
 	for _, zone := range infrastructureConfig.Networks.Zones {
 		zones = append(zones, map[string]interface{}{
-			"name":                  zone.Name,
-			"worker":                zone.Workers,
-			"public":                zone.Public,
+			"name":   zone.Name,
+			"worker": zone.Workers,
+			"public": func(cidr string) string {
+				if cidr == "" {
+					return "10.0.32.0/20"
+				}
+				return cidr
+			}(zone.Public),
 			"internal":              zone.Internal,
 			"elasticIPAllocationID": zone.ElasticIPAllocationID,
 		})
@@ -432,11 +462,6 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	enableECRAccess := true
 	if v := infrastructureConfig.EnableECRAccess; v != nil {
 		enableECRAccess = *v
-	}
-
-	enableDualStack := false
-	if infrastructureConfig.DualStack != nil {
-		enableDualStack = infrastructureConfig.DualStack.Enabled
 	}
 
 	if tags := infrastructureConfig.IgnoreTags; tags != nil {
@@ -452,6 +477,8 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			"vpc": createVPC,
 		},
 		"enableECRAccess": enableECRAccess,
+		"isIPv4":          isIPv4,
+		"isIPv6":          isIPv6,
 		"dualStack": map[string]interface{}{
 			"enabled": enableDualStack,
 		},

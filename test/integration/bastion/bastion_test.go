@@ -311,7 +311,7 @@ type infrastructure struct {
 }
 
 func setupInfrastructure(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, shootName string) *infrastructure {
-	vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, true, false)
+	vpcID, igwID, _, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, true, false, false)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(vpcID).NotTo(BeEmpty())
 	Expect(igwID).NotTo(BeEmpty())

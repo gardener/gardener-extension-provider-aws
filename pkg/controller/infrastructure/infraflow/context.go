@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -39,6 +40,8 @@ const (
 	IdentifierDefaultSecurityGroup = "DefaultSecurityGroup"
 	// IdentifierInternetGateway is the key for the id of the internet gateway resource
 	IdentifierInternetGateway = "InternetGateway"
+	// IdentifierEgressOnlyInternetGateway is the key for the id of the internet gateway resource
+	IdentifierEgressOnlyInternetGateway = "EgressOnlyInternetGateway"
 	// IdentifierMainRouteTable is the key for the id of the main route table
 	IdentifierMainRouteTable = "MainRouteTable"
 	// IdentifierNodesSecurityGroup is the key for the id of the nodes security group
@@ -111,12 +114,13 @@ type FlowContext struct {
 	client     awsclient.Interface
 	updater    awsclient.Updater
 	commonTags awsclient.Tags
+	ipFamilies []v1beta1.IPFamily
 }
 
 // NewFlowContext creates a new FlowContext object
 func NewFlowContext(log logr.Logger, awsClient awsclient.Interface,
 	infra *extensionsv1alpha1.Infrastructure, config *awsapi.InfrastructureConfig,
-	oldState shared.FlatMap, persistor shared.FlowStatePersistor) (*FlowContext, error) {
+	oldState shared.FlatMap, persistor shared.FlowStatePersistor, ipFamilies []v1beta1.IPFamily) (*FlowContext, error) {
 
 	whiteboard := shared.NewWhiteboard()
 	if oldState != nil {
@@ -131,6 +135,7 @@ func NewFlowContext(log logr.Logger, awsClient awsclient.Interface,
 		config:           config,
 		client:           awsClient,
 		updater:          awsclient.NewUpdater(awsClient, config.IgnoreTags),
+		ipFamilies:       ipFamilies,
 	}
 	flowContext.commonTags = awsclient.Tags{
 		flowContext.tagKeyCluster(): TagValueCluster,

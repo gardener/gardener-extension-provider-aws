@@ -12,6 +12,7 @@ import (
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
@@ -43,10 +44,17 @@ func (a *actuator) ForceDelete(_ context.Context, _ logr.Logger, _ *extensionsv1
 }
 
 func (a *actuator) deleteWithFlow(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure,
-	_ *extensionscontroller.Cluster, oldState *infraflow.PersistentState) error {
+	c *extensionscontroller.Cluster, oldState *infraflow.PersistentState) error {
 	log.Info("deleteWithFlow")
 
-	flowContext, err := a.createFlowContext(ctx, log, infrastructure, oldState)
+	var ipfamilies []v1beta1.IPFamily
+	if c.Shoot.Spec.Networking != nil {
+		ipfamilies = c.Shoot.Spec.Networking.IPFamilies
+	} else {
+		ipfamilies = []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
+	}
+
+	flowContext, err := a.createFlowContext(ctx, log, infrastructure, oldState, ipfamilies)
 	if err != nil {
 		return err
 	}

@@ -12,3 +12,4 @@ data:
     KubernetesClusterTag="{{ .Values.clusterName }}"
     KubernetesClusterID="{{ .Values.clusterName }}"
     Zone="{{ .Values.zone }}"
+    NodeIPFamilies="{{ .Values.nodeIPFamilies }}"
