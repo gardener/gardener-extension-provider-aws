@@ -86,7 +86,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.30.2"
+  tag: "v1.30.3"
   targetVersion: ">= 1.30"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
