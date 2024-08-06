@@ -140,7 +140,7 @@ func (c *FlowContext) deleteInternetGateway(ctx context.Context) error {
 		return nil
 	}
 	log := LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
 		c.client.GetInternetGateway, c.client.FindInternetGatewaysByTags)
 	if err != nil {
 		return err
@@ -187,7 +187,7 @@ func (c *FlowContext) deleteVpc(ctx context.Context) error {
 		return nil
 	}
 	log := LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
 		c.client.GetVpc, c.client.FindVpcsByTags)
 	if err != nil {
 		return err
@@ -207,7 +207,7 @@ func (c *FlowContext) deleteDhcpOptions(ctx context.Context) error {
 		return nil
 	}
 	log := LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierDHCPOptions), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierDHCPOptions), c.commonTags,
 		c.client.GetVpcDhcpOptions, c.client.FindVpcDhcpOptionsByTags)
 	if err != nil {
 		return err
@@ -228,7 +228,7 @@ func (c *FlowContext) deleteMainRouteTable(ctx context.Context) error {
 	}
 
 	log := LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
 		c.client.GetRouteTable, c.client.FindRouteTablesByTags)
 	if err != nil {
 		return err
@@ -249,7 +249,7 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 	}
 	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
-	current, err := findExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
+	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
 		func(item *awsclient.SecurityGroup) bool { return item.GroupName == groupName })
 	if err != nil {

@@ -129,7 +129,7 @@ func (c *FlowContext) getDesiredDhcpOptions() *awsclient.DhcpOptions {
 func (c *FlowContext) ensureDhcpOptions(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	desired := c.getDesiredDhcpOptions()
-	current, err := findExisting(ctx, c.state.Get(IdentifierDHCPOptions), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierDHCPOptions), c.commonTags,
 		c.client.GetVpcDhcpOptions, c.client.FindVpcDhcpOptionsByTags)
 	if err != nil {
 		return err
@@ -172,7 +172,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		return fmt.Errorf("missing VPC CIDR")
 	}
 	desired.CidrBlock = *c.config.Networks.VPC.CIDR
-	current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
 		c.client.GetVpc, c.client.FindVpcsByTags)
 	if err != nil {
 		return err
@@ -202,7 +202,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 
 func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
 	if c.config.DualStack != nil && c.config.DualStack.Enabled {
-		current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+		current, err := FindExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
 			c.client.GetVpc, c.client.FindVpcsByTags)
 		if err != nil {
 			return err
@@ -293,7 +293,7 @@ func (c *FlowContext) ensureInternetGateway(ctx context.Context) error {
 		Tags:  c.commonTags,
 		VpcId: c.state.Get(IdentifierVPC),
 	}
-	current, err := findExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
 		c.client.GetInternetGateway, c.client.FindInternetGatewaysByTags)
 	if err != nil {
 		return err
@@ -423,7 +423,7 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 			GatewayId:                c.state.Get(IdentifierInternetGateway),
 		})
 	}
-	current, err := findExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
 		c.client.GetRouteTable, c.client.FindRouteTablesByTags)
 	if err != nil {
 		return err
@@ -518,7 +518,7 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 				CidrBlocks: []string{zone.Public},
 			})
 	}
-	current, err := findExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
+	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
 		func(item *awsclient.SecurityGroup) bool { return item.GroupName == groupName })
 	if err != nil {
@@ -845,7 +845,7 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 			Tags: c.commonTagsWithSuffix(helper.GetSuffixElasticIP()),
 			Vpc:  true,
 		}
-		current, err := findExisting(ctx, id, desired.Tags, c.client.GetElasticIP, c.client.FindElasticIPsByTags)
+		current, err := FindExisting(ctx, id, desired.Tags, c.client.GetElasticIP, c.client.FindElasticIPsByTags)
 		if err != nil {
 			return err
 		}
@@ -876,7 +876,7 @@ func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 		}
 		helper := c.zoneSuffixHelpers(zoneName)
 		tags := c.commonTagsWithSuffix(helper.GetSuffixElasticIP())
-		current, err := findExisting(ctx, child.Get(IdentifierZoneNATGWElasticIP), tags, c.client.GetElasticIP, c.client.FindElasticIPsByTags)
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGWElasticIP), tags, c.client.GetElasticIP, c.client.FindElasticIPsByTags)
 		if err != nil {
 			return err
 		}
@@ -909,7 +909,7 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 		} else {
 			desired.EIPAllocationId = *child.Get(IdentifierZoneNATGWElasticIP)
 		}
-		current, err := findExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
 				return !strings.EqualFold(item.State, ec2.StateDeleting) && !strings.EqualFold(item.State, ec2.StateFailed)
 			})
@@ -954,7 +954,7 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 		log := LogFromContext(ctx)
 		helper := c.zoneSuffixHelpers(zoneName)
 		tags := c.commonTagsWithSuffix(helper.GetSuffixNATGateway())
-		current, err := findExisting(ctx, child.Get(IdentifierZoneNATGateway), tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
 				return !strings.EqualFold(item.State, ec2.StateDeleting) && !strings.EqualFold(item.State, ec2.StateFailed)
 			})
@@ -991,7 +991,7 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 				},
 			},
 		}
-		current, err := findExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+		current, err := FindExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
 		if err != nil {
 			return err
 		}
@@ -1027,7 +1027,7 @@ func (c *FlowContext) deletePrivateRoutingTable(zoneName string) flow.TaskFn {
 			return nil
 		}
 		tags := c.commonTagsWithSuffix(fmt.Sprintf("private-%s", zoneName))
-		current, err := findExisting(ctx, child.Get(IdentifierZoneRouteTable), tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneRouteTable), tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
 		if err != nil {
 			return err
 		}
