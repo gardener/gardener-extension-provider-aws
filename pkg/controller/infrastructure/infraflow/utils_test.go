@@ -3,7 +3,6 @@ package infraflow_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -111,7 +110,6 @@ var _ = Describe("FindExisting", func() {
 			}, getter, finder)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrorMultipleMatches)).To(BeTrue())
-			fmt.Print(err)
 		})
 		Context("using selector", func() {
 			It("should find return an error if multiple matches found", func() {
@@ -122,8 +120,8 @@ var _ = Describe("FindExisting", func() {
 				})
 				Expect(err).To(HaveOccurred())
 				Expect(errors.Is(err, ErrorMultipleMatches)).To(BeTrue())
-				fmt.Print(err)
 			})
+
 			It("should find target", func() {
 				res, err := FindExisting(ctx, nil, map[string]string{
 					"tag4": "value5",
