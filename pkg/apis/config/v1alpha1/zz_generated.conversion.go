@@ -78,6 +78,7 @@ func autoConvert_v1alpha1_ControllerConfiguration_To_config_ControllerConfigurat
 		return err
 	}
 	out.HealthCheckConfig = (*apisconfig.HealthCheckConfig)(unsafe.Pointer(in.HealthCheckConfig))
+	out.FeatureGates = *(*map[string]bool)(unsafe.Pointer(&in.FeatureGates))
 	return nil
 }
 
@@ -92,6 +93,7 @@ func autoConvert_config_ControllerConfiguration_To_v1alpha1_ControllerConfigurat
 		return err
 	}
 	out.HealthCheckConfig = (*apisconfigv1alpha1.HealthCheckConfig)(unsafe.Pointer(in.HealthCheckConfig))
+	out.FeatureGates = *(*map[string]bool)(unsafe.Pointer(&in.FeatureGates))
 	return nil
 }
 

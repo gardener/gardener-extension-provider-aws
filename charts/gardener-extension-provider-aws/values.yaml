@@ -89,6 +89,8 @@ config:
       provisioner: kubernetes.io/aws-ebs
       volumeBindingMode: WaitForFirstConsumer
       encrypted: true
+  featureGates:
+    enableIPAMController: false
 
 gardener:
   version: ""

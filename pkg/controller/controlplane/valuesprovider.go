@@ -8,10 +8,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -39,6 +41,7 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 )
 
 const (
@@ -99,6 +102,7 @@ func shootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
 	return []*gutil.AccessSecret{
 		gutil.NewShootAccessSecret(aws.CloudControllerManagerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSCustomRouteControllerName, namespace),
+		gutil.NewShootAccessSecret(aws.AWSIPAMControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSLoadBalancerControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIProvisionerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIAttacherName, namespace),
@@ -149,6 +153,18 @@ var (
 					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
+				},
+				SubCharts: nil,
+			},
+			{
+				Name:   aws.AWSIPAMControllerName,
+				Images: []string{aws.AWSIPAMControllerImageName},
+				Objects: []*chart.Object{
+					{Type: &appsv1.Deployment{}, Name: aws.AWSIPAMControllerName},
+					{Type: &rbacv1.Role{}, Name: aws.AWSIPAMControllerName},
+					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSIPAMControllerName},
+					{Type: &corev1.ServiceAccount{}, Name: aws.AWSIPAMControllerName},
+					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSIPAMControllerName + "-vpa"},
 				},
 				SubCharts: nil,
 			},
@@ -207,6 +223,13 @@ var (
 				Objects: []*chart.Object{
 					{Type: &rbacv1.ClusterRole{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
+				},
+			},
+			{
+				Name: aws.AWSIPAMControllerName,
+				Objects: []*chart.Object{
+					{Type: &rbacv1.ClusterRole{}, Name: "extensions.gardener.cloud:provider-aws:aws-ipam-controller"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "extensions.gardener.cloud:provider-aws:aws-ipam-controller"},
 				},
 			},
 			{
@@ -493,6 +516,11 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
+	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown)
+	if err != nil {
+		return nil, err
+	}
+
 	alb, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, infraStatus)
 	if err != nil {
 		return nil, err
@@ -509,6 +537,7 @@ func getControlPlaneChartValues(
 		},
 		aws.CloudControllerManagerName:    ccm,
 		aws.AWSCustomRouteControllerName:  crc,
+		aws.AWSIPAMControllerImageName:    ipam,
 		aws.AWSLoadBalancerControllerName: alb,
 		aws.CSIControllerName:             csi,
 	}, nil
@@ -529,6 +558,12 @@ func getCCMChartValues(
 		return nil, fmt.Errorf("secret %q not found", cloudControllerManagerServerName)
 	}
 
+	ipamControllerEnabled := true
+	// IPAM Controller is disabled for IPv4 if feature gate is not set
+	if isIPv4(cluster) && !features.ExtensionFeatureGate.Enabled(features.EnableIPAMController) {
+		ipamControllerEnabled = false
+	}
+
 	values := map[string]interface{}{
 		"enabled":           true,
 		"replicas":          extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
@@ -546,7 +581,8 @@ func getCCMChartValues(
 		"secrets": map[string]interface{}{
 			"server": serverSecret.Name,
 		},
-		"gep19Monitoring": gep19Monitoring,
+		"gep19Monitoring":       gep19Monitoring,
+		"ipamControllerEnabled": ipamControllerEnabled,
 	}
 
 	if cpConfig.CloudControllerManager != nil {
@@ -580,6 +616,64 @@ func getCRCChartValues(
 	enabled := cpConfig.CloudControllerManager != nil &&
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
+	if !enabled {
+		values["replicas"] = 0
+	}
+
+	return values, nil
+}
+
+// getIPAMChartValues collects and returns the ipam-controller chart values.
+func getIPAMChartValues(
+	cp *extensionsv1alpha1.ControlPlane,
+	cluster *extensionscontroller.Cluster,
+	checksums map[string]string,
+	scaledDown bool,
+) (map[string]interface{}, error) {
+
+	mode := "ipv4"
+	if isIPv6(cluster) {
+		mode = "ipv6"
+	}
+	if isDualStack(cluster) {
+		mode = "dual-stack"
+	}
+
+	nodeCidrMaskSizeIPv4 := int32(24)
+	nodeCidrMaskSizeIPv6 := int32(64)
+	if cluster.Shoot.Spec.Kubernetes.KubeControllerManager != nil && cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize != nil {
+		if isIPv4(cluster) {
+			nodeCidrMaskSizeIPv4 = *cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize
+		}
+		if isIPv6(cluster) {
+			nodeCidrMaskSizeIPv6 = *cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize
+		}
+	}
+
+	// podNetwork is default IPv4 range for aws-ipam-controller in case IPv6 is used.
+	podNetwork := "192.168.0.0/16"
+	if slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, v1beta1.IPFamilyIPv4) {
+		podNetwork = extensionscontroller.GetPodNetwork(cluster)
+	}
+
+	values := map[string]interface{}{
+		"enabled":     true,
+		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
+		"clusterName": cp.Namespace,
+		"podNetwork":  podNetwork,
+		"podAnnotations": map[string]interface{}{
+			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
+		},
+		"podLabels": map[string]interface{}{
+			v1beta1constants.LabelPodMaintenanceRestart: "true",
+		},
+		"region":               cp.Spec.Region,
+		"mode":                 mode,
+		"nodeCIDRMaskSizeIPv4": nodeCidrMaskSizeIPv4,
+		"nodeCIDRMaskSizeIPv6": nodeCidrMaskSizeIPv6,
+	}
+	enabled := isIPv6(cluster) || isDualStack(cluster)
+
 	if !enabled {
 		values["replicas"] = 0
 	}
@@ -703,6 +797,12 @@ func getControlPlaneShootChartValues(
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
+	ipamControllerEnabled := true
+	// IPAM Controller is disabled for IPv4 if feature gate is not set
+	if isIPv4(cluster) && !features.ExtensionFeatureGate.Enabled(features.EnableIPAMController) {
+		ipamControllerEnabled = false
+	}
+
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           true,
 		"kubernetesVersion": kubernetesVersion,
@@ -727,7 +827,34 @@ func getControlPlaneShootChartValues(
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
 		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
+		aws.AWSIPAMControllerImageName:    map[string]interface{}{"enabled": ipamControllerEnabled},
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
 	}, nil
+}
+
+func isIPv4(cluster *extensionscontroller.Cluster) bool {
+	if cluster.Shoot.Spec.Networking != nil &&
+		len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
+		cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv4 {
+		return true
+	}
+	return false
+}
+
+func isIPv6(cluster *extensionscontroller.Cluster) bool {
+	if cluster.Shoot.Spec.Networking != nil &&
+		len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
+		cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 {
+		return true
+	}
+	return false
+}
+
+func isDualStack(cluster *extensionscontroller.Cluster) bool {
+	if cluster.Shoot.Spec.Networking != nil &&
+		len(cluster.Shoot.Spec.Networking.IPFamilies) == 2 {
+		return true
+	}
+	return false
 }

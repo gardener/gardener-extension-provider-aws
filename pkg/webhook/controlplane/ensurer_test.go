@@ -6,6 +6,7 @@ package controlplane
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -39,12 +40,25 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
+)
+
+var (
+	featureGates = map[string]bool{
+		string(features.EnableIPAMController): true,
+	}
 )
 
 const namespace = "test"
 
 func TestController(t *testing.T) {
 	RegisterFailHandler(Fail)
+	features.RegisterExtensionFeatureGate()
+
+	err := features.ExtensionFeatureGate.SetFromMap(featureGates)
+	if err != nil {
+		Fail(fmt.Sprintf("failed to register feature gates: %v", err))
+	}
 	RunSpecs(t, "ControlPlane Webhook Suite")
 }
 
@@ -79,6 +93,7 @@ var _ = Describe("Ensurer", func() {
 						Kubernetes: gardencorev1beta1.Kubernetes{
 							Version: "1.27.1",
 						},
+						Networking: &gardencorev1beta1.Networking{IPFamilies: []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6}},
 					},
 				},
 			},
@@ -275,6 +290,16 @@ var _ = Describe("Ensurer", func() {
 			Expect(err).To(Not(HaveOccurred()))
 
 			checkKubeControllerManagerDeployment(dep, "1.27.5")
+		})
+
+		It("should disable allocateNodeCIDRs flag of kube-controller-manager deployment", func() {
+			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s127, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			c := extensionswebhook.ContainerWithName(dep.Spec.Template.Spec.Containers, "kube-controller-manager")
+			Expect(c).To(Not(BeNil()))
+			Expect(c.Command).To(ContainElement("--allocate-node-cidrs=false"))
+
 		})
 	})
 

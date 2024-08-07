@@ -16,6 +16,7 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
@@ -33,8 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 )
 
 const (
@@ -138,8 +141,24 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 		return err
 	}
 
+	cpConfig := &api.ControlPlaneConfig{}
+	if cluster.Shoot.Spec.Provider.ControlPlaneConfig != nil {
+		err = json.Unmarshal(cluster.Shoot.Spec.Provider.ControlPlaneConfig.Raw, cpConfig)
+		if err != nil {
+			return err
+		}
+	}
+
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-controller-manager"); c != nil {
-		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion)
+		allocateNodeCIDRs := true
+		if cluster.Shoot.Spec.Networking != nil &&
+			(len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 &&
+				cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 ||
+				len(cluster.Shoot.Spec.Networking.IPFamilies) == 2) &&
+			features.ExtensionFeatureGate.Enabled(features.EnableIPAMController) {
+			allocateNodeCIDRs = false
+		}
+		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion, allocateNodeCIDRs)
 		ensureEnvVars(c)
 		ensureKubeControllerManagerVolumeMounts(c)
 	}
@@ -209,7 +228,7 @@ func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.
 		"PersistentVolumeLabel", ",")
 }
 
-func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
+func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version, allocateNodeCIDRs bool) {
 	c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--cloud-provider=", "external")
 
 	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
@@ -223,6 +242,15 @@ func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion 
 		"InTreePluginAWSUnregister=true", ",")
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--cloud-config=")
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--external-cloud-volume-plugin=")
+
+	if !allocateNodeCIDRs {
+		for i, v := range c.Command {
+			if v == "--allocate-node-cidrs=true" {
+				c.Command = append(c.Command[:i], c.Command[i+1:]...)
+			}
+		}
+		c.Command = append(c.Command, "--allocate-node-cidrs=false")
+	}
 }
 
 func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {

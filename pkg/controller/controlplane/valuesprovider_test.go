@@ -22,6 +22,7 @@ import (
 	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +38,7 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 )
 
 const (
@@ -102,6 +104,7 @@ var _ = Describe("ValuesProvider", func() {
 	)
 
 	BeforeEach(func() {
+		format.MaxLength = 0
 		ctx = context.TODO()
 		scheme = runtime.NewScheme()
 
@@ -175,7 +178,8 @@ var _ = Describe("ValuesProvider", func() {
 						},
 					},
 					Networking: &gardencorev1beta1.Networking{
-						Pods: &cidr,
+						Pods:       &cidr,
+						IPFamilies: []gardencorev1beta1.IPFamily{"IPv4"},
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
 						Version: "1.28.2",
@@ -226,9 +230,26 @@ var _ = Describe("ValuesProvider", func() {
 	Describe("#GetControlPlaneChartValues", func() {
 		var ccmChartValues map[string]interface{}
 		var crcChartValues map[string]interface{}
+		var ipamChartValues map[string]interface{}
 		var albChartValues map[string]interface{}
 
 		BeforeEach(func() {
+			ipamChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
+				"podAnnotations": map[string]interface{}{
+					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+				},
+				"nodeCIDRMaskSizeIPv6": int32(64),
+				"enabled":              true,
+				"podNetwork":           cidr,
+				"podLabels": map[string]interface{}{
+					"maintenance.gardener.cloud/restart": "true",
+				},
+				"region":               "europe",
+				"mode":                 "ipv4",
+				"nodeCIDRMaskSizeIPv4": int32(24),
+				"replicas":             0,
+				"clusterName":          "test",
+			})
 			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
 				"replicas":    1,
 				"clusterName": namespace,
@@ -308,10 +329,12 @@ var _ = Describe("ValuesProvider", func() {
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":   false,
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSIPAMControllerName:         ipamChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
@@ -344,10 +367,12 @@ var _ = Describe("ValuesProvider", func() {
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":   false,
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSIPAMControllerName:         ipamChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
@@ -379,10 +404,12 @@ var _ = Describe("ValuesProvider", func() {
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":   false,
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSIPAMControllerName:         ipamChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
@@ -415,10 +442,12 @@ var _ = Describe("ValuesProvider", func() {
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":   false,
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSIPAMControllerName:         ipamChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
@@ -438,6 +467,184 @@ var _ = Describe("ValuesProvider", func() {
 					},
 				}),
 			}))
+		})
+
+		It("should return correct control plane chart values and IPAM disabled with IPv4 Shoot", func() {
+			cluster.Shoot.Spec.Networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4}
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
+				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": false,
+				}),
+				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.AWSIPAMControllerName: utils.MergeMaps(ipamChartValues, map[string]interface{}{
+					"mode":       "ipv4",
+					"replicas":   0,
+					"podNetwork": cidr,
+				}),
+				aws.AWSLoadBalancerControllerName: albChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+						"topologyAwareRoutingEnabled": false,
+					},
+				}),
+			}))
+		})
+
+		It("should return correct control plane chart values and IPAM enabled with IPv6 Shoot", func() {
+			cluster.Shoot.Spec.Networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6}
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
+				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": true,
+				}),
+				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.AWSIPAMControllerName: utils.MergeMaps(ipamChartValues, map[string]interface{}{
+					"mode":       "ipv6",
+					"replicas":   1,
+					"podNetwork": "192.168.0.0/16",
+				}),
+				aws.AWSLoadBalancerControllerName: albChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+						"topologyAwareRoutingEnabled": false,
+					},
+				}),
+			}))
+		})
+
+		It("should return correct control plane chart values and IPAM enabled with dual-stack Shoot", func() {
+			cluster.Shoot.Spec.Networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4, gardencorev1beta1.IPFamilyIPv6}
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
+				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": true,
+				}),
+				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.AWSIPAMControllerName: utils.MergeMaps(ipamChartValues, map[string]interface{}{
+					"mode":       "dual-stack",
+					"replicas":   1,
+					"podNetwork": cidr,
+				}),
+				aws.AWSLoadBalancerControllerName: albChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+						"topologyAwareRoutingEnabled": false,
+					},
+				}),
+			}))
+		})
+
+		It("should return correct control plane chart values and IPAM enabled with IPv4 Shoot and feature gate set", func() {
+			featureGates := map[string]bool{
+				string(features.EnableIPAMController): true,
+			}
+			features.RegisterExtensionFeatureGate()
+
+			err := features.ExtensionFeatureGate.SetFromMap(featureGates)
+			if err != nil {
+				Fail(fmt.Sprintf("failed to register feature gates: %v", err))
+			}
+			cluster.Shoot.Spec.Networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4, gardencorev1beta1.IPFamilyIPv6}
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(values).To(Equal(map[string]interface{}{
+				"global": map[string]interface{}{
+					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
+				},
+				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
+					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":       false,
+					"ipamControllerEnabled": true,
+				}),
+				aws.AWSCustomRouteControllerName: crcChartValues,
+				aws.AWSIPAMControllerName: utils.MergeMaps(ipamChartValues, map[string]interface{}{
+					"mode":       "dual-stack",
+					"replicas":   1,
+					"podNetwork": cidr,
+				}),
+				aws.AWSLoadBalancerControllerName: albChartValues,
+				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+					"replicas": 1,
+					"region":   region,
+					"podAnnotations": map[string]interface{}{
+						"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+					},
+					"csiSnapshotController": map[string]interface{}{
+						"replicas": 1,
+					},
+					"csiSnapshotValidationWebhook": map[string]interface{}{
+						"replicas": 1,
+						"secrets": map[string]interface{}{
+							"server": "csi-snapshot-validation-server",
+						},
+						"topologyAwareRoutingEnabled": false,
+					},
+				}),
+			}))
+			featureGates = map[string]bool{
+				string(features.EnableIPAMController): false,
+			}
+			features.RegisterExtensionFeatureGate()
+
+			err = features.ExtensionFeatureGate.SetFromMap(featureGates)
+			if err != nil {
+				Fail(fmt.Sprintf("failed to register feature gates: %v", err))
+			}
 		})
 
 		DescribeTable("topologyAwareRoutingEnabled value",
@@ -503,6 +710,31 @@ var _ = Describe("ValuesProvider", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
+					aws.AWSCustomRouteControllerName:  enabledFalse,
+					aws.AWSLoadBalancerControllerName: enabledFalse,
+					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+						"kubernetesVersion": "1.28.2",
+						"vpaEnabled":        true,
+						"driver": map[string]interface{}{
+							"volumeAttachLimit": "42",
+						},
+						"webhookConfig": map[string]interface{}{
+							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
+							"caBundle": "",
+						},
+					}),
+				}))
+			})
+		})
+
+		Context("shoot control plane chart values and ipam controller enabled", func() {
+			It("should return correct shoot control plane chart when ca is secret found", func() {
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, cluster, fakeSecretsManager, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(values).To(Equal(map[string]interface{}{
+					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -527,6 +759,7 @@ var _ = Describe("ValuesProvider", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
 					aws.AWSCustomRouteControllerName:  enabledTrue,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -566,6 +799,7 @@ var _ = Describe("ValuesProvider", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: albChartValues,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{

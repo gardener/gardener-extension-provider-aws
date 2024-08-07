@@ -24,3 +24,9 @@ data:
 {{- if .Values.config.etcd.backup }}
 {{ toYaml .Values.config.etcd.backup | indent 6 }}
 {{- end }}
+{{- if .Values.config.featureGates }}
+    featureGates:
+{{- if .Values.config.featureGates.enableIPAMController }}
+      EnableIPAMController: {{ .Values.config.featureGates.enableIPAMController }}
+{{- end }}
+{{- end }}
