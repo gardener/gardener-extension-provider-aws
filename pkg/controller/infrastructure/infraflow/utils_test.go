@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,7 +26,7 @@ var _ = Describe("FindExisting", func() {
 			return ptr.To(fakeStore[key].id), nil
 		}
 		finder = func(_ context.Context, tags awsclient.Tags) ([]*string, error) {
-			res := []*string{}
+			var res []*string
 			for _, fakeEntry := range fakeStore {
 				func() {
 					for tagKey, tagValue := range tags {
@@ -75,33 +76,33 @@ var _ = Describe("FindExisting", func() {
 		}
 	})
 
-	Context("foo", func() {
-		It("should find existing by getter", func() {
+	Context("using getter", func() {
+		It("should find existing", func() {
 			res, err := FindExisting(ctx, ptr.To("key1"), nil, getter, finder)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res).NotTo(BeNil())
 			Expect(*res).To(Equal("foo"))
 		})
+	})
 
-		Context("using finder", func() {
-			It("should succeed", func() {
-				res, err := FindExisting(ctx, nil, map[string]string{
-					"tag3": "value3",
-					"tag4": "value4",
-				}, getter, finder)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(res).NotTo(BeNil())
-				Expect(*res).To(Equal("bar"))
-			})
+	Context("using finder", func() {
+		It("should succeed", func() {
+			res, err := FindExisting(ctx, nil, map[string]string{
+				"tag3": "value3",
+				"tag4": "value4",
+			}, getter, finder)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).NotTo(BeNil())
+			Expect(*res).To(Equal("bar"))
+		})
 
-			It("should fail to find matching tags", func() {
-				res, err := FindExisting(ctx, nil, map[string]string{
-					"key2":    "value2",
-					"cluster": "foo",
-				}, getter, finder)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(res).To(BeNil())
-			})
+		It("should fail to find matching tags", func() {
+			res, err := FindExisting(ctx, nil, map[string]string{
+				"key2":    "value2",
+				"cluster": "foo",
+			}, getter, finder)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).To(BeNil())
 		})
 
 		It("should find return an error if multiple matches found", func() {
@@ -111,6 +112,28 @@ var _ = Describe("FindExisting", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrorMultipleMatches)).To(BeTrue())
 			fmt.Print(err)
+		})
+		Context("using selector", func() {
+			It("should find return an error if multiple matches found", func() {
+				_, err := FindExisting(ctx, nil, map[string]string{
+					"tag4": "value5",
+				}, getter, finder, func(item *string) bool {
+					return strings.Contains(ptr.Deref(item, ""), "baz")
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, ErrorMultipleMatches)).To(BeTrue())
+				fmt.Print(err)
+			})
+			It("should find target", func() {
+				res, err := FindExisting(ctx, nil, map[string]string{
+					"tag4": "value5",
+				}, getter, finder, func(item *string) bool {
+					return strings.Contains(ptr.Deref(item, ""), "copy")
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).NotTo(BeNil())
+				Expect(*res).To(Equal("baz-copy"))
+			})
 		})
 	})
 })

@@ -172,7 +172,7 @@ func deref[T any](ts []*T) []T {
 	if reflect.TypeOf(ts).Elem().Kind() != reflect.Pointer {
 		panic("dereferenced type is not a pointer")
 	}
-	res := make([]T, 0)
+	var res []T
 	for _, t := range ts {
 		if t == nil {
 			continue
