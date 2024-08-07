@@ -463,8 +463,9 @@ var _ = Describe("Machines", func() {
 				_ = apiv1alpha1.AddToScheme(scheme)
 				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 
-				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted))
-				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
+				additionalData := []string{strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted)}
+				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalData, additionalData)
+				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, clusterWithoutImages)
 			})
@@ -767,7 +768,7 @@ var _ = Describe("Machines", func() {
 
 				Context("using workerConfig.iamInstanceProfile", func() {
 					modifyExpectedMachineClasses := func(expectedIamInstanceProfile map[string]interface{}) {
-						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
+						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						var (

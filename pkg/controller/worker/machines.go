@@ -107,7 +107,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 		}
 
-		workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashData(pool)...)
+		workerPoolHash, err := w.generateWorkerPoolHash(pool, *workerConfig)
 		if err != nil {
 			return err
 		}
@@ -313,6 +313,11 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	return blockDevices, nil
 }
 
+func (w *workerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
+	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
+
+}
+
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
 	return computeEBS(volume.Size, volume.Type, volume.Encrypted)
 }
@@ -358,7 +363,7 @@ func computeEBSDeviceNameForIndex(index int) (string, error) {
 	return deviceNamePrefix + deviceNameSuffix[index:index+1], nil
 }
 
-func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool) []string {
+func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData []string
 
 	if pool.Volume != nil && pool.Volume.Encrypted != nil {
@@ -374,6 +379,35 @@ func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool) []string {
 
 		if dv.Encrypted != nil {
 			additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
+		}
+	}
+
+	return additionalData
+}
+
+func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
+	var additionalData []string = computeAdditionalHashDataV1(pool)
+
+	if opts := workerConfig.CpuOptions; opts != nil {
+		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
+		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
+	}
+
+	if instanceProfile := workerConfig.IAMInstanceProfile; instanceProfile != nil {
+		if arn := instanceProfile.ARN; arn != nil {
+			additionalData = append(additionalData, *arn)
+		}
+		if name := instanceProfile.Name; name != nil {
+			additionalData = append(additionalData, *name)
+		}
+	}
+
+	if instanceMetadataOptions := workerConfig.InstanceMetadataOptions; instanceMetadataOptions != nil {
+		if tokens := instanceMetadataOptions.HTTPTokens; tokens != nil {
+			additionalData = append(additionalData, string(*tokens))
+		}
+		if putResponseHopLimit := instanceMetadataOptions.HTTPPutResponseHopLimit; putResponseHopLimit != nil {
+			additionalData = append(additionalData, fmt.Sprint(*putResponseHopLimit))
 		}
 	}
 

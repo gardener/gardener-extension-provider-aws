@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
@@ -534,7 +535,7 @@ func getCCMChartValues(
 		"replicas":          extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName":       cp.Namespace,
 		"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-		"podNetwork":        extensionscontroller.GetPodNetwork(cluster),
+		"podNetwork":        strings.Join(extensionscontroller.GetPodNetwork(cluster), ","),
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-cloudprovider":            checksums[v1beta1constants.SecretNameCloudProvider],
 			"checksum/configmap-cloud-provider-config": checksums[aws.CloudProviderConfigName],
@@ -568,7 +569,7 @@ func getCRCChartValues(
 		"enabled":     true,
 		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName": cp.Namespace,
-		"podNetwork":  extensionscontroller.GetPodNetwork(cluster),
+		"podNetwork":  strings.Join(extensionscontroller.GetPodNetwork(cluster), ","),
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
 		},
