@@ -739,6 +739,31 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureState">InfrastructureState
+</h3>
+<p>
+<p>InfrastructureState is the state which is persisted as part of the infrastructure status.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>data</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus
 </h3>
 <p>

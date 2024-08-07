@@ -8,6 +8,7 @@ import (
 	"context"
 	"sort"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -115,6 +116,7 @@ type Interface interface {
 	CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, error)
 	GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error)
 	FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, error)
+	FindSubnets(ctx context.Context, filters []*ec2.Filter) ([]*Subnet, error)
 	UpdateSubnetAttributes(ctx context.Context, desired, current *Subnet) (modified bool, err error)
 	DeleteSubnet(ctx context.Context, id string) error
 

@@ -7,6 +7,7 @@ package infraflow
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/gardener/gardener/pkg/utils/flow"
@@ -15,6 +16,8 @@ import (
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
+
+var ErrorMultipleMatches = fmt.Errorf("error multiple matches")
 
 type zoneDependencies map[string][]flow.TaskIDer
 
@@ -63,7 +66,7 @@ outerCreate:
 	return
 }
 
-func findExisting[T any](ctx context.Context, id *string, tags awsclient.Tags,
+func FindExisting[T any](ctx context.Context, id *string, tags awsclient.Tags,
 	getter func(ctx context.Context, id string) (*T, error),
 	finder func(ctx context.Context, tags awsclient.Tags) ([]*T, error),
 	selector ...func(item *T) bool) (*T, error) {
@@ -85,15 +88,24 @@ func findExisting[T any](ctx context.Context, id *string, tags awsclient.Tags,
 	if len(found) == 0 {
 		return nil, nil
 	}
-	if len(selector) > 0 {
-		for _, item := range found {
-			if selector[0](item) {
-				return item, nil
-			}
+
+	if len(selector) == 0 {
+		if len(found) > 1 {
+			return nil, fmt.Errorf("%w: found matches: %v", ErrorMultipleMatches, deref(found))
 		}
-		return nil, nil
+		return found[0], nil
 	}
-	return found[0], nil
+
+	var res *T
+	for _, item := range found {
+		if selector[0](item) {
+			if res != nil {
+				return nil, fmt.Errorf("%w: found matches: %v, %v", ErrorMultipleMatches, res, item)
+			}
+			res = item
+		}
+	}
+	return res, nil
 }
 
 type waiter struct {
@@ -154,4 +166,18 @@ func copyMap(src map[string]string) map[string]string {
 		dst[k] = v
 	}
 	return dst
+}
+
+func deref[T any](ts []*T) []T {
+	if reflect.TypeOf(ts).Elem().Kind() != reflect.Pointer {
+		panic("dereferenced type is not a pointer")
+	}
+	var res []T
+	for _, t := range ts {
+		if t == nil {
+			continue
+		}
+		res = append(res, *t)
+	}
+	return res
 }

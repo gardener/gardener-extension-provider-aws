@@ -23,7 +23,6 @@ var _ = Describe("Whiteboard", func() {
 				"child2/key2":           "id22",
 			}
 			expectedData = shared.FlatMap{
-				"key1":                  "<deleted>",
 				"key2":                  "id2a",
 				"key3":                  "id3",
 				"child1/subchild1/key1": "id111b",
@@ -33,7 +32,7 @@ var _ = Describe("Whiteboard", func() {
 				"key2": "id2a",
 				"key3": "id3",
 			}
-			expectedKeys = []string{"key1", "key2", "key3"}
+			expectedKeys = []string{"key2", "key3"}
 		)
 
 		w := shared.NewWhiteboard()
@@ -61,15 +60,12 @@ var _ = Describe("Whiteboard", func() {
 		w.GetChild("child1").GetChild("subchild1").Set("key1", "id111b")
 		Expect(w.CurrentGeneration() > generation2).To(BeTrue())
 
-		Expect(w.GetChild("child1").GetChild("subchild2").IsAlreadyDeleted("key1")).To(BeFalse())
 		w.GetChild("child1").GetChild("subchild2").Set("key1", "")
-		Expect(w.GetChild("child1").GetChild("subchild2").IsAlreadyDeleted("key1")).To(BeFalse())
+		Expect(w.GetChild("child1").GetChild("subchild2").Get("key1")).To(BeNil())
 
 		Expect(w.Get("key1")).NotTo(BeNil())
-		Expect(w.IsAlreadyDeleted("key1")).To(BeFalse())
-		w.SetAsDeleted("key1")
+		w.Delete("key1")
 		Expect(w.Get("key1")).To(BeNil())
-		Expect(w.IsAlreadyDeleted("key1")).To(BeTrue())
 
 		Expect(w.Get("key3")).To(BeNil())
 		w.SetPtr("key3", ptr.To("id3"))

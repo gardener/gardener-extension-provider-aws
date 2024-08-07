@@ -1436,6 +1436,12 @@ func (c *Client) FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, e
 	return c.describeSubnets(ctx, input)
 }
 
+// ListSubnets lists subnet resources.
+func (c *Client) FindSubnets(ctx context.Context, filters []*ec2.Filter) ([]*Subnet, error) {
+	input := &ec2.DescribeSubnetsInput{Filters: filters}
+	return c.describeSubnets(ctx, input)
+}
+
 func (c *Client) describeSubnets(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*Subnet, error) {
 	output, err := c.EC2.DescribeSubnetsWithContext(ctx, input)
 	if err != nil {
@@ -1460,7 +1466,7 @@ func (c *Client) CheckSubnetIPv6Cidr(subnetID string) (bool, error) {
 		return false, err
 	}
 	if len(output.Subnets) == 0 {
-		return false, fmt.Errorf("Subnet not found")
+		return false, fmt.Errorf("subnet not found")
 	}
 	subnet := output.Subnets[0]
 	for _, cidr := range subnet.Ipv6CidrBlockAssociationSet {

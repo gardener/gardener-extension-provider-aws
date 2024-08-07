@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	ec2 "github.com/aws/aws-sdk-go/service/ec2"
 	client "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	gomock "go.uber.org/mock/gomock"
 	sets "k8s.io/apimachinery/pkg/util/sets"
@@ -787,6 +788,21 @@ func (m *MockInterface) FindSecurityGroupsByTags(arg0 context.Context, arg1 clie
 func (mr *MockInterfaceMockRecorder) FindSecurityGroupsByTags(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSecurityGroupsByTags", reflect.TypeOf((*MockInterface)(nil).FindSecurityGroupsByTags), arg0, arg1)
+}
+
+// FindSubnets mocks base method.
+func (m *MockInterface) FindSubnets(arg0 context.Context, arg1 []*ec2.Filter) ([]*client.Subnet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindSubnets", arg0, arg1)
+	ret0, _ := ret[0].([]*client.Subnet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindSubnets indicates an expected call of FindSubnets.
+func (mr *MockInterfaceMockRecorder) FindSubnets(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnets", reflect.TypeOf((*MockInterface)(nil).FindSubnets), arg0, arg1)
 }
 
 // FindSubnetsByTags mocks base method.

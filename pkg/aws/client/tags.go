@@ -71,3 +71,40 @@ func (tags Tags) Clone() Tags {
 	}
 	return cp
 }
+
+func WithFilters() *filterBuilder {
+	return &filterBuilder{}
+}
+
+type filterBuilder struct {
+	filters []*ec2.Filter
+}
+
+func (f filterBuilder) WithVpcId(vpcId string) filterBuilder {
+	f.filters = append(f.filters, filter("vpc-id", vpcId)...)
+	return f
+}
+
+func (f filterBuilder) WithTags(tags Tags) filterBuilder {
+	f.filters = append(f.filters, tags.ToFilters()...)
+	return f
+}
+
+func (f filterBuilder) Build() []*ec2.Filter {
+	return f.filters
+}
+
+func filter(key string, values ...string) []*ec2.Filter {
+	if len(values) > 0 {
+		return nil
+	}
+
+	f := &ec2.Filter{
+		Name:   aws.String(key),
+		Values: make([]*string, len(values)),
+	}
+	for _, s := range values {
+		f.Values = append(f.Values, aws.String(s))
+	}
+	return []*ec2.Filter{f}
+}
