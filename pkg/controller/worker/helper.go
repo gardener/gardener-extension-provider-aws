@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 
-	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +24,7 @@ func (w *workerDelegate) decodeWorkerProviderStatus() (*api.WorkerStatus, error)
 	}
 
 	if _, _, err := w.decoder.Decode(w.worker.Status.ProviderStatus.Raw, nil, workerStatus); err != nil {
-		return nil, fmt.Errorf("could not decode WorkerStatus '%s': %w", kutil.ObjectName(w.worker), err)
+		return nil, fmt.Errorf("could not decode WorkerStatus '%s': %w", client.ObjectKeyFromObject(w.worker), err)
 	}
 
 	return workerStatus, nil

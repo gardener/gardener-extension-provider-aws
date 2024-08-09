@@ -332,7 +332,7 @@ func (vp *valuesProvider) GetConfigChartValues(
 	infraStatus := &apisaws.InfrastructureStatus{}
 	if cp.Spec.InfrastructureProviderStatus != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
-			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", client.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -353,7 +353,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", client.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -361,7 +361,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	infraStatus := &apisaws.InfrastructureStatus{}
 	if cp.Spec.InfrastructureProviderStatus != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
-			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", client.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -393,7 +393,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", client.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -410,7 +410,7 @@ func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", client.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -436,7 +436,7 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 		cpConfig := &apisaws.ControlPlaneConfig{}
 		_, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig)
 		if err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", client.ObjectKeyFromObject(cp), err)
 		}
 
 		// internal types should NOT be used when embeding.
@@ -460,7 +460,7 @@ func getConfigChartValues(
 	// Get the first subnet with purpose "public"
 	subnet, err := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposePublic)
 	if err != nil {
-		return nil, fmt.Errorf("could not determine subnet from infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
+		return nil, fmt.Errorf("could not determine subnet from infrastructureProviderStatus of controlplane '%s': %w", client.ObjectKeyFromObject(cp), err)
 	}
 
 	// Collect config chart values
