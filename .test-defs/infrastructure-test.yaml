@@ -19,4 +19,4 @@ spec:
     --region=$REGION
     --reconciler="${RECONCILER}"
 
-  image: golang:1.22.5
+  image: golang:1.22.6
