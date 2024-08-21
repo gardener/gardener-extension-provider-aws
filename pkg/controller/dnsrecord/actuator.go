@@ -6,6 +6,7 @@ package dnsrecord
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -161,16 +162,17 @@ func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) 
 
 func wrapAWSClientError(err error, message string) error {
 	wrappedErr := fmt.Errorf("%s: %+v", message, err)
-	if awsclient.IsNoSuchHostedZoneError(err) || awsclient.IsNotPermittedInZoneError(err) {
-		wrappedErr = gardencorev1beta1helper.NewErrorWithCodes(wrappedErr, gardencorev1beta1.ErrorConfigurationProblem)
-	}
-	if _, ok := err.(*awsclient.Route53RateLimiterWaitError); ok || awsclient.IsThrottlingError(err) {
-		wrappedErr = &reconciler.RequeueAfterError{
+	var route53RateLimiterWaitError *awsclient.Route53RateLimiterWaitError
+	if errors.As(err, &route53RateLimiterWaitError) || awsclient.IsThrottlingError(err) {
+		return &reconciler.RequeueAfterError{
 			Cause:        wrappedErr,
 			RequeueAfter: requeueAfterOnThrottlingError,
 		}
 	}
-	return wrappedErr
+	if awsclient.IsNoSuchHostedZoneError(err) || awsclient.IsNotPermittedInZoneError(err) {
+		return gardencorev1beta1helper.NewErrorWithCodes(wrappedErr, gardencorev1beta1.ErrorConfigurationProblem)
+	}
+	return util.DetermineError(wrappedErr, helper.KnownCodes)
 }
 
 func getIPStack(dns *extensionsv1alpha1.DNSRecord) awsclient.IPStack {
