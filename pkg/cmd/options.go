@@ -36,6 +36,7 @@ import (
 	cloudproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
 	controlplaneexposurewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/webhook/infrastructure"
 	shootwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shoot"
 )
 
@@ -70,6 +71,7 @@ func WebhookSwitchOptions(gardenerVersion *string) *webhookcmd.SwitchOptions {
 		webhookcmd.Switch(extensioncontrolplanewebhook.ExposureWebhookName, controlplaneexposurewebhook.AddToManager),
 		webhookcmd.Switch(extensionshootwebhook.WebhookName, shootwebhook.AddToManager),
 		webhookcmd.Switch(extensionscloudproviderwebhook.WebhookName, cloudproviderwebhook.AddToManager),
+		webhookcmd.Switch(infrastructure.WebhookName, infrastructure.AddToManager),
 	)
 }
 
