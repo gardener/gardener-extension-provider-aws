@@ -218,7 +218,7 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 	if vpcID != "" {
 		var subnets []awsv1alpha1.Subnet
 		prefix := ChildIdZones + shared.Separator
-		for k, v := range c.state.AsMap() {
+		for k, v := range c.state.ExportAsFlatMap() {
 			if !shared.IsValidValue(v) {
 				continue
 			}
