@@ -971,6 +971,11 @@ func verifyCreation(
 					},
 				))
 				infrastructureIdentifier.subnetIDs = append(infrastructureIdentifier.subnetIDs, subnet.SubnetId)
+				Expect(infraStatus.VPC.Subnets).To(ContainElement(Equal(awsv1alpha1.Subnet{
+					Purpose: awsv1alpha1.PurposeNodes,
+					ID:      ptr.Deref(subnet.SubnetId, ""),
+					Zone:    availabilityZone,
+				})))
 			}
 			if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+publicUtilitySuffix)) {
 				foundExpectedSubnets++
