@@ -28,12 +28,7 @@ resource "aws_vpc_dhcp_options" "vpc_dhcp_options" {
 
 resource "aws_vpc" "vpc" {
   # Currently it is not possible to create a VPC without an IPv4 CIDR bock
-  {{ if .isIPv4 }}
   cidr_block           = "{{ .vpc.cidr }}"
-  {{- else -}}
-  # Currently it is not possible to create a VPC without an IPv4 CIDR bock
-  cidr_block           = "10.0.0.0/16"
-  {{ end }}
   enable_dns_support   = true
   enable_dns_hostnames = true
   {{ if or .dualStack.enabled .isIPv6  }}

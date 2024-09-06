@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
+	"slices"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
@@ -33,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/sets"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -477,8 +476,11 @@ func getConfigChartValues(
 		"zone":        subnet.Zone,
 	}
 
-	if ipFamilies != nil && sets.New[v1beta1.IPFamily](ipFamilies...).Has(v1beta1.IPFamilyIPv6) {
-		config["nodeIPFamilies"] = "ipv6"
+	if ipFamilies != nil && slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6)  {
+		config["nodeIPFamilyIPv6"] = "ipv6"
+	}
+	if ipFamilies != nil && slices.Contains(ipFamilies, v1beta1.IPFamilyIPv4) {
+		config["nodeIPFamilyIPv4"] = "ipv4"
 	}
 
 	return config, nil

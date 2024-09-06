@@ -1206,6 +1206,7 @@ func (c *Client) DeleteInternetGateway(ctx context.Context, id string) error {
 	return ignoreNotFound(err)
 }
 
+// CreateEgressOnlyInternetGateway creates an egress-only internet gateway.
 func (c *Client) CreateEgressOnlyInternetGateway(ctx context.Context, gateway *EgressOnlyInternetGateway) (*EgressOnlyInternetGateway, error) {
 	input := &ec2.CreateEgressOnlyInternetGatewayInput{
 		TagSpecifications: gateway.ToTagSpecifications(ec2.ResourceTypeEgressOnlyInternetGateway),

@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,7 +26,6 @@ import (
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -478,8 +478,7 @@ func isIPv6(c *controller.Cluster) bool {
 	if networking != nil {
 		ipFamilies := networking.IPFamilies
 		if ipFamilies != nil {
-			ipFamilySet := sets.New[v1beta1.IPFamily](ipFamilies...)
-			if ipFamilySet.Has(v1beta1.IPFamilyIPv6) {
+			if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
 				return true
 			}
 		}
