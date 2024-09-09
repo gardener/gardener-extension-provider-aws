@@ -120,7 +120,9 @@ var _ = Describe("Shoot validator", func() {
 					Namespace: namespace,
 				},
 				Spec: core.ShootSpec{
-					CloudProfileName: cloudProfile.Name,
+					CloudProfile: &core.CloudProfileReference{
+						Name: cloudProfile.Name,
+					},
 					Provider: core.Provider{
 						InfrastructureConfig: &runtime.RawExtension{
 							Raw: encode(&apisawsv1alpha1.InfrastructureConfig{

@@ -188,7 +188,7 @@ func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNames
 	}
 
 	for _, natGateway := range describeNatGatewaysOutput.NatGateways {
-		if natGateway.NatGatewayAddresses == nil || len(natGateway.NatGatewayAddresses) == 0 {
+		if len(natGateway.NatGatewayAddresses) == 0 {
 			continue
 		}
 
