@@ -27,14 +27,16 @@ const (
 
 var logger = log.Log.WithName("aws-validator-webhook")
 
-// New creates a new webhook that validates Shoot and CloudProfile resources.
+// New creates a new webhook that validates Shoot, CloudProfile, SecretBinding and CredentialsBinding resources.
 func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	logger.Info("Setting up webhook", "name", Name)
 
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
-		Provider:   aws.Type,
-		Name:       Name,
-		Path:       "/webhooks/validate",
+		Provider: aws.Type,
+		Name:     Name,
+		Path:     "/webhooks/validate",
+		// TODO(dimityrmirchev): Uncomment this line once this extension uses a g/g version that contains https://github.com/gardener/gardener/pull/10499
+		// Predicates: []predicate.Predicate{predicate.Or(extensionspredicate.GardenCoreProviderType(aws.Type), extensionspredicate.GardenSecurityProviderType(aws.Type))},
 		Predicates: []predicate.Predicate{extensionspredicate.GardenCoreProviderType(aws.Type)},
 		Validators: map[extensionswebhook.Validator][]extensionswebhook.Type{
 			NewShootValidator(mgr):              {{Obj: &core.Shoot{}}},
