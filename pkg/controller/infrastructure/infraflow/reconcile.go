@@ -183,7 +183,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	// IPv4 range must also be specified for IPv6 only
 	desired.CidrBlock = *c.config.Networks.VPC.CIDR
 
-	current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
 		c.client.GetVpc, c.client.FindVpcsByTags)
 	if err != nil {
 		return err
@@ -213,7 +213,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 
 func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
 	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || slices.Contains(c.ipFamilies, v1beta1.IPFamilyIPv6) {
-		current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+		current, err := FindExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
 			c.client.GetVpc, c.client.FindVpcsByTags)
 		if err != nil {
 			return err
@@ -683,6 +683,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				VpcId:                       c.state.Get(IdentifierVPC),
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: ptr.To(isIPv6(c.ipFamilies)),
+				CidrBlock:                   zone.Public,
 			},
 			&awsclient.Subnet{
 				Tags:                                    tagsPrivate,
@@ -693,7 +694,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
 			},
 		)
-		for i, cidrBlock := range []string{zone.Workers, zone.Public, zone.Internal} {
+		for i, cidrBlock := range []string{zone.Workers, zone.Internal} {
 			if isIPv4(c.ipFamilies) {
 				desired[i].CidrBlock = cidrBlock
 			}
@@ -1069,12 +1070,12 @@ func (c *FlowContext) ensureEgressOnlyInternetGateway(ctx context.Context) error
 		return nil
 	}
 
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	desired := &awsclient.EgressOnlyInternetGateway{
 		Tags:  c.commonTags,
 		VpcId: c.state.Get(IdentifierVPC),
 	}
-	current, err := findExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
+	current, err := FindExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
 		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags)
 	if err != nil {
 		return err
@@ -1126,7 +1127,7 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 			Routes: routes,
 		}
 
-		current, err := findExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+		current, err := FindExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
 		if err != nil {
 			return err
 		}

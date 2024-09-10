@@ -84,8 +84,10 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 		return err
 	}
 
-	if errList := awsvalidation.ValidateInfrastructureConfig(infraConfig,shoot.Spec.Networking.IPFamilies, shoot.Spec.Networking.Nodes, shoot.Spec.Networking.Pods, shoot.Spec.Networking.Services); len(errList) != 0 {
-		return errList.ToAggregate()
+	if shoot.Spec.Networking != nil {
+		if errList := awsvalidation.ValidateInfrastructureConfig(infraConfig, shoot.Spec.Networking.IPFamilies, shoot.Spec.Networking.Nodes, shoot.Spec.Networking.Pods, shoot.Spec.Networking.Services); len(errList) != 0 {
+			return errList.ToAggregate()
+		}
 	}
 
 	// ControlPlaneConfig

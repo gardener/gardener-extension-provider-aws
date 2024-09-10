@@ -165,7 +165,8 @@ var _ = Describe("Shoot validator", func() {
 					},
 					Region: regionName,
 					Networking: &core.Networking{
-						Nodes: ptr.To("10.250.0.0/16"),
+						Nodes:      ptr.To("10.250.0.0/16"),
+						IPFamilies: []core.IPFamily{core.IPFamilyIPv4},
 					},
 				},
 			}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +44,7 @@ func NewFlowReconciler(client client.Client, restConfig *rest.Config, log logr.L
 }
 
 // Reconcile reconciles the infrastructure and updates the Infrastructure status (state of the world), the state (input for the next loops) or reports any errors that occurred.
-func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, _ *controller.Cluster) error {
+func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, c *controller.Cluster) error {
 	var (
 		infraState *awsapi.InfrastructureState
 		err        error
@@ -76,12 +77,20 @@ func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha
 		return fmt.Errorf("failed to create new AWS client: %w", err)
 	}
 
+	var ipfamilies []v1beta1.IPFamily
+	if c.Shoot.Spec.Networking != nil {
+		ipfamilies = c.Shoot.Spec.Networking.IPFamilies
+	} else {
+		ipfamilies = []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
+	}
+
 	fctx, err := infraflow.NewFlowContext(infraflow.Opts{
 		Log:            f.log,
 		Infrastructure: infra,
 		State:          infraState,
 		RuntimeClient:  f.client,
 		AwsClient:      awsClient,
+		IPFamilies:     ipfamilies,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)
@@ -91,7 +100,7 @@ func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha
 }
 
 // Delete deletes the infrastructure resource using the flow reconciler.
-func (f *FlowReconciler) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, _ *controller.Cluster) error {
+func (f *FlowReconciler) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, c *controller.Cluster) error {
 	f.log.V(1).Info("deleteWithFlow")
 
 	awsClient, err := aws.NewClientFromSecretRef(ctx, f.client, infra.Spec.SecretRef, infra.Spec.Region)
@@ -104,12 +113,21 @@ func (f *FlowReconciler) Delete(ctx context.Context, infra *extensionsv1alpha1.I
 		return err
 	}
 
+	var ipfamilies []v1beta1.IPFamily
+
+	if c.Shoot.Spec.Networking != nil {
+		ipfamilies = c.Shoot.Spec.Networking.IPFamilies
+	} else {
+		ipfamilies = []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
+	}
+
 	fctx, err := infraflow.NewFlowContext(infraflow.Opts{
 		Log:            f.log,
 		Infrastructure: infra,
 		State:          infraState,
 		AwsClient:      awsClient,
 		RuntimeClient:  f.client,
+		IPFamilies:     ipfamilies,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)

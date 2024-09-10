@@ -164,11 +164,11 @@ func (c *FlowContext) deleteInternetGateway(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteEgressOnlyInternetGateway(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(IdentifierEgressOnlyInternetGateway) {
+	if c.state.Get(IdentifierEgressOnlyInternetGateway) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
+	log := LogFromContext(ctx)
+	current, err := FindExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
 		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags)
 	if err != nil {
 		return err
@@ -178,7 +178,7 @@ func (c *FlowContext) deleteEgressOnlyInternetGateway(ctx context.Context) error
 		if err := c.client.DeleteEgressOnlyInternetGateway(ctx, current.EgressOnlyInternetGatewayId); err != nil {
 			return err
 		}
-		c.state.SetAsDeleted(IdentifierEgressOnlyInternetGateway)
+		c.state.Delete(IdentifierEgressOnlyInternetGateway)
 	}
 	return nil
 }

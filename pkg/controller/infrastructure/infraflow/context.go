@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -118,6 +119,7 @@ type Opts struct {
 	State          *awsapi.InfrastructureState
 	AwsClient      awsclient.Interface
 	RuntimeClient  client.Client
+	IPFamilies     []v1beta1.IPFamily
 }
 
 // FlowContext contains the logic to reconcile or delete the AWS infrastructure.
@@ -132,6 +134,7 @@ type FlowContext struct {
 	runtimeClient client.Client
 	updater       awsclient.Updater
 	commonTags    awsclient.Tags
+	ipFamilies    []v1beta1.IPFamily
 	*shared.BasicFlowContext
 }
 
@@ -157,6 +160,7 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		infra:         opts.Infrastructure,
 		client:        opts.AwsClient,
 		runtimeClient: opts.RuntimeClient,
+		ipFamilies:    opts.IPFamilies,
 	}
 	flowContext.commonTags = awsclient.Tags{
 		flowContext.tagKeyCluster(): TagValueCluster,

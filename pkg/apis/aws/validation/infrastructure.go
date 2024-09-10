@@ -110,7 +110,6 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 	for i, zone := range infra.Networks.Zones {
 		zonePath := networksPath.Child("zones").Index(i)
 
-
 		publicPath := zonePath.Child("public")
 		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Public, publicPath))
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(publicPath, zone.Public)...)

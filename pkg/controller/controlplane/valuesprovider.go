@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
@@ -476,7 +477,7 @@ func getConfigChartValues(
 		"zone":        subnet.Zone,
 	}
 
-	if ipFamilies != nil && slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6)  {
+	if ipFamilies != nil && slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
 		config["nodeIPFamilyIPv6"] = "ipv6"
 	}
 	if ipFamilies != nil && slices.Contains(ipFamilies, v1beta1.IPFamilyIPv4) {
