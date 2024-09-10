@@ -6,6 +6,7 @@ package validation
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/gardener/gardener/pkg/apis/core"
 	validationutils "github.com/gardener/gardener/pkg/utils/validation"
@@ -20,7 +21,7 @@ import (
 func ValidateNetworking(networking *core.Networking, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if networking.Nodes == nil {
+	if networking.Nodes == nil && slices.Contains(networking.IPFamilies, core.IPFamilyIPv4) {
 		allErrs = append(allErrs, field.Required(fldPath.Child("nodes"), "a nodes CIDR must be provided for AWS shoots"))
 	}
 
