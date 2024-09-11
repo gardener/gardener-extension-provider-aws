@@ -20,6 +20,7 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
+	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -451,8 +452,8 @@ ExecStart=/opt/bin/mtu-customizer.sh
 	return nil
 }
 
-func (e *ensurer) credentialProviderBinaryFile() (*extensionsv1alpha1.File, error) {
-	image, err := imagevector.ImageVector().FindImage(aws.ECRCredentialProviderImageName)
+func (e *ensurer) credentialProviderBinaryFile(k8sVersion string) (*extensionsv1alpha1.File, error) {
+	image, err := imagevector.ImageVector().FindImage(aws.ECRCredentialProviderImageName, imagevectorutils.TargetVersion(k8sVersion))
 	if err != nil {
 		return nil, err
 	}
@@ -560,7 +561,8 @@ func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.Garde
 		return err
 	}
 
-	k8sGreaterEqual127, err := versionutils.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", "1.27")
+	k8sVersion := cluster.Shoot.Spec.Kubernetes.Version
+	k8sGreaterEqual127, err := versionutils.CompareVersions(k8sVersion, ">=", "1.27")
 	if err != nil {
 		return err
 	}
@@ -584,7 +586,7 @@ func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.Garde
 	}
 
 	if ptr.Deref(infraConfig.EnableECRAccess, true) {
-		binConfig, err := e.credentialProviderBinaryFile()
+		binConfig, err := e.credentialProviderBinaryFile(k8sVersion)
 		if err != nil {
 			return err
 		}
