@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Helm chart for csi-driver-efs-controller (elastic file system)
+name: csi-driver-efs-controller
+version: 0.1.0

@@ -1,0 +1,136 @@
+# Default values for aws-efs-csi-driver.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+nameOverride: ""
+fullnameOverride: ""
+
+dnsPolicy: ClusterFirst
+
+useFIPS: false
+
+images:
+  csi-driver-efs: image-repository:image-tag
+  csi-node-driver-registrar: image-repository:image-tag
+  csi-liveness-probe: image-repository:image-tag
+
+resources:
+  driverNode:
+    requests:
+      cpu: 15m
+      memory: 42Mi
+    limits:
+      memory: 2Gi
+  nodeDriverRegistrar:
+    requests:
+      cpu: 11m
+      memory: 32Mi
+    limits:
+      memory: 1Gi
+  livenessProbe:
+    requests:
+      cpu: 11m
+      memory: 32Mi
+    limits:
+      memory: 200Mi
+
+sidecars:
+  livenessProbe:
+    securityContext:
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+  nodeDriverRegistrar:
+    securityContext:
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+
+## Node daemonset variables
+
+node:
+  # Number for the log level verbosity
+  logLevel: 2
+  volMetricsOptIn: false
+  volMetricsRefreshPeriod: 240
+  volMetricsFsRateLimit: 5
+  hostAliases:
+    {}
+    # For cross VPC EFS, you need to poison or overwrite the DNS for the efs volume as per
+    # https://docs.aws.amazon.com/efs/latest/ug/efs-different-vpc.html#wt6-efs-utils-step3
+    # implementing the suggested solution found here:
+    # https://github.com/kubernetes-sigs/aws-efs-csi-driver/issues/240#issuecomment-676849346
+    # EFS Vol ID, IP, Region
+    # "fs-01234567":
+    #   ip: 10.10.2.2
+  #   region: us-east-2
+  dnsConfig:
+    {}
+    # Example config which uses the AWS nameservers
+    # dnsPolicy: "None"
+    # dnsConfig:
+    #   nameservers:
+  #     - 169.254.169.253
+  podLabels: {}
+  podAnnotations: {}
+  additionalLabels: {}
+  resources:
+    {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+  #   memory: 128Mi
+  nodeSelector: {}
+    # Override default strategy (RollingUpdate) to speed up deployment.
+    # This can be useful if helm timeouts are observed.
+  # type: OnDelete
+  tolerations:
+    - operator: Exists
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: eks.amazonaws.com/compute-type
+                operator: NotIn
+                values:
+                  - fargate
+  # Specifies whether a service account should be created
+  serviceAccount:
+    create: true
+    name: efs-csi-node-sa
+    annotations: {}
+    ## Enable if EKS IAM for SA is used
+    #  eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/efs-csi-role
+  healthPort: 9809
+  # securityContext on the node pod
+  securityContext:
+    # The node pod must be run as root to bind to the registration/driver sockets
+    runAsNonRoot: false
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+  env: []
+  volumes: []
+  volumeMounts: []
+  kubeletPath: /var/lib/kubelet
+
+storageClasses: []
+# Add StorageClass resources like:
+# - name: efs-sc
+#   annotations:
+#     # Use that annotation if you want this to your default storageclass
+#     storageclass.kubernetes.io/is-default-class: "true"
+#   mountOptions:
+#   - tls
+#   parameters:
+#     provisioningMode: efs-ap
+#     fileSystemId: fs-1122aabb
+#     directoryPerms: "700"
+#     gidRangeStart: "1000"
+#     gidRangeEnd: "2000"
+#     basePath: "/dynamic_provisioning"
+#     subPathPattern: "/subPath"
+#     ensureUniqueDirectory: true
+#   reclaimPolicy: Delete
+#   volumeBindingMode: Immediate

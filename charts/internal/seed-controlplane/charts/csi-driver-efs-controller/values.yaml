@@ -1,0 +1,99 @@
+replicas: 1
+
+useFIPS: false
+
+images:
+  csi-driver-efs: image-repository:image-tag
+  csi-provisioner: image-repository:image-tag
+  csi-liveness-probe: image-repository:image-tag
+
+podAnnotations: {}
+
+resources:
+  driverController:
+    requests:
+      cpu: 20m
+      memory: 50Mi
+    limits:
+      memory: 360Mi
+  provisioner:
+    requests:
+      cpu: 11m
+      memory: 38Mi
+    limits:
+      memory: 400Mi
+  livenessProbe:
+    requests:
+      cpu: 11m
+      memory: 32Mi
+    limits:
+      memory: 200Mi
+
+## Controller deployment variables
+
+controller:
+  # Number for the log level verbosity
+  logLevel: 2
+  # If set, add pv/pvc metadata to plugin create requests as parameters.
+  extraCreateMetadata: true
+  # Add additional tags to access points
+  tags:
+    {}
+    # environment: prod
+  # region: us-east-1
+  # Enable if you want the controller to also delete the
+  # path on efs when deleteing an access point
+  deleteAccessPointRootDir: false
+  hostNetwork: false
+  priorityClassName: system-cluster-critical
+  dnsPolicy: ClusterFirst
+  dnsConfig: {}
+  additionalLabels: {}
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - key: efs.csi.aws.com/agent-not-ready
+      operator: Exists
+  # securityContext on the controller pod
+  securityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+  affinity: {}
+  env: []
+  volumes: []
+  volumeMounts: []
+  # Specifies whether a service account should be created
+  serviceAccount:
+    create: true
+    name: efs-csi-controller-sa
+    annotations: {}
+    ## Enable if EKS IAM for SA is used
+    #  eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/efs-csi-role
+  healthPort: 9909
+  regionalStsEndpoints: false
+  containerSecurityContext:
+    privileged: true
+  leaderElectionRenewDeadline: 10s
+  leaderElectionLeaseDuration: 15s
+
+storageClasses: []
+# Add StorageClass resources like:
+# - name: efs-sc
+#   annotations:
+#     # Use that annotation if you want this to your default storageclass
+#     storageclass.kubernetes.io/is-default-class: "true"
+#   mountOptions:
+#   - tls
+#   parameters:
+#     provisioningMode: efs-ap
+#     fileSystemId: fs-1122aabb
+#     directoryPerms: "700"
+#     gidRangeStart: "1000"
+#     gidRangeEnd: "2000"
+#     basePath: "/dynamic_provisioning"
+#     subPathPattern: "/subPath"
+#     ensureUniqueDirectory: true
+#   reclaimPolicy: Delete
+#   volumeBindingMode: Immediate

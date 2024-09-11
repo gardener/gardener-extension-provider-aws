@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: efs-csi-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: efs-csi-controller
+    app: csi-efs
+    role: driver-efs-controller
+    high-availability-config.resources.gardener.cloud/type: controller
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: efs-csi-controller
+      app: csi-efs
+      role: driver-efs-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: efs-csi-controller
+        app: csi-efs
+        role: driver-efs-controller
+        gardener.cloud/role: controlplane
+        networking.gardener.cloud/to-dns: allowed
+        networking.gardener.cloud/to-public-networks: allowed
+        networking.gardener.cloud/to-private-networks: allowed
+        networking.resources.gardener.cloud/to-kube-apiserver-tcp-443: allowed
+{{- if .Values.podAnnotations }}
+      annotations:
+{{ toYaml .Values.podAnnotations | indent 8 }}
+{{- end }}
+    spec:
+      automountServiceAccountToken: false
+      priorityClassName: gardener-system-300
+      {{- if hasKey .Values.controller "hostNetwork" }}
+      hostNetwork: {{ .Values.controller.hostNetwork }}
+      {{- end }}
+      serviceAccountName: {{ .Values.controller.serviceAccount.name }}
+      {{- with .Values.controller.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.controller.dnsPolicy }}
+      dnsPolicy: {{ .Values.controller.dnsPolicy }}
+      {{- end }}
+      {{- with .Values.controller.dnsConfig }}
+      dnsConfig: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: aws-csi-driver-efs
+          image: {{ index .Values.images "csi-driver-efs" }}
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            {{- if .Values.controller.tags }}
+            - --tags={{ include "aws-efs-csi-driver.tags" .Values.controller.tags }}
+            {{- end }}
+            - --v={{ .Values.controller.logLevel }}
+            - --delete-access-point-root-dir={{ hasKey .Values.controller "deleteAccessPointRootDir" | ternary .Values.controller.deleteAccessPointRootDir false }}
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+            {{- if .Values.controller.regionalStsEndpoints }}
+            - name: AWS_STS_REGIONAL_ENDPOINTS
+              value: regional
+            {{- end }}
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- if .Values.useFIPS }}
+            - name: AWS_USE_FIPS_ENDPOINT
+              value: "true"
+            {{- end }}
+            {{- with .Values.controller.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+            {{- with .Values.controller.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: healthz
+              containerPort: {{ .Values.controller.healthPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          {{- with .Values.resources.driverController }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
+        - name: aws-csi-provisioner
+          image: {{ index .Values.images "csi-provisioner" }}
+          args:
+            - --csi-address=$(ADDRESS)
+            - --v={{ .Values.controller.logLevel }}
+            - --feature-gates=Topology=true
+            {{- if .Values.controller.extraCreateMetadata }}
+            - --extra-create-metadata
+            {{- end }}
+            - --leader-election
+            {{- if hasKey .Values.controller "leaderElectionRenewDeadline" }}
+            - --leader-election-renew-deadline={{ .Values.controller.leaderElectionRenewDeadline }}
+            {{- end }}
+            {{- if hasKey .Values.controller "leaderElectionLeaseDuration" }}
+            - --leader-election-lease-duration={{ .Values.controller.leaderElectionLeaseDuration }}
+            {{- end }}
+          env:
+            - name: ADDRESS
+              value: /var/lib/csi/sockets/pluginproxy/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+          {{- with .Values.resources.provisioner }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
+        - name: liveness-probe
+          image: {{ index .Values.images "csi-liveness-probe" }}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --health-port={{ .Values.controller.healthPort }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            {{- with .Values.controller.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.resources.livenessProbe }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+        {{- with .Values.controller.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.controller.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

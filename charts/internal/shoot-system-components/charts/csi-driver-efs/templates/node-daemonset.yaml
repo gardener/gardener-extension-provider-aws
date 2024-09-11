@@ -1,0 +1,166 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: csi-driver-efs-node
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: csi
+    role: driver-efs-node
+    node.gardener.cloud/critical-component: "true"
+spec:
+  selector:
+    matchLabels:
+      app: csi
+      role: driver-efs-node
+      node.gardener.cloud/critical-component: "true"
+  template:
+    metadata:
+      labels:
+        app: csi
+        role: driver-efs-node
+        node.gardener.cloud/critical-component: "true"
+    spec:
+      priorityClassName: system-node-critical
+      hostNetwork: true
+      dnsPolicy: {{ .Values.dnsPolicy }}
+      serviceAccountName: {{ .Values.node.serviceAccount.name }}
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: driver-efs-node
+          securityContext:
+            privileged: true
+            capabilities:
+              add: [ "SYS_ADMIN" ]
+            allowPrivilegeEscalation: true
+          image: {{ index .Values.images "csi-driver-efs" }}
+          args:
+            - --endpoint=$(CSI_ENDPOINT)
+            - --logtostderr
+            - --v={{ .Values.node.logLevel }}
+            - --vol-metrics-opt-in={{ hasKey .Values.node "volMetricsOptIn" | ternary .Values.node.volMetricsOptIn false }}
+            - --vol-metrics-refresh-period={{ hasKey .Values.node "volMetricsRefreshPeriod" | ternary .Values.node.volMetricsRefreshPeriod 240 }}
+            - --vol-metrics-fs-rate-limit={{ hasKey .Values.node "volMetricsFsRateLimit" | ternary .Values.node.volMetricsFsRateLimit 5 }}
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:/csi/csi.sock
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- if .Values.useFIPS }}
+            - name: AWS_USE_FIPS_ENDPOINT
+              value: "true"
+            {{- end }}
+            {{- with .Values.node.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: kubelet-dir
+              mountPath: {{ .Values.node.kubeletPath }}
+              mountPropagation: "Bidirectional"
+            - name: plugin-dir
+              mountPath: /csi
+            - name: efs-state-dir
+              mountPath: /var/run/efs
+            - name: efs-utils-config
+              mountPath: /var/amazon/efs
+            - name: efs-utils-config-legacy
+              mountPath: /etc/amazon/efs-legacy
+            {{- with .Values.node.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: healthz
+              containerPort: {{ .Values.node.healthPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 2
+            failureThreshold: 5
+          {{- with .Values.resources.driverNode }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
+        - name: csi-driver-registrar
+          image: {{ index .Values.images "csi-node-driver-registrar" }}
+          args:
+            - --csi-address=$(ADDRESS)
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+            - --v={{ .Values.node.logLevel }}
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: {{ printf "%s/plugins/efs.csi.aws.com/csi.sock" (trimSuffix "/" .Values.node.kubeletPath) }}
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          {{- with .Values.resources.nodeDriverRegistrar }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.sidecars.nodeDriverRegistrar.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        - name: liveness-probe
+          image: {{ index .Values.images "csi-liveness-probe" }}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --health-port={{ .Values.node.healthPort }}
+            - --v={{ .Values.node.logLevel }}
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+          {{- with .Values.resources.livenessProbe }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.sidecars.livenessProbe.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: kubelet-dir
+          hostPath:
+            path: {{ .Values.node.kubeletPath }}
+            type: Directory
+        - name: plugin-dir
+          hostPath:
+            path: {{ printf "%s/plugins/efs.csi.aws.com/" (trimSuffix "/" .Values.node.kubeletPath) }}
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: {{ printf "%s/plugins_registry/" (trimSuffix "/" .Values.node.kubeletPath) }}
+            type: Directory
+        - name: efs-state-dir
+          hostPath:
+            path: /var/run/efs
+            type: DirectoryOrCreate
+        - name: efs-utils-config
+          hostPath:
+            path: /var/amazon/efs
+            type: DirectoryOrCreate
+        - name: efs-utils-config-legacy
+          hostPath:
+            path: /etc/amazon/efs
+            type: DirectoryOrCreate
+        {{- with .Values.node.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
