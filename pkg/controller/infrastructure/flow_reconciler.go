@@ -207,7 +207,7 @@ func (f *FlowReconciler) migrateFromTerraform(ctx context.Context, infra *extens
 		return nil, err
 	}
 
-	if err := infraflow.PatchProviderStatusAndState(ctx, f.client, infra, infrastructureStatus, &runtime.RawExtension{Object: state}, nil); err != nil {
+	if err := infraflow.PatchProviderStatusAndState(ctx, f.client, infra, infrastructureStatus, &runtime.RawExtension{Object: state}, nil, nil); err != nil {
 		return nil, fmt.Errorf("updating status state failed: %w", err)
 	}
 

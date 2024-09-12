@@ -148,7 +148,7 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 
 	if (infra.Networks.VPC.ID == nil && infra.Networks.VPC.CIDR == nil) || (infra.Networks.VPC.ID != nil && infra.Networks.VPC.CIDR != nil) {
 		allErrs = append(allErrs, field.Invalid(networksPath.Child("vpc"), infra.Networks.VPC, "must specify either a vpc id or a cidr"))
-	} else if infra.Networks.VPC.CIDR != nil && infra.Networks.VPC.ID == nil {
+	} else if infra.Networks.VPC.CIDR != nil && infra.Networks.VPC.ID == nil && !slices.Contains(ipFamilies, core.IPFamilyIPv6) {
 		cidrPath := networksPath.Child("vpc", "cidr")
 		vpcCIDR := cidrvalidation.NewCIDR(*infra.Networks.VPC.CIDR, cidrPath)
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(cidrPath, *infra.Networks.VPC.CIDR)...)

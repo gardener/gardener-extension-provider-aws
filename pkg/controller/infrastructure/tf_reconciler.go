@@ -135,7 +135,7 @@ func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1
 		return err
 	}
 
-	return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs)
+	return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, nil)
 }
 
 // Delete deletes the infrastructure using Terraformer.

@@ -170,7 +170,7 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 }
 
 func (c *FlowContext) persistState(ctx context.Context) error {
-	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, nil, c.computeInfrastructureState(), c.getEgressCIDRs())
+	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, nil, c.computeInfrastructureState(), c.getEgressCIDRs(), c.state.Get(IdentifierVpcIPv6CidrBlock))
 }
 
 func PatchProviderStatusAndState(
@@ -180,12 +180,21 @@ func PatchProviderStatusAndState(
 	status *awsv1alpha1.InfrastructureStatus,
 	state *runtime.RawExtension,
 	egressCIDRs []string,
+	vpcIPv6CidrBlock *string,
 ) error {
 	patch := client.MergeFrom(infra.DeepCopy())
 	if status != nil {
 		infra.Status.ProviderStatus = &runtime.RawExtension{Object: status}
 		if egressCIDRs != nil {
 			infra.Status.EgressCIDRs = egressCIDRs
+		}
+		if vpcIPv6CidrBlock != nil {
+			infra.Status.Networking = &extensionsv1alpha1.InfrastructureStatusNetworking{
+				Nodes: []string{*vpcIPv6CidrBlock},
+				Pods: []string{*vpcIPv6CidrBlock},
+				// Here we need an allocated prefix from AWS later.
+				Services: []string{"fd00:10:c::/108"},
+			}
 		}
 	}
 

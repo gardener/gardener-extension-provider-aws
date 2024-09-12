@@ -47,7 +47,8 @@ func (c *FlowContext) Reconcile(ctx context.Context) error {
 	status := c.computeInfrastructureStatus()
 	state := c.computeInfrastructureState()
 	egressCIDRs := c.getEgressCIDRs()
-	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, status, state, egressCIDRs)
+	vpcIPv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
+	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, status, state, egressCIDRs, vpcIPv6CidrBlock)
 }
 
 func (c *FlowContext) buildReconcileGraph() *flow.Graph {
