@@ -18,9 +18,8 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/controllerutils/reconciler"
-	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -37,7 +36,7 @@ const (
 )
 
 type actuator struct {
-	client           client.Client
+	client           k8sclient.Client
 	awsClientFactory awsclient.Factory
 }
 
@@ -71,13 +70,13 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensio
 
 	// Create or update DNS recordset
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
-	log.Info("Creating or updating DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
+	log.Info("Creating or updating DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", k8sclient.ObjectKeyFromObject(dns))
 	if err := awsClient.CreateOrUpdateDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl, stack); err != nil {
 		return wrapAWSClientError(err, fmt.Sprintf("could not create or update DNS recordset in zone %s with name %s, type %s, and values %v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values))
 	}
 
 	// Update resource status
-	patch := client.MergeFrom(dns.DeepCopy())
+	patch := k8sclient.MergeFrom(dns.DeepCopy())
 	dns.Status.Zone = &zone
 	return a.client.Status().Patch(ctx, dns, patch)
 }
@@ -104,7 +103,7 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, dns *extensionsv
 
 	// Delete DNS recordset
 	ttl := extensionsv1alpha1helper.GetDNSRecordTTL(dns.Spec.TTL)
-	log.Info("Deleting DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", kutil.ObjectName(dns))
+	log.Info("Deleting DNS recordset", "zone", zone, "name", dns.Spec.Name, "type", dns.Spec.RecordType, "values", dns.Spec.Values, "dnsrecord", k8sclient.ObjectKeyFromObject(dns))
 	if err := awsClient.DeleteDNSRecordSet(ctx, zone, dns.Spec.Name, string(dns.Spec.RecordType), dns.Spec.Values, ttl, stack); err != nil && !awsclient.IsNoSuchHostedZoneError(err) {
 		return wrapAWSClientError(err, fmt.Sprintf("could not delete DNS recordset in zone %s with name %s, type %s, and values %v", zone, dns.Spec.Name, dns.Spec.RecordType, dns.Spec.Values))
 	}
@@ -140,7 +139,7 @@ func (a *actuator) getZone(ctx context.Context, log logr.Logger, dns *extensions
 		if err != nil {
 			return "", wrapAWSClientError(err, "could not get DNS hosted zones")
 		}
-		log.Info("Got DNS hosted zones", "zones", zones, "dnsrecord", kutil.ObjectName(dns))
+		log.Info("Got DNS hosted zones", "zones", zones, "dnsrecord", k8sclient.ObjectKeyFromObject(dns))
 		zone := dnsrecord.FindZoneForName(zones, dns.Spec.Name)
 		if zone == "" {
 			return "", gardencorev1beta1helper.NewErrorWithCodes(fmt.Errorf("could not find DNS hosted zone for name %s", dns.Spec.Name), gardencorev1beta1.ErrorConfigurationProblem)

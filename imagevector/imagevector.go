@@ -14,6 +14,7 @@ import (
 )
 
 // ImagesYAML contains the content of the images.yaml file
+//
 //go:embed images.yaml
 var imagesYAML string
 var imageVector imagevector.ImageVector
@@ -24,7 +25,7 @@ func init() {
 	imageVector, err = imagevector.Read([]byte(imagesYAML))
 	runtime.Must(err)
 
-	imageVector, err = imagevector.WithEnvOverride(imageVector)
+	imageVector, err = imagevector.WithEnvOverride(imageVector, imagevector.OverrideEnv)
 	runtime.Must(err)
 }
 
