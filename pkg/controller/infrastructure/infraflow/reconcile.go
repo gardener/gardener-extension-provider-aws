@@ -675,6 +675,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				VpcId:                                   c.state.Get(IdentifierVPC),
 				AvailabilityZone:                        zone.Name,
 				AssignIpv6AddressOnCreation:             ptr.To(isIPv6(c.ipFamilies)),
+				CidrBlock:                               zone.Workers,
 				Ipv6Native:                              ptr.To(!isIPv4(c.ipFamilies)),
 				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
 			},
@@ -690,15 +691,11 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				VpcId:                                   c.state.Get(IdentifierVPC),
 				AvailabilityZone:                        zone.Name,
 				AssignIpv6AddressOnCreation:             ptr.To(isIPv6(c.ipFamilies)),
+				CidrBlock:                               zone.Internal,
 				Ipv6Native:                              ptr.To(!isIPv4(c.ipFamilies)),
 				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
 			},
 		)
-		for i, cidrBlock := range []string{zone.Workers, zone.Internal} {
-			if isIPv4(c.ipFamilies) {
-				desired[i].CidrBlock = cidrBlock
-			}
-		}
 
 		for i := 0; i < 3; i++ {
 			if len(subnetCIDRs) == 3 && subnetCIDRs[i] != "" {
