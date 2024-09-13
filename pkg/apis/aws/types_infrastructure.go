@@ -32,6 +32,11 @@ type InfrastructureConfig struct {
 	// See https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources
 	// for details of the underlying terraform implementation.
 	IgnoreTags *IgnoreTags
+
+	// EnableCsiEfs enables CSI EFS driver
+	// infra will add additional security group in bound rules and create an amazon EFS file system
+	// Defaults to false
+	EnableCsiEfs *bool
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

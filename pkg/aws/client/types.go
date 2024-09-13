@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/efs"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -164,6 +165,13 @@ type Interface interface {
 	// EC2 tags
 	CreateEC2Tags(ctx context.Context, resources []string, tags Tags) error
 	DeleteEC2Tags(ctx context.Context, resources []string, tags Tags) error
+
+	// Efs
+	CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efs.FileSystemDescription, error)
+	DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error
+	CreateMountEfsFileSystem(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.MountTargetDescription, error)
+	DescribeMountEfsFileSystem(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error)
+	DeleteMountEfsFileSystem(ctx context.Context, input *efs.DeleteMountTargetInput) error
 }
 
 // Factory creates instances of Interface.

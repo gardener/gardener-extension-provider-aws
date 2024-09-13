@@ -95,9 +95,7 @@ node:
                 operator: NotIn
                 values:
                   - fargate
-  # Specifies whether a service account should be created
   serviceAccount:
-    create: true
     name: efs-csi-node-sa
     annotations: {}
     ## Enable if EKS IAM for SA is used

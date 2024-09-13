@@ -88,6 +88,8 @@ const (
 	KeyPairFingerprint = "KeyPairFingerprint"
 	// KeyPairSpecFingerprint is the key to store the fingerprint of the public key from the spec
 	KeyPairSpecFingerprint = "KeyPairSpecFingerprint"
+	// NameEfsSystemID is the key for the
+	NameEfsSystemID = "efsSystemID"
 
 	// ChildIdVPCEndpoints is the child key for the VPC endpoints
 	ChildIdVPCEndpoints = "VPCEndpoints"
@@ -354,6 +356,10 @@ func (c *FlowContext) zoneSuffixHelpers(zoneName string) *ZoneSuffixHelper {
 			return &ZoneSuffixHelper{suffix: suffix}
 		}
 	}
+}
+
+func (c *FlowContext) isCsiEfsEnabled() bool {
+	return c.config != nil && c.config.EnableCsiEfs != nil && *c.config.EnableCsiEfs
 }
 
 // ZoneSuffixHelper provides methods to create suffices for various resources

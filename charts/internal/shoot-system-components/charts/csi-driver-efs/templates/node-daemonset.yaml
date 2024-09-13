@@ -24,6 +24,9 @@ spec:
       hostNetwork: true
       dnsPolicy: {{ .Values.dnsPolicy }}
       serviceAccountName: {{ .Values.node.serviceAccount.name }}
+      {{- with .Values.node.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
       tolerations:
         - effect: NoSchedule
           operator: Exists

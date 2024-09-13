@@ -292,6 +292,11 @@ func (in *InfrastructureConfig) DeepCopyInto(out *InfrastructureConfig) {
 		*out = new(IgnoreTags)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EnableCsiEfs != nil {
+		in, out := &in.EnableCsiEfs, &out.EnableCsiEfs
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

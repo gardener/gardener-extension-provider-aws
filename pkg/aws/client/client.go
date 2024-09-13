@@ -19,6 +19,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	"github.com/aws/aws-sdk-go/service/efs"
+	"github.com/aws/aws-sdk-go/service/efs/efsiface"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -54,6 +56,7 @@ type Client struct {
 	S3                            s3iface.S3API
 	ELB                           elbiface.ELBAPI
 	ELBv2                         elbv2iface.ELBV2API
+	EFS                           efsiface.EFSAPI
 	Route53                       route53iface.Route53API
 	Route53RateLimiter            *rate.Limiter
 	Route53RateLimiterWaitTimeout time.Duration
@@ -91,6 +94,7 @@ func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
 		IAM:                           iam.New(s, config),
 		STS:                           sts.New(s, config),
 		S3:                            s3.New(s, config),
+		EFS:                           efs.New(s, config),
 		Route53:                       route53.New(s, config),
 		Route53RateLimiter:            rate.NewLimiter(rate.Inf, 0),
 		Route53RateLimiterWaitTimeout: 1 * time.Second,
@@ -1995,6 +1999,28 @@ func (c *Client) PollImmediateUntil(ctx context.Context, condition wait.Conditio
 // an error or the specified context is cancelled or expired.
 func (c *Client) PollUntil(ctx context.Context, condition wait.ConditionWithContextFunc) error {
 	return wait.PollUntilContextCancel(ctx, c.PollInterval, false, condition)
+}
+
+func (c *Client) CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efs.FileSystemDescription, error) {
+	return c.EFS.CreateFileSystemWithContext(ctx, input)
+}
+
+func (c *Client) DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
+	_, err := c.EFS.DeleteFileSystemWithContext(ctx, input)
+	return err
+}
+
+func (c *Client) CreateMountEfsFileSystem(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.MountTargetDescription, error) {
+	return c.EFS.CreateMountTargetWithContext(ctx, input)
+}
+
+func (c *Client) DescribeMountEfsFileSystem(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
+	return c.EFS.DescribeMountTargetsWithContext(ctx, input)
+}
+
+func (c *Client) DeleteMountEfsFileSystem(ctx context.Context, input *efs.DeleteMountTargetInput) error {
+	_, err := c.EFS.DeleteMountTargetWithContext(ctx, input)
+	return err
 }
 
 // IsNotFoundError returns true if the given error is a awserr.Error indicating that an AWS resource was not found.

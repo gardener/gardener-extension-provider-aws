@@ -35,6 +35,11 @@ type InfrastructureConfig struct {
 	// for details of the underlying terraform implementation.
 	// +optional
 	IgnoreTags *IgnoreTags `json:"ignoreTags,omitempty"`
+
+	// EnableCsiEfs enables CSI EFS driver
+	// infra will add additional security group in bound rules and create an amazon EFS file system
+	// Defaults to false
+	EnableCsiEfs *bool `json:"enableCsiEfs,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

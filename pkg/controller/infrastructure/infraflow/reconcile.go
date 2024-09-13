@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
@@ -87,6 +88,10 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 	ensureZones := c.AddTask(g, "ensure zones resources",
 		c.ensureZones,
 		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
+
+	_ = c.AddTask(g, "ensure efs file system",
+		c.ensureEfsFileSystem,
+		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout), Dependencies(ensureZones))
 
 	_ = c.AddTask(g, "ensure egress CIDRs",
 		c.ensureEgressCIDRs,
@@ -517,6 +522,15 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 				Protocol:   "udp",
 				CidrBlocks: []string{zone.Public},
 			})
+		if c.isCsiEfsEnabled() {
+			desired.Rules = append(desired.Rules, &awsclient.SecurityGroupRule{
+				Type:       awsclient.SecurityGroupRuleTypeIngress,
+				FromPort:   30000,
+				ToPort:     2049,
+				Protocol:   "tcp",
+				CidrBlocks: []string{zone.Internal},
+			})
+		}
 	}
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
@@ -1389,6 +1403,52 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 		c.state.Set(KeyPairSpecFingerprint, specFingerprint)
 	}
 
+	return nil
+}
+
+func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
+	// already exists
+	if c.state.Get(NameEfsSystemID) != nil {
+		return nil
+	}
+
+	// TODO add flag to enable backup, performanceMode, Throughput, tags...
+	inputCreate := &efs.CreateFileSystemInput{
+		AvailabilityZoneName: ptr.To(c.infraSpec.Region),
+	}
+	efsCreate, err := c.client.CreateEfsFileSystem(ctx, inputCreate)
+	if err != nil {
+		return err
+	}
+
+	if efsCreate.FileSystemId == nil {
+		return fmt.Errorf("the created file system id is <nil>")
+	}
+
+	securityGroupID := c.state.Get(IdentifierNodesSecurityGroup)
+	if securityGroupID == nil {
+		return fmt.Errorf("security group not found in state")
+	}
+
+	childZones := c.state.GetChild(ChildIdZones)
+	for _, zoneKey := range childZones.GetChildrenKeys() {
+		zoneChild := childZones.GetChild(zoneKey)
+		subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers)
+		if subnetID == nil {
+			return fmt.Errorf("subnet not found in state")
+		}
+		inputMount := &efs.CreateMountTargetInput{
+			FileSystemId:   efsCreate.FileSystemId,
+			SecurityGroups: []*string{securityGroupID},
+			SubnetId:       subnetID,
+		}
+		_, err = c.client.CreateMountEfsFileSystem(ctx, inputMount)
+		if err != nil {
+			return err
+		}
+	}
+
+	c.state.Set(NameEfsSystemID, *efsCreate.FileSystemId)
 	return nil
 }
 

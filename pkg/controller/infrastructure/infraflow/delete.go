@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/utils/flow"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -56,6 +58,11 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 	_ = c.AddTask(g, "delete IAM role",
 		c.deleteIAMRole,
 		Timeout(defaultTimeout), Dependencies(deleteIAMInstanceProfile, deleteIAMRolePolicy))
+
+	// TODO check if should use dependency?
+	_ = c.AddTask(g, "delete efs file system",
+		c.deleteEfsFileSystem,
+		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout))
 
 	deleteZones := c.AddTask(g, "delete zones resources",
 		c.deleteZones,
@@ -340,5 +347,41 @@ func (c *FlowContext) deleteKeyPair(ctx context.Context) error {
 		return err
 	}
 	c.state.Delete(NameKeyPair)
+	return nil
+}
+
+func (c *FlowContext) deleteEfsFileSystem(ctx context.Context) error {
+	efsSystemID := c.state.Get(NameEfsSystemID)
+	if efsSystemID == nil {
+		return nil
+	}
+	log := LogFromContext(ctx)
+
+	efsMounts, err := c.client.DescribeMountEfsFileSystem(ctx, &efs.DescribeMountTargetsInput{
+		FileSystemId: efsSystemID,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, mount := range efsMounts.MountTargets {
+		log.Info("deleting...", "efsMountTarget", ptr.Deref(mount.MountTargetId, "<nil>"))
+		err = c.client.DeleteMountEfsFileSystem(ctx, &efs.DeleteMountTargetInput{
+			MountTargetId: mount.MountTargetId,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	log.Info("deleting...", "efsFileSystem", *efsSystemID)
+	err = c.client.DeleteEfsFileSystem(ctx, &efs.DeleteFileSystemInput{
+		FileSystemId: efsSystemID,
+	})
+	if err != nil {
+		return err
+	}
+
+	c.state.Delete(NameEfsSystemID)
 	return nil
 }

@@ -230,6 +230,19 @@ See <a href="https://registry.terraform.io/providers/hashicorp/aws/latest/docs/g
 for details of the underlying terraform implementation.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>enableCsiEfs</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>EnableCsiEfs enables CSI EFS driver
+infra will add additional security group in bound rules and create an amazon EFS file system
+Defaults to false</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig

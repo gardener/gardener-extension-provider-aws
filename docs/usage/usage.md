@@ -270,6 +270,8 @@ cloudControllerManager:
 #   ingressClassName: alb
 storage:
   managedDefaultClass: false
+#  csiEfs:
+#    enabled: true
 ```
 
 The `cloudControllerManager.featureGates` contains a map of explicitly enabled or disabled feature gates.
