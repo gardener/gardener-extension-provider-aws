@@ -129,9 +129,9 @@ Next, migrate the load balancer to be dual-stack enabled by adding/changing the 
 You have multiple options how to check that the load balancer has been provisioned successfully. It might be useful
 to peek into `status.loadBalancer.ingress` of the corresponding `Service` to identify the load balancer:
 
--  Check in the AWS console for the corresponding load balancer provisioning state
--  Perform domain name lookups with `nslookup`/`dig` to check whether the name resolves to an IP address.
--  Call your workload via the new load balancer, e.g. using
+- Check in the AWS console for the corresponding load balancer provisioning state
+- Perform domain name lookups with `nslookup`/`dig` to check whether the name resolves to an IP address.
+- Call your workload via the new load balancer, e.g. using
   `curl --resolve <my-domain-name>:<port>:<IP-address> https://<my-domain-name>:<port>`, which allows you to call your
   service with the "correct" domain name without using actual name resolution.
 - Wait a fixed period of time as load balancer creation is usually finished within 15 minutes
