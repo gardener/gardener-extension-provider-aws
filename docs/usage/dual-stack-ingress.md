@@ -91,3 +91,26 @@ connections it may lead to wasted/forgotten resources. Therefore, the (manual) c
 when migrating an existing `Service` instance.
 
 For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/service/nlb/).
+
+## DNS Considerations to prevent Downtime during a dual-stack Migration
+
+In case the migration of an existing service is desired, please check if there are DNS entries directly linked to the
+corresponding load balancer. The migrated load balancer will directly have a new domain name, which will not be ready
+in the beginning. Therefore, a direct migration of the domain name entries is not desired as it may cause a short
+downtime, i.e. domain name entries without backing IP addresses.
+
+If there are DNS entries directly linked to the corresponding load balancer and they are managed by the
+[shoot-dns-service](https://github.com/gardener/gardener-extension-shoot-dns-service), you can identify this via
+annotations with the prefix `dns.gardener.cloud/`. Those annotations can be linked to a `Service`, `Ingress` or
+`Gateway` resources. Alternatively, they may also use `DNSEntry` or `DNSAnnotation` resources.
+
+To prevent direct updates of the DNS entries when the load balancer is migrated add the annotation
+`dns.gardener.cloud/ignore: 'true'` to all affected resources next to the other `dns.gardener.cloud/...` annotations
+before starting the migration. Next, migrate the load balancer to be dual-stack enabled. Once the load balancer has
+been provisioned, i.e. after you can resolve its technical domain name available in the `Service` under
+`status.loadBalancer.ingress` and you can successfully connect to your service via this address, you can remove the
+annotation `dns.gardener.cloud/ignore: 'true'` again from the affected resources. It may take some additional time
+until the domain name change propagates.
+
+The check if the load balancer provisioning is complete can also be replaced by a timed wait or a check in the AWS
+infrastructure concerning the load balancer status.
