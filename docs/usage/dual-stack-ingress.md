@@ -104,13 +104,36 @@ If there are DNS entries directly linked to the corresponding load balancer and 
 annotations with the prefix `dns.gardener.cloud/`. Those annotations can be linked to a `Service`, `Ingress` or
 `Gateway` resources. Alternatively, they may also use `DNSEntry` or `DNSAnnotation` resources.
 
+For a seamless migration without downtime use the following three step approach:
+
+1. Temporarily prevent direct DNS updates
+2. Migrate the load balancer and wait until it is operational
+3. Allow DNS updates again
+
 To prevent direct updates of the DNS entries when the load balancer is migrated add the annotation
 `dns.gardener.cloud/ignore: 'true'` to all affected resources next to the other `dns.gardener.cloud/...` annotations
-before starting the migration. Next, migrate the load balancer to be dual-stack enabled. Once the load balancer has
-been provisioned, i.e. after you can resolve its technical domain name available in the `Service` under
-`status.loadBalancer.ingress` and you can successfully connect to your service via this address, you can remove the
-annotation `dns.gardener.cloud/ignore: 'true'` again from the affected resources. It may take some additional time
-until the domain name change propagates.
+before starting the migration. For example, in case of a `Service` ensure that the service looks like the following:
 
-The check if the load balancer provisioning is complete can also be replaced by a timed wait or a check in the AWS
-infrastructure concerning the load balancer status.
+```yaml
+kind: Service
+metadata:
+  annotations:
+    dns.gardener.cloud/class: garden
+    dns.gardener.cloud/dnsnames: '...'
+    ...
+```
+
+Next, migrate the load balancer to be dual-stack enabled by adding/changing the corresponding annotations.
+
+You have multiple options how to check that the load balancer has been provisioned successfully. It might be useful
+to peek into `status.loadBalancer.ingress` of the corresponding `Service` to identify the load balancer:
+
+-  Check in the AWS console for the corresponding load balancer provisioning state
+-  Perform domain name lookups with `nslookup`/`dig` to check whether the name resolves to an IP address.
+-  Call your workload via the new load balancer, e.g. using
+  `curl --resolve <my-domain-name>:<port>:<IP-address> https://<my-domain-name>:<port>`, which allows you to call your
+  service with the "correct" domain name without using actual name resolution.
+- Wait a fixed period of time as load balancer creation is usually finished within 15 minutes
+
+Once the load balancer has been provisioned, you can remove the annotation `dns.gardener.cloud/ignore: 'true'` again
+from the affected resources. It may take some additional time until the domain name change finally propagates.
