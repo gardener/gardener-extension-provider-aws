@@ -92,10 +92,10 @@ when migrating an existing `Service` instance.
 
 For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/service/nlb/).
 
-## DNS Considerations to prevent Downtime during a dual-stack Migration
+## DNS Considerations to Prevent Downtime During a Dual-Stack Migration
 
 In case the migration of an existing service is desired, please check if there are DNS entries directly linked to the
-corresponding load balancer. The migrated load balancer will directly have a new domain name, which will not be ready
+corresponding load balancer. The migrated load balancer will have a new domain name immediately, which will not be ready
 in the beginning. Therefore, a direct migration of the domain name entries is not desired as it may cause a short
 downtime, i.e. domain name entries without backing IP addresses.
 
@@ -137,4 +137,5 @@ to peek into `status.loadBalancer.ingress` of the corresponding `Service` to ide
 - Wait a fixed period of time as load balancer creation is usually finished within 15 minutes
 
 Once the load balancer has been provisioned, you can remove the annotation `dns.gardener.cloud/ignore: 'true'` again
-from the affected resources. It may take some additional time until the domain name change finally propagates.
+from the affected resources. It may take some additional time until the domain name change finally propagates
+(up to one hour).
