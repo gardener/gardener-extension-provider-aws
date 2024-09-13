@@ -190,7 +190,7 @@ var (
 				},
 			},
 			{
-				Name: aws.CSIDriverEfsController,
+				Name: aws.CSIEfsControllerName,
 				Images: []string{
 					aws.CSIDriverEbfImageName,
 					aws.CSIProvisionerImageName,
@@ -198,13 +198,13 @@ var (
 				},
 				Objects: []*chart.Object{
 					// csi-driver-efs-controller
-					{Type: &appsv1.Deployment{}, Name: aws.CSIDriverEfsController},
-					{Type: &corev1.ServiceAccount{}, Name: aws.CSIDriverEfsController},
+					{Type: &appsv1.Deployment{}, Name: aws.CSIEfsControllerName},
+					{Type: &corev1.ServiceAccount{}, Name: aws.CSIEfsControllerName},
 					// TODO check chart.Object.NAME
-					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIDriverEfsController},
-					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIDriverEfsController},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIDriverEfsController},
-					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIDriverEfsController},
+					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIEfsControllerName},
+					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIEfsControllerName},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIEfsControllerName},
+					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIEfsControllerName},
 				},
 			},
 		},
@@ -294,14 +294,14 @@ var (
 				},
 			},
 			{
-				Name: aws.CSIDriverEfs,
+				Name: aws.CSIDriverEfsName,
 				Images: []string{
 					aws.CSIDriverEbfImageName,
 					aws.CSINodeDriverRegistrarImageName,
 					aws.CSILivenessProbeImageName,
 				},
 				Objects: []*chart.Object{
-					{Type: &storagev1.CSIDriver{}, Name: aws.CSIDriverEfs},
+					{Type: &storagev1.CSIDriver{}, Name: aws.CSIDriverEfsName},
 					// csi-driver-efs-node
 					{Type: &appsv1.DaemonSet{}, Name: aws.CSIEfsNodeName},
 					{Type: &corev1.ServiceAccount{}, Name: aws.CSIEfsNodeName},
@@ -575,7 +575,7 @@ func getControlPlaneChartValues(
 		aws.AWSCustomRouteControllerName:  crc,
 		aws.AWSLoadBalancerControllerName: alb,
 		aws.CSIControllerName:             csi,
-		aws.CSIDriverEfsController:        csiEfs,
+		aws.CSIEfsControllerName:          csiEfs,
 	}, nil
 }
 
@@ -819,7 +819,7 @@ func getControlPlaneShootChartValues(
 		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
-		aws.CSIDriverEfs:                  csiDriverEfsValues,
+		aws.CSIEfsNodeName:                csiDriverEfsValues,
 	}, nil
 }
 
@@ -835,10 +835,10 @@ func getControlPlaneShootChartCSIManilaValues(
 		"enabled": csiManilaEnabled,
 	}
 
-	if csiManilaEnabled {
-		// TODO
-		// values["vpaEnabled"] = gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot)
-	}
+	//if csiManilaEnabled {
+	// TODO
+	// values["vpaEnabled"] = gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot)
+	//}
 
 	return values
 }
