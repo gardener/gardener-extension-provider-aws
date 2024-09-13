@@ -118,6 +118,7 @@ before starting the migration. For example, in case of a `Service` ensure that t
 kind: Service
 metadata:
   annotations:
+    dns.gardener.cloud/ignore: 'true'
     dns.gardener.cloud/class: garden
     dns.gardener.cloud/dnsnames: '...'
     ...
