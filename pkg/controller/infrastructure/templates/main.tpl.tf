@@ -68,7 +68,7 @@ resource "aws_vpc_endpoint" "vpc_gwep_{{ $ep }}" {
 }
 {{ end }}
 
-{{ if .isIPv6 }}
+{{ if and .create.vpc .isIPv6 }}
 resource "aws_egress_only_internet_gateway" "egw" {
   vpc_id = {{ $.vpc.id }}
 
@@ -213,11 +213,10 @@ resource "aws_subnet" "private_utility_z{{ $index }}" {
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
   enable_resource_name_dns_aaaa_record_on_launch = true
-  {{ end }}
-{{- if $.dualStack.enabled }}
+  {{- else if $.dualStack.enabled }}
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = false
-{{- end }}
+  {{- end }}
   timeouts {
     create = "5m"
     delete = "5m"
@@ -266,8 +265,7 @@ resource "aws_subnet" "public_utility_z{{ $index }}" {
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"
   enable_resource_name_dns_aaaa_record_on_launch = true
-  {{ end }}
-  {{- if $.dualStack.enabled }}
+  {{- else if $.dualStack.enabled }}
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = false
   {{- end }}
@@ -292,9 +290,7 @@ resource "aws_security_group_rule" "nodes_tcp_public_z{{ $index }}" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "tcp"
-  //{{ if $.isIPv4 }}
   cidr_blocks       = ["{{ $zone.public }}"]
-  //{{ end}}
   {{ if $.isIPv6 }}
   ipv6_cidr_blocks   = ["${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"]
   {{ end}}
@@ -306,9 +302,7 @@ resource "aws_security_group_rule" "nodes_udp_public_z{{ $index }}" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "udp"
-  //{{ if $.isIPv4 }}
   cidr_blocks       = ["{{ $zone.public }}"]
-  //{{ end}}
   {{ if $.isIPv6 }}
   ipv6_cidr_blocks   = ["${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"]
   {{ end}}
@@ -354,7 +348,7 @@ resource "aws_route" "private_utility_z{{ $index }}_nat" {
 resource "aws_route" "private_utility_z{{ $index }}_egw" {
   route_table_id         = aws_route_table.routetable_private_utility_z{{ $index }}.id
   destination_ipv6_cidr_block = "::/0"
-  egress_only_gateway_id = aws_egress_only_internet_gateway.egw.id
+  egress_only_gateway_id = {{ $.vpc.egressOnlyInternetGatewayID }}
 
   timeouts {
     create = "5m"
