@@ -83,6 +83,9 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 	}
 
 	ami, err := findImageAMIByRegion(machineImageVersion, vmDetails, region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find image AMI by region: %w", err)
+	}
 
 	return &Options{
 		Shoot:                    cluster.Shoot,

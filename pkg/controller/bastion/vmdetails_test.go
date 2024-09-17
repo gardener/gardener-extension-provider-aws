@@ -3,14 +3,14 @@ package bastion_test
 import (
 	"slices"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
-	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	core "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/gardener/gardener/pkg/utils/test/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
 )
 
 var _ = Describe("Bastion VM Details", func() {
@@ -25,24 +25,24 @@ var _ = Describe("Bastion VM Details", func() {
 			ImageVersion:  "1.2.3",
 		}
 		spec = core.CloudProfileSpec{
-			Bastion: &v1beta1.Bastion{
-				MachineImage: &v1beta1.BastionMachineImage{
+			Bastion: &core.Bastion{
+				MachineImage: &core.BastionMachineImage{
 					Name: desired.ImageBaseName,
 				},
-				MachineType: &v1beta1.BastionMachineType{
+				MachineType: &core.BastionMachineType{
 					Name: desired.MachineName,
 				},
 			},
-			MachineTypes: []v1beta1.MachineType{{
+			MachineTypes: []core.MachineType{{
 				CPU:          resource.MustParse("4"),
 				Name:         desired.MachineName,
 				Architecture: ptr.To(desired.Architecture),
 			}},
-			MachineImages: []v1beta1.MachineImage{{
+			MachineImages: []core.MachineImage{{
 				Name: desired.ImageBaseName,
-				Versions: []v1beta1.MachineImageVersion{
+				Versions: []core.MachineImageVersion{
 					{
-						ExpirableVersion: v1beta1.ExpirableVersion{
+						ExpirableVersion: core.ExpirableVersion{
 							Version:        desired.ImageVersion,
 							Classification: ptr.To(core.ClassificationSupported),
 						},
@@ -57,8 +57,8 @@ var _ = Describe("Bastion VM Details", func() {
 			return image.Name == imageName
 		})
 
-		newVersion := v1beta1.MachineImageVersion{
-			ExpirableVersion: v1beta1.ExpirableVersion{
+		newVersion := core.MachineImageVersion{
+			ExpirableVersion: core.ExpirableVersion{
 				Version:        version,
 				Classification: ptr.To(classification),
 			},
@@ -67,9 +67,9 @@ var _ = Describe("Bastion VM Details", func() {
 
 		// append new machine image
 		if machineIndex == -1 {
-			spec.MachineImages = append(spec.MachineImages, v1beta1.MachineImage{
+			spec.MachineImages = append(spec.MachineImages, core.MachineImage{
 				Name:     imageName,
-				Versions: []v1beta1.MachineImageVersion{newVersion},
+				Versions: []core.MachineImageVersion{newVersion},
 			})
 		}
 
@@ -85,7 +85,7 @@ var _ = Describe("Bastion VM Details", func() {
 		})
 
 		It("should succeed with empty bastion section", func() {
-			spec.Bastion = &v1beta1.Bastion{}
+			spec.Bastion = &core.Bastion{}
 			details, err := bastion.DetermineVmDetails(spec)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(details).To(DeepEqual(desired))
@@ -140,7 +140,7 @@ var _ = Describe("Bastion VM Details", func() {
 
 		It("should find smallest machine", func() {
 			spec.Bastion.MachineType = nil
-			spec.MachineTypes = append(spec.MachineTypes, v1beta1.MachineType{
+			spec.MachineTypes = append(spec.MachineTypes, core.MachineType{
 				CPU:          resource.MustParse("1"),
 				GPU:          resource.MustParse("1"),
 				Name:         "smallerMachine",
@@ -166,13 +166,11 @@ var _ = Describe("Bastion VM Details", func() {
 			Expect(details).To(DeepEqual(desired))
 		})
 
-		It("allow preview image if version is specified", func() {
+		It("should not allow preview image even if version is specified", func() {
 			addImageToCloudProfile(desired.ImageBaseName, "1.2.4", core.ClassificationPreview, []string{"amd64"})
 			spec.Bastion.MachineImage.Version = ptr.To("1.2.4")
-			desired.ImageVersion = "1.2.4"
-			details, err := bastion.DetermineVmDetails(spec)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(details).To(DeepEqual(desired))
+			_, err := bastion.DetermineVmDetails(spec)
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("only use images for matching machineType architecture", func() {
