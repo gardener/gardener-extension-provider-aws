@@ -525,7 +525,7 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		if c.isCsiEfsEnabled() {
 			desired.Rules = append(desired.Rules, &awsclient.SecurityGroupRule{
 				Type:       awsclient.SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
+				FromPort:   2049,
 				ToPort:     2049,
 				Protocol:   "tcp",
 				CidrBlocks: []string{zone.Internal},
