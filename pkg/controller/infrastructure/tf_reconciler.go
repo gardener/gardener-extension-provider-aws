@@ -328,13 +328,13 @@ func (t *TerraformReconciler) computeEgressCIDRs(ctx context.Context, infra *ext
 
 func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *api.InfrastructureConfig, awsClient awsclient.Interface, ipFamilies []v1beta1.IPFamily) (map[string]interface{}, error) {
 	var (
-		dhcpDomainName    = "ec2.internal"
-		createVPC         = true
-		vpcID             = "aws_vpc.vpc.id"
-		vpcCIDR           = ""
-		internetGatewayID = "aws_internet_gateway.igw.id"
+		dhcpDomainName              = "ec2.internal"
+		createVPC                   = true
+		vpcID                       = "aws_vpc.vpc.id"
+		vpcCIDR                     = ""
+		internetGatewayID           = "aws_internet_gateway.igw.id"
 		egressOnlyInternetGatewayID = "aws_egress_only_internet_gateway.egw.id"
-		ipv6CidrBlock     = "aws_vpc.vpc.ipv6_cidr_block"
+		ipv6CidrBlock               = "aws_vpc.vpc.ipv6_cidr_block"
 
 		ignoreTagKeys        []string
 		ignoreTagKeyPrefixes []string
@@ -423,13 +423,13 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		},
 		"sshPublicKey": string(infrastructure.Spec.SSHPublicKey),
 		"vpc": map[string]interface{}{
-			"id":                vpcID,
-			"cidr":              vpcCIDR,
-			"dhcpDomainName":    dhcpDomainName,
-			"internetGatewayID": internetGatewayID,
+			"id":                          vpcID,
+			"cidr":                        vpcCIDR,
+			"dhcpDomainName":              dhcpDomainName,
+			"internetGatewayID":           internetGatewayID,
 			"egressOnlyInternetGatewayID": egressOnlyInternetGatewayID,
-			"gatewayEndpoints":  infrastructureConfig.Networks.VPC.GatewayEndpoints,
-			"ipv6CidrBlock":     ipv6CidrBlock,
+			"gatewayEndpoints":            infrastructureConfig.Networks.VPC.GatewayEndpoints,
+			"ipv6CidrBlock":               ipv6CidrBlock,
 		},
 		"clusterName": infrastructure.Namespace,
 		"zones":       zones,
