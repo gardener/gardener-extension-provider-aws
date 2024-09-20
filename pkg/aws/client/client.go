@@ -7,6 +7,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -1969,6 +1970,62 @@ func (c *Client) DeleteIAMRolePolicy(ctx context.Context, policyName, roleName s
 	return ignoreNotFound(err)
 }
 
+// DescribeEfsFileSystems retrieve information about an efs file system by its ID
+func (c *Client) DescribeEfsFileSystems(ctx context.Context, fileSystemID *string) (*efs.FileSystemDescription, error) {
+	output, err := c.EFS.DescribeFileSystemsWithContext(ctx, &efs.DescribeFileSystemsInput{
+		FileSystemId: fileSystemID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(output.FileSystems) != 1 {
+		return nil, fmt.Errorf("expected 1 file system, got %d", len(output.FileSystems))
+	}
+	return output.FileSystems[0], nil
+}
+
+// CreateEfsFileSystem creates an efs file system
+func (c *Client) CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efs.FileSystemDescription, error) {
+	output, err := c.EFS.CreateFileSystemWithContext(ctx, input)
+	if ignoreAlreadyExists(err) != nil {
+		return nil, err
+	}
+	var fsDescription *efs.FileSystemDescription
+	err = c.PollImmediateUntil(ctx, func(ctx context.Context) (bool, error) {
+		fsDescription, err = c.DescribeEfsFileSystems(ctx, output.FileSystemId)
+		if err != nil {
+			return true, err
+		}
+		if fsDescription.LifeCycleState != nil && *fsDescription.LifeCycleState == efs.LifeCycleStateAvailable {
+			return true, nil
+		}
+		return false, nil
+	})
+	return fsDescription, err
+}
+
+// DeleteEfsFileSystem deletes an efs file system
+func (c *Client) DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
+	_, err := c.EFS.DeleteFileSystemWithContext(ctx, input)
+	return err
+}
+
+// DescribeMountTargetsEfs describes an efs mount target
+func (c *Client) DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
+	return c.EFS.DescribeMountTargetsWithContext(ctx, input)
+}
+
+// CreateMountTargetEfs creates an efs mount target
+func (c *Client) CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.MountTargetDescription, error) {
+	return c.EFS.CreateMountTargetWithContext(ctx, input)
+}
+
+// DeleteMountTargetEfs deletes an efs mount target
+func (c *Client) DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error {
+	_, err := c.EFS.DeleteMountTargetWithContext(ctx, input)
+	return err
+}
+
 // CreateEC2Tags creates the tags for the given EC2 resource identifiers
 func (c *Client) CreateEC2Tags(ctx context.Context, resources []string, tags Tags) error {
 	input := &ec2.CreateTagsInput{
@@ -2001,26 +2058,13 @@ func (c *Client) PollUntil(ctx context.Context, condition wait.ConditionWithCont
 	return wait.PollUntilContextCancel(ctx, c.PollInterval, false, condition)
 }
 
-func (c *Client) CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efs.FileSystemDescription, error) {
-	return c.EFS.CreateFileSystemWithContext(ctx, input)
-}
-
-func (c *Client) DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
-	_, err := c.EFS.DeleteFileSystemWithContext(ctx, input)
-	return err
-}
-
-func (c *Client) CreateMountEfsFileSystem(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.MountTargetDescription, error) {
-	return c.EFS.CreateMountTargetWithContext(ctx, input)
-}
-
-func (c *Client) DescribeMountEfsFileSystem(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
-	return c.EFS.DescribeMountTargetsWithContext(ctx, input)
-}
-
-func (c *Client) DeleteMountEfsFileSystem(ctx context.Context, input *efs.DeleteMountTargetInput) error {
-	_, err := c.EFS.DeleteMountTargetWithContext(ctx, input)
-	return err
+// IsAlreadyExistsError returns true if the given error is a awserr.Error indicating that an AWS resource was not found.
+func IsAlreadyExistsError(err error) bool {
+	var aerr awserr.Error
+	if errors.As(err, &aerr) && (aerr.Code() == efs.ErrCodeFileSystemAlreadyExists) {
+		return true
+	}
+	return false
 }
 
 // IsNotFoundError returns true if the given error is a awserr.Error indicating that an AWS resource was not found.
@@ -2039,6 +2083,13 @@ func IsAlreadyAssociatedError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func ignoreAlreadyExists(err error) error {
+	if err == nil || IsAlreadyExistsError(err) {
+		return nil
+	}
+	return err
 }
 
 func ignoreNotFound(err error) error {

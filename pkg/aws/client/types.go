@@ -167,11 +167,12 @@ type Interface interface {
 	DeleteEC2Tags(ctx context.Context, resources []string, tags Tags) error
 
 	// Efs
+	DescribeEfsFileSystems(ctx context.Context, fileSystemID *string) (*efs.FileSystemDescription, error)
 	CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efs.FileSystemDescription, error)
 	DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error
-	CreateMountEfsFileSystem(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.MountTargetDescription, error)
-	DescribeMountEfsFileSystem(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error)
-	DeleteMountEfsFileSystem(ctx context.Context, input *efs.DeleteMountTargetInput) error
+	DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error)
+	CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.MountTargetDescription, error)
+	DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error
 }
 
 // Factory creates instances of Interface.

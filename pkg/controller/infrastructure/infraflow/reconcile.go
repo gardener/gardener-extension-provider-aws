@@ -1412,9 +1412,24 @@ func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
 		return nil
 	}
 
-	// TODO add flag to enable backup, performanceMode, Throughput, tags...
+	// TODO separate function
+	var efsCreationToken string
+	tokenCandidate := fmt.Sprintf("%s-efs-token", c.namespace)
+	// only allow ASCII chars
+	for _, r := range tokenCandidate {
+		if r <= 127 {
+			efsCreationToken += string(r)
+		}
+	}
+	// Restrict string to 64 characters
+	if len(efsCreationToken) > 64 {
+		efsCreationToken = efsCreationToken[:64]
+	}
+
+	// TODO add flag to enable backup, performanceMode, Throughput...
 	inputCreate := &efs.CreateFileSystemInput{
-		AvailabilityZoneName: ptr.To(c.infraSpec.Region),
+		CreationToken: ptr.To(efsCreationToken),
+		Tags:          c.commonTags.ToEfsTags(), // TODO add name tag
 	}
 	efsCreate, err := c.client.CreateEfsFileSystem(ctx, inputCreate)
 	if err != nil {
@@ -1442,7 +1457,7 @@ func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
 			SecurityGroups: []*string{securityGroupID},
 			SubnetId:       subnetID,
 		}
-		_, err = c.client.CreateMountEfsFileSystem(ctx, inputMount)
+		_, err = c.client.CreateMountTargetEfs(ctx, inputMount)
 		if err != nil {
 			return err
 		}

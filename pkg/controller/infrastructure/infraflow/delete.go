@@ -357,7 +357,7 @@ func (c *FlowContext) deleteEfsFileSystem(ctx context.Context) error {
 	}
 	log := LogFromContext(ctx)
 
-	efsMounts, err := c.client.DescribeMountEfsFileSystem(ctx, &efs.DescribeMountTargetsInput{
+	efsMounts, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
 		FileSystemId: efsSystemID,
 	})
 	if err != nil {
@@ -366,7 +366,7 @@ func (c *FlowContext) deleteEfsFileSystem(ctx context.Context) error {
 
 	for _, mount := range efsMounts.MountTargets {
 		log.Info("deleting...", "efsMountTarget", ptr.Deref(mount.MountTargetId, "<nil>"))
-		err = c.client.DeleteMountEfsFileSystem(ctx, &efs.DeleteMountTargetInput{
+		err = c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
 			MountTargetId: mount.MountTargetId,
 		})
 		if err != nil {
