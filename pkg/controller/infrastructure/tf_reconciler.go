@@ -135,7 +135,7 @@ func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1
 		return err
 	}
 
-	return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, nil)
+	return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, nil, nil)
 }
 
 // Delete deletes the infrastructure using Terraformer.
@@ -374,7 +374,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			existingEgressOnlyInternetGatewayID := eogw.EgressOnlyInternetGatewayId
 			egressOnlyInternetGatewayID = strconv.Quote(existingEgressOnlyInternetGatewayID)
 		}
-		// if dual stack is enabled or ipFamily is IPv6, then we wait for until the target VPC has a ipv6 CIDR assigned.
+		// if dual stack is enabled or ipFamily is IPv6, then we wait until the target VPC has a ipv6 CIDR assigned.
 		if enableDualStack || isIPv6 {
 			existingIPv6CidrBlock, err := awsClient.WaitForIPv6Cidr(ctx, existingVpcID)
 			if err != nil {

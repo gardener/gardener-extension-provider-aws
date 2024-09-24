@@ -112,6 +112,21 @@ func (mr *MockInterfaceMockRecorder) CreateBucketIfNotExists(arg0, arg1, arg2 an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucketIfNotExists", reflect.TypeOf((*MockInterface)(nil).CreateBucketIfNotExists), arg0, arg1, arg2)
 }
 
+// CreateCIDRReservation mocks base method.
+func (m *MockInterface) CreateCIDRReservation(arg0 context.Context, arg1 *client.Subnet, arg2, arg3 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCIDRReservation", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateCIDRReservation indicates an expected call of CreateCIDRReservation.
+func (mr *MockInterfaceMockRecorder) CreateCIDRReservation(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCIDRReservation", reflect.TypeOf((*MockInterface)(nil).CreateCIDRReservation), arg0, arg1, arg2, arg3)
+}
+
 // CreateEC2Tags mocks base method.
 func (m *MockInterface) CreateEC2Tags(arg0 context.Context, arg1 []string, arg2 client.Tags) error {
 	m.ctrl.T.Helper()
@@ -1057,6 +1072,21 @@ func (m *MockInterface) GetIAMRolePolicy(arg0 context.Context, arg1, arg2 string
 func (mr *MockInterfaceMockRecorder) GetIAMRolePolicy(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).GetIAMRolePolicy), arg0, arg1, arg2)
+}
+
+// GetIPv6CIDRReservations mocks base method.
+func (m *MockInterface) GetIPv6CIDRReservations(arg0 context.Context, arg1 *client.Subnet) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIPv6CIDRReservations", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetIPv6CIDRReservations indicates an expected call of GetIPv6CIDRReservations.
+func (mr *MockInterfaceMockRecorder) GetIPv6CIDRReservations(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPv6CIDRReservations", reflect.TypeOf((*MockInterface)(nil).GetIPv6CIDRReservations), arg0, arg1)
 }
 
 // GetIPv6Cidr mocks base method.

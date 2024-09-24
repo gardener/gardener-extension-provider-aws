@@ -1059,6 +1059,7 @@ func verifyCreation(
 		workersSubnetID      string
 		publicSubnetID       string
 		internalSubnetID     string
+		foundCIDRReservation int
 	)
 	for _, subnet := range describeSubnetsOutput.Subnets {
 		for _, tag := range subnet.Tags {
@@ -1089,6 +1090,11 @@ func verifyCreation(
 					ID:      ptr.Deref(subnet.SubnetId, ""),
 					Zone:    availabilityZone,
 				})))
+				if isIPv6(ipfamilies) {
+					output, err := awsClient.EC2.GetSubnetCidrReservationsWithContext(ctx, &ec2.GetSubnetCidrReservationsInput{SubnetId: subnet.SubnetId})
+					Expect(err).NotTo(HaveOccurred())
+					foundCIDRReservation += len(output.SubnetIpv6CidrReservations)
+				}
 			}
 			if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+publicUtilitySuffix)) {
 				foundExpectedSubnets++
@@ -1147,6 +1153,9 @@ func verifyCreation(
 		}
 	}
 	Expect(foundExpectedSubnets).To(Equal(3))
+	if isIPv6(ipfamilies) {
+		Expect(foundCIDRReservation).To(Equal(1))
+	}
 
 	// elastic ips
 
