@@ -6,6 +6,7 @@ package controlplane
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -33,7 +34,6 @@ import (
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/ptr"
-	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -124,6 +124,48 @@ var _ = Describe("Ensurer", func() {
 				},
 			},
 		}
+
+	})
+
+	JustBeforeEach(func() {
+		eContextK8s126 = gcontext.NewInternalGardenContext(
+			&extensionscontroller.Cluster{
+				Shoot: &gardencorev1beta1.Shoot{
+					Spec: gardencorev1beta1.ShootSpec{
+						Kubernetes: gardencorev1beta1.Kubernetes{
+							Version: "1.26.1",
+						},
+						Provider: gardencorev1beta1.Provider{
+							InfrastructureConfig: &runtime.RawExtension{
+								Raw: encode(infrastructure),
+							},
+						},
+					},
+				},
+			},
+		)
+		eContextK8s127 = gcontext.NewInternalGardenContext(
+			&extensionscontroller.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "shoot--project--foo",
+				},
+				Shoot: &gardencorev1beta1.Shoot{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
+					Spec: gardencorev1beta1.ShootSpec{
+						Kubernetes: gardencorev1beta1.Kubernetes{
+							Version: "1.27.1",
+						},
+						Provider: gardencorev1beta1.Provider{
+							InfrastructureConfig: &runtime.RawExtension{
+								Raw: encode(infrastructure),
+							},
+						},
+					},
+				},
+			},
+		)
 	})
 
 	AfterEach(func() {
@@ -493,13 +535,6 @@ done
 				files = []extensionsv1alpha1.File{oldFile}
 			)
 
-			c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
-				func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
-					*infra = *infrastructure
-					return nil
-				},
-			)
-
 			// Create ensurer
 			ensurer := NewEnsurer(logger, c)
 
@@ -535,38 +570,36 @@ done
 			Expect(files).To(ConsistOf(oldFile, additionalFile))
 		})
 
-		It("should not add credential provider files to the current ones if ECRAccess is disabled", func() {
-			var (
-				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
-				additionalFile = extensionsv1alpha1.File{
-					Path:        filePath,
-					Permissions: &permissions,
-					Content: extensionsv1alpha1.FileContent{
-						Inline: &extensionsv1alpha1.FileContentInline{
-							Encoding: "",
-							Data:     customFileContent,
+		Context("ECRAccess is disabled", func() {
+			BeforeEach(func() {
+				infraConfig.EnableECRAccess = ptr.To(false)
+			})
+
+			It("should not add credential provider files to the current ones if ECRAccess is disabled", func() {
+				var (
+					oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
+					additionalFile = extensionsv1alpha1.File{
+						Path:        filePath,
+						Permissions: &permissions,
+						Content: extensionsv1alpha1.FileContent{
+							Inline: &extensionsv1alpha1.FileContentInline{
+								Encoding: "",
+								Data:     customFileContent,
+							},
 						},
-					},
-				}
+					}
 
-				files = []extensionsv1alpha1.File{oldFile}
-			)
+					files = []extensionsv1alpha1.File{oldFile}
+				)
 
-			infraConfig.EnableECRAccess = ptr.To(false)
-			c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
-				func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
-					*infra = *infrastructure
-					return nil
-				},
-			)
+				// Create ensurer
+				ensurer := NewEnsurer(logger, c)
 
-			// Create ensurer
-			ensurer := NewEnsurer(logger, c)
-
-			// Call EnsureAdditionalFiles method and check the result
-			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(files).To(ConsistOf(oldFile, additionalFile))
+				// Call EnsureAdditionalFiles method and check the result
+				err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(files).To(ConsistOf(oldFile, additionalFile))
+			})
 		})
 
 		It("should add additional files to the current ones", func() {
@@ -665,31 +698,21 @@ done
 				Expect(opts).To(Equal(newUnitOptions))
 			})
 
-			It("kubelet version >= 1.27 without ECR access", func() {
-				c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
-					func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
-						*infra = *infrastructure
+			Context("ECRAccess is disabled", func() {
+				BeforeEach(func() {
+					infraConfig.EnableECRAccess = ptr.To(false)
+				})
 
-						infraConfig.EnableECRAccess = ptr.To(false)
-						return nil
-					},
-				).AnyTimes()
-
-				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s127, semver.MustParse("1.27.0"), oldUnitOptions, nil)
-				Expect(err).To(Not(HaveOccurred()))
-				Expect(opts).To(Equal(newUnitOptions))
+				It("kubelet version >= 1.27 without ECR access", func() {
+					opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s127, semver.MustParse("1.27.0"), oldUnitOptions, nil)
+					Expect(err).To(Not(HaveOccurred()))
+					Expect(opts).To(Equal(newUnitOptions))
+				})
 			})
 
 			It("kubelet version >= 1.27 with ECR Access", func() {
 				newUnitOptions[0].Value += addCmdOption("--image-credential-provider-config=/opt/gardener/ecr-credential-provider-config.json")
 				newUnitOptions[0].Value += addCmdOption("--image-credential-provider-bin-dir=/opt/bin/")
-
-				c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
-					func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
-						*infra = *infrastructure
-						return nil
-					},
-				).AnyTimes()
 
 				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s127, semver.MustParse("1.27.0"), oldUnitOptions, nil)
 				Expect(err).To(Not(HaveOccurred()))
@@ -928,4 +951,9 @@ func checkClusterAutoscalerDeployment(dep *appsv1.Deployment, k8sVersion string)
 func addCmdOption(s string) string {
 	return ` \
     ` + s
+}
+
+func encode(obj runtime.Object) []byte {
+	data, _ := json.Marshal(obj)
+	return data
 }
