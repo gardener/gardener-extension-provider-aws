@@ -44,6 +44,18 @@ func CloudProfileConfigFromCluster(cluster *controller.Cluster) (*api.CloudProfi
 	return cloudProfileConfig, nil
 }
 
+// InfrastructureConfigFromCluster decodes the infrastructure configuration for a cluster
+func InfrastructureConfigFromCluster(cluster *controller.Cluster) (*api.InfrastructureConfig, error) {
+	var infrastructureConfig *api.InfrastructureConfig
+	if cluster != nil && cluster.Shoot != nil && cluster.Shoot.Spec.Provider.InfrastructureConfig != nil && cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw != nil {
+		infrastructureConfig = &api.InfrastructureConfig{}
+		if _, _, err := decoder.Decode(cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw, nil, infrastructureConfig); err != nil {
+			return nil, fmt.Errorf("could not decode infrastructureConfig of shoot '%s': %w", k8sclient.ObjectKeyFromObject(cluster.Shoot), err)
+		}
+	}
+	return infrastructureConfig, nil
+}
+
 // InfrastructureConfigFromInfrastructure extracts the InfrastructureConfig from the
 // ProviderConfig section of the given Infrastructure.
 func InfrastructureConfigFromInfrastructure(infra *extensionsv1alpha1.Infrastructure) (*api.InfrastructureConfig, error) {
