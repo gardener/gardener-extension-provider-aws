@@ -185,8 +185,7 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (({{ $index }} * 3)))}"
   enable_resource_name_dns_aaaa_record_on_launch = true
-  {{ end }}
-  {{- if $.dualStack.enabled }}
+  {{- else if $.dualStack.enabled }}
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = false
   {{- end }}

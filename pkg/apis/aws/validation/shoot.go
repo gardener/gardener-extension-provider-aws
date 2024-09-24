@@ -21,7 +21,7 @@ import (
 func ValidateNetworking(networking *core.Networking, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if networking.Nodes == nil && slices.Contains(networking.IPFamilies, core.IPFamilyIPv4) {
+	if networking.Nodes == nil && (networking.IPFamilies == nil || slices.Contains(networking.IPFamilies, core.IPFamilyIPv4)) {
 		allErrs = append(allErrs, field.Required(fldPath.Child("nodes"), "a nodes CIDR must be provided for AWS shoots"))
 	}
 

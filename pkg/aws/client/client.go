@@ -1643,10 +1643,12 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 		modified = true
 	}
 	privateDnsHostnameTypeOnLaunch := desired.PrivateDnsHostnameTypeOnLaunch
-	if privateDnsHostnameTypeOnLaunch == nil && desired.CidrBlock != "" && !(desired.Ipv6Native != nil && *desired.Ipv6Native) {
-		privateDnsHostnameTypeOnLaunch = aws.String(ec2.HostnameTypeIpName)
-	} else {
-		privateDnsHostnameTypeOnLaunch = aws.String(ec2.HostnameTypeResourceName)
+	if privateDnsHostnameTypeOnLaunch == nil {
+		if desired.CidrBlock != "" && !(desired.Ipv6Native != nil && *desired.Ipv6Native) {
+			privateDnsHostnameTypeOnLaunch = aws.String(ec2.HostnameTypeIpName)
+		} else {
+			privateDnsHostnameTypeOnLaunch = aws.String(ec2.HostnameTypeResourceName)
+		}
 	}
 	if !reflect.DeepEqual(current.PrivateDnsHostnameTypeOnLaunch, privateDnsHostnameTypeOnLaunch) {
 		input := &ec2.ModifySubnetAttributeInput{
