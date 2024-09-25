@@ -60,10 +60,6 @@ controller:
     runAsUser: 0
     runAsGroup: 0
     fsGroup: 0
-  affinity: {}
-  env: []
-  volumes: []
-  volumeMounts: []
   serviceAccount:
     name: efs-csi-controller-sa
     annotations: {}
