@@ -858,8 +858,10 @@ func checkKubeAPIServerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 	}
 	Expect(c.Command).NotTo(ContainElement("--cloud-provider=aws"))
 	Expect(c.Command).NotTo(ContainElement("--cloud-config=/etc/kubernetes/cloudprovider/cloudprovider.conf"))
-	Expect(c.Command).NotTo(test.ContainElementWithPrefixContaining("--enable-admission-plugins=", "PersistentVolumeLabel", ","))
-	Expect(c.Command).To(test.ContainElementWithPrefixContaining("--disable-admission-plugins=", "PersistentVolumeLabel", ","))
+	if !k8sVersionAtLeast131 {
+		Expect(c.Command).NotTo(test.ContainElementWithPrefixContaining("--enable-admission-plugins=", "PersistentVolumeLabel", ","))
+		Expect(c.Command).To(test.ContainElementWithPrefixContaining("--disable-admission-plugins=", "PersistentVolumeLabel", ","))
+	}
 	Expect(c.Env).NotTo(ContainElement(accessKeyIDEnvVar))
 	Expect(c.Env).NotTo(ContainElement(secretAccessKeyEnvVar))
 	Expect(dep.Spec.Template.Annotations).To(BeNil())
