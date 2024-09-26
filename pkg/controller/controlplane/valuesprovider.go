@@ -660,11 +660,21 @@ func getIPAMChartValues(
 		}
 	}
 
+	podNetwork := "192.168.0.0/16"
+	if slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, v1beta1.IPFamilyIPv4) {
+		if len(extensionscontroller.GetPodNetwork(cluster)) == 1 {
+			podNetwork = extensionscontroller.GetPodNetwork(cluster)[0]
+		}
+		if len(extensionscontroller.GetPodNetwork(cluster)) > 1 {
+			return nil, fmt.Errorf("IPAM controller does only support one pod CIDR range specified for IPFamilyIPv4")
+		}
+	}
+
 	values := map[string]interface{}{
 		"enabled":     true,
 		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName": cp.Namespace,
-		"podNetwork":  extensionscontroller.GetPodNetwork(cluster),
+		"podNetwork":  podNetwork,
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
 		},
