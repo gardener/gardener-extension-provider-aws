@@ -1,4 +1,4 @@
 apiVersion: v1
 description: Helm chart for csi-driver-efs-node (elastic file system)
-name: csi-driver-efs
+name: csi-driver-efs-node
 version: 0.1.0

@@ -9,12 +9,13 @@ dnsPolicy: ClusterFirst
 
 useFIPS: false
 
-images:
-  csi-driver-efs: image-repository:image-tag
-  csi-node-driver-registrar: image-repository:image-tag
-  csi-liveness-probe: image-repository:image-tag
-
 resources:
+  driverController:
+    requests:
+      cpu: 20m
+      memory: 50Mi
+    limits:
+      memory: 360Mi
   driverNode:
     requests:
       cpu: 15m
@@ -33,6 +34,12 @@ resources:
       memory: 32Mi
     limits:
       memory: 200Mi
+  provisioner:
+    requests:
+      cpu: 11m
+      memory: 38Mi
+    limits:
+      memory: 400Mi
 
 sidecars:
   livenessProbe:
@@ -72,14 +79,6 @@ node:
   podLabels: {}
   podAnnotations: {}
   additionalLabels: {}
-  resources:
-    {}
-    # limits:
-    #   cpu: 100m
-    #   memory: 128Mi
-    # requests:
-    #   cpu: 100m
-  #   memory: 128Mi
   nodeSelector: {}
     # Override default strategy (RollingUpdate) to speed up deployment.
     # This can be useful if helm timeouts are observed.
@@ -132,3 +131,59 @@ storageClasses: []
 #     ensureUniqueDirectory: true
 #   reclaimPolicy: Delete
 #   volumeBindingMode: Immediate
+
+
+
+## controller values
+
+replicas: 1
+
+images:
+  csi-driver-efs: image-repository:image-tag
+  csi-provisioner: image-repository:image-tag
+  csi-liveness-probe: image-repository:image-tag
+
+podAnnotations: {}
+
+## Controller deployment variables
+
+controller:
+  # Number for the log level verbosity
+  logLevel: 2
+  # If set, add pv/pvc metadata to plugin create requests as parameters.
+  extraCreateMetadata: true
+  # Add additional tags to access points
+  tags:
+    {}
+  # environment: prod
+  # region: us-east-1
+  # Enable if you want the controller to also delete the
+  # path on efs when deleteing an access point
+  deleteAccessPointRootDir: false
+  hostNetwork: false
+  priorityClassName: system-cluster-critical
+  dnsPolicy: ClusterFirst
+  dnsConfig: {}
+  additionalLabels: {}
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - key: efs.csi.aws.com/agent-not-ready
+      operator: Exists
+  # securityContext on the controller pod
+  securityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+  serviceAccount:
+    name: efs-csi-controller-sa
+    annotations: {}
+    ## Enable if EKS IAM for SA is used
+    #  eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/efs-csi-role
+  healthPort: 9909
+  regionalStsEndpoints: false
+  containerSecurityContext:
+    privileged: true
+  leaderElectionRenewDeadline: 10s
+  leaderElectionLeaseDuration: 15s

@@ -1290,7 +1290,20 @@ const iamRolePolicyTemplate = `{
       "Resource": [
         "*"
       ]
-    }{{ if .enableECRAccess }},
+    },
+		{
+			"Effect": "Allow",
+			"Action": [
+				"elasticfilesystem:DescribeAccessPoints",
+				"elasticfilesystem:DescribeFileSystems",
+				"elasticfilesystem:DescribeMountTargets",
+				"elasticfilesystem:CreateAccessPoint",
+				"elasticfilesystem:DeleteAccessPoint",
+				"elasticfilesystem:TagResource",
+				"ec2:DescribeAvailabilityZones"
+			],
+			"Resource": "*"
+		} {{ if .enableECRAccess }},
     {
       "Effect": "Allow",
       "Action": [

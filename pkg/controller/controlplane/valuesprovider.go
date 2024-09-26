@@ -189,24 +189,6 @@ var (
 					{Type: &corev1.Service{}, Name: aws.CSISnapshotValidationName},
 				},
 			},
-			{
-				Name: aws.CSIEfsControllerName,
-				Images: []string{
-					aws.CSIDriverEbfImageName,
-					aws.CSIProvisionerImageName,
-					aws.CSILivenessProbeImageName,
-				},
-				Objects: []*chart.Object{
-					// csi-driver-efs-controller
-					{Type: &appsv1.Deployment{}, Name: aws.CSIEfsControllerName},
-					{Type: &corev1.ServiceAccount{}, Name: aws.CSIEfsControllerName},
-					// TODO check chart.Object.NAME
-					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIEfsControllerName},
-					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIEfsControllerName},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIEfsControllerName},
-					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIEfsControllerName},
-				},
-			},
 		},
 	}
 
@@ -294,19 +276,28 @@ var (
 				},
 			},
 			{
-				Name: aws.CSIDriverEfsName,
+				Name: aws.CSIEfsNodeName,
 				Images: []string{
 					aws.CSIDriverEbfImageName,
 					aws.CSINodeDriverRegistrarImageName,
 					aws.CSILivenessProbeImageName,
+					aws.CSIProvisionerImageName,
 				},
 				Objects: []*chart.Object{
-					{Type: &storagev1.CSIDriver{}, Name: aws.CSIDriverEfsName},
+					// csi-driver-efs-controller
+					{Type: &appsv1.Deployment{}, Name: "efs-csi-controller"},
+					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-controller-sa"},
+					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role"},
+					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role-describe-secrets"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-provisioner-binding"},
+					{Type: &rbacv1.RoleBinding{}, Name: "efs-csi-provisioner-binding"},
+					// driver
+					{Type: &storagev1.CSIDriver{}, Name: "efs.csi.aws.com"},
 					// csi-driver-efs-node
-					{Type: &appsv1.DaemonSet{}, Name: aws.CSIEfsNodeName},
-					{Type: &corev1.ServiceAccount{}, Name: aws.CSIEfsNodeName},
-					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIEfsNodeName},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIEfsNodeName},
+					{Type: &appsv1.DaemonSet{}, Name: "csi-driver-efs-node"},
+					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-node-sa"},
+					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-node-role"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-node-binding"},
 				},
 			},
 		},
@@ -812,7 +803,7 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
-	csiDriverEfsValues := getControlPlaneShootChartCSIManilaValues(infraConfig)
+	csiDriverEfsValues := getControlPlaneShootChartCSIEfsValues(infraConfig)
 
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
@@ -827,12 +818,12 @@ func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
 	return infraConfig != nil && infraConfig.EnableCsiEfs != nil && *infraConfig.EnableCsiEfs
 }
 
-func getControlPlaneShootChartCSIManilaValues(
+func getControlPlaneShootChartCSIEfsValues(
 	infraConfig *apisaws.InfrastructureConfig,
 ) map[string]interface{} {
-	csiManilaEnabled := isCSIEfsEnabled(infraConfig)
+	csiEsfEnabled := isCSIEfsEnabled(infraConfig)
 	values := map[string]interface{}{
-		"enabled": csiManilaEnabled,
+		"enabled": csiEsfEnabled,
 	}
 
 	//if csiManilaEnabled {
