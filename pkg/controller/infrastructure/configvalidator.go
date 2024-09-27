@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
@@ -91,7 +92,7 @@ func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.I
 	allErrs := field.ErrorList{}
 
 	// Verify that the VPC exists and the enableDnsSupport and enableDnsHostnames VPC attributes are both true
-	for _, attribute := range []string{"enableDnsSupport", "enableDnsHostnames"} {
+	for _, attribute := range []ec2types.VpcAttributeName{ec2types.VpcAttributeNameEnableDnsSupport, ec2types.VpcAttributeNameEnableDnsHostnames} {
 		value, err := awsClient.GetVPCAttribute(ctx, vpcID, attribute)
 		if err != nil {
 			if awsclient.IsNotFoundError(err) {

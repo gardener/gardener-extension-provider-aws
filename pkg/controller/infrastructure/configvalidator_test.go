@@ -10,7 +10,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	. "github.com/gardener/gardener/pkg/utils/test/matchers"
@@ -139,7 +140,7 @@ var _ = Describe("ConfigValidator", func() {
 		})
 
 		It("should forbid VPC that doesn't exist", func() {
-			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(false, awserr.New("InvalidVpcID.NotFound", "", nil))
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsSupport).Return(false, &smithy.GenericAPIError{Code: "InvalidVpcID.NotFound"})
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(ConsistOfFields(Fields{
@@ -149,8 +150,8 @@ var _ = Describe("ConfigValidator", func() {
 		})
 
 		It("should forbid VPC that exists but has wrong attribute values or no attached internet gateway", func() {
-			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(false, nil)
-			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(false, nil)
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsSupport).Return(false, nil)
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsHostnames).Return(false, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return("", nil)
 			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
 
@@ -171,8 +172,8 @@ var _ = Describe("ConfigValidator", func() {
 		})
 
 		It("should allow VPC that exists and has correct attribute values and an attached internet gateway", func() {
-			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(true, nil)
-			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(true, nil)
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsSupport).Return(true, nil)
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsHostnames).Return(true, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return(vpcID, nil)
 			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(validDHCPOptions, nil)
 
@@ -181,7 +182,7 @@ var _ = Describe("ConfigValidator", func() {
 		})
 
 		It("should fail with InternalError if getting VPC attributes failed", func() {
-			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(false, errors.New("test"))
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsSupport).Return(false, errors.New("test"))
 
 			errorList := cv.Validate(ctx, infra)
 			Expect(errorList).To(ConsistOfFields(Fields{
@@ -198,8 +199,8 @@ var _ = Describe("ConfigValidator", func() {
 				awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, newRegion).Return(awsClient, nil)
 			}
 
-			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsSupport").Return(true, nil)
-			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, "enableDnsHostnames").Return(true, nil)
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsSupport).Return(true, nil)
+			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsHostnames).Return(true, nil)
 			awsClient.EXPECT().GetVPCInternetGateway(ctx, vpcID).Return(vpcID, nil)
 			awsClient.EXPECT().GetDHCPOptions(ctx, vpcID).Return(mapping, err)
 

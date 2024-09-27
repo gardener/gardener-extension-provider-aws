@@ -7,8 +7,7 @@ package infrastructure
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/onsi/gomega/format"
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/types"
@@ -31,9 +30,9 @@ func (m *ipPermissionMatcher) Match(actual interface{}) (success bool, err error
 		return false, fmt.Errorf("refusing to compare <nil> to <nil>.\nBe explicit and use BeNil() instead. This is to avoid mistakes where both sides of an assertion are erroneously uninitialized")
 	}
 
-	expectedPermission, ok := m.expected.(ec2.IpPermission)
+	expectedPermission, ok := m.expected.(ec2types.IpPermission)
 	if !ok {
-		expectedPermissionPointer, ok2 := m.expected.(*ec2.IpPermission)
+		expectedPermissionPointer, ok2 := m.expected.(*ec2types.IpPermission)
 		if ok2 {
 			expectedPermission = *expectedPermissionPointer
 		} else {
@@ -41,9 +40,9 @@ func (m *ipPermissionMatcher) Match(actual interface{}) (success bool, err error
 		}
 	}
 
-	actualPermission, ok := actual.(ec2.IpPermission)
+	actualPermission, ok := actual.(ec2types.IpPermission)
 	if !ok {
-		actualPermissionPointer, ok2 := actual.(*ec2.IpPermission)
+		actualPermissionPointer, ok2 := actual.(*ec2types.IpPermission)
 		if ok2 {
 			actualPermission = *actualPermissionPointer
 		} else {
@@ -63,9 +62,9 @@ func (m *ipPermissionMatcher) Match(actual interface{}) (success bool, err error
 }
 
 func (m *ipPermissionMatcher) FailureMessage(actual interface{}) (message string) {
-	return format.MessageWithDiff(awsutil.Prettify(actual), "to equal", awsutil.Prettify(m.expected))
+	return format.MessageWithDiff(fmt.Sprintf("%s", actual), "to equal", fmt.Sprintf("%s", m.expected))
 }
 
 func (m *ipPermissionMatcher) NegatedFailureMessage(actual interface{}) (message string) {
-	return format.MessageWithDiff(awsutil.Prettify(actual), "not to equal", awsutil.Prettify(m.expected))
+	return format.MessageWithDiff(fmt.Sprintf("%s", actual), "not to equal", fmt.Sprintf("%s", m.expected))
 }

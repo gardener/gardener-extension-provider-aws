@@ -9,8 +9,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -90,9 +91,9 @@ func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 	if securityGroupHasPermissions(workerSecurityGroup.IpPermissions, permission) {
 		logger.Info("Removing SSH ingress from worker nodes")
 
-		_, err = awsClient.EC2.RevokeSecurityGroupIngressWithContext(ctx, &ec2.RevokeSecurityGroupIngressInput{
+		_, err = awsClient.EC2.RevokeSecurityGroupIngress(ctx, &ec2.RevokeSecurityGroupIngressInput{
 			GroupId:       aws.String(opt.WorkerSecurityGroupID),
-			IpPermissions: []*ec2.IpPermission{permission},
+			IpPermissions: []ec2types.IpPermission{permission},
 		})
 	}
 
@@ -101,11 +102,11 @@ func removeWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 
 // instanceIsTerminated returns true if a machine is in Terminated state.
 func instanceIsTerminated(ctx context.Context, awsClient *awsclient.Client, opt *Options) (bool, error) {
-	instances, err := awsClient.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{
+	instances, err := awsClient.EC2.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   aws.String("tag:Name"),
-				Values: []*string{aws.String(opt.InstanceName)},
+				Values: []string{opt.InstanceName},
 			},
 		},
 	})
@@ -125,10 +126,10 @@ func instanceIsTerminated(ctx context.Context, awsClient *awsclient.Client, opt 
 }
 
 func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
-	instance, err := getFirstMatchingInstance(ctx, awsClient, []*ec2.Filter{
+	instance, err := getFirstMatchingInstance(ctx, awsClient, []ec2types.Filter{
 		{
 			Name:   aws.String("tag:Name"),
-			Values: []*string{aws.String(opt.InstanceName)},
+			Values: []string{opt.InstanceName},
 		},
 	})
 	if err != nil {
@@ -142,8 +143,8 @@ func removeBastionInstance(ctx context.Context, logger logr.Logger, awsClient *a
 
 	logger.Info("Terminating bastion instance")
 
-	_, err = awsClient.EC2.TerminateInstancesWithContext(ctx, &ec2.TerminateInstancesInput{
-		InstanceIds: aws.StringSlice([]string{*instance.InstanceId}),
+	_, err = awsClient.EC2.TerminateInstances(ctx, &ec2.TerminateInstancesInput{
+		InstanceIds: []string{*instance.InstanceId},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to terminate instance: %w", err)
@@ -165,7 +166,7 @@ func removeSecurityGroup(ctx context.Context, logger logr.Logger, awsClient *aws
 
 	logger.Info("Removing security group")
 
-	_, err = awsClient.EC2.DeleteSecurityGroupWithContext(ctx, &ec2.DeleteSecurityGroupInput{
+	_, err = awsClient.EC2.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
 		GroupId: group.GroupId,
 	})
 	if err != nil {

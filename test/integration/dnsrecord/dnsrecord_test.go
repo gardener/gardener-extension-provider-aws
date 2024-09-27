@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/route53"
+	route53types "github.com/aws/aws-sdk-go-v2/service/route53/types"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
@@ -297,15 +297,15 @@ var _ = Describe("DNSRecord tests", func() {
 				[]string{"3.3.3.3", "1.1.1.1"},
 				func() {
 					By("creating AWS DNS recordset")
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, string(route53types.RRTypeA), []string{"8.8.8.8"}, 120, stack)).To(Succeed())
 				},
 				func() {
 					By("updating AWS DNS recordset")
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, string(route53types.RRTypeA), []string{"8.8.8.8"}, 120, stack)).To(Succeed())
 				},
 				func() {
 					By("updating AWS DNS recordset")
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, string(route53types.RRTypeA), []string{"8.8.8.8"}, 120, stack)).To(Succeed())
 				},
 			)
 		})
@@ -321,12 +321,12 @@ var _ = Describe("DNSRecord tests", func() {
 				nil,
 				func() {
 					By("creating AWS DNS recordset")
-					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, []string{"8.8.8.8"}, 120, stack)).To(Succeed())
+					Expect(awsClient.CreateOrUpdateDNSRecordSet(ctx, zoneID, dns.Spec.Name, string(route53types.RRTypeA), []string{"8.8.8.8"}, 120, stack)).To(Succeed())
 				},
 				nil,
 				func() {
 					By("deleting AWS DNS recordset")
-					Expect(awsClient.DeleteDNSRecordSet(ctx, zoneID, dns.Spec.Name, route53.RRTypeA, nil, 0, stack)).To(Succeed())
+					Expect(awsClient.DeleteDNSRecordSet(ctx, zoneID, dns.Spec.Name, string(route53types.RRTypeA), nil, 0, stack)).To(Succeed())
 				},
 			)
 		})
@@ -432,7 +432,7 @@ func verifyDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *e
 		rrs := rrss[0]
 		Expect(rrs.Name).To(PointTo(Equal(ensureTrailingDot(dns.Spec.Name))))
 		Expect(rrs.Type).To(PointTo(Equal(recordType)))
-		Expect(rrs.ResourceRecords).To(ConsistOf(resourceRecords(recordType, dns.Spec.Values)))
+		Expect(rrs.ResourceRecords).To(ConsistOf(resourceRecords(route53types.RRType(recordType), dns.Spec.Values)))
 		Expect(rrs.AliasTarget).To(BeNil())
 		Expect(rrs.TTL).To(PointTo(Equal(ptr.Deref(dns.Spec.TTL, 120))))
 	} else {
@@ -450,15 +450,15 @@ func verifyDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *e
 			default:
 				Fail(fmt.Sprintf("unexpected value: %s", dns.Spec.Values[0]))
 			}
-			Expect(rrs.AliasTarget).To(Equal(&route53.AliasTarget{
+			Expect(rrs.AliasTarget).To(Equal(&route53types.AliasTarget{
 				DNSName:              ptr.To(ensureTrailingDot(dns.Spec.Values[0])),
 				HostedZoneId:         ptr.To(expectedHostedZoneId),
-				EvaluateTargetHealth: ptr.To(true),
+				EvaluateTargetHealth: true,
 			}))
 			Expect(rrs.TTL).To(BeNil())
 			found := false
 			for _, expectedType := range expectedTypes {
-				if expectedType == ptr.Deref(rrs.Type, "") {
+				if expectedType == rrs.Type {
 					found = true
 				}
 			}
@@ -487,13 +487,13 @@ func expectAliasTarget(dns *extensionsv1alpha1.DNSRecord) bool {
 		(strings.HasSuffix(dns.Spec.Values[0], ".elb.eu-west-1.amazonaws.com") || strings.HasSuffix(dns.Spec.Values[0], ".eu-west-1.elb.amazonaws.com"))
 }
 
-func resourceRecords(recordType string, values []string) []*route53.ResourceRecord {
-	var resourceRecords []*route53.ResourceRecord
+func resourceRecords(recordType route53types.RRType, values []string) []route53types.ResourceRecord {
+	var resourceRecords []route53types.ResourceRecord
 	for _, value := range values {
-		if recordType == route53.RRTypeTxt {
+		if recordType == route53types.RRTypeTxt {
 			value = ensureQuoted(value)
 		}
-		resourceRecords = append(resourceRecords, &route53.ResourceRecord{
+		resourceRecords = append(resourceRecords, route53types.ResourceRecord{
 			Value: ptr.To(value),
 		})
 	}

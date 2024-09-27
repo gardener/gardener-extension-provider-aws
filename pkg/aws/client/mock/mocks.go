@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	ec2 "github.com/aws/aws-sdk-go/service/ec2"
+	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	client "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	gomock "go.uber.org/mock/gomock"
 	sets "k8s.io/apimachinery/pkg/util/sets"
@@ -866,7 +866,7 @@ func (mr *MockInterfaceMockRecorder) FindSecurityGroupsByTags(ctx, tags any) *go
 }
 
 // FindSubnets mocks base method.
-func (m *MockInterface) FindSubnets(ctx context.Context, filters []*ec2.Filter) ([]*client.Subnet, error) {
+func (m *MockInterface) FindSubnets(ctx context.Context, filters []types.Filter) ([]*client.Subnet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindSubnets", ctx, filters)
 	ret0, _ := ret[0].([]*client.Subnet)
@@ -1211,7 +1211,7 @@ func (mr *MockInterfaceMockRecorder) GetSubnets(ctx, ids any) *gomock.Call {
 }
 
 // GetVPCAttribute mocks base method.
-func (m *MockInterface) GetVPCAttribute(ctx context.Context, vpcID, attribute string) (bool, error) {
+func (m *MockInterface) GetVPCAttribute(ctx context.Context, vpcID string, attribute types.VpcAttributeName) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVPCAttribute", ctx, vpcID, attribute)
 	ret0, _ := ret[0].(bool)
