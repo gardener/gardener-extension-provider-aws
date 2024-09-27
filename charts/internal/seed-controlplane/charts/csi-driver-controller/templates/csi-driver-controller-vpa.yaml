@@ -8,53 +8,18 @@ spec:
   resourcePolicy:
     containerPolicies:
     - containerName: aws-csi-driver
-      minAllowed:
-        memory: {{ .Values.resources.driver.requests.memory }}
-      maxAllowed:
-        cpu: {{ .Values.vpa.resourcePolicy.driver.maxAllowed.cpu }}
-        memory: {{ .Values.vpa.resourcePolicy.driver.maxAllowed.memory }}
       controlledValues: RequestsOnly
     - containerName: aws-csi-provisioner
-      minAllowed:
-        memory: {{ .Values.resources.provisioner.requests.memory }}
-      maxAllowed:
-        cpu: {{ .Values.vpa.resourcePolicy.provisioner.maxAllowed.cpu }}
-        memory: {{ .Values.vpa.resourcePolicy.provisioner.maxAllowed.memory }}
       controlledValues: RequestsOnly
     - containerName: aws-csi-attacher
-      minAllowed:
-        memory: {{ .Values.resources.attacher.requests.memory }}
-      maxAllowed:
-        cpu: {{ .Values.vpa.resourcePolicy.attacher.maxAllowed.cpu }}
-        memory: {{ .Values.vpa.resourcePolicy.attacher.maxAllowed.memory }}
       controlledValues: RequestsOnly
     - containerName: aws-csi-snapshotter
-      minAllowed:
-        memory: {{ .Values.resources.snapshotter.requests.memory }}
-      maxAllowed:
-        cpu: {{ .Values.vpa.resourcePolicy.snapshotter.maxAllowed.cpu }}
-        memory: {{ .Values.vpa.resourcePolicy.snapshotter.maxAllowed.memory }}
       controlledValues: RequestsOnly
     - containerName: aws-csi-resizer
-      minAllowed:
-        memory: {{ .Values.resources.resizer.requests.memory }}
-      maxAllowed:
-        cpu: {{ .Values.vpa.resourcePolicy.resizer.maxAllowed.cpu }}
-        memory: {{ .Values.vpa.resourcePolicy.resizer.maxAllowed.memory }}
       controlledValues: RequestsOnly
     - containerName: aws-csi-liveness-probe
-      minAllowed:
-        memory: {{ .Values.resources.livenessProbe.requests.memory }}
-      maxAllowed:
-        cpu: {{ .Values.vpa.resourcePolicy.livenessProbe.maxAllowed.cpu }}
-        memory: {{ .Values.vpa.resourcePolicy.livenessProbe.maxAllowed.memory }}
       controlledValues: RequestsOnly
     - containerName: aws-csi-volume-modifier
-      minAllowed:
-        memory: {{ .Values.resources.volumeModifier.requests.memory }}
-      maxAllowed:
-        cpu: {{ .Values.vpa.resourcePolicy.volumemodifier.maxAllowed.cpu }}
-        memory: {{ .Values.vpa.resourcePolicy.volumemodifier.maxAllowed.memory }}
       controlledValues: RequestsOnly
   targetRef:
     apiVersion: apps/v1
