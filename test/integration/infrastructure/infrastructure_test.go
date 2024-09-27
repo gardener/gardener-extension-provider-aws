@@ -19,10 +19,12 @@ import (
 	"text/template"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/iam"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/smithy-go"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
@@ -671,9 +673,9 @@ func generateNamespaceName() (string, error) {
 }
 
 func createTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID *string) error {
-	_, err := awsClient.EC2.CreateTagsWithContext(ctx, &ec2.CreateTagsInput{
-		Resources: []*string{subnetID},
-		Tags: []*ec2.Tag{{
+	_, err := awsClient.EC2.CreateTags(ctx, &ec2.CreateTagsInput{
+		Resources: []string{*subnetID},
+		Tags: []ec2types.Tag{{
 			Key:   awssdk.String(ignoredTagKey1),
 			Value: awssdk.String("foo"),
 		}, {
@@ -734,24 +736,20 @@ func verifyCreation(
 	)
 
 	var (
-		kubernetesTagFilter = []*ec2.Filter{
+		kubernetesTagFilter = []ec2types.Filter{
 			{
-				Name: awssdk.String("tag:" + kubernetesClusterTagPrefix + infra.Namespace),
-				Values: []*string{
-					awssdk.String("1"),
-				},
+				Name:   awssdk.String("tag:" + kubernetesClusterTagPrefix + infra.Namespace),
+				Values: []string{"1"},
 			},
 		}
-		vpcIDFilter = []*ec2.Filter{
+		vpcIDFilter = []ec2types.Filter{
 			{
-				Name: awssdk.String("vpc-id"),
-				Values: []*string{
-					awssdk.String(infraStatus.VPC.ID),
-				},
+				Name:   awssdk.String("vpc-id"),
+				Values: []string{infraStatus.VPC.ID},
 			},
 		}
 
-		defaultTags = []*ec2.Tag{
+		defaultTags = []ec2types.Tag{
 			{
 				Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 				Value: awssdk.String("1"),
@@ -766,7 +764,7 @@ func verifyCreation(
 
 	// vpc
 
-	describeVpcsOutput, err := awsClient.EC2.DescribeVpcsWithContext(ctx, &ec2.DescribeVpcsInput{VpcIds: []*string{awssdk.String(infraStatus.VPC.ID)}})
+	describeVpcsOutput, err := awsClient.EC2.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{VpcIds: []string{infraStatus.VPC.ID}})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeVpcsOutput.Vpcs).To(HaveLen(1))
 	Expect(describeVpcsOutput.Vpcs[0].VpcId).To(PointTo(Equal(infraStatus.VPC.ID)))
@@ -783,19 +781,19 @@ func verifyCreation(
 
 	// dhcp options + dhcp options attachment
 
-	describeDhcpOptionsOutput, err := awsClient.EC2.DescribeDhcpOptionsWithContext(ctx, &ec2.DescribeDhcpOptionsInput{DhcpOptionsIds: []*string{describeVpcsOutput.Vpcs[0].DhcpOptionsId}})
+	describeDhcpOptionsOutput, err := awsClient.EC2.DescribeDhcpOptions(ctx, &ec2.DescribeDhcpOptionsInput{DhcpOptionsIds: []string{*describeVpcsOutput.Vpcs[0].DhcpOptionsId}})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeDhcpOptionsOutput.DhcpOptions).To(HaveLen(1))
 	Expect(describeVpcsOutput.Vpcs[0].DhcpOptionsId).To(Equal(describeDhcpOptionsOutput.DhcpOptions[0].DhcpOptionsId))
-	Expect(describeDhcpOptionsOutput.DhcpOptions[0].DhcpConfigurations).To(ConsistOf([]*ec2.DhcpConfiguration{
+	Expect(describeDhcpOptionsOutput.DhcpOptions[0].DhcpConfigurations).To(ConsistOf([]ec2types.DhcpConfiguration{
 		{
 			Key: awssdk.String("domain-name"),
-			Values: []*ec2.AttributeValue{
+			Values: []ec2types.AttributeValue{
 				{Value: awssdk.String(*region + ".compute.internal")}, // this will not work for us-east-1
 			},
 		}, {
 			Key: awssdk.String("domain-name-servers"),
-			Values: []*ec2.AttributeValue{
+			Values: []ec2types.AttributeValue{
 				{Value: awssdk.String("AmazonProvidedDNS")},
 			},
 		},
@@ -807,11 +805,11 @@ func verifyCreation(
 
 	// vpc gateway endpoints
 
-	describeVpcEndpointsOutput, err := awsClient.EC2.DescribeVpcEndpointsWithContext(ctx, &ec2.DescribeVpcEndpointsInput{Filters: vpcIDFilter})
+	describeVpcEndpointsOutput, err := awsClient.EC2.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{Filters: vpcIDFilter})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeVpcEndpointsOutput.VpcEndpoints).To(HaveLen(1))
 	Expect(describeVpcEndpointsOutput.VpcEndpoints[0].ServiceName).To(PointTo(Equal(fmt.Sprintf("com.amazonaws.%s.%s", *region, gatewayEndpoint))))
-	Expect(describeVpcEndpointsOutput.VpcEndpoints[0].Tags).To(ConsistOf([]*ec2.Tag{
+	Expect(describeVpcEndpointsOutput.VpcEndpoints[0].Tags).To(ConsistOf([]ec2types.Tag{
 		{
 			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 			Value: awssdk.String("1"),
@@ -825,12 +823,10 @@ func verifyCreation(
 
 	// internet gateway
 
-	describeInternetGatewaysOutput, err := awsClient.EC2.DescribeInternetGatewaysWithContext(ctx, &ec2.DescribeInternetGatewaysInput{Filters: []*ec2.Filter{
+	describeInternetGatewaysOutput, err := awsClient.EC2.DescribeInternetGateways(ctx, &ec2.DescribeInternetGatewaysInput{Filters: []ec2types.Filter{
 		{
-			Name: awssdk.String("attachment.vpc-id"),
-			Values: []*string{
-				awssdk.String(infraStatus.VPC.ID),
-			},
+			Name:   awssdk.String("attachment.vpc-id"),
+			Values: []string{infraStatus.VPC.ID},
 		},
 	}})
 	Expect(err).NotTo(HaveOccurred())
@@ -852,7 +848,7 @@ func verifyCreation(
 	Expect(err).NotTo(HaveOccurred())
 
 	infrastructureIdentifier.securityGroupIDs = []*string{}
-	describeSecurityGroupsOutput, err := awsClient.EC2.DescribeSecurityGroupsWithContext(ctx, &ec2.DescribeSecurityGroupsInput{Filters: vpcIDFilter})
+	describeSecurityGroupsOutput, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{Filters: vpcIDFilter})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeSecurityGroupsOutput.SecurityGroups).To(HaveLen(2))
 	for _, securityGroup := range describeSecurityGroupsOutput.SecurityGroups {
@@ -862,11 +858,11 @@ func verifyCreation(
 			Expect(securityGroup.Tags).To(BeEmpty())
 			infrastructureIdentifier.securityGroupIDs = append(infrastructureIdentifier.securityGroupIDs, securityGroup.GroupId)
 		} else if *securityGroup.GroupName == infra.Namespace+"-nodes" {
-			Expect(securityGroup.IpPermissions).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
+			Expect(securityGroup.IpPermissions).To(BeSemanticallyEqualTo([]ec2types.IpPermission{
 				{
-					FromPort:   awssdk.Int64(30000),
+					FromPort:   awssdk.Int32(30000),
 					IpProtocol: awssdk.String("tcp"),
-					IpRanges: []*ec2.IpRange{
+					IpRanges: []ec2types.IpRange{
 						{
 							CidrIp: awssdk.String(publicCIDR),
 						},
@@ -877,11 +873,11 @@ func verifyCreation(
 							CidrIp: awssdk.String(internalCIDR),
 						},
 					},
-					ToPort: awssdk.Int64(32767),
+					ToPort: awssdk.Int32(32767),
 				},
 				{
 					IpProtocol: awssdk.String("-1"),
-					UserIdGroupPairs: []*ec2.UserIdGroupPair{
+					UserIdGroupPairs: []ec2types.UserIdGroupPair{
 						{
 							GroupId: securityGroup.GroupId,
 							UserId:  awssdk.String(accountID),
@@ -889,9 +885,9 @@ func verifyCreation(
 					},
 				},
 				{
-					FromPort:   awssdk.Int64(30000),
+					FromPort:   awssdk.Int32(30000),
 					IpProtocol: awssdk.String("udp"),
-					IpRanges: []*ec2.IpRange{
+					IpRanges: []ec2types.IpRange{
 						{
 							CidrIp: awssdk.String(publicCIDR),
 						},
@@ -902,18 +898,18 @@ func verifyCreation(
 							CidrIp: awssdk.String(allCIDR),
 						},
 					},
-					ToPort: awssdk.Int64(32767),
+					ToPort: awssdk.Int32(32767),
 				},
 			}))
-			Expect(securityGroup.IpPermissionsEgress).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
+			Expect(securityGroup.IpPermissionsEgress).To(BeSemanticallyEqualTo([]ec2types.IpPermission{
 				{
 					IpProtocol: awssdk.String("-1"),
-					IpRanges: []*ec2.IpRange{
+					IpRanges: []ec2types.IpRange{
 						{CidrIp: awssdk.String(allCIDR)},
 					},
 				},
 			}))
-			Expect(securityGroup.Tags).To(ConsistOf([]*ec2.Tag{
+			Expect(securityGroup.Tags).To(ConsistOf([]ec2types.Tag{
 				{
 					Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 					Value: awssdk.String("1"),
@@ -929,8 +925,8 @@ func verifyCreation(
 
 	// ec2 key pair
 
-	describeKeyPairsOutput, err := awsClient.EC2.DescribeKeyPairsWithContext(ctx, &ec2.DescribeKeyPairsInput{
-		KeyNames: []*string{awssdk.String(infra.Namespace + "-ssh-publickey")},
+	describeKeyPairsOutput, err := awsClient.EC2.DescribeKeyPairs(ctx, &ec2.DescribeKeyPairsInput{
+		KeyNames: []string{infra.Namespace + "-ssh-publickey"},
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeKeyPairsOutput.KeyPairs[0].KeyFingerprint).To(PointTo(Equal(sshPublicKeyDigest)))
@@ -940,7 +936,7 @@ func verifyCreation(
 
 	availabilityZone := providerConfig.Networks.Zones[0].Name
 
-	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{Filters: vpcIDFilter})
+	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{Filters: vpcIDFilter})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeSubnetsOutput.Subnets).To(HaveLen(3))
 	var (
@@ -957,15 +953,15 @@ func verifyCreation(
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(workersCIDR)))
 				if providerConfig.DualStack.Enabled {
-					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
+					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeEmpty())
 				}
-				Expect(subnet.State).To(PointTo(Equal("available")))
+				Expect(subnet.State).To(BeEquivalentTo("available"))
 				Expect(subnet.Tags).To(ContainElements(
-					&ec2.Tag{
+					ec2types.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
-					&ec2.Tag{
+					ec2types.Tag{
 						Key:   awssdk.String("Name"),
 						Value: awssdk.String(infra.Namespace + nodesSuffix),
 					},
@@ -983,19 +979,19 @@ func verifyCreation(
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(publicCIDR)))
 				if providerConfig.DualStack.Enabled {
-					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
+					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeEmpty())
 				}
-				Expect(subnet.State).To(PointTo(Equal("available")))
+				Expect(subnet.State).To(BeEquivalentTo("available"))
 				Expect(subnet.Tags).To(ContainElements(
-					&ec2.Tag{
+					ec2types.Tag{
 						Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
 						Value: awssdk.String("1"),
 					},
-					&ec2.Tag{
+					ec2types.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
-					&ec2.Tag{
+					ec2types.Tag{
 						Key:   awssdk.String("Name"),
 						Value: awssdk.String(infra.Namespace + publicUtilitySuffix),
 					},
@@ -1008,19 +1004,19 @@ func verifyCreation(
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
 				Expect(subnet.CidrBlock).To(PointTo(Equal(internalCIDR)))
 				if providerConfig.DualStack.Enabled {
-					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
+					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeEmpty())
 				}
-				Expect(subnet.State).To(PointTo(Equal("available")))
+				Expect(subnet.State).To(BeEquivalentTo("available"))
 				Expect(subnet.Tags).To(ContainElements(
-					&ec2.Tag{
+					ec2types.Tag{
 						Key:   awssdk.String(kubernetesRoleTagPrefix + "internal-elb"),
 						Value: awssdk.String("1"),
 					},
-					&ec2.Tag{
+					ec2types.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
-					&ec2.Tag{
+					ec2types.Tag{
 						Key:   awssdk.String("Name"),
 						Value: awssdk.String(infra.Namespace + privateUtilitySuffix),
 					},
@@ -1033,10 +1029,10 @@ func verifyCreation(
 
 	// elastic ips
 
-	describeAddressesOutput, err := awsClient.EC2.DescribeAddressesWithContext(ctx, &ec2.DescribeAddressesInput{Filters: kubernetesTagFilter})
+	describeAddressesOutput, err := awsClient.EC2.DescribeAddresses(ctx, &ec2.DescribeAddressesInput{Filters: kubernetesTagFilter})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeAddressesOutput.Addresses).To(HaveLen(1))
-	Expect(describeAddressesOutput.Addresses[0].Tags).To(ConsistOf([]*ec2.Tag{
+	Expect(describeAddressesOutput.Addresses[0].Tags).To(ConsistOf([]ec2types.Tag{
 		{
 			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 			Value: awssdk.String("1"),
@@ -1050,7 +1046,7 @@ func verifyCreation(
 
 	// nat gateways
 
-	describeNatGatewaysOutput, err := awsClient.EC2.DescribeNatGatewaysWithContext(ctx, &ec2.DescribeNatGatewaysInput{Filter: vpcIDFilter})
+	describeNatGatewaysOutput, err := awsClient.EC2.DescribeNatGateways(ctx, &ec2.DescribeNatGatewaysInput{Filter: vpcIDFilter})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeNatGatewaysOutput.NatGateways).To(HaveLen(1))
 	Expect(describeNatGatewaysOutput.NatGateways[0].NatGatewayAddresses).To(HaveLen(1))
@@ -1062,7 +1058,7 @@ func verifyCreation(
 	Expect(natGatewayAddress).To(HaveField("PublicIp", Equal(describeAddressesOutput.Addresses[0].PublicIp)))
 
 	Expect(describeNatGatewaysOutput.NatGateways[0].SubnetId).To(PointTo(Equal(publicSubnetID)))
-	Expect(describeNatGatewaysOutput.NatGateways[0].Tags).To(ConsistOf([]*ec2.Tag{
+	Expect(describeNatGatewaysOutput.NatGateways[0].Tags).To(ConsistOf([]ec2types.Tag{
 		{
 			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 			Value: awssdk.String("1"),
@@ -1087,7 +1083,7 @@ func verifyCreation(
 
 	// route tables + routes
 
-	describeRouteTablesOutput, err := awsClient.EC2.DescribeRouteTablesWithContext(ctx, &ec2.DescribeRouteTablesInput{Filters: vpcIDFilter})
+	describeRouteTablesOutput, err := awsClient.EC2.DescribeRouteTables(ctx, &ec2.DescribeRouteTablesInput{Filters: vpcIDFilter})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeRouteTablesOutput.RouteTables).To(HaveLen(3))
 	var (
@@ -1095,25 +1091,23 @@ func verifyCreation(
 	)
 	for _, routeTable := range describeRouteTablesOutput.RouteTables {
 		if len(routeTable.Tags) == 0 {
-			Expect(routeTable.Associations).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Main": PointTo(Equal(true)),
-			}))))
+			Expect(routeTable.Associations).To(ConsistOf(MatchFields(IgnoreExtras, Fields{"Main": PointTo(Equal(true))})))
 			foundExpectedRouteTables++
-			expectedRoutes := []*ec2.Route{
+			expectedRoutes := []ec2types.Route{
 				{
 					DestinationCidrBlock: cidr,
 					GatewayId:            awssdk.String("local"),
-					Origin:               awssdk.String("CreateRouteTable"),
-					State:                awssdk.String("active"),
+					Origin:               ec2types.RouteOriginCreateRouteTable,
+					State:                ec2types.RouteStateActive,
 				},
 			}
 
 			if providerConfig.DualStack.Enabled {
-				expectedRoutes = append(expectedRoutes, &ec2.Route{
+				expectedRoutes = append(expectedRoutes, ec2types.Route{
 					DestinationIpv6CidrBlock: ipv6CidrBlock,
 					GatewayId:                awssdk.String("local"),
-					Origin:                   awssdk.String("CreateRouteTable"),
-					State:                    awssdk.String("active"),
+					Origin:                   ec2types.RouteOriginCreateRouteTable,
+					State:                    ec2types.RouteStateActive,
 				})
 			}
 
@@ -1123,39 +1117,39 @@ func verifyCreation(
 		for _, tag := range routeTable.Tags {
 			if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace)) {
 				foundExpectedRouteTables++
-				Expect(routeTable.Associations).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				Expect(routeTable.Associations).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
 					"Main":     PointTo(Equal(false)),
 					"SubnetId": PointTo(Equal(publicSubnetID)),
-				}))))
+				})))
 
-				expectedRoutes := []*ec2.Route{
+				expectedRoutes := []ec2types.Route{
 					{
 						DestinationCidrBlock: cidr,
 						GatewayId:            awssdk.String("local"),
-						Origin:               awssdk.String("CreateRouteTable"),
-						State:                awssdk.String("active"),
+						Origin:               ec2types.RouteOriginCreateRouteTable,
+						State:                ec2types.RouteStateActive,
 					},
 
 					{
 						DestinationCidrBlock: awssdk.String(allCIDR),
 						GatewayId:            describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId,
-						Origin:               awssdk.String("CreateRoute"),
-						State:                awssdk.String("active"),
+						Origin:               ec2types.RouteOriginCreateRoute,
+						State:                ec2types.RouteStateActive,
 					},
 				}
 				if providerConfig.DualStack.Enabled {
 					expectedRoutes = append(expectedRoutes,
-						&ec2.Route{
+						ec2types.Route{
 							DestinationIpv6CidrBlock: ipv6CidrBlock,
 							GatewayId:                awssdk.String("local"),
-							Origin:                   awssdk.String("CreateRouteTable"),
-							State:                    awssdk.String("active"),
+							Origin:                   ec2types.RouteOriginCreateRouteTable,
+							State:                    ec2types.RouteStateActive,
 						},
-						&ec2.Route{
+						ec2types.Route{
 							DestinationIpv6CidrBlock: awssdk.String(allCIDRIPV6),
 							GatewayId:                describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId,
-							Origin:                   awssdk.String("CreateRoute"),
-							State:                    awssdk.String("active"),
+							Origin:                   ec2types.RouteOriginCreateRoute,
+							State:                    ec2types.RouteStateActive,
 						},
 					)
 				}
@@ -1167,14 +1161,14 @@ func verifyCreation(
 			if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+"-private-"+availabilityZone)) {
 				foundExpectedRouteTables++
 				Expect(routeTable.Associations).To(ConsistOf(
-					PointTo(MatchFields(IgnoreExtras, Fields{
+					MatchFields(IgnoreExtras, Fields{
 						"Main":     PointTo(Equal(false)),
 						"SubnetId": PointTo(Equal(workersSubnetID)),
-					})),
-					PointTo(MatchFields(IgnoreExtras, Fields{
+					}),
+					MatchFields(IgnoreExtras, Fields{
 						"Main":     PointTo(Equal(false)),
 						"SubnetId": PointTo(Equal(internalSubnetID)),
-					})),
+					}),
 				))
 				var prefixListId *string
 				for _, r := range routeTable.Routes {
@@ -1183,36 +1177,36 @@ func verifyCreation(
 						break
 					}
 				}
-				expectedRoutes := []*ec2.Route{
+				expectedRoutes := []ec2types.Route{
 					{
 						DestinationCidrBlock: cidr,
 						GatewayId:            awssdk.String("local"),
-						Origin:               awssdk.String("CreateRouteTable"),
-						State:                awssdk.String("active"),
+						Origin:               ec2types.RouteOriginCreateRouteTable,
+						State:                ec2types.RouteStateActive,
 					},
 					{
 						DestinationCidrBlock: awssdk.String(allCIDR),
 						NatGatewayId:         describeNatGatewaysOutput.NatGateways[0].NatGatewayId,
-						Origin:               awssdk.String("CreateRoute"),
-						State:                awssdk.String("active"),
+						Origin:               ec2types.RouteOriginCreateRoute,
+						State:                ec2types.RouteStateActive,
 					},
 					{
 						DestinationPrefixListId: prefixListId,
 						GatewayId:               describeVpcEndpointsOutput.VpcEndpoints[0].VpcEndpointId,
-						Origin:                  awssdk.String("CreateRoute"),
-						State:                   awssdk.String("active"),
+						Origin:                  ec2types.RouteOriginCreateRoute,
+						State:                   ec2types.RouteStateActive,
 					},
 				}
 				if providerConfig.DualStack.Enabled {
-					expectedRoutes = append(expectedRoutes, &ec2.Route{
+					expectedRoutes = append(expectedRoutes, ec2types.Route{
 						DestinationIpv6CidrBlock: ipv6CidrBlock,
 						GatewayId:                awssdk.String("local"),
-						Origin:                   awssdk.String("CreateRouteTable"),
-						State:                    awssdk.String("active"),
+						Origin:                   ec2types.RouteOriginCreateRouteTable,
+						State:                    ec2types.RouteStateActive,
 					})
 				}
 				Expect(routeTable.Routes).To(ConsistOf(expectedRoutes))
-				Expect(routeTable.Tags).To(ConsistOf([]*ec2.Tag{
+				Expect(routeTable.Tags).To(ConsistOf([]ec2types.Tag{
 					{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
@@ -1230,9 +1224,9 @@ func verifyCreation(
 
 	// IAM resources nodes
 
-	getRoleOutputNodes, err := awsClient.IAM.GetRoleWithContext(ctx, &iam.GetRoleInput{RoleName: awssdk.String(infra.Namespace + "-nodes")})
+	getRoleOutputNodes, err := awsClient.IAM.GetRole(ctx, &iam.GetRoleInput{RoleName: awssdk.String(infra.Namespace + "-nodes")})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(getRoleOutputNodes.Role).To(BeSemanticallyEqualTo(&iam.Role{
+	Expect(getRoleOutputNodes.Role).To(BeSemanticallyEqualTo(&iamtypes.Role{
 		Path: awssdk.String("/"),
 		AssumeRolePolicyDocument: awssdk.String(`
 {
@@ -1250,15 +1244,15 @@ func verifyCreation(
 	}))
 	infrastructureIdentifier.nodesRoleName = getRoleOutputNodes.Role.RoleName
 
-	getInstanceProfileOutputNodes, err := awsClient.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: awssdk.String(infra.Namespace + "-nodes")})
+	getInstanceProfileOutputNodes, err := awsClient.IAM.GetInstanceProfile(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: awssdk.String(infra.Namespace + "-nodes")})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(getInstanceProfileOutputNodes.InstanceProfile).NotTo(BeNil())
 	iamInstanceProfileNodes := *getInstanceProfileOutputNodes.InstanceProfile
 	Expect(iamInstanceProfileNodes.Path).To(Equal(awssdk.String("/")))
-	Expect(iamInstanceProfileNodes.Roles).To(BeSemanticallyEqualTo([]*iam.Role{getRoleOutputNodes.Role}))
+	Expect(iamInstanceProfileNodes.Roles).To(BeSemanticallyEqualTo([]iamtypes.Role{*getRoleOutputNodes.Role}))
 	infrastructureIdentifier.nodesInstanceProfileName = getInstanceProfileOutputNodes.InstanceProfile.InstanceProfileName
 
-	getRolePolicyOutputNodes, err := awsClient.IAM.GetRolePolicyWithContext(ctx, &iam.GetRolePolicyInput{PolicyName: awssdk.String(infra.Namespace + "-nodes"), RoleName: awssdk.String(infra.Namespace + "-nodes")})
+	getRolePolicyOutputNodes, err := awsClient.IAM.GetRolePolicy(ctx, &iam.GetRolePolicyInput{PolicyName: awssdk.String(infra.Namespace + "-nodes"), RoleName: awssdk.String(infra.Namespace + "-nodes")})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(getRolePolicyOutputNodes.RoleName).To(Equal(awssdk.String(infra.Namespace + "-nodes")))
 	Expect(getRolePolicyOutputNodes.PolicyName).To(Equal(awssdk.String(infra.Namespace + "-nodes")))
@@ -1304,7 +1298,7 @@ func verifyCreation(
 }
 
 func verifyTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID *string) {
-	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []*string{subnetID}})
+	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{*subnetID}})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeSubnetsOutput.Subnets).To(HaveLen(1))
 
@@ -1330,132 +1324,175 @@ func verifyDeletion(
 	// vpc
 
 	if infrastructureIdentifier.vpcID != nil {
-		describeVpcsOutput, err := awsClient.EC2.DescribeVpcsWithContext(ctx, &ec2.DescribeVpcsInput{VpcIds: []*string{infrastructureIdentifier.vpcID}})
+		describeVpcsOutput, err := awsClient.EC2.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{VpcIds: []string{*infrastructureIdentifier.vpcID}})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidVpcID.NotFound"))
-		Expect(describeVpcsOutput.Vpcs).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidVpcID.NotFound"))
+		if describeVpcsOutput != nil {
+			Expect(describeVpcsOutput.Vpcs).To(BeEmpty())
+		}
 	}
 
 	// dhcp options
 
 	if infrastructureIdentifier.dhcpOptionsID != nil {
-		describeDhcpOptionsOutput, err := awsClient.EC2.DescribeDhcpOptionsWithContext(ctx, &ec2.DescribeDhcpOptionsInput{DhcpOptionsIds: []*string{infrastructureIdentifier.dhcpOptionsID}})
+		describeDhcpOptionsOutput, err := awsClient.EC2.DescribeDhcpOptions(ctx, &ec2.DescribeDhcpOptionsInput{DhcpOptionsIds: []string{*infrastructureIdentifier.dhcpOptionsID}})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidDhcpOptionID.NotFound"))
-		Expect(describeDhcpOptionsOutput.DhcpOptions).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidDhcpOptionID.NotFound"))
+		if describeDhcpOptionsOutput != nil {
+			Expect(describeDhcpOptionsOutput.DhcpOptions).To(BeEmpty())
+		}
 	}
 
 	// vpc gateway endpoints
 
 	if infrastructureIdentifier.vpcEndpointID != nil {
-		describeVpcEndpointsOutput, err := awsClient.EC2.DescribeVpcEndpointsWithContext(ctx, &ec2.DescribeVpcEndpointsInput{VpcEndpointIds: []*string{infrastructureIdentifier.vpcEndpointID}})
+		describeVpcEndpointsOutput, err := awsClient.EC2.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{VpcEndpointIds: []string{*infrastructureIdentifier.vpcEndpointID}})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidVpcEndpointId.NotFound"))
-		Expect(describeVpcEndpointsOutput.VpcEndpoints).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidVpcEndpointId.NotFound"))
+		if describeVpcEndpointsOutput != nil {
+			Expect(describeVpcEndpointsOutput.VpcEndpoints).To(BeEmpty())
+		}
 	}
 
 	// internet gateway
 
 	if infrastructureIdentifier.internetGatewayID != nil {
-		describeInternetGatewaysOutput, err := awsClient.EC2.DescribeInternetGatewaysWithContext(ctx, &ec2.DescribeInternetGatewaysInput{InternetGatewayIds: []*string{infrastructureIdentifier.internetGatewayID}})
+		describeInternetGatewaysOutput, err := awsClient.EC2.DescribeInternetGateways(ctx, &ec2.DescribeInternetGatewaysInput{InternetGatewayIds: []string{*infrastructureIdentifier.internetGatewayID}})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidInternetGatewayID.NotFound"))
-		Expect(describeInternetGatewaysOutput.InternetGateways).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidInternetGatewayID.NotFound"))
+		if describeInternetGatewaysOutput != nil {
+			Expect(describeInternetGatewaysOutput.InternetGateways).To(BeEmpty())
+		}
 	}
 
 	// security groups
 
 	if len(infrastructureIdentifier.securityGroupIDs) > 0 {
-		describeSecurityGroupsOutput, err := awsClient.EC2.DescribeSecurityGroupsWithContext(ctx, &ec2.DescribeSecurityGroupsInput{GroupIds: infrastructureIdentifier.securityGroupIDs})
+		describeSecurityGroupsOutput, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{GroupIds: awssdk.ToStringSlice(infrastructureIdentifier.securityGroupIDs)})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidGroup.NotFound"))
-		Expect(describeSecurityGroupsOutput.SecurityGroups).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidGroup.NotFound"))
+		if describeSecurityGroupsOutput != nil {
+			Expect(describeSecurityGroupsOutput.SecurityGroups).To(BeEmpty())
+		}
 	}
 
 	// ec2 key pair
 
 	if infrastructureIdentifier.keyPairName != nil {
-		describeKeyPairsOutput, err := awsClient.EC2.DescribeKeyPairsWithContext(ctx, &ec2.DescribeKeyPairsInput{KeyNames: []*string{infrastructureIdentifier.keyPairName}})
+		describeKeyPairsOutput, err := awsClient.EC2.DescribeKeyPairs(ctx, &ec2.DescribeKeyPairsInput{KeyNames: []string{*infrastructureIdentifier.keyPairName}})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidKeyPair.NotFound"))
-		Expect(describeKeyPairsOutput.KeyPairs).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidKeyPair.NotFound"))
+		if describeKeyPairsOutput != nil {
+			Expect(describeKeyPairsOutput.KeyPairs).To(BeEmpty())
+		} else {
+			println("describeKeyPairsOutput nil")
+		}
 	}
 
 	// subnets
 
 	if len(infrastructureIdentifier.subnetIDs) > 0 {
-		describeSubnetsOutput, err := awsClient.EC2.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{SubnetIds: infrastructureIdentifier.subnetIDs})
+		describeSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: awssdk.ToStringSlice(infrastructureIdentifier.subnetIDs)})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidSubnetID.NotFound"))
-		Expect(describeSubnetsOutput.Subnets).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidSubnetID.NotFound"))
+		if describeSubnetsOutput != nil {
+			Expect(describeSubnetsOutput.Subnets).To(BeEmpty())
+		} else {
+			println("describeSubnetsOutput nil")
+		}
 	}
 
 	// elastic ips
 
 	if infrastructureIdentifier.elasticIPAllocationID != nil {
-		describeAddressesOutput, err := awsClient.EC2.DescribeAddressesWithContext(ctx, &ec2.DescribeAddressesInput{AllocationIds: []*string{infrastructureIdentifier.elasticIPAllocationID}})
+		describeAddressesOutput, err := awsClient.EC2.DescribeAddresses(ctx, &ec2.DescribeAddressesInput{AllocationIds: []string{*infrastructureIdentifier.elasticIPAllocationID}})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidAllocationID.NotFound"))
-		Expect(describeAddressesOutput.Addresses).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidAllocationID.NotFound"))
+		if describeAddressesOutput != nil {
+			Expect(describeAddressesOutput.Addresses).To(BeEmpty())
+		}
 	}
 
 	// nat gateways
 
 	if infrastructureIdentifier.natGatewayID != nil {
-		describeNatGatewaysOutput, err := awsClient.EC2.DescribeNatGatewaysWithContext(ctx, &ec2.DescribeNatGatewaysInput{NatGatewayIds: []*string{infrastructureIdentifier.natGatewayID}})
+		describeNatGatewaysOutput, err := awsClient.EC2.DescribeNatGateways(ctx, &ec2.DescribeNatGatewaysInput{NatGatewayIds: []string{*infrastructureIdentifier.natGatewayID}})
 		if err != nil {
 			Expect(err).To(HaveOccurred())
-			awsErr, _ := err.(awserr.Error)
-			Expect(awsErr.Code()).To(Equal("NatGatewayNotFound"))
+			var awsErr smithy.APIError
+			Expect(errors.As(err, &awsErr)).To(BeTrue())
+			Expect(awsErr.ErrorCode()).To(Equal("NatGatewayNotFound"))
 			Expect(describeNatGatewaysOutput.NatGateways).To(BeEmpty())
 		} else {
-			Expect(describeNatGatewaysOutput.NatGateways).To(HaveLen(1))
-			Expect(describeNatGatewaysOutput.NatGateways[0].State).To(PointTo(Equal("deleted")))
+			if describeNatGatewaysOutput != nil {
+				Expect(describeNatGatewaysOutput.NatGateways).To(HaveLen(1))
+				Expect(describeNatGatewaysOutput.NatGateways[0].State).To((BeEquivalentTo("deleted")))
+			}
 		}
 	}
 
 	// route tables
 
 	if len(infrastructureIdentifier.routeTableIDs) > 0 {
-		describeRouteTablesOutput, err := awsClient.EC2.DescribeRouteTablesWithContext(ctx, &ec2.DescribeRouteTablesInput{RouteTableIds: infrastructureIdentifier.routeTableIDs})
+		describeRouteTablesOutput, err := awsClient.EC2.DescribeRouteTables(ctx, &ec2.DescribeRouteTablesInput{RouteTableIds: awssdk.ToStringSlice(infrastructureIdentifier.routeTableIDs)})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("InvalidRouteTableID.NotFound"))
-		Expect(describeRouteTablesOutput.RouteTables).To(BeEmpty())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("InvalidRouteTableID.NotFound"))
+		if describeRouteTablesOutput != nil {
+			Expect(describeRouteTablesOutput.RouteTables).To(BeEmpty())
+		}
 	}
 
 	// IAM resources nodes
 
 	if infrastructureIdentifier.nodesRoleName != nil {
-		getRoleOutputNodes, err := awsClient.IAM.GetRoleWithContext(ctx, &iam.GetRoleInput{RoleName: infrastructureIdentifier.nodesRoleName})
+		getRoleOutputNodes, err := awsClient.IAM.GetRole(ctx, &iam.GetRoleInput{RoleName: infrastructureIdentifier.nodesRoleName})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("NoSuchEntity"))
-		Expect(getRoleOutputNodes.Role).To(BeNil())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("NoSuchEntity"))
+		if getRoleOutputNodes != nil {
+			Expect(getRoleOutputNodes.Role).To(BeEmpty())
+		}
 	}
 
 	if infrastructureIdentifier.nodesInstanceProfileName != nil {
-		getInstanceProfileOutputNodes, err := awsClient.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: infrastructureIdentifier.nodesInstanceProfileName})
+		getInstanceProfileOutputNodes, err := awsClient.IAM.GetInstanceProfile(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: infrastructureIdentifier.nodesInstanceProfileName})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("NoSuchEntity"))
-		Expect(getInstanceProfileOutputNodes.InstanceProfile).To(BeNil())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("NoSuchEntity"))
+		if getInstanceProfileOutputNodes != nil {
+			Expect(getInstanceProfileOutputNodes.InstanceProfile).To(BeEmpty())
+		}
 	}
 
 	if infrastructureIdentifier.nodesRolePolicyName != nil {
-		getRolePolicyOutputNodes, err := awsClient.IAM.GetRolePolicyWithContext(ctx, &iam.GetRolePolicyInput{PolicyName: infrastructureIdentifier.nodesRolePolicyName, RoleName: infrastructureIdentifier.nodesRoleName})
+		getRolePolicyOutputNodes, err := awsClient.IAM.GetRolePolicy(ctx, &iam.GetRolePolicyInput{PolicyName: infrastructureIdentifier.nodesRolePolicyName, RoleName: infrastructureIdentifier.nodesRoleName})
 		Expect(err).To(HaveOccurred())
-		awsErr, _ := err.(awserr.Error)
-		Expect(awsErr.Code()).To(Equal("NoSuchEntity"))
-		Expect(getRolePolicyOutputNodes.PolicyDocument).To(BeNil())
+		var awsErr smithy.APIError
+		Expect(errors.As(err, &awsErr)).To(BeTrue())
+		Expect(awsErr.ErrorCode()).To(Equal("NoSuchEntity"))
+		if getRolePolicyOutputNodes != nil {
+			Expect(getRolePolicyOutputNodes.PolicyDocument).To(BeEmpty())
+		}
 	}
 }
 

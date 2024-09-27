@@ -7,8 +7,7 @@ package infrastructure
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/aws/aws-sdk-go/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/onsi/gomega/format"
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/types"
@@ -31,9 +30,9 @@ func (m *iamRoleMatcher) Match(actual interface{}) (success bool, err error) {
 		return false, fmt.Errorf("refusing to compare <nil> to <nil>.\nBe explicit and use BeNil() instead. This is to avoid mistakes where both sides of an assertion are erroneously uninitialized")
 	}
 
-	expectedRole, ok := m.expected.(iam.Role)
+	expectedRole, ok := m.expected.(iamtypes.Role)
 	if !ok {
-		expectedRolePointer, ok2 := m.expected.(*iam.Role)
+		expectedRolePointer, ok2 := m.expected.(*iamtypes.Role)
 		if ok2 {
 			expectedRole = *expectedRolePointer
 		} else {
@@ -41,9 +40,9 @@ func (m *iamRoleMatcher) Match(actual interface{}) (success bool, err error) {
 		}
 	}
 
-	actualRole, ok := actual.(iam.Role)
+	actualRole, ok := actual.(iamtypes.Role)
 	if !ok {
-		actualRolePointer, ok2 := actual.(*iam.Role)
+		actualRolePointer, ok2 := actual.(*iamtypes.Role)
 		if ok2 {
 			actualRole = *actualRolePointer
 		} else {
@@ -58,9 +57,9 @@ func (m *iamRoleMatcher) Match(actual interface{}) (success bool, err error) {
 }
 
 func (m *iamRoleMatcher) FailureMessage(actual interface{}) (message string) {
-	return format.MessageWithDiff(awsutil.Prettify(actual), "to equal", awsutil.Prettify(m.expected))
+	return format.MessageWithDiff(fmt.Sprintf("%s", actual), "to equal", fmt.Sprintf("%s", m.expected))
 }
 
 func (m *iamRoleMatcher) NegatedFailureMessage(actual interface{}) (message string) {
-	return format.MessageWithDiff(awsutil.Prettify(actual), "not to equal", awsutil.Prettify(m.expected))
+	return format.MessageWithDiff(fmt.Sprintf("%s", actual), "not to equal", fmt.Sprintf("%s", m.expected))
 }

@@ -14,8 +14,9 @@ import (
 	"sort"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -233,11 +234,11 @@ var _ = Describe("Bastion tests", func() {
 })
 
 func determineBastionImage(ctx context.Context, name string, awsClient *awsclient.Client) string {
-	output, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
-		Filters: []*ec2.Filter{
+	output, err := awsClient.EC2.DescribeImages(ctx, &ec2.DescribeImagesInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String("name"),
-				Values: awssdk.StringSlice([]string{name}),
+				Values: []string{name},
 			},
 		},
 	})
@@ -249,40 +250,34 @@ func determineBastionImage(ctx context.Context, name string, awsClient *awsclien
 }
 
 func getImageAMI(ctx context.Context, name string, awsClient *awsclient.Client) string {
-	filters := []*ec2.Filter{
+	filters := []ec2types.Filter{
 		{
-			Name: awssdk.String("name"),
-			Values: []*string{
-				awssdk.String(name),
-			},
+			Name:   awssdk.String("name"),
+			Values: []string{name},
 		},
 		{
-			Name: awssdk.String("virtualization-type"),
-			Values: []*string{
-				awssdk.String("hvm"),
-			},
+			Name:   awssdk.String("virtualization-type"),
+			Values: []string{"hvm"},
 		},
 		{
-			Name: awssdk.String("architecture"),
-			Values: []*string{
-				awssdk.String("x86_64"),
-			},
+			Name:   awssdk.String("architecture"),
+			Values: []string{"x86_64"},
 		},
 		{
 			Name:   awssdk.String("is-public"),
-			Values: []*string{awssdk.String("true")},
+			Values: []string{"true"},
 		},
 		{
 			Name:   awssdk.String("owner-alias"),
-			Values: []*string{awssdk.String("amazon")},
+			Values: []string{"amazon"},
 		},
 		{
 			Name:   awssdk.String("state"),
-			Values: []*string{awssdk.String("available")},
+			Values: []string{"available"},
 		},
 	}
 
-	result, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
+	result, err := awsClient.EC2.DescribeImages(ctx, &ec2.DescribeImagesInput{
 		Filters: filters,
 	})
 
@@ -516,16 +511,16 @@ func randomString() (string, error) {
 	return suffix, nil
 }
 
-func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, options *bastionctrl.Options, groupName string) *ec2.SecurityGroup {
-	output, err := awsClient.EC2.DescribeSecurityGroupsWithContext(ctx, &ec2.DescribeSecurityGroupsInput{
-		Filters: []*ec2.Filter{
+func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, options *bastionctrl.Options, groupName string) ec2types.SecurityGroup {
+	output, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String("vpc-id"),
-				Values: []*string{awssdk.String(options.VPCID)},
+				Values: []string{options.VPCID},
 			},
 			{
 				Name:   awssdk.String("group-name"),
-				Values: []*string{awssdk.String(groupName)},
+				Values: []string{groupName},
 			},
 		},
 	})
@@ -550,50 +545,58 @@ func verifyCreation(
 
 	// ingress permissions
 	Expect(securityGroup.IpPermissions).To(HaveLen(1))
-	Expect(securityGroup.IpPermissions).To(ConsistOf(&ec2.IpPermission{
-		FromPort:   awssdk.Int64(bastionctrl.SSHPort),
-		ToPort:     awssdk.Int64(bastionctrl.SSHPort),
+	Expect(securityGroup.IpPermissions).To(ConsistOf(ec2types.IpPermission{
+		FromPort:   awssdk.Int32(bastionctrl.SSHPort),
+		ToPort:     awssdk.Int32(bastionctrl.SSHPort),
 		IpProtocol: awssdk.String("tcp"),
-		IpRanges: []*ec2.IpRange{{
+		IpRanges: []ec2types.IpRange{{
 			CidrIp: awssdk.String(normaliseCIDR(cidrv4)),
 		}},
-		Ipv6Ranges: []*ec2.Ipv6Range{{
+		Ipv6Ranges: []ec2types.Ipv6Range{{
 			CidrIpv6: awssdk.String(normaliseCIDR(cidrv6)),
 		}},
+		UserIdGroupPairs: []ec2types.UserIdGroupPair{},
+		PrefixListIds:    []ec2types.PrefixListId{},
 	}))
 
 	// egress permissions
 	Expect(securityGroup.IpPermissionsEgress).To(HaveLen(1))
-	Expect(securityGroup.IpPermissionsEgress).To(ConsistOf(&ec2.IpPermission{
-		FromPort:   awssdk.Int64(bastionctrl.SSHPort),
-		ToPort:     awssdk.Int64(bastionctrl.SSHPort),
+	Expect(securityGroup.IpPermissionsEgress).To(ConsistOf(ec2types.IpPermission{
+		FromPort:   awssdk.Int32(bastionctrl.SSHPort),
+		ToPort:     awssdk.Int32(bastionctrl.SSHPort),
 		IpProtocol: awssdk.String("tcp"),
-		UserIdGroupPairs: []*ec2.UserIdGroupPair{{
+		IpRanges:   []ec2types.IpRange{},
+		Ipv6Ranges: []ec2types.Ipv6Range{},
+		UserIdGroupPairs: []ec2types.UserIdGroupPair{{
 			UserId:  awssdk.String(accountID),
 			GroupId: awssdk.String(options.WorkerSecurityGroupID),
 		}},
+		PrefixListIds: []ec2types.PrefixListId{},
 	}))
 
 	// worker security group
 	securityGroup = getSecurityGroup(ctx, awsClient, options, options.WorkerSecurityGroupName)
 	Expect(securityGroup.GroupId).To(PointTo(Equal(options.WorkerSecurityGroupID)))
 	Expect(securityGroup.IpPermissions).NotTo(BeEmpty())
-	Expect(securityGroup.IpPermissions).To(ContainElement(&ec2.IpPermission{
-		FromPort:   awssdk.Int64(bastionctrl.SSHPort),
-		ToPort:     awssdk.Int64(bastionctrl.SSHPort),
+	Expect(securityGroup.IpPermissions).To(ContainElement(ec2types.IpPermission{
+		FromPort:   awssdk.Int32(bastionctrl.SSHPort),
+		ToPort:     awssdk.Int32(bastionctrl.SSHPort),
 		IpProtocol: awssdk.String("tcp"),
-		UserIdGroupPairs: []*ec2.UserIdGroupPair{{
+		IpRanges:   []ec2types.IpRange{},
+		Ipv6Ranges: []ec2types.Ipv6Range{},
+		UserIdGroupPairs: []ec2types.UserIdGroupPair{{
 			UserId:  awssdk.String(accountID),
 			GroupId: awssdk.String(options.BastionSecurityGroupID),
 		}},
+		PrefixListIds: []ec2types.PrefixListId{},
 	}))
 
 	// bastion instance
-	instances, err := awsClient.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{
+	instances, err := awsClient.EC2.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String("tag:Name"),
-				Values: []*string{awssdk.String(options.InstanceName)},
+				Values: []string{options.InstanceName},
 			},
 		},
 	})
@@ -602,7 +605,7 @@ func verifyCreation(
 	Expect(instances.Reservations[0].Instances).To(HaveLen(1))
 	instance := instances.Reservations[0].Instances[0]
 	Expect(instance.ImageId).To(PointTo(Equal(options.ImageID)))
-	Expect(instance.InstanceType).To(PointTo(Equal(options.InstanceType)))
+	Expect(instance.InstanceType).To(BeEquivalentTo(options.InstanceType))
 	Expect(instance.PublicIpAddress).ToNot(BeNil())
 	Expect(instance.PublicDnsName).ToNot(BeNil())
 }
@@ -613,15 +616,15 @@ func verifyDeletion(
 	options *bastionctrl.Options,
 ) {
 	// bastion security group should be gone
-	output, err := awsClient.EC2.DescribeSecurityGroupsWithContext(ctx, &ec2.DescribeSecurityGroupsInput{
-		Filters: []*ec2.Filter{
+	output, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String("vpc-id"),
-				Values: []*string{awssdk.String(options.VPCID)},
+				Values: []string{options.VPCID},
 			},
 			{
 				Name:   awssdk.String("group-name"),
-				Values: []*string{awssdk.String(options.BastionSecurityGroupName)},
+				Values: []string{options.BastionSecurityGroupName},
 			},
 		},
 	})
@@ -634,16 +637,16 @@ func verifyDeletion(
 	Expect(securityGroup.IpPermissions).To(BeEmpty())
 
 	// instance should be terminated
-	instances, err := awsClient.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{
+	instances, err := awsClient.EC2.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String("tag:Name"),
-				Values: []*string{awssdk.String(options.InstanceName)},
+				Values: []string{options.InstanceName},
 			},
 		},
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(instances.Reservations).To(HaveLen(1))
 	Expect(instances.Reservations[0].Instances).To(HaveLen(1))
-	Expect(instances.Reservations[0].Instances[0].State.Code).To(PointTo(Equal(int64(bastionctrl.InstanceStateTerminated))))
+	Expect(instances.Reservations[0].Instances[0].State.Code).To(PointTo(Equal(int32(bastionctrl.InstanceStateTerminated))))
 }
