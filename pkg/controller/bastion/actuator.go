@@ -8,8 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/bastion"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -17,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -64,7 +64,7 @@ func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1
 // securityGroupHasPermissions checks if the given group has at least
 // the desired permission, but possibly more. Comments on IP ranges
 // are not considered when comparing current and desired states.
-func securityGroupHasPermissions(current []*ec2.IpPermission, desired *ec2.IpPermission) bool {
+func securityGroupHasPermissions(current []ec2types.IpPermission, desired ec2types.IpPermission) bool {
 	// find a matching permission in the security group
 	for _, perm := range current {
 		if ipPermissionsEqual(perm, desired) {
@@ -76,7 +76,7 @@ func securityGroupHasPermissions(current []*ec2.IpPermission, desired *ec2.IpPer
 	return false
 }
 
-func ipPermissionsEqual(a *ec2.IpPermission, b *ec2.IpPermission) bool {
+func ipPermissionsEqual(a ec2types.IpPermission, b ec2types.IpPermission) bool {
 	// ports must match
 	if !equality.Semantic.DeepEqual(a.FromPort, b.FromPort) || !equality.Semantic.DeepEqual(a.ToPort, b.ToPort) {
 		return false
@@ -111,7 +111,7 @@ func ipPermissionsEqual(a *ec2.IpPermission, b *ec2.IpPermission) bool {
 	return bGroups.IsSuperset(aGroups)
 }
 
-func getIpRangeCidrs(ipRanges []*ec2.IpRange) sets.Set[string] {
+func getIpRangeCidrs(ipRanges []ec2types.IpRange) sets.Set[string] {
 	result := sets.New[string]()
 	for _, ipRange := range ipRanges {
 		result.Insert(*ipRange.CidrIp)
@@ -119,7 +119,7 @@ func getIpRangeCidrs(ipRanges []*ec2.IpRange) sets.Set[string] {
 	return result
 }
 
-func getIpv6RangeCidrs(ipRanges []*ec2.Ipv6Range) sets.Set[string] {
+func getIpv6RangeCidrs(ipRanges []ec2types.Ipv6Range) sets.Set[string] {
 	result := sets.New[string]()
 	for _, ipRange := range ipRanges {
 		result.Insert(*ipRange.CidrIpv6)
@@ -127,7 +127,7 @@ func getIpv6RangeCidrs(ipRanges []*ec2.Ipv6Range) sets.Set[string] {
 	return result
 }
 
-func getSecurityGroupIDs(userGroupPairs []*ec2.UserIdGroupPair) sets.Set[string] {
+func getSecurityGroupIDs(userGroupPairs []ec2types.UserIdGroupPair) sets.Set[string] {
 	result := sets.New[string]()
 	for _, pair := range userGroupPairs {
 		result.Insert(*pair.GroupId)
@@ -137,14 +137,14 @@ func getSecurityGroupIDs(userGroupPairs []*ec2.UserIdGroupPair) sets.Set[string]
 
 // workerSecurityGroupPermission returns the set of permissions that need to be added
 // to the worker security group to allow SSH ingress from the bastion instance.
-func workerSecurityGroupPermission(opt *Options) *ec2.IpPermission {
-	return &ec2.IpPermission{
-		IpProtocol: awssdk.String("tcp"),
-		FromPort:   awssdk.Int64(SSHPort),
-		ToPort:     awssdk.Int64(SSHPort),
-		UserIdGroupPairs: []*ec2.UserIdGroupPair{
+func workerSecurityGroupPermission(opt *Options) ec2types.IpPermission {
+	return ec2types.IpPermission{
+		IpProtocol: ptr.To("tcp"),
+		FromPort:   ptr.To(int32(SSHPort)),
+		ToPort:     ptr.To(int32(SSHPort)),
+		UserIdGroupPairs: []ec2types.UserIdGroupPair{
 			{
-				GroupId: awssdk.String(opt.BastionSecurityGroupID),
+				GroupId: ptr.To(opt.BastionSecurityGroupID),
 			},
 		},
 	}

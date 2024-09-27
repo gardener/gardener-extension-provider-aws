@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	ec2 "github.com/aws/aws-sdk-go/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	client "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	gomock "go.uber.org/mock/gomock"
 	sets "k8s.io/apimachinery/pkg/util/sets"
@@ -791,7 +791,7 @@ func (mr *MockInterfaceMockRecorder) FindSecurityGroupsByTags(arg0, arg1 any) *g
 }
 
 // FindSubnets mocks base method.
-func (m *MockInterface) FindSubnets(arg0 context.Context, arg1 []*ec2.Filter) ([]*client.Subnet, error) {
+func (m *MockInterface) FindSubnets(arg0 context.Context, arg1 []ec2types.Filter) ([]*client.Subnet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindSubnets", arg0, arg1)
 	ret0, _ := ret[0].([]*client.Subnet)
