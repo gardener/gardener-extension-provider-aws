@@ -1527,6 +1527,8 @@ func (c *FlowContext) getSubnetZoneChild(zoneName string) Whiteboard {
 
 func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (zoneName, subnetKey string, err error) {
 	zone := c.getZone(item)
+	// With IPv6 we don't have configuration for zone.Workers and zone.Internal.
+	// In that case, we get the subnetKey comparing the name tag.
 	if zone == nil || !isIPv4(c.ipFamilies) {
 		// zone may have been deleted from spec, need to find subnetKey on other ways
 		zoneName = item.AvailabilityZone
