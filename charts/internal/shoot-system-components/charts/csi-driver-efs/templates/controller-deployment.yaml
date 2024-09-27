@@ -36,8 +36,8 @@ spec:
 {{ toYaml .Values.podAnnotations | indent 8 }}
 {{- end }}
     spec:
-      automountServiceAccountToken: false
-      priorityClassName: gardener-system-300
+      automountServiceAccountToken: true # TODO could be false when token would be connected to sa
+{{/*      priorityClassName: gardener-system-300 # TODO only used in seed control plane*/}}
       {{- if hasKey .Values.controller "hostNetwork" }}
       hostNetwork: {{ .Values.controller.hostNetwork }}
       {{- end }}
@@ -73,15 +73,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            - name: AWS_SHARED_CREDENTIALS_FILE
-              value: /srv/cloudprovider/credentialsFile
             - name: AWS_REGION
               value: {{ .Values.region }}
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
-            - name: cloudprovider
-              mountPath: /srv/cloudprovider
           ports:
             - name: healthz
               containerPort: {{ .Values.controller.healthPort }}
@@ -136,6 +132,3 @@ spec:
       volumes:
         - name: socket-dir
           emptyDir: {}
-        - name: cloudprovider
-          secret:
-            secretName: cloudprovider

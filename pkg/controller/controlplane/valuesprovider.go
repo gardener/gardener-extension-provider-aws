@@ -284,6 +284,8 @@ var (
 					aws.CSIProvisionerImageName,
 				},
 				Objects: []*chart.Object{
+					// driver
+					{Type: &storagev1.CSIDriver{}, Name: "efs.csi.aws.com"},
 					// csi-driver-efs-controller
 					{Type: &appsv1.Deployment{}, Name: "efs-csi-controller"},
 					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-controller-sa"},
@@ -291,8 +293,6 @@ var (
 					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role-describe-secrets"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-provisioner-binding"},
 					{Type: &rbacv1.RoleBinding{}, Name: "efs-csi-provisioner-binding"},
-					// driver
-					{Type: &storagev1.CSIDriver{}, Name: "efs.csi.aws.com"},
 					// csi-driver-efs-node
 					{Type: &appsv1.DaemonSet{}, Name: "csi-driver-efs-node"},
 					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-node-sa"},
