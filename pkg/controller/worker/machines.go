@@ -229,7 +229,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			var (
 				deploymentName          = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
 				className               = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
-				awsCSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
+				awsCSIDriverTopologyKey = "topology.kubernetes.io/zone"
 			)
 
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
