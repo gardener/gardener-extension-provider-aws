@@ -611,9 +611,9 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 
 		for i := 0; i < 3; i++ {
 			if len(subnetCIDRs) == 3 && subnetCIDRs[i] != "" {
-				desired[i].Ipv6CidrBlocks = []string{subnetCIDRs[i]}
+				desired[i+3*index].Ipv6CidrBlocks = []string{subnetCIDRs[i]}
 			} else {
-				desired[i].Ipv6CidrBlocks = nil
+				desired[i+3*index].Ipv6CidrBlocks = nil
 			}
 		}
 
