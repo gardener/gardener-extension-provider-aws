@@ -9,8 +9,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"path/filepath"
+	"slices"
 	"sort"
 	"time"
 
@@ -30,6 +33,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
@@ -49,19 +53,19 @@ import (
 )
 
 const (
-	cidrv4              = "172.16.15.14/12" // this is purposefully not normalised
-	cidrv6              = "fd12:3456:789a:1::/64"
+	mockCidrv6          = "fd12:3456:789a:1::/64" // test ingress rule for ipV6
 	vpcCIDR             = "10.250.0.0/16"
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
-	imageVersion        = "20.04.20210223" // not the real version - only used in the cloudProfile
-	imageName           = "ubuntu/images/hvm-ssd/ubuntu-jammy*"
+	imageVersion        = "1.0.0" // not the real version - only used in the cloudProfile
+	imageName           = "gardenlinux-aws-gardener*"
 )
 
 var (
 	accessKeyID     = flag.String("access-key-id", "", "AWS access key id")
 	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
 	region          = flag.String("region", "", "AWS region")
+	logLevel        = flag.String("logLevel", "", "Log level (debug, info, error)")
 )
 
 func validateFlags() {
@@ -73,6 +77,13 @@ func validateFlags() {
 	}
 	if len(*region) == 0 {
 		panic("need an AWS region")
+	}
+	if len(*logLevel) == 0 {
+		logLevel = ptr.To(logger.DebugLevel)
+	} else {
+		if !slices.Contains(logger.AllLogLevels, *logLevel) {
+			panic("invalid log level: " + *logLevel)
+		}
 	}
 }
 
@@ -91,13 +102,14 @@ var (
 
 	namespaceName string
 	namespace     *corev1.Namespace
+	myPublicIPv4  string
 )
 
 var _ = BeforeSuite(func() {
 	repoRoot := filepath.Join("..", "..", "..")
 
 	// enable manager logs
-	logf.SetLogger(logger.MustNewZapLogger(logger.DebugLevel, logger.FormatJSON, zap.WriteTo(GinkgoWriter)))
+	logf.SetLogger(logger.MustNewZapLogger(*logLevel, logger.FormatJSON, zap.WriteTo(GinkgoWriter)))
 
 	log = logf.Log.WithName("bastion-test")
 
@@ -124,6 +136,9 @@ var _ = BeforeSuite(func() {
 			Name: namespaceName,
 		},
 	}
+
+	myPublicIPv4, err = getMyPublicIPWithMask()
+	Expect(err).NotTo(HaveOccurred())
 
 	By("starting test environment")
 	testEnv = &envtest.Environment{
@@ -177,8 +192,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	imageAMI := getImageAMI(ctx, imageName, awsClient)
-	amiID := determineBastionImage(ctx, imageAMI, awsClient)
-	extensionscluster, corecluster = newCluster(namespaceName, amiID)
+	extensionscluster, corecluster = newCluster(namespaceName, imageAMI)
 })
 
 var _ = Describe("Bastion tests", func() {
@@ -227,26 +241,17 @@ var _ = Describe("Bastion tests", func() {
 		By("verify the bastion's status contains endpoints")
 		Expect(bastionctrl.IngressReady(bastion.Status.Ingress)).To(BeTrue())
 
+		By("check ports")
+		err := retry(10, 6*time.Second, func() error {
+			return verifyPort22IsOpen(ctx, c, bastion)
+		})
+		Expect(err).NotTo(HaveOccurred())
+		verifyPort42IsClosed(ctx, c, bastion)
+
 		By("verify cloud resources")
 		verifyCreation(ctx, awsClient, options)
 	})
 })
-
-func determineBastionImage(ctx context.Context, name string, awsClient *awsclient.Client) string {
-	output, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   awssdk.String("name"),
-				Values: awssdk.StringSlice([]string{name}),
-			},
-		},
-	})
-
-	Expect(err).NotTo(HaveOccurred())
-	Expect(output.Images).To(HaveLen(1))
-
-	return *output.Images[0].ImageId
-}
 
 func getImageAMI(ctx context.Context, name string, awsClient *awsclient.Client) string {
 	filters := []*ec2.Filter{
@@ -265,16 +270,12 @@ func getImageAMI(ctx context.Context, name string, awsClient *awsclient.Client) 
 		{
 			Name: awssdk.String("architecture"),
 			Values: []*string{
-				awssdk.String("x86_64"),
+				awssdk.String("arm64"),
 			},
 		},
 		{
 			Name:   awssdk.String("is-public"),
 			Values: []*string{awssdk.String("true")},
-		},
-		{
-			Name:   awssdk.String("owner-alias"),
-			Values: []*string{awssdk.String("amazon")},
 		},
 		{
 			Name:   awssdk.String("state"),
@@ -296,7 +297,7 @@ func getImageAMI(ctx context.Context, name string, awsClient *awsclient.Client) 
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(result.Images).ToNot(BeEmpty())
-	return *result.Images[0].Name
+	return *result.Images[0].ImageId
 }
 
 func normaliseCIDR(cidr string) string {
@@ -325,6 +326,10 @@ func setupInfrastructure(ctx context.Context, log logr.Logger, awsClient *awscli
 	workerSecurityGroupID, err := integration.CreateSecurityGroup(ctx, awsClient, workerSecurityGroupName, vpcID)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(workerSecurityGroupID).NotTo(BeEmpty())
+
+	// add route to internet gateway otherwise the instance won't be reachable
+	err = integration.AddRoute(ctx, awsClient, vpcID, igwID, myPublicIPv4)
+	Expect(err).NotTo(HaveOccurred())
 
 	return &infrastructure{
 		VPCID:                 vpcID,
@@ -391,53 +396,81 @@ func teardownBastion(ctx context.Context, log logr.Logger, c client.Client, bast
 }
 
 func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *controller.Cluster) {
-	var (
-		providerConfig = &awsv1alpha1.CloudProfileConfig{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "aws.provider.extensions.gardener.cloud/v1alpha1",
-				Kind:       "CloudProfileConfig",
-			},
-			MachineImages: []awsv1alpha1.MachineImages{
-				{
-					Name: "ubuntu",
-					Versions: []awsv1alpha1.MachineImageVersion{
-						{
-							Version: imageVersion,
-							Regions: []awsv1alpha1.RegionAMIMapping{
-								{
-									Name: *region,
-									AMI:  amiID,
-								},
+	providerConfig := &awsv1alpha1.CloudProfileConfig{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "aws.provider.extensions.gardener.cloud/v1alpha1",
+			Kind:       "CloudProfileConfig",
+		},
+		MachineImages: []awsv1alpha1.MachineImages{
+			{
+				Name: "gardenlinux",
+				Versions: []awsv1alpha1.MachineImageVersion{
+					{
+						Version: imageVersion,
+						Regions: []awsv1alpha1.RegionAMIMapping{
+							{
+								Name:         *region,
+								AMI:          amiID,
+								Architecture: ptr.To("arm64"),
 							},
 						},
 					},
 				},
 			},
-		}
-		cloudProfile = &gardencorev1beta1.CloudProfile{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "core.gardener.cloud/v1beta1",
-				Kind:       "CloudProfile",
-			},
-			Spec: gardencorev1beta1.CloudProfileSpec{
-				ProviderConfig: &runtime.RawExtension{
-					Object: providerConfig,
-				},
-			},
-		}
-		shoot = &gardencorev1beta1.Shoot{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "core.gardener.cloud/v1beta1",
-				Kind:       "Shoot",
-			},
-			Spec: gardencorev1beta1.ShootSpec{
-				Region: *region,
-			},
-		}
-	)
+		},
+	}
 
 	providerConfigJSON, err := json.Marshal(providerConfig)
 	Expect(err).NotTo(HaveOccurred())
+
+	cloudProfile := &gardencorev1beta1.CloudProfile{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core.gardener.cloud/v1beta1",
+			Kind:       "CloudProfile",
+		},
+		Spec: gardencorev1beta1.CloudProfileSpec{
+			Bastion: &gardencorev1beta1.Bastion{
+				MachineImage: &gardencorev1beta1.BastionMachineImage{
+					Name: "gardenlinux",
+				},
+			},
+			MachineImages: []gardencorev1beta1.MachineImage{
+				{
+					Name: "gardenlinux",
+					Versions: []gardencorev1beta1.MachineImageVersion{
+						{
+							ExpirableVersion: gardencorev1beta1.ExpirableVersion{
+								Version:        imageVersion,
+								Classification: ptr.To(gardencorev1beta1.ClassificationSupported),
+							},
+							Architectures: []string{"arm64"},
+						},
+					},
+				},
+			},
+			MachineTypes: []gardencorev1beta1.MachineType{{
+				CPU:          resource.MustParse("4"),
+				Memory:       resource.MustParse("4"),
+				Name:         "t4g.nano",
+				Architecture: ptr.To("arm64"),
+			}},
+			ProviderConfig: &runtime.RawExtension{
+				Raw:    providerConfigJSON,
+				Object: providerConfig,
+			},
+		},
+	}
+
+	shoot := &gardencorev1beta1.Shoot{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core.gardener.cloud/v1beta1",
+			Kind:       "Shoot",
+		},
+		Spec: gardencorev1beta1.ShootSpec{
+			Region: *region,
+		},
+	}
+
 	cloudProfileJSON, err := json.Marshal(cloudProfile)
 	Expect(err).NotTo(HaveOccurred())
 	shootJSON, err := json.Marshal(shoot)
@@ -463,18 +496,9 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 	}
 
 	corecluster := &controller.Cluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		CloudProfile: &gardencorev1beta1.CloudProfile{
-			Spec: gardencorev1beta1.CloudProfileSpec{
-				ProviderConfig: &runtime.RawExtension{
-					Object: providerConfig,
-					Raw:    providerConfigJSON,
-				},
-			},
-		},
-		Shoot: shoot,
+		ObjectMeta:   metav1.ObjectMeta{Name: name},
+		CloudProfile: cloudProfile,
+		Shoot:        shoot,
 	}
 
 	return extensionscluster, corecluster
@@ -493,14 +517,14 @@ func newBastion(namespace string) (*extensionsv1alpha1.Bastion, error) {
 			DefaultSpec: extensionsv1alpha1.DefaultSpec{
 				Type: aws.Type,
 			},
-			UserData: []byte("echo hello world"),
+			UserData: []byte("#!/bin/bash\n\nsystemctl start ssh"),
 			Ingress: []extensionsv1alpha1.BastionIngressPolicy{{
 				IPBlock: networkingv1.IPBlock{
-					CIDR: cidrv4,
+					CIDR: myPublicIPv4,
 				},
 			}, {
 				IPBlock: networkingv1.IPBlock{
-					CIDR: cidrv6,
+					CIDR: mockCidrv6,
 				},
 			}},
 		},
@@ -555,10 +579,10 @@ func verifyCreation(
 		ToPort:     awssdk.Int64(bastionctrl.SSHPort),
 		IpProtocol: awssdk.String("tcp"),
 		IpRanges: []*ec2.IpRange{{
-			CidrIp: awssdk.String(normaliseCIDR(cidrv4)),
+			CidrIp: awssdk.String(normaliseCIDR(myPublicIPv4)),
 		}},
 		Ipv6Ranges: []*ec2.Ipv6Range{{
-			CidrIpv6: awssdk.String(normaliseCIDR(cidrv6)),
+			CidrIpv6: awssdk.String(normaliseCIDR(mockCidrv6)),
 		}},
 	}))
 
@@ -646,4 +670,95 @@ func verifyDeletion(
 	Expect(instances.Reservations).To(HaveLen(1))
 	Expect(instances.Reservations[0].Instances).To(HaveLen(1))
 	Expect(instances.Reservations[0].Instances[0].State.Code).To(PointTo(Equal(int64(bastionctrl.InstanceStateTerminated))))
+}
+
+func getMyPublicIPWithMask() (string, error) {
+	ipV4Resp, err := http.Get("https://api.ipify.org")
+	if err != nil {
+		return "", err
+	}
+
+	myIpV4, err := ipFromReader(ipV4Resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return myIpV4, nil
+}
+
+func ipFromReader(reader io.ReadCloser) (string, error) {
+	defer func() {
+		err := reader.Close()
+		if err != nil {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}()
+
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+
+	ip := net.ParseIP(string(body))
+	var mask net.IPMask
+	if ip.To4() != nil {
+		mask = net.CIDRMask(24, 32) // use a /24 net for IPv4
+	} else if ip.To16() != nil {
+		mask = net.CIDRMask(64, 128) // IPv6 /64 mask
+	} else {
+		return "", fmt.Errorf("not a valid IP address")
+	}
+
+	cidr := net.IPNet{
+		IP:   ip,
+		Mask: mask,
+	}
+
+	full := cidr.String()
+
+	_, ipNet, _ := net.ParseCIDR(full)
+	return ipNet.String(), nil
+}
+
+func verifyPort22IsOpen(ctx context.Context, c client.Client, bastion *extensionsv1alpha1.Bastion) error {
+	By("check connection to port 22 open should not error")
+	bastionUpdated := &extensionsv1alpha1.Bastion{}
+	Expect(c.Get(ctx, client.ObjectKey{Namespace: bastion.Namespace, Name: bastion.Name}, bastionUpdated)).To(Succeed())
+
+	ipAddress := bastionUpdated.Status.Ingress.IP
+	address := net.JoinHostPort(ipAddress, "22")
+	conn, err := net.DialTimeout("tcp4", address, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		return fmt.Errorf("connection should not be nil")
+	}
+	return nil
+}
+
+func verifyPort42IsClosed(ctx context.Context, c client.Client, bastion *extensionsv1alpha1.Bastion) {
+	By("check connection to port 42 which should fail")
+	bastionUpdated := &extensionsv1alpha1.Bastion{}
+	Expect(c.Get(ctx, client.ObjectKey{Namespace: bastion.Namespace, Name: bastion.Name}, bastionUpdated)).To(Succeed())
+
+	ipAddress := bastionUpdated.Status.Ingress.IP
+	address := net.JoinHostPort(ipAddress, "42")
+	conn, err := net.DialTimeout("tcp4", address, 3*time.Second)
+	Expect(err).Should(HaveOccurred())
+	Expect(conn).To(BeNil())
+}
+
+// retry performs a function with retries, delay, and a max number of attempts
+func retry(maxRetries int, delay time.Duration, fn func() error) error {
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		log.Info(fmt.Sprintf("Attempt %d failed, retrying in %v: %v", i+1, delay, err))
+		time.Sleep(delay)
+	}
+	return err
 }

@@ -16,6 +16,7 @@ EFFECTIVE_VERSION           := $(VERSION)-$(shell git rev-parse HEAD)
 LD_FLAGS                    := "-w $(shell bash $(GARDENER_HACK_DIR)/get-build-ld-flags.sh k8s.io/component-base $(REPO_ROOT)/VERSION $(EXTENSION_PREFIX))"
 LEADER_ELECTION             := false
 IGNORE_OPERATION_ANNOTATION := true
+LOG_LEVEL                   := info
 
 WEBHOOK_CONFIG_PORT	:= 8443
 WEBHOOK_CONFIG_MODE	:= url
@@ -169,6 +170,7 @@ integration-test-infra:
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
 		--region=$(REGION) \
 		--reconciler=$(RECONCILER)
+		--love-level=$(LOG_LEVEL)
 
 .PHONY: integration-test-bastion
 integration-test-bastion:
@@ -178,6 +180,7 @@ integration-test-bastion:
 		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
 		--region=$(REGION)
+		--love-level=$(LOG_LEVEL)
 
 .PHONY: integration-test-dnsrecord
 integration-test-dnsrecord:
@@ -186,3 +189,4 @@ integration-test-dnsrecord:
 		--kubeconfig=${KUBECONFIG} \
 		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))'
+		--love-level=$(LOG_LEVEL)

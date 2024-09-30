@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
@@ -84,6 +85,7 @@ var (
 	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
 	region          = flag.String("region", "", "AWS region")
 	reconciler      = flag.String("reconciler", reconcilerUseFlow, "Set annotation to use flow for reconciliation")
+	logLevel        = flag.String("logLevel", "", "Log level (debug, info, error)")
 )
 
 func validateFlags() {
@@ -95,6 +97,13 @@ func validateFlags() {
 	}
 	if len(*region) == 0 {
 		panic("need an AWS region")
+	}
+	if len(*logLevel) == 0 {
+		logLevel = ptr.To(logger.DebugLevel)
+	} else {
+		if !slices.Contains(logger.AllLogLevels, *logLevel) {
+			panic("invalid log level: " + *logLevel)
+		}
 	}
 }
 
@@ -118,7 +127,7 @@ var _ = BeforeSuite(func() {
 	if os.Getenv("VERBOSE") != "" {
 		writer = io.MultiWriter(GinkgoWriter, os.Stderr)
 	}
-	logf.SetLogger(logger.MustNewZapLogger(logger.DebugLevel, logger.FormatJSON, zap.WriteTo(writer)))
+	logf.SetLogger(logger.MustNewZapLogger(*logLevel, logger.FormatJSON, zap.WriteTo(writer)))
 
 	log = logf.Log.WithName("infrastructure-test")
 
