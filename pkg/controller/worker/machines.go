@@ -34,6 +34,11 @@ import (
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
+const (
+	// AwsCSIDriverTopologyKey describes the topology key used by the AWS CSI driver
+	AwsCSIDriverTopologyKey = "topology.kubernetes.io/zone"
+)
+
 var (
 	// TODO(KA): replace with pkg/utils/version when v1.30 is supported.
 	// TODO(KA): remove when k8s versions < v1.30 are deprecated
@@ -227,9 +232,8 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 
 			var (
-				deploymentName          = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
-				className               = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
-				awsCSIDriverTopologyKey = "topology.kubernetes.io/zone"
+				deploymentName = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
+				className      = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
 			)
 
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
@@ -242,7 +246,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
 				// TODO: remove the csi topology label when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
 				// add aws csi driver topology label if it's not specified
-				Labels:                       utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone}),
+				Labels:                       utils.MergeStringMaps(pool.Labels, map[string]string{AwsCSIDriverTopologyKey: zone}),
 				Annotations:                  pool.Annotations,
 				Taints:                       pool.Taints,
 				MachineConfiguration:         genericworkeractuator.ReadMachineConfiguration(pool),
