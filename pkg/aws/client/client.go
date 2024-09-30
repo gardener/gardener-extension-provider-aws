@@ -2007,7 +2007,7 @@ func (c *Client) CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileS
 // DeleteEfsFileSystem deletes an efs file system
 func (c *Client) DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
 	_, err := c.EFS.DeleteFileSystemWithContext(ctx, input)
-	return err
+	return ignoreNotFound(err)
 }
 
 // DescribeMountTargetsEfs describes an efs mount target
@@ -2071,6 +2071,7 @@ func IsAlreadyExistsError(err error) bool {
 func IsNotFoundError(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok && (aerr.Code() == elb.ErrCodeAccessPointNotFoundException ||
 		aerr.Code() == iam.ErrCodeNoSuchEntityException || aerr.Code() == "NatGatewayNotFound" ||
+		aerr.Code() == efs.ErrCodeFileSystemNotFound ||
 		strings.HasSuffix(aerr.Code(), ".NotFound")) {
 		return true
 	}
