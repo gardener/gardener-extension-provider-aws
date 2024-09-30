@@ -14,7 +14,7 @@ global:
   healthPort: 8081
   vpa:
     enabled: true
-    resourcePolicy:
+#    resourcePolicy:
 #      minAllowed:
 #        memory: 64Mi
     updatePolicy:

@@ -14,7 +14,7 @@ maxSurge: 50%
 resources: {}
 vpa:
   enabled: true
-  resourcePolicy:
+#  resourcePolicy:
 #    minAllowed:
 #      memory: 64Mi
   updatePolicy:
