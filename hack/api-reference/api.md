@@ -408,6 +408,36 @@ reconciliation is possible.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CSI">CSI
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
+</p>
+<p>
+<p>CSI contains information about the created AWS CSI related resources.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>efsFileSystemID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>EfsSystemID contains the efsFileSystem.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CloudControllerManagerConfig">CloudControllerManagerConfig
 </h3>
 <p>
@@ -827,6 +857,19 @@ VPCStatus
 </td>
 <td>
 <p>VPC contains information about the created AWS VPC and some related resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>csi</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CSI">
+CSI
+</a>
+</em>
+</td>
+<td>
+<p>CSI contains information about the created AWS CSI related resources.</p>
 </td>
 </tr>
 </tbody>

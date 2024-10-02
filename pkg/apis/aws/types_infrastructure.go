@@ -50,6 +50,8 @@ type InfrastructureStatus struct {
 	IAM IAM
 	// VPC contains information about the created AWS VPC and some related resources.
 	VPC VPCStatus
+	// CSI contains information about the created AWS CSI related resources.
+	CSI CSI `json:"csi"`
 }
 
 // Networks holds information about the Kubernetes and infrastructure networks.
@@ -119,6 +121,12 @@ type VPCStatus struct {
 	Subnets []Subnet
 	// SecurityGroups is a list of security groups that have been created.
 	SecurityGroups []SecurityGroup
+}
+
+// CSI contains information about the created AWS CSI related resources.
+type CSI struct {
+	// EfsSystemID contains the efsFileSystem.
+	EfsSystemID string
 }
 
 const (

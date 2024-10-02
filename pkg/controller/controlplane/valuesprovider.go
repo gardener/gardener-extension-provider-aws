@@ -421,7 +421,12 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 		return nil, err
 	}
 
-	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader, infraConfig)
+	infraStatus, err := vp.decodeInfrastructureStatus(cp)
+	if err != nil {
+		return nil, err
+	}
+
+	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader, infraConfig, infraStatus)
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
@@ -770,6 +775,7 @@ func getControlPlaneShootChartValues(
 	cp *extensionsv1alpha1.ControlPlane,
 	secretsReader secretsmanager.Reader,
 	infraConfig *apisaws.InfrastructureConfig,
+	infraStatus *apisaws.InfrastructureStatus,
 ) (map[string]interface{}, error) {
 	kubernetesVersion := cluster.Shoot.Spec.Kubernetes.Version
 
@@ -803,7 +809,7 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
-	csiDriverEfsValues := getControlPlaneShootChartCSIEfsValues(infraConfig)
+	csiDriverEfsValues := getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus)
 
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
@@ -820,16 +826,16 @@ func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
 
 func getControlPlaneShootChartCSIEfsValues(
 	infraConfig *apisaws.InfrastructureConfig,
+	infraStatus *apisaws.InfrastructureStatus,
 ) map[string]interface{} {
 	csiEsfEnabled := isCSIEfsEnabled(infraConfig)
 	values := map[string]interface{}{
 		"enabled": csiEsfEnabled,
 	}
 
-	//if csiManilaEnabled {
-	// TODO
-	// values["vpaEnabled"] = gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot)
-	//}
+	if csiEsfEnabled {
+		values["fileSystemID"] = infraStatus.CSI.EfsSystemID
+	}
 
 	return values
 }

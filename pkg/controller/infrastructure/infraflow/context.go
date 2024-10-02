@@ -212,6 +212,7 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 	ec2KeyName := ptr.Deref(c.state.Get(NameKeyPair), "")
 	iamInstanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
 	arnIAMRole := ptr.Deref(c.state.Get(ARNIAMRole), "")
+	efsSystemID := ptr.Deref(c.state.Get(NameEfsSystemID), "")
 
 	if c.config.Networks.VPC.ID != nil {
 		vpcID = *c.config.Networks.VPC.ID
@@ -279,6 +280,10 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 				ARN:     arnIAMRole,
 			},
 		}
+	}
+
+	if efsSystemID != "" {
+		status.CSI.EfsSystemID = efsSystemID
 	}
 
 	return status
