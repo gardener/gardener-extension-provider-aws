@@ -720,6 +720,7 @@ func (c *FlowContext) collectExistingSubnets(ctx context.Context) ([]*awsclient.
 	return current, nil
 }
 
+// foo
 func (c *FlowContext) addSubnetReconcileTasks(g *flow.Graph, desired, current *awsclient.Subnet) (flow.TaskIDer, error) {
 	zoneName, subnetKey, err := c.getSubnetKey(desired)
 	if err != nil {
