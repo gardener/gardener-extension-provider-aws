@@ -48,6 +48,9 @@ spec:
         {{- if .Values.driver.volumeAttachLimit }}
         - --volume-attach-limit={{ .Values.driver.volumeAttachLimit }}
         {{- end }}
+        {{- if .Values.driver.legacyXFS }}
+        - --legacyXFS=true
+        {{- end }}
         - --logtostderr
         - --v=3
         - --vmodule=node_*=4,mount*=4,driver=4,controller=4
