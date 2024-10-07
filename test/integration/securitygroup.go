@@ -7,8 +7,9 @@ package integration
 import (
 	"context"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -16,17 +17,17 @@ import (
 
 // CreateSecurityGroup creates a new security group.
 func CreateSecurityGroup(ctx context.Context, awsClient *awsclient.Client, groupName string, vpcID string) (string, error) {
-	output, err := awsClient.EC2.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
-		Description: awssdk.String("group for worker nodes"),
-		GroupName:   awssdk.String(groupName),
-		VpcId:       awssdk.String(vpcID),
-		TagSpecifications: []*ec2.TagSpecification{
+	output, err := awsClient.EC2.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
+		Description: aws.String("group for worker nodes"),
+		GroupName:   aws.String(groupName),
+		VpcId:       aws.String(vpcID),
+		TagSpecifications: []ec2types.TagSpecification{
 			{
-				ResourceType: awssdk.String("security-group"),
-				Tags: []*ec2.Tag{
+				ResourceType: ec2types.ResourceTypeSecurityGroup,
+				Tags: []ec2types.Tag{
 					{
-						Key:   awssdk.String("Name"),
-						Value: awssdk.String(groupName),
+						Key:   aws.String("Name"),
+						Value: aws.String(groupName),
 					},
 				},
 			},
@@ -40,9 +41,9 @@ func CreateSecurityGroup(ctx context.Context, awsClient *awsclient.Client, group
 }
 
 // DestroySecurityGroup deletes an existing security group.
-func DestroySecurityGroup(_ context.Context, _ logr.Logger, awsClient *awsclient.Client, securityGroupID string) error {
-	_, err := awsClient.EC2.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
-		GroupId: awssdk.String(securityGroupID),
+func DestroySecurityGroup(ctx context.Context, _ logr.Logger, awsClient *awsclient.Client, securityGroupID string) error {
+	_, err := awsClient.EC2.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
+		GroupId: aws.String(securityGroupID),
 	})
 
 	return err

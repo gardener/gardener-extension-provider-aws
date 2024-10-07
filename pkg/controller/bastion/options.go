@@ -9,8 +9,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -98,11 +99,11 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 // resolveSubnetName resolves a subnet name to its ID and the VPC ID. If no subnet with the
 // given name exists, an error is returned.
 func resolveSubnetName(ctx context.Context, awsClient *awsclient.Client, subnetName string) (subnetID string, vpcID string, err error) {
-	subnets, err := awsClient.EC2.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{
-		Filters: []*ec2.Filter{
+	subnets, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   aws.String("tag:Name"),
-				Values: aws.StringSlice([]string{subnetName}),
+				Values: []string{subnetName},
 			},
 		},
 	})
@@ -167,17 +168,13 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 		return "", err
 	}
 
-	if imageInfo.Architecture == nil {
-		return "", fmt.Errorf("image architecture is empty")
-	}
-
 	imageArchitecture := imageInfo.Architecture
 
 	// default instance type
-	switch *imageArchitecture {
-	case "x86_64":
+	switch imageArchitecture {
+	case ec2types.ArchitectureValuesX8664:
 		preferredType = "t2.nano"
-	case "arm64":
+	case ec2types.ArchitectureValuesArm64:
 		preferredType = "t4g.nano"
 	default:
 		return "", fmt.Errorf("image architecture not supported")
@@ -202,17 +199,17 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 		return "", fmt.Errorf("no t* instance type offerings available")
 	}
 
-	tTypeSet := sets.NewString()
+	tTypeSet := sets.Set[ec2types.InstanceType]{}
 	for _, t := range tTypes.InstanceTypeOfferings {
-		tTypeSet.Insert(*t.InstanceType)
+		tTypeSet.Insert(t.InstanceType)
 	}
 
-	result, err := awsClient.EC2.DescribeInstanceTypes(&ec2.DescribeInstanceTypesInput{
-		InstanceTypes: aws.StringSlice(tTypeSet.UnsortedList()),
-		Filters: []*ec2.Filter{
+	result, err := awsClient.EC2.DescribeInstanceTypes(ctx, &ec2.DescribeInstanceTypesInput{
+		InstanceTypes: tTypeSet.UnsortedList(),
+		Filters: []ec2types.Filter{
 			{
 				Name:   aws.String("processor-info.supported-architecture"),
-				Values: []*string{imageArchitecture},
+				Values: []string{string(imageArchitecture)},
 			},
 		},
 	})
@@ -222,21 +219,15 @@ func determineInstanceType(ctx context.Context, imageID string, awsClient *awscl
 	}
 
 	if len(result.InstanceTypes) == 0 {
-		return "", fmt.Errorf("no instance types returned for architecture %s and instance types list %v", *imageArchitecture, tTypeSet.UnsortedList())
+		return "", fmt.Errorf("no instance types returned for architecture %s and instance types list %v", imageArchitecture, tTypeSet.UnsortedList())
 	}
 
-	if result.InstanceTypes[0].InstanceType == nil {
-		return "", fmt.Errorf("instanceType is empty")
-	}
-
-	return *result.InstanceTypes[0].InstanceType, nil
+	return string(result.InstanceTypes[0].InstanceType), nil
 }
 
-func getImages(ctx context.Context, ami string, awsClient *awsclient.Client) (*ec2.Image, error) {
-	imageInfo, err := awsClient.EC2.DescribeImagesWithContext(ctx, &ec2.DescribeImagesInput{
-		ImageIds: []*string{
-			aws.String(ami),
-		},
+func getImages(ctx context.Context, ami string, awsClient *awsclient.Client) (*ec2types.Image, error) {
+	imageInfo, err := awsClient.EC2.DescribeImages(ctx, &ec2.DescribeImagesInput{
+		ImageIds: []string{ami},
 	})
 
 	if err != nil {
@@ -246,15 +237,15 @@ func getImages(ctx context.Context, ami string, awsClient *awsclient.Client) (*e
 	if len(imageInfo.Images) == 0 {
 		return nil, fmt.Errorf("images info not found: %w", err)
 	}
-	return imageInfo.Images[0], nil
+	return &imageInfo.Images[0], nil
 }
 
 func getInstanceTypeOfferings(ctx context.Context, filter string, awsClient *awsclient.Client) (*ec2.DescribeInstanceTypeOfferingsOutput, error) {
-	return awsClient.EC2.DescribeInstanceTypeOfferingsWithContext(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
-		Filters: []*ec2.Filter{
+	return awsClient.EC2.DescribeInstanceTypeOfferings(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   aws.String("instance-type"),
-				Values: []*string{aws.String(filter)},
+				Values: []string{filter},
 			},
 		},
 	})

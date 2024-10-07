@@ -8,8 +8,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/route53"
+	route53types "github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/dnsrecord"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
@@ -164,7 +163,7 @@ var _ = Describe("Actuator", func() {
 			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
-				Return(awserr.New(route53.ErrCodeNoSuchHostedZone, "", nil))
+				Return(&route53types.NoSuchHostedZone{})
 
 			err := a.Reconcile(ctx, logger, dns, nil)
 			Expect(err).To(HaveOccurred())
@@ -177,7 +176,7 @@ var _ = Describe("Actuator", func() {
 			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
-				Return(awserr.New(route53.ErrCodeNoSuchHostedZone, "", nil))
+				Return(&route53types.NoSuchHostedZone{})
 
 			err := a.Reconcile(ctx, logger, dns, nil)
 			Expect(err).To(HaveOccurred())
@@ -190,7 +189,7 @@ var _ = Describe("Actuator", func() {
 			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
-				Return(awserr.New(route53.ErrCodeInvalidChangeBatch, "RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com.", nil))
+				Return(&route53types.InvalidChangeBatch{Messages: []string{"RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com."}})
 
 			err := a.Reconcile(ctx, logger, dns, nil)
 			Expect(err).To(HaveOccurred())
@@ -216,7 +215,7 @@ var _ = Describe("Actuator", func() {
 			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
-				Return(awserr.New(route53.ErrCodeInvalidChangeBatch, "RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com.", nil))
+				Return(&route53types.InvalidChangeBatch{Messages: []string{"RRSet with DNS name api.aws.foobar.shoot.example.com. is not permitted in zone foo.com."}})
 
 			err := a.Delete(ctx, logger, dns, nil)
 			Expect(err).To(HaveOccurred())
@@ -230,7 +229,7 @@ var _ = Describe("Actuator", func() {
 			dns.Spec.Zone = ptr.To(zone)
 
 			awsClient.EXPECT().DeleteDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).
-				Return(awserr.New(route53.ErrCodeNoSuchHostedZone, "", nil))
+				Return(&route53types.NoSuchHostedZone{})
 
 			err := a.Delete(ctx, logger, dns, nil)
 			Expect(err).NotTo(HaveOccurred())

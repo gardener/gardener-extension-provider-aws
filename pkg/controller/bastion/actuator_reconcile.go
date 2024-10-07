@@ -11,8 +11,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -79,11 +80,11 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 		return "", fmt.Errorf("invalid ingress rules configured for bastion: %w", err)
 	}
 
-	egressPermission := &ec2.IpPermission{
-		FromPort:   aws.Int64(SSHPort),
-		ToPort:     aws.Int64(SSHPort),
+	egressPermission := ec2types.IpPermission{
+		FromPort:   aws.Int32(SSHPort),
+		ToPort:     aws.Int32(SSHPort),
 		IpProtocol: aws.String("tcp"),
-		UserIdGroupPairs: []*ec2.UserIdGroupPair{
+		UserIdGroupPairs: []ec2types.UserIdGroupPair{
 			{
 				GroupId: aws.String(opt.WorkerSecurityGroupID),
 			},
@@ -99,14 +100,14 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 
 	if group == nil {
 		logger.Info("Creating security group")
-		output, err := awsClient.EC2.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
+		output, err := awsClient.EC2.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
 			Description: aws.String("SSH access for Bastion"),
 			GroupName:   aws.String(opt.BastionSecurityGroupName),
 			VpcId:       aws.String(opt.VPCID),
-			TagSpecifications: []*ec2.TagSpecification{
+			TagSpecifications: []ec2types.TagSpecification{
 				{
-					ResourceType: aws.String("security-group"),
-					Tags: []*ec2.Tag{
+					ResourceType: ec2types.ResourceTypeSecurityGroup,
+					Tags: []ec2types.Tag{
 						{
 							Key:   aws.String("Name"),
 							Value: aws.String(opt.BastionSecurityGroupName),
@@ -122,16 +123,16 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 		groupID = output.GroupId
 	} else {
 		groupID = group.GroupId
-		hasIngressPermissions = securityGroupHasPermissions(group.IpPermissions, ingressPermission)
+		hasIngressPermissions = securityGroupHasPermissions(group.IpPermissions, *ingressPermission)
 		hasEgressPermissions = securityGroupHasPermissions(group.IpPermissionsEgress, egressPermission)
 	}
 
 	if !hasIngressPermissions {
 		logger.Info("Authorizing SSH ingress")
 
-		_, err = awsClient.EC2.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+		_, err = awsClient.EC2.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       groupID,
-			IpPermissions: []*ec2.IpPermission{ingressPermission},
+			IpPermissions: []ec2types.IpPermission{*ingressPermission},
 		})
 		if err != nil {
 			return "", fmt.Errorf("failed to authorize ingress: %w", err)
@@ -141,9 +142,9 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 	if !hasEgressPermissions {
 		logger.Info("Revoking bastion egress")
 
-		_, err = awsClient.EC2.AuthorizeSecurityGroupEgressWithContext(ctx, &ec2.AuthorizeSecurityGroupEgressInput{
+		_, err = awsClient.EC2.AuthorizeSecurityGroupEgress(ctx, &ec2.AuthorizeSecurityGroupEgressInput{
 			GroupId:       groupID,
-			IpPermissions: []*ec2.IpPermission{egressPermission},
+			IpPermissions: []ec2types.IpPermission{egressPermission},
 		})
 		if err != nil {
 			return "", fmt.Errorf("failed to revoke egress: %w", err)
@@ -156,7 +157,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 		return "", err
 	}
 
-	permsToDelete := []*ec2.IpPermission{}
+	permsToDelete := []ec2types.IpPermission{}
 	for i, perm := range group.IpPermissionsEgress {
 		if !ipPermissionsEqual(perm, egressPermission) {
 			permsToDelete = append(permsToDelete, group.IpPermissionsEgress[i])
@@ -166,7 +167,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 	if len(permsToDelete) > 0 {
 		logger.Info("Revoking default bastion egress")
 
-		_, err = awsClient.EC2.RevokeSecurityGroupEgressWithContext(ctx, &ec2.RevokeSecurityGroupEgressInput{
+		_, err = awsClient.EC2.RevokeSecurityGroupEgress(ctx, &ec2.RevokeSecurityGroupEgressInput{
 			GroupId:       groupID,
 			IpPermissions: permsToDelete,
 		})
@@ -180,10 +181,10 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 
 // ingressPermissions converts the Ingress rules from the Bastion resource to EC2-compatible
 // IP permissions.
-func ingressPermissions(_ context.Context, bastion *extensionsv1alpha1.Bastion) (*ec2.IpPermission, error) {
-	permission := &ec2.IpPermission{
-		FromPort:   aws.Int64(SSHPort),
-		ToPort:     aws.Int64(SSHPort),
+func ingressPermissions(_ context.Context, bastion *extensionsv1alpha1.Bastion) (*ec2types.IpPermission, error) {
+	permission := &ec2types.IpPermission{
+		FromPort:   aws.Int32(SSHPort),
+		ToPort:     aws.Int32(SSHPort),
 		IpProtocol: aws.String("tcp"),
 		// Do not set IpRanges and Ipv6Ranges to empty slices here,
 		// as AWS makes a distinction between empty slices and nil,
@@ -207,18 +208,18 @@ func ingressPermissions(_ context.Context, bastion *extensionsv1alpha1.Bastion) 
 
 		if ip.To4() != nil {
 			if permission.IpRanges == nil {
-				permission.IpRanges = []*ec2.IpRange{}
+				permission.IpRanges = []ec2types.IpRange{}
 			}
 
-			permission.IpRanges = append(permission.IpRanges, &ec2.IpRange{
+			permission.IpRanges = append(permission.IpRanges, ec2types.IpRange{
 				CidrIp: &normalisedCIDR,
 			})
 		} else if ip.To16() != nil {
 			if permission.Ipv6Ranges == nil {
-				permission.Ipv6Ranges = []*ec2.Ipv6Range{}
+				permission.Ipv6Ranges = []ec2types.Ipv6Range{}
 			}
 
-			permission.Ipv6Ranges = append(permission.Ipv6Ranges, &ec2.Ipv6Range{
+			permission.Ipv6Ranges = append(permission.Ipv6Ranges, ec2types.Ipv6Range{
 				CidrIpv6: &normalisedCIDR,
 			})
 		}
@@ -262,14 +263,14 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 	// prepare to create a new instance
 	input := &ec2.RunInstancesInput{
 		ImageId:      aws.String(opt.ImageID),
-		InstanceType: aws.String(opt.InstanceType),
+		InstanceType: ec2types.InstanceType(opt.InstanceType),
 		UserData:     aws.String(base64.StdEncoding.EncodeToString(bastion.Spec.UserData)),
-		MinCount:     aws.Int64(1),
-		MaxCount:     aws.Int64(1),
-		TagSpecifications: []*ec2.TagSpecification{
+		MinCount:     aws.Int32(1),
+		MaxCount:     aws.Int32(1),
+		TagSpecifications: []ec2types.TagSpecification{
 			{
-				ResourceType: aws.String("instance"),
-				Tags: []*ec2.Tag{
+				ResourceType: ec2types.ResourceType("instance"),
+				Tags: []ec2types.Tag{
 					{
 						Key:   aws.String("Name"),
 						Value: aws.String(opt.InstanceName),
@@ -277,10 +278,10 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 				},
 			},
 		},
-		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
+		NetworkInterfaces: []ec2types.InstanceNetworkInterfaceSpecification{
 			{
-				DeviceIndex:              aws.Int64(0),
-				Groups:                   aws.StringSlice([]string{opt.BastionSecurityGroupID}),
+				DeviceIndex:              aws.Int32(0),
+				Groups:                   []string{opt.BastionSecurityGroupID},
 				SubnetId:                 aws.String(opt.SubnetID),
 				AssociatePublicIpAddress: aws.Bool(true),
 			},
@@ -289,7 +290,7 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 
 	logger.Info("Running new bastion instance")
 
-	_, err = awsClient.EC2.RunInstancesWithContext(ctx, input)
+	_, err = awsClient.EC2.RunInstances(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run instance: %w", err)
 	}
@@ -306,10 +307,10 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 // Note that the public endpoint can be nil if no IP has been associated with
 // the instance yet.
 func getInstanceEndpoints(ctx context.Context, awsClient *awsclient.Client, instanceName string) (*bastionEndpoints, error) {
-	instance, err := getFirstMatchingInstance(ctx, awsClient, []*ec2.Filter{
+	instance, err := getFirstMatchingInstance(ctx, awsClient, []ec2types.Filter{
 		{
 			Name:   aws.String("tag:Name"),
-			Values: []*string{aws.String(instanceName)},
+			Values: []string{instanceName},
 		},
 	})
 	if err != nil {
@@ -369,9 +370,9 @@ func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 	if !securityGroupHasPermissions(workerSecurityGroup.IpPermissions, permission) {
 		logger.Info("Authorizing SSH ingress to worker nodes")
 
-		_, err = awsClient.EC2.AuthorizeSecurityGroupIngressWithContext(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+		_, err = awsClient.EC2.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       aws.String(opt.WorkerSecurityGroupID),
-			IpPermissions: []*ec2.IpPermission{permission},
+			IpPermissions: []ec2types.IpPermission{permission},
 		})
 	}
 
@@ -381,8 +382,8 @@ func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 // getFirstMatchingInstance returns the first EC2 instances that matches
 // the filter and is not in a Terminating/Shutting-down state. If no
 // instances match, nil and no error are returned.
-func getFirstMatchingInstance(ctx context.Context, awsClient *awsclient.Client, filter []*ec2.Filter) (*ec2.Instance, error) {
-	instances, err := awsClient.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{Filters: filter})
+func getFirstMatchingInstance(ctx context.Context, awsClient *awsclient.Client, filter []ec2types.Filter) (*ec2types.Instance, error) {
+	instances, err := awsClient.EC2.DescribeInstances(ctx, &ec2.DescribeInstancesInput{Filters: filter})
 	if err != nil {
 		return nil, err
 	}
@@ -395,24 +396,24 @@ func getFirstMatchingInstance(ctx context.Context, awsClient *awsclient.Client, 
 				continue
 			}
 
-			return instance, nil
+			return &instance, nil
 		}
 	}
 
 	return nil, nil
 }
 
-func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, vpcID string, groupName string) (*ec2.SecurityGroup, error) {
+func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, vpcID string, groupName string) (*ec2types.SecurityGroup, error) {
 	// try to find existing SG
-	groups, err := awsClient.EC2.DescribeSecurityGroupsWithContext(ctx, &ec2.DescribeSecurityGroupsInput{
-		Filters: []*ec2.Filter{
+	groups, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   aws.String("vpc-id"),
-				Values: []*string{aws.String(vpcID)},
+				Values: []string{vpcID},
 			},
 			{
 				Name:   aws.String("group-name"),
-				Values: []*string{aws.String(groupName)},
+				Values: []string{groupName},
 			},
 		},
 	})
@@ -424,5 +425,5 @@ func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, vpcID st
 		return nil, nil
 	}
 
-	return groups.SecurityGroups[0], nil
+	return &groups.SecurityGroups[0], nil
 }
