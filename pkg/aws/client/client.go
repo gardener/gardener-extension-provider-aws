@@ -7,6 +7,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -19,6 +20,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	"github.com/aws/aws-sdk-go/service/efs"
+	"github.com/aws/aws-sdk-go/service/efs/efsiface"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -54,6 +57,7 @@ type Client struct {
 	S3                            s3iface.S3API
 	ELB                           elbiface.ELBAPI
 	ELBv2                         elbv2iface.ELBV2API
+	EFS                           efsiface.EFSAPI
 	Route53                       route53iface.Route53API
 	Route53RateLimiter            *rate.Limiter
 	Route53RateLimiterWaitTimeout time.Duration
@@ -91,6 +95,7 @@ func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
 		IAM:                           iam.New(s, config),
 		STS:                           sts.New(s, config),
 		S3:                            s3.New(s, config),
+		EFS:                           efs.New(s, config),
 		Route53:                       route53.New(s, config),
 		Route53RateLimiter:            rate.NewLimiter(rate.Inf, 0),
 		Route53RateLimiterWaitTimeout: 1 * time.Second,
@@ -1965,6 +1970,62 @@ func (c *Client) DeleteIAMRolePolicy(ctx context.Context, policyName, roleName s
 	return ignoreNotFound(err)
 }
 
+// DescribeEfsFileSystems retrieve information about an efs file system by its ID
+func (c *Client) DescribeEfsFileSystems(ctx context.Context, fileSystemID *string) (*efs.FileSystemDescription, error) {
+	output, err := c.EFS.DescribeFileSystemsWithContext(ctx, &efs.DescribeFileSystemsInput{
+		FileSystemId: fileSystemID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(output.FileSystems) != 1 {
+		return nil, fmt.Errorf("expected 1 file system, got %d", len(output.FileSystems))
+	}
+	return output.FileSystems[0], nil
+}
+
+// CreateEfsFileSystem creates an efs file system
+func (c *Client) CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efs.FileSystemDescription, error) {
+	output, err := c.EFS.CreateFileSystemWithContext(ctx, input)
+	if ignoreAlreadyExists(err) != nil {
+		return nil, err
+	}
+	var fsDescription *efs.FileSystemDescription
+	err = c.PollImmediateUntil(ctx, func(ctx context.Context) (bool, error) {
+		fsDescription, err = c.DescribeEfsFileSystems(ctx, output.FileSystemId)
+		if err != nil {
+			return true, err
+		}
+		if fsDescription.LifeCycleState != nil && *fsDescription.LifeCycleState == efs.LifeCycleStateAvailable {
+			return true, nil
+		}
+		return false, nil
+	})
+	return fsDescription, err
+}
+
+// DeleteEfsFileSystem deletes an efs file system
+func (c *Client) DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
+	_, err := c.EFS.DeleteFileSystemWithContext(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// DescribeMountTargetsEfs describes an efs mount target
+func (c *Client) DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
+	return c.EFS.DescribeMountTargetsWithContext(ctx, input)
+}
+
+// CreateMountTargetEfs creates an efs mount target
+func (c *Client) CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.MountTargetDescription, error) {
+	return c.EFS.CreateMountTargetWithContext(ctx, input)
+}
+
+// DeleteMountTargetEfs deletes an efs mount target
+func (c *Client) DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error {
+	_, err := c.EFS.DeleteMountTargetWithContext(ctx, input)
+	return err
+}
+
 // CreateEC2Tags creates the tags for the given EC2 resource identifiers
 func (c *Client) CreateEC2Tags(ctx context.Context, resources []string, tags Tags) error {
 	input := &ec2.CreateTagsInput{
@@ -1997,10 +2058,20 @@ func (c *Client) PollUntil(ctx context.Context, condition wait.ConditionWithCont
 	return wait.PollUntilContextCancel(ctx, c.PollInterval, false, condition)
 }
 
+// IsAlreadyExistsError returns true if the given error is a awserr.Error indicating that an AWS resource was not found.
+func IsAlreadyExistsError(err error) bool {
+	var aerr awserr.Error
+	if errors.As(err, &aerr) && (aerr.Code() == efs.ErrCodeFileSystemAlreadyExists) {
+		return true
+	}
+	return false
+}
+
 // IsNotFoundError returns true if the given error is a awserr.Error indicating that an AWS resource was not found.
 func IsNotFoundError(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok && (aerr.Code() == elb.ErrCodeAccessPointNotFoundException ||
 		aerr.Code() == iam.ErrCodeNoSuchEntityException || aerr.Code() == "NatGatewayNotFound" ||
+		aerr.Code() == efs.ErrCodeFileSystemNotFound ||
 		strings.HasSuffix(aerr.Code(), ".NotFound")) {
 		return true
 	}
@@ -2013,6 +2084,13 @@ func IsAlreadyAssociatedError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func ignoreAlreadyExists(err error) error {
+	if err == nil || IsAlreadyExistsError(err) {
+		return nil
+	}
+	return err
 }
 
 func ignoreNotFound(err error) error {
