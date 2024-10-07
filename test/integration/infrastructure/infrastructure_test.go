@@ -38,10 +38,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/uuid"
+	schemev1 "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -84,6 +90,7 @@ var (
 	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
 	region          = flag.String("region", "", "AWS region")
 	reconciler      = flag.String("reconciler", reconcilerUseFlow, "Set annotation to use flow for reconciliation")
+	testId          = string(uuid.NewUUID())
 )
 
 func validateFlags() {
@@ -146,20 +153,36 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	cfg, err := testEnv.Start()
+	restConfig, err := testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
-	Expect(cfg).ToNot(BeNil())
+	Expect(restConfig).ToNot(BeNil())
+
+	httpClient, err := rest.HTTPClientFor(restConfig)
+	Expect(err).NotTo(HaveOccurred())
+	mapper, err := apiutil.NewDynamicRESTMapper(restConfig, httpClient)
+	Expect(err).NotTo(HaveOccurred())
+
+	scheme := runtime.NewScheme()
+	Expect(schemev1.AddToScheme(scheme)).To(Succeed())
+	Expect(extensionsv1alpha1.AddToScheme(scheme)).To(Succeed())
+	Expect(awsinstall.AddToScheme(scheme)).To(Succeed())
 
 	By("setup manager")
-	mgr, err := manager.New(cfg, manager.Options{
+	mgr, err := manager.New(restConfig, manager.Options{
+		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
+		Cache: cache.Options{
+			Mapper: mapper,
+			ByObject: map[client.Object]cache.ByObject{
+				&extensionsv1alpha1.Infrastructure{}: {
+					Label: labels.SelectorFromSet(labels.Set{"test-id": testId}),
+				},
+			},
+		},
 	})
 	Expect(err).ToNot(HaveOccurred())
-
-	Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
-	Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
 
 	Expect(infrastructure.AddToManagerWithOptions(ctx, mgr, infrastructure.AddOptions{
 		// During testing in testmachinery cluster, there is no gardener-resource-manager to inject the volume mount.
@@ -180,7 +203,7 @@ var _ = BeforeSuite(func() {
 	}()
 
 	// test client should be uncached and independent from the tested manager
-	c, err = client.New(cfg, client.Options{
+	c, err = client.New(restConfig, client.Options{
 		Scheme: mgr.GetScheme(),
 		Mapper: mgr.GetRESTMapper(),
 	})
@@ -639,6 +662,9 @@ func newInfrastructure(namespace string, providerConfig *awsv1alpha1.Infrastruct
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "infrastructure",
 			Namespace: namespace,
+			Labels: map[string]string{
+				"test-id": testId,
+			},
 		},
 		Spec: extensionsv1alpha1.InfrastructureSpec{
 			DefaultSpec: extensionsv1alpha1.DefaultSpec{
