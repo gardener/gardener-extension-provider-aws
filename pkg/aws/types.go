@@ -16,6 +16,10 @@ const (
 	// represents the maximum number of volumes attachable for all nodes.
 	VolumeAttachLimit = "aws.provider.extensions.gardener.cloud/volume-attach-limit"
 
+	// LegacyXFS is the key for an annotation on a Shoot object whose value
+	// represents whether or not LegacyXFS mode should be enabled
+	legacyXFS = "aws.provider.extensions.gardener.cloud/legacyXFS"
+
 	// CloudControllerManagerImageName is the name of the cloud-controller-manager image.
 	CloudControllerManagerImageName = "cloud-controller-manager"
 	// AWSCustomRouteControllerImageName is the name of the aws-custom-route-controller image.

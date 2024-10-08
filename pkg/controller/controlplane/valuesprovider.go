@@ -826,6 +826,12 @@ func getControlPlaneShootChartValues(
 		}
 	}
 
+	if value, ok := cluster.Shoot.Annotations[aws.legacyXFS]; ok {
+		csiDriverNodeValues["driver"] = map[string]interface{}{
+			"legacyXFS": value,
+		}
+	}
+
 	albValues, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, nil, false, nil)
 	if err != nil {
 		return nil, err
