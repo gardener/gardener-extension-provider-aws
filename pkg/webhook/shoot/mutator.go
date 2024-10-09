@@ -21,7 +21,6 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -39,22 +38,16 @@ func NewMutator() extensionswebhook.Mutator {
 
 // Mutate mutates resources.
 func (m *mutator) Mutate(ctx context.Context, new, _ client.Object) error {
-	acc, err := meta.Accessor(new)
-	if err != nil {
-		return fmt.Errorf("could not create accessor during webhook: %w", err)
+	configMap, ok := new.(*corev1.ConfigMap)
+	if !ok {
+		return fmt.Errorf("wrong object type %T", new)
 	}
+
 	// If the object does have a deletion timestamp then we don't want to mutate anything.
-	if acc.GetDeletionTimestamp() != nil {
+	if configMap.GetDeletionTimestamp() != nil {
 		return nil
 	}
 
-	switch x := new.(type) {
-	case *corev1.ConfigMap:
-		switch x.Name {
-		case "addons-nginx-ingress-controller":
-			extensionswebhook.LogMutation(logger, x.Kind, x.Namespace, x.Name)
-			return m.mutateNginxIngressControllerConfigMap(ctx, x)
-		}
-	}
-	return nil
+	extensionswebhook.LogMutation(logger, configMap.Kind, configMap.Namespace, configMap.Name)
+	return m.mutateNginxIngressControllerConfigMap(ctx, configMap)
 }
