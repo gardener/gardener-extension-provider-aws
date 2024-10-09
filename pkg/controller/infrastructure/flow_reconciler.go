@@ -339,6 +339,8 @@ func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones 
 		tfState.GetManagedResourceInstanceID("aws_internet_gateway", "igw"))
 	setFlowStateData(flowState, infraflow.IdentifierMainRouteTable,
 		tfState.GetManagedResourceInstanceID("aws_route_table", "public"))
+	setFlowStateData(flowState, infraflow.IdentifierEgressOnlyInternetGateway,
+		tfState.GetManagedResourceInstanceID("aws_egress_only_internet_gateway", "egw"))
 	setFlowStateData(flowState, infraflow.IdentifierNodesSecurityGroup,
 		tfState.GetManagedResourceInstanceID("aws_security_group", "nodes"))
 
@@ -349,7 +351,7 @@ func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones 
 		}
 	}
 
-	tfNamePrefixes := []string{"nodes_", "private_utility_", "public_utility"}
+	tfNamePrefixes := []string{"nodes_", "private_utility_", "public_utility_"}
 	flowNames := []string{infraflow.IdentifierZoneSubnetWorkers, infraflow.IdentifierZoneSubnetPrivate, infraflow.IdentifierZoneSubnetPublic}
 	for i, zone := range zones {
 		keyPrefix := infraflow.ChildIdZones + shared.Separator + zone.Name + shared.Separator

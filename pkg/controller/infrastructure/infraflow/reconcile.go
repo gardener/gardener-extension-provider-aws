@@ -676,13 +676,6 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
 			},
 			&awsclient.Subnet{
-				Tags:                        tagsPublic,
-				VpcId:                       c.state.Get(IdentifierVPC),
-				AvailabilityZone:            zone.Name,
-				AssignIpv6AddressOnCreation: ptr.To(isIPv6(c.ipFamilies)),
-				CidrBlock:                   zone.Public,
-			},
-			&awsclient.Subnet{
 				Tags:                                    tagsPrivate,
 				VpcId:                                   c.state.Get(IdentifierVPC),
 				AvailabilityZone:                        zone.Name,
@@ -690,6 +683,13 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				CidrBlock:                               zone.Internal,
 				Ipv6Native:                              ptr.To(!isIPv4(c.ipFamilies)),
 				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
+			},
+			&awsclient.Subnet{
+				Tags:                        tagsPublic,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: ptr.To(isIPv6(c.ipFamilies)),
+				CidrBlock:                   zone.Public,
 			},
 		)
 
