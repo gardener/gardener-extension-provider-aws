@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
@@ -180,6 +182,12 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				},
 				"blockDevices":            blockDevices,
 				"instanceMetadataOptions": instanceMetadataOptions,
+			}
+
+			if isIPv6(w.cluster) {
+				networkInterfaces, _ := machineClassSpec["networkInterfaces"].([]map[string]interface{})
+				networkInterfaces[0]["ipv6AddressCount"] = 1
+				networkInterfaces[0]["ipv6PrefixCount"] = 1
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
@@ -463,4 +471,17 @@ func ComputeInstanceMetadata(workerConfig *awsapi.WorkerConfig, cluster *control
 	}
 
 	return res, nil
+}
+
+func isIPv6(c *controller.Cluster) bool {
+	networking := c.Shoot.Spec.Networking
+	if networking != nil {
+		ipFamilies := networking.IPFamilies
+		if ipFamilies != nil {
+			if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
+				return true
+			}
+		}
+	}
+	return false
 }

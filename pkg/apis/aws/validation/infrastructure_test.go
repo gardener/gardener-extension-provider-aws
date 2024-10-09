@@ -36,6 +36,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			Public:   "10.250.5.0/24",
 			Workers:  "10.250.6.0/24",
 		}
+		familyIPv4 = []core.IPFamily{core.IPFamilyIPv4}
 	)
 
 	BeforeEach(func() {
@@ -165,7 +166,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			It("should forbid empty zones", func() {
 				infrastructureConfig.Networks.Zones = nil
 
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":   Equal(field.ErrorTypeRequired),
@@ -175,12 +176,12 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			})
 
 			It("should allow specifying valid config", func() {
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should allow specifying valid config with podsCIDR=nil and servicesCIDR=nil", func() {
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, nil, nil)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, nil, nil)
 				Expect(errorList).To(BeEmpty())
 			})
 
@@ -188,7 +189,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				infrastructureConfig.Networks.Zones = append(infrastructureConfig.Networks.Zones, awsZone2)
 				infrastructureConfig.Networks.Zones[1].Name = zone
 
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 				Expect(errorList).To(BeEmpty())
 			})
@@ -197,7 +198,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid invalid VPC CIDRs", func() {
 					infrastructureConfig.Networks.VPC.CIDR = &invalidCIDR
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -209,7 +210,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid invalid internal CIDR", func() {
 					infrastructureConfig.Networks.Zones[0].Internal = invalidCIDR
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -221,7 +222,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid invalid public CIDR", func() {
 					infrastructureConfig.Networks.Zones[0].Public = invalidCIDR
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -233,7 +234,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid invalid workers CIDR", func() {
 					infrastructureConfig.Networks.Zones[0].Workers = invalidCIDR
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -245,7 +246,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid internal CIDR which is not in VPC CIDR", func() {
 					infrastructureConfig.Networks.Zones[0].Internal = "1.1.1.1/32"
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -257,7 +258,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid public CIDR which is not in VPC CIDR", func() {
 					infrastructureConfig.Networks.Zones[0].Public = "1.1.1.1/32"
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -269,7 +270,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid workers CIDR which are not in VPC and Nodes CIDR", func() {
 					infrastructureConfig.Networks.Zones[0].Workers = "1.1.1.1/32"
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -285,7 +286,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid Pod CIDR to overlap with VPC CIDR", func() {
 					podCIDR := "10.0.0.1/32"
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &podCIDR, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &podCIDR, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -296,7 +297,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				It("should forbid Services CIDR to overlap with VPC CIDR", func() {
 					servicesCIDR := "10.0.0.1/32"
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &servicesCIDR)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &servicesCIDR)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
@@ -310,12 +311,12 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					infrastructureConfig.Networks.Zones[0].Public = overlappingCIDR
 					infrastructureConfig.Networks.Zones[0].Workers = overlappingCIDR
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &overlappingCIDR, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &overlappingCIDR, &pods, &services)
 
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
-						"Field":  Equal("networks.zones[0].public"),
-						"Detail": Equal(`must not overlap with "networks.zones[0].internal" ("10.250.0.1/32")`),
+						"Field":  Equal("networks.zones[0].internal"),
+						"Detail": Equal(`must not overlap with "networks.zones[0].public" ("10.250.0.1/32")`),
 					}, Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
 						"Field":  Equal("networks.zones[0].workers"),
@@ -334,7 +335,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					infrastructureConfig.Networks.Zones[0].Workers = "10.250.3.8/24"
 					infrastructureConfig.Networks.VPC = apisaws.VPC{CIDR: &vpcCIDR}
 
-					errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
 					Expect(errorList).To(HaveLen(4))
 					Expect(errorList).To(ConsistOfFields(Fields{
@@ -359,14 +360,14 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			It("should ensure that the elastic IP allocation id starts with `eipalloc-`", func() {
 				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = ptr.To("foo")
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("networks.zones[0].elasticIPAllocationID"),
 				}))
 
 				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = ptr.To("eipalloc-123456")
-				errorList = ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList = ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
 
@@ -375,27 +376,27 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = ptr.To("eipalloc-123456")
 				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = ptr.To("eipalloc-123456")
 
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":  Equal(field.ErrorTypeDuplicate),
 					"Field": Equal("networks.zones[1].elasticIPAllocationID"),
 				}))
 
 				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = ptr.To("eipalloc-654321")
-				errorList = ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList = ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
 		})
 
 		Context("gatewayEndpoints", func() {
 			It("should accept empty list", func() {
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
 
 			It("should reject non-alphanumeric endpoints", func() {
 				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"s3", "my-endpoint"}
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("networks.vpc.gatewayEndpoints[1]"),
@@ -406,7 +407,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			It("should accept all-valid lists", func() {
 				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"myservice", "s3", "my.other.service"}
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
 		})
@@ -417,7 +418,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					Keys:        []string{"Name"},
 					KeyPrefixes: []string{"kubernetes.io/", "gardener.cloud/"},
 				}
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).NotTo(BeEmpty())
 			})
 		})

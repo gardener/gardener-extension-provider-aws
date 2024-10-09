@@ -12,3 +12,10 @@ data:
     KubernetesClusterTag="{{ .Values.clusterName }}"
     KubernetesClusterID="{{ .Values.clusterName }}"
     Zone="{{ .Values.zone }}"
+    # https://github.com/kubernetes/cloud-provider-aws/issues/638
+    {{- if .Values.nodeIPFamilyIPv4 }}
+    NodeIPFamilies="{{ .Values.nodeIPFamilyIPv4 }}"
+    {{- end }}
+    {{- if .Values.nodeIPFamilyIPv6 }}
+    NodeIPFamilies="{{ .Values.nodeIPFamilyIPv6 }}"
+    {{- end }}

@@ -1008,6 +1008,7 @@ func (c *Client) prepareRules(groupId string, rules []*SecurityGroupRule) (ingre
 			ipPerm = &ec2.IpPermission{
 				IpProtocol:       aws.String(rule.Protocol),
 				IpRanges:         nil,
+				Ipv6Ranges:       nil,
 				PrefixListIds:    nil,
 				UserIdGroupPairs: nil,
 			}
@@ -1019,6 +1020,9 @@ func (c *Client) prepareRules(groupId string, rules []*SecurityGroupRule) (ingre
 			}
 			for _, block := range rule.CidrBlocks {
 				ipPerm.IpRanges = append(ipPerm.IpRanges, &ec2.IpRange{CidrIp: aws.String(block)})
+			}
+			for _, block := range rule.CidrBlocksv6 {
+				ipPerm.Ipv6Ranges = append(ipPerm.Ipv6Ranges, &ec2.Ipv6Range{CidrIpv6: aws.String(block)})
 			}
 			if rule.Self {
 				ipPerm.UserIdGroupPairs = []*ec2.UserIdGroupPair{
@@ -1202,6 +1206,80 @@ func (c *Client) DeleteInternetGateway(ctx context.Context, id string) error {
 	return ignoreNotFound(err)
 }
 
+// CreateEgressOnlyInternetGateway creates an egress-only internet gateway.
+func (c *Client) CreateEgressOnlyInternetGateway(ctx context.Context, gateway *EgressOnlyInternetGateway) (*EgressOnlyInternetGateway, error) {
+	input := &ec2.CreateEgressOnlyInternetGatewayInput{
+		TagSpecifications: gateway.ToTagSpecifications(ec2.ResourceTypeEgressOnlyInternetGateway),
+		VpcId:             gateway.VpcId,
+	}
+	output, err := c.EC2.CreateEgressOnlyInternetGatewayWithContext(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return &EgressOnlyInternetGateway{
+		Tags:                        FromTags(output.EgressOnlyInternetGateway.Tags),
+		EgressOnlyInternetGatewayId: aws.StringValue(output.EgressOnlyInternetGateway.EgressOnlyInternetGatewayId),
+	}, nil
+}
+
+// GetEgressOnlyInternetGateway gets an internet gateway resource by identifier.
+func (c *Client) GetEgressOnlyInternetGateway(ctx context.Context, id string) (*EgressOnlyInternetGateway, error) {
+	input := &ec2.DescribeEgressOnlyInternetGatewaysInput{EgressOnlyInternetGatewayIds: aws.StringSlice([]string{id})}
+	output, err := c.describeEgressOnlyInternetGateways(ctx, input)
+	return single(output, err)
+}
+
+// FindEgressOnlyInternetGatewaysByTags finds internet gateway resources matching the given tag map.
+func (c *Client) FindEgressOnlyInternetGatewaysByTags(ctx context.Context, tags Tags) ([]*EgressOnlyInternetGateway, error) {
+	input := &ec2.DescribeEgressOnlyInternetGatewaysInput{Filters: tags.ToFilters()}
+	return c.describeEgressOnlyInternetGateways(ctx, input)
+}
+
+// FindEgressOnlyInternetGatewayByVPC finds an internet gateway resource attached to the given VPC.
+func (c *Client) FindEgressOnlyInternetGatewayByVPC(ctx context.Context, vpcId string) (*EgressOnlyInternetGateway, error) {
+	input := &ec2.DescribeEgressOnlyInternetGatewaysInput{}
+	output, err := c.describeEgressOnlyInternetGateways(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	for _, eoig := range output {
+		if *eoig.VpcId == vpcId {
+			return eoig, nil
+		}
+	}
+	return nil, nil
+}
+
+func (c *Client) describeEgressOnlyInternetGateways(ctx context.Context, input *ec2.DescribeEgressOnlyInternetGatewaysInput) ([]*EgressOnlyInternetGateway, error) {
+	output, err := c.EC2.DescribeEgressOnlyInternetGatewaysWithContext(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	var gateways []*EgressOnlyInternetGateway
+	for _, item := range output.EgressOnlyInternetGateways {
+		gw := &EgressOnlyInternetGateway{
+			Tags:                        FromTags(item.Tags),
+			EgressOnlyInternetGatewayId: aws.StringValue(item.EgressOnlyInternetGatewayId),
+		}
+		for _, attachment := range item.Attachments {
+			gw.VpcId = attachment.VpcId
+			break
+		}
+		gateways = append(gateways, gw)
+	}
+	return gateways, nil
+}
+
+// DeleteEgressOnlyInternetGateway deletes an egress only internet gateway resource.
+// Returns nil, if the resource is not found.
+func (c *Client) DeleteEgressOnlyInternetGateway(ctx context.Context, id string) error {
+	input := &ec2.DeleteEgressOnlyInternetGatewayInput{
+		EgressOnlyInternetGatewayId: aws.String(id),
+	}
+	_, err := c.EC2.DeleteEgressOnlyInternetGatewayWithContext(ctx, input)
+	return ignoreNotFound(err)
+}
+
 // CreateVpcEndpoint creates an EC2 VPC endpoint resource.
 func (c *Client) CreateVpcEndpoint(ctx context.Context, endpoint *VpcEndpoint) (*VpcEndpoint, error) {
 	input := &ec2.CreateVpcEndpointInput{
@@ -1326,12 +1404,13 @@ func (c *Client) CreateRouteTable(ctx context.Context, routeTable *RouteTable) (
 // CreateRoute creates a route for the given route table.
 func (c *Client) CreateRoute(ctx context.Context, routeTableId string, route *Route) error {
 	input := &ec2.CreateRouteInput{
-		DestinationCidrBlock:     route.DestinationCidrBlock,
-		DestinationIpv6CidrBlock: route.DestinationIpv6CidrBlock,
-		DestinationPrefixListId:  route.DestinationPrefixListId,
-		GatewayId:                route.GatewayId,
-		NatGatewayId:             route.NatGatewayId,
-		RouteTableId:             aws.String(routeTableId),
+		DestinationCidrBlock:        route.DestinationCidrBlock,
+		DestinationIpv6CidrBlock:    route.DestinationIpv6CidrBlock,
+		DestinationPrefixListId:     route.DestinationPrefixListId,
+		GatewayId:                   route.GatewayId,
+		NatGatewayId:                route.NatGatewayId,
+		EgressOnlyInternetGatewayId: route.EgressOnlyInternetGatewayId,
+		RouteTableId:                aws.String(routeTableId),
 	}
 	_, err := c.EC2.CreateRouteWithContext(ctx, input)
 	return err
@@ -1376,10 +1455,11 @@ func (c *Client) describeRouteTables(ctx context.Context, input *ec2.DescribeRou
 		}
 		for _, route := range item.Routes {
 			table.Routes = append(table.Routes, &Route{
-				DestinationCidrBlock:    route.DestinationCidrBlock,
-				GatewayId:               route.GatewayId,
-				NatGatewayId:            route.NatGatewayId,
-				DestinationPrefixListId: route.DestinationPrefixListId,
+				DestinationCidrBlock:        route.DestinationCidrBlock,
+				GatewayId:                   route.GatewayId,
+				NatGatewayId:                route.NatGatewayId,
+				EgressOnlyInternetGatewayId: route.EgressOnlyInternetGatewayId,
+				DestinationPrefixListId:     route.DestinationPrefixListId,
 			})
 		}
 		for _, assoc := range item.Associations {
@@ -1409,10 +1489,15 @@ func (c *Client) DeleteRouteTable(ctx context.Context, id string) error {
 func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, error) {
 	input := &ec2.CreateSubnetInput{
 		AvailabilityZone:  aws.String(subnet.AvailabilityZone),
-		CidrBlock:         aws.String(subnet.CidrBlock),
 		TagSpecifications: subnet.ToTagSpecifications(ec2.ResourceTypeSubnet),
 		VpcId:             subnet.VpcId,
+		Ipv6Native:        subnet.Ipv6Native,
 	}
+
+	if subnet.CidrBlock != "" && !(subnet.Ipv6Native != nil && *subnet.Ipv6Native) {
+		input.CidrBlock = aws.String(subnet.CidrBlock)
+	}
+
 	if subnet.Ipv6CidrBlocks != nil && subnet.Ipv6CidrBlocks[0] != "" {
 		input.Ipv6CidrBlock = aws.String(subnet.Ipv6CidrBlocks[0])
 	}
@@ -1559,7 +1644,11 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 	}
 	privateDnsHostnameTypeOnLaunch := desired.PrivateDnsHostnameTypeOnLaunch
 	if privateDnsHostnameTypeOnLaunch == nil {
-		privateDnsHostnameTypeOnLaunch = aws.String(ec2.HostnameTypeIpName)
+		if desired.CidrBlock != "" && !(desired.Ipv6Native != nil && *desired.Ipv6Native) {
+			privateDnsHostnameTypeOnLaunch = aws.String(ec2.HostnameTypeIpName)
+		} else {
+			privateDnsHostnameTypeOnLaunch = aws.String(ec2.HostnameTypeResourceName)
+		}
 	}
 	if !reflect.DeepEqual(current.PrivateDnsHostnameTypeOnLaunch, privateDnsHostnameTypeOnLaunch) {
 		input := &ec2.ModifySubnetAttributeInput{
@@ -2100,7 +2189,6 @@ func fromSubnet(item *ec2.Subnet) *Subnet {
 		Tags:                        FromTags(item.Tags),
 		SubnetId:                    aws.StringValue(item.SubnetId),
 		VpcId:                       item.VpcId,
-		CidrBlock:                   aws.StringValue(item.CidrBlock),
 		AvailabilityZone:            aws.StringValue(item.AvailabilityZone),
 		AssignIpv6AddressOnCreation: trueOrNil(item.AssignIpv6AddressOnCreation),
 		CustomerOwnedIpv4Pool:       item.CustomerOwnedIpv4Pool,
@@ -2110,6 +2198,11 @@ func fromSubnet(item *ec2.Subnet) *Subnet {
 		MapPublicIpOnLaunch:         trueOrNil(item.MapPublicIpOnLaunch),
 		OutpostArn:                  item.OutpostArn,
 	}
+
+	if item.CidrBlock != nil && *item.CidrBlock != "" {
+		s.CidrBlock = aws.StringValue(item.CidrBlock)
+	}
+
 	if item.PrivateDnsNameOptionsOnLaunch != nil {
 		s.EnableResourceNameDnsAAAARecordOnLaunch = trueOrNil(item.PrivateDnsNameOptionsOnLaunch.EnableResourceNameDnsAAAARecord)
 		s.EnableResourceNameDnsARecordOnLaunch = trueOrNil(item.PrivateDnsNameOptionsOnLaunch.EnableResourceNameDnsARecord)

@@ -7,6 +7,7 @@ package validation
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -66,7 +67,7 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 }
 
 // ValidateInfrastructureConfig validates a InfrastructureConfig object.
-func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR, podsCIDR, servicesCIDR *string) field.ErrorList {
+func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilies []core.IPFamily, nodesCIDR, podsCIDR, servicesCIDR *string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	var (
@@ -109,18 +110,20 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 	for i, zone := range infra.Networks.Zones {
 		zonePath := networksPath.Child("zones").Index(i)
 
-		internalPath := zonePath.Child("internal")
-		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
-		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, zone.Internal)...)
-
 		publicPath := zonePath.Child("public")
 		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Public, publicPath))
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(publicPath, zone.Public)...)
 
-		workerPath := zonePath.Child("workers")
-		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
-		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
-		workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+		if ipFamilies == nil || slices.Contains(ipFamilies, core.IPFamilyIPv4) {
+			internalPath := zonePath.Child("internal")
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, zone.Internal)...)
+
+			workerPath := zonePath.Child("workers")
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
+			workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+		}
 
 		if zone.ElasticIPAllocationID != nil {
 			for _, eIP := range referencedElasticIPAllocationIDs {

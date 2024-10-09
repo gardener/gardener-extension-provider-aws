@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/gardener/gardener/pkg/utils/flow"
@@ -58,7 +60,7 @@ func (t *TerraformReconciler) Reconcile(ctx context.Context, infra *extensionsv1
 	return util.DetermineError(err, helper.KnownCodes)
 }
 
-func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, _ *controller.Cluster, initializer terraformer.StateConfigMapInitializer) error {
+func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, c *controller.Cluster, initializer terraformer.StateConfigMapInitializer) error {
 	log := t.log
 
 	log.Info("reconcile infrastructure using terraform reconciler")
@@ -73,7 +75,14 @@ func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1
 		return fmt.Errorf("failed to create new AWS client: %+v", err)
 	}
 
-	terraformConfig, err := generateTerraformInfraConfig(ctx, infra, infrastructureConfig, awsClient)
+	var ipfamilies []v1beta1.IPFamily
+	if c.Shoot.Spec.Networking != nil {
+		ipfamilies = c.Shoot.Spec.Networking.IPFamilies
+	} else {
+		ipfamilies = []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
+	}
+
+	terraformConfig, err := generateTerraformInfraConfig(ctx, infra, infrastructureConfig, awsClient, ipfamilies)
 	if err != nil {
 		return fmt.Errorf("failed to generate Terraform config: %+v", err)
 	}
@@ -317,14 +326,15 @@ func (t *TerraformReconciler) computeEgressCIDRs(ctx context.Context, infra *ext
 	return egressIPs, nil
 }
 
-func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *api.InfrastructureConfig, awsClient awsclient.Interface) (map[string]interface{}, error) {
+func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *api.InfrastructureConfig, awsClient awsclient.Interface, ipFamilies []v1beta1.IPFamily) (map[string]interface{}, error) {
 	var (
-		dhcpDomainName    = "ec2.internal"
-		createVPC         = true
-		vpcID             = "aws_vpc.vpc.id"
-		vpcCIDR           = ""
-		internetGatewayID = "aws_internet_gateway.igw.id"
-		ipv6CidrBlock     = "aws_vpc.vpc.ipv6_cidr_block"
+		dhcpDomainName              = "ec2.internal"
+		createVPC                   = true
+		vpcID                       = "aws_vpc.vpc.id"
+		vpcCIDR                     = ""
+		internetGatewayID           = "aws_internet_gateway.igw.id"
+		egressOnlyInternetGatewayID = "aws_egress_only_internet_gateway.egw.id"
+		ipv6CidrBlock               = "aws_vpc.vpc.ipv6_cidr_block"
 
 		ignoreTagKeys        []string
 		ignoreTagKeyPrefixes []string
@@ -332,6 +342,18 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 
 	if infrastructure.Spec.Region != "us-east-1" {
 		dhcpDomainName = fmt.Sprintf("%s.compute.internal", infrastructure.Spec.Region)
+	}
+
+	isIPv4 := true
+	isIPv6 := false
+	if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
+		isIPv4 = false
+		isIPv6 = true
+	}
+
+	enableDualStack := false
+	if infrastructureConfig.DualStack != nil && !isIPv6 {
+		enableDualStack = infrastructureConfig.DualStack.Enabled
 	}
 
 	switch {
@@ -344,8 +366,16 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		}
 		vpcID = strconv.Quote(existingVpcID)
 		internetGatewayID = strconv.Quote(existingInternetGatewayID)
-		// if dual stack is enabled, then we wait for until the target VPC has a ipv6 CIDR assigned.
-		if infrastructureConfig.DualStack != nil && infrastructureConfig.DualStack.Enabled {
+		if isIPv6 {
+			eogw, err := awsClient.FindEgressOnlyInternetGatewayByVPC(ctx, existingVpcID)
+			if err != nil || eogw == nil {
+				return nil, fmt.Errorf("Egress-Only Internet Gateway not found for VPC %s", existingVpcID)
+			}
+			existingEgressOnlyInternetGatewayID := eogw.EgressOnlyInternetGatewayId
+			egressOnlyInternetGatewayID = strconv.Quote(existingEgressOnlyInternetGatewayID)
+		}
+		// if dual stack is enabled or ipFamily is IPv6, then we wait for until the target VPC has a ipv6 CIDR assigned.
+		if enableDualStack || isIPv6 {
 			existingIPv6CidrBlock, err := awsClient.WaitForIPv6Cidr(ctx, existingVpcID)
 			if err != nil {
 				return nil, err
@@ -373,11 +403,6 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		enableECRAccess = *v
 	}
 
-	enableDualStack := false
-	if infrastructureConfig.DualStack != nil {
-		enableDualStack = infrastructureConfig.DualStack.Enabled
-	}
-
 	if tags := infrastructureConfig.IgnoreTags; tags != nil {
 		ignoreTagKeys = tags.Keys
 		ignoreTagKeyPrefixes = tags.KeyPrefixes
@@ -391,17 +416,20 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			"vpc": createVPC,
 		},
 		"enableECRAccess": enableECRAccess,
+		"isIPv4":          isIPv4,
+		"isIPv6":          isIPv6,
 		"dualStack": map[string]interface{}{
 			"enabled": enableDualStack,
 		},
 		"sshPublicKey": string(infrastructure.Spec.SSHPublicKey),
 		"vpc": map[string]interface{}{
-			"id":                vpcID,
-			"cidr":              vpcCIDR,
-			"dhcpDomainName":    dhcpDomainName,
-			"internetGatewayID": internetGatewayID,
-			"gatewayEndpoints":  infrastructureConfig.Networks.VPC.GatewayEndpoints,
-			"ipv6CidrBlock":     ipv6CidrBlock,
+			"id":                          vpcID,
+			"cidr":                        vpcCIDR,
+			"dhcpDomainName":              dhcpDomainName,
+			"internetGatewayID":           internetGatewayID,
+			"egressOnlyInternetGatewayID": egressOnlyInternetGatewayID,
+			"gatewayEndpoints":            infrastructureConfig.Networks.VPC.GatewayEndpoints,
+			"ipv6CidrBlock":               ipv6CidrBlock,
 		},
 		"clusterName": infrastructure.Namespace,
 		"zones":       zones,

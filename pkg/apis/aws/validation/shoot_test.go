@@ -35,6 +35,7 @@ var _ = Describe("Shoot validation", func() {
 
 		It("should return an error because no nodes CIDR was provided", func() {
 			networking := &core.Networking{}
+			networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv4}
 
 			errorList := ValidateNetworking(networking, networkingPath)
 
