@@ -1,0 +1,20 @@
+{{- if .Values.vpa.enabled }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: aws-ipam-controller-vpa
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aws-ipam-controller
+  updatePolicy:
+    updateMode: {{ .Values.vpa.updatePolicy.updateMode | quote }}
+  resourcePolicy:
+    containerPolicies:
+    - containerName: aws-ipam-controller
+      minAllowed:
+        memory: {{ .Values.resources.requests.memory }}
+      controlledValues: RequestsOnly
+{{- end }}
