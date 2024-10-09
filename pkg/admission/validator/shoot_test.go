@@ -36,15 +36,17 @@ var _ = Describe("Shoot validator", func() {
 		var (
 			shootValidator extensionswebhook.Validator
 
-			ctrl         *gomock.Controller
-			mgr          *mockmanager.MockManager
-			c            *mockclient.MockClient
-			cloudProfile *gardencorev1beta1.CloudProfile
-			shoot        *core.Shoot
+			ctrl                   *gomock.Controller
+			mgr                    *mockmanager.MockManager
+			c                      *mockclient.MockClient
+			cloudProfile           *gardencorev1beta1.CloudProfile
+			namespacedCloudProfile *gardencorev1beta1.NamespacedCloudProfile
+			shoot                  *core.Shoot
 
-			ctx             = context.TODO()
-			cloudProfileKey = client.ObjectKey{Name: "aws"}
-			gp2type         = string(apisaws.VolumeTypeGP2)
+			ctx                       = context.Background()
+			cloudProfileKey           = client.ObjectKey{Name: "aws"}
+			namespacedCloudProfileKey = client.ObjectKey{Name: "aws-nscpfl", Namespace: namespace}
+			gp2type                   = string(apisaws.VolumeTypeGP2)
 
 			regionName   = "us-west"
 			imageName    = "Foo"
@@ -63,7 +65,7 @@ var _ = Describe("Shoot validator", func() {
 			c = mockclient.NewMockClient(ctrl)
 			mgr = mockmanager.NewMockManager(ctrl)
 
-			mgr.EXPECT().GetScheme().Return(scheme).Times(3)
+			mgr.EXPECT().GetScheme().Return(scheme).Times(2)
 			mgr.EXPECT().GetClient().Return(c)
 
 			shootValidator = validator.NewShootValidator(mgr)
@@ -114,6 +116,21 @@ var _ = Describe("Shoot validator", func() {
 				},
 			}
 
+			namespacedCloudProfile = &gardencorev1beta1.NamespacedCloudProfile{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "aws-nscpfl",
+				},
+				Spec: gardencorev1beta1.NamespacedCloudProfileSpec{
+					Parent: gardencorev1beta1.CloudProfileReference{
+						Kind: "CloudProfile",
+						Name: "aws",
+					},
+				},
+				Status: gardencorev1beta1.NamespacedCloudProfileStatus{
+					CloudProfileSpec: cloudProfile.Spec,
+				},
+			}
+
 			shoot = &core.Shoot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -121,6 +138,7 @@ var _ = Describe("Shoot validator", func() {
 				},
 				Spec: core.ShootSpec{
 					CloudProfile: &core.CloudProfileReference{
+						Kind: "CloudProfile",
 						Name: cloudProfile.Name,
 					},
 					Provider: core.Provider{
@@ -179,6 +197,7 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when infrastructureConfig is nil", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.Provider.InfrastructureConfig = nil
 
 				err := shootValidator.Validate(ctx, shoot, nil)
@@ -189,6 +208,7 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when infrastructureConfig fails to be decoded", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{Raw: []byte("foo")}
 
 				err := shootValidator.Validate(ctx, shoot, nil)
@@ -363,6 +383,26 @@ var _ = Describe("Shoot validator", func() {
 
 			It("should succeed for valid Shoot", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should also work for CloudProfileName instead of CloudProfile reference in Shoot", func() {
+				shoot.Spec.CloudProfileName = ptr.To("aws")
+				shoot.Spec.CloudProfile = nil
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should also work for NamespacedCloudProfile referenced from Shoot", func() {
+				shoot.Spec.CloudProfile = &core.CloudProfileReference{
+					Kind: "NamespacedCloudProfile",
+					Name: "aws-nscpfl",
+				}
+				c.EXPECT().Get(ctx, namespacedCloudProfileKey, &gardencorev1beta1.NamespacedCloudProfile{}).SetArg(2, *namespacedCloudProfile)
 
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())
