@@ -257,7 +257,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should successfully create and delete (flow) with IPv6", func() {
+		It("should successfully create and delete with IPv6", func() {
 			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
 				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
@@ -1216,7 +1216,7 @@ func verifyCreation(
 
 		Expect(eoigs).To(HaveLen(1))
 		if providerConfig.Networks.VPC.CIDR != nil {
-			Expect(describeEgressOnlyInternetGatewaysOutput.EgressOnlyInternetGateways[0].Tags).To(ConsistOf(defaultTags))
+			Expect(eoigs[0].Tags).To(ConsistOf(defaultTags))
 			infrastructureIdentifier.egressOnlyInternetGatewayID = eoigs[0].EgressOnlyInternetGatewayId
 		}
 	}
