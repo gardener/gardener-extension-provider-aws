@@ -32,6 +32,7 @@ const (
 	defaultLongTimeout = 3 * time.Minute
 	allIPv4            = "0.0.0.0/0"
 	allIPv6            = "::/0"
+	nat64Prefix        = "64:ff9b::/96"
 )
 
 // Reconcile creates and runs the flow to reconcile the AWS infrastructure.
@@ -674,6 +675,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				CidrBlock:                               zone.Workers,
 				Ipv6Native:                              ptr.To(!isIPv4(c.ipFamilies)),
 				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
+				EnableDns64:                             ptr.To(!isIPv4(c.ipFamilies)),
 			},
 			&awsclient.Subnet{
 				Tags:                                    tagsPrivate,
@@ -1107,6 +1109,10 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 			routes = append(routes, &awsclient.Route{
 				DestinationIpv6CidrBlock:    ptr.To(allIPv6),
 				EgressOnlyInternetGatewayId: c.state.Get(IdentifierEgressOnlyInternetGateway),
+			})
+			routes = append(routes, &awsclient.Route{
+				DestinationIpv6CidrBlock: ptr.To(nat64Prefix),
+				NatGatewayId:             child.Get(IdentifierZoneNATGateway),
 			})
 		}
 
