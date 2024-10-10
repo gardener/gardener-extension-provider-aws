@@ -197,6 +197,7 @@ func PatchProviderStatusAndState(
 				Pods:     []string{*vpcIPv6CidrBlock},
 				Services: []string{*serviceCIDR},
 			}
+			infra.Status.EgressCIDRs = append(infra.Status.EgressCIDRs, *vpcIPv6CidrBlock)
 		}
 	}
 

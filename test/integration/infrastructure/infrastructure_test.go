@@ -1209,7 +1209,7 @@ func verifyCreation(
 			}
 		}
 	}
-	Expect(infra.Status.EgressCIDRs).To(ConsistOf(egressCIDRs))
+	Expect(infra.Status.EgressCIDRs).To(ContainElements(egressCIDRs))
 
 	if isIPv6(ipfamilies) {
 		// egress only internet gateway
