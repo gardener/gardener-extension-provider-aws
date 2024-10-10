@@ -389,6 +389,14 @@ resource "aws_vpc_endpoint_route_table_association" "vpc_gwep_{{ $ep }}_z{{ $ind
 
 {{end}}
 
+{{- if .isIPv6 }}
+resource "aws_ec2_subnet_cidr_reservation" "service-range" {
+  cidr_block       = "${cidrsubnet(cidrsubnet({{ .vpc.ipv6CidrBlock }}, 8, 0),44,1)}"
+  reservation_type = "explicit"
+  subnet_id        = aws_subnet.nodes_z0.id
+}
+{{end}}
+
 //=====================================================================
 //= IAM instance profiles
 //=====================================================================

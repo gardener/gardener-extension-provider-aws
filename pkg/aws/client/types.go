@@ -120,6 +120,10 @@ type Interface interface {
 	UpdateSubnetAttributes(ctx context.Context, desired, current *Subnet) (modified bool, err error)
 	DeleteSubnet(ctx context.Context, id string) error
 
+	// Subnet CIDR Reservation
+	CreateCIDRReservation(ctx context.Context, subnet *Subnet, cidr string, reservationType string) (string, error)
+	GetIPv6CIDRReservations(ctx context.Context, subnet *Subnet) ([]string, error)
+
 	// Route table associations
 	CreateRouteTableAssociation(ctx context.Context, routeTableId, subnetId string) (associationId *string, err error)
 	DeleteRouteTableAssociation(ctx context.Context, associationId string) error
