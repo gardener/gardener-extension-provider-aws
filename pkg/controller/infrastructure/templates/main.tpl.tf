@@ -181,6 +181,7 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
   availability_zone = "{{ $zone.name }}"
 
   {{ if $.isIPv6 }}
+  enable_dns64 = true
   ipv6_native = true
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (({{ $index }} * 3)))}"
@@ -344,6 +345,16 @@ resource "aws_route" "private_utility_z{{ $index }}_nat" {
 }
 
 {{- if $.isIPv6 }}
+resource "aws_route" "private_utility_z{{ $index }}_nat_64" {
+  route_table_id         = aws_route_table.routetable_private_utility_z{{ $index }}.id
+  destination_ipv6_cidr_block  = "64:ff9b::/96"
+  nat_gateway_id         = aws_nat_gateway.natgw_z{{ $index }}.id
+
+  timeouts {
+    create = "5m"
+  }
+}
+
 resource "aws_route" "private_utility_z{{ $index }}_egw" {
   route_table_id         = aws_route_table.routetable_private_utility_z{{ $index }}.id
   destination_ipv6_cidr_block = "::/0"
