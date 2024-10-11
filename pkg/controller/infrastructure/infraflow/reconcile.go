@@ -1274,13 +1274,11 @@ func (c *FlowContext) deleteRoutingTableAssociations(zoneName string) flow.TaskF
 func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zoneName string,
 	zoneRouteTable bool, subnetKey, assocKey string) error {
 	child := c.getSubnetZoneChild(zoneName)
-	if child.Get(assocKey) == nil {
-		return nil
-	}
 	subnetID := child.Get(subnetKey)
 	if subnetID == nil {
 		return fmt.Errorf("missing subnet id")
 	}
+
 	assocID := child.Get(assocKey)
 	if assocID == nil {
 		// unclear situation: load route table to search for association
@@ -1303,11 +1301,12 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 			}
 		}
 	}
+
+	log := LogFromContext(ctx)
 	if assocID == nil {
-		child.Delete(assocKey)
+		log.Info("No association ID found, nothing to delete", "SubnetID", subnetID)
 		return nil
 	}
-	log := LogFromContext(ctx)
 	log.Info("deleting...", "RouteTableAssociationId", *assocID)
 	if err := c.client.DeleteRouteTableAssociation(ctx, *assocID); err != nil {
 		return err
