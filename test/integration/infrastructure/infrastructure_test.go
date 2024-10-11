@@ -1228,6 +1228,10 @@ func verifyCreation(
 			Expect(eoigs[0].Tags).To(ConsistOf(defaultTags))
 			infrastructureIdentifier.egressOnlyInternetGatewayID = eoigs[0].EgressOnlyInternetGatewayId
 		}
+
+		Expect(infra.Status.Networking.Nodes).To(HaveLen(1))
+		Expect(infra.Status.Networking.Pods).To(HaveLen(1))
+		Expect(infra.Status.Networking.Services).To(HaveLen(1))
 	}
 
 	// route tables + routes

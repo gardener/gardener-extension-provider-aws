@@ -952,6 +952,7 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 			}
 
 			if slices.Contains(currentCidrs, cidr) {
+				c.state.Set(IdentifierServiceCIDR, cidr)
 				return nil
 			}
 		}

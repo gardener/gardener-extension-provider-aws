@@ -135,12 +135,48 @@ func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1
 		return err
 	}
 
+	if slices.Contains(ipfamilies, v1beta1.IPFamilyIPv6) {
+		vpcIPv6CIDR, err := t.computeVPCIPv6CIDR(ctx, infra)
+		if err != nil {
+			return err
+		}
+		ipV6ServiceCIDR, err := t.computeIPv6ServiceCIDR(ctx, infra)
+		if err != nil {
+			return err
+		}
+		return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, &vpcIPv6CIDR, &ipV6ServiceCIDR)
+	}
 	return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, nil, nil)
 }
 
 // Delete deletes the infrastructure using Terraformer.
 func (t *TerraformReconciler) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, c *extensions.Cluster) error {
 	return util.DetermineError(t.delete(ctx, infra, c), helper.KnownCodes)
+}
+
+func (t *TerraformReconciler) getVPCID(ctx context.Context, infra *extensionsv1alpha1.Infrastructure) (string, error) {
+	infrastructureConfig, err := helper.InfrastructureConfigFromInfrastructure(infra)
+	var vpcID string
+	if err != nil {
+		return "", err
+	}
+
+	tf, err := newTerraformer(t.log, t.restConfig, aws.TerraformerPurposeInfra, infra, t.disableProjectedTokenMount)
+	if err != nil {
+		return "", util.DetermineError(fmt.Errorf("could not create the Terraformer: %+v", err), helper.KnownCodes)
+	}
+
+	if infrastructureConfig != nil && infrastructureConfig.Networks.VPC.ID != nil {
+		vpcID = *infrastructureConfig.Networks.VPC.ID
+	} else {
+		stateVariables, err := tf.GetStateOutputVariables(ctx, aws.VPCIDKey)
+		if err == nil {
+			vpcID = stateVariables[aws.VPCIDKey]
+		} else if !apierrors.IsNotFound(err) && !terraformer.IsVariablesNotFoundError(err) {
+			return "", err
+		}
+	}
+	return vpcID, nil
 }
 
 func (t *TerraformReconciler) delete(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, _ *extensions.Cluster) error {
@@ -324,6 +360,49 @@ func (t *TerraformReconciler) computeEgressCIDRs(ctx context.Context, infra *ext
 		egressIPs = append(egressIPs, fmt.Sprintf("%s/32", nat.PublicIP))
 	}
 	return egressIPs, nil
+}
+
+func (t *TerraformReconciler) computeVPCIPv6CIDR(ctx context.Context, infra *extensionsv1alpha1.Infrastructure) (string, error) {
+	awsClient, err := aws.NewClientFromSecretRef(ctx, t.client, infra.Spec.SecretRef, infra.Spec.Region)
+	if err != nil {
+		return "", fmt.Errorf("failed to create new AWS client: %w", err)
+	}
+	vpcID, err := t.getVPCID(ctx, infra)
+	if err != nil {
+		return "", err
+	}
+	return awsClient.GetIPv6Cidr(ctx, vpcID)
+}
+
+func (t *TerraformReconciler) computeIPv6ServiceCIDR(ctx context.Context, infra *extensionsv1alpha1.Infrastructure) (string, error) {
+
+	awsClient, err := aws.NewClientFromSecretRef(ctx, t.client, infra.Spec.SecretRef, infra.Spec.Region)
+	if err != nil {
+		return "", fmt.Errorf("failed to create new AWS client: %w", err)
+	}
+	vpcID, err := t.getVPCID(ctx, infra)
+	if err != nil {
+		return "", err
+	}
+	subnets, err := awsClient.FindSubnets(ctx, awsclient.WithFilters().WithVpcId(vpcID).WithTags(map[string]string{
+		fmt.Sprintf(infraflow.TagKeyClusterTemplate, infra.Namespace): infraflow.TagValueCluster,
+	}).Build())
+	if err != nil {
+		return "", err
+	}
+
+	var cidrs []string
+	for _, subnet := range subnets {
+		subnetCIDRS, err := awsClient.GetIPv6CIDRReservations(ctx, subnet)
+		if err != nil {
+			return "", err
+		}
+		cidrs = append(cidrs, subnetCIDRS...)
+	}
+	if len(cidrs) != 1 {
+		return "", fmt.Errorf("unexpected number of CIDR reservations")
+	}
+	return cidrs[0], nil
 }
 
 func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *api.InfrastructureConfig, awsClient awsclient.Interface, ipFamilies []v1beta1.IPFamily) (map[string]interface{}, error) {
