@@ -189,6 +189,22 @@ var (
 					{Type: &corev1.Service{}, Name: aws.CSISnapshotValidationName},
 				},
 			},
+			{
+				Name: "csi-driver-efs-controller",
+				Images: []string{
+					aws.CSIDriverEbfImageName,
+					aws.CSILivenessProbeImageName,
+					aws.CSIProvisionerImageName,
+				},
+				Objects: []*chart.Object{
+					{Type: &appsv1.Deployment{}, Name: "efs-csi-controller"},
+					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-controller-sa"},
+					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role"},
+					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role-describe-secrets"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-provisioner-binding"},
+					{Type: &rbacv1.RoleBinding{}, Name: "efs-csi-provisioner-binding"},
+				},
+			},
 		},
 	}
 
@@ -281,7 +297,6 @@ var (
 					aws.CSIDriverEbfImageName,
 					aws.CSINodeDriverRegistrarImageName,
 					aws.CSILivenessProbeImageName,
-					aws.CSIProvisionerImageName,
 				},
 				Objects: []*chart.Object{
 					// csi-driver-efs-node
@@ -290,13 +305,6 @@ var (
 					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-node-sa"},
 					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-node-role"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-node-binding"},
-					// csi-driver-efs-controller
-					{Type: &appsv1.Deployment{}, Name: "efs-csi-controller"},
-					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-controller-sa"},
-					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role"},
-					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role-describe-secrets"},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-provisioner-binding"},
-					{Type: &rbacv1.RoleBinding{}, Name: "efs-csi-provisioner-binding"},
 				},
 			},
 		},
@@ -381,6 +389,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		return nil, err
 	}
 
+	// TODO use function of https://github.com/gardener/gardener-extension-provider-aws/pull/1068
 	infraConfig, err := vp.decodeInfrastructureConfig(cluster)
 	if err != nil {
 		return nil, err
