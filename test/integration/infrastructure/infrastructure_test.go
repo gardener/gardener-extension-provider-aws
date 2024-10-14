@@ -826,6 +826,7 @@ func verifyCreation(
 		sshPublicKeyDigest = "46:ca:46:0e:8e:1d:bc:0c:45:31:ee:0f:43:5f:9b:f1"
 		allCIDR            = "0.0.0.0/0"
 		allCIDRIPV6        = "::/0"
+		nat64Prefix        = "64:ff9b::/96"
 	)
 
 	var (
@@ -1356,6 +1357,13 @@ func verifyCreation(
 							eoigs = append(eoigs, item)
 						}
 					}
+
+					expectedRoutes = append(expectedRoutes, &ec2.Route{
+						DestinationIpv6CidrBlock: awssdk.String(nat64Prefix),
+						NatGatewayId:             describeNatGatewaysOutput.NatGateways[0].NatGatewayId,
+						Origin:                   awssdk.String("CreateRoute"),
+						State:                    awssdk.String("active"),
+					})
 
 					expectedRoutes = append(expectedRoutes, &ec2.Route{
 						DestinationIpv6CidrBlock:    awssdk.String(allCIDRIPV6),
