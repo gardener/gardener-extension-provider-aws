@@ -1460,6 +1460,7 @@ func (c *Client) describeRouteTables(ctx context.Context, input *ec2.DescribeRou
 				NatGatewayId:                route.NatGatewayId,
 				EgressOnlyInternetGatewayId: route.EgressOnlyInternetGatewayId,
 				DestinationPrefixListId:     route.DestinationPrefixListId,
+				DestinationIpv6CidrBlock:    route.DestinationIpv6CidrBlock,
 			})
 		}
 		for _, assoc := range item.Associations {
