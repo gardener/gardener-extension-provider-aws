@@ -28,6 +28,7 @@ var (
 func init() {
 	Scheme = runtime.NewScheme()
 	utilruntime.Must(install.AddToScheme(Scheme))
+	utilruntime.Must(extensionsv1alpha1.AddToScheme(Scheme))
 
 	decoder = serializer.NewCodecFactory(Scheme, serializer.EnableStrict).UniversalDecoder()
 }
@@ -42,6 +43,18 @@ func CloudProfileConfigFromCluster(cluster *controller.Cluster) (*api.CloudProfi
 		}
 	}
 	return cloudProfileConfig, nil
+}
+
+// InfrastructureFromCluster decodes the infrastructure for a shoot cluster
+func InfrastructureFromCluster(cluster *controller.Cluster) (*extensionsv1alpha1.Infrastructure, error) {
+	var infra *extensionsv1alpha1.Infrastructure
+	if cluster != nil && cluster.Shoot != nil && cluster.Shoot.Spec.Provider.InfrastructureConfig != nil && cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw != nil {
+		infra = &extensionsv1alpha1.Infrastructure{}
+		if _, _, err := decoder.Decode(cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw, nil, infra); err != nil {
+			return nil, fmt.Errorf("could not decode infrastructure of shoot '%s': %w", k8sclient.ObjectKeyFromObject(cluster.Shoot), err)
+		}
+	}
+	return infra, nil
 }
 
 // InfrastructureConfigFromInfrastructure extracts the InfrastructureConfig from the
