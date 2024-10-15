@@ -842,7 +842,6 @@ func (c *FlowContext) addZoneReconcileTasks(g *flow.Graph, zone *aws.Zone, depen
 	_ = c.AddTask(g, "ensure VPC endpoints route table associations "+zone.Name,
 		c.ensureVPCEndpointsRoutingTableAssociations(zone.Name),
 		Timeout(defaultTimeout), Dependencies(dependencies...), Dependencies(ensureRoutingTable))
-
 }
 
 func (c *FlowContext) addZoneDeletionTasks(g *flow.Graph, zoneName string) flow.TaskIDer {
