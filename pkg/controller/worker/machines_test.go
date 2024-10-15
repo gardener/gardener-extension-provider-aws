@@ -631,7 +631,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(0, maxPool1, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool1, 2, maxPool1),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool1, 2, minPool1),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{AwsCSIDriverTopologyKey: zone1}),
+							Labels:               utils.MergeStringMaps(labels, map[string]string{CSIDriverTopologyKey: zone1}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -642,7 +642,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(1, maxPool1, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool1, 2, maxPool1),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool1, 2, minPool1),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{AwsCSIDriverTopologyKey: zone2}),
+							Labels:               utils.MergeStringMaps(labels, map[string]string{CSIDriverTopologyKey: zone2}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -653,7 +653,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(0, maxPool2, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool2, 2, maxPool2),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool2, 2, minPool2),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{AwsCSIDriverTopologyKey: zone1}),
+							Labels:               utils.MergeStringMaps(labels, map[string]string{CSIDriverTopologyKey: zone1}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
@@ -664,7 +664,7 @@ var _ = Describe("Machines", func() {
 							Maximum:              worker.DistributeOverZones(1, maxPool2, 2),
 							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool2, 2, maxPool2),
 							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool2, 2, minPool2),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{AwsCSIDriverTopologyKey: zone2}),
+							Labels:               utils.MergeStringMaps(labels, map[string]string{CSIDriverTopologyKey: zone2}),
 							MachineConfiguration: machineConfiguration,
 						},
 					}

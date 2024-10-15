@@ -35,8 +35,9 @@ import (
 )
 
 const (
-	// AwsCSIDriverTopologyKey describes the topology key used by the AWS CSI driver
-	AwsCSIDriverTopologyKey = "topology.kubernetes.io/zone"
+	// CSIDriverTopologyKey describes the topology key used by the AWS CSI driver
+	// see also: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/729#issuecomment-1942026577
+	CSIDriverTopologyKey = "topology.kubernetes.io/zone"
 )
 
 var (
@@ -246,7 +247,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
 				// TODO: remove the csi topology label when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
 				// add aws csi driver topology label if it's not specified
-				Labels:                       utils.MergeStringMaps(pool.Labels, map[string]string{AwsCSIDriverTopologyKey: zone}),
+				Labels:                       utils.MergeStringMaps(pool.Labels, map[string]string{CSIDriverTopologyKey: zone}),
 				Annotations:                  pool.Annotations,
 				Taints:                       pool.Taints,
 				MachineConfiguration:         genericworkeractuator.ReadMachineConfiguration(pool),
