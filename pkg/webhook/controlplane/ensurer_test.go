@@ -71,8 +71,7 @@ var _ = Describe("Ensurer", func() {
 				},
 			},
 		)
-		infraConfig    *v1alpha1.InfrastructureConfig
-		infrastructure *extensionsv1alpha1.Infrastructure
+		infraConfig *v1alpha1.InfrastructureConfig
 	)
 
 	BeforeEach(func() {
@@ -85,21 +84,6 @@ var _ = Describe("Ensurer", func() {
 				Kind:       "InfrastructureConfig",
 			},
 		}
-		infrastructure = &extensionsv1alpha1.Infrastructure{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: extensionsv1alpha1.SchemeGroupVersion.String(),
-				Kind:       "Infrastructure",
-			},
-			Spec: extensionsv1alpha1.InfrastructureSpec{
-				DefaultSpec: extensionsv1alpha1.DefaultSpec{
-					Type: aws.Type,
-					ProviderConfig: &runtime.RawExtension{
-						Object: infraConfig,
-					},
-				},
-			},
-		}
-
 	})
 
 	JustBeforeEach(func() {
@@ -112,7 +96,7 @@ var _ = Describe("Ensurer", func() {
 						},
 						Provider: gardencorev1beta1.Provider{
 							InfrastructureConfig: &runtime.RawExtension{
-								Raw: encode(infrastructure),
+								Raw: encode(infraConfig),
 							},
 						},
 					},
@@ -134,7 +118,7 @@ var _ = Describe("Ensurer", func() {
 						},
 						Provider: gardencorev1beta1.Provider{
 							InfrastructureConfig: &runtime.RawExtension{
-								Raw: encode(infrastructure),
+								Raw: encode(infraConfig),
 							},
 						},
 					},

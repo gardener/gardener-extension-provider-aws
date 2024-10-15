@@ -45,11 +45,11 @@ func CloudProfileConfigFromCluster(cluster *controller.Cluster) (*api.CloudProfi
 	return cloudProfileConfig, nil
 }
 
-// InfrastructureFromCluster decodes the infrastructure for a shoot cluster
-func InfrastructureFromCluster(cluster *controller.Cluster) (*extensionsv1alpha1.Infrastructure, error) {
-	var infra *extensionsv1alpha1.Infrastructure
+// InfrastructureConfigFromCluster decodes the InfrastructureConfig for a shoot cluster
+func InfrastructureConfigFromCluster(cluster *controller.Cluster) (*api.InfrastructureConfig, error) {
+	var infra *api.InfrastructureConfig
 	if cluster != nil && cluster.Shoot != nil && cluster.Shoot.Spec.Provider.InfrastructureConfig != nil && cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw != nil {
-		infra = &extensionsv1alpha1.Infrastructure{}
+		infra = &api.InfrastructureConfig{}
 		if _, _, err := decoder.Decode(cluster.Shoot.Spec.Provider.InfrastructureConfig.Raw, nil, infra); err != nil {
 			return nil, fmt.Errorf("could not decode infrastructure of shoot '%s': %w", k8sclient.ObjectKeyFromObject(cluster.Shoot), err)
 		}
