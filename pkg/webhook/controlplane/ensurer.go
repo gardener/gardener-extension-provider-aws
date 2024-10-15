@@ -362,11 +362,7 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcon
 		}
 
 		if k8sGreaterEqual127 {
-			infra, err := helper.InfrastructureFromCluster(cluster)
-			if err != nil {
-				return nil, err
-			}
-			infraConfig, err := helper.InfrastructureConfigFromInfrastructure(infra)
+			infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
 			if err != nil {
 				return nil, err
 			}
@@ -587,11 +583,7 @@ func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.Garde
 		return nil
 	}
 
-	infra, err := helper.InfrastructureFromCluster(cluster)
-	if err != nil {
-		return err
-	}
-	infraConfig, err := helper.InfrastructureConfigFromInfrastructure(infra)
+	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
 	if err != nil {
 		return err
 	}
