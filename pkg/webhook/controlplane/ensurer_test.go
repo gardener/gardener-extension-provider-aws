@@ -54,34 +54,9 @@ var _ = Describe("Ensurer", func() {
 		ctx  = context.TODO()
 
 		dummyContext   = gcontext.NewGardenContext(nil, nil)
-		eContextK8s126 = gcontext.NewInternalGardenContext(
-			&extensionscontroller.Cluster{
-				Shoot: &gardencorev1beta1.Shoot{
-					Spec: gardencorev1beta1.ShootSpec{
-						Kubernetes: gardencorev1beta1.Kubernetes{
-							Version: "1.26.1",
-						},
-					},
-				},
-			},
-		)
-		eContextK8s127 = gcontext.NewInternalGardenContext(
-			&extensionscontroller.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "shoot--project--foo",
-				},
-				Shoot: &gardencorev1beta1.Shoot{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo",
-					},
-					Spec: gardencorev1beta1.ShootSpec{
-						Kubernetes: gardencorev1beta1.Kubernetes{
-							Version: "1.27.1",
-						},
-					},
-				},
-			},
-		)
+		eContextK8s126 gcontext.GardenContext
+		eContextK8s127 gcontext.GardenContext
+
 		eContextK8s131 = gcontext.NewInternalGardenContext(
 			&extensionscontroller.Cluster{
 				ObjectMeta: metav1.ObjectMeta{
