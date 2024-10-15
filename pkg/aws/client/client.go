@@ -1509,6 +1509,40 @@ func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, err
 	return fromSubnet(output.Subnet), nil
 }
 
+// CreateCIDRReservation creates a EC2 subnet cidr reservation resource.
+func (c *Client) CreateCIDRReservation(ctx context.Context, subnet *Subnet, cidr string, reservationType string) (string, error) {
+	input := &ec2.CreateSubnetCidrReservationInput{
+		SubnetId:        &subnet.SubnetId,
+		Cidr:            aws.String(cidr),
+		ReservationType: aws.String(reservationType),
+	}
+
+	output, err := c.EC2.CreateSubnetCidrReservationWithContext(ctx, input)
+	if err != nil {
+		return "", err
+	}
+	return *output.SubnetCidrReservation.Cidr, nil
+}
+
+// CreateCIDRReservation gets EC2 subnet cidr reservations.
+func (c *Client) GetIPv6CIDRReservations(ctx context.Context, subnet *Subnet) ([]string, error) {
+	input := &ec2.GetSubnetCidrReservationsInput{
+		SubnetId: &subnet.SubnetId,
+	}
+
+	output, err := c.EC2.GetSubnetCidrReservationsWithContext(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	var cidrs []string
+	for _, cidrReservation := range output.SubnetIpv6CidrReservations {
+		if cidrReservation != nil && cidrReservation.Cidr != nil {
+			cidrs = append(cidrs, *cidrReservation.Cidr)
+		}
+	}
+	return cidrs, nil
+}
+
 // GetSubnets gets subnets for the given identifiers.
 // Non-existing identifiers are ignored silently.
 func (c *Client) GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error) {

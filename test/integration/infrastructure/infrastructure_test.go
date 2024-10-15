@@ -1060,6 +1060,7 @@ func verifyCreation(
 		workersSubnetID      string
 		publicSubnetID       string
 		internalSubnetID     string
+		foundCIDRReservation int
 	)
 	for _, subnet := range describeSubnetsOutput.Subnets {
 		for _, tag := range subnet.Tags {
@@ -1090,6 +1091,11 @@ func verifyCreation(
 					ID:      ptr.Deref(subnet.SubnetId, ""),
 					Zone:    availabilityZone,
 				})))
+				if isIPv6(ipfamilies) {
+					output, err := awsClient.EC2.GetSubnetCidrReservationsWithContext(ctx, &ec2.GetSubnetCidrReservationsInput{SubnetId: subnet.SubnetId})
+					Expect(err).NotTo(HaveOccurred())
+					foundCIDRReservation += len(output.SubnetIpv6CidrReservations)
+				}
 			}
 			if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+publicUtilitySuffix)) {
 				foundExpectedSubnets++
@@ -1148,6 +1154,9 @@ func verifyCreation(
 		}
 	}
 	Expect(foundExpectedSubnets).To(Equal(3))
+	if isIPv6(ipfamilies) {
+		Expect(foundCIDRReservation).To(Equal(1))
+	}
 
 	// elastic ips
 
@@ -1201,7 +1210,7 @@ func verifyCreation(
 			}
 		}
 	}
-	Expect(infra.Status.EgressCIDRs).To(ConsistOf(egressCIDRs))
+	Expect(infra.Status.EgressCIDRs).To(ContainElements(egressCIDRs))
 
 	if isIPv6(ipfamilies) {
 		// egress only internet gateway
@@ -1220,6 +1229,10 @@ func verifyCreation(
 			Expect(eoigs[0].Tags).To(ConsistOf(defaultTags))
 			infrastructureIdentifier.egressOnlyInternetGatewayID = eoigs[0].EgressOnlyInternetGatewayId
 		}
+
+		Expect(infra.Status.Networking.Nodes).To(HaveLen(1))
+		Expect(infra.Status.Networking.Pods).To(HaveLen(1))
+		Expect(infra.Status.Networking.Services).To(HaveLen(1))
 	}
 
 	// route tables + routes

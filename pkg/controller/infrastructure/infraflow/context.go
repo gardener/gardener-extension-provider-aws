@@ -77,6 +77,8 @@ const (
 	IdentifierVpcIPv6CidrBlock = "VPCIPv6CidrBlock"
 	// IdentifierEgressCIDRs is the key for the slice containing egress CIDRs strings.
 	IdentifierEgressCIDRs = "EgressCIDRs"
+	// IdentifierServiceCIDR is the key for the subnet cidr reservation for the service range.
+	IdentifierServiceCIDR = "ServiceCIDR"
 	// NameIAMRole is the key for the name of the IAM role
 	NameIAMRole = "IAMRoleName"
 	// NameIAMInstanceProfile is the key for the name of the IAM instance profile
@@ -170,7 +172,7 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 }
 
 func (c *FlowContext) persistState(ctx context.Context) error {
-	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, nil, c.computeInfrastructureState(), c.getEgressCIDRs())
+	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, nil, c.computeInfrastructureState(), c.getEgressCIDRs(), c.state.Get(IdentifierVpcIPv6CidrBlock), c.state.Get(IdentifierServiceCIDR))
 }
 
 func PatchProviderStatusAndState(
@@ -180,12 +182,22 @@ func PatchProviderStatusAndState(
 	status *awsv1alpha1.InfrastructureStatus,
 	state *runtime.RawExtension,
 	egressCIDRs []string,
+	vpcIPv6CidrBlock *string,
+	serviceCIDR *string,
 ) error {
 	patch := client.MergeFrom(infra.DeepCopy())
 	if status != nil {
 		infra.Status.ProviderStatus = &runtime.RawExtension{Object: status}
 		if egressCIDRs != nil {
 			infra.Status.EgressCIDRs = egressCIDRs
+		}
+		if vpcIPv6CidrBlock != nil && serviceCIDR != nil {
+			infra.Status.Networking = &extensionsv1alpha1.InfrastructureStatusNetworking{
+				Nodes:    []string{*vpcIPv6CidrBlock},
+				Pods:     []string{*vpcIPv6CidrBlock},
+				Services: []string{*serviceCIDR},
+			}
+			infra.Status.EgressCIDRs = append(infra.Status.EgressCIDRs, *vpcIPv6CidrBlock)
 		}
 	}
 
