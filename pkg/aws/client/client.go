@@ -1535,7 +1535,9 @@ func (c *Client) GetIPv6CIDRReservations(ctx context.Context, subnet *Subnet) ([
 	}
 	var cidrs []string
 	for _, cidrReservation := range output.SubnetIpv6CidrReservations {
-		cidrs = append(cidrs, *cidrReservation.Cidr)
+		if cidrReservation != nil && cidrReservation.Cidr != nil {
+			cidrs = append(cidrs, *cidrReservation.Cidr)
+		}
 	}
 	return cidrs, nil
 }
