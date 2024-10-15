@@ -14,7 +14,5 @@ spec:
   resourcePolicy:
     containerPolicies:
     - containerName: {{ .Chart.Name }}
-      minAllowed:
-        memory: {{ .Values.resources.requests.memory }}
       controlledValues: RequestsOnly
 {{- end }}
