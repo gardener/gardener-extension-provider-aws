@@ -24,11 +24,11 @@ import (
 var gatewayEndpointPattern = regexp.MustCompile(`^\w+(\.\w+)*$`)
 
 // ValidateInfrastructureConfigAgainstCloudProfile validates the given `InfrastructureConfig` against the given `CloudProfile`.
-func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfile *gardencorev1beta1.CloudProfile, fldPath *field.Path) field.ErrorList {
+func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	shootRegion := shoot.Spec.Region
-	for _, region := range cloudProfile.Spec.Regions {
+	for _, region := range cloudProfileSpec.Regions {
 		if region.Name == shootRegion {
 			allErrs = append(allErrs, validateInfrastructureConfigZones(oldInfra, infra, region.Zones, fldPath.Child("network"))...)
 			break
