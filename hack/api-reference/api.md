@@ -127,20 +127,6 @@ LoadBalancerControllerConfig
 </tr>
 <tr>
 <td>
-<code>ipamController</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IPAMControllerConfig">
-IPAMControllerConfig
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>IPAMController contains configuration settings for the optional aws-ipam-controller.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>storage</code></br>
 <em>
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Storage">
@@ -706,36 +692,6 @@ string
 <td>
 <em>(Optional)</em>
 <p>ARN is the ARN of the instance profile.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IPAMControllerConfig">IPAMControllerConfig
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
-</p>
-<p>
-<p>IPAMControllerConfig contains configuration settings for the optional aws-ipam-controller.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>enabled</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<p>Enabled controls if the IPAM controller should be deployed.</p>
 </td>
 </tr>
 </tbody>

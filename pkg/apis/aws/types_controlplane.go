@@ -20,9 +20,6 @@ type ControlPlaneConfig struct {
 	// LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).
 	LoadBalancerController *LoadBalancerControllerConfig
 
-	// IPAMController contains configuration settings for the optional aws-ipam-controller.
-	IPAMController *IPAMControllerConfig
-
 	// Storage contains configuration for storage in the cluster.
 	Storage *Storage
 }

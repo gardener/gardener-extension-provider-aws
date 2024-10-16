@@ -88,11 +88,6 @@ func (in *ControlPlaneConfig) DeepCopyInto(out *ControlPlaneConfig) {
 		*out = new(LoadBalancerControllerConfig)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.IPAMController != nil {
-		in, out := &in.IPAMController, &out.IPAMController
-		*out = new(IPAMControllerConfig)
-		**out = **in
-	}
 	if in.Storage != nil {
 		in, out := &in.Storage, &out.Storage
 		*out = new(Storage)

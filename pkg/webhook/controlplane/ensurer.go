@@ -9,6 +9,8 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"slices"
+	"strconv"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -16,6 +18,7 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
@@ -34,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
-	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
@@ -144,19 +146,11 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 		return err
 	}
 
-	cpConfig := &api.ControlPlaneConfig{}
-	if cluster.Shoot.Spec.Provider.ControlPlaneConfig != nil {
-		err = json.Unmarshal(cluster.Shoot.Spec.Provider.ControlPlaneConfig.Raw, cpConfig)
-		if err != nil {
-			return err
-		}
+	allocateNodeCIDRs := true
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+		allocateNodeCIDRs = false
 	}
-
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-controller-manager"); c != nil {
-		allocateNodeCIDRs := true
-		if cpConfig.IPAMController != nil && cpConfig.IPAMController.Enabled {
-			allocateNodeCIDRs = false
-		}
 		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion, allocateNodeCIDRs)
 		ensureEnvVars(c)
 		ensureKubeControllerManagerVolumeMounts(c)
@@ -248,14 +242,10 @@ func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion 
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--cloud-config=")
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--external-cloud-volume-plugin=")
 
-	if !allocateNodeCIDRs {
-		for i, v := range c.Command {
-			if v == "--allocate-node-cidrs=true" {
-				c.Command = append(c.Command[:i], c.Command[i+1:]...)
-			}
-		}
-		c.Command = append(c.Command, "--allocate-node-cidrs=false")
-	}
+	// provider-aws is already deploying CCM with --allocate-node-cidrs. We should safely disable IPAM management from KCM.
+	// allocate-node-cidrs is a boolean flag and could be enabled by name without an explicit value passed. Therefore, we delete all prefixes (without including "=" in the prefix)
+	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--allocate-node-cidrs")
+	c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--allocate-node-cidrs=", strconv.FormatBool(allocateNodeCIDRs))
 }
 
 func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {

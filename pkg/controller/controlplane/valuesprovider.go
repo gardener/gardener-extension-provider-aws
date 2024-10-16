@@ -528,7 +528,7 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
-	ipam, err := getIPAMChartValues(cpConfig, cp, cluster, checksums, scaledDown)
+	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown)
 	if err != nil {
 		return nil, err
 	}
@@ -570,9 +570,6 @@ func getCCMChartValues(
 		return nil, fmt.Errorf("secret %q not found", cloudControllerManagerServerName)
 	}
 
-	ipamControllerEnabled := cpConfig.IPAMController != nil &&
-		cpConfig.IPAMController.Enabled
-
 	values := map[string]interface{}{
 		"enabled":           true,
 		"replicas":          extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
@@ -590,8 +587,7 @@ func getCCMChartValues(
 		"secrets": map[string]interface{}{
 			"server": serverSecret.Name,
 		},
-		"gep19Monitoring":       gep19Monitoring,
-		"ipamControllerEnabled": ipamControllerEnabled,
+		"gep19Monitoring": gep19Monitoring,
 	}
 
 	if cpConfig.CloudControllerManager != nil {
@@ -634,19 +630,18 @@ func getCRCChartValues(
 
 // getIPAMChartValues collects and returns the ipam-controller chart values.
 func getIPAMChartValues(
-	cpConfig *apisaws.ControlPlaneConfig,
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 	checksums map[string]string,
 	scaledDown bool,
 ) (map[string]interface{}, error) {
-
 	mode := "ipv4"
-	if len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 && cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 {
-		mode = "ipv6"
-	}
-	if len(cluster.Shoot.Spec.Networking.IPFamilies) == 2 {
-		mode = "dual-stack"
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
+		if len(networkingConfig.IPFamilies) == 2 {
+			mode = "dual-stack"
+		} else if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+			mode = "ipv6"
+		}
 	}
 
 	nodeCidrMaskSizeIPv4 := int32(24)
@@ -686,8 +681,7 @@ func getIPAMChartValues(
 		"nodeCIDRMaskSizeIPv4": nodeCidrMaskSizeIPv4,
 		"nodeCIDRMaskSizeIPv6": nodeCidrMaskSizeIPv6,
 	}
-	enabled := cpConfig.IPAMController != nil &&
-		cpConfig.IPAMController.Enabled
+	enabled := mode != "ipv4"
 	if !enabled {
 		values["replicas"] = 0
 	}
@@ -811,8 +805,10 @@ func getControlPlaneShootChartValues(
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
-	ipamControllerEnabled := cpConfig.IPAMController != nil &&
-		cpConfig.IPAMController.Enabled
+	ipamControllerEnabled := false
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+		ipamControllerEnabled = true
+	}
 
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           true,

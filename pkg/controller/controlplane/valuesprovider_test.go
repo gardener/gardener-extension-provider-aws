@@ -73,9 +73,6 @@ var _ = Describe("ValuesProvider", func() {
 		setCustomIPAMEnabled = func(cp *extensionsv1alpha1.ControlPlane) {
 			cp.Spec.ProviderConfig = &runtime.RawExtension{
 				Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
-					IPAMController: &apisawsv1alpha1.IPAMControllerConfig{
-						Enabled: true,
-					},
 					CloudControllerManager: &apisawsv1alpha1.CloudControllerManagerConfig{
 						FeatureGates: map[string]bool{
 							"SomeKubernetesFeature": true,
@@ -341,9 +338,8 @@ var _ = Describe("ValuesProvider", func() {
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":       false,
-					"ipamControllerEnabled": false,
+					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSIPAMControllerName:         ipamChartValues,
@@ -379,9 +375,8 @@ var _ = Describe("ValuesProvider", func() {
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":       false,
-					"ipamControllerEnabled": false,
+					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSIPAMControllerName:         ipamChartValues,
@@ -416,9 +411,8 @@ var _ = Describe("ValuesProvider", func() {
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":       false,
-					"ipamControllerEnabled": false,
+					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSIPAMControllerName:         ipamChartValues,
@@ -454,9 +448,8 @@ var _ = Describe("ValuesProvider", func() {
 					"genericTokenKubeconfigSecretName": genericTokenKubeconfigSecretName,
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
-					"kubernetesVersion":     cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":       false,
-					"ipamControllerEnabled": false,
+					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
+					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSIPAMControllerName:         ipamChartValues,
@@ -569,7 +562,7 @@ var _ = Describe("ValuesProvider", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:    enabledTrue,
-					aws.AWSIPAMControllerName:         enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
