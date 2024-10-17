@@ -605,6 +605,12 @@ func getCRCChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 ) (map[string]interface{}, error) {
+	mode := "ipv4"
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
+		if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) && !slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv4) {
+			mode = "ipv6"
+		}
+	}
 	values := map[string]interface{}{
 		"enabled":     true,
 		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
@@ -621,7 +627,7 @@ func getCRCChartValues(
 	enabled := cpConfig.CloudControllerManager != nil &&
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
-	if !enabled {
+	if !enabled || mode == "ipv6" {
 		values["replicas"] = 0
 	}
 
