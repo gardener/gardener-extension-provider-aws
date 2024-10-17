@@ -9,3 +9,5 @@ aws-custom-route-controller:
   enabled: false
 aws-load-balancer-controller:
   enabled: false
+aws-ipam-controller:
+  enabled: false

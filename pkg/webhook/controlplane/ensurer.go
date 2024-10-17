@@ -9,6 +9,8 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"slices"
+	"strconv"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -16,6 +18,7 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
@@ -143,8 +146,12 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 		return err
 	}
 
+	allocateNodeCIDRs := true
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+		allocateNodeCIDRs = false
+	}
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-controller-manager"); c != nil {
-		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion)
+		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion, allocateNodeCIDRs)
 		ensureEnvVars(c)
 		ensureKubeControllerManagerVolumeMounts(c)
 	}
@@ -218,7 +225,7 @@ func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.
 	}
 }
 
-func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
+func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version, allocateNodeCIDRs bool) {
 	c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--cloud-provider=", "external")
 
 	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
@@ -234,6 +241,10 @@ func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion 
 
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--cloud-config=")
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--external-cloud-volume-plugin=")
+
+	// allocate-node-cidrs is a boolean flag and could be enabled by name without an explicit value passed. Therefore, we delete all prefixes (without including "=" in the prefix)
+	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--allocate-node-cidrs")
+	c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--allocate-node-cidrs=", strconv.FormatBool(allocateNodeCIDRs))
 }
 
 func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {

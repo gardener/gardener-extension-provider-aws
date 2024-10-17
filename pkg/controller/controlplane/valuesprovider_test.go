@@ -22,6 +22,7 @@ import (
 	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -69,6 +70,17 @@ var _ = Describe("ValuesProvider", func() {
 
 			return data
 		}
+		setCustomIPAMEnabled = func(cp *extensionsv1alpha1.ControlPlane) {
+			cp.Spec.ProviderConfig = &runtime.RawExtension{
+				Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
+					CloudControllerManager: &apisawsv1alpha1.CloudControllerManagerConfig{
+						FeatureGates: map[string]bool{
+							"SomeKubernetesFeature": true,
+						},
+					},
+				}),
+			}
+		}
 		setCustomRouteControllerEnabled = func(cp *extensionsv1alpha1.ControlPlane) {
 			cp.Spec.ProviderConfig = &runtime.RawExtension{
 				Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
@@ -102,6 +114,7 @@ var _ = Describe("ValuesProvider", func() {
 	)
 
 	BeforeEach(func() {
+		format.MaxLength = 0
 		ctx = context.TODO()
 		scheme = runtime.NewScheme()
 
@@ -226,9 +239,26 @@ var _ = Describe("ValuesProvider", func() {
 	Describe("#GetControlPlaneChartValues", func() {
 		var ccmChartValues map[string]interface{}
 		var crcChartValues map[string]interface{}
+		var ipamChartValues map[string]interface{}
 		var albChartValues map[string]interface{}
 
 		BeforeEach(func() {
+			ipamChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
+				"podAnnotations": map[string]interface{}{
+					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
+				},
+				"nodeCIDRMaskSizeIPv6": int32(64),
+				"enabled":              true,
+				"podNetwork":           "192.168.0.0/16",
+				"podLabels": map[string]interface{}{
+					"maintenance.gardener.cloud/restart": "true",
+				},
+				"region":               "europe",
+				"mode":                 "ipv4",
+				"nodeCIDRMaskSizeIPv4": int32(24),
+				"replicas":             0,
+				"clusterName":          "test",
+			})
 			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
 				"replicas":    1,
 				"clusterName": namespace,
@@ -312,6 +342,7 @@ var _ = Describe("ValuesProvider", func() {
 					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSIPAMControllerName:         ipamChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
@@ -348,6 +379,7 @@ var _ = Describe("ValuesProvider", func() {
 					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSIPAMControllerName:         ipamChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
@@ -383,6 +415,7 @@ var _ = Describe("ValuesProvider", func() {
 					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSIPAMControllerName:         ipamChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
@@ -419,6 +452,7 @@ var _ = Describe("ValuesProvider", func() {
 					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
+				aws.AWSIPAMControllerName:         ipamChartValues,
 				aws.AWSLoadBalancerControllerName: albChartValues,
 				aws.CSIControllerName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 					"replicas": 1,
@@ -503,6 +537,32 @@ var _ = Describe("ValuesProvider", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
+					aws.AWSCustomRouteControllerName:  enabledFalse,
+					aws.AWSLoadBalancerControllerName: enabledFalse,
+					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
+						"kubernetesVersion": "1.28.2",
+						"vpaEnabled":        true,
+						"driver": map[string]interface{}{
+							"volumeAttachLimit": "42",
+						},
+						"webhookConfig": map[string]interface{}{
+							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
+							"caBundle": "",
+						},
+					}),
+				}))
+			})
+		})
+
+		Context("shoot control plane chart values and ipam controller enabled", func() {
+			It("should return correct shoot control plane chart when ca is secret found", func() {
+				setCustomIPAMEnabled(cp)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, cluster, fakeSecretsManager, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(values).To(Equal(map[string]interface{}{
+					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -527,6 +587,7 @@ var _ = Describe("ValuesProvider", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
 					aws.AWSCustomRouteControllerName:  enabledTrue,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
@@ -566,6 +627,7 @@ var _ = Describe("ValuesProvider", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(Equal(map[string]interface{}{
 					aws.CloudControllerManagerName:    enabledTrue,
+					aws.AWSIPAMControllerName:         enabledFalse,
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: albChartValues,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
