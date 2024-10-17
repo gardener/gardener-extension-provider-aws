@@ -12,13 +12,13 @@ const (
 	// Name is the name of the AWS provider.
 	Name = "provider-aws"
 
-	// VolumeAttachLimit is the key for an annotation on a Shoot object whose value
-	// represents the maximum number of volumes attachable for all nodes.
+	// VolumeAttachLimit is the key for an annotation on a Shoot object whose value represents the maximum number of
+	// volumes attachable for all nodes.
 	VolumeAttachLimit = "aws.provider.extensions.gardener.cloud/volume-attach-limit"
 
-	// LegacyXFS is the key for an annotation on a Shoot object whose value
-	// represents whether or not LegacyXFS mode should be enabled
-	legacyXFS = "aws.provider.extensions.gardener.cloud/legacyXFS"
+	// LegacyXFS is the key for an annotation on a Shoot object whose value represents whether LegacyXFS mode should be
+	// enabled.
+	LegacyXFS = "aws.provider.extensions.gardener.cloud/legacyXFS"
 
 	// CloudControllerManagerImageName is the name of the cloud-controller-manager image.
 	CloudControllerManagerImageName = "cloud-controller-manager"
