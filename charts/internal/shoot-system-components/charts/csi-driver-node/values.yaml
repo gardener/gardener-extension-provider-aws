@@ -8,6 +8,7 @@ vpaEnabled: false
 
 driver: {}
   # volumeAttachLimit: -1
+  # legacyXFS: true
 
 webhookConfig:
   url: https://service-name.service-namespace/volumesnapshot
