@@ -605,7 +605,7 @@ CSI drivers usually have a different procedure for configuring this custom limit
 
 ### Other CSI options
 The newer versions of EBS CSI driver are not readily compatible with the use of XFS volumes on nodes using a kernel version <= 5.4.
-A workaround was added that enables the use of a "legacy XFS" mode that introduces a backwards compatible volume formating for the older kernels. You can enable this option for your shoot by using by annotating it with `aws.provider.extensions.gardener.cloud/legacy-xfs=true`.
+A workaround was added that enables the use of a "legacy XFS" mode that introduces a backwards compatible volume formating for the older kernels. You can enable this option for your shoot by annotating it with `aws.provider.extensions.gardener.cloud/legacy-xfs=true`.
 
 ## Kubernetes Versions per Worker Pool
 
