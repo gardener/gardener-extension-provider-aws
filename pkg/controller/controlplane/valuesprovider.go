@@ -826,11 +826,15 @@ func getControlPlaneShootChartValues(
 		},
 	}
 
+	driver := map[string]interface{}{}
 	if value, ok := cluster.Shoot.Annotations[aws.VolumeAttachLimit]; ok {
-		csiDriverNodeValues["driver"] = map[string]interface{}{
-			"volumeAttachLimit": value,
-		}
+		driver["volumeAttachLimit"] = value
 	}
+
+	if value, ok := cluster.Shoot.Annotations[aws.LegacyXFS]; ok {
+		driver["legacyXFS"] = value
+	}
+	csiDriverNodeValues["driver"] = driver
 
 	albValues, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, nil, false, nil)
 	if err != nil {

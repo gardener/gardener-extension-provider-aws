@@ -603,6 +603,10 @@ The Kubernetes scheduler allows configurable limit for the number of volumes tha
 
 CSI drivers usually have a different procedure for configuring this custom limit. By default, the EBS CSI driver parses the machine type name and then decides the volume limit. However, this is only a rough approximation and not good enough in most cases. Specifying the volume attach limit via command line flag (`--volume-attach-limit`) is currently the alternative until a more sophisticated solution presents itself (dynamically discovering the maximum number of attachable volume per EC2 machine type, see also https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/347). The AWS extension allows the `--volume-attach-limit` flag of the EBS CSI driver to be configurable via `aws.provider.extensions.gardener.cloud/volume-attach-limit` annotation on the `Shoot` resource. If the annotation is added to an existing `Shoot`, then reconciliation needs to be triggered manually (see [Immediate reconciliation](https://github.com/gardener/gardener/blob/master/docs/usage/shoot-operations/shoot_operations.md#immediate-reconciliation)), as in general adding annotation to resource is not a change that leads to `.metadata.generation` increase in general.
 
+### Other CSI options
+The newer versions of EBS CSI driver are not readily compatible with the use of XFS volumes on nodes using a kernel version <= 5.4.
+A workaround was added that enables the use of a "legacy XFS" mode that introduces a backwards compatible volume formating for the older kernels. You can enable this option for your shoot by annotating it with `aws.provider.extensions.gardener.cloud/legacy-xfs=true`.
+
 ## Kubernetes Versions per Worker Pool
 
 This extension supports `gardener/gardener`'s `WorkerPoolKubernetesVersion` feature gate, i.e., having [worker pools with overridden Kubernetes versions](https://github.com/gardener/gardener/blob/8a9c88866ec5fce59b5acf57d4227eeeb73669d7/example/90-shoot.yaml#L69-L70) since `gardener-extension-provider-aws@v1.34`.
