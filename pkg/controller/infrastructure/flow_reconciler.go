@@ -66,7 +66,7 @@ func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha
 		}
 	} else {
 		// otherwise migrate it from the terraform state if needed.
-		infraState, err = f.migrateFromTerraform(ctx, infra)
+		infraState, err = f.migrateFromTerraform(ctx, infra, c.Shoot.Spec.Networking)
 		if err != nil {
 			return err
 		}
@@ -77,20 +77,13 @@ func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha
 		return fmt.Errorf("failed to create new AWS client: %w", err)
 	}
 
-	var ipfamilies []v1beta1.IPFamily
-	if c.Shoot.Spec.Networking != nil {
-		ipfamilies = c.Shoot.Spec.Networking.IPFamilies
-	} else {
-		ipfamilies = []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
-	}
-
 	fctx, err := infraflow.NewFlowContext(infraflow.Opts{
 		Log:            f.log,
 		Infrastructure: infra,
 		State:          infraState,
 		RuntimeClient:  f.client,
 		AwsClient:      awsClient,
-		IPFamilies:     ipfamilies,
+		Networking:     c.Shoot.Spec.Networking,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)
@@ -113,21 +106,13 @@ func (f *FlowReconciler) Delete(ctx context.Context, infra *extensionsv1alpha1.I
 		return err
 	}
 
-	var ipfamilies []v1beta1.IPFamily
-
-	if c.Shoot.Spec.Networking != nil {
-		ipfamilies = c.Shoot.Spec.Networking.IPFamilies
-	} else {
-		ipfamilies = []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
-	}
-
 	fctx, err := infraflow.NewFlowContext(infraflow.Opts{
 		Log:            f.log,
 		Infrastructure: infra,
 		State:          infraState,
 		AwsClient:      awsClient,
 		RuntimeClient:  f.client,
-		IPFamilies:     ipfamilies,
+		Networking:     c.Shoot.Spec.Networking,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)
@@ -170,7 +155,7 @@ func (f *FlowReconciler) infrastructureStateFromRaw(infra *extensionsv1alpha1.In
 	return state, nil
 }
 
-func (f *FlowReconciler) migrateFromTerraform(ctx context.Context, infra *extensionsv1alpha1.Infrastructure) (*awsapi.InfrastructureState, error) {
+func (f *FlowReconciler) migrateFromTerraform(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, networking *v1beta1.Networking) (*awsapi.InfrastructureState, error) {
 	var (
 		state = &awsapi.InfrastructureState{
 			Data: map[string]string{},
@@ -207,7 +192,7 @@ func (f *FlowReconciler) migrateFromTerraform(ctx context.Context, infra *extens
 		return nil, err
 	}
 
-	if err := infraflow.PatchProviderStatusAndState(ctx, f.client, infra, infrastructureStatus, &runtime.RawExtension{Object: state}, nil, nil, nil); err != nil {
+	if err := infraflow.PatchProviderStatusAndState(ctx, f.client, infra, networking, infrastructureStatus, &runtime.RawExtension{Object: state}, nil, nil, nil); err != nil {
 		return nil, fmt.Errorf("updating status state failed: %w", err)
 	}
 
