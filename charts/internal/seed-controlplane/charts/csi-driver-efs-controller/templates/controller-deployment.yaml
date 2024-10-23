@@ -36,8 +36,8 @@ spec:
 {{ toYaml .Values.podAnnotations | indent 8 }}
 {{- end }}
     spec:
-      automountServiceAccountToken: true # TODO could be false when token would be connected to sa
-{{/*      priorityClassName: gardener-system-300 # TODO only used in seed control plane*/}}
+      automountServiceAccountToken: true
+      priorityClassName: gardener-system-300
       {{- if hasKey .Values.controller "hostNetwork" }}
       hostNetwork: {{ .Values.controller.hostNetwork }}
       {{- end }}
@@ -92,6 +92,7 @@ spec:
           {{- with .Values.resources.driverController }}
           resources: {{ toYaml . | nindent 12 }}
           {{- end }}
+
         - name: aws-csi-provisioner
           image: {{ index .Values.images "csi-provisioner" }}
           args:
@@ -117,6 +118,7 @@ spec:
           {{- with .Values.resources.provisioner }}
           resources: {{ toYaml . | nindent 12 }}
           {{- end }}
+
         - name: liveness-probe
           image: {{ index .Values.images "csi-liveness-probe" }}
           args:
