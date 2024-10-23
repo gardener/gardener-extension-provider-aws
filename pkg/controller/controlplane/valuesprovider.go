@@ -7,6 +7,7 @@ package controlplane
 import (
 	"context"
 	"fmt"
+	"net"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -663,8 +664,14 @@ func getIPAMChartValues(
 
 	podNetwork := "192.168.0.0/16"
 	if slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, v1beta1.IPFamilyIPv4) {
-		if len(extensionscontroller.GetPodNetwork(cluster)) > 0 {
-			podNetwork = strings.Join(extensionscontroller.GetPodNetwork(cluster), ",")
+		for _, podCIDR := range extensionscontroller.GetPodNetwork(cluster) {
+			_, cidr, err := net.ParseCIDR(podCIDR)
+			if err != nil {
+				return nil, err
+			}
+			if cidr.IP.To4() != nil {
+				podNetwork = podCIDR
+			}
 		}
 	}
 
