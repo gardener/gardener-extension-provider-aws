@@ -1441,8 +1441,9 @@ func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
 
 	// TODO add flag to enable backup, performanceMode, Throughput...
 	inputCreate := &efs.CreateFileSystemInput{
-		CreationToken: ptr.To(efsCreationToken),
 		Tags:          c.commonTags.ToEfsTags(), // TODO add name tag
+		CreationToken: ptr.To(efsCreationToken),
+		Encrypted:     ptr.To(true),
 	}
 	efsCreate, err := c.client.CreateEfsFileSystem(ctx, inputCreate)
 	if err != nil {
