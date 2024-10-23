@@ -25,6 +25,10 @@ func ValidateNetworking(networking *core.Networking, fldPath *field.Path) field.
 		allErrs = append(allErrs, field.Required(fldPath.Child("nodes"), "a nodes CIDR must be provided for AWS shoots"))
 	}
 
+	if len(networking.IPFamilies) > 1 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("ipFamilies"), networking.IPFamilies, "dual-stack networking is not supported"))
+	}
+
 	return allErrs
 }
 
