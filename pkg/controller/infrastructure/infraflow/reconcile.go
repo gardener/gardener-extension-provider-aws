@@ -1347,12 +1347,9 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 	zoneRouteTable bool, subnetKey, assocKey string) error {
 	child := c.getSubnetZoneChild(zoneName)
 	subnetID := child.Get(subnetKey)
-	if subnetID == nil {
-		return fmt.Errorf("missing subnet id")
-	}
-
 	assocID := child.Get(assocKey)
-	if assocID == nil {
+
+	if assocID == nil && subnetID != nil {
 		// unclear situation: load route table to search for association
 		var routeTableID *string
 		if zoneRouteTable {
