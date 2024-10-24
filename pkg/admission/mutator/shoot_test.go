@@ -20,6 +20,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/mutator"
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
@@ -272,7 +273,65 @@ var _ = Describe("Shoot mutator", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(shoot.Spec.Networking.ProviderConfig).To(BeNil())
 			})
+		})
 
+		Context("Mutate AWS load balancer controller based on IP families", func() {
+			It("should not enable AWS load balancer controller for IPv4", func() {
+				shoot.Spec.Networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4}
+				err := shootMutator.Mutate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(shoot.Spec.Provider.ControlPlaneConfig).To(Equal(&runtime.RawExtension{
+					Object: &awsv1alpha1.ControlPlaneConfig{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "ControlPlaneConfig",
+							APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+						},
+						CloudControllerManager: &awsv1alpha1.CloudControllerManagerConfig{
+							UseCustomRouteController: ptr.To(true),
+						},
+					},
+				}))
+			})
+
+			It("should enable AWS load balancer controller for IPv6", func() {
+				shoot.Spec.Networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6}
+				err := shootMutator.Mutate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(shoot.Spec.Provider.ControlPlaneConfig).To(Equal(&runtime.RawExtension{
+					Object: &awsv1alpha1.ControlPlaneConfig{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "ControlPlaneConfig",
+							APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+						},
+						CloudControllerManager: &awsv1alpha1.CloudControllerManagerConfig{
+							UseCustomRouteController: ptr.To(true),
+						},
+						LoadBalancerController: &awsv1alpha1.LoadBalancerControllerConfig{
+							Enabled: true,
+						},
+					},
+				}))
+			})
+
+			It("should enable AWS load balancer controller for dual-stack", func() {
+				shoot.Spec.Networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4, gardencorev1beta1.IPFamilyIPv6}
+				err := shootMutator.Mutate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(shoot.Spec.Provider.ControlPlaneConfig).To(Equal(&runtime.RawExtension{
+					Object: &awsv1alpha1.ControlPlaneConfig{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "ControlPlaneConfig",
+							APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+						},
+						CloudControllerManager: &awsv1alpha1.CloudControllerManagerConfig{
+							UseCustomRouteController: ptr.To(true),
+						},
+						LoadBalancerController: &awsv1alpha1.LoadBalancerControllerConfig{
+							Enabled: true,
+						},
+					},
+				}))
+			})
 		})
 	})
 })
