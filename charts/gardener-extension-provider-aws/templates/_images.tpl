@@ -1,6 +1,6 @@
 {{- define "image.alpine" -}}
-alpine:3.19.0
+alpine:3.20.3
 {{- end -}}
 {{- define "image.pause" -}}
-registry.k8s.io/pause:3.8
+registry.k8s.io/pause:3.10
 {{- end -}}
