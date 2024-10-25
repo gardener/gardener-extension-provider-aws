@@ -244,6 +244,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			reconcileOpts.Completed().Apply(&awsbastion.DefaultAddOptions.IgnoreOperationAnnotation, &awsbastion.DefaultAddOptions.ExtensionClass)
 			reconcileOpts.Completed().Apply(&awsbackupbucket.DefaultAddOptions.IgnoreOperationAnnotation, &awsbackupbucket.DefaultAddOptions.ExtensionClass)
 			reconcileOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.IgnoreOperationAnnotation, &awsbackupentry.DefaultAddOptions.ExtensionClass)
+			reconcileOpts.Completed().Apply(&awsdnsrecord.DefaultAddOptions.IgnoreOperationAnnotation, &awsdnsrecord.DefaultAddOptions.ExtensionClass)
 			workerCtrlOpts.Completed().Apply(&awsworker.DefaultAddOptions.Controller)
 			awsworker.DefaultAddOptions.GardenCluster = gardenCluster
 
