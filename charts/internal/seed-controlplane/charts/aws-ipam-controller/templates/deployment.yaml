@@ -57,7 +57,7 @@ spec:
         - --mode={{ .Values.mode }}
         - --node-cidr-mask-size-ipv4={{ .Values.nodeCIDRMaskSizeIPv4 }}
         - --node-cidr-mask-size-ipv6={{ .Values.nodeCIDRMaskSizeIPv6 }}
-        - --v=2
+        - --log-level=info
         livenessProbe:
           failureThreshold: 3
           httpGet:
