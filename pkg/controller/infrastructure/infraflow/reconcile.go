@@ -1362,10 +1362,13 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 			if err != nil {
 				return err
 			}
-			for _, assoc := range routeTable.Associations {
-				if reflect.DeepEqual(subnetID, assoc.SubnetId) {
-					assocID = &assoc.RouteTableAssociationId
-					break
+			// if not found routeTable might be nil
+			if routeTable != nil {
+				for _, assoc := range routeTable.Associations {
+					if reflect.DeepEqual(subnetID, assoc.SubnetId) {
+						assocID = &assoc.RouteTableAssociationId
+						break
+					}
 				}
 			}
 		}
