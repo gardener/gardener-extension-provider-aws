@@ -209,10 +209,8 @@ resource "aws_subnet" "private_utility_z{{ $index }}" {
   {{ end }}
   availability_zone = "{{ $zone.name }}"
   {{ if $.isIPv6 }}
-  ipv6_native = true
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
-  enable_resource_name_dns_aaaa_record_on_launch = true
   {{- else if $.dualStack.enabled }}
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = false

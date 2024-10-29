@@ -685,13 +685,11 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				EnableDns64:                             ptr.To(!isIPv4(c.ipFamilies)),
 			},
 			&awsclient.Subnet{
-				Tags:                                    tagsPrivate,
-				VpcId:                                   c.state.Get(IdentifierVPC),
-				AvailabilityZone:                        zone.Name,
-				AssignIpv6AddressOnCreation:             ptr.To(isIPv6(c.ipFamilies)),
-				CidrBlock:                               zone.Internal,
-				Ipv6Native:                              ptr.To(!isIPv4(c.ipFamilies)),
-				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
+				Tags:                        tagsPrivate,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: ptr.To(isIPv6(c.ipFamilies)),
+				CidrBlock:                   zone.Internal,
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPublic,
