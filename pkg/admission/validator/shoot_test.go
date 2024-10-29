@@ -312,6 +312,15 @@ var _ = Describe("Shoot validator", func() {
 				}))))
 			})
 
+			It("should allow with IPv6-only networking", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv6}
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
 			It("should return err when infrastructureConfig is invalid", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 
