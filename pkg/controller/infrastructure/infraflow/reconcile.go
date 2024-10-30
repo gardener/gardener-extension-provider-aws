@@ -458,7 +458,7 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 		c.state.Set(IdentifierMainRouteTable, current.RouteTableId)
 		c.state.SetObject(ObjectMainRouteTable, current)
 		log.Info("updating route table...")
-		if _, err := c.updater.UpdateRouteTable(ctx, log, desired, current, allIPv4); err != nil {
+		if _, err := c.updater.UpdateRouteTable(ctx, log, desired, current); err != nil {
 			return err
 		}
 	} else {

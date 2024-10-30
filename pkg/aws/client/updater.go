@@ -124,7 +124,7 @@ func (u *updater) UpdateRouteTable(ctx context.Context, log logr.Logger, desired
 			continue
 		}
 		if !slices.Contains(current.Routes, r) {
-			routesToCreate = append(routesToDelete, r)
+			routesToCreate = append(routesToCreate, r)
 		}
 	}
 
@@ -134,19 +134,22 @@ func (u *updater) UpdateRouteTable(ctx context.Context, log logr.Logger, desired
 			continue
 		}
 
-		if route.DestinationPrefixListId != nil {
-			// ignore VPC endpoint route table associations
-			continue
+		deletionCandidateDestination, err := route.DestinationId()
+		if err != nil {
+			log.Error(err, "failed to find suitable destination for deletion candidate route route")
+			return false, err
 		}
 
-		// ignore all routes that are not managed by the infrastructure controller.
-		// These are known by their destination
-		if ok := slices.ContainsFunc(desired.Routes, func(r *Route) bool {
-			if *r.DestinationCidrBlock == *route.DestinationCidrBlock {
-				return true
+		// The current route table may contain routes not created by the infrastructure controller e.g. the aws-custom-route-controller.
+		// These extra routes will be included in the routesToDelete, but they need to be skipped.
+		if !slices.ContainsFunc(desired.Routes, func(r *Route) bool {
+			desiredRouteDestination, err := r.DestinationId()
+			if err != nil {
+				log.Error(err, "failed to find suitable destination for desired route", "route")
+				return false
 			}
-			return false
-		}); !ok {
+			return deletionCandidateDestination == desiredRouteDestination
+		}) {
 			continue
 		}
 
@@ -154,7 +157,7 @@ func (u *updater) UpdateRouteTable(ctx context.Context, log logr.Logger, desired
 			return modified, err
 		}
 
-		log.Info("Deleted route", "cidr", routeCidrBlock)
+		log.Info("Deleted route", "cidr", deletionCandidateDestination)
 	}
 
 	for _, route := range routesToCreate {
