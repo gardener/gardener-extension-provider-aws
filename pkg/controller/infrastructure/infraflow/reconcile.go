@@ -1207,7 +1207,7 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 			}
 			child.Set(IdentifierZoneRouteTable, created.RouteTableId)
 			child.SetObject(ObjectZoneRouteTable, created)
-			if _, err := c.updater.UpdateRouteTable(ctx, log, desired, created, allIPv4); err != nil {
+			if _, err := c.updater.UpdateRouteTable(ctx, log, desired, created); err != nil {
 				return err
 			}
 		}

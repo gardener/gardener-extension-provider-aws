@@ -2134,6 +2134,7 @@ func IsNotFoundError(err error) bool {
 // IsAlreadyAssociatedError returns true if the given error is a awserr.Error indicating that an AWS resource was already associated.
 func IsAlreadyAssociatedError(err error) bool {
 	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "Resource.AlreadyAssociated" {
+		aerr.Code()
 		return true
 	}
 	return false
