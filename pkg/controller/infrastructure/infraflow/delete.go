@@ -150,8 +150,8 @@ func (c *FlowContext) deleteInternetGateway(ctx context.Context) error {
 		return err
 	}
 	if current != nil {
-		log.Info("detaching...")
-		if err := c.client.DetachInternetGateway(ctx, *c.state.Get(IdentifierVPC), current.InternetGatewayId); err != nil {
+		log.Info("detaching...", "InternetGatewayId", current.InternetGatewayId)
+		if err := c.client.DetachInternetGateway(ctx, *c.state.Get(IdentifierVPC), current.InternetGatewayId); awsclient.IgnoreAlreadyDetached(err) != nil {
 			return err
 		}
 		log.Info("deleting...", "InternetGatewayId", current.InternetGatewayId)
