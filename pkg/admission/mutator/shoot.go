@@ -139,6 +139,14 @@ func (s *shoot) Mutate(_ context.Context, newObj, oldObj client.Object) error {
 		}
 	}
 
+	// Always enable AWS load balancer controller for IPv6-only and dual-stack clusters to ensure load balancing capabilities.
+	if gardencorev1beta1.IsIPv6SingleStack(shoot.Spec.Networking.IPFamilies) || len(shoot.Spec.Networking.IPFamilies) > 1 {
+		if controlPlaneConfig.LoadBalancerController == nil {
+			controlPlaneConfig.LoadBalancerController = &awsv1alpha1.LoadBalancerControllerConfig{}
+		}
+		controlPlaneConfig.LoadBalancerController.Enabled = true
+	}
+
 	shoot.Spec.Provider.ControlPlaneConfig = &runtime.RawExtension{
 		Object: controlPlaneConfig,
 	}
