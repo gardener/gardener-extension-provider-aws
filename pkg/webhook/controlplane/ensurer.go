@@ -99,7 +99,7 @@ func (e *ensurer) EnsureMachineControllerManagerVPA(_ context.Context, _ gcontex
 
 	newObj.Spec.ResourcePolicy.ContainerPolicies = extensionswebhook.EnsureVPAContainerResourcePolicyWithName(
 		newObj.Spec.ResourcePolicy.ContainerPolicies,
-		machinecontrollermanager.ProviderSidecarVPAContainerPolicy(aws.Name, nil, nil),
+		machinecontrollermanager.ProviderSidecarVPAContainerPolicy(aws.Name),
 	)
 	return nil
 }
