@@ -145,7 +145,7 @@ func (u *updater) UpdateRouteTable(ctx context.Context, log logr.Logger, desired
 		if !slices.ContainsFunc(desired.Routes, func(r *Route) bool {
 			desiredRouteDestination, err := r.DestinationId()
 			if err != nil {
-				log.Error(err, "failed to find suitable destination for desired route", "route")
+				log.Error(err, "error deleting route", "route", route)
 				return false
 			}
 			return deletionCandidateDestination == desiredRouteDestination
