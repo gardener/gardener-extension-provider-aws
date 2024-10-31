@@ -2139,6 +2139,14 @@ func IsAlreadyAssociatedError(err error) bool {
 	return false
 }
 
+// IsAlreadyDetachedError returns true if the given error is a awserr.Error indicating that a NatGateway resource was already detached.
+func IsAlreadyDetachedError(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "Gateway.NotAttached" {
+		return true
+	}
+	return false
+}
+
 func ignoreNotFound(err error) error {
 	if err == nil || IsNotFoundError(err) {
 		return nil
@@ -2148,6 +2156,13 @@ func ignoreNotFound(err error) error {
 
 func ignoreAlreadyAssociated(err error) error {
 	if err == nil || IsAlreadyAssociatedError(err) {
+		return nil
+	}
+	return err
+}
+
+func IgnoreAlreadyDetached(err error) error {
+	if err == nil || IsAlreadyDetachedError(err) {
 		return nil
 	}
 	return err
