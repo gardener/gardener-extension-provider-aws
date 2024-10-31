@@ -201,7 +201,8 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
 output "{{ $.outputKeys.subnetsNodesPrefix }}{{ $index }}" {
   value = aws_subnet.nodes_z{{ $index }}.id
 }
-
+// Load balancers can only be deployed to subnets that have an IPv4 CIDR.
+// Therefore, internal and public subnets must not be IPv6 native.
 resource "aws_subnet" "private_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   {{ if $.isIPv4 }}
