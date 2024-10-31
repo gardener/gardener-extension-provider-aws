@@ -136,7 +136,7 @@ func (u *updater) UpdateRouteTable(ctx context.Context, log logr.Logger, desired
 
 		deletionCandidateDestination, err := route.DestinationId()
 		if err != nil {
-			log.Error(err, "failed to find suitable destination for deletion candidate route route")
+			log.Error(err, "error deleting route", "route", route)
 			return false, err
 		}
 
