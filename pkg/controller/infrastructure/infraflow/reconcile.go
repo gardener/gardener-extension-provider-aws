@@ -684,14 +684,14 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
 				EnableDns64:                             ptr.To(!isIPv4(c.ipFamilies)),
 			},
+			// Load balancers can only be deployed to subnets that have an IPv4 CIDR.
+			// Therefore, internal and public subnets must not be IPv6 native.
 			&awsclient.Subnet{
-				Tags:                                    tagsPrivate,
-				VpcId:                                   c.state.Get(IdentifierVPC),
-				AvailabilityZone:                        zone.Name,
-				AssignIpv6AddressOnCreation:             ptr.To(isIPv6(c.ipFamilies)),
-				CidrBlock:                               zone.Internal,
-				Ipv6Native:                              ptr.To(!isIPv4(c.ipFamilies)),
-				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.ipFamilies)),
+				Tags:                        tagsPrivate,
+				VpcId:                       c.state.Get(IdentifierVPC),
+				AvailabilityZone:            zone.Name,
+				AssignIpv6AddressOnCreation: ptr.To(isIPv6(c.ipFamilies)),
+				CidrBlock:                   zone.Internal,
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPublic,

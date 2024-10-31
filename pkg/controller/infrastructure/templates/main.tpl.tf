@@ -201,7 +201,8 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
 output "{{ $.outputKeys.subnetsNodesPrefix }}{{ $index }}" {
   value = aws_subnet.nodes_z{{ $index }}.id
 }
-
+// Load balancers can only be deployed to subnets that have an IPv4 CIDR.
+// Therefore, internal and public subnets must not be IPv6 native.
 resource "aws_subnet" "private_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   {{ if $.isIPv4 }}
@@ -209,10 +210,8 @@ resource "aws_subnet" "private_utility_z{{ $index }}" {
   {{ end }}
   availability_zone = "{{ $zone.name }}"
   {{ if $.isIPv6 }}
-  ipv6_native = true
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
-  enable_resource_name_dns_aaaa_record_on_launch = true
   {{- else if $.dualStack.enabled }}
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = false
