@@ -157,7 +157,7 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 		return "", err
 	}
 
-	permsToDelete := []ec2types.IpPermission{}
+	var permsToDelete []ec2types.IpPermission
 	for i, perm := range group.IpPermissionsEgress {
 		if !ipPermissionsEqual(perm, egressPermission) {
 			permsToDelete = append(permsToDelete, group.IpPermissionsEgress[i])

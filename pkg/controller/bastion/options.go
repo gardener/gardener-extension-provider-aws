@@ -14,6 +14,7 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	extensionsbastion "github.com/gardener/gardener/extensions/pkg/bastion"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -67,7 +68,7 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		return nil, fmt.Errorf("security group for worker node does not exist yet")
 	}
 
-	vmDetails, err := DetermineVmDetails(cluster.CloudProfile.Spec)
+	vmDetails, err := extensionsbastion.GetMachineSpecFromCloudProfile(cluster.CloudProfile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine VM details for bastion host: %w", err)
 	}
@@ -95,7 +96,7 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		WorkerSecurityGroupName:  workerSecurityGroupName,
 		WorkerSecurityGroupID:    *workerSecurityGroup.GroupId,
 		InstanceName:             instanceName,
-		InstanceType:             vmDetails.MachineName,
+		InstanceType:             vmDetails.MachineTypeName,
 		ImageID:                  ami,
 	}, nil
 }
@@ -144,7 +145,7 @@ func getCloudProfileConfig(cluster *extensions.Cluster) (*awsv1alpha1.CloudProfi
 }
 
 // getProviderSpecificImage returns the provider specific MachineImageVersion that matches with the given VmDetails
-func getProviderSpecificImage(images []awsv1alpha1.MachineImages, vm VmDetails) (awsv1alpha1.MachineImageVersion, error) {
+func getProviderSpecificImage(images []awsv1alpha1.MachineImages, vm extensionsbastion.MachineSpec) (awsv1alpha1.MachineImageVersion, error) {
 	imageIndex := slices.IndexFunc(images, func(image awsv1alpha1.MachineImages) bool {
 		return image.Name == vm.ImageBaseName
 	})
@@ -168,7 +169,7 @@ func getProviderSpecificImage(images []awsv1alpha1.MachineImages, vm VmDetails) 
 	return versions[versionIndex], nil
 }
 
-func findImageAMIByRegion(image awsv1alpha1.MachineImageVersion, vmDetails VmDetails, region string) (string, error) {
+func findImageAMIByRegion(image awsv1alpha1.MachineImageVersion, vmDetails extensionsbastion.MachineSpec, region string) (string, error) {
 	regionIndex := slices.IndexFunc(image.Regions, func(RegionAMIMapping awsv1alpha1.RegionAMIMapping) bool {
 		return RegionAMIMapping.Name == region && RegionAMIMapping.Architecture != nil && *RegionAMIMapping.Architecture == vmDetails.Architecture
 	})

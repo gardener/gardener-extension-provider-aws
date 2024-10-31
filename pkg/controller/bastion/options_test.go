@@ -5,6 +5,7 @@
 package bastion
 
 import (
+	extensionsbastion "github.com/gardener/gardener/extensions/pkg/bastion"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/ptr"
@@ -22,7 +23,7 @@ var _ = Describe("Bastion Options", func() {
 	var amiMapping []apisaws.RegionAMIMapping
 	var machineImageVersion apisaws.MachineImageVersion
 	var machineImages []apisaws.MachineImages
-	var vmDetails VmDetails
+	var vmDetails extensionsbastion.MachineSpec
 
 	BeforeEach(func() {
 		amiMapping = []apisaws.RegionAMIMapping{
@@ -42,11 +43,11 @@ var _ = Describe("Bastion Options", func() {
 				Versions: []apisaws.MachineImageVersion{machineImageVersion},
 			},
 		}
-		vmDetails = VmDetails{
-			MachineName:   machineName,
-			Architecture:  architecture,
-			ImageBaseName: image,
-			ImageVersion:  version,
+		vmDetails = extensionsbastion.MachineSpec{
+			MachineTypeName: machineName,
+			Architecture:    architecture,
+			ImageBaseName:   image,
+			ImageVersion:    version,
 		}
 	})
 
