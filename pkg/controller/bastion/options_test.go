@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/ptr"
 
-	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 var _ = Describe("Bastion Options", func() {
@@ -20,27 +20,27 @@ var _ = Describe("Bastion Options", func() {
 	var ami = "test-ami"
 	var machineName = "test-machine"
 	var architecture = "amd64"
-	var amiMapping []apisaws.RegionAMIMapping
-	var machineImageVersion apisaws.MachineImageVersion
-	var machineImages []apisaws.MachineImages
+	var amiMapping []api.RegionAMIMapping
+	var machineImageVersion api.MachineImageVersion
+	var machineImages []api.MachineImages
 	var vmDetails extensionsbastion.MachineSpec
 
 	BeforeEach(func() {
-		amiMapping = []apisaws.RegionAMIMapping{
+		amiMapping = []api.RegionAMIMapping{
 			{
 				Name:         region,
 				AMI:          ami,
 				Architecture: ptr.To(architecture),
 			},
 		}
-		machineImageVersion = apisaws.MachineImageVersion{
+		machineImageVersion = api.MachineImageVersion{
 			Version: version,
 			Regions: amiMapping,
 		}
-		machineImages = []apisaws.MachineImages{
+		machineImages = []api.MachineImages{
 			{
 				Name:     image,
-				Versions: []apisaws.MachineImageVersion{machineImageVersion},
+				Versions: []api.MachineImageVersion{machineImageVersion},
 			},
 		}
 		vmDetails = extensionsbastion.MachineSpec{

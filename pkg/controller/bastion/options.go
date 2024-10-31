@@ -12,14 +12,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	extensionsbastion "github.com/gardener/gardener/extensions/pkg/bastion"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
-	"github.com/gardener/gardener/pkg/extensions"
+
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
 // Options contains provider-related information required for setting up
@@ -73,7 +73,7 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		return nil, fmt.Errorf("failed to determine VM details for bastion host: %w", err)
 	}
 
-	cloudProfileConfig, err := getCloudProfileConfig(cluster)
+	cloudProfileConfig, err := helper.CloudProfileConfigFromCluster(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract cloud provider config from cluster: %w", err)
 	}
@@ -127,41 +127,24 @@ func resolveSubnetName(ctx context.Context, awsClient *awsclient.Client, subnetN
 	return
 }
 
-func getCloudProfileConfig(cluster *extensions.Cluster) (*awsv1alpha1.CloudProfileConfig, error) {
-	if cluster.CloudProfile.Spec.ProviderConfig.Raw == nil {
-		return nil, fmt.Errorf("no cloud provider config set in cluster's CloudProfile")
-	}
-
-	var (
-		cloudProfileConfig = &awsv1alpha1.CloudProfileConfig{}
-		decoder            = kubernetes.GardenCodec.UniversalDeserializer()
-	)
-
-	if _, _, err := decoder.Decode(cluster.CloudProfile.Spec.ProviderConfig.Raw, nil, cloudProfileConfig); err != nil {
-		return nil, err
-	}
-
-	return cloudProfileConfig, nil
-}
-
 // getProviderSpecificImage returns the provider specific MachineImageVersion that matches with the given VmDetails
-func getProviderSpecificImage(images []awsv1alpha1.MachineImages, vm extensionsbastion.MachineSpec) (awsv1alpha1.MachineImageVersion, error) {
-	imageIndex := slices.IndexFunc(images, func(image awsv1alpha1.MachineImages) bool {
+func getProviderSpecificImage(images []api.MachineImages, vm extensionsbastion.MachineSpec) (api.MachineImageVersion, error) {
+	imageIndex := slices.IndexFunc(images, func(image api.MachineImages) bool {
 		return image.Name == vm.ImageBaseName
 	})
 
 	if imageIndex == -1 {
-		return awsv1alpha1.MachineImageVersion{},
+		return api.MachineImageVersion{},
 			fmt.Errorf("machine image with name %s not found in cloudProfileConfig", vm.ImageBaseName)
 	}
 
 	versions := images[imageIndex].Versions
-	versionIndex := slices.IndexFunc(versions, func(version awsv1alpha1.MachineImageVersion) bool {
+	versionIndex := slices.IndexFunc(versions, func(version api.MachineImageVersion) bool {
 		return version.Version == vm.ImageVersion
 	})
 
 	if versionIndex == -1 {
-		return awsv1alpha1.MachineImageVersion{},
+		return api.MachineImageVersion{},
 			fmt.Errorf("version %s for arch %s of image %s not found in cloudProfileConfig",
 				vm.ImageVersion, vm.Architecture, vm.ImageBaseName)
 	}
@@ -169,8 +152,8 @@ func getProviderSpecificImage(images []awsv1alpha1.MachineImages, vm extensionsb
 	return versions[versionIndex], nil
 }
 
-func findImageAMIByRegion(image awsv1alpha1.MachineImageVersion, vmDetails extensionsbastion.MachineSpec, region string) (string, error) {
-	regionIndex := slices.IndexFunc(image.Regions, func(RegionAMIMapping awsv1alpha1.RegionAMIMapping) bool {
+func findImageAMIByRegion(image api.MachineImageVersion, vmDetails extensionsbastion.MachineSpec, region string) (string, error) {
+	regionIndex := slices.IndexFunc(image.Regions, func(RegionAMIMapping api.RegionAMIMapping) bool {
 		return RegionAMIMapping.Name == region && RegionAMIMapping.Architecture != nil && *RegionAMIMapping.Architecture == vmDetails.Architecture
 	})
 
