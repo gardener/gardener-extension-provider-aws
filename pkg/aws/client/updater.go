@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -22,7 +23,7 @@ import (
 type Updater interface {
 	UpdateVpc(ctx context.Context, desired, current *VPC) (modified bool, err error)
 	UpdateSecurityGroup(ctx context.Context, desired, current *SecurityGroup) (modified bool, err error)
-	UpdateRouteTable(ctx context.Context, log logr.Logger, desired, current *RouteTable, controlledCidrBlocks ...string) (modified bool, err error)
+	UpdateRouteTable(ctx context.Context, log logr.Logger, desired, current *RouteTable) (modified bool, err error)
 	UpdateSubnet(ctx context.Context, desired, current *Subnet) (modified bool, err error)
 	UpdateIAMInstanceProfile(ctx context.Context, desired, current *IAMInstanceProfile) (modified bool, err error)
 	UpdateIAMRole(ctx context.Context, desired, current *IAMRole) (modified bool, err error)
@@ -102,54 +103,73 @@ func (u *updater) UpdateSecurityGroup(ctx context.Context, desired, current *Sec
 	return true, nil
 }
 
-func (u *updater) UpdateRouteTable(ctx context.Context, log logr.Logger, desired, current *RouteTable, controlledCidrBlocks ...string) (modified bool, err error) {
-outerDelete:
-	for _, cr := range current.Routes {
-		for _, dr := range desired.Routes {
-			if reflect.DeepEqual(cr, dr) {
-				continue outerDelete
-			}
-		}
-		if cr.GatewayId != nil && *cr.GatewayId == "local" {
-			// ignore local gateway route
-			continue outerDelete
-		}
-		if cr.DestinationPrefixListId != nil {
-			// ignore VPC endpoint route table associations
-			continue outerDelete
-		}
-		routeCidrBlock := ptr.Deref(cr.DestinationCidrBlock, "")
-		found := false
-		for _, cidr := range controlledCidrBlocks {
-			if routeCidrBlock == cidr {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// ignore unknown routes
+// TODO: Consider IPv4 xor IPv6 xor destination prefix lists as destination.
+func (u *updater) UpdateRouteTable(ctx context.Context, log logr.Logger, desired, current *RouteTable) (bool, error) {
+	var (
+		routesToDelete = []*Route{}
+		routesToCreate = []*Route{}
+		modified       = false
+	)
+
+	for _, r := range current.Routes {
+		if r == nil {
 			continue
 		}
-		if err = u.client.DeleteRoute(ctx, current.RouteTableId, cr); err != nil {
-			return
+		if !slices.Contains(desired.Routes, r) {
+			routesToDelete = append(routesToDelete, r)
 		}
-		log.Info("Deleted route", "cidr", routeCidrBlock)
-		modified = true
 	}
-outerCreate:
-	for _, dr := range desired.Routes {
-		for _, cr := range current.Routes {
-			if reflect.DeepEqual(cr, dr) {
-				continue outerCreate
+	for _, r := range desired.Routes {
+		if r == nil {
+			continue
+		}
+		if !slices.Contains(current.Routes, r) {
+			routesToCreate = append(routesToCreate, r)
+		}
+	}
+
+	for _, route := range routesToDelete {
+		if route.GatewayId != nil && *route.GatewayId == "local" {
+			// ignore local gateway route
+			continue
+		}
+
+		deletionCandidateDestination, err := route.DestinationId()
+		if err != nil {
+			log.Error(err, "error deleting route", "route", route)
+			return false, err
+		}
+
+		// The current route table may contain routes not created by the infrastructure controller e.g. the aws-custom-route-controller.
+		// These extra routes will be included in the routesToDelete, but they need to be skipped.
+		if !slices.ContainsFunc(desired.Routes, func(r *Route) bool {
+			desiredRouteDestination, err := r.DestinationId()
+			if err != nil {
+				log.Error(err, "error deleting route", "route", route)
+				return false
 			}
+			return deletionCandidateDestination == desiredRouteDestination
+		}) {
+			continue
 		}
-		if err = u.client.CreateRoute(ctx, current.RouteTableId, dr); err != nil {
-			return
+
+		if err := u.client.DeleteRoute(ctx, current.RouteTableId, route); err != nil {
+			return modified, err
 		}
-		log.Info("Created route", "cidr", ptr.Deref(dr.DestinationCidrBlock, ""))
+
+		log.Info("Deleted route", "cidr", deletionCandidateDestination)
+	}
+
+	for _, route := range routesToCreate {
+		if err := u.client.CreateRoute(ctx, current.RouteTableId, route); err != nil {
+			return modified, err
+		}
+
+		log.Info("Created route", "cidr", ptr.Deref(route.DestinationCidrBlock, ""))
 		modified = true
 	}
-	return
+
+	return modified, nil
 }
 
 func (u *updater) UpdateSubnet(ctx context.Context, desired, current *Subnet) (modified bool, err error) {

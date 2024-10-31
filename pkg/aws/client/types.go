@@ -6,10 +6,12 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -450,6 +452,17 @@ type Route struct {
 	NatGatewayId                *string
 	EgressOnlyInternetGatewayId *string
 	DestinationPrefixListId     *string
+}
+
+func (r *Route) DestinationId() (string, error) {
+	if v := ptr.Deref(r.DestinationCidrBlock, ""); v != "" {
+		return v, nil
+	} else if v := ptr.Deref(r.DestinationIpv6CidrBlock, ""); v != "" {
+		return v, nil
+	} else if v := ptr.Deref(r.DestinationPrefixListId, ""); v != "" {
+		return v, nil
+	}
+	return "", fmt.Errorf("no route destination found")
 }
 
 // RouteTableAssociation contains the relevant fields for a route association of an EC2 route table resource.
