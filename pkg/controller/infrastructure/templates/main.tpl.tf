@@ -181,8 +181,10 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
   availability_zone = "{{ $zone.name }}"
 
   {{ if $.isIPv6 }}
+  {{- if (not $.isIPv4) }}
   enable_dns64 = true
   ipv6_native = true
+  {{- end }}
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (({{ $index }} * 3)))}"
   enable_resource_name_dns_aaaa_record_on_launch = true

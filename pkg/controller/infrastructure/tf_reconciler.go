@@ -423,11 +423,11 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		dhcpDomainName = fmt.Sprintf("%s.compute.internal", infrastructure.Spec.Region)
 	}
 
-	isIPv4 := true
-	isIPv6 := false
-	if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
-		isIPv4 = false
-		isIPv6 = true
+	isIPv4 := slices.Contains(ipFamilies, v1beta1.IPFamilyIPv4)
+	isIPv6 := slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6)
+
+	if !(isIPv4 || isIPv6) {
+		return nil, fmt.Errorf("there are no IPFamilies configured")
 	}
 
 	enableDualStack := false

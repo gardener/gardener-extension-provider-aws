@@ -196,8 +196,8 @@ func PatchProviderStatusAndState(
 		infra.Status.Networking = &extensionsv1alpha1.InfrastructureStatusNetworking{}
 
 		if vpcIPv6CidrBlock != nil && serviceCIDR != nil {
-			infra.Status.Networking.Nodes = append(infra.Status.Networking.Nodes,*vpcIPv6CidrBlock)
-			infra.Status.Networking.Pods = append(infra.Status.Networking.Pods,*vpcIPv6CidrBlock)
+			infra.Status.Networking.Nodes = append(infra.Status.Networking.Nodes, *vpcIPv6CidrBlock)
+			infra.Status.Networking.Pods = append(infra.Status.Networking.Pods, *vpcIPv6CidrBlock)
 			infra.Status.Networking.Services = append(infra.Status.Networking.Services, *serviceCIDR)
 			infra.Status.EgressCIDRs = append(infra.Status.EgressCIDRs, *vpcIPv6CidrBlock)
 		}
