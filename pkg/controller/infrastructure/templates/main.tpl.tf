@@ -205,9 +205,7 @@ output "{{ $.outputKeys.subnetsNodesPrefix }}{{ $index }}" {
 // Therefore, internal and public subnets must not be IPv6 native.
 resource "aws_subnet" "private_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
-  {{ if $.isIPv4 }}
   cidr_block        = "{{ $zone.internal }}"
-  {{ end }}
   availability_zone = "{{ $zone.name }}"
   {{ if $.isIPv6 }}
   assign_ipv6_address_on_creation = true

@@ -693,14 +693,9 @@ func newProviderConfigConfigureZones(vpc awsv1alpha1.VPC, configureZoneIPs bool)
 			VPC: vpc,
 			Zones: []awsv1alpha1.Zone{
 				{
-					Name: availabilityZone,
-					Internal: func() string {
-						if configureZoneIPs {
-							return "10.250.112.0/22"
-						}
-						return ""
-					}(),
-					Public: "10.250.96.0/22",
+					Name:     availabilityZone,
+					Internal: "10.250.112.0/22",
+					Public:   "10.250.96.0/22",
 					Workers: func() string {
 						if configureZoneIPs {
 							return "10.250.0.0/19"
