@@ -481,7 +481,7 @@ func (e *ensurer) credentialProviderBinaryFile(k8sVersion string) (*extensionsv1
 	}
 	config := &extensionsv1alpha1.File{
 		Path:        v1beta1constants.OperatingSystemConfigFilePathBinaries + "/ecr-credential-provider",
-		Permissions: ptr.To[int32](0755),
+		Permissions: ptr.To[uint32](0755),
 		Content: extensionsv1alpha1.FileContent{
 			ImageRef: &extensionsv1alpha1.FileContentImageRef{
 
@@ -495,7 +495,7 @@ func (e *ensurer) credentialProviderBinaryFile(k8sVersion string) (*extensionsv1
 
 func (e *ensurer) credentialProviderConfigFile() (*extensionsv1alpha1.File, error) {
 	var (
-		permissions int32 = 0755
+		permissions uint32 = 0755
 	)
 	cacheDuration, err := time.ParseDuration("1h")
 	if err != nil {
@@ -543,8 +543,8 @@ func (e *ensurer) credentialProviderConfigFile() (*extensionsv1alpha1.File, erro
 
 func (e *ensurer) ensureMTUFiles() extensionsv1alpha1.File {
 	var (
-		permissions       int32 = 0755
-		customFileContent       = `#!/bin/sh
+		permissions       uint32 = 0755
+		customFileContent        = `#!/bin/sh
 
 for interface_path in $(find /sys/class/net  -type l -print)
 do

@@ -435,8 +435,8 @@ ExecStart=/opt/bin/mtu-customizer.sh
 
 	Describe("#EnsureAdditionalFiles", func() {
 		var (
-			permissions       int32 = 0755
-			customFileContent       = `#!/bin/sh
+			permissions       uint32 = 0755
+			customFileContent        = `#!/bin/sh
 
 for interface_path in $(find /sys/class/net  -type l -print)
 do
@@ -462,7 +462,7 @@ done
 				oldFile = extensionsv1alpha1.File{Path: "oldpath"}
 				ecrBin  = extensionsv1alpha1.File{
 					Path:        "/opt/bin/ecr-credential-provider",
-					Permissions: ptr.To(int32(0755)),
+					Permissions: ptr.To(uint32(0755)),
 					Content: extensionsv1alpha1.FileContent{
 						ImageRef: &extensionsv1alpha1.FileContentImageRef{
 							Image:           image.String(),
@@ -472,7 +472,7 @@ done
 				}
 				ecrConfig = extensionsv1alpha1.File{
 					Path:        "/opt/gardener/ecr-credential-provider-config.json",
-					Permissions: ptr.To(int32(0755)),
+					Permissions: ptr.To(uint32(0755)),
 					Content: extensionsv1alpha1.FileContent{
 						Inline: &extensionsv1alpha1.FileContentInline{
 							Data: ecrConfig,
