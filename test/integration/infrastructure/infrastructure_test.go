@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -490,7 +491,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		infrastructureIdentifiers infrastructureIdentifiers
 	)
 
-	framework.AddCleanupAction(func() {
+	cleanupFunc := sync.OnceFunc(func() {
 		By("delete infrastructure")
 		Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
 
@@ -511,6 +512,11 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 
 		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
 		Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
+	})
+
+	defer cleanupFunc()
+	framework.AddCleanupAction(func() {
+		cleanupFunc()
 	})
 
 	By("create namespace for test execution")
