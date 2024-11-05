@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
-	github.com/aws/aws-sdk-go v1.54.20
+	github.com/aws/aws-sdk-go v1.55.5
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.23.2
 	github.com/gardener/external-dns-management v0.22.0
@@ -14,8 +14,8 @@ require (
 	github.com/gardener/machine-controller-manager v0.54.0
 	github.com/go-logr/logr v1.4.2
 	github.com/onsi/ginkgo/v2 v2.21.0
-	github.com/onsi/gomega v1.35.0
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.77.2
+	github.com/onsi/gomega v1.35.1
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.78.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.11.0
