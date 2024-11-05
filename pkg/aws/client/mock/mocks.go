@@ -23,6 +23,7 @@ import (
 type MockInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockInterfaceMockRecorder is the mock recorder for MockInterface.
@@ -43,1440 +44,1441 @@ func (m *MockInterface) EXPECT() *MockInterfaceMockRecorder {
 }
 
 // AddRoleToIAMInstanceProfile mocks base method.
-func (m *MockInterface) AddRoleToIAMInstanceProfile(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) AddRoleToIAMInstanceProfile(ctx context.Context, profileName, roleName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRoleToIAMInstanceProfile", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddRoleToIAMInstanceProfile", ctx, profileName, roleName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddRoleToIAMInstanceProfile indicates an expected call of AddRoleToIAMInstanceProfile.
-func (mr *MockInterfaceMockRecorder) AddRoleToIAMInstanceProfile(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) AddRoleToIAMInstanceProfile(ctx, profileName, roleName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRoleToIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).AddRoleToIAMInstanceProfile), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRoleToIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).AddRoleToIAMInstanceProfile), ctx, profileName, roleName)
 }
 
 // AddVpcDhcpOptionAssociation mocks base method.
-func (m *MockInterface) AddVpcDhcpOptionAssociation(arg0 string, arg1 *string) error {
+func (m *MockInterface) AddVpcDhcpOptionAssociation(vpcId string, dhcpOptionsId *string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddVpcDhcpOptionAssociation", arg0, arg1)
+	ret := m.ctrl.Call(m, "AddVpcDhcpOptionAssociation", vpcId, dhcpOptionsId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddVpcDhcpOptionAssociation indicates an expected call of AddVpcDhcpOptionAssociation.
-func (mr *MockInterfaceMockRecorder) AddVpcDhcpOptionAssociation(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) AddVpcDhcpOptionAssociation(vpcId, dhcpOptionsId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVpcDhcpOptionAssociation", reflect.TypeOf((*MockInterface)(nil).AddVpcDhcpOptionAssociation), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVpcDhcpOptionAssociation", reflect.TypeOf((*MockInterface)(nil).AddVpcDhcpOptionAssociation), vpcId, dhcpOptionsId)
 }
 
 // AttachInternetGateway mocks base method.
-func (m *MockInterface) AttachInternetGateway(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) AttachInternetGateway(ctx context.Context, vpcId, internetGatewayId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AttachInternetGateway", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AttachInternetGateway", ctx, vpcId, internetGatewayId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AttachInternetGateway indicates an expected call of AttachInternetGateway.
-func (mr *MockInterfaceMockRecorder) AttachInternetGateway(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) AttachInternetGateway(ctx, vpcId, internetGatewayId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachInternetGateway", reflect.TypeOf((*MockInterface)(nil).AttachInternetGateway), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachInternetGateway", reflect.TypeOf((*MockInterface)(nil).AttachInternetGateway), ctx, vpcId, internetGatewayId)
 }
 
 // AuthorizeSecurityGroupRules mocks base method.
-func (m *MockInterface) AuthorizeSecurityGroupRules(arg0 context.Context, arg1 string, arg2 []*client.SecurityGroupRule) error {
+func (m *MockInterface) AuthorizeSecurityGroupRules(ctx context.Context, id string, rules []*client.SecurityGroupRule) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthorizeSecurityGroupRules", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AuthorizeSecurityGroupRules", ctx, id, rules)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AuthorizeSecurityGroupRules indicates an expected call of AuthorizeSecurityGroupRules.
-func (mr *MockInterfaceMockRecorder) AuthorizeSecurityGroupRules(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) AuthorizeSecurityGroupRules(ctx, id, rules any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeSecurityGroupRules", reflect.TypeOf((*MockInterface)(nil).AuthorizeSecurityGroupRules), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeSecurityGroupRules", reflect.TypeOf((*MockInterface)(nil).AuthorizeSecurityGroupRules), ctx, id, rules)
 }
 
 // CreateBucketIfNotExists mocks base method.
-func (m *MockInterface) CreateBucketIfNotExists(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) CreateBucketIfNotExists(ctx context.Context, bucket, region string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateBucketIfNotExists", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateBucketIfNotExists", ctx, bucket, region)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateBucketIfNotExists indicates an expected call of CreateBucketIfNotExists.
-func (mr *MockInterfaceMockRecorder) CreateBucketIfNotExists(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateBucketIfNotExists(ctx, bucket, region any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucketIfNotExists", reflect.TypeOf((*MockInterface)(nil).CreateBucketIfNotExists), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucketIfNotExists", reflect.TypeOf((*MockInterface)(nil).CreateBucketIfNotExists), ctx, bucket, region)
 }
 
 // CreateCIDRReservation mocks base method.
-func (m *MockInterface) CreateCIDRReservation(arg0 context.Context, arg1 *client.Subnet, arg2, arg3 string) (string, error) {
+func (m *MockInterface) CreateCIDRReservation(ctx context.Context, subnet *client.Subnet, cidr, reservationType string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateCIDRReservation", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "CreateCIDRReservation", ctx, subnet, cidr, reservationType)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateCIDRReservation indicates an expected call of CreateCIDRReservation.
-func (mr *MockInterfaceMockRecorder) CreateCIDRReservation(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateCIDRReservation(ctx, subnet, cidr, reservationType any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCIDRReservation", reflect.TypeOf((*MockInterface)(nil).CreateCIDRReservation), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCIDRReservation", reflect.TypeOf((*MockInterface)(nil).CreateCIDRReservation), ctx, subnet, cidr, reservationType)
 }
 
 // CreateEC2Tags mocks base method.
-func (m *MockInterface) CreateEC2Tags(arg0 context.Context, arg1 []string, arg2 client.Tags) error {
+func (m *MockInterface) CreateEC2Tags(ctx context.Context, resources []string, tags client.Tags) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateEC2Tags", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateEC2Tags", ctx, resources, tags)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateEC2Tags indicates an expected call of CreateEC2Tags.
-func (mr *MockInterfaceMockRecorder) CreateEC2Tags(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateEC2Tags(ctx, resources, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEC2Tags", reflect.TypeOf((*MockInterface)(nil).CreateEC2Tags), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEC2Tags", reflect.TypeOf((*MockInterface)(nil).CreateEC2Tags), ctx, resources, tags)
 }
 
 // CreateEgressOnlyInternetGateway mocks base method.
-func (m *MockInterface) CreateEgressOnlyInternetGateway(arg0 context.Context, arg1 *client.EgressOnlyInternetGateway) (*client.EgressOnlyInternetGateway, error) {
+func (m *MockInterface) CreateEgressOnlyInternetGateway(ctx context.Context, gateway *client.EgressOnlyInternetGateway) (*client.EgressOnlyInternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateEgressOnlyInternetGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateEgressOnlyInternetGateway", ctx, gateway)
 	ret0, _ := ret[0].(*client.EgressOnlyInternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateEgressOnlyInternetGateway indicates an expected call of CreateEgressOnlyInternetGateway.
-func (mr *MockInterfaceMockRecorder) CreateEgressOnlyInternetGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateEgressOnlyInternetGateway(ctx, gateway any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).CreateEgressOnlyInternetGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).CreateEgressOnlyInternetGateway), ctx, gateway)
 }
 
 // CreateElasticIP mocks base method.
-func (m *MockInterface) CreateElasticIP(arg0 context.Context, arg1 *client.ElasticIP) (*client.ElasticIP, error) {
+func (m *MockInterface) CreateElasticIP(ctx context.Context, eip *client.ElasticIP) (*client.ElasticIP, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateElasticIP", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateElasticIP", ctx, eip)
 	ret0, _ := ret[0].(*client.ElasticIP)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateElasticIP indicates an expected call of CreateElasticIP.
-func (mr *MockInterfaceMockRecorder) CreateElasticIP(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateElasticIP(ctx, eip any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateElasticIP", reflect.TypeOf((*MockInterface)(nil).CreateElasticIP), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateElasticIP", reflect.TypeOf((*MockInterface)(nil).CreateElasticIP), ctx, eip)
 }
 
 // CreateIAMInstanceProfile mocks base method.
-func (m *MockInterface) CreateIAMInstanceProfile(arg0 context.Context, arg1 *client.IAMInstanceProfile) (*client.IAMInstanceProfile, error) {
+func (m *MockInterface) CreateIAMInstanceProfile(ctx context.Context, profile *client.IAMInstanceProfile) (*client.IAMInstanceProfile, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateIAMInstanceProfile", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateIAMInstanceProfile", ctx, profile)
 	ret0, _ := ret[0].(*client.IAMInstanceProfile)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateIAMInstanceProfile indicates an expected call of CreateIAMInstanceProfile.
-func (mr *MockInterfaceMockRecorder) CreateIAMInstanceProfile(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateIAMInstanceProfile(ctx, profile any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).CreateIAMInstanceProfile), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).CreateIAMInstanceProfile), ctx, profile)
 }
 
 // CreateIAMRole mocks base method.
-func (m *MockInterface) CreateIAMRole(arg0 context.Context, arg1 *client.IAMRole) (*client.IAMRole, error) {
+func (m *MockInterface) CreateIAMRole(ctx context.Context, role *client.IAMRole) (*client.IAMRole, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateIAMRole", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateIAMRole", ctx, role)
 	ret0, _ := ret[0].(*client.IAMRole)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateIAMRole indicates an expected call of CreateIAMRole.
-func (mr *MockInterfaceMockRecorder) CreateIAMRole(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateIAMRole(ctx, role any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIAMRole", reflect.TypeOf((*MockInterface)(nil).CreateIAMRole), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIAMRole", reflect.TypeOf((*MockInterface)(nil).CreateIAMRole), ctx, role)
 }
 
 // CreateInternetGateway mocks base method.
-func (m *MockInterface) CreateInternetGateway(arg0 context.Context, arg1 *client.InternetGateway) (*client.InternetGateway, error) {
+func (m *MockInterface) CreateInternetGateway(ctx context.Context, gateway *client.InternetGateway) (*client.InternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateInternetGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateInternetGateway", ctx, gateway)
 	ret0, _ := ret[0].(*client.InternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateInternetGateway indicates an expected call of CreateInternetGateway.
-func (mr *MockInterfaceMockRecorder) CreateInternetGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateInternetGateway(ctx, gateway any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInternetGateway", reflect.TypeOf((*MockInterface)(nil).CreateInternetGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInternetGateway", reflect.TypeOf((*MockInterface)(nil).CreateInternetGateway), ctx, gateway)
 }
 
 // CreateNATGateway mocks base method.
-func (m *MockInterface) CreateNATGateway(arg0 context.Context, arg1 *client.NATGateway) (*client.NATGateway, error) {
+func (m *MockInterface) CreateNATGateway(ctx context.Context, gateway *client.NATGateway) (*client.NATGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateNATGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateNATGateway", ctx, gateway)
 	ret0, _ := ret[0].(*client.NATGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateNATGateway indicates an expected call of CreateNATGateway.
-func (mr *MockInterfaceMockRecorder) CreateNATGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateNATGateway(ctx, gateway any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNATGateway", reflect.TypeOf((*MockInterface)(nil).CreateNATGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNATGateway", reflect.TypeOf((*MockInterface)(nil).CreateNATGateway), ctx, gateway)
 }
 
 // CreateOrUpdateDNSRecordSet mocks base method.
-func (m *MockInterface) CreateOrUpdateDNSRecordSet(arg0 context.Context, arg1, arg2, arg3 string, arg4 []string, arg5 int64, arg6 client.IPStack) error {
+func (m *MockInterface) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64, stack client.IPStack) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateOrUpdateDNSRecordSet", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "CreateOrUpdateDNSRecordSet", ctx, zoneId, name, recordType, values, ttl, stack)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateOrUpdateDNSRecordSet indicates an expected call of CreateOrUpdateDNSRecordSet.
-func (mr *MockInterfaceMockRecorder) CreateOrUpdateDNSRecordSet(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateOrUpdateDNSRecordSet(ctx, zoneId, name, recordType, values, ttl, stack any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrUpdateDNSRecordSet", reflect.TypeOf((*MockInterface)(nil).CreateOrUpdateDNSRecordSet), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrUpdateDNSRecordSet", reflect.TypeOf((*MockInterface)(nil).CreateOrUpdateDNSRecordSet), ctx, zoneId, name, recordType, values, ttl, stack)
 }
 
 // CreateRoute mocks base method.
-func (m *MockInterface) CreateRoute(arg0 context.Context, arg1 string, arg2 *client.Route) error {
+func (m *MockInterface) CreateRoute(ctx context.Context, routeTableId string, route *client.Route) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateRoute", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateRoute", ctx, routeTableId, route)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateRoute indicates an expected call of CreateRoute.
-func (mr *MockInterfaceMockRecorder) CreateRoute(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateRoute(ctx, routeTableId, route any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoute", reflect.TypeOf((*MockInterface)(nil).CreateRoute), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoute", reflect.TypeOf((*MockInterface)(nil).CreateRoute), ctx, routeTableId, route)
 }
 
 // CreateRouteTable mocks base method.
-func (m *MockInterface) CreateRouteTable(arg0 context.Context, arg1 *client.RouteTable) (*client.RouteTable, error) {
+func (m *MockInterface) CreateRouteTable(ctx context.Context, routeTable *client.RouteTable) (*client.RouteTable, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateRouteTable", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateRouteTable", ctx, routeTable)
 	ret0, _ := ret[0].(*client.RouteTable)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateRouteTable indicates an expected call of CreateRouteTable.
-func (mr *MockInterfaceMockRecorder) CreateRouteTable(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateRouteTable(ctx, routeTable any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRouteTable", reflect.TypeOf((*MockInterface)(nil).CreateRouteTable), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRouteTable", reflect.TypeOf((*MockInterface)(nil).CreateRouteTable), ctx, routeTable)
 }
 
 // CreateRouteTableAssociation mocks base method.
-func (m *MockInterface) CreateRouteTableAssociation(arg0 context.Context, arg1, arg2 string) (*string, error) {
+func (m *MockInterface) CreateRouteTableAssociation(ctx context.Context, routeTableId, subnetId string) (*string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateRouteTableAssociation", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateRouteTableAssociation", ctx, routeTableId, subnetId)
 	ret0, _ := ret[0].(*string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateRouteTableAssociation indicates an expected call of CreateRouteTableAssociation.
-func (mr *MockInterfaceMockRecorder) CreateRouteTableAssociation(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateRouteTableAssociation(ctx, routeTableId, subnetId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).CreateRouteTableAssociation), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).CreateRouteTableAssociation), ctx, routeTableId, subnetId)
 }
 
 // CreateSecurityGroup mocks base method.
-func (m *MockInterface) CreateSecurityGroup(arg0 context.Context, arg1 *client.SecurityGroup) (*client.SecurityGroup, error) {
+func (m *MockInterface) CreateSecurityGroup(ctx context.Context, sg *client.SecurityGroup) (*client.SecurityGroup, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSecurityGroup", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateSecurityGroup", ctx, sg)
 	ret0, _ := ret[0].(*client.SecurityGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSecurityGroup indicates an expected call of CreateSecurityGroup.
-func (mr *MockInterfaceMockRecorder) CreateSecurityGroup(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateSecurityGroup(ctx, sg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecurityGroup", reflect.TypeOf((*MockInterface)(nil).CreateSecurityGroup), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecurityGroup", reflect.TypeOf((*MockInterface)(nil).CreateSecurityGroup), ctx, sg)
 }
 
 // CreateSubnet mocks base method.
-func (m *MockInterface) CreateSubnet(arg0 context.Context, arg1 *client.Subnet) (*client.Subnet, error) {
+func (m *MockInterface) CreateSubnet(ctx context.Context, subnet *client.Subnet) (*client.Subnet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSubnet", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateSubnet", ctx, subnet)
 	ret0, _ := ret[0].(*client.Subnet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSubnet indicates an expected call of CreateSubnet.
-func (mr *MockInterfaceMockRecorder) CreateSubnet(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateSubnet(ctx, subnet any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnet", reflect.TypeOf((*MockInterface)(nil).CreateSubnet), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnet", reflect.TypeOf((*MockInterface)(nil).CreateSubnet), ctx, subnet)
 }
 
 // CreateVpc mocks base method.
-func (m *MockInterface) CreateVpc(arg0 context.Context, arg1 *client.VPC) (*client.VPC, error) {
+func (m *MockInterface) CreateVpc(ctx context.Context, vpc *client.VPC) (*client.VPC, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateVpc", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateVpc", ctx, vpc)
 	ret0, _ := ret[0].(*client.VPC)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateVpc indicates an expected call of CreateVpc.
-func (mr *MockInterfaceMockRecorder) CreateVpc(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateVpc(ctx, vpc any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVpc", reflect.TypeOf((*MockInterface)(nil).CreateVpc), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVpc", reflect.TypeOf((*MockInterface)(nil).CreateVpc), ctx, vpc)
 }
 
 // CreateVpcDhcpOptions mocks base method.
-func (m *MockInterface) CreateVpcDhcpOptions(arg0 context.Context, arg1 *client.DhcpOptions) (*client.DhcpOptions, error) {
+func (m *MockInterface) CreateVpcDhcpOptions(ctx context.Context, options *client.DhcpOptions) (*client.DhcpOptions, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateVpcDhcpOptions", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateVpcDhcpOptions", ctx, options)
 	ret0, _ := ret[0].(*client.DhcpOptions)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateVpcDhcpOptions indicates an expected call of CreateVpcDhcpOptions.
-func (mr *MockInterfaceMockRecorder) CreateVpcDhcpOptions(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateVpcDhcpOptions(ctx, options any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVpcDhcpOptions", reflect.TypeOf((*MockInterface)(nil).CreateVpcDhcpOptions), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVpcDhcpOptions", reflect.TypeOf((*MockInterface)(nil).CreateVpcDhcpOptions), ctx, options)
 }
 
 // CreateVpcEndpoint mocks base method.
-func (m *MockInterface) CreateVpcEndpoint(arg0 context.Context, arg1 *client.VpcEndpoint) (*client.VpcEndpoint, error) {
+func (m *MockInterface) CreateVpcEndpoint(ctx context.Context, endpoint *client.VpcEndpoint) (*client.VpcEndpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateVpcEndpoint", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateVpcEndpoint", ctx, endpoint)
 	ret0, _ := ret[0].(*client.VpcEndpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateVpcEndpoint indicates an expected call of CreateVpcEndpoint.
-func (mr *MockInterfaceMockRecorder) CreateVpcEndpoint(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateVpcEndpoint(ctx, endpoint any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVpcEndpoint", reflect.TypeOf((*MockInterface)(nil).CreateVpcEndpoint), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVpcEndpoint", reflect.TypeOf((*MockInterface)(nil).CreateVpcEndpoint), ctx, endpoint)
 }
 
 // CreateVpcEndpointRouteTableAssociation mocks base method.
-func (m *MockInterface) CreateVpcEndpointRouteTableAssociation(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) CreateVpcEndpointRouteTableAssociation(ctx context.Context, routeTableId, vpcEndpointId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateVpcEndpointRouteTableAssociation", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateVpcEndpointRouteTableAssociation", ctx, routeTableId, vpcEndpointId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateVpcEndpointRouteTableAssociation indicates an expected call of CreateVpcEndpointRouteTableAssociation.
-func (mr *MockInterfaceMockRecorder) CreateVpcEndpointRouteTableAssociation(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateVpcEndpointRouteTableAssociation(ctx, routeTableId, vpcEndpointId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVpcEndpointRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).CreateVpcEndpointRouteTableAssociation), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVpcEndpointRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).CreateVpcEndpointRouteTableAssociation), ctx, routeTableId, vpcEndpointId)
 }
 
 // DeleteBucketIfExists mocks base method.
-func (m *MockInterface) DeleteBucketIfExists(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteBucketIfExists(ctx context.Context, bucket string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteBucketIfExists", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteBucketIfExists", ctx, bucket)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteBucketIfExists indicates an expected call of DeleteBucketIfExists.
-func (mr *MockInterfaceMockRecorder) DeleteBucketIfExists(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteBucketIfExists(ctx, bucket any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBucketIfExists", reflect.TypeOf((*MockInterface)(nil).DeleteBucketIfExists), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBucketIfExists", reflect.TypeOf((*MockInterface)(nil).DeleteBucketIfExists), ctx, bucket)
 }
 
 // DeleteDNSRecordSet mocks base method.
-func (m *MockInterface) DeleteDNSRecordSet(arg0 context.Context, arg1, arg2, arg3 string, arg4 []string, arg5 int64, arg6 client.IPStack) error {
+func (m *MockInterface) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64, stack client.IPStack) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteDNSRecordSet", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "DeleteDNSRecordSet", ctx, zoneId, name, recordType, values, ttl, stack)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteDNSRecordSet indicates an expected call of DeleteDNSRecordSet.
-func (mr *MockInterfaceMockRecorder) DeleteDNSRecordSet(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteDNSRecordSet(ctx, zoneId, name, recordType, values, ttl, stack any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDNSRecordSet", reflect.TypeOf((*MockInterface)(nil).DeleteDNSRecordSet), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDNSRecordSet", reflect.TypeOf((*MockInterface)(nil).DeleteDNSRecordSet), ctx, zoneId, name, recordType, values, ttl, stack)
 }
 
 // DeleteEC2Tags mocks base method.
-func (m *MockInterface) DeleteEC2Tags(arg0 context.Context, arg1 []string, arg2 client.Tags) error {
+func (m *MockInterface) DeleteEC2Tags(ctx context.Context, resources []string, tags client.Tags) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteEC2Tags", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DeleteEC2Tags", ctx, resources, tags)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteEC2Tags indicates an expected call of DeleteEC2Tags.
-func (mr *MockInterfaceMockRecorder) DeleteEC2Tags(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteEC2Tags(ctx, resources, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEC2Tags", reflect.TypeOf((*MockInterface)(nil).DeleteEC2Tags), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEC2Tags", reflect.TypeOf((*MockInterface)(nil).DeleteEC2Tags), ctx, resources, tags)
 }
 
 // DeleteELB mocks base method.
-func (m *MockInterface) DeleteELB(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteELB(ctx context.Context, name string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteELB", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteELB", ctx, name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteELB indicates an expected call of DeleteELB.
-func (mr *MockInterfaceMockRecorder) DeleteELB(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteELB(ctx, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteELB", reflect.TypeOf((*MockInterface)(nil).DeleteELB), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteELB", reflect.TypeOf((*MockInterface)(nil).DeleteELB), ctx, name)
 }
 
 // DeleteELBV2 mocks base method.
-func (m *MockInterface) DeleteELBV2(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteELBV2(ctx context.Context, arn string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteELBV2", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteELBV2", ctx, arn)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteELBV2 indicates an expected call of DeleteELBV2.
-func (mr *MockInterfaceMockRecorder) DeleteELBV2(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteELBV2(ctx, arn any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteELBV2", reflect.TypeOf((*MockInterface)(nil).DeleteELBV2), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteELBV2", reflect.TypeOf((*MockInterface)(nil).DeleteELBV2), ctx, arn)
 }
 
 // DeleteEgressOnlyInternetGateway mocks base method.
-func (m *MockInterface) DeleteEgressOnlyInternetGateway(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteEgressOnlyInternetGateway(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteEgressOnlyInternetGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteEgressOnlyInternetGateway", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteEgressOnlyInternetGateway indicates an expected call of DeleteEgressOnlyInternetGateway.
-func (mr *MockInterfaceMockRecorder) DeleteEgressOnlyInternetGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteEgressOnlyInternetGateway(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).DeleteEgressOnlyInternetGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).DeleteEgressOnlyInternetGateway), ctx, id)
 }
 
 // DeleteElasticIP mocks base method.
-func (m *MockInterface) DeleteElasticIP(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteElasticIP(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteElasticIP", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteElasticIP", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteElasticIP indicates an expected call of DeleteElasticIP.
-func (mr *MockInterfaceMockRecorder) DeleteElasticIP(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteElasticIP(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteElasticIP", reflect.TypeOf((*MockInterface)(nil).DeleteElasticIP), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteElasticIP", reflect.TypeOf((*MockInterface)(nil).DeleteElasticIP), ctx, id)
 }
 
 // DeleteIAMInstanceProfile mocks base method.
-func (m *MockInterface) DeleteIAMInstanceProfile(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteIAMInstanceProfile(ctx context.Context, profileName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteIAMInstanceProfile", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteIAMInstanceProfile", ctx, profileName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteIAMInstanceProfile indicates an expected call of DeleteIAMInstanceProfile.
-func (mr *MockInterfaceMockRecorder) DeleteIAMInstanceProfile(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteIAMInstanceProfile(ctx, profileName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).DeleteIAMInstanceProfile), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).DeleteIAMInstanceProfile), ctx, profileName)
 }
 
 // DeleteIAMRole mocks base method.
-func (m *MockInterface) DeleteIAMRole(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteIAMRole(ctx context.Context, roleName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteIAMRole", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteIAMRole", ctx, roleName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteIAMRole indicates an expected call of DeleteIAMRole.
-func (mr *MockInterfaceMockRecorder) DeleteIAMRole(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteIAMRole(ctx, roleName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIAMRole", reflect.TypeOf((*MockInterface)(nil).DeleteIAMRole), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIAMRole", reflect.TypeOf((*MockInterface)(nil).DeleteIAMRole), ctx, roleName)
 }
 
 // DeleteIAMRolePolicy mocks base method.
-func (m *MockInterface) DeleteIAMRolePolicy(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) DeleteIAMRolePolicy(ctx context.Context, policyName, roleName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteIAMRolePolicy", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DeleteIAMRolePolicy", ctx, policyName, roleName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteIAMRolePolicy indicates an expected call of DeleteIAMRolePolicy.
-func (mr *MockInterfaceMockRecorder) DeleteIAMRolePolicy(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteIAMRolePolicy(ctx, policyName, roleName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).DeleteIAMRolePolicy), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).DeleteIAMRolePolicy), ctx, policyName, roleName)
 }
 
 // DeleteInternetGateway mocks base method.
-func (m *MockInterface) DeleteInternetGateway(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteInternetGateway(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteInternetGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteInternetGateway", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteInternetGateway indicates an expected call of DeleteInternetGateway.
-func (mr *MockInterfaceMockRecorder) DeleteInternetGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteInternetGateway(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInternetGateway", reflect.TypeOf((*MockInterface)(nil).DeleteInternetGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInternetGateway", reflect.TypeOf((*MockInterface)(nil).DeleteInternetGateway), ctx, id)
 }
 
 // DeleteKeyPair mocks base method.
-func (m *MockInterface) DeleteKeyPair(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteKeyPair(ctx context.Context, keyName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteKeyPair", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteKeyPair", ctx, keyName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteKeyPair indicates an expected call of DeleteKeyPair.
-func (mr *MockInterfaceMockRecorder) DeleteKeyPair(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteKeyPair(ctx, keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKeyPair", reflect.TypeOf((*MockInterface)(nil).DeleteKeyPair), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKeyPair", reflect.TypeOf((*MockInterface)(nil).DeleteKeyPair), ctx, keyName)
 }
 
 // DeleteNATGateway mocks base method.
-func (m *MockInterface) DeleteNATGateway(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteNATGateway(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteNATGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteNATGateway", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteNATGateway indicates an expected call of DeleteNATGateway.
-func (mr *MockInterfaceMockRecorder) DeleteNATGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteNATGateway(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNATGateway", reflect.TypeOf((*MockInterface)(nil).DeleteNATGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNATGateway", reflect.TypeOf((*MockInterface)(nil).DeleteNATGateway), ctx, id)
 }
 
 // DeleteObjectsWithPrefix mocks base method.
-func (m *MockInterface) DeleteObjectsWithPrefix(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteObjectsWithPrefix", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DeleteObjectsWithPrefix", ctx, bucket, prefix)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteObjectsWithPrefix indicates an expected call of DeleteObjectsWithPrefix.
-func (mr *MockInterfaceMockRecorder) DeleteObjectsWithPrefix(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteObjectsWithPrefix(ctx, bucket, prefix any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObjectsWithPrefix", reflect.TypeOf((*MockInterface)(nil).DeleteObjectsWithPrefix), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObjectsWithPrefix", reflect.TypeOf((*MockInterface)(nil).DeleteObjectsWithPrefix), ctx, bucket, prefix)
 }
 
 // DeleteRoute mocks base method.
-func (m *MockInterface) DeleteRoute(arg0 context.Context, arg1 string, arg2 *client.Route) error {
+func (m *MockInterface) DeleteRoute(ctx context.Context, routeTableId string, route *client.Route) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteRoute", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DeleteRoute", ctx, routeTableId, route)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteRoute indicates an expected call of DeleteRoute.
-func (mr *MockInterfaceMockRecorder) DeleteRoute(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteRoute(ctx, routeTableId, route any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoute", reflect.TypeOf((*MockInterface)(nil).DeleteRoute), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoute", reflect.TypeOf((*MockInterface)(nil).DeleteRoute), ctx, routeTableId, route)
 }
 
 // DeleteRouteTable mocks base method.
-func (m *MockInterface) DeleteRouteTable(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteRouteTable(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteRouteTable", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteRouteTable", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteRouteTable indicates an expected call of DeleteRouteTable.
-func (mr *MockInterfaceMockRecorder) DeleteRouteTable(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteRouteTable(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRouteTable", reflect.TypeOf((*MockInterface)(nil).DeleteRouteTable), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRouteTable", reflect.TypeOf((*MockInterface)(nil).DeleteRouteTable), ctx, id)
 }
 
 // DeleteRouteTableAssociation mocks base method.
-func (m *MockInterface) DeleteRouteTableAssociation(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteRouteTableAssociation(ctx context.Context, associationId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteRouteTableAssociation", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteRouteTableAssociation", ctx, associationId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteRouteTableAssociation indicates an expected call of DeleteRouteTableAssociation.
-func (mr *MockInterfaceMockRecorder) DeleteRouteTableAssociation(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteRouteTableAssociation(ctx, associationId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).DeleteRouteTableAssociation), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).DeleteRouteTableAssociation), ctx, associationId)
 }
 
 // DeleteSecurityGroup mocks base method.
-func (m *MockInterface) DeleteSecurityGroup(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteSecurityGroup(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteSecurityGroup", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteSecurityGroup", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteSecurityGroup indicates an expected call of DeleteSecurityGroup.
-func (mr *MockInterfaceMockRecorder) DeleteSecurityGroup(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteSecurityGroup(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecurityGroup", reflect.TypeOf((*MockInterface)(nil).DeleteSecurityGroup), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecurityGroup", reflect.TypeOf((*MockInterface)(nil).DeleteSecurityGroup), ctx, id)
 }
 
 // DeleteSubnet mocks base method.
-func (m *MockInterface) DeleteSubnet(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteSubnet(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteSubnet", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteSubnet", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteSubnet indicates an expected call of DeleteSubnet.
-func (mr *MockInterfaceMockRecorder) DeleteSubnet(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteSubnet(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnet", reflect.TypeOf((*MockInterface)(nil).DeleteSubnet), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnet", reflect.TypeOf((*MockInterface)(nil).DeleteSubnet), ctx, id)
 }
 
 // DeleteVpc mocks base method.
-func (m *MockInterface) DeleteVpc(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteVpc(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteVpc", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteVpc", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteVpc indicates an expected call of DeleteVpc.
-func (mr *MockInterfaceMockRecorder) DeleteVpc(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteVpc(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpc", reflect.TypeOf((*MockInterface)(nil).DeleteVpc), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpc", reflect.TypeOf((*MockInterface)(nil).DeleteVpc), ctx, id)
 }
 
 // DeleteVpcDhcpOptions mocks base method.
-func (m *MockInterface) DeleteVpcDhcpOptions(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteVpcDhcpOptions(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteVpcDhcpOptions", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteVpcDhcpOptions", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteVpcDhcpOptions indicates an expected call of DeleteVpcDhcpOptions.
-func (mr *MockInterfaceMockRecorder) DeleteVpcDhcpOptions(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteVpcDhcpOptions(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcDhcpOptions", reflect.TypeOf((*MockInterface)(nil).DeleteVpcDhcpOptions), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcDhcpOptions", reflect.TypeOf((*MockInterface)(nil).DeleteVpcDhcpOptions), ctx, id)
 }
 
 // DeleteVpcEndpoint mocks base method.
-func (m *MockInterface) DeleteVpcEndpoint(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) DeleteVpcEndpoint(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteVpcEndpoint", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteVpcEndpoint", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteVpcEndpoint indicates an expected call of DeleteVpcEndpoint.
-func (mr *MockInterfaceMockRecorder) DeleteVpcEndpoint(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteVpcEndpoint(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcEndpoint", reflect.TypeOf((*MockInterface)(nil).DeleteVpcEndpoint), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcEndpoint", reflect.TypeOf((*MockInterface)(nil).DeleteVpcEndpoint), ctx, id)
 }
 
 // DeleteVpcEndpointRouteTableAssociation mocks base method.
-func (m *MockInterface) DeleteVpcEndpointRouteTableAssociation(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) DeleteVpcEndpointRouteTableAssociation(ctx context.Context, routeTableId, vpcEndpointId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteVpcEndpointRouteTableAssociation", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DeleteVpcEndpointRouteTableAssociation", ctx, routeTableId, vpcEndpointId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteVpcEndpointRouteTableAssociation indicates an expected call of DeleteVpcEndpointRouteTableAssociation.
-func (mr *MockInterfaceMockRecorder) DeleteVpcEndpointRouteTableAssociation(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DeleteVpcEndpointRouteTableAssociation(ctx, routeTableId, vpcEndpointId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcEndpointRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).DeleteVpcEndpointRouteTableAssociation), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcEndpointRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).DeleteVpcEndpointRouteTableAssociation), ctx, routeTableId, vpcEndpointId)
 }
 
 // DetachInternetGateway mocks base method.
-func (m *MockInterface) DetachInternetGateway(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) DetachInternetGateway(ctx context.Context, vpcId, internetGatewayId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DetachInternetGateway", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DetachInternetGateway", ctx, vpcId, internetGatewayId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DetachInternetGateway indicates an expected call of DetachInternetGateway.
-func (mr *MockInterfaceMockRecorder) DetachInternetGateway(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) DetachInternetGateway(ctx, vpcId, internetGatewayId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetachInternetGateway", reflect.TypeOf((*MockInterface)(nil).DetachInternetGateway), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetachInternetGateway", reflect.TypeOf((*MockInterface)(nil).DetachInternetGateway), ctx, vpcId, internetGatewayId)
 }
 
 // FindDefaultSecurityGroupByVpcId mocks base method.
-func (m *MockInterface) FindDefaultSecurityGroupByVpcId(arg0 context.Context, arg1 string) (*client.SecurityGroup, error) {
+func (m *MockInterface) FindDefaultSecurityGroupByVpcId(ctx context.Context, vpcId string) (*client.SecurityGroup, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindDefaultSecurityGroupByVpcId", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindDefaultSecurityGroupByVpcId", ctx, vpcId)
 	ret0, _ := ret[0].(*client.SecurityGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindDefaultSecurityGroupByVpcId indicates an expected call of FindDefaultSecurityGroupByVpcId.
-func (mr *MockInterfaceMockRecorder) FindDefaultSecurityGroupByVpcId(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindDefaultSecurityGroupByVpcId(ctx, vpcId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindDefaultSecurityGroupByVpcId", reflect.TypeOf((*MockInterface)(nil).FindDefaultSecurityGroupByVpcId), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindDefaultSecurityGroupByVpcId", reflect.TypeOf((*MockInterface)(nil).FindDefaultSecurityGroupByVpcId), ctx, vpcId)
 }
 
 // FindEgressOnlyInternetGatewayByVPC mocks base method.
-func (m *MockInterface) FindEgressOnlyInternetGatewayByVPC(arg0 context.Context, arg1 string) (*client.EgressOnlyInternetGateway, error) {
+func (m *MockInterface) FindEgressOnlyInternetGatewayByVPC(ctx context.Context, vpcId string) (*client.EgressOnlyInternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindEgressOnlyInternetGatewayByVPC", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindEgressOnlyInternetGatewayByVPC", ctx, vpcId)
 	ret0, _ := ret[0].(*client.EgressOnlyInternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindEgressOnlyInternetGatewayByVPC indicates an expected call of FindEgressOnlyInternetGatewayByVPC.
-func (mr *MockInterfaceMockRecorder) FindEgressOnlyInternetGatewayByVPC(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindEgressOnlyInternetGatewayByVPC(ctx, vpcId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEgressOnlyInternetGatewayByVPC", reflect.TypeOf((*MockInterface)(nil).FindEgressOnlyInternetGatewayByVPC), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEgressOnlyInternetGatewayByVPC", reflect.TypeOf((*MockInterface)(nil).FindEgressOnlyInternetGatewayByVPC), ctx, vpcId)
 }
 
 // FindEgressOnlyInternetGatewaysByTags mocks base method.
-func (m *MockInterface) FindEgressOnlyInternetGatewaysByTags(arg0 context.Context, arg1 client.Tags) ([]*client.EgressOnlyInternetGateway, error) {
+func (m *MockInterface) FindEgressOnlyInternetGatewaysByTags(ctx context.Context, tags client.Tags) ([]*client.EgressOnlyInternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindEgressOnlyInternetGatewaysByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindEgressOnlyInternetGatewaysByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.EgressOnlyInternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindEgressOnlyInternetGatewaysByTags indicates an expected call of FindEgressOnlyInternetGatewaysByTags.
-func (mr *MockInterfaceMockRecorder) FindEgressOnlyInternetGatewaysByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindEgressOnlyInternetGatewaysByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEgressOnlyInternetGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindEgressOnlyInternetGatewaysByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEgressOnlyInternetGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindEgressOnlyInternetGatewaysByTags), ctx, tags)
 }
 
 // FindElasticIPsByTags mocks base method.
-func (m *MockInterface) FindElasticIPsByTags(arg0 context.Context, arg1 client.Tags) ([]*client.ElasticIP, error) {
+func (m *MockInterface) FindElasticIPsByTags(ctx context.Context, tags client.Tags) ([]*client.ElasticIP, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindElasticIPsByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindElasticIPsByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.ElasticIP)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindElasticIPsByTags indicates an expected call of FindElasticIPsByTags.
-func (mr *MockInterfaceMockRecorder) FindElasticIPsByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindElasticIPsByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindElasticIPsByTags", reflect.TypeOf((*MockInterface)(nil).FindElasticIPsByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindElasticIPsByTags", reflect.TypeOf((*MockInterface)(nil).FindElasticIPsByTags), ctx, tags)
 }
 
 // FindInternetGatewayByVPC mocks base method.
-func (m *MockInterface) FindInternetGatewayByVPC(arg0 context.Context, arg1 string) (*client.InternetGateway, error) {
+func (m *MockInterface) FindInternetGatewayByVPC(ctx context.Context, vpcId string) (*client.InternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindInternetGatewayByVPC", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindInternetGatewayByVPC", ctx, vpcId)
 	ret0, _ := ret[0].(*client.InternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindInternetGatewayByVPC indicates an expected call of FindInternetGatewayByVPC.
-func (mr *MockInterfaceMockRecorder) FindInternetGatewayByVPC(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindInternetGatewayByVPC(ctx, vpcId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindInternetGatewayByVPC", reflect.TypeOf((*MockInterface)(nil).FindInternetGatewayByVPC), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindInternetGatewayByVPC", reflect.TypeOf((*MockInterface)(nil).FindInternetGatewayByVPC), ctx, vpcId)
 }
 
 // FindInternetGatewaysByTags mocks base method.
-func (m *MockInterface) FindInternetGatewaysByTags(arg0 context.Context, arg1 client.Tags) ([]*client.InternetGateway, error) {
+func (m *MockInterface) FindInternetGatewaysByTags(ctx context.Context, tags client.Tags) ([]*client.InternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindInternetGatewaysByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindInternetGatewaysByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.InternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindInternetGatewaysByTags indicates an expected call of FindInternetGatewaysByTags.
-func (mr *MockInterfaceMockRecorder) FindInternetGatewaysByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindInternetGatewaysByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindInternetGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindInternetGatewaysByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindInternetGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindInternetGatewaysByTags), ctx, tags)
 }
 
 // FindKeyPairsByTags mocks base method.
-func (m *MockInterface) FindKeyPairsByTags(arg0 context.Context, arg1 client.Tags) ([]*client.KeyPairInfo, error) {
+func (m *MockInterface) FindKeyPairsByTags(ctx context.Context, tags client.Tags) ([]*client.KeyPairInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindKeyPairsByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindKeyPairsByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.KeyPairInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindKeyPairsByTags indicates an expected call of FindKeyPairsByTags.
-func (mr *MockInterfaceMockRecorder) FindKeyPairsByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindKeyPairsByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindKeyPairsByTags", reflect.TypeOf((*MockInterface)(nil).FindKeyPairsByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindKeyPairsByTags", reflect.TypeOf((*MockInterface)(nil).FindKeyPairsByTags), ctx, tags)
 }
 
 // FindNATGatewaysByTags mocks base method.
-func (m *MockInterface) FindNATGatewaysByTags(arg0 context.Context, arg1 client.Tags) ([]*client.NATGateway, error) {
+func (m *MockInterface) FindNATGatewaysByTags(ctx context.Context, tags client.Tags) ([]*client.NATGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindNATGatewaysByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindNATGatewaysByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.NATGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindNATGatewaysByTags indicates an expected call of FindNATGatewaysByTags.
-func (mr *MockInterfaceMockRecorder) FindNATGatewaysByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindNATGatewaysByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindNATGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindNATGatewaysByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindNATGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindNATGatewaysByTags), ctx, tags)
 }
 
 // FindRouteTablesByTags mocks base method.
-func (m *MockInterface) FindRouteTablesByTags(arg0 context.Context, arg1 client.Tags) ([]*client.RouteTable, error) {
+func (m *MockInterface) FindRouteTablesByTags(ctx context.Context, tags client.Tags) ([]*client.RouteTable, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindRouteTablesByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindRouteTablesByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.RouteTable)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindRouteTablesByTags indicates an expected call of FindRouteTablesByTags.
-func (mr *MockInterfaceMockRecorder) FindRouteTablesByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindRouteTablesByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRouteTablesByTags", reflect.TypeOf((*MockInterface)(nil).FindRouteTablesByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRouteTablesByTags", reflect.TypeOf((*MockInterface)(nil).FindRouteTablesByTags), ctx, tags)
 }
 
 // FindSecurityGroupsByTags mocks base method.
-func (m *MockInterface) FindSecurityGroupsByTags(arg0 context.Context, arg1 client.Tags) ([]*client.SecurityGroup, error) {
+func (m *MockInterface) FindSecurityGroupsByTags(ctx context.Context, tags client.Tags) ([]*client.SecurityGroup, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindSecurityGroupsByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindSecurityGroupsByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.SecurityGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindSecurityGroupsByTags indicates an expected call of FindSecurityGroupsByTags.
-func (mr *MockInterfaceMockRecorder) FindSecurityGroupsByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindSecurityGroupsByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSecurityGroupsByTags", reflect.TypeOf((*MockInterface)(nil).FindSecurityGroupsByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSecurityGroupsByTags", reflect.TypeOf((*MockInterface)(nil).FindSecurityGroupsByTags), ctx, tags)
 }
 
 // FindSubnets mocks base method.
-func (m *MockInterface) FindSubnets(arg0 context.Context, arg1 []*ec2.Filter) ([]*client.Subnet, error) {
+func (m *MockInterface) FindSubnets(ctx context.Context, filters []*ec2.Filter) ([]*client.Subnet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindSubnets", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindSubnets", ctx, filters)
 	ret0, _ := ret[0].([]*client.Subnet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindSubnets indicates an expected call of FindSubnets.
-func (mr *MockInterfaceMockRecorder) FindSubnets(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindSubnets(ctx, filters any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnets", reflect.TypeOf((*MockInterface)(nil).FindSubnets), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnets", reflect.TypeOf((*MockInterface)(nil).FindSubnets), ctx, filters)
 }
 
 // FindSubnetsByTags mocks base method.
-func (m *MockInterface) FindSubnetsByTags(arg0 context.Context, arg1 client.Tags) ([]*client.Subnet, error) {
+func (m *MockInterface) FindSubnetsByTags(ctx context.Context, tags client.Tags) ([]*client.Subnet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindSubnetsByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindSubnetsByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.Subnet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindSubnetsByTags indicates an expected call of FindSubnetsByTags.
-func (mr *MockInterfaceMockRecorder) FindSubnetsByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindSubnetsByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnetsByTags", reflect.TypeOf((*MockInterface)(nil).FindSubnetsByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnetsByTags", reflect.TypeOf((*MockInterface)(nil).FindSubnetsByTags), ctx, tags)
 }
 
 // FindVpcDhcpOptionsByTags mocks base method.
-func (m *MockInterface) FindVpcDhcpOptionsByTags(arg0 context.Context, arg1 client.Tags) ([]*client.DhcpOptions, error) {
+func (m *MockInterface) FindVpcDhcpOptionsByTags(ctx context.Context, tags client.Tags) ([]*client.DhcpOptions, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindVpcDhcpOptionsByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindVpcDhcpOptionsByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.DhcpOptions)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindVpcDhcpOptionsByTags indicates an expected call of FindVpcDhcpOptionsByTags.
-func (mr *MockInterfaceMockRecorder) FindVpcDhcpOptionsByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindVpcDhcpOptionsByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcDhcpOptionsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcDhcpOptionsByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcDhcpOptionsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcDhcpOptionsByTags), ctx, tags)
 }
 
 // FindVpcEndpointsByTags mocks base method.
-func (m *MockInterface) FindVpcEndpointsByTags(arg0 context.Context, arg1 client.Tags) ([]*client.VpcEndpoint, error) {
+func (m *MockInterface) FindVpcEndpointsByTags(ctx context.Context, tags client.Tags) ([]*client.VpcEndpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindVpcEndpointsByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindVpcEndpointsByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.VpcEndpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindVpcEndpointsByTags indicates an expected call of FindVpcEndpointsByTags.
-func (mr *MockInterfaceMockRecorder) FindVpcEndpointsByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindVpcEndpointsByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcEndpointsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcEndpointsByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcEndpointsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcEndpointsByTags), ctx, tags)
 }
 
 // FindVpcsByTags mocks base method.
-func (m *MockInterface) FindVpcsByTags(arg0 context.Context, arg1 client.Tags) ([]*client.VPC, error) {
+func (m *MockInterface) FindVpcsByTags(ctx context.Context, tags client.Tags) ([]*client.VPC, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindVpcsByTags", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindVpcsByTags", ctx, tags)
 	ret0, _ := ret[0].([]*client.VPC)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindVpcsByTags indicates an expected call of FindVpcsByTags.
-func (mr *MockInterfaceMockRecorder) FindVpcsByTags(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) FindVpcsByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcsByTags), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcsByTags), ctx, tags)
 }
 
 // GetAccountID mocks base method.
-func (m *MockInterface) GetAccountID(arg0 context.Context) (string, error) {
+func (m *MockInterface) GetAccountID(ctx context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAccountID", arg0)
+	ret := m.ctrl.Call(m, "GetAccountID", ctx)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAccountID indicates an expected call of GetAccountID.
-func (mr *MockInterfaceMockRecorder) GetAccountID(arg0 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetAccountID(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountID", reflect.TypeOf((*MockInterface)(nil).GetAccountID), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountID", reflect.TypeOf((*MockInterface)(nil).GetAccountID), ctx)
 }
 
 // GetDHCPOptions mocks base method.
-func (m *MockInterface) GetDHCPOptions(arg0 context.Context, arg1 string) (map[string]string, error) {
+func (m *MockInterface) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDHCPOptions", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetDHCPOptions", ctx, vpcID)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDHCPOptions indicates an expected call of GetDHCPOptions.
-func (mr *MockInterfaceMockRecorder) GetDHCPOptions(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetDHCPOptions(ctx, vpcID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDHCPOptions", reflect.TypeOf((*MockInterface)(nil).GetDHCPOptions), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDHCPOptions", reflect.TypeOf((*MockInterface)(nil).GetDHCPOptions), ctx, vpcID)
 }
 
 // GetDNSHostedZones mocks base method.
-func (m *MockInterface) GetDNSHostedZones(arg0 context.Context) (map[string]string, error) {
+func (m *MockInterface) GetDNSHostedZones(ctx context.Context) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDNSHostedZones", arg0)
+	ret := m.ctrl.Call(m, "GetDNSHostedZones", ctx)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDNSHostedZones indicates an expected call of GetDNSHostedZones.
-func (mr *MockInterfaceMockRecorder) GetDNSHostedZones(arg0 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetDNSHostedZones(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSHostedZones", reflect.TypeOf((*MockInterface)(nil).GetDNSHostedZones), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDNSHostedZones", reflect.TypeOf((*MockInterface)(nil).GetDNSHostedZones), ctx)
 }
 
 // GetEgressOnlyInternetGateway mocks base method.
-func (m *MockInterface) GetEgressOnlyInternetGateway(arg0 context.Context, arg1 string) (*client.EgressOnlyInternetGateway, error) {
+func (m *MockInterface) GetEgressOnlyInternetGateway(ctx context.Context, id string) (*client.EgressOnlyInternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEgressOnlyInternetGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetEgressOnlyInternetGateway", ctx, id)
 	ret0, _ := ret[0].(*client.EgressOnlyInternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetEgressOnlyInternetGateway indicates an expected call of GetEgressOnlyInternetGateway.
-func (mr *MockInterfaceMockRecorder) GetEgressOnlyInternetGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetEgressOnlyInternetGateway(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetEgressOnlyInternetGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEgressOnlyInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetEgressOnlyInternetGateway), ctx, id)
 }
 
 // GetElasticIP mocks base method.
-func (m *MockInterface) GetElasticIP(arg0 context.Context, arg1 string) (*client.ElasticIP, error) {
+func (m *MockInterface) GetElasticIP(ctx context.Context, id string) (*client.ElasticIP, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetElasticIP", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetElasticIP", ctx, id)
 	ret0, _ := ret[0].(*client.ElasticIP)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetElasticIP indicates an expected call of GetElasticIP.
-func (mr *MockInterfaceMockRecorder) GetElasticIP(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetElasticIP(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetElasticIP", reflect.TypeOf((*MockInterface)(nil).GetElasticIP), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetElasticIP", reflect.TypeOf((*MockInterface)(nil).GetElasticIP), ctx, id)
 }
 
 // GetElasticIPsAssociationIDForAllocationIDs mocks base method.
-func (m *MockInterface) GetElasticIPsAssociationIDForAllocationIDs(arg0 context.Context, arg1 []string) (map[string]*string, error) {
+func (m *MockInterface) GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context, allocationIDs []string) (map[string]*string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetElasticIPsAssociationIDForAllocationIDs", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetElasticIPsAssociationIDForAllocationIDs", ctx, allocationIDs)
 	ret0, _ := ret[0].(map[string]*string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetElasticIPsAssociationIDForAllocationIDs indicates an expected call of GetElasticIPsAssociationIDForAllocationIDs.
-func (mr *MockInterfaceMockRecorder) GetElasticIPsAssociationIDForAllocationIDs(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetElasticIPsAssociationIDForAllocationIDs(ctx, allocationIDs any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetElasticIPsAssociationIDForAllocationIDs", reflect.TypeOf((*MockInterface)(nil).GetElasticIPsAssociationIDForAllocationIDs), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetElasticIPsAssociationIDForAllocationIDs", reflect.TypeOf((*MockInterface)(nil).GetElasticIPsAssociationIDForAllocationIDs), ctx, allocationIDs)
 }
 
 // GetIAMInstanceProfile mocks base method.
-func (m *MockInterface) GetIAMInstanceProfile(arg0 context.Context, arg1 string) (*client.IAMInstanceProfile, error) {
+func (m *MockInterface) GetIAMInstanceProfile(ctx context.Context, profileName string) (*client.IAMInstanceProfile, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIAMInstanceProfile", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetIAMInstanceProfile", ctx, profileName)
 	ret0, _ := ret[0].(*client.IAMInstanceProfile)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetIAMInstanceProfile indicates an expected call of GetIAMInstanceProfile.
-func (mr *MockInterfaceMockRecorder) GetIAMInstanceProfile(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetIAMInstanceProfile(ctx, profileName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).GetIAMInstanceProfile), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).GetIAMInstanceProfile), ctx, profileName)
 }
 
 // GetIAMRole mocks base method.
-func (m *MockInterface) GetIAMRole(arg0 context.Context, arg1 string) (*client.IAMRole, error) {
+func (m *MockInterface) GetIAMRole(ctx context.Context, roleName string) (*client.IAMRole, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIAMRole", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetIAMRole", ctx, roleName)
 	ret0, _ := ret[0].(*client.IAMRole)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetIAMRole indicates an expected call of GetIAMRole.
-func (mr *MockInterfaceMockRecorder) GetIAMRole(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetIAMRole(ctx, roleName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIAMRole", reflect.TypeOf((*MockInterface)(nil).GetIAMRole), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIAMRole", reflect.TypeOf((*MockInterface)(nil).GetIAMRole), ctx, roleName)
 }
 
 // GetIAMRolePolicy mocks base method.
-func (m *MockInterface) GetIAMRolePolicy(arg0 context.Context, arg1, arg2 string) (*client.IAMRolePolicy, error) {
+func (m *MockInterface) GetIAMRolePolicy(ctx context.Context, policyName, roleName string) (*client.IAMRolePolicy, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIAMRolePolicy", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetIAMRolePolicy", ctx, policyName, roleName)
 	ret0, _ := ret[0].(*client.IAMRolePolicy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetIAMRolePolicy indicates an expected call of GetIAMRolePolicy.
-func (mr *MockInterfaceMockRecorder) GetIAMRolePolicy(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetIAMRolePolicy(ctx, policyName, roleName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).GetIAMRolePolicy), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).GetIAMRolePolicy), ctx, policyName, roleName)
 }
 
 // GetIPv6CIDRReservations mocks base method.
-func (m *MockInterface) GetIPv6CIDRReservations(arg0 context.Context, arg1 *client.Subnet) ([]string, error) {
+func (m *MockInterface) GetIPv6CIDRReservations(ctx context.Context, subnet *client.Subnet) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIPv6CIDRReservations", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetIPv6CIDRReservations", ctx, subnet)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetIPv6CIDRReservations indicates an expected call of GetIPv6CIDRReservations.
-func (mr *MockInterfaceMockRecorder) GetIPv6CIDRReservations(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetIPv6CIDRReservations(ctx, subnet any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPv6CIDRReservations", reflect.TypeOf((*MockInterface)(nil).GetIPv6CIDRReservations), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPv6CIDRReservations", reflect.TypeOf((*MockInterface)(nil).GetIPv6CIDRReservations), ctx, subnet)
 }
 
 // GetIPv6Cidr mocks base method.
-func (m *MockInterface) GetIPv6Cidr(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockInterface) GetIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIPv6Cidr", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetIPv6Cidr", ctx, vpcID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetIPv6Cidr indicates an expected call of GetIPv6Cidr.
-func (mr *MockInterfaceMockRecorder) GetIPv6Cidr(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetIPv6Cidr(ctx, vpcID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPv6Cidr", reflect.TypeOf((*MockInterface)(nil).GetIPv6Cidr), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPv6Cidr", reflect.TypeOf((*MockInterface)(nil).GetIPv6Cidr), ctx, vpcID)
 }
 
 // GetInternetGateway mocks base method.
-func (m *MockInterface) GetInternetGateway(arg0 context.Context, arg1 string) (*client.InternetGateway, error) {
+func (m *MockInterface) GetInternetGateway(ctx context.Context, id string) (*client.InternetGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInternetGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetInternetGateway", ctx, id)
 	ret0, _ := ret[0].(*client.InternetGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetInternetGateway indicates an expected call of GetInternetGateway.
-func (mr *MockInterfaceMockRecorder) GetInternetGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetInternetGateway(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetInternetGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetInternetGateway), ctx, id)
 }
 
 // GetKeyPair mocks base method.
-func (m *MockInterface) GetKeyPair(arg0 context.Context, arg1 string) (*client.KeyPairInfo, error) {
+func (m *MockInterface) GetKeyPair(ctx context.Context, keyName string) (*client.KeyPairInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetKeyPair", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetKeyPair", ctx, keyName)
 	ret0, _ := ret[0].(*client.KeyPairInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetKeyPair indicates an expected call of GetKeyPair.
-func (mr *MockInterfaceMockRecorder) GetKeyPair(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetKeyPair(ctx, keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKeyPair", reflect.TypeOf((*MockInterface)(nil).GetKeyPair), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKeyPair", reflect.TypeOf((*MockInterface)(nil).GetKeyPair), ctx, keyName)
 }
 
 // GetNATGateway mocks base method.
-func (m *MockInterface) GetNATGateway(arg0 context.Context, arg1 string) (*client.NATGateway, error) {
+func (m *MockInterface) GetNATGateway(ctx context.Context, id string) (*client.NATGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetNATGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetNATGateway", ctx, id)
 	ret0, _ := ret[0].(*client.NATGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetNATGateway indicates an expected call of GetNATGateway.
-func (mr *MockInterfaceMockRecorder) GetNATGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetNATGateway(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNATGateway", reflect.TypeOf((*MockInterface)(nil).GetNATGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNATGateway", reflect.TypeOf((*MockInterface)(nil).GetNATGateway), ctx, id)
 }
 
 // GetNATGatewayAddressAllocations mocks base method.
-func (m *MockInterface) GetNATGatewayAddressAllocations(arg0 context.Context, arg1 string) (sets.Set[string], error) {
+func (m *MockInterface) GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.Set[string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetNATGatewayAddressAllocations", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetNATGatewayAddressAllocations", ctx, shootNamespace)
 	ret0, _ := ret[0].(sets.Set[string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetNATGatewayAddressAllocations indicates an expected call of GetNATGatewayAddressAllocations.
-func (mr *MockInterfaceMockRecorder) GetNATGatewayAddressAllocations(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetNATGatewayAddressAllocations(ctx, shootNamespace any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNATGatewayAddressAllocations", reflect.TypeOf((*MockInterface)(nil).GetNATGatewayAddressAllocations), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNATGatewayAddressAllocations", reflect.TypeOf((*MockInterface)(nil).GetNATGatewayAddressAllocations), ctx, shootNamespace)
 }
 
 // GetRouteTable mocks base method.
-func (m *MockInterface) GetRouteTable(arg0 context.Context, arg1 string) (*client.RouteTable, error) {
+func (m *MockInterface) GetRouteTable(ctx context.Context, id string) (*client.RouteTable, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRouteTable", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetRouteTable", ctx, id)
 	ret0, _ := ret[0].(*client.RouteTable)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRouteTable indicates an expected call of GetRouteTable.
-func (mr *MockInterfaceMockRecorder) GetRouteTable(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetRouteTable(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRouteTable", reflect.TypeOf((*MockInterface)(nil).GetRouteTable), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRouteTable", reflect.TypeOf((*MockInterface)(nil).GetRouteTable), ctx, id)
 }
 
 // GetSecurityGroup mocks base method.
-func (m *MockInterface) GetSecurityGroup(arg0 context.Context, arg1 string) (*client.SecurityGroup, error) {
+func (m *MockInterface) GetSecurityGroup(ctx context.Context, id string) (*client.SecurityGroup, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecurityGroup", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetSecurityGroup", ctx, id)
 	ret0, _ := ret[0].(*client.SecurityGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecurityGroup indicates an expected call of GetSecurityGroup.
-func (mr *MockInterfaceMockRecorder) GetSecurityGroup(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetSecurityGroup(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecurityGroup", reflect.TypeOf((*MockInterface)(nil).GetSecurityGroup), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecurityGroup", reflect.TypeOf((*MockInterface)(nil).GetSecurityGroup), ctx, id)
 }
 
 // GetSubnets mocks base method.
-func (m *MockInterface) GetSubnets(arg0 context.Context, arg1 []string) ([]*client.Subnet, error) {
+func (m *MockInterface) GetSubnets(ctx context.Context, ids []string) ([]*client.Subnet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSubnets", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetSubnets", ctx, ids)
 	ret0, _ := ret[0].([]*client.Subnet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSubnets indicates an expected call of GetSubnets.
-func (mr *MockInterfaceMockRecorder) GetSubnets(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetSubnets(ctx, ids any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnets", reflect.TypeOf((*MockInterface)(nil).GetSubnets), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnets", reflect.TypeOf((*MockInterface)(nil).GetSubnets), ctx, ids)
 }
 
 // GetVPCAttribute mocks base method.
-func (m *MockInterface) GetVPCAttribute(arg0 context.Context, arg1, arg2 string) (bool, error) {
+func (m *MockInterface) GetVPCAttribute(ctx context.Context, vpcID, attribute string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVPCAttribute", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetVPCAttribute", ctx, vpcID, attribute)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVPCAttribute indicates an expected call of GetVPCAttribute.
-func (mr *MockInterfaceMockRecorder) GetVPCAttribute(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetVPCAttribute(ctx, vpcID, attribute any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVPCAttribute", reflect.TypeOf((*MockInterface)(nil).GetVPCAttribute), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVPCAttribute", reflect.TypeOf((*MockInterface)(nil).GetVPCAttribute), ctx, vpcID, attribute)
 }
 
 // GetVPCInternetGateway mocks base method.
-func (m *MockInterface) GetVPCInternetGateway(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockInterface) GetVPCInternetGateway(ctx context.Context, vpcID string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVPCInternetGateway", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetVPCInternetGateway", ctx, vpcID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVPCInternetGateway indicates an expected call of GetVPCInternetGateway.
-func (mr *MockInterfaceMockRecorder) GetVPCInternetGateway(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetVPCInternetGateway(ctx, vpcID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVPCInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetVPCInternetGateway), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVPCInternetGateway", reflect.TypeOf((*MockInterface)(nil).GetVPCInternetGateway), ctx, vpcID)
 }
 
 // GetVpc mocks base method.
-func (m *MockInterface) GetVpc(arg0 context.Context, arg1 string) (*client.VPC, error) {
+func (m *MockInterface) GetVpc(ctx context.Context, id string) (*client.VPC, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVpc", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetVpc", ctx, id)
 	ret0, _ := ret[0].(*client.VPC)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVpc indicates an expected call of GetVpc.
-func (mr *MockInterfaceMockRecorder) GetVpc(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetVpc(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpc", reflect.TypeOf((*MockInterface)(nil).GetVpc), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpc", reflect.TypeOf((*MockInterface)(nil).GetVpc), ctx, id)
 }
 
 // GetVpcDhcpOptions mocks base method.
-func (m *MockInterface) GetVpcDhcpOptions(arg0 context.Context, arg1 string) (*client.DhcpOptions, error) {
+func (m *MockInterface) GetVpcDhcpOptions(ctx context.Context, id string) (*client.DhcpOptions, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVpcDhcpOptions", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetVpcDhcpOptions", ctx, id)
 	ret0, _ := ret[0].(*client.DhcpOptions)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVpcDhcpOptions indicates an expected call of GetVpcDhcpOptions.
-func (mr *MockInterfaceMockRecorder) GetVpcDhcpOptions(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetVpcDhcpOptions(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpcDhcpOptions", reflect.TypeOf((*MockInterface)(nil).GetVpcDhcpOptions), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpcDhcpOptions", reflect.TypeOf((*MockInterface)(nil).GetVpcDhcpOptions), ctx, id)
 }
 
 // GetVpcEndpoints mocks base method.
-func (m *MockInterface) GetVpcEndpoints(arg0 context.Context, arg1 []string) ([]*client.VpcEndpoint, error) {
+func (m *MockInterface) GetVpcEndpoints(ctx context.Context, ids []string) ([]*client.VpcEndpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVpcEndpoints", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetVpcEndpoints", ctx, ids)
 	ret0, _ := ret[0].([]*client.VpcEndpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVpcEndpoints indicates an expected call of GetVpcEndpoints.
-func (mr *MockInterfaceMockRecorder) GetVpcEndpoints(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetVpcEndpoints(ctx, ids any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpcEndpoints", reflect.TypeOf((*MockInterface)(nil).GetVpcEndpoints), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpcEndpoints", reflect.TypeOf((*MockInterface)(nil).GetVpcEndpoints), ctx, ids)
 }
 
 // ImportKeyPair mocks base method.
-func (m *MockInterface) ImportKeyPair(arg0 context.Context, arg1 string, arg2 []byte, arg3 client.Tags) (*client.KeyPairInfo, error) {
+func (m *MockInterface) ImportKeyPair(ctx context.Context, keyName string, publicKey []byte, tags client.Tags) (*client.KeyPairInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportKeyPair", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ImportKeyPair", ctx, keyName, publicKey, tags)
 	ret0, _ := ret[0].(*client.KeyPairInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ImportKeyPair indicates an expected call of ImportKeyPair.
-func (mr *MockInterfaceMockRecorder) ImportKeyPair(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) ImportKeyPair(ctx, keyName, publicKey, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportKeyPair", reflect.TypeOf((*MockInterface)(nil).ImportKeyPair), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportKeyPair", reflect.TypeOf((*MockInterface)(nil).ImportKeyPair), ctx, keyName, publicKey, tags)
 }
 
 // ListKubernetesELBs mocks base method.
-func (m *MockInterface) ListKubernetesELBs(arg0 context.Context, arg1, arg2 string) ([]string, error) {
+func (m *MockInterface) ListKubernetesELBs(ctx context.Context, vpcID, clusterName string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListKubernetesELBs", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListKubernetesELBs", ctx, vpcID, clusterName)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListKubernetesELBs indicates an expected call of ListKubernetesELBs.
-func (mr *MockInterfaceMockRecorder) ListKubernetesELBs(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) ListKubernetesELBs(ctx, vpcID, clusterName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesELBs", reflect.TypeOf((*MockInterface)(nil).ListKubernetesELBs), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesELBs", reflect.TypeOf((*MockInterface)(nil).ListKubernetesELBs), ctx, vpcID, clusterName)
 }
 
 // ListKubernetesELBsV2 mocks base method.
-func (m *MockInterface) ListKubernetesELBsV2(arg0 context.Context, arg1, arg2 string) ([]string, error) {
+func (m *MockInterface) ListKubernetesELBsV2(ctx context.Context, vpcID, clusterName string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListKubernetesELBsV2", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListKubernetesELBsV2", ctx, vpcID, clusterName)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListKubernetesELBsV2 indicates an expected call of ListKubernetesELBsV2.
-func (mr *MockInterfaceMockRecorder) ListKubernetesELBsV2(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) ListKubernetesELBsV2(ctx, vpcID, clusterName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesELBsV2", reflect.TypeOf((*MockInterface)(nil).ListKubernetesELBsV2), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesELBsV2", reflect.TypeOf((*MockInterface)(nil).ListKubernetesELBsV2), ctx, vpcID, clusterName)
 }
 
 // ListKubernetesSecurityGroups mocks base method.
-func (m *MockInterface) ListKubernetesSecurityGroups(arg0 context.Context, arg1, arg2 string) ([]string, error) {
+func (m *MockInterface) ListKubernetesSecurityGroups(ctx context.Context, vpcID, clusterName string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListKubernetesSecurityGroups", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ListKubernetesSecurityGroups", ctx, vpcID, clusterName)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListKubernetesSecurityGroups indicates an expected call of ListKubernetesSecurityGroups.
-func (mr *MockInterfaceMockRecorder) ListKubernetesSecurityGroups(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) ListKubernetesSecurityGroups(ctx, vpcID, clusterName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesSecurityGroups", reflect.TypeOf((*MockInterface)(nil).ListKubernetesSecurityGroups), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesSecurityGroups", reflect.TypeOf((*MockInterface)(nil).ListKubernetesSecurityGroups), ctx, vpcID, clusterName)
 }
 
 // PutIAMRolePolicy mocks base method.
-func (m *MockInterface) PutIAMRolePolicy(arg0 context.Context, arg1 *client.IAMRolePolicy) error {
+func (m *MockInterface) PutIAMRolePolicy(ctx context.Context, policy *client.IAMRolePolicy) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutIAMRolePolicy", arg0, arg1)
+	ret := m.ctrl.Call(m, "PutIAMRolePolicy", ctx, policy)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PutIAMRolePolicy indicates an expected call of PutIAMRolePolicy.
-func (mr *MockInterfaceMockRecorder) PutIAMRolePolicy(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) PutIAMRolePolicy(ctx, policy any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).PutIAMRolePolicy), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).PutIAMRolePolicy), ctx, policy)
 }
 
 // RemoveRoleFromIAMInstanceProfile mocks base method.
-func (m *MockInterface) RemoveRoleFromIAMInstanceProfile(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) RemoveRoleFromIAMInstanceProfile(ctx context.Context, profileName, roleName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveRoleFromIAMInstanceProfile", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RemoveRoleFromIAMInstanceProfile", ctx, profileName, roleName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveRoleFromIAMInstanceProfile indicates an expected call of RemoveRoleFromIAMInstanceProfile.
-func (mr *MockInterfaceMockRecorder) RemoveRoleFromIAMInstanceProfile(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) RemoveRoleFromIAMInstanceProfile(ctx, profileName, roleName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRoleFromIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).RemoveRoleFromIAMInstanceProfile), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRoleFromIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).RemoveRoleFromIAMInstanceProfile), ctx, profileName, roleName)
 }
 
 // RevokeSecurityGroupRules mocks base method.
-func (m *MockInterface) RevokeSecurityGroupRules(arg0 context.Context, arg1 string, arg2 []*client.SecurityGroupRule) error {
+func (m *MockInterface) RevokeSecurityGroupRules(ctx context.Context, id string, rules []*client.SecurityGroupRule) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RevokeSecurityGroupRules", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RevokeSecurityGroupRules", ctx, id, rules)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RevokeSecurityGroupRules indicates an expected call of RevokeSecurityGroupRules.
-func (mr *MockInterfaceMockRecorder) RevokeSecurityGroupRules(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) RevokeSecurityGroupRules(ctx, id, rules any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecurityGroupRules", reflect.TypeOf((*MockInterface)(nil).RevokeSecurityGroupRules), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecurityGroupRules", reflect.TypeOf((*MockInterface)(nil).RevokeSecurityGroupRules), ctx, id, rules)
 }
 
 // UpdateAmazonProvidedIPv6CidrBlock mocks base method.
-func (m *MockInterface) UpdateAmazonProvidedIPv6CidrBlock(arg0 context.Context, arg1, arg2 *client.VPC) (bool, error) {
+func (m *MockInterface) UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired, current *client.VPC) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateAmazonProvidedIPv6CidrBlock", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateAmazonProvidedIPv6CidrBlock", ctx, desired, current)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateAmazonProvidedIPv6CidrBlock indicates an expected call of UpdateAmazonProvidedIPv6CidrBlock.
-func (mr *MockInterfaceMockRecorder) UpdateAmazonProvidedIPv6CidrBlock(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) UpdateAmazonProvidedIPv6CidrBlock(ctx, desired, current any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAmazonProvidedIPv6CidrBlock", reflect.TypeOf((*MockInterface)(nil).UpdateAmazonProvidedIPv6CidrBlock), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAmazonProvidedIPv6CidrBlock", reflect.TypeOf((*MockInterface)(nil).UpdateAmazonProvidedIPv6CidrBlock), ctx, desired, current)
 }
 
 // UpdateAssumeRolePolicy mocks base method.
-func (m *MockInterface) UpdateAssumeRolePolicy(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockInterface) UpdateAssumeRolePolicy(ctx context.Context, roleName, assumeRolePolicy string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateAssumeRolePolicy", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateAssumeRolePolicy", ctx, roleName, assumeRolePolicy)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateAssumeRolePolicy indicates an expected call of UpdateAssumeRolePolicy.
-func (mr *MockInterfaceMockRecorder) UpdateAssumeRolePolicy(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) UpdateAssumeRolePolicy(ctx, roleName, assumeRolePolicy any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAssumeRolePolicy", reflect.TypeOf((*MockInterface)(nil).UpdateAssumeRolePolicy), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAssumeRolePolicy", reflect.TypeOf((*MockInterface)(nil).UpdateAssumeRolePolicy), ctx, roleName, assumeRolePolicy)
 }
 
 // UpdateSubnetAttributes mocks base method.
-func (m *MockInterface) UpdateSubnetAttributes(arg0 context.Context, arg1, arg2 *client.Subnet) (bool, error) {
+func (m *MockInterface) UpdateSubnetAttributes(ctx context.Context, desired, current *client.Subnet) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSubnetAttributes", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateSubnetAttributes", ctx, desired, current)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateSubnetAttributes indicates an expected call of UpdateSubnetAttributes.
-func (mr *MockInterfaceMockRecorder) UpdateSubnetAttributes(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) UpdateSubnetAttributes(ctx, desired, current any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSubnetAttributes", reflect.TypeOf((*MockInterface)(nil).UpdateSubnetAttributes), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSubnetAttributes", reflect.TypeOf((*MockInterface)(nil).UpdateSubnetAttributes), ctx, desired, current)
 }
 
 // UpdateVpcAttribute mocks base method.
-func (m *MockInterface) UpdateVpcAttribute(arg0 context.Context, arg1, arg2 string, arg3 bool) error {
+func (m *MockInterface) UpdateVpcAttribute(ctx context.Context, vpcId, attributeName string, value bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateVpcAttribute", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpdateVpcAttribute", ctx, vpcId, attributeName, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateVpcAttribute indicates an expected call of UpdateVpcAttribute.
-func (mr *MockInterfaceMockRecorder) UpdateVpcAttribute(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) UpdateVpcAttribute(ctx, vpcId, attributeName, value any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVpcAttribute", reflect.TypeOf((*MockInterface)(nil).UpdateVpcAttribute), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVpcAttribute", reflect.TypeOf((*MockInterface)(nil).UpdateVpcAttribute), ctx, vpcId, attributeName, value)
 }
 
 // WaitForIPv6Cidr mocks base method.
-func (m *MockInterface) WaitForIPv6Cidr(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockInterface) WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WaitForIPv6Cidr", arg0, arg1)
+	ret := m.ctrl.Call(m, "WaitForIPv6Cidr", ctx, vpcID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WaitForIPv6Cidr indicates an expected call of WaitForIPv6Cidr.
-func (mr *MockInterfaceMockRecorder) WaitForIPv6Cidr(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) WaitForIPv6Cidr(ctx, vpcID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForIPv6Cidr", reflect.TypeOf((*MockInterface)(nil).WaitForIPv6Cidr), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForIPv6Cidr", reflect.TypeOf((*MockInterface)(nil).WaitForIPv6Cidr), ctx, vpcID)
 }
 
 // WaitForNATGatewayAvailable mocks base method.
-func (m *MockInterface) WaitForNATGatewayAvailable(arg0 context.Context, arg1 string) error {
+func (m *MockInterface) WaitForNATGatewayAvailable(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WaitForNATGatewayAvailable", arg0, arg1)
+	ret := m.ctrl.Call(m, "WaitForNATGatewayAvailable", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // WaitForNATGatewayAvailable indicates an expected call of WaitForNATGatewayAvailable.
-func (mr *MockInterfaceMockRecorder) WaitForNATGatewayAvailable(arg0, arg1 any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) WaitForNATGatewayAvailable(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForNATGatewayAvailable", reflect.TypeOf((*MockInterface)(nil).WaitForNATGatewayAvailable), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForNATGatewayAvailable", reflect.TypeOf((*MockInterface)(nil).WaitForNATGatewayAvailable), ctx, id)
 }
 
 // MockFactory is a mock of Factory interface.
 type MockFactory struct {
 	ctrl     *gomock.Controller
 	recorder *MockFactoryMockRecorder
+	isgomock struct{}
 }
 
 // MockFactoryMockRecorder is the mock recorder for MockFactory.
@@ -1497,16 +1499,16 @@ func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 }
 
 // NewClient mocks base method.
-func (m *MockFactory) NewClient(arg0, arg1, arg2 string) (client.Interface, error) {
+func (m *MockFactory) NewClient(accessKeyID, secretAccessKey, region string) (client.Interface, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewClient", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewClient", accessKeyID, secretAccessKey, region)
 	ret0, _ := ret[0].(client.Interface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewClient indicates an expected call of NewClient.
-func (mr *MockFactoryMockRecorder) NewClient(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockFactoryMockRecorder) NewClient(accessKeyID, secretAccessKey, region any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewClient", reflect.TypeOf((*MockFactory)(nil).NewClient), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewClient", reflect.TypeOf((*MockFactory)(nil).NewClient), accessKeyID, secretAccessKey, region)
 }
