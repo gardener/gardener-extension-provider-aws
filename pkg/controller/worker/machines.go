@@ -7,6 +7,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"math"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -107,8 +108,6 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 	}
 
 	for _, pool := range w.worker.Spec.Pools {
-		zoneLen := int32(len(pool.Zones))
-
 		workerConfig := &awsapi.WorkerConfig{}
 		if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
 			if _, _, err := w.decoder.Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
@@ -154,8 +153,12 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			return err
 		}
 
+		if len(pool.Zones) > math.MaxInt32 {
+			return fmt.Errorf("too many zones")
+		}
+		zoneLen := int32(len(pool.Zones)) // #nosec: G115 - We do check if pool Zones exceeds max_int32.
 		for zoneIndex, zone := range pool.Zones {
-			zoneIdx := int32(zoneIndex)
+			zoneIdx := int32(zoneIndex) // #nosec: G115 - We do check if pool Zones exceeds max_int32.
 
 			nodesSubnet, err := awsapihelper.FindSubnetForPurposeAndZone(infrastructureStatus.VPC.Subnets, awsapi.PurposeNodes, zone)
 			if err != nil {
