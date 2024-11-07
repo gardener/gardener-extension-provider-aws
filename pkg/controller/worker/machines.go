@@ -7,8 +7,8 @@ package worker
 import (
 	"context"
 	"fmt"
-	"maps"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +17,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
@@ -31,6 +32,13 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+)
+
+const (
+	// CSIDriverTopologyKey is the legacy topology key used by the AWS CSI driver
+	// we need to support it because old PVs use it as node affinity
+	// see also: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/729#issuecomment-1942026577
+	CSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
 )
 
 var (
@@ -108,7 +116,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 		}
 
-		workerPoolHash, err := worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashData(pool)...)
+		workerPoolHash, err := w.generateWorkerPoolHash(pool, *workerConfig)
 		if err != nil {
 			return err
 		}
@@ -183,24 +191,33 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				"instanceMetadataOptions": instanceMetadataOptions,
 			}
 
+			if isIPv6(w.cluster) {
+				networkInterfaces, _ := machineClassSpec["networkInterfaces"].([]map[string]interface{})
+				networkInterfaces[0]["ipv6AddressCount"] = 1
+				networkInterfaces[0]["ipv6PrefixCount"] = 1
+			}
+
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
 				machineClassSpec["keyName"] = infrastructureStatus.EC2.KeyName
 			}
 
-			var nodeTemplate machinev1alpha1.NodeTemplate
-			if pool.NodeTemplate != nil {
-				nodeTemplate = machinev1alpha1.NodeTemplate{
+			if workerConfig.NodeTemplate != nil {
+				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
+					Capacity:     workerConfig.NodeTemplate.Capacity,
+					InstanceType: pool.MachineType,
+					Region:       w.worker.Spec.Region,
+					Zone:         zone,
+					Architecture: &arch,
+				}
+			} else if pool.NodeTemplate != nil {
+				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
 					Capacity:     pool.NodeTemplate.Capacity,
 					InstanceType: pool.MachineType,
 					Region:       w.worker.Spec.Region,
 					Zone:         zone,
+					Architecture: &arch,
 				}
 			}
-			if workerConfig.NodeTemplate != nil {
-				// Support providerConfig extended resources by copying into node template capacity
-				maps.Copy(nodeTemplate.Capacity, workerConfig.NodeTemplate.Capacity)
-			}
-			machineClassSpec["nodeTemplate"] = nodeTemplate
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
 				machineClassSpec["cpuOptions"] = map[string]int64{
@@ -217,9 +234,8 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 
 			var (
-				deploymentName          = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
-				className               = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
-				awsCSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
+				deploymentName = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
+				className      = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
 			)
 
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
@@ -230,9 +246,11 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
 				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
 				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
-				// TODO: remove the csi topology label when AWS CSI driver stops using the aws csi topology key - https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/899
 				// add aws csi driver topology label if it's not specified
-				Labels:                       utils.MergeStringMaps(pool.Labels, map[string]string{awsCSIDriverTopologyKey: zone}),
+				Labels: utils.MergeStringMaps(pool.Labels, map[string]string{
+					CSIDriverTopologyKey:     zone,
+					corev1.LabelTopologyZone: zone,
+				}),
 				Annotations:                  pool.Annotations,
 				Taints:                       pool.Taints,
 				MachineConfiguration:         genericworkeractuator.ReadMachineConfiguration(pool),
@@ -311,6 +329,11 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	return blockDevices, nil
 }
 
+func (w *workerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
+	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
+
+}
+
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
 	return computeEBS(volume.Size, volume.Type, volume.Encrypted)
 }
@@ -356,7 +379,7 @@ func computeEBSDeviceNameForIndex(index int) (string, error) {
 	return deviceNamePrefix + deviceNameSuffix[index:index+1], nil
 }
 
-func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool) []string {
+func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData []string
 
 	if pool.Volume != nil && pool.Volume.Encrypted != nil {
@@ -372,6 +395,35 @@ func computeAdditionalHashData(pool extensionsv1alpha1.WorkerPool) []string {
 
 		if dv.Encrypted != nil {
 			additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
+		}
+	}
+
+	return additionalData
+}
+
+func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
+	var additionalData []string = computeAdditionalHashDataV1(pool)
+
+	if opts := workerConfig.CpuOptions; opts != nil {
+		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
+		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
+	}
+
+	if instanceProfile := workerConfig.IAMInstanceProfile; instanceProfile != nil {
+		if arn := instanceProfile.ARN; arn != nil {
+			additionalData = append(additionalData, *arn)
+		}
+		if name := instanceProfile.Name; name != nil {
+			additionalData = append(additionalData, *name)
+		}
+	}
+
+	if instanceMetadataOptions := workerConfig.InstanceMetadataOptions; instanceMetadataOptions != nil {
+		if tokens := instanceMetadataOptions.HTTPTokens; tokens != nil {
+			additionalData = append(additionalData, string(*tokens))
+		}
+		if putResponseHopLimit := instanceMetadataOptions.HTTPPutResponseHopLimit; putResponseHopLimit != nil {
+			additionalData = append(additionalData, fmt.Sprint(*putResponseHopLimit))
 		}
 	}
 
@@ -427,4 +479,17 @@ func ComputeInstanceMetadata(workerConfig *awsapi.WorkerConfig, cluster *control
 	}
 
 	return res, nil
+}
+
+func isIPv6(c *controller.Cluster) bool {
+	networking := c.Shoot.Spec.Networking
+	if networking != nil {
+		ipFamilies := networking.IPFamilies
+		if ipFamilies != nil {
+			if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
+				return true
+			}
+		}
+	}
+	return false
 }
