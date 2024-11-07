@@ -55,22 +55,22 @@ func init() {
 }
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
-func (w *workerDelegate) MachineClassKind() string {
+func (w *WorkerDelegate) MachineClassKind() string {
 	return "MachineClass"
 }
 
 // MachineClassList yields a newly initialized MachineClassList object.
-func (w *workerDelegate) MachineClassList() client.ObjectList {
+func (w *WorkerDelegate) MachineClassList() client.ObjectList {
 	return &machinev1alpha1.MachineClassList{}
 }
 
 // MachineClass yields a newly initialized MachineClass object.
-func (w *workerDelegate) MachineClass() client.Object {
+func (w *WorkerDelegate) MachineClass() client.Object {
 	return &machinev1alpha1.MachineClass{}
 }
 
 // DeployMachineClasses generates and creates the AWS specific machine classes.
-func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
+func (w *WorkerDelegate) DeployMachineClasses(ctx context.Context) error {
 	if w.machineClasses == nil {
 		if err := w.generateMachineConfig(ctx); err != nil {
 			return err
@@ -81,7 +81,7 @@ func (w *workerDelegate) DeployMachineClasses(ctx context.Context) error {
 }
 
 // GenerateMachineDeployments generates the configuration for the desired machine deployments.
-func (w *workerDelegate) GenerateMachineDeployments(ctx context.Context) (worker.MachineDeployments, error) {
+func (w *WorkerDelegate) GenerateMachineDeployments(ctx context.Context) (worker.MachineDeployments, error) {
 	if w.machineDeployments == nil {
 		if err := w.generateMachineConfig(ctx); err != nil {
 			return nil, err
@@ -90,7 +90,7 @@ func (w *workerDelegate) GenerateMachineDeployments(ctx context.Context) (worker
 	return w.machineDeployments, nil
 }
 
-func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
+func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 	var (
 		machineDeployments = worker.MachineDeployments{}
 		machineClasses     []map[string]interface{}
@@ -271,7 +271,7 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 	return nil
 }
 
-func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]map[string]interface{}, error) {
+func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]map[string]interface{}, error) {
 	var blockDevices []map[string]interface{}
 
 	// handle root disk
@@ -328,7 +328,7 @@ func (w *workerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	return blockDevices, nil
 }
 
-func (w *workerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
+func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
 	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
 
 }

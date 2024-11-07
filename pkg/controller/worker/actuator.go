@@ -83,7 +83,7 @@ func (d *delegateFactory) WorkerDelegate(_ context.Context, worker *extensionsv1
 	)
 }
 
-type workerDelegate struct {
+type WorkerDelegate struct {
 	client  client.Client
 	decoder runtime.Decoder
 	scheme  *runtime.Scheme
@@ -116,7 +116,7 @@ func NewWorkerDelegate(
 	if err != nil {
 		return nil, err
 	}
-	return &workerDelegate{
+	return &WorkerDelegate{
 		client:  client,
 		decoder: decoder,
 		scheme:  scheme,
@@ -128,4 +128,10 @@ func NewWorkerDelegate(
 		cluster:            cluster,
 		worker:             worker,
 	}, nil
+}
+
+// GetMachineClasses returns the islice  of machine classes contained inside the worker delegate.
+// Introduced for Unit-testing.
+func (w *WorkerDelegate) GetMachineClasses() []map[string]any {
+	return w.machineClasses
 }

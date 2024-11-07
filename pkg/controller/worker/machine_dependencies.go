@@ -9,31 +9,31 @@ import (
 )
 
 // DeployMachineDependencies implements genericactuator.WorkerDelegate.
-func (w *workerDelegate) DeployMachineDependencies(_ context.Context) error {
+func (w *WorkerDelegate) DeployMachineDependencies(_ context.Context) error {
 	return nil
 }
 
 // CleanupMachineDependencies implements genericactuator.WorkerDelegate.
-func (w *workerDelegate) CleanupMachineDependencies(_ context.Context) error {
+func (w *WorkerDelegate) CleanupMachineDependencies(_ context.Context) error {
 	return nil
 }
 
 // PreReconcileHook implements genericactuator.WorkerDelegate.
-func (w *workerDelegate) PreReconcileHook(_ context.Context) error {
+func (w *WorkerDelegate) PreReconcileHook(_ context.Context) error {
 	return nil
 }
 
 // PostReconcileHook implements genericactuator.WorkerDelegate.
-func (w *workerDelegate) PostReconcileHook(_ context.Context) error {
+func (w *WorkerDelegate) PostReconcileHook(_ context.Context) error {
 	return nil
 }
 
 // PreDeleteHook implements genericactuator.WorkerDelegate.
-func (w *workerDelegate) PreDeleteHook(_ context.Context) error {
+func (w *WorkerDelegate) PreDeleteHook(_ context.Context) error {
 	return nil
 }
 
 // PostDeleteHook implements genericactuator.WorkerDelegate.
-func (w *workerDelegate) PostDeleteHook(_ context.Context) error {
+func (w *WorkerDelegate) PostDeleteHook(_ context.Context) error {
 	return nil
 }

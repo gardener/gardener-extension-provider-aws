@@ -16,7 +16,7 @@ import (
 )
 
 // UpdateMachineImagesStatus implements genericactuator.WorkerDelegate.
-func (w *workerDelegate) UpdateMachineImagesStatus(ctx context.Context) error {
+func (w *WorkerDelegate) UpdateMachineImagesStatus(ctx context.Context) error {
 	if w.machineImages == nil {
 		if err := w.generateMachineConfig(ctx); err != nil {
 			return fmt.Errorf("unable to generate the machine config: %w", err)
@@ -37,7 +37,7 @@ func (w *workerDelegate) UpdateMachineImagesStatus(ctx context.Context) error {
 	return nil
 }
 
-func (w *workerDelegate) findMachineImage(name, version string, region string, arch *string) (string, error) {
+func (w *WorkerDelegate) findMachineImage(name, version string, region string, arch *string) (string, error) {
 	ami, err := helper.FindAMIForRegionFromCloudProfile(w.cloudProfileConfig, name, version, region, arch)
 	if err == nil {
 		return ami, nil
