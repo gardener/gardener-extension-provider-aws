@@ -1,6 +1,6 @@
 module github.com/gardener/gardener-extension-provider-aws
 
-go 1.23.0
+go 1.23.3
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.0
