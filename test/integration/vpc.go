@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
@@ -140,59 +141,61 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 	if err != nil {
 		return err
 	}
-	igwID := describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId
+	if len(describeInternetGatewaysOutput.InternetGateways) > 0 {
+		igwID := describeInternetGatewaysOutput.InternetGateways[0].InternetGatewayId
 
-	_, err = awsClient.EC2.DetachInternetGateway(&ec2.DetachInternetGatewayInput{
-		InternetGatewayId: igwID,
-		VpcId:             awssdk.String(vpcID),
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
-		log.Info("Waiting until internet gateway is detached from vpc...", "internetGatewayID", *igwID, "vpcID", vpcID)
-
-		describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
-			InternetGatewayIds: []*string{igwID},
+		_, err = awsClient.EC2.DetachInternetGateway(&ec2.DetachInternetGatewayInput{
+			InternetGatewayId: igwID,
+			VpcId:             awssdk.String(vpcID),
 		})
 		if err != nil {
-			return false, err
+			return err
 		}
-		igw := describeIgwOutput.InternetGateways[0]
 
-		return len(igw.Attachments) == 0, nil
-	}); err != nil {
-		return err
-	}
+		if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
+			log.Info("Waiting until internet gateway is detached from vpc...", "internetGatewayID", *igwID, "vpcID", vpcID)
 
-	_, err = awsClient.EC2.DeleteInternetGateway(&ec2.DeleteInternetGatewayInput{
-		InternetGatewayId: igwID,
-	})
-	if err != nil {
-		return err
-	}
+			describeIgwOutput, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
+				InternetGatewayIds: []*string{igwID},
+			})
+			if err != nil {
+				return false, err
+			}
+			igw := describeIgwOutput.InternetGateways[0]
 
-	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
-		log.Info("Waiting until internet gateway is deleted...", "internetGatewayID", *igwID)
+			return len(igw.Attachments) == 0, nil
+		}); err != nil {
+			return err
+		}
 
-		_, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
-			InternetGatewayIds: []*string{igwID},
+		_, err = awsClient.EC2.DeleteInternetGateway(&ec2.DeleteInternetGatewayInput{
+			InternetGatewayId: igwID,
 		})
 		if err != nil {
-			ec2err, ok := err.(awserr.Error)
-			if ok && ec2err.Code() == "InvalidInternetGatewayID.NotFound" {
-				return true, nil
+			return err
+		}
+
+		if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
+			log.Info("Waiting until internet gateway is deleted...", "internetGatewayID", *igwID)
+
+			_, err := awsClient.EC2.DescribeInternetGateways(&ec2.DescribeInternetGatewaysInput{
+				InternetGatewayIds: []*string{igwID},
+			})
+			if err != nil {
+				ec2err, ok := err.(awserr.Error)
+				if ok && ec2err.Code() == "InvalidInternetGatewayID.NotFound" {
+					return true, nil
+				}
+
+				return true, err
 			}
 
-			return true, err
+			return false, nil
+		}); err != nil {
+			return err
 		}
 
-		return false, nil
-	}); err != nil {
-		return err
 	}
-
 	describeEgressOnlyInternetGatewaysOutput, err := awsClient.EC2.DescribeEgressOnlyInternetGatewaysWithContext(ctx, &ec2.DescribeEgressOnlyInternetGatewaysInput{})
 	if err != nil {
 		return err
@@ -238,6 +241,21 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 			return err
 		}
 	}
+	vpcs, err := awsClient.EC2.DescribeVpcs(&ec2.DescribeVpcsInput{
+		Filters: []*ec2.Filter{
+			ptr.To(ec2.Filter{
+				Name:   ptr.To("vpc-id"),
+				Values: []*string{ptr.To(vpcID)},
+			}),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if len(vpcs.Vpcs) == 0 {
+		return nil
+	}
+
 	_, err = awsClient.EC2.DeleteVpc(&ec2.DeleteVpcInput{
 		VpcId: &vpcID,
 	})

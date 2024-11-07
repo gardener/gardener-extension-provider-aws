@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -230,6 +231,10 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("Infrastructure tests", func() {
+	AfterEach(func() {
+		framework.RunCleanupActions()
+	})
+
 	Context("with infrastructure that requests new vpc (networks.vpc.cidr)", func() {
 		It("should successfully create and delete", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
@@ -490,7 +495,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		infrastructureIdentifiers infrastructureIdentifiers
 	)
 
-	framework.AddCleanupAction(func() {
+	cleanupFunc := sync.OnceFunc(func() {
 		By("delete infrastructure")
 		Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
 
@@ -512,6 +517,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
 		Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
 	})
+	framework.AddCleanupAction(cleanupFunc)
 
 	By("create namespace for test execution")
 	namespace = &corev1.Namespace{
@@ -672,6 +678,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		Expect(&newProviderStatus).To(integration.EqualInfrastructureStatus(providerStatus))
 	}
 
+	cleanupFunc()
 	return nil
 }
 
