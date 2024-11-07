@@ -7,6 +7,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -201,16 +202,9 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 				machineClassSpec["keyName"] = infrastructureStatus.EC2.KeyName
 			}
 
-			if workerConfig.NodeTemplate != nil {
-				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
-					Capacity:     workerConfig.NodeTemplate.Capacity,
-					InstanceType: pool.MachineType,
-					Region:       w.worker.Spec.Region,
-					Zone:         zone,
-					Architecture: &arch,
-				}
-			} else if pool.NodeTemplate != nil {
-				machineClassSpec["nodeTemplate"] = machinev1alpha1.NodeTemplate{
+			var nodeTemplate machinev1alpha1.NodeTemplate
+			if pool.NodeTemplate != nil {
+				nodeTemplate = machinev1alpha1.NodeTemplate{
 					Capacity:     pool.NodeTemplate.Capacity,
 					InstanceType: pool.MachineType,
 					Region:       w.worker.Spec.Region,
@@ -218,6 +212,11 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 					Architecture: &arch,
 				}
 			}
+			if workerConfig.NodeTemplate != nil {
+				// Support providerConfig extended resources by copying into node template capacity
+				maps.Copy(nodeTemplate.Capacity, workerConfig.NodeTemplate.Capacity)
+			}
+			machineClassSpec["nodeTemplate"] = nodeTemplate
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
 				machineClassSpec["cpuOptions"] = map[string]int64{
