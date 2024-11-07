@@ -7,7 +7,7 @@ package infraflow
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
+	"crypto/md5" // #nosec G304 -- No cryptographic context.
 	"errors"
 	"fmt"
 	"math/big"
@@ -1550,7 +1550,7 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 		return c.deleteKeyPair(ctx)
 	}
 
-	specFingerprint := fmt.Sprintf("%x", md5.Sum(c.infraSpec.SSHPublicKey))
+	specFingerprint := fmt.Sprintf("%x", md5.Sum(c.infraSpec.SSHPublicKey)) // #nosec G304 -- No cryptographic context.
 	if current != nil {
 		// check for foreign key replacement
 		if fingerprint := c.state.Get(KeyPairFingerprint); fingerprint == nil || *fingerprint != current.KeyFingerprint {
