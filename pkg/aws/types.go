@@ -12,14 +12,20 @@ const (
 	// Name is the name of the AWS provider.
 	Name = "provider-aws"
 
-	// VolumeAttachLimit is the key for an annotation on a Shoot object whose value
-	// represents the maximum number of volumes attachable for all nodes.
+	// VolumeAttachLimit is the key for an annotation on a Shoot object whose value represents the maximum number of
+	// volumes attachable for all nodes.
 	VolumeAttachLimit = "aws.provider.extensions.gardener.cloud/volume-attach-limit"
+
+	// LegacyXFS is the key for an annotation on a Shoot object whose value represents whether LegacyXFS mode should be
+	// enabled.
+	LegacyXFS = "aws.provider.extensions.gardener.cloud/legacy-xfs"
 
 	// CloudControllerManagerImageName is the name of the cloud-controller-manager image.
 	CloudControllerManagerImageName = "cloud-controller-manager"
 	// AWSCustomRouteControllerImageName is the name of the aws-custom-route-controller image.
 	AWSCustomRouteControllerImageName = "aws-custom-route-controller"
+	// AWSIPAMControllerImageName is the name of the aws-ipam-controller image.
+	AWSIPAMControllerImageName = "aws-ipam-controller"
 	// AWSLoacBalancerControllerImageName is the name of the ALB controller image.
 	AWSLoacBalancerControllerImageName = "aws-load-balancer-controller"
 
@@ -93,6 +99,8 @@ const (
 	CloudControllerManagerName = "cloud-controller-manager"
 	// AWSCustomRouteControllerName is the constant for the name of the custom routes controller deployed by the control plane controller.
 	AWSCustomRouteControllerName = "aws-custom-route-controller"
+	// AWSIPAMControllerName is the constant for the name of the IPAM controller deployed by the control plane controller.
+	AWSIPAMControllerName = "aws-ipam-controller"
 	// AWSLoadBalancerControllerName is the constant for the name of the ALB controller deployed by the control plane controller.
 	AWSLoadBalancerControllerName = "aws-load-balancer-controller"
 	// CSIControllerName is a constant for the name of the CSI controller deployment in the seed.

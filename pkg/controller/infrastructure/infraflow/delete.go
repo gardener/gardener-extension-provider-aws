@@ -23,9 +23,10 @@ func (c *FlowContext) Delete(ctx context.Context) error {
 		// nothing to do, e.g. if cluster was created with wrong credentials
 		return nil
 	}
+	c.BasicFlowContext = NewBasicFlowContext(c.log, c.state, c.persistState)
 	g := c.buildDeleteGraph()
 	f := g.Compile()
-	if err := f.Run(ctx, flow.Opts{Log: c.Log}); err != nil {
+	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
 		return flow.Causes(err)
 	}
 	return nil
@@ -76,6 +77,10 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 		c.deleteInternetGateway,
 		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout), Dependencies(deleteGatewayEndpoints, deleteMainRouteTable))
 
+	deleteEgressOnlyInternetGateway := c.AddTask(g, "delete egress only internet gateway",
+		c.deleteEgressOnlyInternetGateway,
+		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout), Dependencies(deleteZones))
+
 	deleteDefaultSecurityGroup := c.AddTask(g, "delete default security group",
 		c.deleteDefaultSecurityGroup,
 		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout), Dependencies(deleteGatewayEndpoints))
@@ -83,11 +88,11 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 	deleteVpc := c.AddTask(g, "delete VPC",
 		c.deleteVpc,
 		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout),
-		Dependencies(deleteInternetGateway, deleteDefaultSecurityGroup, deleteNodesSecurityGroup, destroyLoadBalancersAndSecurityGroups))
+		Dependencies(deleteInternetGateway, deleteDefaultSecurityGroup, deleteNodesSecurityGroup, destroyLoadBalancersAndSecurityGroups, deleteEgressOnlyInternetGateway))
 
 	_ = c.AddTask(g, "delete DHCP options for VPC",
 		c.deleteDhcpOptions,
-		DoIf(deleteVPC && !c.state.IsAlreadyDeleted(IdentifierDHCPOptions)), Timeout(defaultTimeout),
+		DoIf(deleteVPC && c.state.Get(IdentifierDHCPOptions) != nil), Timeout(defaultTimeout),
 		Dependencies(deleteVpc))
 
 	return g
@@ -130,36 +135,56 @@ func DestroyKubernetesLoadBalancersAndSecurityGroups(ctx context.Context, awsCli
 
 func (c *FlowContext) deleteDefaultSecurityGroup(_ context.Context) error {
 	// nothing to do, it is deleted automatically together with VPC
-	c.state.SetAsDeleted(IdentifierDefaultSecurityGroup)
+	c.state.Delete(IdentifierDefaultSecurityGroup)
 	return nil
 }
 
 func (c *FlowContext) deleteInternetGateway(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(IdentifierInternetGateway) {
+	if c.state.Get(IdentifierInternetGateway) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
+	log := LogFromContext(ctx)
+	current, err := FindExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
 		c.client.GetInternetGateway, c.client.FindInternetGatewaysByTags)
 	if err != nil {
 		return err
 	}
 	if current != nil {
-		log.Info("detaching...")
-		if err := c.client.DetachInternetGateway(ctx, *c.state.Get(IdentifierVPC), current.InternetGatewayId); err != nil {
+		log.Info("detaching...", "InternetGatewayId", current.InternetGatewayId)
+		if err := c.client.DetachInternetGateway(ctx, *c.state.Get(IdentifierVPC), current.InternetGatewayId); awsclient.IgnoreAlreadyDetached(err) != nil {
 			return err
 		}
 		log.Info("deleting...", "InternetGatewayId", current.InternetGatewayId)
 		if err := c.client.DeleteInternetGateway(ctx, current.InternetGatewayId); err != nil {
 			return err
 		}
-		c.state.SetAsDeleted(IdentifierInternetGateway)
+		c.state.Delete(IdentifierInternetGateway)
+	}
+	return nil
+}
+
+func (c *FlowContext) deleteEgressOnlyInternetGateway(ctx context.Context) error {
+	if c.state.Get(IdentifierEgressOnlyInternetGateway) == nil {
+		return nil
+	}
+	log := LogFromContext(ctx)
+	current, err := FindExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
+		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags)
+	if err != nil {
+		return err
+	}
+	if current != nil {
+		log.Info("deleting...", "EgressOnlyInternetGatewayId", current.EgressOnlyInternetGatewayId)
+		if err := c.client.DeleteEgressOnlyInternetGateway(ctx, current.EgressOnlyInternetGatewayId); err != nil {
+			return err
+		}
+		c.state.Delete(IdentifierEgressOnlyInternetGateway)
 	}
 	return nil
 }
 
 func (c *FlowContext) deleteGatewayEndpoints(ctx context.Context) error {
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	child := c.state.GetChild(ChildIdVPCEndpoints)
 	current, err := c.collectExistingVPCEndpoints(ctx)
 	if err != nil {
@@ -172,21 +197,21 @@ func (c *FlowContext) deleteGatewayEndpoints(ctx context.Context) error {
 			return err
 		}
 		name := c.extractVpcEndpointName(item)
-		child.SetAsDeleted(name)
+		child.Delete(name)
 	}
 	// update state of endpoints in state, but not found
 	for _, key := range child.Keys() {
-		child.SetAsDeleted(key)
+		child.Delete(key)
 	}
 	return nil
 }
 
 func (c *FlowContext) deleteVpc(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(IdentifierVPC) {
+	if c.state.Get(IdentifierVPC) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
+	log := LogFromContext(ctx)
+	current, err := FindExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
 		c.client.GetVpc, c.client.FindVpcsByTags)
 	if err != nil {
 		return err
@@ -197,16 +222,16 @@ func (c *FlowContext) deleteVpc(ctx context.Context) error {
 			return err
 		}
 	}
-	c.state.SetAsDeleted(IdentifierVPC)
+	c.state.Delete(IdentifierVPC)
 	return nil
 }
 
 func (c *FlowContext) deleteDhcpOptions(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(IdentifierDHCPOptions) {
+	if c.state.Get(IdentifierDHCPOptions) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierDHCPOptions), c.commonTags,
+	log := LogFromContext(ctx)
+	current, err := FindExisting(ctx, c.state.Get(IdentifierDHCPOptions), c.commonTags,
 		c.client.GetVpcDhcpOptions, c.client.FindVpcDhcpOptionsByTags)
 	if err != nil {
 		return err
@@ -216,17 +241,18 @@ func (c *FlowContext) deleteDhcpOptions(ctx context.Context) error {
 		if err := c.client.DeleteVpcDhcpOptions(ctx, current.DhcpOptionsId); err != nil {
 			return err
 		}
-		c.state.SetAsDeleted(IdentifierDHCPOptions)
+		c.state.Delete(IdentifierDHCPOptions)
 	}
 	return nil
 }
 
 func (c *FlowContext) deleteMainRouteTable(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(IdentifierMainRouteTable) {
+	if c.state.Get(IdentifierMainRouteTable) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
-	current, err := findExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
+
+	log := LogFromContext(ctx)
+	current, err := FindExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
 		c.client.GetRouteTable, c.client.FindRouteTablesByTags)
 	if err != nil {
 		return err
@@ -237,17 +263,17 @@ func (c *FlowContext) deleteMainRouteTable(ctx context.Context) error {
 			return err
 		}
 	}
-	c.state.SetAsDeleted(IdentifierMainRouteTable)
+	c.state.Delete(IdentifierMainRouteTable)
 	return nil
 }
 
 func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(IdentifierNodesSecurityGroup) {
+	if c.state.Get(IdentifierNodesSecurityGroup) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
-	current, err := findExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
+	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
 		func(item *awsclient.SecurityGroup) bool { return item.GroupName == groupName })
 	if err != nil {
@@ -259,7 +285,7 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 			return err
 		}
 	}
-	c.state.SetAsDeleted(IdentifierNodesSecurityGroup)
+	c.state.Delete(IdentifierNodesSecurityGroup)
 	return nil
 }
 
@@ -273,47 +299,46 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 		return err
 	}
 	f := g.Compile()
-	if err := f.Run(ctx, flow.Opts{Log: c.Log}); err != nil {
+	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
 		return flow.Causes(err)
 	}
 	return nil
 }
 
 func (c *FlowContext) deleteIAMRole(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(NameIAMRole) {
+	if c.state.Get(NameIAMRole) == nil {
 		return nil
 	}
 
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	roleName := fmt.Sprintf("%s-nodes", c.namespace)
 	log.Info("deleting...", "RoleName", roleName)
 	if err := c.client.DeleteIAMRole(ctx, roleName); err != nil {
 		return err
 	}
-	c.state.SetAsDeleted(NameIAMRole)
-	c.state.Set(ARNIAMRole, "")
+	c.state.Delete(NameIAMRole)
 	return nil
 }
 
 func (c *FlowContext) deleteIAMInstanceProfile(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(NameIAMInstanceProfile) {
+	if c.state.Get(NameIAMInstanceProfile) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	instanceProfileName := fmt.Sprintf("%s-nodes", c.namespace)
 	log.Info("deleting...", "InstanceProfileName", instanceProfileName)
 	if err := c.client.DeleteIAMInstanceProfile(ctx, instanceProfileName); err != nil {
 		return err
 	}
-	c.state.SetAsDeleted(NameIAMInstanceProfile)
+	c.state.Delete(NameIAMInstanceProfile)
 	return nil
 }
 
 func (c *FlowContext) deleteIAMRolePolicy(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(NameIAMRolePolicy) {
+	if c.state.Get(NameIAMRolePolicy) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	policyName := fmt.Sprintf("%s-nodes", c.namespace)
 	roleName := fmt.Sprintf("%s-nodes", c.namespace)
 	log.Info("removing from profile...")
@@ -324,20 +349,20 @@ func (c *FlowContext) deleteIAMRolePolicy(ctx context.Context) error {
 	if err := c.client.DeleteIAMRolePolicy(ctx, policyName, roleName); err != nil {
 		return err
 	}
-	c.state.SetAsDeleted(NameIAMRolePolicy)
+	c.state.Delete(NameIAMRolePolicy)
 	return nil
 }
 
 func (c *FlowContext) deleteKeyPair(ctx context.Context) error {
-	if c.state.IsAlreadyDeleted(NameKeyPair) {
+	if c.state.Get(NameKeyPair) == nil {
 		return nil
 	}
-	log := c.LogFromContext(ctx)
+	log := LogFromContext(ctx)
 	keyName := fmt.Sprintf("%s-ssh-publickey", c.namespace)
 	log.Info("deleting...", "KeyName", keyName)
 	if err := c.client.DeleteKeyPair(ctx, keyName); err != nil {
 		return err
 	}
-	c.state.SetAsDeleted(NameKeyPair)
+	c.state.Delete(NameKeyPair)
 	return nil
 }

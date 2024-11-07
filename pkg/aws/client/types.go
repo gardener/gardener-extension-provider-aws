@@ -6,9 +6,12 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -115,8 +118,13 @@ type Interface interface {
 	CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, error)
 	GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error)
 	FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, error)
+	FindSubnets(ctx context.Context, filters []*ec2.Filter) ([]*Subnet, error)
 	UpdateSubnetAttributes(ctx context.Context, desired, current *Subnet) (modified bool, err error)
 	DeleteSubnet(ctx context.Context, id string) error
+
+	// Subnet CIDR Reservation
+	CreateCIDRReservation(ctx context.Context, subnet *Subnet, cidr string, reservationType string) (string, error)
+	GetIPv6CIDRReservations(ctx context.Context, subnet *Subnet) ([]string, error)
 
 	// Route table associations
 	CreateRouteTableAssociation(ctx context.Context, routeTableId, subnetId string) (associationId *string, err error)
@@ -128,12 +136,19 @@ type Interface interface {
 	FindElasticIPsByTags(ctx context.Context, tags Tags) ([]*ElasticIP, error)
 	DeleteElasticIP(ctx context.Context, id string) error
 
-	// Internet gateways
+	// NAT gateway
 	CreateNATGateway(ctx context.Context, gateway *NATGateway) (*NATGateway, error)
 	WaitForNATGatewayAvailable(ctx context.Context, id string) error
 	GetNATGateway(ctx context.Context, id string) (*NATGateway, error)
 	FindNATGatewaysByTags(ctx context.Context, tags Tags) ([]*NATGateway, error)
 	DeleteNATGateway(ctx context.Context, id string) error
+
+	// Egress only internet gateway
+	CreateEgressOnlyInternetGateway(ctx context.Context, gateway *EgressOnlyInternetGateway) (*EgressOnlyInternetGateway, error)
+	GetEgressOnlyInternetGateway(ctx context.Context, id string) (*EgressOnlyInternetGateway, error)
+	FindEgressOnlyInternetGatewaysByTags(ctx context.Context, tags Tags) ([]*EgressOnlyInternetGateway, error)
+	FindEgressOnlyInternetGatewayByVPC(ctx context.Context, vpcId string) (*EgressOnlyInternetGateway, error)
+	DeleteEgressOnlyInternetGateway(ctx context.Context, id string) error
 
 	// Key pairs
 	ImportKeyPair(ctx context.Context, keyName string, publicKey []byte, tags Tags) (*KeyPairInfo, error)
@@ -295,19 +310,21 @@ const (
 
 // SecurityGroupRule contains the relevant fields of a EC2 security group rule resource.
 type SecurityGroupRule struct {
-	Type       SecurityGroupRuleType
-	FromPort   int
-	ToPort     int
-	Protocol   string
-	CidrBlocks []string
-	Self       bool
-	Foreign    *string
+	Type         SecurityGroupRuleType
+	FromPort     int
+	ToPort       int
+	Protocol     string
+	CidrBlocks   []string
+	CidrBlocksv6 []string
+	Self         bool
+	Foreign      *string
 }
 
 // Clone creates a copy.
 func (sgr *SecurityGroupRule) Clone() *SecurityGroupRule {
 	cp := *sgr
 	cp.CidrBlocks = copySlice(sgr.CidrBlocks)
+	cp.CidrBlocksv6 = copySlice(sgr.CidrBlocksv6)
 	return &cp
 }
 
@@ -315,6 +332,7 @@ func (sgr *SecurityGroupRule) Clone() *SecurityGroupRule {
 func (sgr *SecurityGroupRule) SortedClone() *SecurityGroupRule {
 	cp := sgr.Clone()
 	sort.Strings(cp.CidrBlocks)
+	sort.Strings(cp.CidrBlocksv6)
 	return cp
 }
 
@@ -375,6 +393,22 @@ func (sgr *SecurityGroupRule) LessThan(other *SecurityGroupRule) bool {
 			return false
 		}
 	}
+
+	if len(sgr.CidrBlocksv6) < len(other.CidrBlocksv6) {
+		return true
+	}
+	if len(sgr.CidrBlocksv6) > len(other.CidrBlocksv6) {
+		return false
+	}
+	for i := range sgr.CidrBlocksv6 {
+		if sgr.CidrBlocksv6[i] < other.CidrBlocksv6[i] {
+			return true
+		}
+		if sgr.CidrBlocksv6[i] > other.CidrBlocksv6[i] {
+			return false
+		}
+	}
+
 	return false
 }
 
@@ -383,6 +417,13 @@ type InternetGateway struct {
 	Tags
 	InternetGatewayId string
 	VpcId             *string
+}
+
+// EgressOnlyInternetGateway contains the relevant fields for an EC2 internet gateway resource.
+type EgressOnlyInternetGateway struct {
+	Tags
+	EgressOnlyInternetGatewayId string
+	VpcId                       *string
 }
 
 // VpcEndpoint contains the relevant fields for an EC2 VPC endpoint resource.
@@ -405,11 +446,23 @@ type RouteTable struct {
 
 // Route contains the relevant fields for a route of an EC2 route table resource.
 type Route struct {
-	DestinationCidrBlock     *string
-	DestinationIpv6CidrBlock *string
-	GatewayId                *string
-	NatGatewayId             *string
-	DestinationPrefixListId  *string
+	DestinationCidrBlock        *string
+	DestinationIpv6CidrBlock    *string
+	GatewayId                   *string
+	NatGatewayId                *string
+	EgressOnlyInternetGatewayId *string
+	DestinationPrefixListId     *string
+}
+
+func (r *Route) DestinationId() (string, error) {
+	if v := ptr.Deref(r.DestinationCidrBlock, ""); v != "" {
+		return v, nil
+	} else if v := ptr.Deref(r.DestinationIpv6CidrBlock, ""); v != "" {
+		return v, nil
+	} else if v := ptr.Deref(r.DestinationPrefixListId, ""); v != "" {
+		return v, nil
+	}
+	return "", fmt.Errorf("no route destination found")
 }
 
 // RouteTableAssociation contains the relevant fields for a route association of an EC2 route table resource.

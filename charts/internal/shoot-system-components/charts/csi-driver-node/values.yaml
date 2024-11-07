@@ -8,6 +8,7 @@ vpaEnabled: false
 
 driver: {}
   # volumeAttachLimit: -1
+  # legacyXFS: true
 
 webhookConfig:
   url: https://service-name.service-namespace/volumesnapshot
@@ -32,15 +33,6 @@ resources:
 
 vpa:
   resourcePolicy:
-    driver:
-      maxAllowed:
-        cpu: 2
-        memory: 4G
-    nodeDriverRegistrar:
-      maxAllowed:
-        cpu: 1
-        memory: 3G
-    livenessProbe:
-      maxAllowed:
-        cpu: 1
-        memory: 3G
+    driver: {}
+    nodeDriverRegistrar: {}
+    livenessProbe: {}

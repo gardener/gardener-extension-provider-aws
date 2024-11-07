@@ -5,13 +5,10 @@ metadata:
   name: {{ include "name" . }}-vpa
   namespace: {{ .Release.Namespace }}
 spec:
-  {{- if .Values.global.vpa.resourcePolicy }}
   resourcePolicy:
     containerPolicies:
     - containerName: '*'
-      minAllowed:
-        memory: {{ required ".Values.global.vpa.resourcePolicy.minAllowed.memory is required" .Values.global.vpa.resourcePolicy.minAllowed.memory }}
-  {{- end }}
+      controlledValues: RequestsOnly
   targetRef:
     apiVersion: apps/v1
     kind: Deployment

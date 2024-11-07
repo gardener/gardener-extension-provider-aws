@@ -30,7 +30,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.26.11"
+  tag: "v1.26.12"
   targetVersion: "1.26.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -44,7 +44,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.27.6"
+  tag: "v1.27.9"
   targetVersion: "1.27.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -58,7 +58,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.28.5"
+  tag: "v1.28.9"
   targetVersion: "1.28.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -72,7 +72,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.29.2"
+  tag: "v1.29.6"
   targetVersion: "1.29.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -86,8 +86,22 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.30.0"
-  targetVersion: ">= 1.30"
+  tag: "v1.30.3"
+  targetVersion: "1.30.x"
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'protected'
+      authentication_enforced: false
+      user_interaction: 'gardener-operator'
+      confidentiality_requirement: 'high'
+      integrity_requirement: 'high'
+      availability_requirement: 'low'
+- name: cloud-controller-manager
+  sourceRepository: github.com/kubernetes/cloud-provider-aws
+  repository: registry.k8s.io/provider-aws/cloud-controller-manager
+  tag: "v1.31.1"
+  targetVersion: ">= 1.31"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -100,7 +114,7 @@ images:
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/machine-controller-manager-provider-aws
-  tag: "v0.20.1"
+  tag: "v0.21.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -113,7 +127,20 @@ images:
 - name: aws-custom-route-controller
   sourceRepository: github.com/gardener/aws-custom-route-controller
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-custom-route-controller
-  tag: "v0.8.0"
+  tag: "v0.9.0"
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'protected'
+      authentication_enforced: false
+      user_interaction: 'gardener-operator'
+      confidentiality_requirement: 'high'
+      integrity_requirement: 'high'
+      availability_requirement: 'low'
+- name: aws-ipam-controller
+  sourceRepository: github.com/gardener/aws-ipam-controller
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-ipam-controller
+  tag: "v0.2.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -129,7 +156,7 @@ images:
   # NOTE: Please make sure to copy new image versions when updating the version by adding them to
   #       https://github.com/gardener/ci-infra/blob/master/config/images/images.yaml.
   repository: europe-docker.pkg.dev/gardener-project/releases/3rd/eks/aws-load-balancer-controller
-  tag: "v2.7.1"
+  tag: "v2.8.3"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
@@ -142,7 +169,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: registry.k8s.io/provider-aws/aws-ebs-csi-driver
-  tag: "v1.29.0"
+  tag: "v1.35.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -171,7 +198,7 @@ images:
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: registry.k8s.io/sig-storage/csi-provisioner
-  tag: "v4.0.0"
+  tag: "v5.1.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -184,7 +211,7 @@ images:
 - name: csi-attacher
   sourceRepository: github.com/kubernetes-csi/external-attacher
   repository: registry.k8s.io/sig-storage/csi-attacher
-  tag: "v4.5.0"
+  tag: "v4.7.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -197,7 +224,7 @@ images:
 - name: csi-resizer
   sourceRepository: github.com/kubernetes-csi/external-resizer
   repository: registry.k8s.io/sig-storage/csi-resizer
-  tag: "v1.10.0"
+  tag: "v1.12.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -210,7 +237,7 @@ images:
 - name: csi-snapshotter
   sourceRepository: github.com/kubernetes-csi/external-snapshotter
   repository: registry.k8s.io/sig-storage/csi-snapshotter
-  tag: "v7.0.1"
+  tag: "v8.1.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -223,7 +250,7 @@ images:
 - name: csi-snapshot-validation-webhook
   sourceRepository: github.com/kubernetes-csi/external-snapshotter
   repository: registry.k8s.io/sig-storage/snapshot-validation-webhook
-  tag: "v7.0.1"
+  tag: "v8.1.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -236,7 +263,7 @@ images:
 - name: csi-snapshot-controller
   sourceRepository: github.com/kubernetes-csi/external-snapshotter
   repository: registry.k8s.io/sig-storage/snapshot-controller
-  tag: "v7.0.1"
+  tag: "v8.1.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -249,7 +276,7 @@ images:
 - name: csi-node-driver-registrar
   sourceRepository: github.com/kubernetes-csi/node-driver-registrar
   repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-  tag: "v2.10.0"
+  tag: "v2.12.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -262,7 +289,7 @@ images:
 - name: csi-liveness-probe
   sourceRepository: github.com/kubernetes-csi/livenessprobe
   repository: registry.k8s.io/sig-storage/livenessprobe
-  tag: "v2.12.0"
+  tag: "v2.14.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
@@ -276,6 +303,35 @@ images:
   sourceRepository: github.com/gardener/ecr-credential-provider
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
   tag: "v1.29.0"
+  targetVersion: "< 1.30"
+  labels:
+    - name: 'gardener.cloud/cve-categorisation'
+      value:
+        network_exposure: 'protected'
+        authentication_enforced: false
+        user_interaction: 'end-user'
+        confidentiality_requirement: 'high'
+        integrity_requirement: 'high'
+        availability_requirement: 'low'
+- name: ecr-credential-provider
+  sourceRepository: github.com/gardener/ecr-credential-provider
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
+  tag: "v1.30.3"
+  targetVersion: "1.30.x"
+  labels:
+    - name: 'gardener.cloud/cve-categorisation'
+      value:
+        network_exposure: 'protected'
+        authentication_enforced: false
+        user_interaction: 'end-user'
+        confidentiality_requirement: 'high'
+        integrity_requirement: 'high'
+        availability_requirement: 'low'
+- name: ecr-credential-provider
+  sourceRepository: github.com/gardener/ecr-credential-provider
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
+  tag: "v1.31.0"
+  targetVersion: ">= 1.31"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:

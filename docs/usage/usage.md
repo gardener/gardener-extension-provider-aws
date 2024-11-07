@@ -6,7 +6,7 @@ In this document we are describing how this configuration looks like for AWS and
 
 ## Provider Secret Data
 
-Every shoot cluster references a `SecretBinding` which itself references a `Secret`, and this `Secret` contains the provider credentials of your AWS account.
+Every shoot cluster references a `SecretBinding` or a `CredentialsBinding` which itself references a `Secret`, and this `Secret` contains the provider credentials of your AWS account.
 This `Secret` must look as follows:
 
 ```yaml
@@ -268,6 +268,8 @@ cloudControllerManager:
 # loadBalancerController:
 #   enabled: true
 #   ingressClassName: alb
+# ipamController:
+#   enabled: true
 storage:
   managedDefaultClass: false
 ```
@@ -468,7 +470,8 @@ metadata:
   name: johndoe-aws
   namespace: garden-dev
 spec:
-  cloudProfileName: aws
+  cloudProfile:
+    name: aws
   region: eu-central-1
   secretBindingName: core-aws
   provider:
@@ -531,7 +534,8 @@ metadata:
   name: johndoe-aws
   namespace: garden-dev
 spec:
-  cloudProfileName: aws
+  cloudProfile:
+    name: aws
   region: eu-central-1
   secretBindingName: core-aws
   provider:
@@ -597,7 +601,11 @@ End-users might want to update their custom `StorageClass`es to the new `ebs.csi
 
 The Kubernetes scheduler allows configurable limit for the number of volumes that can be attached to a node. See https://k8s.io/docs/concepts/storage/storage-limits/#custom-limits.
 
-CSI drivers usually have a different procedure for configuring this custom limit. By default, the EBS CSI driver parses the machine type name and then decides the volume limit. However, this is only a rough approximation and not good enough in most cases. Specifying the volume attach limit via command line flag (`--volume-attach-limit`) is currently the alternative until a more sophisticated solution presents itself (dynamically discovering the maximum number of attachable volume per EC2 machine type, see also https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/347). The AWS extension allows the `--volume-attach-limit` flag of the EBS CSI driver to be configurable via `aws.provider.extensions.gardener.cloud/volume-attach-limit` annotation on the `Shoot` resource. If the annotation is added to an existing `Shoot`, then reconciliation needs to be triggered manually (see [Immediate reconciliation](https://github.com/gardener/gardener/blob/master/docs/usage/shoot_operations.md#immediate-reconciliation)), as in general adding annotation to resource is not a change that leads to `.metadata.generation` increase in general.
+CSI drivers usually have a different procedure for configuring this custom limit. By default, the EBS CSI driver parses the machine type name and then decides the volume limit. However, this is only a rough approximation and not good enough in most cases. Specifying the volume attach limit via command line flag (`--volume-attach-limit`) is currently the alternative until a more sophisticated solution presents itself (dynamically discovering the maximum number of attachable volume per EC2 machine type, see also https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/347). The AWS extension allows the `--volume-attach-limit` flag of the EBS CSI driver to be configurable via `aws.provider.extensions.gardener.cloud/volume-attach-limit` annotation on the `Shoot` resource. If the annotation is added to an existing `Shoot`, then reconciliation needs to be triggered manually (see [Immediate reconciliation](https://github.com/gardener/gardener/blob/master/docs/usage/shoot-operations/shoot_operations.md#immediate-reconciliation)), as in general adding annotation to resource is not a change that leads to `.metadata.generation` increase in general.
+
+### Other CSI options
+The newer versions of EBS CSI driver are not readily compatible with the use of XFS volumes on nodes using a kernel version <= 5.4.
+A workaround was added that enables the use of a "legacy XFS" mode that introduces a backwards compatible volume formating for the older kernels. You can enable this option for your shoot by annotating it with `aws.provider.extensions.gardener.cloud/legacy-xfs=true`.
 
 ## Kubernetes Versions per Worker Pool
 

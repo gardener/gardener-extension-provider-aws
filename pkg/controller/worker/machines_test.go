@@ -85,8 +85,9 @@ var _ = Describe("Machines", func() {
 				securityGroupID       string
 				keyName               string
 
-				archAMD string
-				archARM string
+				archAMD  string
+				archARM  string
+				archFAKE string
 
 				volumeType       string
 				volumeSize       int
@@ -126,9 +127,11 @@ var _ = Describe("Machines", func() {
 
 				labels map[string]string
 
-				nodeCapacity      corev1.ResourceList
-				nodeTemplateZone1 machinev1alpha1.NodeTemplate
-				nodeTemplateZone2 machinev1alpha1.NodeTemplate
+				nodeCapacity           corev1.ResourceList
+				nodeTemplatePool1Zone1 machinev1alpha1.NodeTemplate
+				nodeTemplatePool2Zone1 machinev1alpha1.NodeTemplate
+				nodeTemplatePool1Zone2 machinev1alpha1.NodeTemplate
+				nodeTemplatePool2Zone2 machinev1alpha1.NodeTemplate
 
 				machineConfiguration *machinev1alpha1.MachineConfiguration
 
@@ -166,6 +169,7 @@ var _ = Describe("Machines", func() {
 
 				archAMD = "amd64"
 				archARM = "arm64"
+				archFAKE = "fake"
 
 				volumeType = "normal"
 				volumeSize = 20
@@ -210,18 +214,34 @@ var _ = Describe("Machines", func() {
 					"gpu":    resource.MustParse("1"),
 					"memory": resource.MustParse("128Gi"),
 				}
-				nodeTemplateZone1 = machinev1alpha1.NodeTemplate{
+				nodeTemplatePool1Zone1 = machinev1alpha1.NodeTemplate{
 					Capacity:     nodeCapacity,
 					InstanceType: machineType,
 					Region:       region,
 					Zone:         zone1,
+					Architecture: &archAMD,
 				}
-
-				nodeTemplateZone2 = machinev1alpha1.NodeTemplate{
+				nodeTemplatePool1Zone2 = machinev1alpha1.NodeTemplate{
 					Capacity:     nodeCapacity,
 					InstanceType: machineType,
 					Region:       region,
 					Zone:         zone2,
+					Architecture: &archAMD,
+				}
+
+				nodeTemplatePool2Zone1 = machinev1alpha1.NodeTemplate{
+					Capacity:     nodeCapacity,
+					InstanceType: machineType,
+					Region:       region,
+					Zone:         zone1,
+					Architecture: &archARM,
+				}
+				nodeTemplatePool2Zone2 = machinev1alpha1.NodeTemplate{
+					Capacity:     nodeCapacity,
+					InstanceType: machineType,
+					Region:       region,
+					Zone:         zone2,
+					Architecture: &archARM,
 				}
 
 				machineConfiguration = &machinev1alpha1.MachineConfiguration{}
@@ -255,6 +275,21 @@ var _ = Describe("Machines", func() {
 											Name:         region,
 											AMI:          machineImageAMI,
 											Architecture: ptr.To(archAMD),
+										},
+									},
+								},
+							},
+						},
+						{
+							Name: machineImageName,
+							Versions: []apiv1alpha1.MachineImageVersion{
+								{
+									Version: machineImageVersion,
+									Regions: []apiv1alpha1.RegionAMIMapping{
+										{
+											Name:         region,
+											AMI:          machineImageAMI,
+											Architecture: ptr.To(archARM),
 										},
 									},
 								},
@@ -362,7 +397,7 @@ var _ = Describe("Machines", func() {
 										},
 									}),
 								},
-								UserDataSecretRef: &corev1.SecretKeySelector{
+								UserDataSecretRef: corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{Name: userDataSecretName},
 									Key:                  userDataSecretDataKey,
 								},
@@ -394,6 +429,7 @@ var _ = Describe("Machines", func() {
 							{
 								Name:           namePool2,
 								Minimum:        minPool2,
+								Architecture:   ptr.To(archARM),
 								Maximum:        maxPool2,
 								MaxSurge:       maxSurgePool2,
 								MaxUnavailable: maxUnavailablePool2,
@@ -405,9 +441,10 @@ var _ = Describe("Machines", func() {
 									Name:    machineImageName,
 									Version: machineImageVersion,
 								},
-								// TODO: Use UserDataSecretRef like in first pool once this field got removed from the
-								//  API.
-								UserData: userData,
+								UserDataSecretRef: corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{Name: userDataSecretName},
+									Key:                  userDataSecretDataKey,
+								},
 								Volume: &extensionsv1alpha1.Volume{
 									Type: &volumeType,
 									Size: fmt.Sprintf("%dGi", volumeSize),
@@ -427,8 +464,9 @@ var _ = Describe("Machines", func() {
 				_ = apiv1alpha1.AddToScheme(scheme)
 				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 
-				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted))
-				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
+				additionalData := []string{strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted)}
+				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalData, additionalData)
+				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, clusterWithoutImages)
 			})
@@ -439,7 +477,7 @@ var _ = Describe("Machines", func() {
 						secret.Data = map[string][]byte{userDataSecretDataKey: userData}
 						return nil
 					},
-				)
+				).AnyTimes()
 			}
 
 			Describe("machine images", func() {
@@ -573,10 +611,10 @@ var _ = Describe("Machines", func() {
 					addNameAndSecretToMachineClass(machineClassPool2Zone1, machineClassWithHashPool2Zone1, w.Spec.SecretRef)
 					addNameAndSecretToMachineClass(machineClassPool2Zone2, machineClassWithHashPool2Zone2, w.Spec.SecretRef)
 
-					addNodeTemplateToMachineClass(machineClassPool1Zone1, nodeTemplateZone1)
-					addNodeTemplateToMachineClass(machineClassPool1Zone2, nodeTemplateZone2)
-					addNodeTemplateToMachineClass(machineClassPool2Zone1, nodeTemplateZone1)
-					addNodeTemplateToMachineClass(machineClassPool2Zone2, nodeTemplateZone2)
+					addNodeTemplateToMachineClass(machineClassPool1Zone1, nodeTemplatePool1Zone1)
+					addNodeTemplateToMachineClass(machineClassPool1Zone2, nodeTemplatePool1Zone2)
+					addNodeTemplateToMachineClass(machineClassPool2Zone1, nodeTemplatePool2Zone1)
+					addNodeTemplateToMachineClass(machineClassPool2Zone2, nodeTemplatePool2Zone2)
 
 					machineClasses = map[string]interface{}{"machineClasses": []map[string]interface{}{
 						machineClassPool1Zone1,
@@ -587,47 +625,59 @@ var _ = Describe("Machines", func() {
 
 					machineDeployments = worker.MachineDeployments{
 						{
-							Name:                 machineClassNamePool1Zone1,
-							ClassName:            machineClassWithHashPool1Zone1,
-							SecretName:           machineClassWithHashPool1Zone1,
-							Minimum:              worker.DistributeOverZones(0, minPool1, 2),
-							Maximum:              worker.DistributeOverZones(0, maxPool1, 2),
-							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool1, 2, maxPool1),
-							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool1, 2, minPool1),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone1}),
+							Name:           machineClassNamePool1Zone1,
+							ClassName:      machineClassWithHashPool1Zone1,
+							SecretName:     machineClassWithHashPool1Zone1,
+							Minimum:        worker.DistributeOverZones(0, minPool1, 2),
+							Maximum:        worker.DistributeOverZones(0, maxPool1, 2),
+							MaxSurge:       worker.DistributePositiveIntOrPercent(0, maxSurgePool1, 2, maxPool1),
+							MaxUnavailable: worker.DistributePositiveIntOrPercent(0, maxUnavailablePool1, 2, minPool1),
+							Labels: utils.MergeStringMaps(labels, map[string]string{
+								CSIDriverTopologyKey:     zone1,
+								corev1.LabelTopologyZone: zone1,
+							}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
-							Name:                 machineClassNamePool1Zone2,
-							ClassName:            machineClassWithHashPool1Zone2,
-							SecretName:           machineClassWithHashPool1Zone2,
-							Minimum:              worker.DistributeOverZones(1, minPool1, 2),
-							Maximum:              worker.DistributeOverZones(1, maxPool1, 2),
-							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool1, 2, maxPool1),
-							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool1, 2, minPool1),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone2}),
+							Name:           machineClassNamePool1Zone2,
+							ClassName:      machineClassWithHashPool1Zone2,
+							SecretName:     machineClassWithHashPool1Zone2,
+							Minimum:        worker.DistributeOverZones(1, minPool1, 2),
+							Maximum:        worker.DistributeOverZones(1, maxPool1, 2),
+							MaxSurge:       worker.DistributePositiveIntOrPercent(1, maxSurgePool1, 2, maxPool1),
+							MaxUnavailable: worker.DistributePositiveIntOrPercent(1, maxUnavailablePool1, 2, minPool1),
+							Labels: utils.MergeStringMaps(labels, map[string]string{
+								CSIDriverTopologyKey:     zone2,
+								corev1.LabelTopologyZone: zone2,
+							}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
-							Name:                 machineClassNamePool2Zone1,
-							ClassName:            machineClassWithHashPool2Zone1,
-							SecretName:           machineClassWithHashPool2Zone1,
-							Minimum:              worker.DistributeOverZones(0, minPool2, 2),
-							Maximum:              worker.DistributeOverZones(0, maxPool2, 2),
-							MaxSurge:             worker.DistributePositiveIntOrPercent(0, maxSurgePool2, 2, maxPool2),
-							MaxUnavailable:       worker.DistributePositiveIntOrPercent(0, maxUnavailablePool2, 2, minPool2),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone1}),
+							Name:           machineClassNamePool2Zone1,
+							ClassName:      machineClassWithHashPool2Zone1,
+							SecretName:     machineClassWithHashPool2Zone1,
+							Minimum:        worker.DistributeOverZones(0, minPool2, 2),
+							Maximum:        worker.DistributeOverZones(0, maxPool2, 2),
+							MaxSurge:       worker.DistributePositiveIntOrPercent(0, maxSurgePool2, 2, maxPool2),
+							MaxUnavailable: worker.DistributePositiveIntOrPercent(0, maxUnavailablePool2, 2, minPool2),
+							Labels: utils.MergeStringMaps(labels, map[string]string{
+								CSIDriverTopologyKey:     zone1,
+								corev1.LabelTopologyZone: zone1,
+							}),
 							MachineConfiguration: machineConfiguration,
 						},
 						{
-							Name:                 machineClassNamePool2Zone2,
-							ClassName:            machineClassWithHashPool2Zone2,
-							SecretName:           machineClassWithHashPool2Zone2,
-							Minimum:              worker.DistributeOverZones(1, minPool2, 2),
-							Maximum:              worker.DistributeOverZones(1, maxPool2, 2),
-							MaxSurge:             worker.DistributePositiveIntOrPercent(1, maxSurgePool2, 2, maxPool2),
-							MaxUnavailable:       worker.DistributePositiveIntOrPercent(1, maxUnavailablePool2, 2, minPool2),
-							Labels:               utils.MergeStringMaps(labels, map[string]string{"topology.ebs.csi.aws.com/zone": zone2}),
+							Name:           machineClassNamePool2Zone2,
+							ClassName:      machineClassWithHashPool2Zone2,
+							SecretName:     machineClassWithHashPool2Zone2,
+							Minimum:        worker.DistributeOverZones(1, minPool2, 2),
+							Maximum:        worker.DistributeOverZones(1, maxPool2, 2),
+							MaxSurge:       worker.DistributePositiveIntOrPercent(1, maxSurgePool2, 2, maxPool2),
+							MaxUnavailable: worker.DistributePositiveIntOrPercent(1, maxUnavailablePool2, 2, minPool2),
+							Labels: utils.MergeStringMaps(labels, map[string]string{
+								CSIDriverTopologyKey:     zone2,
+								corev1.LabelTopologyZone: zone2,
+							}),
 							MachineConfiguration: machineConfiguration,
 						},
 					}
@@ -674,6 +724,12 @@ var _ = Describe("Machines", func() {
 								Version:      machineImageVersion,
 								AMI:          machineImageAMI,
 								Architecture: ptr.To(archAMD),
+							},
+							{
+								Name:         machineImageName,
+								Version:      machineImageVersion,
+								AMI:          machineImageAMI,
+								Architecture: ptr.To(archARM),
 							},
 						},
 					}
@@ -725,7 +781,7 @@ var _ = Describe("Machines", func() {
 
 				Context("using workerConfig.iamInstanceProfile", func() {
 					modifyExpectedMachineClasses := func(expectedIamInstanceProfile map[string]interface{}) {
-						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
+						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						var (
@@ -864,7 +920,7 @@ var _ = Describe("Machines", func() {
 			})
 
 			It("should fail because the ami for this architecture cannot be found", func() {
-				w.Spec.Pools[0].Architecture = ptr.To(archARM)
+				w.Spec.Pools[0].Architecture = ptr.To(archFAKE)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 

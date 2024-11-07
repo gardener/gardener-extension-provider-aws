@@ -8,10 +8,13 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -32,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-provider-aws/charts"
@@ -99,6 +102,7 @@ func shootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
 	return []*gutil.AccessSecret{
 		gutil.NewShootAccessSecret(aws.CloudControllerManagerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSCustomRouteControllerName, namespace),
+		gutil.NewShootAccessSecret(aws.AWSIPAMControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.AWSLoadBalancerControllerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIProvisionerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIAttacherName, namespace),
@@ -149,6 +153,18 @@ var (
 					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
+				},
+				SubCharts: nil,
+			},
+			{
+				Name:   aws.AWSIPAMControllerName,
+				Images: []string{aws.AWSIPAMControllerImageName},
+				Objects: []*chart.Object{
+					{Type: &appsv1.Deployment{}, Name: aws.AWSIPAMControllerName},
+					{Type: &rbacv1.Role{}, Name: aws.AWSIPAMControllerName},
+					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSIPAMControllerName},
+					{Type: &corev1.ServiceAccount{}, Name: aws.AWSIPAMControllerName},
+					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSIPAMControllerName + "-vpa"},
 				},
 				SubCharts: nil,
 			},
@@ -207,6 +223,13 @@ var (
 				Objects: []*chart.Object{
 					{Type: &rbacv1.ClusterRole{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "extensions.gardener.cloud:provider-aws:aws-custom-route-controller"},
+				},
+			},
+			{
+				Name: aws.AWSIPAMControllerName,
+				Objects: []*chart.Object{
+					{Type: &rbacv1.ClusterRole{}, Name: "extensions.gardener.cloud:provider-aws:aws-ipam-controller"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "extensions.gardener.cloud:provider-aws:aws-ipam-controller"},
 				},
 			},
 			{
@@ -318,7 +341,7 @@ func NewValuesProvider(mgr manager.Manager) genericactuator.ValuesProvider {
 // valuesProvider is a ValuesProvider that provides AWS-specific values for the 2 charts applied by the generic actuator.
 type valuesProvider struct {
 	genericactuator.NoopValuesProvider
-	client  client.Client
+	client  k8sclient.Client
 	decoder runtime.Decoder
 }
 
@@ -326,18 +349,20 @@ type valuesProvider struct {
 func (vp *valuesProvider) GetConfigChartValues(
 	_ context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
-	_ *extensionscontroller.Cluster,
+	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
 	// Decode infrastructureProviderStatus
 	infraStatus := &apisaws.InfrastructureStatus{}
 	if cp.Spec.InfrastructureProviderStatus != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
-			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
 		}
 	}
 
+	ipFamilies := cluster.Shoot.Spec.Networking.IPFamilies
+
 	// Get config chart values
-	return getConfigChartValues(infraStatus, cp)
+	return getConfigChartValues(infraStatus, cp, ipFamilies)
 }
 
 // GetControlPlaneChartValues returns the values for the control plane chart applied by the generic actuator.
@@ -353,7 +378,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -361,7 +386,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	infraStatus := &apisaws.InfrastructureStatus{}
 	if cp.Spec.InfrastructureProviderStatus != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
-			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -371,7 +396,7 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	}
 
 	// TODO(rfranzke): Delete this after August 2024.
-	gep19Monitoring := vp.client.Get(ctx, client.ObjectKey{Name: "prometheus-shoot", Namespace: cp.Namespace}, &appsv1.StatefulSet{}) == nil
+	gep19Monitoring := vp.client.Get(ctx, k8sclient.ObjectKey{Name: "prometheus-shoot", Namespace: cp.Namespace}, &appsv1.StatefulSet{}) == nil
 	if gep19Monitoring {
 		if err := kutil.DeleteObject(ctx, vp.client, &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-observability-config", Namespace: cp.Namespace}}); err != nil {
 			return nil, fmt.Errorf("failed deleting cloud-controller-manager-observability-config ConfigMap: %w", err)
@@ -393,7 +418,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -410,7 +435,7 @@ func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 	cpConfig := &apisaws.ControlPlaneConfig{}
 	if cp.Spec.ProviderConfig != nil {
 		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
 		}
 	}
 
@@ -436,7 +461,7 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 		cpConfig := &apisaws.ControlPlaneConfig{}
 		_, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig)
 		if err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", kutil.ObjectName(cp), err)
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
 		}
 
 		// internal types should NOT be used when embeding.
@@ -456,20 +481,30 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 func getConfigChartValues(
 	infraStatus *apisaws.InfrastructureStatus,
 	cp *extensionsv1alpha1.ControlPlane,
+	ipFamilies []v1beta1.IPFamily,
 ) (map[string]interface{}, error) {
 	// Get the first subnet with purpose "public"
 	subnet, err := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposePublic)
 	if err != nil {
-		return nil, fmt.Errorf("could not determine subnet from infrastructureProviderStatus of controlplane '%s': %w", kutil.ObjectName(cp), err)
+		return nil, fmt.Errorf("could not determine subnet from infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
 	}
 
 	// Collect config chart values
-	return map[string]interface{}{
+	config := map[string]interface{}{
 		"vpcID":       infraStatus.VPC.ID,
 		"subnetID":    subnet.ID,
 		"clusterName": cp.Namespace,
 		"zone":        subnet.Zone,
-	}, nil
+	}
+
+	if ipFamilies != nil && slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
+		config["nodeIPFamilyIPv6"] = "ipv6"
+	}
+	if ipFamilies != nil && slices.Contains(ipFamilies, v1beta1.IPFamilyIPv4) {
+		config["nodeIPFamilyIPv4"] = "ipv4"
+	}
+
+	return config, nil
 }
 
 // getControlPlaneChartValues collects and returns the control plane chart values.
@@ -493,6 +528,11 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
+	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown)
+	if err != nil {
+		return nil, err
+	}
+
 	alb, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, infraStatus)
 	if err != nil {
 		return nil, err
@@ -509,6 +549,7 @@ func getControlPlaneChartValues(
 		},
 		aws.CloudControllerManagerName:    ccm,
 		aws.AWSCustomRouteControllerName:  crc,
+		aws.AWSIPAMControllerImageName:    ipam,
 		aws.AWSLoadBalancerControllerName: alb,
 		aws.CSIControllerName:             csi,
 	}, nil
@@ -534,7 +575,7 @@ func getCCMChartValues(
 		"replicas":          extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName":       cp.Namespace,
 		"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-		"podNetwork":        extensionscontroller.GetPodNetwork(cluster),
+		"podNetwork":        strings.Join(extensionscontroller.GetPodNetwork(cluster), ","),
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-cloudprovider":            checksums[v1beta1constants.SecretNameCloudProvider],
 			"checksum/configmap-cloud-provider-config": checksums[aws.CloudProviderConfigName],
@@ -564,11 +605,17 @@ func getCRCChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 ) (map[string]interface{}, error) {
+	mode := "ipv4"
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
+		if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) && !slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv4) {
+			mode = "ipv6"
+		}
+	}
 	values := map[string]interface{}{
 		"enabled":     true,
 		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName": cp.Namespace,
-		"podNetwork":  extensionscontroller.GetPodNetwork(cluster),
+		"podNetwork":  strings.Join(extensionscontroller.GetPodNetwork(cluster), ","),
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
 		},
@@ -580,6 +627,67 @@ func getCRCChartValues(
 	enabled := cpConfig.CloudControllerManager != nil &&
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
+	if !enabled || mode == "ipv6" {
+		values["replicas"] = 0
+	}
+
+	return values, nil
+}
+
+// getIPAMChartValues collects and returns the ipam-controller chart values.
+func getIPAMChartValues(
+	cp *extensionsv1alpha1.ControlPlane,
+	cluster *extensionscontroller.Cluster,
+	checksums map[string]string,
+	scaledDown bool,
+) (map[string]interface{}, error) {
+	mode := "ipv4"
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
+		if len(networkingConfig.IPFamilies) == 2 {
+			mode = "dual-stack"
+		} else if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+			mode = "ipv6"
+		}
+	}
+
+	nodeCidrMaskSizeIPv4 := int32(24)
+	nodeCidrMaskSizeIPv6 := int32(64)
+	if cluster.Shoot.Spec.Kubernetes.KubeControllerManager != nil && cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize != nil {
+		if len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 && cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv4 {
+			nodeCidrMaskSizeIPv4 = *cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize
+		}
+		if len(cluster.Shoot.Spec.Networking.IPFamilies) == 1 && cluster.Shoot.Spec.Networking.IPFamilies[0] == v1beta1.IPFamilyIPv6 {
+			nodeCidrMaskSizeIPv6 = *cluster.Shoot.Spec.Kubernetes.KubeControllerManager.NodeCIDRMaskSize
+		}
+	}
+
+	podNetwork := "192.168.0.0/16"
+	if slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, v1beta1.IPFamilyIPv4) {
+		if len(extensionscontroller.GetPodNetwork(cluster)) == 1 {
+			podNetwork = extensionscontroller.GetPodNetwork(cluster)[0]
+		}
+		if len(extensionscontroller.GetPodNetwork(cluster)) > 1 {
+			return nil, fmt.Errorf("IPAM controller does only support one pod CIDR range specified for IPFamilyIPv4")
+		}
+	}
+
+	values := map[string]interface{}{
+		"enabled":     true,
+		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
+		"clusterName": cp.Namespace,
+		"podNetwork":  podNetwork,
+		"podAnnotations": map[string]interface{}{
+			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
+		},
+		"podLabels": map[string]interface{}{
+			v1beta1constants.LabelPodMaintenanceRestart: "true",
+		},
+		"region":               cp.Spec.Region,
+		"mode":                 mode,
+		"nodeCIDRMaskSizeIPv4": nodeCidrMaskSizeIPv4,
+		"nodeCIDRMaskSizeIPv6": nodeCidrMaskSizeIPv6,
+	}
+	enabled := mode != "ipv4"
 	if !enabled {
 		values["replicas"] = 0
 	}
@@ -703,6 +811,11 @@ func getControlPlaneShootChartValues(
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
+	ipamControllerEnabled := false
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+		ipamControllerEnabled = true
+	}
+
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           true,
 		"kubernetesVersion": kubernetesVersion,
@@ -713,11 +826,15 @@ func getControlPlaneShootChartValues(
 		},
 	}
 
+	driver := map[string]interface{}{}
 	if value, ok := cluster.Shoot.Annotations[aws.VolumeAttachLimit]; ok {
-		csiDriverNodeValues["driver"] = map[string]interface{}{
-			"volumeAttachLimit": value,
-		}
+		driver["volumeAttachLimit"] = value
 	}
+
+	if value, ok := cluster.Shoot.Annotations[aws.LegacyXFS]; ok {
+		driver["legacyXFS"] = value
+	}
+	csiDriverNodeValues["driver"] = driver
 
 	albValues, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, nil, false, nil)
 	if err != nil {
@@ -727,6 +844,7 @@ func getControlPlaneShootChartValues(
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
 		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
+		aws.AWSIPAMControllerImageName:    map[string]interface{}{"enabled": ipamControllerEnabled},
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
 	}, nil

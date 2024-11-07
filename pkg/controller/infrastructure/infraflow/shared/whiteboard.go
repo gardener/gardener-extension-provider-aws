@@ -16,8 +16,6 @@ import (
 const (
 	// Separator is used to on translating keys to/from flat maps
 	Separator = "/"
-	// deleted is a special value to mark a resource id as deleted
-	deleted = "<deleted>"
 )
 
 // FlatMap is a semantic name for string map used for importing and exporting
@@ -40,9 +38,8 @@ type Whiteboard interface {
 	// Get returns a valid value or nil (never "" or special deleted value)
 	Get(key string) *string
 	Set(key, id string)
+	Delete(key string)
 	SetPtr(key string, id *string)
-	IsAlreadyDeleted(key string) bool
-	SetAsDeleted(key string)
 	// Keys returns all stored keys, even for deleted ones
 	Keys() []string
 	// AsMap returns a map with all valid key/values
@@ -191,18 +188,12 @@ func (w *whiteboard) Set(key, id string) {
 	}
 }
 
+func (w *whiteboard) Delete(key string) {
+	w.Set(key, "")
+}
+
 func (w *whiteboard) SetPtr(key string, id *string) {
 	w.Set(key, ptr.Deref(id, ""))
-}
-
-func (w *whiteboard) IsAlreadyDeleted(key string) bool {
-	w.Lock()
-	defer w.Unlock()
-	return w.data[key] == deleted
-}
-
-func (w *whiteboard) SetAsDeleted(key string) {
-	w.Set(key, deleted)
 }
 
 func (w *whiteboard) ImportFromFlatMap(data FlatMap) {
@@ -255,5 +246,5 @@ func sortedKeys[V any](m map[string]V) []string {
 
 // IsValidValue returns true if an exported value is valid, i.e. not empty and not special value for deleted.
 func IsValidValue(value string) bool {
-	return value != "" && value != deleted
+	return value != ""
 }

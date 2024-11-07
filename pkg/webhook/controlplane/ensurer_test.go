@@ -6,6 +6,7 @@ package controlplane
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -28,13 +29,11 @@ import (
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/ptr"
-	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -55,12 +54,50 @@ var _ = Describe("Ensurer", func() {
 		ctx  = context.TODO()
 
 		dummyContext   = gcontext.NewGardenContext(nil, nil)
+		eContextK8s126 gcontext.GardenContext
+		eContextK8s127 gcontext.GardenContext
+
+		eContextK8s131 = gcontext.NewInternalGardenContext(
+			&extensionscontroller.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "shoot--project--foo",
+				},
+				Shoot: &gardencorev1beta1.Shoot{
+					Spec: gardencorev1beta1.ShootSpec{
+						Kubernetes: gardencorev1beta1.Kubernetes{
+							Version: "1.31.1",
+						},
+					},
+				},
+			},
+		)
+		infraConfig *v1alpha1.InfrastructureConfig
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		c = mockclient.NewMockClient(ctrl)
+
+		infraConfig = &v1alpha1.InfrastructureConfig{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: v1alpha1.SchemeGroupVersion.String(),
+				Kind:       "InfrastructureConfig",
+			},
+		}
+	})
+
+	JustBeforeEach(func() {
 		eContextK8s126 = gcontext.NewInternalGardenContext(
 			&extensionscontroller.Cluster{
 				Shoot: &gardencorev1beta1.Shoot{
 					Spec: gardencorev1beta1.ShootSpec{
 						Kubernetes: gardencorev1beta1.Kubernetes{
 							Version: "1.26.1",
+						},
+						Provider: gardencorev1beta1.Provider{
+							InfrastructureConfig: &runtime.RawExtension{
+								Raw: encode(infraConfig),
+							},
 						},
 					},
 				},
@@ -79,38 +116,15 @@ var _ = Describe("Ensurer", func() {
 						Kubernetes: gardencorev1beta1.Kubernetes{
 							Version: "1.27.1",
 						},
+						Provider: gardencorev1beta1.Provider{
+							InfrastructureConfig: &runtime.RawExtension{
+								Raw: encode(infraConfig),
+							},
+						},
 					},
 				},
 			},
 		)
-		infraConfig    *v1alpha1.InfrastructureConfig
-		infrastructure *extensionsv1alpha1.Infrastructure
-	)
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		c = mockclient.NewMockClient(ctrl)
-
-		infraConfig = &v1alpha1.InfrastructureConfig{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: v1alpha1.SchemeGroupVersion.String(),
-				Kind:       "InfrastructureConfig",
-			},
-		}
-		infrastructure = &extensionsv1alpha1.Infrastructure{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: extensionsv1alpha1.SchemeGroupVersion.String(),
-				Kind:       "Infrastructure",
-			},
-			Spec: extensionsv1alpha1.InfrastructureSpec{
-				DefaultSpec: extensionsv1alpha1.DefaultSpec{
-					Type: aws.Type,
-					ProviderConfig: &runtime.RawExtension{
-						Object: infraConfig,
-					},
-				},
-			},
-		}
 	})
 
 	AfterEach(func() {
@@ -149,11 +163,18 @@ var _ = Describe("Ensurer", func() {
 			checkKubeAPIServerDeployment(dep, "1.26.5")
 		})
 
-		It("should add missing elements to kube-apiserver deployment (k8s >= 1.27)", func() {
+		It("should add missing elements to kube-apiserver deployment (k8s >= 1.27, < 1.31)", func() {
 			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s127, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
 			checkKubeAPIServerDeployment(dep, "1.27.1")
+		})
+
+		It("should add missing elements to kube-apiserver deployment (k8s >= 1.31)", func() {
+			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s131, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			checkKubeAPIServerDeployment(dep, "1.31.1")
 		})
 
 		It("should modify existing elements of kube-apiserver deployment", func() {
@@ -232,11 +253,18 @@ var _ = Describe("Ensurer", func() {
 			checkKubeControllerManagerDeployment(dep, "1.26.5")
 		})
 
-		It("should add missing elements to kube-controller-manager deployment (k8s >= 1.27 w/ CSI annotation)", func() {
+		It("should add missing elements to kube-controller-manager deployment (k8s >= 1.27, < 1.31)", func() {
 			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s127, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
 			checkKubeControllerManagerDeployment(dep, "1.27.1")
+		})
+
+		It("should add missing elements to kube-controller-manager deployment (k8s >= 1.31)", func() {
+			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s131, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			checkKubeControllerManagerDeployment(dep, "1.31.1")
 		})
 
 		It("should modify existing elements of kube-controller-manager deployment", func() {
@@ -310,11 +338,18 @@ var _ = Describe("Ensurer", func() {
 			checkKubeSchedulerDeployment(dep, "1.26.5")
 		})
 
-		It("should add missing elements to kube-scheduler deployment (k8s >= 1.27)", func() {
+		It("should add missing elements to kube-scheduler deployment (k8s >= 1.27, < 1.31)", func() {
 			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s127, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
 			checkKubeSchedulerDeployment(dep, "1.27.1")
+		})
+
+		It("should add missing elements to kube-scheduler deployment (k8s >= 1.31)", func() {
+			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s131, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			checkKubeSchedulerDeployment(dep, "1.31.1")
 		})
 	})
 
@@ -343,17 +378,25 @@ var _ = Describe("Ensurer", func() {
 			ensurer = NewEnsurer(logger, c)
 		})
 
-		It("should add missing elements to cluster-autoscaler deployment (>= 1.27)", func() {
-			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s127, dep, nil)
-			Expect(err).To(Not(HaveOccurred()))
-
-			checkClusterAutoscalerDeployment(dep, "1.27.5")
-		})
 		It("should add missing elements to cluster-autoscaler deployment (< 1.27)", func() {
 			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s126, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
 			checkClusterAutoscalerDeployment(dep, "1.26.5")
+		})
+
+		It("should add missing elements to cluster-autoscaler deployment (>= 1.27, < 1.31)", func() {
+			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s127, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			checkClusterAutoscalerDeployment(dep, "1.27.5")
+		})
+
+		It("should add missing elements to cluster-autoscaler deployment (>= 1.31)", func() {
+			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s131, dep, nil)
+			Expect(err).To(Not(HaveOccurred()))
+
+			checkClusterAutoscalerDeployment(dep, "1.31.1")
 		})
 	})
 
@@ -392,8 +435,8 @@ ExecStart=/opt/bin/mtu-customizer.sh
 
 	Describe("#EnsureAdditionalFiles", func() {
 		var (
-			permissions       int32 = 0755
-			customFileContent       = `#!/bin/sh
+			permissions       uint32 = 0755
+			customFileContent        = `#!/bin/sh
 
 for interface_path in $(find /sys/class/net  -type l -print)
 do
@@ -419,7 +462,7 @@ done
 				oldFile = extensionsv1alpha1.File{Path: "oldpath"}
 				ecrBin  = extensionsv1alpha1.File{
 					Path:        "/opt/bin/ecr-credential-provider",
-					Permissions: ptr.To(int32(0755)),
+					Permissions: ptr.To(uint32(0755)),
 					Content: extensionsv1alpha1.FileContent{
 						ImageRef: &extensionsv1alpha1.FileContentImageRef{
 							Image:           image.String(),
@@ -429,7 +472,7 @@ done
 				}
 				ecrConfig = extensionsv1alpha1.File{
 					Path:        "/opt/gardener/ecr-credential-provider-config.json",
-					Permissions: ptr.To(int32(0755)),
+					Permissions: ptr.To(uint32(0755)),
 					Content: extensionsv1alpha1.FileContent{
 						Inline: &extensionsv1alpha1.FileContentInline{
 							Data: ecrConfig,
@@ -449,13 +492,6 @@ done
 				}
 
 				files = []extensionsv1alpha1.File{oldFile}
-			)
-
-			c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
-				func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
-					*infra = *infrastructure
-					return nil
-				},
 			)
 
 			// Create ensurer
@@ -493,38 +529,36 @@ done
 			Expect(files).To(ConsistOf(oldFile, additionalFile))
 		})
 
-		It("should not add credential provider files to the current ones if ECRAccess is disabled", func() {
-			var (
-				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
-				additionalFile = extensionsv1alpha1.File{
-					Path:        filePath,
-					Permissions: &permissions,
-					Content: extensionsv1alpha1.FileContent{
-						Inline: &extensionsv1alpha1.FileContentInline{
-							Encoding: "",
-							Data:     customFileContent,
+		Context("ECRAccess is disabled", func() {
+			BeforeEach(func() {
+				infraConfig.EnableECRAccess = ptr.To(false)
+			})
+
+			It("should not add credential provider files to the current ones if ECRAccess is disabled", func() {
+				var (
+					oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
+					additionalFile = extensionsv1alpha1.File{
+						Path:        filePath,
+						Permissions: &permissions,
+						Content: extensionsv1alpha1.FileContent{
+							Inline: &extensionsv1alpha1.FileContentInline{
+								Encoding: "",
+								Data:     customFileContent,
+							},
 						},
-					},
-				}
+					}
 
-				files = []extensionsv1alpha1.File{oldFile}
-			)
+					files = []extensionsv1alpha1.File{oldFile}
+				)
 
-			infraConfig.EnableECRAccess = ptr.To(false)
-			c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
-				func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
-					*infra = *infrastructure
-					return nil
-				},
-			)
+				// Create ensurer
+				ensurer := NewEnsurer(logger, c)
 
-			// Create ensurer
-			ensurer := NewEnsurer(logger, c)
-
-			// Call EnsureAdditionalFiles method and check the result
-			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(files).To(ConsistOf(oldFile, additionalFile))
+				// Call EnsureAdditionalFiles method and check the result
+				err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(files).To(ConsistOf(oldFile, additionalFile))
+			})
 		})
 
 		It("should add additional files to the current ones", func() {
@@ -623,31 +657,21 @@ done
 				Expect(opts).To(Equal(newUnitOptions))
 			})
 
-			It("kubelet version >= 1.27 without ECR access", func() {
-				c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
-					func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
-						*infra = *infrastructure
+			Context("ECRAccess is disabled", func() {
+				BeforeEach(func() {
+					infraConfig.EnableECRAccess = ptr.To(false)
+				})
 
-						infraConfig.EnableECRAccess = ptr.To(false)
-						return nil
-					},
-				).AnyTimes()
-
-				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s127, semver.MustParse("1.27.0"), oldUnitOptions, nil)
-				Expect(err).To(Not(HaveOccurred()))
-				Expect(opts).To(Equal(newUnitOptions))
+				It("kubelet version >= 1.27 without ECR access", func() {
+					opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s127, semver.MustParse("1.27.0"), oldUnitOptions, nil)
+					Expect(err).To(Not(HaveOccurred()))
+					Expect(opts).To(Equal(newUnitOptions))
+				})
 			})
 
 			It("kubelet version >= 1.27 with ECR Access", func() {
 				newUnitOptions[0].Value += addCmdOption("--image-credential-provider-config=/opt/gardener/ecr-credential-provider-config.json")
 				newUnitOptions[0].Value += addCmdOption("--image-credential-provider-bin-dir=/opt/bin/")
-
-				c.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&extensionsv1alpha1.Infrastructure{})).DoAndReturn(
-					func(_ context.Context, _ k8sclient.ObjectKey, infra *extensionsv1alpha1.Infrastructure, _ ...k8sclient.GetOption) error {
-						*infra = *infrastructure
-						return nil
-					},
-				).AnyTimes()
 
 				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s127, semver.MustParse("1.27.0"), oldUnitOptions, nil)
 				Expect(err).To(Not(HaveOccurred()))
@@ -672,7 +696,7 @@ done
 		})
 
 		DescribeTable("should modify existing elements of kubelet configuration",
-			func(kubeletVersion *semver.Version) {
+			func(kubeletVersion *semver.Version, expectedFeatureGates map[string]bool) {
 				newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
 					FeatureGates: map[string]bool{
 						"Foo": true,
@@ -681,19 +705,18 @@ done
 				}
 				kubeletConfig := *oldKubeletConfig
 
-				if version.ConstraintK8sLess127.Check(kubeletVersion) {
-					newKubeletConfig.FeatureGates["CSIMigration"] = true
-					newKubeletConfig.FeatureGates["CSIMigrationAWS"] = true
+				for featureGate, value := range expectedFeatureGates {
+					newKubeletConfig.FeatureGates[featureGate] = value
 				}
-				newKubeletConfig.FeatureGates["InTreePluginAWSUnregister"] = true
 
 				err := ensurer.EnsureKubeletConfiguration(ctx, nil, kubeletVersion, &kubeletConfig, nil)
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(&kubeletConfig).To(Equal(newKubeletConfig))
 			},
 
-			Entry("kubelet < 1.26", semver.MustParse("1.26.0")),
-			Entry("kubelet >= 1.27", semver.MustParse("1.27.1")),
+			Entry("kubelet < 1.27", semver.MustParse("1.26.0"), map[string]bool{"CSIMigration": true, "CSIMigrationAWS": true, "InTreePluginAWSUnregister": true}),
+			Entry("kubelet >= 1.27, < 1.31", semver.MustParse("1.27.1"), map[string]bool{"InTreePluginAWSUnregister": true}),
+			Entry("kubelet >= 1.31", semver.MustParse("1.31.1"), map[string]bool{}),
 		)
 	})
 
@@ -754,7 +777,7 @@ done
 			ensurer = NewEnsurer(logger, c)
 			DeferCleanup(testutils.WithVar(&ImageVector, imagevectorutils.ImageVector{{
 				Name:       "machine-controller-manager-provider-aws",
-				Repository: "foo",
+				Repository: ptr.To("foo"),
 				Tag:        ptr.To("bar"),
 			}}))
 		})
@@ -786,13 +809,6 @@ done
 			Expect(vpa.Spec.ResourcePolicy.ContainerPolicies).To(ConsistOf(vpaautoscalingv1.ContainerResourcePolicy{
 				ContainerName:    "machine-controller-manager-provider-aws",
 				ControlledValues: &ccv,
-				MinAllowed: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("64Mi"),
-				},
-				MaxAllowed: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("2"),
-					corev1.ResourceMemory: resource.MustParse("5G"),
-				},
 			}))
 		})
 	})
@@ -800,21 +816,26 @@ done
 
 func checkKubeAPIServerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 	k8sVersionAtLeast127, _ := version.CompareVersions(k8sVersion, ">=", "1.27")
+	k8sVersionAtLeast131, _ := version.CompareVersions(k8sVersion, ">=", "1.31")
 
 	// Check that the kube-apiserver container still exists and contains all needed command line args,
 	// env vars, and volume mounts
 	c := extensionswebhook.ContainerWithName(dep.Spec.Template.Spec.Containers, "kube-apiserver")
 	Expect(c).To(Not(BeNil()))
 
-	if k8sVersionAtLeast127 {
+	if k8sVersionAtLeast131 {
+		Expect(c.Command).NotTo(ContainElement(HavePrefix("--feature-gates")))
+	} else if k8sVersionAtLeast127 {
 		Expect(c.Command).To(ContainElement("--feature-gates=InTreePluginAWSUnregister=true"))
-	} else {
+	} else { // < 1.27
 		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
 	Expect(c.Command).NotTo(ContainElement("--cloud-provider=aws"))
 	Expect(c.Command).NotTo(ContainElement("--cloud-config=/etc/kubernetes/cloudprovider/cloudprovider.conf"))
-	Expect(c.Command).NotTo(test.ContainElementWithPrefixContaining("--enable-admission-plugins=", "PersistentVolumeLabel", ","))
-	Expect(c.Command).To(test.ContainElementWithPrefixContaining("--disable-admission-plugins=", "PersistentVolumeLabel", ","))
+	if !k8sVersionAtLeast131 {
+		Expect(c.Command).NotTo(test.ContainElementWithPrefixContaining("--enable-admission-plugins=", "PersistentVolumeLabel", ","))
+		Expect(c.Command).To(test.ContainElementWithPrefixContaining("--disable-admission-plugins=", "PersistentVolumeLabel", ","))
+	}
 	Expect(c.Env).NotTo(ContainElement(accessKeyIDEnvVar))
 	Expect(c.Env).NotTo(ContainElement(secretAccessKeyEnvVar))
 	Expect(dep.Spec.Template.Annotations).To(BeNil())
@@ -824,15 +845,18 @@ func checkKubeAPIServerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 
 func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 	k8sVersionAtLeast127, _ := version.CompareVersions(k8sVersion, ">=", "1.27")
+	k8sVersionAtLeast131, _ := version.CompareVersions(k8sVersion, ">=", "1.31")
 
 	// Check that the kube-controller-manager container still exists and contains all needed command line args,
 	// env vars, and volume mounts
 	c := extensionswebhook.ContainerWithName(dep.Spec.Template.Spec.Containers, "kube-controller-manager")
 	Expect(c).To(Not(BeNil()))
 
-	if k8sVersionAtLeast127 {
+	if k8sVersionAtLeast131 {
+		Expect(c.Command).NotTo(ContainElement(HavePrefix("--feature-gates")))
+	} else if k8sVersionAtLeast127 {
 		Expect(c.Command).To(ContainElement("--feature-gates=InTreePluginAWSUnregister=true"))
-	} else {
+	} else { // < 1.27
 		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
 	Expect(c.Command).To(ContainElement("--cloud-provider=external"))
@@ -850,28 +874,34 @@ func checkKubeControllerManagerDeployment(dep *appsv1.Deployment, k8sVersion str
 
 func checkKubeSchedulerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 	k8sVersionAtLeast127, _ := version.CompareVersions(k8sVersion, ">=", "1.27")
+	k8sVersionAtLeast131, _ := version.CompareVersions(k8sVersion, ">=", "1.31")
 
 	// Check that the kube-scheduler container still exists and contains all needed command line args.
 	c := extensionswebhook.ContainerWithName(dep.Spec.Template.Spec.Containers, "kube-scheduler")
 	Expect(c).To(Not(BeNil()))
 
-	if k8sVersionAtLeast127 {
+	if k8sVersionAtLeast131 {
+		Expect(c.Command).NotTo(ContainElement(HavePrefix("--feature-gates")))
+	} else if k8sVersionAtLeast127 {
 		Expect(c.Command).To(ContainElement("--feature-gates=InTreePluginAWSUnregister=true"))
-	} else {
+	} else { // < 1.27
 		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
 }
 
 func checkClusterAutoscalerDeployment(dep *appsv1.Deployment, k8sVersion string) {
 	k8sVersionAtLeast127, _ := version.CompareVersions(k8sVersion, ">=", "1.27")
+	k8sVersionAtLeast131, _ := version.CompareVersions(k8sVersion, ">=", "1.31")
 
 	// Check that the cluster-autoscaler container still exists and contains all needed command line args.
 	c := extensionswebhook.ContainerWithName(dep.Spec.Template.Spec.Containers, "cluster-autoscaler")
 	Expect(c).To(Not(BeNil()))
 
-	if k8sVersionAtLeast127 {
+	if k8sVersionAtLeast131 {
+		Expect(c.Command).NotTo(ContainElement(HavePrefix("--feature-gates")))
+	} else if k8sVersionAtLeast127 {
 		Expect(c.Command).To(ContainElement("--feature-gates=InTreePluginAWSUnregister=true"))
-	} else {
+	} else { // < 1.27
 		Expect(c.Command).To(ContainElement("--feature-gates=CSIMigration=true,CSIMigrationAWS=true,InTreePluginAWSUnregister=true"))
 	}
 }
@@ -880,4 +910,9 @@ func checkClusterAutoscalerDeployment(dep *appsv1.Deployment, k8sVersion string)
 func addCmdOption(s string) string {
 	return ` \
     ` + s
+}
+
+func encode(obj runtime.Object) []byte {
+	data, _ := json.Marshal(obj)
+	return data
 }

@@ -38,10 +38,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/uuid"
+	schemev1 "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -55,17 +63,14 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	"github.com/gardener/gardener-extension-provider-aws/test/integration"
 )
 
-type flowUsage int
-
 const (
-	fuUseTerraformer flowUsage = iota
-	fuMigrateFromTerraformer
-	fuUseFlow
-	fuUseFlowRecoverState
+	reconcilerUseTF        string = "tf"
+	reconcilerMigrateTF    string = "migrate"
+	reconcilerUseFlow      string = "flow"
+	reconcilerRecoverState string = "recover"
 )
 
 const (
@@ -85,6 +90,8 @@ var (
 	accessKeyID     = flag.String("access-key-id", "", "AWS access key id")
 	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
 	region          = flag.String("region", "", "AWS region")
+	reconciler      = flag.String("reconciler", reconcilerUseFlow, "Set annotation to use flow for reconciliation")
+	testId          = string(uuid.NewUUID())
 )
 
 func validateFlags() {
@@ -147,25 +154,44 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	cfg, err := testEnv.Start()
+	restConfig, err := testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
-	Expect(cfg).ToNot(BeNil())
+	Expect(restConfig).ToNot(BeNil())
+
+	httpClient, err := rest.HTTPClientFor(restConfig)
+	Expect(err).NotTo(HaveOccurred())
+	mapper, err := apiutil.NewDynamicRESTMapper(restConfig, httpClient)
+	Expect(err).NotTo(HaveOccurred())
+
+	scheme := runtime.NewScheme()
+	Expect(schemev1.AddToScheme(scheme)).To(Succeed())
+	Expect(extensionsv1alpha1.AddToScheme(scheme)).To(Succeed())
+	Expect(awsinstall.AddToScheme(scheme)).To(Succeed())
 
 	By("setup manager")
-	mgr, err := manager.New(cfg, manager.Options{
+	mgr, err := manager.New(restConfig, manager.Options{
+		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
+		Cache: cache.Options{
+			Mapper: mapper,
+			ByObject: map[client.Object]cache.ByObject{
+				&extensionsv1alpha1.Infrastructure{}: {
+					Label: labels.SelectorFromSet(labels.Set{"test-id": testId}),
+				},
+			},
+		},
 	})
 	Expect(err).ToNot(HaveOccurred())
-
-	Expect(extensionsv1alpha1.AddToScheme(mgr.GetScheme())).To(Succeed())
-	Expect(awsinstall.AddToScheme(mgr.GetScheme())).To(Succeed())
 
 	Expect(infrastructure.AddToManagerWithOptions(ctx, mgr, infrastructure.AddOptions{
 		// During testing in testmachinery cluster, there is no gardener-resource-manager to inject the volume mount.
 		// Hence, we need to run without projected token mount.
 		DisableProjectedTokenMount: true,
+		Controller: controller.Options{
+			MaxConcurrentReconciles: 5,
+		},
 	})).To(Succeed())
 
 	var mgrContext context.Context
@@ -178,7 +204,7 @@ var _ = BeforeSuite(func() {
 	}()
 
 	// test client should be uncached and independent from the tested manager
-	c, err = client.New(cfg, client.Options{
+	c, err = client.New(restConfig, client.Options{
 		Scheme: mgr.GetScheme(),
 		Mapper: mgr.GetRESTMapper(),
 	})
@@ -205,7 +231,7 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("Infrastructure tests", func() {
 	Context("with infrastructure that requests new vpc (networks.vpc.cidr)", func() {
-		It("should successfully create and delete (flow)", func() {
+		It("should successfully create and delete", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
@@ -214,11 +240,11 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseFlowRecoverState)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should successfully create and delete (flow) with dualstack enabled", func() {
+		It("should successfully create and delete with dualstack enabled", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
@@ -227,48 +253,21 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseFlowRecoverState)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should successfully create and delete (terraformer)", func() {
-			providerConfig := newProviderConfig(awsv1alpha1.VPC{
+		It("should successfully create and delete with IPv6", func() {
+			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
 				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
-			})
+			}, false)
 
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseTerraformer)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
 			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should successfully create and delete (terraformer) with dualstack enabled", func() {
-			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             ptr.To(vpcCIDR),
-				GatewayEndpoints: []string{s3GatewayEndpoint},
-			})
-			providerConfig.DualStack.Enabled = true
-			namespace, err := generateNamespaceName()
-			Expect(err).NotTo(HaveOccurred())
-
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseTerraformer)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should successfully create and delete (migration from terraformer)", func() {
-			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR:             ptr.To(vpcCIDR),
-				GatewayEndpoints: []string{s3GatewayEndpoint},
-			})
-
-			namespace, err := generateNamespaceName()
-			Expect(err).NotTo(HaveOccurred())
-
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuMigrateFromTerraformer)
-			Expect(err).NotTo(HaveOccurred())
-
 		})
 	})
 
@@ -276,7 +275,7 @@ var _ = Describe("Infrastructure tests", func() {
 		It("should fail to create when required vpc attribute is not enabled", func() {
 			enableDnsHostnames := false
 			assignIPv6CidrBlock := false
-			vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock)
+			vpcID, igwID, _, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 			Expect(igwID).NotTo(BeEmpty())
@@ -293,7 +292,7 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseFlow)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4})
 			Expect(err).To(HaveOccurred())
 
 			By("verify infrastructure status")
@@ -305,10 +304,10 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(infra.Status.LastError.Description).To(ContainSubstring("VPC attribute enableDnsHostnames must be set to true"))
 		})
 
-		It("should successfully create and delete (terraformer)", func() {
+		It("should successfully create and delete", func() {
 			enableDnsHostnames := true
 			assignIPv6CidrBlock := false
-			vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock)
+			vpcID, igwID, _, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 			Expect(igwID).NotTo(BeEmpty())
@@ -325,14 +324,14 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseTerraformer)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should successfully create and delete (terraformer) with dualstack enabled", func() {
+		It("should successfully create and delete (flow) with dualstack enabled", func() {
 			enableDnsHostnames := true
 			assignIPv6CidrBlock := true
-			vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock)
+			vpcID, igwID, _, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 			Expect(igwID).NotTo(BeEmpty())
@@ -350,62 +349,43 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseTerraformer)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should successfully create and delete (flow)", func() {
+		It("should successfully create and delete (flow) with IPv6", func() {
 			enableDnsHostnames := true
-			assignIPv6CidrBlock := false
-			vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock)
+			assignIPv6CidrBlock := true
+			egressOnlyIG := true
+			vpcID, igwID, eoegressOnlyIG, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock, egressOnlyIG)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vpcID).NotTo(BeEmpty())
 			Expect(igwID).NotTo(BeEmpty())
+
+			if egressOnlyIG {
+				Expect(eoegressOnlyIG).NotTo(BeEmpty())
+			}
 
 			framework.AddCleanupAction(func() {
 				Expect(integration.DestroyVPC(ctx, log, awsClient, vpcID)).To(Succeed())
 			})
 
-			providerConfig := newProviderConfig(awsv1alpha1.VPC{
+			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
 				ID:               &vpcID,
 				GatewayEndpoints: []string{s3GatewayEndpoint},
-			})
+			}, false)
+			providerConfig.DualStack.Enabled = true
 
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseFlow)
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
 			Expect(err).NotTo(HaveOccurred())
 		})
-	})
-
-	It("should successfully create and delete (flow) with dualstack enabled", func() {
-		enableDnsHostnames := true
-		assignIPv6CidrBlock := true
-		vpcID, igwID, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(vpcID).NotTo(BeEmpty())
-		Expect(igwID).NotTo(BeEmpty())
-
-		framework.AddCleanupAction(func() {
-			Expect(integration.DestroyVPC(ctx, log, awsClient, vpcID)).To(Succeed())
-		})
-
-		providerConfig := newProviderConfig(awsv1alpha1.VPC{
-			ID:               &vpcID,
-			GatewayEndpoints: []string{s3GatewayEndpoint},
-		})
-		providerConfig.DualStack.Enabled = true
-
-		namespace, err := generateNamespaceName()
-		Expect(err).NotTo(HaveOccurred())
-
-		err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, fuUseFlow)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with invalid credentials", func() {
-		It("should fail creation but succeed deletion (terraformer)", func() {
+		It("should fail creation but succeed deletion", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR: ptr.To(vpcCIDR),
 			})
@@ -478,7 +458,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(c.Create(ctx, secret)).To(Succeed())
 
 			By("create infrastructure")
-			infra, err = newInfrastructure(namespaceName, providerConfig, false)
+			infra, err = newInfrastructure(namespaceName, providerConfig)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(c.Create(ctx, infra)).To(Succeed())
 
@@ -494,111 +474,15 @@ var _ = Describe("Infrastructure tests", func() {
 				5*time.Minute,
 				nil,
 			)
-			Expect(err).To(MatchError(ContainSubstring("error validating provider credentials")))
 			var errorWithCode *gardencorev1beta1helper.ErrorWithCodes
 			Expect(errors.As(err, &errorWithCode)).To(BeTrue())
-			Expect(errorWithCode.Codes()).To(ConsistOf(gardencorev1beta1.ErrorInfraUnauthorized))
-		})
-
-		It("should fail creation but succeed deletion (flow)", func() {
-			providerConfig := newProviderConfig(awsv1alpha1.VPC{
-				CIDR: ptr.To(vpcCIDR),
-			})
-
-			namespaceName, err := generateNamespaceName()
-			Expect(err).NotTo(HaveOccurred())
-
-			var (
-				namespace *corev1.Namespace
-				cluster   *extensionsv1alpha1.Cluster
-				infra     *extensionsv1alpha1.Infrastructure
-			)
-
-			framework.AddCleanupAction(func() {
-				By("cleaning up namespace and cluster")
-				Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
-				Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
-			})
-
-			defer func() {
-				By("delete infrastructure")
-				Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
-
-				By("wait until infrastructure is deleted")
-				// deletion should succeed even though creation failed with invalid credentials (no-op)
-				err := extensions.WaitUntilExtensionObjectDeleted(
-					ctx,
-					c,
-					log,
-					infra,
-					extensionsv1alpha1.InfrastructureResource,
-					10*time.Second,
-					5*time.Minute,
-				)
-				Expect(err).NotTo(HaveOccurred())
-			}()
-
-			By("create namespace for test execution")
-			namespace = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespaceName,
-				},
-			}
-			Expect(c.Create(ctx, namespace)).To(Succeed())
-
-			By("create cluster")
-			cluster = &extensionsv1alpha1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespaceName,
-				},
-				Spec: extensionsv1alpha1.ClusterSpec{
-					CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
-					Seed:         runtime.RawExtension{Raw: []byte("{}")},
-					Shoot:        runtime.RawExtension{Raw: []byte("{}")},
-				},
-			}
-			Expect(c.Create(ctx, cluster)).To(Succeed())
-
-			By("deploy invalid cloudprovider secret into namespace")
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cloudprovider",
-					Namespace: namespaceName,
-				},
-				Data: map[string][]byte{
-					aws.AccessKeyID:     []byte("invalid"),
-					aws.SecretAccessKey: []byte("fake"),
-				},
-			}
-			Expect(c.Create(ctx, secret)).To(Succeed())
-
-			By("create infrastructure")
-			infra, err = newInfrastructure(namespaceName, providerConfig, true)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(c.Create(ctx, infra)).To(Succeed())
-
-			By("wait until infrastructure creation has failed")
-			err = extensions.WaitUntilExtensionObjectReady(
-				ctx,
-				c,
-				log,
-				infra,
-				extensionsv1alpha1.InfrastructureResource,
-				10*time.Second,
-				30*time.Second,
-				5*time.Minute,
-				nil,
-			)
-			Expect(err).To(MatchError(ContainSubstring("AWS was not able to validate the provided access credentials")))
-			var errorWithCode *gardencorev1beta1helper.ErrorWithCodes
-			Expect(errors.As(err, &errorWithCode)).To(BeTrue())
-			Expect(errorWithCode.Codes()).To(ConsistOf(gardencorev1beta1.ErrorInfraUnauthorized, gardencorev1beta1.ErrorInfraUnauthenticated))
+			Expect(errorWithCode.Codes()).To(ContainElement(gardencorev1beta1.ErrorInfraUnauthorized))
 		})
 	})
 })
 
 func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceName string,
-	providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client, flow flowUsage) error {
+	providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client, ipfamilies []gardencorev1beta1.IPFamily) error {
 	var (
 		namespace                 *corev1.Namespace
 		cluster                   *extensionsv1alpha1.Cluster
@@ -640,6 +524,15 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	}
 
 	By("create cluster")
+
+	shootRaw, _ := json.Marshal(gardencorev1beta1.Shoot{
+		Spec: gardencorev1beta1.ShootSpec{
+			Networking: &gardencorev1beta1.Networking{
+				IPFamilies: ipfamilies,
+			},
+		},
+	})
+
 	cluster = &extensionsv1alpha1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
@@ -647,7 +540,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		Spec: extensionsv1alpha1.ClusterSpec{
 			CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
 			Seed:         runtime.RawExtension{Raw: []byte("{}")},
-			Shoot:        runtime.RawExtension{Raw: []byte("{}")},
+			Shoot:        runtime.RawExtension{Raw: shootRaw},
 		},
 	}
 	if err := c.Create(ctx, cluster); err != nil {
@@ -670,7 +563,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	}
 
 	By("create infrastructure")
-	infra, err := newInfrastructure(namespaceName, providerConfig, flow == fuUseFlow || flow == fuUseFlowRecoverState)
+	infra, err := newInfrastructure(namespaceName, providerConfig)
 	if err != nil {
 		return err
 	}
@@ -705,32 +598,45 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	}
 
 	By("verify infrastructure creation")
-	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint)
+	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
 
 	By("add tags to subnet")
 	// add some ignored and not ignored tags to subnet and verify that ignored tags are not removed in the next reconciliation
 	taggedSubnetID := infrastructureIdentifiers.subnetIDs[0]
 	Expect(createTagsSubnet(ctx, awsClient, taggedSubnetID)).To(Succeed())
 
-	oldState := infra.Status.State
-	if flow == fuUseFlowRecoverState {
-		By("drop state for testing recover")
+	oldState := infra.Status.State.DeepCopy()
+	// Update the infra resource to trigger a migration.
+	switch *reconciler {
+	case reconcilerMigrateTF:
+		By("verifying terraform migration")
 		patch := client.MergeFrom(infra.DeepCopy())
-		infra.Status.ProviderStatus = nil
-		state, err := infraflow.NewPersistentState().ToJSON()
-		Expect(err).To(Succeed())
-		infra.Status.State = &runtime.RawExtension{Raw: state}
-		err = c.Status().Patch(ctx, infra, patch)
-		Expect(err).To(Succeed())
-	}
-
-	By("triggering infrastructure reconciliation")
-	infraCopy := infra.DeepCopy()
-	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, "gardener.cloud/operation", "reconcile")
-	if flow == fuMigrateFromTerraformer {
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
 		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, awsapi.AnnotationKeyUseFlow, "true")
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
+		Expect(c.Patch(ctx, infra, patch)).To(Succeed())
+	case reconcilerRecoverState:
+		By("drop state for testing recovery")
+
+		patch := client.MergeFrom(infra.DeepCopy())
+		infra.Status.LastOperation = nil
+		infra.Status.ProviderStatus = nil
+		infra.Status.State = nil
+		Expect(c.Status().Patch(ctx, infra, patch)).To(Succeed())
+
+		Expect(c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra)).To(Succeed())
+
+		patch = client.MergeFrom(infra.DeepCopy())
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
+		err = c.Patch(ctx, infra, patch)
+		Expect(err).To(Succeed())
+	default:
+		patch := client.MergeFrom(infra.DeepCopy())
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
+		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
+		Expect(c.Patch(ctx, infra, patch)).To(Succeed())
 	}
-	Expect(c.Patch(ctx, infra, client.MergeFrom(infraCopy))).To(Succeed())
 
 	By("wait until infrastructure is reconciled")
 	if err := extensions.WaitUntilExtensionObjectReady(
@@ -738,7 +644,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		c,
 		log,
 		infra,
-		"Infrastucture",
+		extensionsv1alpha1.InfrastructureResource,
 		10*time.Second,
 		30*time.Second,
 		16*time.Minute,
@@ -747,27 +653,34 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		return err
 	}
 
-	if flow == fuUseFlowRecoverState {
+	By("verify infrastructure creation")
+	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
+
+	By("verify tags on subnet")
+	verifyTagsSubnet(ctx, awsClient, taggedSubnetID)
+
+	if *reconciler == reconcilerRecoverState {
 		By("check state recovery")
 		if err := c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra); err != nil {
 			return err
 		}
 		Expect(infra.Status.State).To(Equal(oldState))
-		newProviderStatus := &awsv1alpha1.InfrastructureStatus{}
-		if _, _, err := decoder.Decode(infra.Status.ProviderStatus.Raw, nil, newProviderStatus); err != nil {
+		newProviderStatus := awsv1alpha1.InfrastructureStatus{}
+		if _, _, err := decoder.Decode(infra.Status.ProviderStatus.Raw, nil, &newProviderStatus); err != nil {
 			return err
 		}
-		Expect(newProviderStatus).To(integration.EqualInfrastructureStatus(providerStatus))
+		Expect(&newProviderStatus).To(integration.EqualInfrastructureStatus(providerStatus))
 	}
-
-	By("verify tags on subnet")
-	verifyTagsSubnet(ctx, awsClient, taggedSubnetID)
 
 	return nil
 }
 
 func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
-	availabilityZone := *region + "a"
+	return newProviderConfigConfigureZones(vpc, true)
+}
+
+func newProviderConfigConfigureZones(vpc awsv1alpha1.VPC, configureZoneIPs bool) *awsv1alpha1.InfrastructureConfig {
+	availabilityZone := *region + "b"
 
 	return &awsv1alpha1.InfrastructureConfig{
 		TypeMeta: metav1.TypeMeta{
@@ -783,7 +696,12 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 					Name:     availabilityZone,
 					Internal: "10.250.112.0/22",
 					Public:   "10.250.96.0/22",
-					Workers:  "10.250.0.0/19",
+					Workers: func() string {
+						if configureZoneIPs {
+							return "10.250.0.0/19"
+						}
+						return ""
+					}(),
 				},
 			},
 		},
@@ -794,7 +712,7 @@ func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 	}
 }
 
-func newInfrastructure(namespace string, providerConfig *awsv1alpha1.InfrastructureConfig, useFlow bool) (*extensionsv1alpha1.Infrastructure, error) {
+func newInfrastructure(namespace string, providerConfig *awsv1alpha1.InfrastructureConfig) (*extensionsv1alpha1.Infrastructure, error) {
 	const sshPublicKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDcSZKq0lM9w+ElLp9I9jFvqEFbOV1+iOBX7WEe66GvPLOWl9ul03ecjhOf06+FhPsWFac1yaxo2xj+SJ+FVZ3DdSn4fjTpS9NGyQVPInSZveetRw0TV0rbYCFBTJuVqUFu6yPEgdcWq8dlUjLqnRNwlelHRcJeBfACBZDLNSxjj0oUz7ANRNCEne1ecySwuJUAz3IlNLPXFexRT0alV7Nl9hmJke3dD73nbeGbQtwvtu8GNFEoO4Eu3xOCKsLw6ILLo4FBiFcYQOZqvYZgCb4ncKM52bnABagG54upgBMZBRzOJvWp0ol+jK3Em7Vb6ufDTTVNiQY78U6BAlNZ8Xg+LUVeyk1C6vWjzAQf02eRvMdfnRCFvmwUpzbHWaVMsQm8gf3AgnTUuDR0ev1nQH/5892wZA86uLYW/wLiiSbvQsqtY1jSn9BAGFGdhXgWLAkGsd/E1vOT+vDcor6/6KjHBm0rG697A3TDBRkbXQ/1oFxcM9m17RteCaXuTiAYWMqGKDoJvTMDc4L+Uvy544pEfbOH39zfkIYE76WLAFPFsUWX6lXFjQrX3O7vEV73bCHoJnwzaNd03PSdJOw+LCzrTmxVezwli3F9wUDiBRB0HkQxIXQmncc1HSecCKALkogIK+1e1OumoWh6gPdkF4PlTMUxRitrwPWSaiUIlPfCpQ== your_email@example.com"
 
 	providerConfigJSON, err := json.Marshal(&providerConfig)
@@ -806,6 +724,9 @@ func newInfrastructure(namespace string, providerConfig *awsv1alpha1.Infrastruct
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "infrastructure",
 			Namespace: namespace,
+			Labels: map[string]string{
+				"test-id": testId,
+			},
 		},
 		Spec: extensionsv1alpha1.InfrastructureSpec{
 			DefaultSpec: extensionsv1alpha1.DefaultSpec{
@@ -822,7 +743,7 @@ func newInfrastructure(namespace string, providerConfig *awsv1alpha1.Infrastruct
 			SSHPublicKey: []byte(sshPublicKey),
 		},
 	}
-	if useFlow {
+	if usesFlow(reconciler) {
 		infra.Annotations = map[string]string{awsapi.AnnotationKeyUseFlow: "true"}
 	}
 	return infra, nil
@@ -864,19 +785,20 @@ func createTagsSubnet(ctx context.Context, awsClient *awsclient.Client, subnetID
 }
 
 type infrastructureIdentifiers struct {
-	vpcID                    *string
-	dhcpOptionsID            *string
-	vpcEndpointID            *string
-	internetGatewayID        *string
-	securityGroupIDs         []*string
-	keyPairName              *string
-	subnetIDs                []*string
-	elasticIPAllocationID    *string
-	natGatewayID             *string
-	routeTableIDs            []*string
-	nodesRoleName            *string
-	nodesInstanceProfileName *string
-	nodesRolePolicyName      *string
+	vpcID                       *string
+	dhcpOptionsID               *string
+	vpcEndpointID               *string
+	internetGatewayID           *string
+	egressOnlyInternetGatewayID *string
+	securityGroupIDs            []*string
+	keyPairName                 *string
+	subnetIDs                   []*string
+	elasticIPAllocationID       *string
+	natGatewayID                *string
+	routeTableIDs               []*string
+	nodesRoleName               *string
+	nodesInstanceProfileName    *string
+	nodesRolePolicyName         *string
 }
 
 func verifyCreation(
@@ -887,6 +809,7 @@ func verifyCreation(
 	providerConfig *awsv1alpha1.InfrastructureConfig,
 	cidr *string,
 	gatewayEndpoint string,
+	ipfamilies []gardencorev1beta1.IPFamily,
 ) (
 	infrastructureIdentifier infrastructureIdentifiers,
 ) {
@@ -898,6 +821,7 @@ func verifyCreation(
 		sshPublicKeyDigest = "46:ca:46:0e:8e:1d:bc:0c:45:31:ee:0f:43:5f:9b:f1"
 		allCIDR            = "0.0.0.0/0"
 		allCIDRIPV6        = "::/0"
+		nat64Prefix        = "64:ff9b::/96"
 	)
 
 	var (
@@ -937,13 +861,16 @@ func verifyCreation(
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeVpcsOutput.Vpcs).To(HaveLen(1))
 	Expect(describeVpcsOutput.Vpcs[0].VpcId).To(PointTo(Equal(infraStatus.VPC.ID)))
+	if isIPv6(ipfamilies) && !isIPv4(ipfamilies) && providerConfig.Networks.VPC.ID == nil {
+		cidr = ptr.To(vpcCIDR)
+	}
 	Expect(describeVpcsOutput.Vpcs[0].CidrBlock).To(Equal(cidr))
 	if providerConfig.Networks.VPC.CIDR != nil {
 		Expect(describeVpcsOutput.Vpcs[0].Tags).To(ConsistOf(defaultTags))
 		infrastructureIdentifier.vpcID = describeVpcsOutput.Vpcs[0].VpcId
 	}
 
-	if providerConfig.DualStack.Enabled {
+	if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
 		Expect(describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet).ToNot(BeNil())
 		ipv6CidrBlock = describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
 	}
@@ -1029,57 +956,70 @@ func verifyCreation(
 			Expect(securityGroup.Tags).To(BeEmpty())
 			infrastructureIdentifier.securityGroupIDs = append(infrastructureIdentifier.securityGroupIDs, securityGroup.GroupId)
 		} else if *securityGroup.GroupName == infra.Namespace+"-nodes" {
-			Expect(securityGroup.IpPermissions).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
-				{
-					FromPort:   awssdk.Int64(30000),
-					IpProtocol: awssdk.String("tcp"),
-					IpRanges: []*ec2.IpRange{
-						{
-							CidrIp: awssdk.String(publicCIDR),
+			if isIPv4(ipfamilies) && !isIPv6(ipfamilies) {
+				Expect(securityGroup.IpPermissions).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
+					{
+						FromPort:   awssdk.Int64(30000),
+						IpProtocol: awssdk.String("tcp"),
+						IpRanges: []*ec2.IpRange{
+							{
+								CidrIp: awssdk.String(publicCIDR),
+							},
+							{
+								CidrIp: awssdk.String(allCIDR),
+							},
+							{
+								CidrIp: awssdk.String(internalCIDR),
+							},
 						},
-						{
-							CidrIp: awssdk.String(allCIDR),
-						},
-						{
-							CidrIp: awssdk.String(internalCIDR),
+						ToPort: awssdk.Int64(32767),
+					},
+					{
+						IpProtocol: awssdk.String("-1"),
+						UserIdGroupPairs: []*ec2.UserIdGroupPair{
+							{
+								GroupId: securityGroup.GroupId,
+								UserId:  awssdk.String(accountID),
+							},
 						},
 					},
-					ToPort: awssdk.Int64(32767),
-				},
-				{
-					IpProtocol: awssdk.String("-1"),
-					UserIdGroupPairs: []*ec2.UserIdGroupPair{
-						{
-							GroupId: securityGroup.GroupId,
-							UserId:  awssdk.String(accountID),
+					{
+						FromPort:   awssdk.Int64(30000),
+						IpProtocol: awssdk.String("udp"),
+						IpRanges: []*ec2.IpRange{
+							{
+								CidrIp: awssdk.String(publicCIDR),
+							},
+							{
+								CidrIp: awssdk.String(internalCIDR),
+							},
+							{
+								CidrIp: awssdk.String(allCIDR),
+							},
+						},
+						ToPort: awssdk.Int64(32767),
+					},
+				}))
+				Expect(securityGroup.IpPermissionsEgress).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
+					{
+						IpProtocol: awssdk.String("-1"),
+						IpRanges: []*ec2.IpRange{
+							{CidrIp: awssdk.String(allCIDR)},
 						},
 					},
-				},
-				{
-					FromPort:   awssdk.Int64(30000),
-					IpProtocol: awssdk.String("udp"),
-					IpRanges: []*ec2.IpRange{
-						{
-							CidrIp: awssdk.String(publicCIDR),
-						},
-						{
-							CidrIp: awssdk.String(internalCIDR),
-						},
-						{
-							CidrIp: awssdk.String(allCIDR),
+				}))
+			}
+			if !isIPv4(ipfamilies) && isIPv6(ipfamilies) {
+				Expect(securityGroup.IpPermissionsEgress).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
+					{
+						IpProtocol: awssdk.String("-1"),
+						Ipv6Ranges: []*ec2.Ipv6Range{
+							{CidrIpv6: awssdk.String(allCIDRIPV6)},
 						},
 					},
-					ToPort: awssdk.Int64(32767),
-				},
-			}))
-			Expect(securityGroup.IpPermissionsEgress).To(BeSemanticallyEqualTo([]*ec2.IpPermission{
-				{
-					IpProtocol: awssdk.String("-1"),
-					IpRanges: []*ec2.IpRange{
-						{CidrIp: awssdk.String(allCIDR)},
-					},
-				},
-			}))
+				}))
+			}
+
 			Expect(securityGroup.Tags).To(ConsistOf([]*ec2.Tag{
 				{
 					Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
@@ -1115,6 +1055,7 @@ func verifyCreation(
 		workersSubnetID      string
 		publicSubnetID       string
 		internalSubnetID     string
+		foundCIDRReservation int
 	)
 	for _, subnet := range describeSubnetsOutput.Subnets {
 		for _, tag := range subnet.Tags {
@@ -1122,76 +1063,95 @@ func verifyCreation(
 				foundExpectedSubnets++
 				workersSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
-				Expect(subnet.CidrBlock).To(PointTo(Equal(workersCIDR)))
-				if providerConfig.DualStack.Enabled {
+				if isIPv4(ipfamilies) {
+					Expect(subnet.CidrBlock).To(PointTo(Equal(workersCIDR)))
+				}
+				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
 				}
 				Expect(subnet.State).To(PointTo(Equal("available")))
-				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
-					{
+				Expect(subnet.Tags).To(ContainElements(
+					&ec2.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
-					{
+					&ec2.Tag{
 						Key:   awssdk.String("Name"),
 						Value: awssdk.String(infra.Namespace + nodesSuffix),
 					},
-				}))
+				))
 				infrastructureIdentifier.subnetIDs = append(infrastructureIdentifier.subnetIDs, subnet.SubnetId)
+				Expect(infraStatus.VPC.Subnets).To(ContainElement(Equal(awsv1alpha1.Subnet{
+					Purpose: awsv1alpha1.PurposeNodes,
+					ID:      ptr.Deref(subnet.SubnetId, ""),
+					Zone:    availabilityZone,
+				})))
+				if isIPv6(ipfamilies) {
+					output, err := awsClient.EC2.GetSubnetCidrReservationsWithContext(ctx, &ec2.GetSubnetCidrReservationsInput{SubnetId: subnet.SubnetId})
+					Expect(err).NotTo(HaveOccurred())
+					foundCIDRReservation += len(output.SubnetIpv6CidrReservations)
+				}
 			}
 			if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+publicUtilitySuffix)) {
 				foundExpectedSubnets++
 				publicSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
-				Expect(subnet.CidrBlock).To(PointTo(Equal(publicCIDR)))
-				if providerConfig.DualStack.Enabled {
+				if isIPv4(ipfamilies) {
+					Expect(subnet.CidrBlock).To(PointTo(Equal(publicCIDR)))
+				}
+				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
 				}
 				Expect(subnet.State).To(PointTo(Equal("available")))
-				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
-					{
+				Expect(subnet.Tags).To(ContainElements(
+					&ec2.Tag{
 						Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
 						Value: awssdk.String("1"),
 					},
-					{
+					&ec2.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
-					{
+					&ec2.Tag{
 						Key:   awssdk.String("Name"),
 						Value: awssdk.String(infra.Namespace + publicUtilitySuffix),
 					},
-				}))
+				))
 				infrastructureIdentifier.subnetIDs = append(infrastructureIdentifier.subnetIDs, subnet.SubnetId)
 			}
 			if reflect.DeepEqual(tag.Key, awssdk.String("Name")) && reflect.DeepEqual(tag.Value, awssdk.String(infra.Namespace+privateUtilitySuffix)) {
 				foundExpectedSubnets++
 				internalSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
-				Expect(subnet.CidrBlock).To(PointTo(Equal(internalCIDR)))
-				if providerConfig.DualStack.Enabled {
+				if isIPv4(ipfamilies) {
+					Expect(subnet.CidrBlock).To(PointTo(Equal(internalCIDR)))
+				}
+				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeNil())
 				}
 				Expect(subnet.State).To(PointTo(Equal("available")))
-				Expect(subnet.Tags).To(ConsistOf([]*ec2.Tag{
-					{
+				Expect(subnet.Tags).To(ContainElements(
+					&ec2.Tag{
 						Key:   awssdk.String(kubernetesRoleTagPrefix + "internal-elb"),
 						Value: awssdk.String("1"),
 					},
-					{
+					&ec2.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 						Value: awssdk.String("1"),
 					},
-					{
+					&ec2.Tag{
 						Key:   awssdk.String("Name"),
 						Value: awssdk.String(infra.Namespace + privateUtilitySuffix),
 					},
-				}))
+				))
 				infrastructureIdentifier.subnetIDs = append(infrastructureIdentifier.subnetIDs, subnet.SubnetId)
 			}
 		}
 	}
 	Expect(foundExpectedSubnets).To(Equal(3))
+	if isIPv6(ipfamilies) {
+		Expect(foundCIDRReservation).To(Equal(1))
+	}
 
 	// elastic ips
 
@@ -1245,7 +1205,30 @@ func verifyCreation(
 			}
 		}
 	}
-	Expect(infra.Status.EgressCIDRs).To(ConsistOf(egressCIDRs))
+	Expect(infra.Status.EgressCIDRs).To(ContainElements(egressCIDRs))
+
+	if isIPv6(ipfamilies) {
+		// egress only internet gateway
+		describeEgressOnlyInternetGatewaysOutput, err := awsClient.EC2.DescribeEgressOnlyInternetGatewaysWithContext(ctx, &ec2.DescribeEgressOnlyInternetGatewaysInput{})
+		Expect(err).NotTo(HaveOccurred())
+
+		var eoigs []*ec2.EgressOnlyInternetGateway
+		for _, item := range describeEgressOnlyInternetGatewaysOutput.EgressOnlyInternetGateways {
+			if *item.Attachments[0].VpcId == infraStatus.VPC.ID {
+				eoigs = append(eoigs, item)
+			}
+		}
+
+		Expect(eoigs).To(HaveLen(1))
+		if providerConfig.Networks.VPC.CIDR != nil {
+			Expect(eoigs[0].Tags).To(ConsistOf(defaultTags))
+			infrastructureIdentifier.egressOnlyInternetGatewayID = eoigs[0].EgressOnlyInternetGatewayId
+		}
+
+		Expect(infra.Status.Networking.Nodes).To(HaveLen(1))
+		Expect(infra.Status.Networking.Pods).To(HaveLen(1))
+		Expect(infra.Status.Networking.Services).To(HaveLen(1))
+	}
 
 	// route tables + routes
 
@@ -1270,7 +1253,7 @@ func verifyCreation(
 				},
 			}
 
-			if providerConfig.DualStack.Enabled {
+			if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
 				expectedRoutes = append(expectedRoutes, &ec2.Route{
 					DestinationIpv6CidrBlock: ipv6CidrBlock,
 					GatewayId:                awssdk.String("local"),
@@ -1305,7 +1288,7 @@ func verifyCreation(
 						State:                awssdk.String("active"),
 					},
 				}
-				if providerConfig.DualStack.Enabled {
+				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
 					expectedRoutes = append(expectedRoutes,
 						&ec2.Route{
 							DestinationIpv6CidrBlock: ipv6CidrBlock,
@@ -1365,12 +1348,36 @@ func verifyCreation(
 						State:                   awssdk.String("active"),
 					},
 				}
-				if providerConfig.DualStack.Enabled {
+				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
 					expectedRoutes = append(expectedRoutes, &ec2.Route{
 						DestinationIpv6CidrBlock: ipv6CidrBlock,
 						GatewayId:                awssdk.String("local"),
 						Origin:                   awssdk.String("CreateRouteTable"),
 						State:                    awssdk.String("active"),
+					})
+				}
+				if isIPv6(ipfamilies) {
+					describeEgressOnlyInternetGatewaysOutput, err := awsClient.EC2.DescribeEgressOnlyInternetGatewaysWithContext(ctx, &ec2.DescribeEgressOnlyInternetGatewaysInput{})
+					Expect(err).NotTo(HaveOccurred())
+					var eoigs []*ec2.EgressOnlyInternetGateway
+					for _, item := range describeEgressOnlyInternetGatewaysOutput.EgressOnlyInternetGateways {
+						if *item.Attachments[0].VpcId == infraStatus.VPC.ID {
+							eoigs = append(eoigs, item)
+						}
+					}
+
+					expectedRoutes = append(expectedRoutes, &ec2.Route{
+						DestinationIpv6CidrBlock: awssdk.String(nat64Prefix),
+						NatGatewayId:             describeNatGatewaysOutput.NatGateways[0].NatGatewayId,
+						Origin:                   awssdk.String("CreateRoute"),
+						State:                    awssdk.String("active"),
+					})
+
+					expectedRoutes = append(expectedRoutes, &ec2.Route{
+						DestinationIpv6CidrBlock:    awssdk.String(allCIDRIPV6),
+						EgressOnlyInternetGatewayId: eoigs[0].EgressOnlyInternetGatewayId,
+						Origin:                      awssdk.String("CreateRoute"),
+						State:                       awssdk.String("active"),
 					})
 				}
 				Expect(routeTable.Routes).To(ConsistOf(expectedRoutes))
@@ -1529,6 +1536,14 @@ func verifyDeletion(
 		Expect(describeInternetGatewaysOutput.InternetGateways).To(BeEmpty())
 	}
 
+	// egress only internet gateway
+
+	if infrastructureIdentifier.egressOnlyInternetGatewayID != nil {
+		describeInternetGatewaysOutput, _ := awsClient.EC2.DescribeEgressOnlyInternetGatewaysWithContext(ctx, &ec2.DescribeEgressOnlyInternetGatewaysInput{EgressOnlyInternetGatewayIds: []*string{infrastructureIdentifier.egressOnlyInternetGatewayID}})
+		// Did not see an error if no gateway is found. So, just check for an empty array.
+		Expect(describeInternetGatewaysOutput.EgressOnlyInternetGateways).To(BeEmpty())
+	}
+
 	// security groups
 
 	if len(infrastructureIdentifier.securityGroupIDs) > 0 {
@@ -1619,4 +1634,20 @@ func verifyDeletion(
 		Expect(awsErr.Code()).To(Equal("NoSuchEntity"))
 		Expect(getRolePolicyOutputNodes.PolicyDocument).To(BeNil())
 	}
+}
+
+func usesFlow(reconciler *string) bool {
+	if rec := ptr.Deref(reconciler, reconcilerUseTF); rec == reconcilerUseTF || rec == reconcilerMigrateTF {
+		return false
+	}
+
+	return true
+}
+
+func isIPv6(ipfamilies []gardencorev1beta1.IPFamily) bool {
+	return sets.New[gardencorev1beta1.IPFamily](ipfamilies...).Has(gardencorev1beta1.IPFamilyIPv6)
+}
+
+func isIPv4(ipfamilies []gardencorev1beta1.IPFamily) bool {
+	return sets.New[gardencorev1beta1.IPFamily](ipfamilies...).Has(gardencorev1beta1.IPFamilyIPv4)
 }

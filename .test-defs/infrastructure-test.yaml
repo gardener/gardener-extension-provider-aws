@@ -15,5 +15,6 @@ spec:
     --access-key-id=$ACCESS_KEY_ID
     --secret-access-key=$SECRET_ACCESS_KEY
     --region=$REGION
+    --reconciler="${RECONCILER}"
 
-  image: golang:1.22.4
+  image: golang:1.23.0

@@ -42,13 +42,46 @@ spec:
         key: secretAccessKey
 
   testflow:
-  - name: infrastructure-test
+  - name: infrastructure-test-tf
+    definition:
+      name: infrastructure-test
+      config:
+        - name: REGION
+          type: env
+          value: eu-west-1
+        - name: RECONCILER
+          type: env
+          value: tf
+  - name: infrastructure-test-flow
+    definition:
+      name: infrastructure-test
+      config:
+        - name: REGION
+          type: env
+          value: eu-west-1
+        - name: RECONCILER
+          type: env
+          value: flow
+  - name: infrastructure-test-migrate
+    definition:
+      name: infrastructure-test
+      config:
+        - name: REGION
+          type: env
+          value: eu-west-1
+        - name: RECONCILER
+          type: env
+          value: migrate
+  - name: infrastructure-test-recover
     definition:
       name: infrastructure-test
       config:
       - name: REGION
         type: env
         value: eu-west-1
+      - name: RECONCILER
+        type: env
+        value: recover
   - name: bastion-test
     definition:
       name: bastion-test

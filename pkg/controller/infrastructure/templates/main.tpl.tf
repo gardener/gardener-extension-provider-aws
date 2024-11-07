@@ -27,10 +27,11 @@ resource "aws_vpc_dhcp_options" "vpc_dhcp_options" {
 }
 
 resource "aws_vpc" "vpc" {
+  # Currently it is not possible to create a VPC without an IPv4 CIDR bock
   cidr_block           = "{{ .vpc.cidr }}"
   enable_dns_support   = true
   enable_dns_hostnames = true
-  {{ if .dualStack.enabled }}
+  {{ if or .dualStack.enabled .isIPv6  }}
   assign_generated_ipv6_cidr_block = true
   {{ end }}
 
@@ -67,6 +68,14 @@ resource "aws_vpc_endpoint" "vpc_gwep_{{ $ep }}" {
 }
 {{ end }}
 
+{{ if and .create.vpc .isIPv6 }}
+resource "aws_egress_only_internet_gateway" "egw" {
+  vpc_id = {{ $.vpc.id }}
+
+{{ commonTags .clusterName | indent 2 }}
+}
+{{ end }}
+
 resource "aws_route_table" "routetable_main" {
   vpc_id = {{ .vpc.id }}
 
@@ -87,7 +96,7 @@ resource "aws_route" "public" {
   }
 }
 
-{{ if .dualStack.enabled }}
+{{ if or .dualStack.enabled .isIPv6 }}
 resource "aws_route" "public-ipv6" {
   route_table_id         = aws_route_table.routetable_main.id
   destination_ipv6_cidr_block = "::/0"
@@ -126,7 +135,12 @@ resource "aws_security_group_rule" "nodes_tcp_all" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "tcp"
+  {{ if .isIPv4 }}
   cidr_blocks       = ["0.0.0.0/0"]
+  {{ end }}
+  {{ if .isIPv6 }}
+  ipv6_cidr_blocks  = ["::/0"]
+  {{ end }}
   security_group_id = aws_security_group.nodes.id
 }
 
@@ -135,7 +149,12 @@ resource "aws_security_group_rule" "nodes_udp_all" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "udp"
+  {{ if .isIPv4 }}
   cidr_blocks       = ["0.0.0.0/0"]
+  {{ end }}
+  {{ if .isIPv6 }}
+  ipv6_cidr_blocks  = ["::/0"]
+  {{ end }}
   security_group_id = aws_security_group.nodes.id
 }
 
@@ -144,19 +163,33 @@ resource "aws_security_group_rule" "nodes_egress_all" {
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
+  {{ if .isIPv4 }}
   cidr_blocks       = ["0.0.0.0/0"]
+  {{ end }}
+  {{ if .isIPv6 }}
+  ipv6_cidr_blocks  = ["::/0"]
+  {{ end }}
   security_group_id = aws_security_group.nodes.id
 }
 
 {{ range $index, $zone := .zones }}
 resource "aws_subnet" "nodes_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
+  {{ if $.isIPv4 }}
   cidr_block        = "{{ $zone.worker }}"
+  {{ end }}
   availability_zone = "{{ $zone.name }}"
-{{- if $.dualStack.enabled }}
+
+  {{ if $.isIPv6 }}
+  enable_dns64 = true
+  ipv6_native = true
+  assign_ipv6_address_on_creation = true
+  ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (({{ $index }} * 3)))}"
+  enable_resource_name_dns_aaaa_record_on_launch = true
+  {{- else if $.dualStack.enabled }}
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = false
-{{- end }}
+  {{- end }}
   timeouts {
     create = "5m"
     delete = "5m"
@@ -168,15 +201,19 @@ resource "aws_subnet" "nodes_z{{ $index }}" {
 output "{{ $.outputKeys.subnetsNodesPrefix }}{{ $index }}" {
   value = aws_subnet.nodes_z{{ $index }}.id
 }
-
+// Load balancers can only be deployed to subnets that have an IPv4 CIDR.
+// Therefore, internal and public subnets must not be IPv6 native.
 resource "aws_subnet" "private_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.internal }}"
   availability_zone = "{{ $zone.name }}"
-{{- if $.dualStack.enabled }}
+  {{ if $.isIPv6 }}
+  assign_ipv6_address_on_creation = true
+  ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
+  {{- else if $.dualStack.enabled }}
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = false
-{{- end }}
+  {{- end }}
   timeouts {
     create = "5m"
     delete = "5m"
@@ -194,7 +231,12 @@ resource "aws_security_group_rule" "nodes_tcp_internal_z{{ $index }}" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "tcp"
+  {{ if $.isIPv4 }}
   cidr_blocks       = ["{{ $zone.internal }}"]
+  {{ end }}
+  {{ if $.isIPv6 }}
+  ipv6_cidr_blocks   = ["${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"]
+  {{ end}}
   security_group_id = aws_security_group.nodes.id
 }
 
@@ -203,7 +245,12 @@ resource "aws_security_group_rule" "nodes_udp_internal_z{{ $index }}" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "udp"
+  {{ if $.isIPv4 }}
   cidr_blocks       = ["{{ $zone.internal }}"]
+  {{ end }}
+  {{ if $.isIPv6 }}
+  ipv6_cidr_blocks   = ["${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"]
+  {{ end}}
   security_group_id = aws_security_group.nodes.id
 }
 
@@ -211,7 +258,11 @@ resource "aws_subnet" "public_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
   cidr_block        = "{{ $zone.public }}"
   availability_zone = "{{ $zone.name }}"
-{{- if $.dualStack.enabled }}
+  {{ if $.isIPv6 }}
+  assign_ipv6_address_on_creation = true
+  ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"
+  enable_resource_name_dns_aaaa_record_on_launch = true
+  {{- else if $.dualStack.enabled }}
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"
   assign_ipv6_address_on_creation = false
   {{- end }}
@@ -237,6 +288,9 @@ resource "aws_security_group_rule" "nodes_tcp_public_z{{ $index }}" {
   to_port           = 32767
   protocol          = "tcp"
   cidr_blocks       = ["{{ $zone.public }}"]
+  {{ if $.isIPv6 }}
+  ipv6_cidr_blocks   = ["${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"]
+  {{ end}}
   security_group_id = aws_security_group.nodes.id
 }
 
@@ -246,6 +300,9 @@ resource "aws_security_group_rule" "nodes_udp_public_z{{ $index }}" {
   to_port           = 32767
   protocol          = "udp"
   cidr_blocks       = ["{{ $zone.public }}"]
+  {{ if $.isIPv6 }}
+  ipv6_cidr_blocks   = ["${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (2 + ({{ $index }} * 3)))}"]
+  {{ end}}
   security_group_id = aws_security_group.nodes.id
 }
 
@@ -274,16 +331,6 @@ resource "aws_nat_gateway" "natgw_z{{ $index }}" {
   }
 }
 
-resource "aws_route_table" "routetable_private_utility_z{{ $index }}" {
-  vpc_id = {{ $.vpc.id }}
-
-  timeouts {
-    create = "5m"
-  }
-
-{{ commonTagsWithSuffix $.clusterName (print "private-" $zone.name) | indent 2 }}
-}
-
 resource "aws_route" "private_utility_z{{ $index }}_nat" {
   route_table_id         = aws_route_table.routetable_private_utility_z{{ $index }}.id
   destination_cidr_block = "0.0.0.0/0"
@@ -292,6 +339,38 @@ resource "aws_route" "private_utility_z{{ $index }}_nat" {
   timeouts {
     create = "5m"
   }
+}
+
+{{- if $.isIPv6 }}
+resource "aws_route" "private_utility_z{{ $index }}_nat_64" {
+  route_table_id         = aws_route_table.routetable_private_utility_z{{ $index }}.id
+  destination_ipv6_cidr_block  = "64:ff9b::/96"
+  nat_gateway_id         = aws_nat_gateway.natgw_z{{ $index }}.id
+
+  timeouts {
+    create = "5m"
+  }
+}
+
+resource "aws_route" "private_utility_z{{ $index }}_egw" {
+  route_table_id         = aws_route_table.routetable_private_utility_z{{ $index }}.id
+  destination_ipv6_cidr_block = "::/0"
+  egress_only_gateway_id = {{ $.vpc.egressOnlyInternetGatewayID }}
+
+  timeouts {
+    create = "5m"
+  }
+}
+{{- end }}
+
+resource "aws_route_table" "routetable_private_utility_z{{ $index }}" {
+  vpc_id = {{ $.vpc.id }}
+
+  timeouts {
+    create = "5m"
+  }
+
+  {{ commonTagsWithSuffix $.clusterName (print "private-" $zone.name) | indent 2 }}
 }
 
 resource "aws_route_table_association" "routetable_private_utility_z{{ $index }}_association_private_utility_z{{ $index }}" {
@@ -316,6 +395,14 @@ resource "aws_vpc_endpoint_route_table_association" "vpc_gwep_{{ $ep }}_z{{ $ind
 }
 {{end}}
 
+{{end}}
+
+{{- if .isIPv6 }}
+resource "aws_ec2_subnet_cidr_reservation" "service-range" {
+  cidr_block       = "${cidrsubnet(cidrsubnet({{ .vpc.ipv6CidrBlock }}, 8, 0),44,1)}"
+  reservation_type = "explicit"
+  subnet_id        = aws_subnet.nodes_z0.id
+}
 {{end}}
 
 //=====================================================================

@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: infrastructures.extensions.gardener.cloud
 spec:
   group: extensions.gardener.cloud
@@ -60,6 +60,13 @@ spec:
               Specification of the Infrastructure.
               If the object's deletion timestamp is set, this field is immutable.
             properties:
+              class:
+                description: Class holds the extension class used to control the responsibility
+                  for multiple provider extensions.
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               providerConfig:
                 description: ProviderConfig is the provider specific configuration.
                 type: object
@@ -206,6 +213,26 @@ spec:
                 - progress
                 - state
                 - type
+                type: object
+              networking:
+                description: Networking contains information about cluster networking
+                  such as CIDRs.
+                properties:
+                  nodes:
+                    description: Nodes are the CIDRs of the node network.
+                    items:
+                      type: string
+                    type: array
+                  pods:
+                    description: Pods are the CIDRs of the pod network.
+                    items:
+                      type: string
+                    type: array
+                  services:
+                    description: Services are the CIDRs of the service network.
+                    items:
+                      type: string
+                    type: array
                 type: object
               nodesCIDR:
                 description: |-

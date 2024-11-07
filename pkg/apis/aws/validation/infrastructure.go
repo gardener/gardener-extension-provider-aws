@@ -7,6 +7,7 @@ package validation
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -23,11 +24,11 @@ import (
 var gatewayEndpointPattern = regexp.MustCompile(`^\w+(\.\w+)*$`)
 
 // ValidateInfrastructureConfigAgainstCloudProfile validates the given `InfrastructureConfig` against the given `CloudProfile`.
-func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfile *gardencorev1beta1.CloudProfile, fldPath *field.Path) field.ErrorList {
+func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	shootRegion := shoot.Spec.Region
-	for _, region := range cloudProfile.Spec.Regions {
+	for _, region := range cloudProfileSpec.Regions {
 		if region.Name == shootRegion {
 			allErrs = append(allErrs, validateInfrastructureConfigZones(oldInfra, infra, region.Zones, fldPath.Child("network"))...)
 			break
@@ -66,7 +67,7 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 }
 
 // ValidateInfrastructureConfig validates a InfrastructureConfig object.
-func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR, podsCIDR, servicesCIDR *string) field.ErrorList {
+func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilies []core.IPFamily, nodesCIDR, podsCIDR, servicesCIDR *string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	var (
@@ -109,18 +110,20 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 	for i, zone := range infra.Networks.Zones {
 		zonePath := networksPath.Child("zones").Index(i)
 
-		internalPath := zonePath.Child("internal")
-		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
-		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, zone.Internal)...)
-
 		publicPath := zonePath.Child("public")
 		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Public, publicPath))
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(publicPath, zone.Public)...)
 
-		workerPath := zonePath.Child("workers")
-		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
-		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
-		workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+		if ipFamilies == nil || slices.Contains(ipFamilies, core.IPFamilyIPv4) {
+			internalPath := zonePath.Child("internal")
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, zone.Internal)...)
+
+			workerPath := zonePath.Child("workers")
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
+			workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+		}
 
 		if zone.ElasticIPAllocationID != nil {
 			for _, eIP := range referencedElasticIPAllocationIDs {
@@ -145,7 +148,7 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR
 
 	if (infra.Networks.VPC.ID == nil && infra.Networks.VPC.CIDR == nil) || (infra.Networks.VPC.ID != nil && infra.Networks.VPC.CIDR != nil) {
 		allErrs = append(allErrs, field.Invalid(networksPath.Child("vpc"), infra.Networks.VPC, "must specify either a vpc id or a cidr"))
-	} else if infra.Networks.VPC.CIDR != nil && infra.Networks.VPC.ID == nil {
+	} else if infra.Networks.VPC.CIDR != nil && infra.Networks.VPC.ID == nil && !slices.Contains(ipFamilies, core.IPFamilyIPv6) {
 		cidrPath := networksPath.Child("vpc", "cidr")
 		vpcCIDR := cidrvalidation.NewCIDR(*infra.Networks.VPC.CIDR, cidrPath)
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(cidrPath, *infra.Networks.VPC.CIDR)...)

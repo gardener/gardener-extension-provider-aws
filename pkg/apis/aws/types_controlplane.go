@@ -43,6 +43,12 @@ type LoadBalancerControllerConfig struct {
 	IngressClassName *string
 }
 
+// IPAMControllerConfig contains configuration settings for the optional aws-ipam-controller.
+type IPAMControllerConfig struct {
+	// Enabled controls if the IPAM controller should be deployed.
+	Enabled bool
+}
+
 // Storage contains configuration for storage in the cluster.
 type Storage struct {
 	// ManagedDefaultClass controls if the 'default' StorageClass and 'default' VolumeSnapshotClass
