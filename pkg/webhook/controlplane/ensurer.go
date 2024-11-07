@@ -42,8 +42,8 @@ import (
 )
 
 const (
-	ecrCredentialConfigLocation = "/opt/gardener/ecr-credential-provider-config.json"
-	ecrCredentialBinLocation    = "/opt/bin/"
+	ecrCredentialConfigLocation = "/opt/gardener/ecr-credential-provider-config.json" // #nosec G101 -- No credential.
+	ecrCredentialBinLocation    = "/opt/bin/"                                         // #nosec G101 -- No credential.
 )
 
 var (
