@@ -7,7 +7,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"math"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -153,9 +152,6 @@ func (w *workerDelegate) generateMachineConfig(ctx context.Context) error {
 			return err
 		}
 
-		if len(pool.Zones) > math.MaxInt32 {
-			return fmt.Errorf("too many zones")
-		}
 		zoneLen := int32(len(pool.Zones)) // #nosec: G115 - We do check if pool Zones exceeds max_int32.
 		for zoneIndex, zone := range pool.Zones {
 			zoneIdx := int32(zoneIndex) // #nosec: G115 - We do check if pool Zones exceeds max_int32.
