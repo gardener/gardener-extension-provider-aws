@@ -163,10 +163,10 @@ test-clean:
 	@bash $(GARDENER_HACK_DIR)/test-cover-clean.sh
 
 .PHONY: verify
-verify: check format test
+verify: check format test sast
 
 .PHONY: verify-extended
-verify-extended: check-generate check format test-cov test-clean
+verify-extended: check-generate check format test-cov test-clean sast-report
 
 .PHONY: integration-test-infra
 integration-test-infra:
