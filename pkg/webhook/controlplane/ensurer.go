@@ -29,7 +29,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1 "k8s.io/kubelet/config/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
@@ -45,20 +44,6 @@ const (
 	ecrCredentialConfigLocation = "/opt/gardener/ecr-credential-provider-config.json"
 	ecrCredentialBinLocation    = "/opt/bin/"
 )
-
-var (
-	// constraintK8sLess131 is a version constraint for versions < 1.31.
-	//
-	// TODO(ialidzhikov): Replace with versionutils.ConstraintK8sLess131 when vendoring a gardener/gardener version
-	// that contains https://github.com/gardener/gardener/pull/10472.
-	constraintK8sLess131 *semver.Constraints
-)
-
-func init() {
-	var err error
-	constraintK8sLess131, err = semver.NewConstraint("< 1.31-0")
-	utilruntime.Must(err)
-}
 
 // NewEnsurer creates a new controlplane ensurer.
 func NewEnsurer(logger logr.Logger, client client.Client) genericmutator.Ensurer {
@@ -210,14 +195,14 @@ func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"CSIMigrationAWS=true", ",")
 	}
-	if constraintK8sLess131.Check(k8sVersion) {
+	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
 	}
 
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--cloud-provider=")
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--cloud-config=")
-	if constraintK8sLess131.Check(k8sVersion) {
+	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureNoStringWithPrefixContains(c.Command, "--enable-admission-plugins=",
 			"PersistentVolumeLabel", ",")
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--disable-admission-plugins=",
@@ -234,7 +219,7 @@ func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion 
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"CSIMigrationAWS=true", ",")
 	}
-	if constraintK8sLess131.Check(k8sVersion) {
+	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
 	}
@@ -254,7 +239,7 @@ func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"CSIMigrationAWS=true", ",")
 	}
-	if constraintK8sLess131.Check(k8sVersion) {
+	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
 	}
@@ -267,7 +252,7 @@ func ensureClusterAutoscalerCommandLineArgs(c *corev1.Container, k8sVersion *sem
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"CSIMigrationAWS=true", ",")
 	}
-	if constraintK8sLess131.Check(k8sVersion) {
+	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
 	}
@@ -407,7 +392,7 @@ func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.Garde
 		setKubeletConfigurationFeatureGate(newObj, "CSIMigration", true)
 		setKubeletConfigurationFeatureGate(newObj, "CSIMigrationAWS", true)
 	}
-	if constraintK8sLess131.Check(kubeletVersion) {
+	if versionutils.ConstraintK8sLess131.Check(kubeletVersion) {
 		setKubeletConfigurationFeatureGate(newObj, "InTreePluginAWSUnregister", true)
 	}
 
