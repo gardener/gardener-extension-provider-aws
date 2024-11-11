@@ -5,7 +5,6 @@
 package validator
 
 import (
-	extensionspredicate "github.com/gardener/gardener/extensions/pkg/predicate"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/gardener/gardener/pkg/apis/security"
@@ -13,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
@@ -35,9 +33,6 @@ func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 		Provider: aws.Type,
 		Name:     Name,
 		Path:     "/webhooks/validate",
-		// TODO(dimityrmirchev): Uncomment this line once this extension uses a g/g version that contains https://github.com/gardener/gardener/pull/10499
-		// Predicates: []predicate.Predicate{predicate.Or(extensionspredicate.GardenCoreProviderType(aws.Type), extensionspredicate.GardenSecurityProviderType(aws.Type))},
-		Predicates: []predicate.Predicate{extensionspredicate.GardenCoreProviderType(aws.Type)},
 		Validators: map[extensionswebhook.Validator][]extensionswebhook.Type{
 			NewShootValidator(mgr):              {{Obj: &core.Shoot{}}},
 			NewCloudProfileValidator(mgr):       {{Obj: &core.CloudProfile{}}},
