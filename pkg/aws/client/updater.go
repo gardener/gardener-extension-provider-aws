@@ -12,7 +12,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	"k8s.io/utils/ptr"
 
@@ -72,13 +72,13 @@ func (u *updater) UpdateVpc(ctx context.Context, desired, current *VPC) (modifie
 
 func (u *updater) updateVpcAttributes(ctx context.Context, desired, current *VPC) (modified bool, err error) {
 	if desired.EnableDnsSupport != current.EnableDnsSupport {
-		if err = u.client.UpdateVpcAttribute(ctx, current.VpcId, ec2.VpcAttributeNameEnableDnsSupport, desired.EnableDnsSupport); err != nil {
+		if err = u.client.UpdateVpcAttribute(ctx, current.VpcId, string(ec2types.VpcAttributeNameEnableDnsSupport), desired.EnableDnsSupport); err != nil {
 			return
 		}
 		modified = true
 	}
 	if desired.EnableDnsHostnames != current.EnableDnsHostnames {
-		if err = u.client.UpdateVpcAttribute(ctx, current.VpcId, ec2.VpcAttributeNameEnableDnsHostnames, desired.EnableDnsHostnames); err != nil {
+		if err = u.client.UpdateVpcAttribute(ctx, current.VpcId, string(ec2types.VpcAttributeNameEnableDnsHostnames), desired.EnableDnsHostnames); err != nil {
 			return
 		}
 		modified = true

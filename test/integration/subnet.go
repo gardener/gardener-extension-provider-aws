@@ -8,8 +8,9 @@ import (
 	"context"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -18,16 +19,16 @@ import (
 
 // CreateSubnet creates a new subnet and waits for it to become available.
 func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string, cidr string, name string) (string, error) {
-	output, err := awsClient.EC2.CreateSubnet(&ec2.CreateSubnetInput{
-		CidrBlock: awssdk.String(cidr),
-		VpcId:     awssdk.String(vpcID),
-		TagSpecifications: []*ec2.TagSpecification{
+	output, err := awsClient.EC2.CreateSubnet(ctx, &ec2.CreateSubnetInput{
+		CidrBlock: aws.String(cidr),
+		VpcId:     aws.String(vpcID),
+		TagSpecifications: []ec2types.TagSpecification{
 			{
-				ResourceType: awssdk.String("subnet"),
-				Tags: []*ec2.Tag{
+				ResourceType: ec2types.ResourceTypeSubnet,
+				Tags: []ec2types.Tag{
 					{
-						Key:   awssdk.String("Name"),
-						Value: awssdk.String(name),
+						Key:   aws.String("Name"),
+						Value: aws.String(name),
 					},
 				},
 			},
@@ -42,15 +43,15 @@ func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Cli
 	if err := wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (bool, error) {
 		log.Info("Waiting until subnet is available...", "subnetID", *subnetID)
 
-		output, err := awsClient.EC2.DescribeSubnets(&ec2.DescribeSubnetsInput{
-			SubnetIds: []*string{subnetID},
+		output, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+			SubnetIds: []string{*subnetID},
 		})
 		if err != nil {
 			return false, err
 		}
 
 		subnet := output.Subnets[0]
-		if *subnet.State != "available" {
+		if subnet.State != ec2types.SubnetStateAvailable {
 			return false, nil
 		}
 
@@ -63,9 +64,9 @@ func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Cli
 }
 
 // DestroySubnet deletes an existing subnet.
-func DestroySubnet(_ context.Context, _ logr.Logger, awsClient *awsclient.Client, subnetID string) error {
-	_, err := awsClient.EC2.DeleteSubnet(&ec2.DeleteSubnetInput{
-		SubnetId: awssdk.String(subnetID),
+func DestroySubnet(ctx context.Context, _ logr.Logger, awsClient *awsclient.Client, subnetID string) error {
+	_, err := awsClient.EC2.DeleteSubnet(ctx, &ec2.DeleteSubnetInput{
+		SubnetId: aws.String(subnetID),
 	})
 
 	return err

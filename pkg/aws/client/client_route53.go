@@ -6,31 +6,33 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/route53"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/route53"
+	route53types "github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"github.com/gardener/external-dns-management/pkg/controller/provider/aws/data"
 )
 
 // GetDNSHostedZones returns a map of all DNS hosted zone names mapped to their IDs.
 func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, error) {
 	zones := make(map[string]string)
-	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
-		return nil, err
-	}
-	if err := c.Route53.ListHostedZonesPagesWithContext(ctx, &route53.ListHostedZonesInput{}, func(out *route53.ListHostedZonesOutput, lastPage bool) bool {
-		for _, zone := range out.HostedZones {
-			zones[normalizeName(aws.StringValue(zone.Name))] = normalizeZoneId(aws.StringValue(zone.Id))
+
+	paginator := route53.NewListHostedZonesPaginator(&c.Route53, &route53.ListHostedZonesInput{})
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
 		}
-		return !lastPage
-	}); err != nil {
-		return nil, err
+		for _, zone := range output.HostedZones {
+			zones[normalizeName(aws.ToString(zone.Name))] = normalizeZoneId(aws.ToString(zone.Id))
+		}
+
 	}
 	return zones, nil
 }
@@ -41,17 +43,16 @@ func (c *Client) CreateDNSHostedZone(ctx context.Context, name, comment string) 
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return "", err
 	}
-	out, err := c.Route53.CreateHostedZoneWithContext(ctx, &route53.CreateHostedZoneInput{
-		CallerReference: aws.String(strconv.Itoa(int(time.Now().Unix()))),
-		Name:            aws.String(name),
-		HostedZoneConfig: &route53.HostedZoneConfig{
-			Comment: aws.String(comment),
-		},
+	output, err := c.Route53.CreateHostedZone(ctx, &route53.CreateHostedZoneInput{
+		CallerReference:  aws.String(strconv.Itoa(int(time.Now().Unix()))),
+		Name:             aws.String(name),
+		HostedZoneConfig: &route53types.HostedZoneConfig{Comment: aws.String(comment)},
 	})
+
 	if err != nil {
 		return "", err
 	}
-	return aws.StringValue(out.HostedZone.Id), nil
+	return aws.ToString(output.HostedZone.Id), nil
 }
 
 // DeleteDNSHostedZone deletes the DNS hosted zone with the given ID.
@@ -59,7 +60,7 @@ func (c *Client) DeleteDNSHostedZone(ctx context.Context, zoneId string) error {
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return err
 	}
-	_, err := c.Route53.DeleteHostedZoneWithContext(ctx, &route53.DeleteHostedZoneInput{
+	_, err := c.Route53.DeleteHostedZone(ctx, &route53.DeleteHostedZoneInput{
 		Id: aws.String(zoneId),
 	})
 	return ignoreHostedZoneNotFound(err)
@@ -84,11 +85,12 @@ func normalizeZoneId(zoneId string) string {
 // with the given name, type, values, and TTL.
 // A CNAME record for AWS load balancers in a known zone may be mapped to A and/or AAAA recordsets with alias target.
 func (c *Client) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64, stack IPStack) error {
-	rrs := newResourceRecordSets(name, recordType, newResourceRecords(recordType, values), ttl, stack)
+	awsRecordType := route53types.RRType(recordType)
+	rrs := newResourceRecordSets(name, awsRecordType, newResourceRecords(awsRecordType, values), ttl, stack)
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return err
 	}
-	_, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionUpsert, rrs))
+	_, err := c.Route53.ChangeResourceRecordSets(ctx, newChangeResourceRecordSetsInput(zoneId, route53types.ChangeActionUpsert, rrs))
 	return err
 }
 
@@ -100,15 +102,16 @@ func (c *Client) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, r
 // The idea is to ensure a consistent and foolproof behavior while sending as few requests as possible to avoid
 // rate limit issues.
 func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64, stack IPStack) error {
-	if len(values) > 0 && ttl > 0 && !isPotentialAliasTarget(recordType, values[0]) {
+	awsRecordType := route53types.RRType(recordType)
+	if len(values) > 0 && ttl > 0 && !isPotentialAliasTarget(awsRecordType, values[0]) {
 		// try deletion with known values, but only if it is no CNAME record with potential alias target records.
 		// For CNAME records we don't know if the record(s) have been created with or without target records, as the list of
 		// canonicalHostedZoneIds may have changed in the meantime.
-		rrss := newResourceRecordSets(name, recordType, newResourceRecords(recordType, values), ttl, stack)
+		rrss := newResourceRecordSets(name, awsRecordType, newResourceRecords(awsRecordType, values), ttl, stack)
 		if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 			return err
 		}
-		if _, err := c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrss)); err == nil {
+		if _, err := c.Route53.ChangeResourceRecordSets(ctx, newChangeResourceRecordSetsInput(zoneId, route53types.ChangeActionDelete, rrss)); err == nil {
 			return nil
 		}
 		// if there is any error, fallback to read/delete
@@ -123,42 +126,43 @@ func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordTyp
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return err
 	}
-	_, err = c.Route53.ChangeResourceRecordSetsWithContext(ctx, newChangeResourceRecordSetsInput(zoneId, route53.ChangeActionDelete, rrss))
+	_, err = c.Route53.ChangeResourceRecordSets(ctx, newChangeResourceRecordSetsInput(zoneId, route53types.ChangeActionDelete, rrss))
 	return ignoreResourceRecordSetNotFound(err)
 }
 
 // GetDNSRecordSets returns the DNS recordset(s) in the DNS hosted zone with the given zone ID, and with the given name and type.
 // For record type CNAME there may be multiple DNS recordsets if mapped to alias targets A or AAAA recordsets.
-func (c *Client) GetDNSRecordSets(ctx context.Context, zoneId, name, recordType string) ([]*route53.ResourceRecordSet, error) {
+func (c *Client) GetDNSRecordSets(ctx context.Context, zoneId, name, recordType string) ([]*route53types.ResourceRecordSet, error) {
+	awsRecordType := route53types.RRType(recordType)
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return nil, err
 	}
 	input := &route53.ListResourceRecordSetsInput{
 		HostedZoneId:    aws.String(zoneId),
-		MaxItems:        aws.String("1"),
+		MaxItems:        aws.Int32(1),
 		StartRecordName: aws.String(name),
-		StartRecordType: aws.String(recordType),
+		StartRecordType: awsRecordType,
 	}
-	if recordType == route53.RRTypeCname {
-		input.MaxItems = aws.String("5") // potential CNAME, AliasTarget A and AliasTarget AAAA
-		input.StartRecordType = nil
+	if awsRecordType == route53types.RRTypeCname {
+		input.MaxItems = aws.Int32(5) // potential CNAME, AliasTarget A and AliasTarget AAAA
+		input.StartRecordType = route53types.RRType("")
 	}
-	out, err := c.Route53.ListResourceRecordSetsWithContext(ctx, input)
+	out, err := c.Route53.ListResourceRecordSets(ctx, input)
 	if ignoreResourceRecordSetNotFound(err) != nil {
 		return nil, err
 	}
 	if out == nil || len(out.ResourceRecordSets) == 0 { // no records in zone
 		return nil, nil
 	}
-	var recordSets []*route53.ResourceRecordSet
+	var recordSets []*route53types.ResourceRecordSet
 	for _, rrs := range out.ResourceRecordSets {
-		if normalizeName(aws.StringValue(rrs.Name)) == name {
-			switch aws.StringValue(rrs.Type) {
-			case recordType:
-				recordSets = append(recordSets, rrs)
-			case route53.RRTypeA, route53.RRTypeAaaa:
-				if recordType == route53.RRTypeCname && rrs.AliasTarget != nil {
-					recordSets = append(recordSets, rrs)
+		if normalizeName(aws.ToString(rrs.Name)) == name {
+			switch rrs.Type {
+			case awsRecordType:
+				recordSets = append(recordSets, &rrs)
+			case route53types.RRTypeA, route53types.RRTypeAaaa:
+				if awsRecordType == route53types.RRTypeCname && rrs.AliasTarget != nil {
+					recordSets = append(recordSets, &rrs)
 				}
 			}
 		}
@@ -179,34 +183,34 @@ func (c *Client) waitForRoute53RateLimiter(ctx context.Context) error {
 	return nil
 }
 
-func newChangeResourceRecordSetsInput(zoneId, action string, rrss []*route53.ResourceRecordSet) *route53.ChangeResourceRecordSetsInput {
-	var changes []*route53.Change
+func newChangeResourceRecordSetsInput(zoneId string, action route53types.ChangeAction, rrss []*route53types.ResourceRecordSet) *route53.ChangeResourceRecordSetsInput {
+	var changes []route53types.Change
 	for _, rrs := range rrss {
-		changes = append(changes, &route53.Change{
-			Action:            aws.String(action),
+		changes = append(changes, route53types.Change{
+			Action:            action,
 			ResourceRecordSet: rrs,
 		})
 	}
 	return &route53.ChangeResourceRecordSetsInput{
 		HostedZoneId: aws.String(zoneId),
-		ChangeBatch: &route53.ChangeBatch{
+		ChangeBatch: &route53types.ChangeBatch{
 			Changes: changes,
 		},
 	}
 }
 
-func newResourceRecords(recordType string, values []string) []*route53.ResourceRecord {
-	var resourceRecords []*route53.ResourceRecord
-	if recordType == route53.RRTypeCname {
-		resourceRecords = append(resourceRecords, &route53.ResourceRecord{
+func newResourceRecords(recordType route53types.RRType, values []string) []route53types.ResourceRecord {
+	var resourceRecords []route53types.ResourceRecord
+	if recordType == route53types.RRTypeCname {
+		resourceRecords = append(resourceRecords, route53types.ResourceRecord{
 			Value: aws.String(values[0]),
 		})
 	} else {
 		for _, value := range values {
-			if recordType == route53.RRTypeTxt {
+			if recordType == route53types.RRTypeTxt {
 				value = encloseInQuotes(value)
 			}
-			resourceRecords = append(resourceRecords, &route53.ResourceRecord{
+			resourceRecords = append(resourceRecords, route53types.ResourceRecord{
 				Value: aws.String(value),
 			})
 		}
@@ -214,31 +218,31 @@ func newResourceRecords(recordType string, values []string) []*route53.ResourceR
 	return resourceRecords
 }
 
-func newResourceRecordSets(name, recordType string, resourceRecords []*route53.ResourceRecord, ttl int64, stack IPStack) []*route53.ResourceRecordSet {
-	if recordType == route53.RRTypeCname {
-		loadBalanceHostname := aws.StringValue(resourceRecords[0].Value)
+func newResourceRecordSets(name string, recordType route53types.RRType, resourceRecords []route53types.ResourceRecord, ttl int64, stack IPStack) []*route53types.ResourceRecordSet {
+	if recordType == route53types.RRTypeCname {
+		loadBalanceHostname := aws.ToString(resourceRecords[0].Value)
 		// if it is a loadbalancer in a known canoncial hosted zone, create resource sets with alias targets for IPv4 and/or IPv6
 		if zoneId := canonicalHostedZoneId(loadBalanceHostname); zoneId != "" {
-			var rrss []*route53.ResourceRecordSet
+			var rrss []*route53types.ResourceRecordSet
 			for _, recordType := range GetAliasRecordTypes(stack) {
-				rrs := &route53.ResourceRecordSet{
+				rrs := route53types.ResourceRecordSet{
 					Name: aws.String(name),
-					Type: aws.String(recordType),
-					AliasTarget: &route53.AliasTarget{
+					Type: recordType,
+					AliasTarget: &route53types.AliasTarget{
 						DNSName:              &loadBalanceHostname,
 						HostedZoneId:         aws.String(zoneId),
-						EvaluateTargetHealth: aws.Bool(true),
+						EvaluateTargetHealth: true,
 					},
 				}
-				rrss = append(rrss, rrs)
+				rrss = append(rrss, &rrs)
 			}
 			return rrss
 		}
 	}
-	return []*route53.ResourceRecordSet{
+	return []*route53types.ResourceRecordSet{
 		{
 			Name:            aws.String(name),
-			Type:            aws.String(recordType),
+			Type:            route53types.RRType(recordType),
 			ResourceRecords: resourceRecords,
 			TTL:             aws.Int64(ttl),
 		},
@@ -246,19 +250,19 @@ func newResourceRecordSets(name, recordType string, resourceRecords []*route53.R
 }
 
 // GetAliasRecordTypes determinate the alias record types needed, depending on the requested IPStack.
-func GetAliasRecordTypes(stack IPStack) []string {
+func GetAliasRecordTypes(stack IPStack) []route53types.RRType {
 	switch stack {
 	case IPStackIPv6:
-		return []string{route53.RRTypeAaaa}
+		return []route53types.RRType{route53types.RRTypeAaaa}
 	case IPStackIPDualStack:
-		return []string{route53.RRTypeA, route53.RRTypeAaaa}
+		return []route53types.RRType{route53types.RRTypeA, route53types.RRTypeAaaa}
 	default:
-		return []string{route53.RRTypeA}
+		return []route53types.RRType{route53types.RRTypeA}
 	}
 }
 
-func isPotentialAliasTarget(recordType, value string) bool {
-	if recordType == route53.RRTypeCname {
+func isPotentialAliasTarget(recordType route53types.RRType, value string) bool {
+	if recordType == route53types.RRTypeCname {
 		if zoneId := canonicalHostedZoneId(value); zoneId != "" {
 			return true
 		}
@@ -291,7 +295,8 @@ func ignoreResourceRecordSetNotFound(err error) error {
 	if err == nil {
 		return nil
 	}
-	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && strings.Contains(aerr.Message(), "it was not found") {
+	var icb *route53types.InvalidChangeBatch
+	if errors.As(err, &icb) && strings.Contains(strings.Join(icb.Messages, " "), "it was not found") {
 		return nil
 	}
 	return err
@@ -301,7 +306,8 @@ func ignoreHostedZoneNotFound(err error) error {
 	if err == nil {
 		return nil
 	}
-	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeHostedZoneNotFound {
+	var hza *route53types.HostedZoneNotFound
+	if errors.As(err, &hza) {
 		return nil
 	}
 	return err
@@ -309,26 +315,25 @@ func ignoreHostedZoneNotFound(err error) error {
 
 // IsNoSuchHostedZoneError returns true if the error indicates a non-existing route53 hosted zone.
 func IsNoSuchHostedZoneError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeNoSuchHostedZone {
-		return true
-	}
-	return false
+	var nsz *route53types.NoSuchHostedZone
+	return errors.As(err, &nsz)
 }
 
 var notPermittedInZoneRegex = regexp.MustCompile(`RRSet with DNS name [^\ ]+ is not permitted in zone [^\ ]+`)
 
 // IsNotPermittedInZoneError returns true if the error indicates that the DNS name is not permitted in the route53 hosted zone.
 func IsNotPermittedInZoneError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == route53.ErrCodeInvalidChangeBatch && notPermittedInZoneRegex.MatchString(aerr.Message()) {
-		return true
+	var icb *route53types.InvalidChangeBatch
+	if errors.As(err, &icb) {
+		errorMessage := strings.Join(icb.Messages, " ")
+		return notPermittedInZoneRegex.MatchString(errorMessage)
 	}
+
 	return false
 }
 
 // IsThrottlingError returns true if the error is a throttling error.
 func IsThrottlingError(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok && strings.Contains(aerr.Message(), "Throttling") {
-		return true
-	}
-	return false
+	var te *route53types.ThrottlingException
+	return errors.As(err, &te)
 }

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 )
@@ -41,7 +41,7 @@ const (
 type Interface interface {
 	GetAccountID(ctx context.Context) (string, error)
 	GetVPCInternetGateway(ctx context.Context, vpcID string) (string, error)
-	GetVPCAttribute(ctx context.Context, vpcID string, attribute string) (bool, error)
+	GetVPCAttribute(ctx context.Context, vpcID string, attribute ec2types.VpcAttributeName) (bool, error)
 	GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error)
 	GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context, allocationIDs []string) (map[string]*string, error)
 	GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.Set[string], error)
@@ -118,7 +118,7 @@ type Interface interface {
 	CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, error)
 	GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error)
 	FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, error)
-	FindSubnets(ctx context.Context, filters []*ec2.Filter) ([]*Subnet, error)
+	FindSubnets(ctx context.Context, filters []ec2types.Filter) ([]*Subnet, error)
 	UpdateSubnetAttributes(ctx context.Context, desired, current *Subnet) (modified bool, err error)
 	DeleteSubnet(ctx context.Context, id string) error
 

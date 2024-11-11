@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/iam"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 )
@@ -17,7 +17,7 @@ import (
 // BeSemanticallyEqualTo returns a matcher that tests if actual is semantically
 // equal to the given value from the aws sdk.
 // This is useful for checking equalities on values returned by the aws API more easily.
-// For example: ec2.IpPermission contains multiple arrays which might not be in the same order
+// For example: ec2types.IpPermission contains multiple arrays which might not be in the same order
 // each time you retrieve the object from the AWS API. Therefore the returned matcher does not
 // test for deep equality but rather uses the ConsistOf matcher for nested arrays.
 // Another example is iam.Role which contains a field `AssumeRolePolicyDocument` which is urlencoded
@@ -29,13 +29,13 @@ func BeSemanticallyEqualTo(expected interface{}) types.GomegaMatcher {
 	}
 
 	switch expected.(type) {
-	case ec2.IpPermission, *ec2.IpPermission:
+	case ec2types.IpPermission, *ec2types.IpPermission:
 		return beSemanticallyEqualToIpPermission(expected)
-	case []ec2.IpPermission, []*ec2.IpPermission:
+	case []ec2types.IpPermission, []*ec2types.IpPermission:
 		return genericConsistOfSemanticallyEqual(expected)
-	case iam.Role, *iam.Role:
+	case iamtypes.Role, *iamtypes.Role:
 		return beSemanticallyEqualToIamRole(expected)
-	case []iam.Role, []*iam.Role:
+	case []iamtypes.Role, []*iamtypes.Role:
 		return genericConsistOfSemanticallyEqual(expected)
 	default:
 		panic(fmt.Errorf("unknown type for aws matcher BeSemanticallyEqualTo(): %T", expected))
@@ -72,10 +72,10 @@ func genericConsistOf(expected interface{}) types.GomegaMatcher {
 
 	for i := 0; i < value.Len(); i++ {
 		expectedElement := value.Index(i)
-		if expectedElement.IsNil() {
-			expectedElements = append(expectedElements, BeNil())
-		} else {
+		if value.Kind() != reflect.Pointer {
 			expectedElements = append(expectedElements, Equal(expectedElement.Interface()))
+		} else if expectedElement.IsNil() {
+			expectedElements = append(expectedElements, BeNil())
 		}
 	}
 
@@ -96,10 +96,10 @@ func genericConsistOfSemanticallyEqual(expected interface{}) types.GomegaMatcher
 
 	for i := 0; i < value.Len(); i++ {
 		expectedElement := value.Index(i)
-		if expectedElement.IsNil() {
-			expectedElements = append(expectedElements, BeNil())
-		} else {
+		if expectedElement.Kind() != reflect.Pointer {
 			expectedElements = append(expectedElements, BeSemanticallyEqualTo(expectedElement.Interface()))
+		} else if expectedElement.IsNil() {
+			expectedElements = append(expectedElements, BeNil())
 		}
 	}
 
