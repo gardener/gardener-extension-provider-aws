@@ -54,8 +54,8 @@ const (
 	MachineControllerManagerProviderAWSImageName = "machine-controller-manager-provider-aws"
 	// TerraformerImageName is the name of the Terraformer image.
 	TerraformerImageName = "terraformer"
-	// ECRCredentialHelperImageName image is the name of the image containing the ecr-credential-helper binary.
-	ECRCredentialProviderImageName = "ecr-credential-provider"
+	// ECRCredentialProviderImageName is the name of the image containing the ecr-credential-helper binary.
+	ECRCredentialProviderImageName = "ecr-credential-provider" // #nosec G101 -- No credential.
 
 	// AccessKeyID is a constant for the key in a cloud provider secret and backup secret that holds the AWS access key id.
 	AccessKeyID = "accessKeyID"
@@ -68,7 +68,7 @@ const (
 	// DNSAccessKeyID is a constant for the key in a DNS secret that holds the AWS access key id.
 	DNSAccessKeyID = "AWS_ACCESS_KEY_ID"
 	// DNSSecretAccessKey is a constant for the key in a DNS secret that holds the AWS secret access key.
-	DNSSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
+	DNSSecretAccessKey = "AWS_SECRET_ACCESS_KEY" // #nosec G101 -- No credential.
 	// DNSRegion is a constant for the key in a DNS secret that holds the AWS region.
 	DNSRegion = "AWS_REGION"
 	// TerraformerPurposeInfra is a constant for the complete Terraform setup with purpose 'infrastructure'.

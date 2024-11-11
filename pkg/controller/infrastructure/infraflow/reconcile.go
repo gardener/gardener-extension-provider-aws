@@ -7,7 +7,7 @@ package infraflow
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
+	"crypto/md5" // #nosec G501 -- No cryptographic context.
 	"errors"
 	"fmt"
 	"math/big"
@@ -1550,7 +1550,7 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 		return c.deleteKeyPair(ctx)
 	}
 
-	specFingerprint := fmt.Sprintf("%x", md5.Sum(c.infraSpec.SSHPublicKey))
+	specFingerprint := fmt.Sprintf("%x", md5.Sum(c.infraSpec.SSHPublicKey)) // #nosec G401 -- No cryptographic context.
 	if current != nil {
 		// check for foreign key replacement
 		if fingerprint := c.state.Get(KeyPairFingerprint); fingerprint == nil || *fingerprint != current.KeyFingerprint {
@@ -1677,6 +1677,7 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 		return "", fmt.Errorf("invalid new prefix length")
 	}
 
+	// #nosec: G115
 	offset := big.NewInt(0).Mul(big.NewInt(int64(index)), big.NewInt(0).Lsh(big.NewInt(1), uint(addrSize-newPrefixLength)))
 	subnetIP := net.IP(big.NewInt(0).Add(big.NewInt(0).SetBytes(baseIP), offset).Bytes())
 	return fmt.Sprintf("%s/%d", subnetIP.String(), newPrefixLength), nil
