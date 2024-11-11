@@ -133,6 +133,7 @@ func (c *Client) DeleteDNSRecordSet(ctx context.Context, zoneId, name, recordTyp
 // GetDNSRecordSets returns the DNS recordset(s) in the DNS hosted zone with the given zone ID, and with the given name and type.
 // For record type CNAME there may be multiple DNS recordsets if mapped to alias targets A or AAAA recordsets.
 func (c *Client) GetDNSRecordSets(ctx context.Context, zoneId, name, recordType string) ([]*route53types.ResourceRecordSet, error) {
+	awsRecordType := route53types.RRType(recordType)
 	if err := c.waitForRoute53RateLimiter(ctx); err != nil {
 		return nil, err
 	}
@@ -140,11 +141,11 @@ func (c *Client) GetDNSRecordSets(ctx context.Context, zoneId, name, recordType 
 		HostedZoneId:    aws.String(zoneId),
 		MaxItems:        aws.Int32(1),
 		StartRecordName: aws.String(name),
-		StartRecordType: route53types.RRType(recordType),
+		StartRecordType: awsRecordType,
 	}
-	if route53types.RRType(recordType) == route53types.RRTypeCname {
+	if awsRecordType == route53types.RRTypeCname {
 		input.MaxItems = aws.Int32(5) // potential CNAME, AliasTarget A and AliasTarget AAAA
-		// input.StartRecordType = nil // TODO: What to do here?
+		input.StartRecordType = route53types.RRType("")
 	}
 	out, err := c.Route53.ListResourceRecordSets(ctx, input)
 	if ignoreResourceRecordSetNotFound(err) != nil {
@@ -156,11 +157,11 @@ func (c *Client) GetDNSRecordSets(ctx context.Context, zoneId, name, recordType 
 	var recordSets []*route53types.ResourceRecordSet
 	for _, rrs := range out.ResourceRecordSets {
 		if normalizeName(aws.ToString(rrs.Name)) == name {
-			switch string(rrs.Type) {
-			case recordType:
+			switch rrs.Type {
+			case awsRecordType:
 				recordSets = append(recordSets, &rrs)
-			case string(route53types.RRTypeA), string(route53types.RRTypeAaaa):
-				if recordType == string(route53types.RRTypeCname) && rrs.AliasTarget != nil {
+			case route53types.RRTypeA, route53types.RRTypeAaaa:
+				if awsRecordType == route53types.RRTypeCname && rrs.AliasTarget != nil {
 					recordSets = append(recordSets, &rrs)
 				}
 			}

@@ -423,16 +423,16 @@ func deleteDNSHostedZone(ctx context.Context, awsClient *awsclient.Client, zoneI
 }
 
 func verifyDNSRecordSet(ctx context.Context, awsClient *awsclient.Client, dns *extensionsv1alpha1.DNSRecord, stack awsclient.IPStack) {
-	recordType := getRecordType(dns)
-	rrss, err := awsClient.GetDNSRecordSets(ctx, *dns.Status.Zone, dns.Spec.Name, recordType)
+	recordType := route53types.RRType(getRecordType(dns))
+	rrss, err := awsClient.GetDNSRecordSets(ctx, *dns.Status.Zone, dns.Spec.Name, string(recordType))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(rrss).NotTo(BeNil())
 	if !expectAliasTarget(dns) {
 		Expect(rrss).To(HaveLen(1))
 		rrs := rrss[0]
 		Expect(rrs.Name).To(PointTo(Equal(ensureTrailingDot(dns.Spec.Name))))
-		Expect(rrs.Type).To(PointTo(Equal(recordType)))
-		Expect(rrs.ResourceRecords).To(ConsistOf(resourceRecords(route53types.RRType(recordType), dns.Spec.Values)))
+		Expect(rrs.Type).To(Equal(recordType))
+		Expect(rrs.ResourceRecords).To(ConsistOf(resourceRecords(recordType, dns.Spec.Values)))
 		Expect(rrs.AliasTarget).To(BeNil())
 		Expect(rrs.TTL).To(PointTo(Equal(ptr.Deref(dns.Spec.TTL, 120))))
 	} else {
