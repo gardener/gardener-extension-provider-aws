@@ -18,7 +18,7 @@ import (
 
 // GetCredentialsFromSecretRef reads the secret given by the the secret reference and returns the read Credentials
 // object.
-func GetCredentialsFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, allowDNSKeys bool) (*Credentials, error) {
+func GetCredentialsFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, allowDNSKeys bool) (*awsclient.AuthConfig, error) {
 	secret, err := extensionscontroller.GetSecretByReference(ctx, client, &secretRef)
 	if err != nil {
 		return nil, err
@@ -27,7 +27,7 @@ func GetCredentialsFromSecretRef(ctx context.Context, client client.Client, secr
 }
 
 // ReadCredentialsSecret reads a secret containing credentials.
-func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*Credentials, error) {
+func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*awsclient.AuthConfig, error) {
 	if secret.Data == nil {
 		return nil, fmt.Errorf("secret does not contain any data")
 	}
@@ -49,21 +49,24 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*Credentia
 
 	region, _ := getSecretDataValue(secret, Region, altRegionKey, false)
 
-	return &Credentials{
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		Region:          region,
+	return &awsclient.AuthConfig{
+		AccessKey: &awsclient.AccessKey{
+			ID:     string(accessKeyID),
+			Secret: string(secretAccessKey),
+		},
+		Region: string(region),
 	}, nil
 }
 
 // NewClientFromSecretRef creates a new Client for the given AWS credentials from given k8s <secretRef> and
 // the AWS region <region>.
 func NewClientFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, region string) (awsclient.Interface, error) {
-	credentials, err := GetCredentialsFromSecretRef(ctx, client, secretRef, false)
+	authConfig, err := GetCredentialsFromSecretRef(ctx, client, secretRef, false)
 	if err != nil {
 		return nil, err
 	}
-	return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), region)
+	authConfig.Region = region
+	return awsclient.NewClient(*authConfig)
 }
 
 func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, required bool) ([]byte, error) {
