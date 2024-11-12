@@ -130,6 +130,9 @@ const (
 
 	// AnnotationEnableVolumeAttributesClass is the annotation to use on shoots to enable VolumeAttributesClasses
 	AnnotationEnableVolumeAttributesClass = "aws.provider.extensions.gardener.cloud/enable-volume-attributes-class"
+
+	// WorkloadIdentityMountPath is the path where the workload identity token is usually mounted.
+	WorkloadIdentityMountPath = "/var/run/secrets/gardener.cloud/workload-identity"
 )
 
 var (
