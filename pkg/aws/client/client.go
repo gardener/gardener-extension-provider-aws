@@ -37,6 +37,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// AuthConfig represents AWS auth configuration credentials.
+type AuthConfig struct {
+	// Region is the AWS region.
+	Region string
+
+	// AccessKey represents static credentials for authentication to AWS.
+	// This field is mutually exclusive with WorkloadIdentity.
+	AccessKey *AccessKey
+
+	// WorkloadIdentity contains workload identity configuration.
+	// This field is mutually exclusive with AccessKey.
+	WorkloadIdentity *WorkloadIdentity
+}
+
+// AccessKey represents static credentials for authentication to AWS.
+type AccessKey struct {
+	// ID is the key ID used for access to AWS.
+	ID string
+	// Secret is the secret used for access to AWS.
+	Secret string
+}
+
+// WorkloadIdentity contains workload identity configuration for authentication to AWS.
+type WorkloadIdentity struct {
+	// TokenRetriever a function that retrieves a token used for exchanging AWS credentials.
+	TokenRetriever func(ctx context.Context) (string, error)
+}
+
 // Client is a struct containing several clients for the different AWS services it needs to interact with.
 // * EC2 is the standard client for the EC2 service.
 // * STS is the standard client for the STS service.
@@ -62,18 +90,18 @@ type Client struct {
 var _ Interface = &Client{}
 
 // NewInterface creates a new instance of Interface for the given AWS credentials and region.
-func NewInterface(accessKeyID, secretAccessKey, region string) (Interface, error) {
-	return NewClient(accessKeyID, secretAccessKey, region)
+func NewInterface(authConfig AuthConfig) (Interface, error) {
+	return NewClient(authConfig)
 }
 
 // NewClient creates a new Client for the given AWS credentials <accessKeyID>, <secretAccessKey>, and
 // the AWS region <region>.
 // It initializes the clients for the various services like EC2, ELB, etc.
-func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
+func NewClient(authConfig AuthConfig) (*Client, error) {
 	cfg, err := v2config.LoadDefaultConfig(
 		context.TODO(),
-		v2config.WithRegion(region),
-		v2config.WithCredentialsProvider(aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""))),
+		v2config.WithRegion(authConfig.Region),
+		v2config.WithCredentialsProvider(aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(authConfig.AccessKey.ID, authConfig.AccessKey.Secret, ""))),
 	)
 
 	if err != nil {
