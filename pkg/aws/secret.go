@@ -9,12 +9,21 @@ import (
 	"fmt"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
+	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
+
+type staticTokenRetriever struct {
+	token []byte
+}
+
+func (s *staticTokenRetriever) GetIdentityToken() ([]byte, error) {
+	return s.token, nil
+}
 
 // GetCredentialsFromSecretRef reads the secret given by the the secret reference and returns the read Credentials
 // object.
@@ -37,25 +46,40 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*awsclient
 		altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey = ptr.To(DNSAccessKeyID), ptr.To(DNSSecretAccessKey), ptr.To(DNSRegion)
 	}
 
-	accessKeyID, err := getSecretDataValue(secret, AccessKeyID, altAccessKeyIDKey, true)
+	authConfig := &awsclient.AuthConfig{}
+
+	accessKeyID, err := getSecretDataValue(secret, AccessKeyID, altAccessKeyIDKey, false)
 	if err != nil {
 		return nil, err
 	}
-
-	secretAccessKey, err := getSecretDataValue(secret, SecretAccessKey, altSecretAccessKeyKey, true)
-	if err != nil {
-		return nil, err
+	if len(accessKeyID) != 0 {
+		secretAccessKey, err := getSecretDataValue(secret, SecretAccessKey, altSecretAccessKeyKey, true)
+		if err != nil {
+			return nil, err
+		}
+		authConfig.AccessKey = &awsclient.AccessKey{
+			ID:     string(accessKeyID),
+			Secret: string(secretAccessKey),
+		}
+	} else {
+		// If access key data does not exist then we require that the secret contains
+		// information for workload identity authentication
+		if _, ok := secret.Data[securityv1alpha1constants.DataKeyToken]; !ok {
+			return nil, fmt.Errorf("missing %q field in secret", securityv1alpha1constants.DataKeyToken)
+		}
+		if _, ok := secret.Data[RoleARN]; !ok {
+			return nil, fmt.Errorf("missing %q field in secret", RoleARN)
+		}
+		authConfig.WorkloadIdentity = &awsclient.WorkloadIdentity{
+			TokenRetriever: &staticTokenRetriever{token: secret.Data[securityv1alpha1constants.DataKeyToken]},
+			RoleARN:        string(secret.Data[RoleARN]),
+		}
 	}
 
 	region, _ := getSecretDataValue(secret, Region, altRegionKey, false)
+	authConfig.Region = string(region)
 
-	return &awsclient.AuthConfig{
-		AccessKey: &awsclient.AccessKey{
-			ID:     string(accessKeyID),
-			Secret: string(secretAccessKey),
-		},
-		Region: string(region),
-	}, nil
+	return authConfig, nil
 }
 
 // NewClientFromSecretRef creates a new Client for the given AWS credentials from given k8s <secretRef> and
