@@ -1499,16 +1499,16 @@ func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 }
 
 // NewClient mocks base method.
-func (m *MockFactory) NewClient(accessKeyID, secretAccessKey, region string) (client.Interface, error) {
+func (m *MockFactory) NewClient(authConfig client.AuthConfig) (client.Interface, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewClient", accessKeyID, secretAccessKey, region)
+	ret := m.ctrl.Call(m, "NewClient", authConfig)
 	ret0, _ := ret[0].(client.Interface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewClient indicates an expected call of NewClient.
-func (mr *MockFactoryMockRecorder) NewClient(accessKeyID, secretAccessKey, region any) *gomock.Call {
+func (mr *MockFactoryMockRecorder) NewClient(authConfig any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewClient", reflect.TypeOf((*MockFactory)(nil).NewClient), accessKeyID, secretAccessKey, region)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewClient", reflect.TypeOf((*MockFactory)(nil).NewClient), authConfig)
 }

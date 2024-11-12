@@ -57,6 +57,7 @@ var _ = Describe("Actuator", func() {
 		dns              *extensionsv1alpha1.DNSRecord
 		secret           *corev1.Secret
 		zones            map[string]string
+		authConfig       awsclient.AuthConfig
 	)
 
 	BeforeEach(func() {
@@ -108,6 +109,13 @@ var _ = Describe("Actuator", func() {
 				aws.SecretAccessKey: []byte(secretAccessKey),
 			},
 		}
+		authConfig = awsclient.AuthConfig{
+			AccessKey: &awsclient.AccessKey{
+				ID:     accessKeyID,
+				Secret: secretAccessKey,
+			},
+			Region: aws.DefaultDNSRegion,
+		}
 
 		zones = map[string]string{
 			shootDomain:   zone,
@@ -128,7 +136,7 @@ var _ = Describe("Actuator", func() {
 					return nil
 				},
 			)
-			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, aws.DefaultDNSRegion).Return(awsClient, nil)
+			awsClientFactory.EXPECT().NewClient(authConfig).Return(awsClient, nil)
 		})
 
 		It("should reconcile the DNSRecord", func() {
@@ -207,7 +215,7 @@ var _ = Describe("Actuator", func() {
 					return nil
 				},
 			)
-			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, aws.DefaultDNSRegion).Return(awsClient, nil)
+			awsClientFactory.EXPECT().NewClient(authConfig).Return(awsClient, nil)
 
 		})
 

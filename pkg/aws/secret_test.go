@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 var (
@@ -80,9 +81,11 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -120,10 +123,12 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-					Region:          region,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
+					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -142,10 +147,12 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-					Region:          region,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
+					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -180,9 +187,11 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := ReadCredentialsSecret(secret, false)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -210,10 +219,12 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := ReadCredentialsSecret(secret, true)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-					Region:          region,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
+					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -227,10 +238,12 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := ReadCredentialsSecret(secret, true)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-					Region:          region,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
+					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
