@@ -127,6 +127,9 @@ const (
 	CSISnapshotValidationName = "csi-snapshot-validation"
 	// CSIVolumeModifierName is the constant for the name of the csi-volume-modifier.
 	CSIVolumeModifierName = "csi-volume-modifier"
+
+	// WorkloadIdentityMountPath is the path where the workload identity token is usually mounted.
+	WorkloadIdentityMountPath = "/var/run/secrets/gardener.cloud/workload-identity"
 )
 
 var (
