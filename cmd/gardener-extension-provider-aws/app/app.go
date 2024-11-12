@@ -120,9 +120,8 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			Namespace: os.Getenv("WEBHOOK_CONFIG_NAMESPACE"),
 		}
 
-		gardenerVersion    = new(string)
 		controllerSwitches = awscmd.ControllerSwitchOptions()
-		webhookSwitches    = awscmd.WebhookSwitchOptions(gardenerVersion)
+		webhookSwitches    = awscmd.WebhookSwitchOptions()
 		webhookOptions     = webhookcmd.NewAddToManagerOptions(
 			aws.Name,
 			genericactuator.ShootWebhooksResourceName,
@@ -225,8 +224,6 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			}
 
 			log.Info("Adding controllers to manager")
-			*gardenerVersion = generalOpts.Completed().GardenerVersion
-
 			configFileOpts.Completed().ApplyETCDStorage(&awscontrolplaneexposure.DefaultAddOptions.ETCDStorage)
 			configFileOpts.Completed().ApplyHealthCheckConfig(&healthcheck.DefaultAddOptions.HealthCheckConfig)
 			healthCheckCtrlOpts.Completed().Apply(&healthcheck.DefaultAddOptions.Controller)
