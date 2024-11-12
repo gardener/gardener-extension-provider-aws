@@ -133,6 +133,8 @@ const (
 
 	// WorkloadIdentityMountPath is the path where the workload identity token is usually mounted.
 	WorkloadIdentityMountPath = "/var/run/secrets/gardener.cloud/workload-identity"
+	// RoleARN is a constant for the key in a cloud provider secret that points to the role which should be assumed.
+	RoleARN = "roleARN"
 )
 
 var (
