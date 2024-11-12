@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v2config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing"
@@ -62,7 +63,10 @@ type AccessKey struct {
 // WorkloadIdentity contains workload identity configuration for authentication to AWS.
 type WorkloadIdentity struct {
 	// TokenRetriever a function that retrieves a token used for exchanging AWS credentials.
-	TokenRetriever func(ctx context.Context) (string, error)
+	TokenRetriever stscreds.IdentityTokenRetriever
+
+	// RoleARN is the ARN of the role that will be assumed.
+	RoleARN string
 }
 
 // Client is a struct containing several clients for the different AWS services it needs to interact with.
@@ -98,12 +102,21 @@ func NewInterface(authConfig AuthConfig) (Interface, error) {
 // the AWS region <region>.
 // It initializes the clients for the various services like EC2, ELB, etc.
 func NewClient(authConfig AuthConfig) (*Client, error) {
+	var credentialsProvider aws.CredentialsProvider
+	if authConfig.AccessKey != nil {
+		credentialsProvider = credentials.NewStaticCredentialsProvider(authConfig.AccessKey.ID, authConfig.AccessKey.Secret, "")
+	} else {
+		credentialsProvider = stscreds.NewWebIdentityRoleProvider(
+			sts.NewFromConfig(aws.Config{Region: authConfig.Region}),
+			authConfig.WorkloadIdentity.RoleARN,
+			authConfig.WorkloadIdentity.TokenRetriever,
+		)
+	}
 	cfg, err := v2config.LoadDefaultConfig(
 		context.TODO(),
 		v2config.WithRegion(authConfig.Region),
-		v2config.WithCredentialsProvider(aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(authConfig.AccessKey.ID, authConfig.AccessKey.Secret, ""))),
+		v2config.WithCredentialsProvider(aws.NewCredentialsCache(credentialsProvider)),
 	)
-
 	if err != nil {
 		return nil, err
 	}

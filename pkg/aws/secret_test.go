@@ -196,6 +196,24 @@ var _ = Describe("Secret", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
+			It("should return the correct credentials object if non-DNS keys are used with workload identity config", func() {
+				secret.Data = map[string][]byte{
+					"token":   []byte("foo"),
+					"roleARN": []byte("arn"),
+					Region:    region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, false)
+
+				Expect(credentials.Region).To(Equal(string(region)))
+				Expect(credentials.AccessKey).To(BeNil())
+				Expect(credentials.WorkloadIdentity.RoleARN).To(Equal("arn"))
+				Expect(err).NotTo(HaveOccurred())
+				token, err := credentials.WorkloadIdentity.TokenRetriever.GetIdentityToken()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(token).To(Equal([]byte("foo")))
+			})
+
 			It("should fail if DNS keys are used", func() {
 				secret.Data = map[string][]byte{
 					DNSAccessKeyID:     accessKeyID,
@@ -246,6 +264,24 @@ var _ = Describe("Secret", func() {
 					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return the correct credentials object if non-DNS keys are used with workload identity config", func() {
+				secret.Data = map[string][]byte{
+					"token":   []byte("foo"),
+					"roleARN": []byte("arn"),
+					Region:    region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, true)
+
+				Expect(credentials.Region).To(Equal(string(region)))
+				Expect(credentials.AccessKey).To(BeNil())
+				Expect(credentials.WorkloadIdentity.RoleARN).To(Equal("arn"))
+				Expect(err).NotTo(HaveOccurred())
+				token, err := credentials.WorkloadIdentity.TokenRetriever.GetIdentityToken()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(token).To(Equal([]byte("foo")))
 			})
 		})
 	})
