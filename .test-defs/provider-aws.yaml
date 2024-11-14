@@ -18,4 +18,4 @@ spec:
     --network-worker-cidr=$NETWORK_WORKER_CIDR
     --zone=$ZONE
 
-  image: golang:1.23.3
+  image: golang:1.23
