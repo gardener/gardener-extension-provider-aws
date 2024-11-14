@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	extensionsbastion "github.com/gardener/gardener/extensions/pkg/bastion"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -20,6 +19,7 @@ import (
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 // Options contains provider-related information required for setting up
