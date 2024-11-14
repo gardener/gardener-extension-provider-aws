@@ -7,19 +7,18 @@ package bastion
 import (
 	"context"
 	"fmt"
-	"regexp"
+	"slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	extensionsbastion "github.com/gardener/gardener/extensions/pkg/bastion"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
-	"github.com/gardener/gardener/pkg/extensions"
-	"k8s.io/apimachinery/pkg/util/sets"
 
-	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
@@ -47,6 +46,7 @@ type Options struct {
 // function does not create any IaaS resources.
 func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster, awsClient *awsclient.Client) (*Options, error) {
 	name := cluster.ObjectMeta.Name
+	region := cluster.Shoot.Spec.Region
 	subnetName := name + "-public-utility-z0"
 	instanceName := fmt.Sprintf("%s-%s-bastion", name, bastion.Name)
 
@@ -68,19 +68,24 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		return nil, fmt.Errorf("security group for worker node does not exist yet")
 	}
 
-	cloudProfileConfig, err := getCloudProfileConfig(cluster)
+	vmDetails, err := extensionsbastion.GetMachineSpecFromCloudProfile(cluster.CloudProfile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine VM details for bastion host: %w", err)
+	}
+
+	cloudProfileConfig, err := helper.CloudProfileConfigFromCluster(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract cloud provider config from cluster: %w", err)
 	}
 
-	imageID, err := determineImageID(cluster.Shoot, cloudProfileConfig)
+	machineImageVersion, err := getProviderSpecificImage(cloudProfileConfig.MachineImages, vmDetails)
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine OS image for bastion host: %w", err)
+		return nil, fmt.Errorf("failed to extract image from provider config: %w", err)
 	}
 
-	instanceType, err := determineInstanceType(ctx, imageID, awsClient)
+	ami, err := findImageAMIByRegion(machineImageVersion, vmDetails, region)
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine instance type: %w", err)
+		return nil, fmt.Errorf("failed to find image AMI by region: %w", err)
 	}
 
 	return &Options{
@@ -91,8 +96,8 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		WorkerSecurityGroupName:  workerSecurityGroupName,
 		WorkerSecurityGroupID:    *workerSecurityGroup.GroupId,
 		InstanceName:             instanceName,
-		InstanceType:             instanceType,
-		ImageID:                  imageID,
+		InstanceType:             vmDetails.MachineTypeName,
+		ImageID:                  ami,
 	}, nil
 }
 
@@ -122,131 +127,40 @@ func resolveSubnetName(ctx context.Context, awsClient *awsclient.Client, subnetN
 	return
 }
 
-func getCloudProfileConfig(cluster *extensions.Cluster) (*awsv1alpha1.CloudProfileConfig, error) {
-	if cluster.CloudProfile.Spec.ProviderConfig.Raw == nil {
-		return nil, fmt.Errorf("no cloud provider config set in cluster's CloudProfile")
-	}
-
-	var (
-		cloudProfileConfig = &awsv1alpha1.CloudProfileConfig{}
-		decoder            = kubernetes.GardenCodec.UniversalDeserializer()
-	)
-
-	if _, _, err := decoder.Decode(cluster.CloudProfile.Spec.ProviderConfig.Raw, nil, cloudProfileConfig); err != nil {
-		return nil, err
-	}
-
-	return cloudProfileConfig, nil
-}
-
-// determineImageID finds the first AMI that is configured for the same region as the shoot cluster.
-// If no image is found, an error is returned.
-func determineImageID(shoot *gardencorev1beta1.Shoot, providerConfig *awsv1alpha1.CloudProfileConfig) (string, error) {
-	// TODO(hebelsan): remove version hack after bastion image is well defined, e.g. in cloudProfile
-	// only allow garden linux versions 1312.x.x because they have ssh enabled by default
-	re := regexp.MustCompile(`^1312\.\d+\.\d+$`)
-	for _, image := range providerConfig.MachineImages {
-		for _, version := range image.Versions {
-			if image.Name == "gardenlinux" && !re.MatchString(version.Version) {
-				continue
-			}
-			for _, region := range version.Regions {
-				if region.Name == shoot.Spec.Region {
-					return region.AMI, nil
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("found no suitable AMI for machines in region %q", shoot.Spec.Region)
-}
-
-func determineInstanceType(ctx context.Context, imageID string, awsClient *awsclient.Client) (string, error) {
-	var preferredType string
-	imageInfo, err := getImages(ctx, imageID, awsClient)
-	if err != nil {
-		return "", err
-	}
-
-	imageArchitecture := imageInfo.Architecture
-
-	// default instance type
-	switch imageArchitecture {
-	case ec2types.ArchitectureValuesX8664:
-		preferredType = "t2.nano"
-	case ec2types.ArchitectureValuesArm64:
-		preferredType = "t4g.nano"
-	default:
-		return "", fmt.Errorf("image architecture not supported")
-	}
-
-	exist, err := getInstanceTypeOfferings(ctx, preferredType, awsClient)
-	if err != nil {
-		return "", err
-	}
-
-	if len(exist.InstanceTypeOfferings) != 0 {
-		return preferredType, nil
-	}
-
-	// filter t type instance
-	tTypes, err := getInstanceTypeOfferings(ctx, "t*", awsClient)
-	if err != nil {
-		return "", err
-	}
-
-	if len(tTypes.InstanceTypeOfferings) == 0 {
-		return "", fmt.Errorf("no t* instance type offerings available")
-	}
-
-	tTypeSet := sets.Set[ec2types.InstanceType]{}
-	for _, t := range tTypes.InstanceTypeOfferings {
-		tTypeSet.Insert(t.InstanceType)
-	}
-
-	result, err := awsClient.EC2.DescribeInstanceTypes(ctx, &ec2.DescribeInstanceTypesInput{
-		InstanceTypes: tTypeSet.UnsortedList(),
-		Filters: []ec2types.Filter{
-			{
-				Name:   aws.String("processor-info.supported-architecture"),
-				Values: []string{string(imageArchitecture)},
-			},
-		},
+// getProviderSpecificImage returns the provider specific MachineImageVersion that matches with the given VmDetails
+func getProviderSpecificImage(images []api.MachineImages, vm extensionsbastion.MachineSpec) (api.MachineImageVersion, error) {
+	imageIndex := slices.IndexFunc(images, func(image api.MachineImages) bool {
+		return image.Name == vm.ImageBaseName
 	})
 
-	if err != nil {
-		return "", err
+	if imageIndex == -1 {
+		return api.MachineImageVersion{},
+			fmt.Errorf("machine image with name %s not found in cloudProfileConfig", vm.ImageBaseName)
 	}
 
-	if len(result.InstanceTypes) == 0 {
-		return "", fmt.Errorf("no instance types returned for architecture %s and instance types list %v", imageArchitecture, tTypeSet.UnsortedList())
-	}
-
-	return string(result.InstanceTypes[0].InstanceType), nil
-}
-
-func getImages(ctx context.Context, ami string, awsClient *awsclient.Client) (*ec2types.Image, error) {
-	imageInfo, err := awsClient.EC2.DescribeImages(ctx, &ec2.DescribeImagesInput{
-		ImageIds: []string{ami},
+	versions := images[imageIndex].Versions
+	versionIndex := slices.IndexFunc(versions, func(version api.MachineImageVersion) bool {
+		return version.Version == vm.ImageVersion
 	})
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Images Info: %w", err)
+	if versionIndex == -1 {
+		return api.MachineImageVersion{},
+			fmt.Errorf("version %s for arch %s of image %s not found in cloudProfileConfig",
+				vm.ImageVersion, vm.Architecture, vm.ImageBaseName)
 	}
 
-	if len(imageInfo.Images) == 0 {
-		return nil, fmt.Errorf("images info not found: %w", err)
-	}
-	return &imageInfo.Images[0], nil
+	return versions[versionIndex], nil
 }
 
-func getInstanceTypeOfferings(ctx context.Context, filter string, awsClient *awsclient.Client) (*ec2.DescribeInstanceTypeOfferingsOutput, error) {
-	return awsClient.EC2.DescribeInstanceTypeOfferings(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
-		Filters: []ec2types.Filter{
-			{
-				Name:   aws.String("instance-type"),
-				Values: []string{filter},
-			},
-		},
+func findImageAMIByRegion(image api.MachineImageVersion, vmDetails extensionsbastion.MachineSpec, region string) (string, error) {
+	regionIndex := slices.IndexFunc(image.Regions, func(RegionAMIMapping api.RegionAMIMapping) bool {
+		return RegionAMIMapping.Name == region && RegionAMIMapping.Architecture != nil && *RegionAMIMapping.Architecture == vmDetails.Architecture
 	})
+
+	if regionIndex == -1 {
+		return "", fmt.Errorf("image '%s' with version '%s' and architecture '%s' not found in region '%s'",
+			vmDetails.ImageBaseName, image.Version, vmDetails.Architecture, region)
+	}
+
+	return image.Regions[regionIndex].AMI, nil
 }

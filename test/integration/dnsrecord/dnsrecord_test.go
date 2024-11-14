@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -45,6 +46,7 @@ import (
 var (
 	accessKeyID     = flag.String("access-key-id", "", "AWS access key id")
 	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
+	logLevel        = flag.String("logLevel", "", "Log level (debug, info, error)")
 )
 
 func validateFlags() {
@@ -53,6 +55,13 @@ func validateFlags() {
 	}
 	if len(*secretAccessKey) == 0 {
 		panic("need an AWS secret access key")
+	}
+	if len(*logLevel) == 0 {
+		logLevel = ptr.To(logger.DebugLevel)
+	} else {
+		if !slices.Contains(logger.AllLogLevels, *logLevel) {
+			panic("invalid log level: " + *logLevel)
+		}
 	}
 }
 
@@ -78,7 +87,7 @@ var _ = BeforeSuite(func() {
 	repoRoot := filepath.Join("..", "..", "..")
 
 	// enable manager logs
-	logf.SetLogger(logger.MustNewZapLogger(logger.DebugLevel, logger.FormatJSON, zap.WriteTo(GinkgoWriter)))
+	logf.SetLogger(logger.MustNewZapLogger(*logLevel, logger.FormatJSON, zap.WriteTo(GinkgoWriter)))
 
 	log = logf.Log.WithName("dnsrecord-test")
 
