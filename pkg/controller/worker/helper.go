@@ -16,7 +16,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
-func (w *workerDelegate) decodeWorkerProviderStatus() (*api.WorkerStatus, error) {
+func (w *WorkerDelegate) decodeWorkerProviderStatus() (*api.WorkerStatus, error) {
 	workerStatus := &api.WorkerStatus{}
 
 	if w.worker.Status.ProviderStatus == nil {
@@ -30,7 +30,7 @@ func (w *workerDelegate) decodeWorkerProviderStatus() (*api.WorkerStatus, error)
 	return workerStatus, nil
 }
 
-func (w *workerDelegate) updateWorkerProviderStatus(ctx context.Context, workerStatus *api.WorkerStatus) error {
+func (w *WorkerDelegate) updateWorkerProviderStatus(ctx context.Context, workerStatus *api.WorkerStatus) error {
 	var workerStatusV1alpha1 = &v1alpha1.WorkerStatus{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha1.SchemeGroupVersion.String(),

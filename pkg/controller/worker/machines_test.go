@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -63,7 +64,7 @@ var _ = Describe("Machines", func() {
 		ctrl.Finish()
 	})
 
-	Context("workerDelegate", func() {
+	Context("WorkerDelegate", func() {
 		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, nil, "", nil, nil)
 
 		Describe("#GenerateMachineDeployments, #DeployMachineClasses", func() {
@@ -699,7 +700,7 @@ var _ = Describe("Machines", func() {
 
 					expectedUserDataSecretRefRead()
 
-					// Test workerDelegate.DeployMachineClasses()
+					// Test WorkerDelegate.DeployMachineClasses()
 					chartApplier.EXPECT().ApplyFromEmbeddedFS(
 						ctx,
 						charts.InternalChart,
@@ -712,7 +713,7 @@ var _ = Describe("Machines", func() {
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
-					// Test workerDelegate.UpdateMachineDeployments()
+					// Test WorkerDelegate.UpdateMachineDeployments()
 					expectedImages := &apiv1alpha1.WorkerStatus{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: apiv1alpha1.SchemeGroupVersion.String(),
@@ -745,7 +746,7 @@ var _ = Describe("Machines", func() {
 					err = workerDelegate.UpdateMachineImagesStatus(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
-					// Test workerDelegate.GenerateMachineDeployments()
+					// Test WorkerDelegate.GenerateMachineDeployments()
 
 					result, err := workerDelegate.GenerateMachineDeployments(ctx)
 					Expect(err).NotTo(HaveOccurred())
@@ -765,7 +766,7 @@ var _ = Describe("Machines", func() {
 
 					expectedUserDataSecretRefRead()
 
-					// Test workerDelegate.DeployMachineClasses()
+					// Test WorkerDelegate.DeployMachineClasses()
 					chartApplier.EXPECT().ApplyFromEmbeddedFS(
 						ctx,
 						charts.InternalChart,
@@ -854,6 +855,41 @@ var _ = Describe("Machines", func() {
 
 					err := workerDelegate.DeployMachineClasses(context.TODO())
 					Expect(err).To(HaveOccurred())
+				})
+
+				It("should return generate machine classes with core and extended resources in the nodeTemplate", func() {
+					ephemeralStorageQuant := resource.MustParse("30Gi")
+					dongleName := corev1.ResourceName("resources.com/dongle")
+					dongleQuant := resource.MustParse("4")
+					customResources := corev1.ResourceList{
+						corev1.ResourceEphemeralStorage: ephemeralStorageQuant,
+						dongleName:                      dongleQuant,
+					}
+					w.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
+						Raw: encode(&api.WorkerConfig{
+							NodeTemplate: &extensionsv1alpha1.NodeTemplate{
+								Capacity: customResources,
+							},
+						}),
+					}
+
+					expectedCapacity := w.Spec.Pools[0].NodeTemplate.Capacity.DeepCopy()
+					maps.Copy(expectedCapacity, customResources)
+
+					wd, err := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					Expect(err).NotTo(HaveOccurred())
+					expectedUserDataSecretRefRead()
+					_, err = wd.GenerateMachineDeployments(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					workerDelegate := wd.(*WorkerDelegate)
+					mClasses := workerDelegate.GetMachineClasses()
+					for _, mClz := range mClasses {
+						className := mClz["name"].(string)
+						if strings.Contains(className, namePool1) {
+							nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
+							Expect(nt.Capacity).To(Equal(expectedCapacity))
+						}
+					}
 				})
 			})
 

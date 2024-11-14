@@ -71,10 +71,14 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	}
 
 	if nodeTemplate := workerConfig.NodeTemplate; nodeTemplate != nil {
+		if len(nodeTemplate.Capacity) == 0 {
+			allErrs = append(allErrs, field.Required(fldPath.Child("nodeTemplate").Child("capacity"), "capacity must not be empty"))
+		}
 		for _, capacityAttribute := range []corev1.ResourceName{"cpu", "gpu", "memory"} {
 			value, ok := nodeTemplate.Capacity[capacityAttribute]
 			if !ok {
-				allErrs = append(allErrs, field.Required(fldPath.Child("nodeTemplate").Child("capacity"), fmt.Sprintf("%s is a mandatory field", capacityAttribute)))
+				// core resources such as "cpu", "gpu", "memory" need not all be explicitly specified in workerConfig.NodeTemplate.
+				// Will fall back to the worker pool's node template if missing.
 				continue
 			}
 			allErrs = append(allErrs, validateResourceQuantityValue(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("capacity").Child(string(capacityAttribute)))...)
