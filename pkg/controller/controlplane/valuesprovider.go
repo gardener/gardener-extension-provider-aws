@@ -198,11 +198,6 @@ var (
 				},
 				Objects: []*chart.Object{
 					{Type: &appsv1.Deployment{}, Name: "efs-csi-controller"},
-					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-controller-sa"},
-					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role"},
-					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role-describe-secrets"},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-provisioner-binding"},
-					{Type: &rbacv1.RoleBinding{}, Name: "efs-csi-provisioner-binding"},
 				},
 			},
 		},
@@ -569,7 +564,7 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
-	csiEfs := getCSIEfsControllerChartValues(infraConfig, cluster, scaledDown)
+	csiEfs := getCSIEfsControllerChartValues(cp, infraConfig, cluster, scaledDown)
 
 	return map[string]interface{}{
 		"global": map[string]interface{}{
@@ -756,6 +751,7 @@ func getCSIControllerChartValues(
 
 // getCSIManilaControllerChartValues collects and returns the CSIController chart values.
 func getCSIEfsControllerChartValues(
+	cp *extensionsv1alpha1.ControlPlane,
 	infraConfig *apisaws.InfrastructureConfig,
 	cluster *extensionscontroller.Cluster,
 	scaledDown bool,
@@ -767,10 +763,7 @@ func getCSIEfsControllerChartValues(
 
 	if csiEfsEnabled {
 		values["replicas"] = extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1)
-		// TODO ?
-		//values["podAnnotations"] = map[string]interface{}{
-		//	"checksum/secret-" + aws.CloudProviderCSIDiskConfigName: checksums[aws.CloudProviderCSIDiskConfigName],
-		//}
+		values["region"] = cp.Spec.Region
 	}
 
 	return values

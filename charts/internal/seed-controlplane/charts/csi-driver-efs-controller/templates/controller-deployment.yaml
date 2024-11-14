@@ -36,12 +36,12 @@ spec:
 {{ toYaml .Values.podAnnotations | indent 8 }}
 {{- end }}
     spec:
-      automountServiceAccountToken: true
+      automountServiceAccountToken: false
       priorityClassName: gardener-system-300
       {{- if hasKey .Values.controller "hostNetwork" }}
       hostNetwork: {{ .Values.controller.hostNetwork }}
       {{- end }}
-      serviceAccountName: {{ .Values.controller.serviceAccount.name }}
+{{/*      serviceAccountName: {{ .Values.controller.serviceAccount.name }}*/}}
       {{- with .Values.controller.tolerations }}
       tolerations: {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -59,6 +59,7 @@ spec:
         - name: aws-csi-driver-efs
           image: {{ index .Values.images "csi-driver-efs" }}
           args:
+            - controller
             - --endpoint=$(CSI_ENDPOINT)
             - --logtostderr
             {{- if .Values.controller.tags }}
@@ -66,10 +67,13 @@ spec:
             {{- end }}
             - --v={{ .Values.controller.logLevel }}
             - --delete-access-point-root-dir={{ hasKey .Values.controller "deleteAccessPointRootDir" | ternary .Values.controller.deleteAccessPointRootDir false }}
-            - --mode=controller
           env:
             - name: CSI_ENDPOINT
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+            - name: AWS_REGION
+              value: {{ .Values.region }}
+            - name: AWS_SHARED_CREDENTIALS_FILE
+              value: /srv/cloudprovider/credentialsFile
             - name: CSI_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -77,6 +81,8 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
+            - name: cloudprovider
+              mountPath: /srv/cloudprovider
           ports:
             - name: healthz
               containerPort: {{ .Values.controller.healthPort }}
@@ -99,6 +105,7 @@ spec:
             - --csi-address=$(ADDRESS)
             - --v={{ .Values.controller.logLevel }}
             - --feature-gates=Topology=true
+            - --kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
             {{- if .Values.controller.extraCreateMetadata }}
             - --extra-create-metadata
             {{- end }}
@@ -115,6 +122,9 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
+            - name: kubeconfig-csi-provisioner
+              mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
+              readOnly: true
           {{- with .Values.resources.provisioner }}
           resources: {{ toYaml . | nindent 12 }}
           {{- end }}
@@ -133,3 +143,22 @@ spec:
       volumes:
         - name: socket-dir
           emptyDir: {}
+        - name: kubeconfig-csi-provisioner
+          projected:
+            defaultMode: 420
+            sources:
+              - secret:
+                  items:
+                    - key: kubeconfig
+                      path: kubeconfig
+                  name: {{ .Values.global.genericTokenKubeconfigSecretName }}
+                  optional: false
+              - secret:
+                  items:
+                    - key: token
+                      path: token
+                  name: shoot-access-csi-provisioner
+                  optional: false
+        - name: cloudprovider
+          secret:
+            secretName: cloudprovider

@@ -39,7 +39,7 @@ sidecars:
 
 node:
   # Number for the log level verbosity
-  logLevel: 2
+  logLevel: 5
   volMetricsOptIn: false
   volMetricsRefreshPeriod: 240
   volMetricsFsRateLimit: 5
@@ -97,21 +97,8 @@ node:
   kubeletPath: /var/lib/kubelet
 
 storageClasses: []
-# Add StorageClass resources like:
-# - name: efs-sc
-#   annotations:
-#     # Use that annotation if you want this to your default storageclass
-#     storageclass.kubernetes.io/is-default-class: "true"
-#   mountOptions:
-#   - tls
-#   parameters:
-#     provisioningMode: efs-ap
-#     fileSystemId: fs-1122aabb
-#     directoryPerms: "700"
-#     gidRangeStart: "1000"
-#     gidRangeEnd: "2000"
-#     basePath: "/dynamic_provisioning"
-#     subPathPattern: "/subPath"
-#     ensureUniqueDirectory: true
-#   reclaimPolicy: Delete
-#   volumeBindingMode: Immediate
+
+controller:
+  serviceAccount:
+    name: efs-csi-controller-sa
+    annotations: {}

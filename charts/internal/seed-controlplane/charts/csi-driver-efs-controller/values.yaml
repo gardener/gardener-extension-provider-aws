@@ -1,5 +1,7 @@
 fileSystemID: ""
 
+region: region
+
 nameOverride: ""
 fullnameOverride: ""
 
@@ -42,7 +44,7 @@ podAnnotations: {}
 
 controller:
   # Number for the log level verbosity
-  logLevel: 2
+  logLevel: 5
   # If set, add pv/pvc metadata to plugin create requests as parameters.
   extraCreateMetadata: true
   # Add additional tags to access points

@@ -270,8 +270,6 @@ cloudControllerManager:
 #   ingressClassName: alb
 storage:
   managedDefaultClass: false
-#  csiEfs:
-#    enabled: true
 ```
 
 The `cloudControllerManager.featureGates` contains a map of explicitly enabled or disabled feature gates.
@@ -486,6 +484,7 @@ spec:
           internal: 10.250.112.0/22
           public: 10.250.96.0/22
           workers: 10.250.0.0/19
+      enableCsiEfs: true
     controlPlaneConfig:
       apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
       kind: ControlPlaneConfig
@@ -594,6 +593,8 @@ spec:
 Every AWS shoot cluster will be deployed with the AWS EBS CSI driver.
 It is compatible with the legacy in-tree volume provisioner that was deprecated by the Kubernetes community and will be removed in future versions of Kubernetes.
 End-users might want to update their custom `StorageClass`es to the new `ebs.csi.aws.com` provisioner.
+
+To deploy the efs-csi-driver add the annotation `enableCsiEfs: true` to your infrastructureConfig like in this [example](#example-shoot-manifest-one-availability-zone).
 
 ### Node-specific Volume Limits
 
