@@ -1290,20 +1290,7 @@ const iamRolePolicyTemplate = `{
       "Resource": [
         "*"
       ]
-    },
-		{
-			"Effect": "Allow",
-			"Action": [
-				"elasticfilesystem:DescribeAccessPoints",
-				"elasticfilesystem:DescribeFileSystems",
-				"elasticfilesystem:DescribeMountTargets",
-				"elasticfilesystem:CreateAccessPoint",
-				"elasticfilesystem:DeleteAccessPoint",
-				"elasticfilesystem:TagResource",
-				"ec2:DescribeAvailabilityZones"
-			],
-			"Resource": "*"
-		} {{ if .enableECRAccess }},
+    } {{ if .enableECRAccess }},
     {
       "Effect": "Allow",
       "Action": [
@@ -1420,29 +1407,14 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
-	// already exists
 	if c.state.Get(NameEfsSystemID) != nil {
 		return nil
 	}
 
-	// TODO separate function
-	var efsCreationToken string
-	tokenCandidate := fmt.Sprintf("%s-efs-token", c.namespace)
-	// only allow ASCII chars
-	for _, r := range tokenCandidate {
-		if r <= 127 {
-			efsCreationToken += string(r)
-		}
-	}
-	// Restrict string to 64 characters
-	if len(efsCreationToken) > 64 {
-		efsCreationToken = efsCreationToken[:64]
-	}
-
-	// TODO add flag to enable backup, performanceMode, Throughput...
+	// TODO add flags like: performanceMode, Throughput...
 	inputCreate := &efs.CreateFileSystemInput{
-		Tags:          c.commonTags.ToEfsTags(), // TODO add name tag
-		CreationToken: ptr.To(efsCreationToken),
+		Tags:          c.commonTags.ToEfsTags(),
+		CreationToken: ptr.To(createEfsCreationToken(c.namespace)),
 		Encrypted:     ptr.To(true),
 	}
 	efsCreate, err := c.client.CreateEfsFileSystem(ctx, inputCreate)
@@ -1479,6 +1451,23 @@ func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
 
 	c.state.Set(NameEfsSystemID, *efsCreate.FileSystemId)
 	return nil
+}
+
+func createEfsCreationToken(namespace string) string {
+	var efsCreationToken string
+	tokenCandidate := fmt.Sprintf("efs-token-%s", namespace)
+	// only allow ASCII chars
+	for _, r := range tokenCandidate {
+		if r <= 127 {
+			efsCreationToken += string(r)
+		}
+	}
+	// restrict string to 64 characters
+	if len(efsCreationToken) > 64 {
+		efsCreationToken = efsCreationToken[:64]
+	}
+
+	return efsCreationToken
 }
 
 func (c *FlowContext) getSubnetZoneChildByItem(item *awsclient.Subnet) Whiteboard {
