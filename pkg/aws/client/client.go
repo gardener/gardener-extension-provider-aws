@@ -1000,10 +1000,10 @@ func (c *Client) prepareRules(groupId string, rules []*SecurityGroupRule) (ingre
 				UserIdGroupPairs: nil,
 			}
 			if rule.FromPort != 0 {
-				ipPerm.FromPort = aws.Int32(int32(rule.FromPort))
+				ipPerm.FromPort = aws.Int32(rule.FromPort)
 			}
 			if rule.ToPort != 0 {
-				ipPerm.ToPort = aws.Int32(int32(rule.ToPort))
+				ipPerm.ToPort = aws.Int32(rule.ToPort)
 			}
 			for _, block := range rule.CidrBlocks {
 				ipPerm.IpRanges = append(ipPerm.IpRanges, ec2types.IpRange{CidrIp: aws.String(block)})
@@ -2214,10 +2214,10 @@ func fromIpPermission(groupId string, ipPerm ec2types.IpPermission, ruleType Sec
 		CidrBlocks: blocks,
 	}
 	if ipPerm.FromPort != nil {
-		rule.FromPort = int(*ipPerm.FromPort)
+		rule.FromPort = *ipPerm.FromPort
 	}
 	if ipPerm.ToPort != nil {
-		rule.ToPort = int(*ipPerm.ToPort)
+		rule.ToPort = *ipPerm.ToPort
 	}
 	if len(ipPerm.UserIdGroupPairs) == 1 && ipPerm.UserIdGroupPairs[0].GroupId != nil && *ipPerm.UserIdGroupPairs[0].GroupId == groupId {
 		rule.Self = true
