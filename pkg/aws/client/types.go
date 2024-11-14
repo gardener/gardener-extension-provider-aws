@@ -311,8 +311,8 @@ const (
 // SecurityGroupRule contains the relevant fields of a EC2 security group rule resource.
 type SecurityGroupRule struct {
 	Type         SecurityGroupRuleType
-	FromPort     int
-	ToPort       int
+	FromPort     int32
+	ToPort       int32
 	Protocol     string
 	CidrBlocks   []string
 	CidrBlocksv6 []string
