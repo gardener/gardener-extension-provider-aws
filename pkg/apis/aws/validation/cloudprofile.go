@@ -24,36 +24,44 @@ func ValidateCloudProfileConfig(cloudProfile *apisaws.CloudProfileConfig, fldPat
 	}
 	for i, machineImage := range cloudProfile.MachineImages {
 		idxPath := machineImagesPath.Index(i)
+		allErrs = append(allErrs, ValidateMachineImage(idxPath, machineImage)...)
+	}
 
-		if len(machineImage.Name) == 0 {
-			allErrs = append(allErrs, field.Required(idxPath.Child("name"), "must provide a name"))
+	return allErrs
+}
+
+// ValidateMachineImage validates a CloudProfileConfig MachineImages entry.
+func ValidateMachineImage(validationPath *field.Path, machineImage apisaws.MachineImages) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if len(machineImage.Name) == 0 {
+		allErrs = append(allErrs, field.Required(validationPath.Child("name"), "must provide a name"))
+	}
+
+	if len(machineImage.Versions) == 0 {
+		allErrs = append(allErrs, field.Required(validationPath.Child("versions"), fmt.Sprintf("must provide at least one version for machine image %q", machineImage.Name)))
+	}
+	for j, version := range machineImage.Versions {
+		jdxPath := validationPath.Child("versions").Index(j)
+
+		if len(version.Version) == 0 {
+			allErrs = append(allErrs, field.Required(jdxPath.Child("version"), "must provide a version"))
 		}
 
-		if len(machineImage.Versions) == 0 {
-			allErrs = append(allErrs, field.Required(idxPath.Child("versions"), fmt.Sprintf("must provide at least one version for machine image %q", machineImage.Name)))
+		if len(version.Regions) == 0 {
+			allErrs = append(allErrs, field.Required(jdxPath.Child("regions"), fmt.Sprintf("must provide at least one region for machine image %q and version %q", machineImage.Name, version.Version)))
 		}
-		for j, version := range machineImage.Versions {
-			jdxPath := idxPath.Child("versions").Index(j)
+		for k, region := range version.Regions {
+			kdxPath := jdxPath.Child("regions").Index(k)
 
-			if len(version.Version) == 0 {
-				allErrs = append(allErrs, field.Required(jdxPath.Child("version"), "must provide a version"))
+			if len(region.Name) == 0 {
+				allErrs = append(allErrs, field.Required(kdxPath.Child("name"), "must provide a name"))
 			}
-
-			if len(version.Regions) == 0 {
-				allErrs = append(allErrs, field.Required(jdxPath.Child("regions"), fmt.Sprintf("must provide at least one region for machine image %q and version %q", machineImage.Name, version.Version)))
+			if len(region.AMI) == 0 {
+				allErrs = append(allErrs, field.Required(kdxPath.Child("ami"), "must provide an ami"))
 			}
-			for k, region := range version.Regions {
-				kdxPath := jdxPath.Child("regions").Index(k)
-
-				if len(region.Name) == 0 {
-					allErrs = append(allErrs, field.Required(kdxPath.Child("name"), "must provide a name"))
-				}
-				if len(region.AMI) == 0 {
-					allErrs = append(allErrs, field.Required(kdxPath.Child("ami"), "must provide an ami"))
-				}
-				if !slices.Contains(v1beta1constants.ValidArchitectures, *region.Architecture) {
-					allErrs = append(allErrs, field.NotSupported(kdxPath.Child("architecture"), *region.Architecture, v1beta1constants.ValidArchitectures))
-				}
+			if !slices.Contains(v1beta1constants.ValidArchitectures, *region.Architecture) {
+				allErrs = append(allErrs, field.NotSupported(kdxPath.Child("architecture"), *region.Architecture, v1beta1constants.ValidArchitectures))
 			}
 		}
 	}
