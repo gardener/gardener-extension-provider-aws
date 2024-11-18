@@ -260,7 +260,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should successfully create and delete with dualstack enabled", func() {
+		It("should successfully create and delete with dualstack ingress enabled", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
@@ -285,6 +285,20 @@ var _ = Describe("Infrastructure tests", func() {
 			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("should successfully create and delete with dualstack (IPv6 and IPv4)", func() {
+			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
+				CIDR:             ptr.To(vpcCIDR),
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			}, true)
+
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6, gardencorev1beta1.IPFamilyIPv4})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 	})
 
 	Context("with infrastructure that uses existing vpc (networks.vpc.id)", func() {
@@ -344,7 +358,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should successfully create and delete (flow) with dualstack enabled", func() {
+		It("should successfully create and delete with dualstack ingress", func() {
 			enableDnsHostnames := true
 			assignIPv6CidrBlock := true
 			vpcID, igwID, _, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock, false)
@@ -369,7 +383,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should successfully create and delete (flow) with IPv6", func() {
+		It("should successfully create and delete with IPv6", func() {
 			enableDnsHostnames := true
 			assignIPv6CidrBlock := true
 			egressOnlyIG := true
@@ -398,6 +412,37 @@ var _ = Describe("Infrastructure tests", func() {
 			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("should successfully create and delete with IPv6 and IPv4", func() {
+			enableDnsHostnames := true
+			assignIPv6CidrBlock := true
+			egressOnlyIG := true
+			vpcID, igwID, eoegressOnlyIG, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock, egressOnlyIG)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vpcID).NotTo(BeEmpty())
+			Expect(igwID).NotTo(BeEmpty())
+
+			if egressOnlyIG {
+				Expect(eoegressOnlyIG).NotTo(BeEmpty())
+			}
+
+			framework.AddCleanupAction(func() {
+				Expect(integration.DestroyVPC(ctx, log, awsClient, vpcID)).To(Succeed())
+			})
+
+			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
+				ID:               &vpcID,
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			}, true)
+			providerConfig.DualStack.Enabled = true
+
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6, gardencorev1beta1.IPFamilyIPv4})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 	})
 
 	Context("with invalid credentials", func() {

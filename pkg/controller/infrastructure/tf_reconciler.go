@@ -144,9 +144,9 @@ func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1
 		if err != nil {
 			return err
 		}
-		return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, &vpcIPv6CIDR, &ipV6ServiceCIDR)
+		return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, c.Shoot.Spec.Networking, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, &vpcIPv6CIDR, &ipV6ServiceCIDR)
 	}
-	return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, nil, nil)
+	return infraflow.PatchProviderStatusAndState(ctx, t.client, infra, c.Shoot.Spec.Networking, status, &runtime.RawExtension{Raw: stateBytes}, egressCIDRs, nil, nil)
 }
 
 // Delete deletes the infrastructure using Terraformer.
@@ -423,11 +423,11 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 		dhcpDomainName = fmt.Sprintf("%s.compute.internal", infrastructure.Spec.Region)
 	}
 
-	isIPv4 := true
-	isIPv6 := false
-	if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
-		isIPv4 = false
-		isIPv6 = true
+	isIPv4 := slices.Contains(ipFamilies, v1beta1.IPFamilyIPv4)
+	isIPv6 := slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6)
+
+	if !(isIPv4 || isIPv6) {
+		return nil, fmt.Errorf("there are no IPFamilies configured")
 	}
 
 	enableDualStack := false
