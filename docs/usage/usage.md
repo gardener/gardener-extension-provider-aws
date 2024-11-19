@@ -621,36 +621,19 @@ spec:
         zones:
         - name: eu-central-1a
           public: 10.250.96.0/22
+          internal: 10.250.112.0/22
     controlPlaneConfig:
       apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
       kind: ControlPlaneConfig
     workers:
-    - name: worker-xoluy
-      machine:
-        type: m5.large
-      minimum: 2
-      maximum: 2
-      volume:
-        size: 50Gi
-        type: gp2
-    # The following provider config is valid if the volume type is `io1`.
-    # providerConfig:
-    #   apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-    #   kind: WorkerConfig
-    #   volume:
-    #     iops: 10000
-      zones:
-      - eu-central-1a
+    - ...
   networking:
     ipFamilies:
     - IPv6
     type: calico
   kubernetes:
     version: 1.28.2
-  maintenance:
-    autoUpdate:
-      kubernetesVersion: true
-      machineImageVersion: true
+  ...
   addons:
     kubernetesDashboard:
       enabled: true
