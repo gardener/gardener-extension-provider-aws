@@ -595,6 +595,52 @@ spec:
       enabled: true
 ```
 
+## Example `Shoot` manifest (IPv6)
+
+Please find below an example `Shoot` manifest for an IPv6 shoot cluster:
+
+```yaml
+apiVersion: core.gardener.cloud/v1beta1
+kind: Shoot
+metadata:
+  name: johndoe-aws-ipv6
+  namespace: garden-dev
+spec:
+  cloudProfile:
+    name: aws
+  region: eu-central-1
+  secretBindingName: core-aws
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          cidr: 10.250.0.0/16
+        zones:
+        - name: eu-central-1a
+          public: 10.250.96.0/22
+          internal: 10.250.112.0/22
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - ...
+  networking:
+    ipFamilies:
+    - IPv6
+    type: calico
+  kubernetes:
+    version: 1.28.2
+  ...
+  addons:
+    kubernetesDashboard:
+      enabled: true
+    nginxIngress:
+      enabled: false
+```
+
 ## CSI volume provisioners
 
 Every AWS shoot cluster will be deployed with the AWS EBS CSI driver.
