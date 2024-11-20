@@ -34,6 +34,7 @@ import (
 	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -783,10 +784,67 @@ done
 		})
 
 		It("should inject the sidecar container", func() {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloudprovider",
+					Namespace: deployment.Namespace,
+				},
+			}
+			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(secret), secret).DoAndReturn(func(_ context.Context, _ client.ObjectKey, obj runtime.Object, _ ...client.GetOption) error {
+				obj = secret
+				return nil
+			})
+
 			Expect(deployment.Spec.Template.Spec.Containers).To(BeEmpty())
 			Expect(ensurer.EnsureMachineControllerManagerDeployment(context.TODO(), nil, deployment, nil)).To(BeNil())
 			expectedContainer := machinecontrollermanager.ProviderSidecarContainer(deployment.Namespace, "provider-aws", "foo:bar")
 			Expect(deployment.Spec.Template.Spec.Containers).To(ConsistOf(expectedContainer))
+		})
+
+		It("should inject the sidecar container and mount the workload identity token volume", func() {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloudprovider",
+					Namespace: deployment.Namespace,
+				},
+			}
+			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(secret), secret).DoAndReturn(func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
+				obj.Labels = map[string]string{
+					"security.gardener.cloud/purpose": "workload-identity-token-requestor",
+				}
+				return nil
+			})
+			Expect(deployment.Spec.Template.Spec.Containers).To(BeEmpty())
+			Expect(ensurer.EnsureMachineControllerManagerDeployment(context.TODO(), nil, deployment, nil)).To(BeNil())
+			expectedContainer := machinecontrollermanager.ProviderSidecarContainer(deployment.Namespace, "provider-aws", "foo:bar")
+			expectedContainer.VolumeMounts = append(expectedContainer.VolumeMounts, corev1.VolumeMount{
+				Name:      "workload-identity",
+				MountPath: "/var/run/secrets/gardener.cloud/workload-identity",
+			})
+
+			Expect(deployment.Spec.Template.Spec.Containers).To(ConsistOf(expectedContainer))
+			Expect(deployment.Spec.Template.Spec.Volumes).To(ConsistOf(corev1.Volume{
+				Name: "workload-identity",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: []corev1.VolumeProjection{
+							{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: v1beta1constants.SecretNameCloudProvider,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "token",
+											Path: "token",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}))
 		})
 	})
 
