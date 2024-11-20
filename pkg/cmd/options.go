@@ -38,6 +38,7 @@ import (
 	seedproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/seedprovider"
 	configmapwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootconfigmap"
 	servicewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootservice"
+	terraformerwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/terraformer"
 )
 
 const (
@@ -74,6 +75,7 @@ func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 		webhookcmd.Switch(configmapwebhook.WebhookName, configmapwebhook.AddToManager),
 		webhookcmd.Switch(extensionscloudproviderwebhook.WebhookName, cloudproviderwebhook.AddToManager),
 		webhookcmd.Switch(infrastructure.WebhookName, infrastructure.AddToManager),
+		webhookcmd.Switch(terraformerwebhook.WebhookName, terraformerwebhook.AddToManager),
 	)
 }
 
