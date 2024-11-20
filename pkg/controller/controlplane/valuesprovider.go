@@ -612,11 +612,26 @@ func getCRCChartValues(
 			mode = "ipv6"
 		}
 	}
+
+	var podNetworks []string
+
+	if slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, v1beta1.IPFamilyIPv4) {
+		for _, podCIDR := range extensionscontroller.GetPodNetwork(cluster) {
+			_, cidr, err := net.ParseCIDR(podCIDR)
+			if err != nil {
+				return nil, err
+			}
+			if cidr.IP.To4() != nil {
+				podNetworks = append(podNetworks, podCIDR)
+			}
+		}
+	}
+
 	values := map[string]interface{}{
 		"enabled":     true,
 		"replicas":    extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"clusterName": cp.Namespace,
-		"podNetwork":  strings.Join(extensionscontroller.GetPodNetwork(cluster), ","),
+		"podNetwork":  strings.Join(podNetworks, ","),
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-cloudprovider": checksums[v1beta1constants.SecretNameCloudProvider],
 		},
