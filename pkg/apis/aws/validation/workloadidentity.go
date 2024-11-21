@@ -22,7 +22,7 @@ func ValidateWorkloadIdentityConfig(config *apisaws.WorkloadIdentityConfig, fldP
 }
 
 // ValidateWorkloadIdentityConfigUpdate validates updates on WorkloadIdentityConfig object.
-func ValidateWorkloadIdentityConfigUpdate(oldConfig, newConfig *apisaws.WorkloadIdentityConfig, fldPath *field.Path) field.ErrorList {
+func ValidateWorkloadIdentityConfigUpdate(_, newConfig *apisaws.WorkloadIdentityConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	allErrs = append(allErrs, ValidateWorkloadIdentityConfig(newConfig, fldPath)...)
 
