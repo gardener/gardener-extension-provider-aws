@@ -790,8 +790,7 @@ done
 					Namespace: deployment.Namespace,
 				},
 			}
-			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(secret), secret).DoAndReturn(func(_ context.Context, _ client.ObjectKey, obj runtime.Object, _ ...client.GetOption) error {
-				obj = secret
+			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(secret), secret).DoAndReturn(func(_ context.Context, _ client.ObjectKey, _ runtime.Object, _ ...client.GetOption) error {
 				return nil
 			})
 
