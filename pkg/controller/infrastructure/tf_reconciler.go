@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
@@ -42,14 +41,14 @@ import (
 
 // TerraformReconciler can manage infrastructure resources using Terraformer.
 type TerraformReconciler struct {
-	client                     k8sClient.Client
+	client                     client.Client
 	restConfig                 *rest.Config
 	log                        logr.Logger
 	disableProjectedTokenMount bool
 }
 
 // NewTerraformReconciler returns a new instance of TerraformReconciler.
-func NewTerraformReconciler(client k8sClient.Client, restConfig *rest.Config, log logr.Logger, disableProjectedTokenMount bool) *TerraformReconciler {
+func NewTerraformReconciler(client client.Client, restConfig *rest.Config, log logr.Logger, disableProjectedTokenMount bool) *TerraformReconciler {
 	return &TerraformReconciler{
 		client:                     client,
 		restConfig:                 restConfig,
