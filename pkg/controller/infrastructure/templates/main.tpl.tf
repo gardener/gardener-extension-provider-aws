@@ -1,6 +1,8 @@
 provider "aws" {
+  {{- if not .useWorkloadIdentity }}
   access_key = var.ACCESS_KEY_ID
   secret_key = var.SECRET_ACCESS_KEY
+  {{- end }}
   region     = "{{ .aws.region }}"
   {{- if or .ignoreTags.keys .ignoreTags.keyPrefixes }}
   ignore_tags {
