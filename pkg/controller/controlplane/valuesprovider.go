@@ -20,6 +20,7 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	"github.com/gardener/gardener/pkg/utils/chart"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
@@ -400,12 +401,17 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		}
 	}
 
-	return getControlPlaneChartValues(cpConfig, cp, infraStatus, cluster, secretsReader, checksums, scaledDown, gep19Monitoring)
+	useWorkloadIdentity, err := shouldUseWorkloadIdentity(ctx, vp.client, cp.Spec.SecretRef.Name, cp.Spec.SecretRef.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return getControlPlaneChartValues(cpConfig, cp, infraStatus, cluster, secretsReader, checksums, scaledDown, gep19Monitoring, useWorkloadIdentity)
 }
 
 // GetControlPlaneShootChartValues returns the values for the control plane shoot chart applied by the generic actuator.
 func (vp *valuesProvider) GetControlPlaneShootChartValues(
-	_ context.Context,
+	ctx context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 	secretsReader secretsmanager.Reader,
@@ -419,7 +425,12 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 		}
 	}
 
-	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader)
+	useWorkloadIdentity, err := shouldUseWorkloadIdentity(ctx, vp.client, cp.Spec.SecretRef.Name, cp.Spec.SecretRef.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader, useWorkloadIdentity)
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
@@ -514,28 +525,29 @@ func getControlPlaneChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 	gep19Monitoring bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
-	ccm, err := getCCMChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, gep19Monitoring)
+	ccm, err := getCCMChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, gep19Monitoring, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	crc, err := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown)
+	crc, err := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown)
+	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	alb, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, infraStatus)
+	alb, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, infraStatus, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	csi, err := getCSIControllerChartValues(cp, cluster, secretsReader, checksums, scaledDown)
+	csi, err := getCSIControllerChartValues(cp, cluster, secretsReader, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -561,6 +573,7 @@ func getCCMChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 	gep19Monitoring bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	serverSecret, found := secretsReader.Get(cloudControllerManagerServerName)
 	if !found {
@@ -584,7 +597,8 @@ func getCCMChartValues(
 		"secrets": map[string]interface{}{
 			"server": serverSecret.Name,
 		},
-		"gep19Monitoring": gep19Monitoring,
+		"gep19Monitoring":     gep19Monitoring,
+		"useWorkloadIdentity": useWorkloadIdentity,
 	}
 
 	if cpConfig.CloudControllerManager != nil {
@@ -601,6 +615,7 @@ func getCRCChartValues(
 	cluster *extensionscontroller.Cluster,
 	checksums map[string]string,
 	scaledDown bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	mode := "ipv4"
 	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
@@ -619,7 +634,8 @@ func getCRCChartValues(
 		"podLabels": map[string]interface{}{
 			v1beta1constants.LabelPodMaintenanceRestart: "true",
 		},
-		"region": cp.Spec.Region,
+		"region":              cp.Spec.Region,
+		"useWorkloadIdentity": useWorkloadIdentity,
 	}
 	enabled := cpConfig.CloudControllerManager != nil &&
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
@@ -637,6 +653,7 @@ func getIPAMChartValues(
 	cluster *extensionscontroller.Cluster,
 	checksums map[string]string,
 	scaledDown bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	mode := "ipv4"
 	primaryIPFamily := "ipv4"
@@ -689,6 +706,7 @@ func getIPAMChartValues(
 		"primaryIPFamily":      primaryIPFamily,
 		"nodeCIDRMaskSizeIPv4": nodeCidrMaskSizeIPv4,
 		"nodeCIDRMaskSizeIPv6": nodeCidrMaskSizeIPv6,
+		"useWorkloadIdentity":  useWorkloadIdentity,
 	}
 	enabled := mode != "ipv4"
 	if !enabled {
@@ -707,6 +725,7 @@ func getALBChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 	infraStatus *apisaws.InfrastructureStatus,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	shootChart := infraStatus == nil
 	if shootChart && !isLoadBalancerControllerEnabled(cpConfig) {
@@ -738,6 +757,7 @@ func getALBChartValues(
 			"KubernetesCluster":                     cp.Namespace,
 			"kubernetes.io/cluster/" + cp.Namespace: "owned",
 		},
+		"useWorkloadIdentity": useWorkloadIdentity,
 	}
 	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.IngressClassName != nil {
 		values["ingressClass"] = *cpConfig.LoadBalancerController.IngressClassName
@@ -770,6 +790,7 @@ func getCSIControllerChartValues(
 	secretsReader secretsmanager.Reader,
 	checksums map[string]string,
 	scaledDown bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	serverSecret, found := secretsReader.Get(csiSnapshotValidationServerName)
 	if !found {
@@ -793,6 +814,7 @@ func getCSIControllerChartValues(
 			},
 			"topologyAwareRoutingEnabled": gardencorev1beta1helper.IsTopologyAwareRoutingForShootControlPlaneEnabled(cluster.Seed, cluster.Shoot),
 		},
+		"useWorkloadIdentity": useWorkloadIdentity,
 	}
 
 	k8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
@@ -823,6 +845,7 @@ func getControlPlaneShootChartValues(
 	cpConfig *apisaws.ControlPlaneConfig,
 	cp *extensionsv1alpha1.ControlPlane,
 	secretsReader secretsmanager.Reader,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	kubernetesVersion := cluster.Shoot.Spec.Kubernetes.Version
 
@@ -859,7 +882,7 @@ func getControlPlaneShootChartValues(
 	}
 	csiDriverNodeValues["driver"] = driver
 
-	albValues, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, nil, false, nil)
+	albValues, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, nil, false, nil, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -871,4 +894,13 @@ func getControlPlaneShootChartValues(
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
 	}, nil
+}
+
+func shouldUseWorkloadIdentity(ctx context.Context, c k8sclient.Client, secretName, secretNamespace string) (bool, error) {
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: secretNamespace}}
+	if err := c.Get(ctx, k8sclient.ObjectKeyFromObject(secret), secret); err != nil {
+		return false, fmt.Errorf("failed getting controlplane secret: %w", err)
+	}
+
+	return secret.ObjectMeta.Labels[securityv1alpha1constants.LabelPurpose] == securityv1alpha1constants.LabelPurposeWorkloadIdentityTokenRequestor, nil
 }

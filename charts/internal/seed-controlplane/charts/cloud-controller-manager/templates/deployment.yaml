@@ -58,8 +58,26 @@ spec:
         - --use-service-account-credentials
         - --v=2
         env:
+        {{- if .Values.useWorkloadIdentity }}
+        # TODO: For some reason the aws sdk does not properly read the role_arn
+        # from the shared credentials file.
+        # Use the file when https://github.com/kubernetes/cloud-provider-aws/issues/932 is implemented.
+        # - name: AWS_SHARED_CREDENTIALS_FILE
+        #   value: /var/run/secrets/gardener.cloud/workload-identity/credentialsFile
+        - name: AWS_WEB_IDENTITY_TOKEN_FILE
+          valueFrom:
+            secretKeyRef:
+              name: cloudprovider
+              key: workloadIdentityTokenFile
+        - name: AWS_ROLE_ARN
+          valueFrom:
+            secretKeyRef:
+              name: cloudprovider
+              key: roleARN
+        {{- else }}
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /srv/cloudprovider/credentialsFile
+        {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
@@ -88,8 +106,15 @@ spec:
           readOnly: true
         - name: cloud-controller-manager-server
           mountPath: /var/lib/cloud-controller-manager-server
+        {{- if .Values.useWorkloadIdentity }}
+        - name: cloudprovider
+          mountPath: /var/run/secrets/gardener.cloud/workload-identity
+          readOnly: true
+        {{- else }}
         - name: cloudprovider
           mountPath: /srv/cloudprovider
+          readOnly: true
+        {{- end }}
         - name: cloud-provider-config
           mountPath: /etc/kubernetes/cloudprovider
       dnsPolicy: ClusterFirst
@@ -117,8 +142,23 @@ spec:
         secret:
           secretName: {{ .Values.secrets.server }}
       - name: cloudprovider
-        secret:
-          secretName: cloudprovider
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              {{- if .Values.useWorkloadIdentity }}
+              - key: token
+                path: token
+              {{- else}}
+              # TODO: For some reason the aws sdk does not properly read the role_arn
+              # from the shared credentials file.
+              # Always use the file (instead of env variables) when https://github.com/kubernetes/cloud-provider-aws/issues/932 is implemented.
+              - key: credentialsFile
+                path: credentialsFile
+              {{- end }}
+              name: cloudprovider
+              optional: false
       - name: cloud-provider-config
         configMap:
           name: cloud-provider-config
