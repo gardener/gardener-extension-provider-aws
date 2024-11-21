@@ -318,7 +318,7 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 			bae *s3types.BucketAlreadyExists
 			bao *s3types.BucketAlreadyOwnedByYou
 		)
-		if !errors.As(err, &bae) || !errors.As(err, &bao) {
+		if !errors.As(err, &bae) && !errors.As(err, &bao) {
 			return err
 		}
 	}
