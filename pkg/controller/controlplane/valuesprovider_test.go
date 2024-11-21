@@ -163,6 +163,10 @@ var _ = Describe("ValuesProvider", func() {
 					}),
 				},
 				Region: region,
+				SecretRef: corev1.SecretReference{
+					Name:      "cloudprovider",
+					Namespace: namespace,
+				},
 			},
 		}
 
@@ -256,6 +260,7 @@ var _ = Describe("ValuesProvider", func() {
 				"nodeCIDRMaskSizeIPv4": int32(24),
 				"replicas":             0,
 				"clusterName":          "test",
+				"useWorkloadIdentity":  false,
 			})
 			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
 				"replicas":    1,
@@ -285,6 +290,7 @@ var _ = Describe("ValuesProvider", func() {
 				"secrets": map[string]interface{}{
 					"server": "cloud-controller-manager-server",
 				},
+				"useWorkloadIdentity": false,
 			})
 			crcChartValues = map[string]interface{}{
 				"podLabels": map[string]interface{}{
@@ -298,6 +304,7 @@ var _ = Describe("ValuesProvider", func() {
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 				},
+				"useWorkloadIdentity": false,
 			}
 			albChartValues = map[string]interface{}{
 				"region":                "europe",
@@ -317,6 +324,7 @@ var _ = Describe("ValuesProvider", func() {
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 				},
+				"useWorkloadIdentity": false,
 			}
 
 			By("creating secrets managed outside of this package for whose secretsmanager.Get() will be called")
@@ -327,6 +335,13 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: awsLoadBalancerControllerWebhook, Namespace: namespace}})).To(Succeed())
 			c.EXPECT().Get(context.TODO(), client.ObjectKey{Name: "prometheus-shoot", Namespace: cp.Namespace}, gomock.AssignableToTypeOf(&appsv1.StatefulSet{})).Return(apierrors.NewNotFound(schema.GroupResource{}, ""))
+			cloudProviderSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloudprovider",
+					Namespace: namespace,
+				},
+			}
+			c.EXPECT().Get(context.TODO(), client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret).Return(nil)
 		})
 
 		It("should return correct control plane chart values", func() {
@@ -359,6 +374,7 @@ var _ = Describe("ValuesProvider", func() {
 						},
 						"topologyAwareRoutingEnabled": false,
 					},
+					"useWorkloadIdentity": false,
 				}),
 			}))
 		})
@@ -396,6 +412,7 @@ var _ = Describe("ValuesProvider", func() {
 						},
 						"topologyAwareRoutingEnabled": false,
 					},
+					"useWorkloadIdentity": false,
 				}),
 			}))
 		})
@@ -432,6 +449,7 @@ var _ = Describe("ValuesProvider", func() {
 						},
 						"topologyAwareRoutingEnabled": false,
 					},
+					"useWorkloadIdentity": false,
 				}),
 			}))
 		})
@@ -469,6 +487,7 @@ var _ = Describe("ValuesProvider", func() {
 						},
 						"topologyAwareRoutingEnabled": false,
 					},
+					"useWorkloadIdentity": false,
 				}),
 			}))
 		})
@@ -528,6 +547,13 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "csi-snapshot-validation-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: awsLoadBalancerControllerWebhook, Namespace: namespace}})).To(Succeed())
+			cloudProviderSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloudprovider",
+					Namespace: namespace,
+				},
+			}
+			c.EXPECT().Get(context.TODO(), client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret).Return(nil)
 		})
 
 		Context("shoot control plane chart values", func() {
@@ -618,6 +644,7 @@ var _ = Describe("ValuesProvider", func() {
 						"KubernetesCluster":          "test",
 						"kubernetes.io/cluster/test": "owned",
 					},
+					"useWorkloadIdentity": false,
 				}
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, cluster, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
