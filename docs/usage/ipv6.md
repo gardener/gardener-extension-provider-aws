@@ -17,7 +17,7 @@ To allow external clients to also use IPv6 to access services in an IPv4 shoot c
 
 It is possible to configure a shoot cluster to support dual-stack ingress, see [Using IPv4/IPv6 (dual-stack) Ingress in an IPv4 single-stack cluster](dual-stack-ingress.md) for more information.
 
-The main benefit of this approach is that the existing cluster stays almost as is without mayor changes, keeping the operational simplicity.
+The main benefit of this approach is that the existing cluster stays almost as is without major changes, keeping the operational simplicity.
 It works very well for services that only require incoming communication, e.g. pure web services.
 
 The main drawback is that certain scenarios, especially related to IPv6 callbacks, are not possible.
@@ -64,7 +64,8 @@ spec:
             internal: 192.168.48.0/20
 ```
 
-Please note that `nodes`, `pods` and `services` should not be specified in `.spec.networking` resource.
+> [!WARNING]
+> Please note that `nodes`, `pods` and `services` should not be specified in `.spec.networking` resource.
 
 In contrast to that, it is still required to specify IPv4 ranges for the VPC and the public/internal subnets.
 This is mainly due to the fact that public/internal load balancers still require IPv4 addresses as there are no pure IPv6-only load balancers as of now.
@@ -73,7 +74,7 @@ The ranges can be sized according to the expected amount of load balancers per z
 ### Load Balancer Configuration
 
 The AWS Load Balancer Controller is automatically deployed when using an IPv6-only shoot cluster.
-When creating a load balancer, the corresponding annotations need to be configured, see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/service/nlb/) for details.
+When creating a load balancer, the corresponding annotations need to be configured, see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/nlb/) for details.
 
 The AWS Load Balancer Controller allows dual-stack ingress so that an IPv6-only shoot cluster can serve IPv4 and IPv6 clients.
 You can find an example [here](dual-stack-ingress.md#creating-an-ipv4ipv6-dual-stack-ingress).
@@ -92,7 +93,7 @@ Therefore, it might be beneficial to prefer IPv6 for services, which provide IPv
 ### Motivation
 
 Dual-stack shoot clusters support IPv4 and IPv6 out-of-the-box.
-They might also be the obvious intermediate step on the way towards IPv6 for any existing (IPv4-only) clusters.
+They can be the intermediate step on the way towards IPv6 for any existing (IPv4-only) clusters.
 
 ### Creating a Dual-Stack Shoot Cluster
 
@@ -146,9 +147,10 @@ Once the migration is supported, the detailed caveats will be documented here.
 ### Load Balancer Configuration
 
 The AWS Load Balancer Controller is automatically deployed when using a dual-stack shoot cluster.
-When creating a load balancer, the corresponding annotations need to be configured, see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/service/nlb/) for details.
+When creating a load balancer, the corresponding annotations need to be configured, see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/nlb/) for details.
+
+> [!WARNING]
+> Please note that load balancer services without any special annotations will default to IPv4-only regardless how `.spec.ipFamilies` is set.
 
 The AWS Load Balancer Controller allows dual-stack ingress so that a dual-stack shoot cluster can serve IPv4 and IPv6 clients.
 You can find an example [here](dual-stack-ingress.md#creating-an-ipv4ipv6-dual-stack-ingress).
-
-Please note that load balancer services without any special annotations will default to IPv4-only regardless how `.spec.ipFamilies` is set.

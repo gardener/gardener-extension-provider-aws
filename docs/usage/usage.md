@@ -283,7 +283,7 @@ If enabled, it will add routes to the pod CIDRs for all nodes in the route table
 
 The `storage.managedDefaultClass` controls if the `default` storage / volume snapshot classes are marked as default by Gardener. Set it to `false` to [mark another storage / volume snapshot class as default](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) without Gardener overwriting this change. If unset, this field defaults to `true`.
 
-If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/) should be deployed, set `loadBalancerController.enabled` to `true`.
+If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/) should be deployed, set `loadBalancerController.enabled` to `true`.
 In this case,  it is assumed that an `IngressClass` named `alb` is created **by the user**.
 You can overwrite the name by setting `loadBalancerController.ingressClassName`.
 
@@ -293,7 +293,7 @@ Please note, that currently only the "instance" mode is supported.
 
 0. Prerequites
 
-Make sure you have created an `IngressClass`. For more details about parameters, please see [AWS Load Balancer Controller - IngressClass](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.5/guide/ingress/ingress_class/)
+Make sure you have created an `IngressClass`. For more details about parameters, please see [AWS Load Balancer Controller - IngressClass](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/ingress_class/)
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -313,7 +313,7 @@ metadata:
   namespace: default
   name: echoserver
   annotations:
-    # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/annotations/
+    # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/annotations/
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: instance # target-type "ip" NOT supported in Gardener
 spec:
@@ -329,7 +329,7 @@ spec:
               port:
                 number: 80
 ```
-For more details see [AWS Load Balancer Documentation - Ingress Specification](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/ingress/spec/)
+For more details see [AWS Load Balancer Documentation - Ingress Specification](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/spec/)
 
 2. Service of Type `LoadBalancer`
 
@@ -339,7 +339,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/service/annotations/
+    # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance # target-type "ip" NOT supported in Gardener
     service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
   name: ingress-nginx-controller
@@ -351,7 +351,7 @@ spec:
   loadBalancerClass: service.k8s.aws/nlb # mandatory to be managed by AWS Load Balancer Controller (otherwise the Cloud Controller Manager will act on it)
 ```
 
-For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/guide/service/nlb/)
+For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/nlb/)
 
 ⚠️ When using Network Load Balancers (NLB) as internal load balancers, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`. Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical. This situation, known as the hairpinning effect, will prevent the request from being processed.
 
