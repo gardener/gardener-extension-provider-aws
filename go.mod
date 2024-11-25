@@ -21,7 +21,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid v0.24.1
 	github.com/gardener/external-dns-management v0.22.0
-	github.com/gardener/gardener v1.108.0
+	github.com/gardener/gardener v1.108.1
 	github.com/gardener/machine-controller-manager v0.54.0
 	github.com/go-logr/logr v1.4.2
 	github.com/onsi/ginkgo/v2 v2.21.0
