@@ -4,7 +4,17 @@ The [`core.gardener.cloud/v1beta1.Shoot` resource](https://github.com/gardener/g
 
 In this document we are describing how this configuration looks like for AWS and provide an example `Shoot` manifest with minimal configuration that you can use to create an AWS cluster (modulo the landscape-specific information like cloud profile names, secret binding names, etc.).
 
-## Provider Secret Data
+## Accessing AWS APIs
+
+In order for Gardener to create a Kubernetes cluster using AWS infrastructure components, a Shoot has to provide an authentication mechanism giving sufficient permissions to the desired AWS account.
+Every shoot cluster references a `SecretBinding` or a `CredentialsBinding` which itself references a `Secret` which contains the provider credentials of the AWS account.
+
+> [!IMPORTANT]
+> While `SecretBinding`s can only reference `Secret`s, `CredentialsBinding`s can also reference `WorkloadIdentity`s which provide an alternative authentication method.
+> `WorkloadIdentity`s do not directly contain credentials but are rather a representation of the workload that is going to access the user's account.
+> If the user has configured [OIDC Federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html) with Gardener's Workload Identity Issuer then the AWS infrastructure components can access the user's account without the need of preliminary exchange of credentials.
+
+### Provider Secret Data
 
 Every shoot cluster references a `SecretBinding` or a `CredentialsBinding` which itself references a `Secret`, and this `Secret` contains the provider credentials of your AWS account.
 This `Secret` must look as follows:
@@ -29,6 +39,106 @@ The [AWS documentation](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cr
 >
 > Depending on your AWS API usage it can be problematic to reuse the same AWS Account for different Shoot clusters in the same region due to rate limits.
 > Please consider spreading your Shoots over multiple AWS Accounts if you are hitting those limits.
+
+### AWS Workload Identity Federation
+Users can choose to trust Gardener's Workload Identity Issuer and eliminate the need for providing AWS Access Key credentials.
+
+#### 1. Configure [OIDC Federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html) with Gardener's Workload Identity Issuer.
+![OIDC Federation](./images/oidc-federation.png)
+
+> [!IMPORTANT]
+> Use an audience that will uniquely identity the trust relationship between your AWS account and Gardener.
+
+#### 2. Create a policy listing the [required permissions](#permissions).
+
+#### 3. Create a role that trusts the external web identity.
+
+In the Identity Provider dropdown menu choose the Gardener's Workload Identity Provider.
+![Role Trust](./images/role-trust.png)
+
+Add the newly created policy that will grant the required permissions.
+![Policy Permissions](./images/policy-premissions.png)
+
+#### 4.  Configure the trust relationship.
+
+> [!CAUTION]
+> Remember to reduce the scope of the identities that can assume this role only to your own controlled identities!
+> In the example shown below `WorkloadIdentity`s that are created in the `garden-myproj` namespace and have the name `aws` will be authenticated and granted permissions.
+> Later on, the scope of the trust configuration can be reduced further by replacing the wildcard "*" with the actual uuid of the `WorkloadIdentity` and converting the "StringLike" condition to "StringEquals".
+> This is currently not possible since we do not have the uuid of the `WorkloadIdentity` yet. 
+> ```json
+> {
+>     "Version": "2012-10-17",
+>     "Statement": [
+>         {
+>             "Effect": "Allow",
+>             "Action": "sts:AssumeRoleWithWebIdentity",
+>             "Principal": {
+>                 "Federated": "arn:aws:iam::123456789012:oidc-provider/example.local.gardener.cloud/garden/workload-identity/issuer"
+>             },
+>             "Condition": {
+>                 "StringEquals": {
+>                     "example.local.gardener.cloud/garden/workload-identity/issuer:aud": [
+>                         "my-aws-account-gardener-workload-identity"
+>                     ]
+>                 },
+>                 "StringLike": {
+>                     "example.local.gardener.cloud/garden/workload-identity/issuer:sub": "gardener.cloud:workloadidentity:garden-myproj:aws:*"
+>                 }
+>             }
+>         }
+>     ]
+> }
+> ```
+
+#### 5. Create the `WorkloadIdentity` in the Garden cluster.
+
+This step will require the ARN of the role that was created in the previous step.
+The identity will be used by infrastructure components to authenticate against AWS APIs.
+A sample of such resource is shown below:
+
+```yaml
+apiVersion: security.gardener.cloud/v1alpha1
+kind: WorkloadIdentity
+metadata:
+  name: aws
+  namespace: garden-myproj
+spec:
+  audiences:
+  - my-aws-account-gardener-workload-identity
+  targetSystem:
+    type: aws
+    providerConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: WorkloadIdentityConfig
+      roleARN: arn:aws:iam::123456789012:role/gardener-workload-identity
+```
+
+> [!TIP]
+> Once created you can extract the whole subject of the workload identity and edit the create Role's trust replationship configuration to also include the workload identity's uuid.
+> Obtain the complete `sub` by running the following:
+> 
+> ```bash
+> SUBJECT=$(kubectl -n garden-myproj get workloadidentity aws -o=jsonpath='{.status.sub}')
+> echo "$SUBJECT"
+> ```
+
+#### 6. Create a `CredentialsBinding` referencing the AWS `WorkloadIdentity` and use it in your `Shoot` definitions.
+
+```yaml
+apiVersion: security.gardener.cloud/v1alpha1
+kind: CredentialsBinding
+metadata:
+  name: aws
+  namespace: garden-myproj
+credentialsRef:
+  apiVersion: security.gardener.cloud/v1alpha1
+  kind: WorkloadIdentity
+  name: aws
+  namespace: garden-myproj
+provider:
+  type: aws
+```
 
 ### Permissions
 
