@@ -71,6 +71,8 @@ In contrast to that, it is still required to specify IPv4 ranges for the VPC and
 This is mainly due to the fact that public/internal load balancers still require IPv4 addresses as there are no pure IPv6-only load balancers as of now.
 The ranges can be sized according to the expected amount of load balancers per zone/type.
 
+The IPv6 address ranges are provided by AWS. It is ensured that the IPv6 ranges are globally unique und internet routable.
+
 ### Load Balancer Configuration
 
 The AWS Load Balancer Controller is automatically deployed when using an IPv6-only shoot cluster.
