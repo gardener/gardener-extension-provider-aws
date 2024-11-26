@@ -23,9 +23,12 @@ data:
 
 The [AWS documentation](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys) explains the necessary steps to enable programmatic access, i.e. create **access key ID** and **access key**, for the user of your choice.
 
-⚠️ For security reasons, we recommend creating a **dedicated user with programmatic access only**. Please avoid re-using a IAM user which has access to the AWS console (human user).
-
-⚠️ Depending on your AWS API usage it can be problematic to reuse the same AWS Account for different Shoot clusters in the same region due to rate limits. Please consider spreading your Shoots over multiple AWS Accounts if you are hitting those limits.
+> [!WARNING]
+> For security reasons, we recommend creating a **dedicated user with programmatic access only**.
+> Please avoid re-using a IAM user which has access to the AWS console (human user).
+>
+> Depending on your AWS API usage it can be problematic to reuse the same AWS Account for different Shoot clusters in the same region due to rate limits.
+> Please consider spreading your Shoots over multiple AWS Accounts if you are hitting those limits.
 
 ### Permissions
 
@@ -216,9 +219,10 @@ By default, it also creates a corresponding Elastic IP that it attaches to this 
 The `elasticIPAllocationID` field allows you to specify the ID of an existing Elastic IP allocation in case you want to bring your own.
 If provided, no new Elastic IP will be created and, instead, the Elastic IP specified by you will be used.
 
-⚠️ If you change this field for an already existing infrastructure then it will disrupt egress traffic while AWS applies this change.
-The reason is that the NAT gateway must be recreated with the new Elastic IP association.
-Also, please note that the existing Elastic IP will be permanently deleted if it was earlier created by the AWS extension.
+> [!WARNING] 
+> If you change this field for an already existing infrastructure then it will disrupt egress traffic while AWS applies this change.
+> The reason is that the NAT gateway must be recreated with the new Elastic IP association.
+> Also, please note that the existing Elastic IP will be permanently deleted if it was earlier created by the AWS extension.
 
 You can configure [Gateway VPC Endpoints](https://docs.aws.amazon.com/vpc/latest/userguide/vpce-gateway.html) by adding items in the optional list `networks.vpc.gatewayEndpoints`. Each item in the list is used as a service name and a corresponding endpoint is created for it. All created endpoints point to the service within the cluster's region. For example, consider this (partial) shoot config:
 
@@ -353,7 +357,10 @@ spec:
 
 For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/nlb/)
 
-⚠️ When using Network Load Balancers (NLB) as internal load balancers, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`. Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical. This situation, known as the hairpinning effect, will prevent the request from being processed.
+> [!WARNING] 
+> When using Network Load Balancers (NLB) as internal load balancers, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
+> Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical.
+> This situation, known as the hairpinning effect, will prevent the request from being processed.
 
 ## `WorkerConfig`
 
@@ -382,7 +389,10 @@ spec:
         encrypted: true
 ```
 
-> Note: The AWS extension does not support EBS volume (root & data volumes) encryption with [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk). Support for [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) is out of scope for now. Only [AWS managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk) is supported.
+> [!NOTE]
+> The AWS extension does not support EBS volume (root & data volumes) encryption with [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk).
+> Support for [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) is out of scope for now.
+> Only [AWS managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk) is supported.
 
 Additionally, it is possible to provide further AWS-specific values for configuring the worker pools. The additional configuration must be specified in the `providerConfig` field of the respective worker.
 ```yaml
@@ -450,9 +460,11 @@ The `instanceMetadataOptions` controls access to the instance metadata service (
 - access IMDSv2 only (restrict access to IMDSv1) - `httpPutResponseHopLimit >=2`, `httpTokens = "required"`
 - disable access to IMDS - `httpTokens = "required"`
 
-> Note: The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers  **NOT** running in the host network.
+> [!NOTE]
+> The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers  **NOT** running in the host network.
 > By default on host network IMDSv2 is already enabled (but not accessible from inside the pods).
-> It is currently not possible to create a VM with complete restriction to the IMDS service. It is however possible to restrict access from inside the pods by setting `httpTokens` to `required` and not setting `httpPutResponseHopLimit` (or setting it to 1).
+> It is currently not possible to create a VM with complete restriction to the IMDS service.
+> It is however possible to restrict access from inside the pods by setting `httpTokens` to `required` and not setting `httpPutResponseHopLimit` (or setting it to 1).
 
 You can find more information regarding the options in the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html).
 
