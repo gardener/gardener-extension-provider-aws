@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
@@ -24,6 +25,7 @@ import (
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	secretutils "github.com/gardener/gardener/pkg/utils/secrets"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
+	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -792,7 +794,7 @@ func getCSIControllerChartValues(
 		return nil, fmt.Errorf("secret %q not found", csiSnapshotValidationServerName)
 	}
 
-	return map[string]interface{}{
+	values := map[string]interface{}{
 		"enabled":  true,
 		"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"region":   cp.Spec.Region,
@@ -809,7 +811,28 @@ func getCSIControllerChartValues(
 			},
 			"topologyAwareRoutingEnabled": gardencorev1beta1helper.IsTopologyAwareRoutingForShootControlPlaneEnabled(cluster.Seed, cluster.Shoot),
 		},
-	}, nil
+	}
+
+	k8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
+	if err != nil {
+		return nil, err
+	}
+	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) {
+		if _, ok := cluster.Shoot.Annotations[aws.AnnotationEnableVolumeAttributesClass]; ok {
+			values["csiResizer"] = map[string]interface{}{
+				"featureGates": map[string]string{
+					"VolumeAttributesClass": "true",
+				},
+			}
+			values["csiProvisioner"] = map[string]interface{}{
+				"featureGates": map[string]string{
+					"VolumeAttributesClass": "true",
+				},
+			}
+		}
+	}
+
+	return values, nil
 }
 
 // getControlPlaneShootChartValues collects and returns the control plane shoot chart values.

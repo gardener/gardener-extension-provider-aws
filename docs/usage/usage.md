@@ -657,6 +657,12 @@ CSI drivers usually have a different procedure for configuring this custom limit
 The newer versions of EBS CSI driver are not readily compatible with the use of XFS volumes on nodes using a kernel version <= 5.4.
 A workaround was added that enables the use of a "legacy XFS" mode that introduces a backwards compatible volume formating for the older kernels. You can enable this option for your shoot by annotating it with `aws.provider.extensions.gardener.cloud/legacy-xfs=true`.
 
+### Support for VolumeAttributesClasses (Beta in k8s 1.31)
+
+To have the CSI-driver configured to support the necessary features for [VolumeAttributesClasses](https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/) on AWS for shoots with a k8s-version of at least 1.31, use the `aws.provider.extensions.gardener.cloud/enable-volume-attributes-class` annotation on the shoot. Keep in mind to also enable the required feature flags and runtime-config on the common kubernetes controllers (as outlined in the link above) in the shoot-spec.
+
+For more information and examples, see [this markdown](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/modify-volume.md#volume-modification) in the aws-ebs-csi-driver repository. Please take special note of the considerations mentioned.
+
 ## Kubernetes Versions per Worker Pool
 
 This extension supports `gardener/gardener`'s `WorkerPoolKubernetesVersion` feature gate, i.e., having [worker pools with overridden Kubernetes versions](https://github.com/gardener/gardener/blob/8a9c88866ec5fce59b5acf57d4227eeeb73669d7/example/90-shoot.yaml#L69-L70) since `gardener-extension-provider-aws@v1.34`.
