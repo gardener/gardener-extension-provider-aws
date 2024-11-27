@@ -64,8 +64,8 @@ Add the newly created policy that will grant the required permissions.
 > [!CAUTION]
 > Remember to reduce the scope of the identities that can assume this role only to your own controlled identities!
 > In the example shown below `WorkloadIdentity`s that are created in the `garden-myproj` namespace and have the name `aws` will be authenticated and granted permissions.
-> Later on, the scope of the trust configuration can be reduced further by replacing the wildcard "*" with the actual uuid of the `WorkloadIdentity` and converting the "StringLike" condition to "StringEquals".
-> This is currently not possible since we do not have the uuid of the `WorkloadIdentity` yet. 
+> Later on, the scope of the trust configuration can be reduced further by replacing the wildcard "*" with the actual id of the `WorkloadIdentity` and converting the "StringLike" condition to "StringEquals".
+> This is currently not possible since we do not have the id of the `WorkloadIdentity` yet. 
 > ```json
 > {
 >     "Version": "2012-10-17",
@@ -115,7 +115,7 @@ spec:
 ```
 
 > [!TIP]
-> Once created you can extract the whole subject of the workload identity and edit the create Role's trust replationship configuration to also include the workload identity's uuid.
+> Once created you can extract the whole subject of the workload identity and edit the create Role's trust replationship configuration to also include the workload identity's id.
 > Obtain the complete `sub` by running the following:
 > 
 > ```bash
