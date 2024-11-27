@@ -188,8 +188,7 @@ var _ = Describe("ValuesProvider", func() {
 						},
 					},
 					Networking: &gardencorev1beta1.Networking{
-						Pods:       &cidr,
-						IPFamilies: []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4},
+						Pods: &cidr,
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
 						Version: "1.28.2",
@@ -229,11 +228,10 @@ var _ = Describe("ValuesProvider", func() {
 			values, err := vp.GetConfigChartValues(ctx, cp, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
-				"vpcID":            "vpc-1234",
-				"subnetID":         "subnet-acbd1234",
-				"clusterName":      namespace,
-				"zone":             "eu-west-1a",
-				"nodeIPFamilyIPv4": "ipv4",
+				"vpcID":       "vpc-1234",
+				"subnetID":    "subnet-acbd1234",
+				"clusterName": namespace,
+				"zone":        "eu-west-1a",
 			}))
 		})
 	})
@@ -251,7 +249,7 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				"nodeCIDRMaskSizeIPv6": int32(64),
 				"enabled":              true,
-				"podNetwork":           cidr,
+				"podNetwork":           "192.168.0.0/16",
 				"podLabels": map[string]interface{}{
 					"maintenance.gardener.cloud/restart": "true",
 				},
