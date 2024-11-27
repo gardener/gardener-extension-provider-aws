@@ -51,11 +51,12 @@ func NewActuator(mgr manager.Manager, awsClientFactory awsclient.Factory) dnsrec
 // Reconcile reconciles the DNSRecord.
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensionsv1alpha1.DNSRecord, _ *extensionscontroller.Cluster) error {
 	// Create AWS client
-	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
+	authConfig, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
 	if err != nil {
 		return util.DetermineError(fmt.Errorf("could not get AWS credentials: %+v", err), helper.KnownCodes)
 	}
-	awsClient, err := a.awsClientFactory.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), getRegion(dns, credentials))
+	authConfig.Region = getRegion(dns, authConfig)
+	awsClient, err := a.awsClientFactory.NewClient(*authConfig)
 	if err != nil {
 		return util.DetermineError(fmt.Errorf("could not create AWS client: %+v", err), helper.KnownCodes)
 	}
@@ -84,11 +85,12 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensio
 // Delete deletes the DNSRecord.
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, dns *extensionsv1alpha1.DNSRecord, _ *extensionscontroller.Cluster) error {
 	// Create AWS client
-	credentials, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
+	authConfig, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
 	if err != nil {
 		return fmt.Errorf("could not get AWS credentials: %+v", err)
 	}
-	awsClient, err := a.awsClientFactory.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), getRegion(dns, credentials))
+	authConfig.Region = getRegion(dns, authConfig)
+	awsClient, err := a.awsClientFactory.NewClient(*authConfig)
 	if err != nil {
 		return util.DetermineError(fmt.Errorf("could not create AWS client: %+v", err), helper.KnownCodes)
 	}
@@ -148,7 +150,7 @@ func (a *actuator) getZone(ctx context.Context, log logr.Logger, dns *extensions
 	}
 }
 
-func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *aws.Credentials) string {
+func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *awsclient.AuthConfig) string {
 	switch {
 	case dns.Spec.Region != nil && *dns.Spec.Region != "":
 		return *dns.Spec.Region

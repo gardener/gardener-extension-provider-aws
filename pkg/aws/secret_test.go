@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 var (
@@ -80,9 +81,11 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -120,10 +123,12 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-					Region:          region,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
+					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -142,10 +147,12 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-					Region:          region,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
+					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -180,11 +187,31 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := ReadCredentialsSecret(secret, false)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
 				}))
 				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return the correct credentials object if non-DNS keys are used with workload identity config", func() {
+				secret.Data = map[string][]byte{
+					"token":   []byte("foo"),
+					"roleARN": []byte("arn"),
+					Region:    region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, false)
+
+				Expect(credentials.Region).To(Equal(string(region)))
+				Expect(credentials.AccessKey).To(BeNil())
+				Expect(credentials.WorkloadIdentity.RoleARN).To(Equal("arn"))
+				Expect(err).NotTo(HaveOccurred())
+				token, err := credentials.WorkloadIdentity.TokenRetriever.GetIdentityToken()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(token).To(Equal([]byte("foo")))
 			})
 
 			It("should fail if DNS keys are used", func() {
@@ -210,10 +237,12 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := ReadCredentialsSecret(secret, true)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-					Region:          region,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
+					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -227,12 +256,32 @@ var _ = Describe("Secret", func() {
 
 				credentials, err := ReadCredentialsSecret(secret, true)
 
-				Expect(credentials).To(Equal(&Credentials{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-					Region:          region,
+				Expect(credentials).To(Equal(&awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     string(accessKeyID),
+						Secret: string(secretAccessKey),
+					},
+					Region: string(region),
 				}))
 				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return the correct credentials object if non-DNS keys are used with workload identity config", func() {
+				secret.Data = map[string][]byte{
+					"token":   []byte("foo"),
+					"roleARN": []byte("arn"),
+					Region:    region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, true)
+
+				Expect(credentials.Region).To(Equal(string(region)))
+				Expect(credentials.AccessKey).To(BeNil())
+				Expect(credentials.WorkloadIdentity.RoleARN).To(Equal("arn"))
+				Expect(err).NotTo(HaveOccurred())
+				token, err := credentials.WorkloadIdentity.TokenRetriever.GetIdentityToken()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(token).To(Equal([]byte("foo")))
 			})
 		})
 	})

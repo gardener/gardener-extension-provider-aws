@@ -182,15 +182,15 @@ type Interface interface {
 // Factory creates instances of Interface.
 type Factory interface {
 	// NewClient creates a new instance of Interface for the given AWS credentials and region.
-	NewClient(accessKeyID, secretAccessKey, region string) (Interface, error)
+	NewClient(authConfig AuthConfig) (Interface, error)
 }
 
 // FactoryFunc is a function that implements Factory.
-type FactoryFunc func(accessKeyID, secretAccessKey, region string) (Interface, error)
+type FactoryFunc func(authConfig AuthConfig) (Interface, error)
 
 // NewClient creates a new instance of Interface for the given AWS credentials and region.
-func (f FactoryFunc) NewClient(accessKeyID, secretAccessKey, region string) (Interface, error) {
-	return f(accessKeyID, secretAccessKey, region)
+func (f FactoryFunc) NewClient(authConfig AuthConfig) (Interface, error) {
+	return f(authConfig)
 }
 
 // DhcpOptions contains the relevant fields of a EC2 DHCP options resource.

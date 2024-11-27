@@ -34,6 +34,7 @@ import (
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	mockawsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client/mock"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 )
@@ -59,6 +60,7 @@ var _ = Describe("ConfigValidator", func() {
 		cv               infrastructure.ConfigValidator
 		infra            *extensionsv1alpha1.Infrastructure
 		secret           *corev1.Secret
+		authConfig       awsclient.AuthConfig
 
 		mgr *mockmanager.MockManager
 	)
@@ -114,6 +116,13 @@ var _ = Describe("ConfigValidator", func() {
 				aws.SecretAccessKey: []byte(secretAccessKey),
 			},
 		}
+		authConfig = awsclient.AuthConfig{
+			AccessKey: &awsclient.AccessKey{
+				ID:     accessKeyID,
+				Secret: secretAccessKey,
+			},
+			Region: region,
+		}
 	})
 
 	AfterEach(func() {
@@ -132,7 +141,7 @@ var _ = Describe("ConfigValidator", func() {
 					return nil
 				},
 			)
-			awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, region).Return(awsClient, nil)
+			awsClientFactory.EXPECT().NewClient(authConfig).Return(awsClient, nil)
 
 			validDHCPOptions = map[string]string{
 				"domain-name": region + ".compute.internal",
@@ -195,8 +204,15 @@ var _ = Describe("ConfigValidator", func() {
 		DescribeTable("validate DHCP options", func(newRegion string, mapping map[string]string, err error, matcher gomegatypes.GomegaMatcher) {
 			if newRegion != "" {
 				infra.Spec.Region = newRegion
-				awsClientFactory.NewClient(accessKeyID, secretAccessKey, region) //nolint:errcheck
-				awsClientFactory.EXPECT().NewClient(accessKeyID, secretAccessKey, newRegion).Return(awsClient, nil)
+				awsClientFactory.NewClient(authConfig) //nolint:errcheck
+				newAuthConfig := awsclient.AuthConfig{
+					AccessKey: &awsclient.AccessKey{
+						ID:     authConfig.AccessKey.ID,
+						Secret: authConfig.AccessKey.Secret,
+					},
+					Region: newRegion,
+				}
+				awsClientFactory.EXPECT().NewClient(newAuthConfig).Return(awsClient, nil)
 			}
 
 			awsClient.EXPECT().GetVPCAttribute(ctx, vpcID, ec2types.VpcAttributeNameEnableDnsSupport).Return(true, nil)

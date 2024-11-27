@@ -304,3 +304,5 @@ clusterSecretsPermissions:
 # ingressClassConfig contains configurations specific to the ingress class
 ingressClassConfig:
   default: false
+
+useWorkloadIdentity: false
