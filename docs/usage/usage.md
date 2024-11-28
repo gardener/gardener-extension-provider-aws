@@ -1,4 +1,4 @@
-# Using the AWS provider extension with Gardener as end-user
+# Using the AWS provider extension with Gardener as an end-user
 
 The [`core.gardener.cloud/v1beta1.Shoot` resource](https://github.com/gardener/gardener/blob/master/example/90-shoot.yaml) declares a few fields that are meant to contain provider-specific configuration.
 
@@ -246,7 +246,7 @@ The `ignoreTags` section allows to configure which resource tags on AWS resource
 infrastructure reconciliation. By default, all tags that are added outside of Gardener's
 reconciliation will be removed during the next reconciliation. This field allows users and automation to add
 custom tags on AWS resources created and managed by Gardener without loosing them on the next reconciliation.
-Tags can ignored either by specifying exact key values (`ignoreTags.keys`) or key prefixes (`ignoreTags.keyPrefixes`).
+Tags can be ignored either by specifying exact key values (`ignoreTags.keys`) or key prefixes (`ignoreTags.keyPrefixes`).
 In both cases it is forbidden to ignore the `Name` tag or any tag starting with `kubernetes.io` or `gardener.cloud`.
 Please note though, that the tags are only ignored on resources created on behalf of the `Infrastructure` CR (i.e. VPC,
 subnets, security groups, keypair, etc.), while tags on machines, volumes, etc. are not in the scope of this controller.
@@ -291,7 +291,7 @@ Please note, that currently only the "instance" mode is supported.
 
 ### Examples for `Ingress` and `Service` managed by the AWS Load Balancer Controller:
 
-0. Prerequites
+0. Prerequisites
 
 Make sure you have created an `IngressClass`. For more details about parameters, please see [AWS Load Balancer Controller - IngressClass](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/ingress_class/)
 
@@ -359,7 +359,7 @@ For more details see [AWS Load Balancer Documentation - Network Load Balancer](h
 
 The AWS extension supports encryption for volumes plus support for additional data volumes per machine.
 For each data volume, you have to specify a name.
-By default (if not stated otherwise), all the disks (root & data volumes) are encrypted.
+By default, (if not stated otherwise), all the disks (root & data volumes) are encrypted.
 Please make sure that your [instance-type supports encryption](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html).
 If your instance-type doesn't support encryption, you will have to disable encryption (which is enabled by default) by setting `volume.encrpyted` to `false` (refer below shown YAML snippet).
 
@@ -649,11 +649,19 @@ End-users might want to update their custom `StorageClass`es to the new `ebs.csi
 
 ### Node-specific Volume Limits
 
-The Kubernetes scheduler allows configurable limit for the number of volumes that can be attached to a node. See https://k8s.io/docs/concepts/storage/storage-limits/#custom-limits.
+The Kubernetes scheduler allows configurable limit for the number of volumes that can be attached to a node.
+See https://k8s.io/docs/concepts/storage/storage-limits/#custom-limits.
 
-CSI drivers usually have a different procedure for configuring this custom limit. By default, the EBS CSI driver parses the machine type name and then decides the volume limit. However, this is only a rough approximation and not good enough in most cases. Specifying the volume attach limit via command line flag (`--volume-attach-limit`) is currently the alternative until a more sophisticated solution presents itself (dynamically discovering the maximum number of attachable volume per EC2 machine type, see also https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/347). The AWS extension allows the `--volume-attach-limit` flag of the EBS CSI driver to be configurable via `aws.provider.extensions.gardener.cloud/volume-attach-limit` annotation on the `Shoot` resource. If the annotation is added to an existing `Shoot`, then reconciliation needs to be triggered manually (see [Immediate reconciliation](https://github.com/gardener/gardener/blob/master/docs/usage/shoot-operations/shoot_operations.md#immediate-reconciliation)), as in general adding annotation to resource is not a change that leads to `.metadata.generation` increase in general.
+CSI drivers usually have a different procedure for configuring this custom limit.
+By default, the EBS CSI driver parses the machine type name and then decides the volume limit.
+However, this is only a rough approximation and not good enough in most cases.
+Specifying the volume attach limit via command line flag (`--volume-attach-limit`) is currently the alternative until a more sophisticated solution presents itself (dynamically discovering the maximum number of attachable volume per EC2 machine type, see also https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/347).
+The AWS extension allows the `--volume-attach-limit` flag of the EBS CSI driver to be configurable via `aws.provider.extensions.gardener.cloud/volume-attach-limit` annotation on the `Shoot` resource.
+
+ℹ️ _Please note:_ If the annotation is added to an existing `Shoot`, then reconciliation needs to be triggered manually (see [Immediate reconciliation](https://github.com/gardener/gardener/blob/master/docs/usage/shoot-operations/shoot_operations.md#immediate-reconciliation)), as adding an annotation to a resource is not a change that leads to an increase of `.metadata.generation` in general.
 
 ### Other CSI options
+
 The newer versions of EBS CSI driver are not readily compatible with the use of XFS volumes on nodes using a kernel version <= 5.4.
 A workaround was added that enables the use of a "legacy XFS" mode that introduces a backwards compatible volume formating for the older kernels.
 You can enable this option for your shoot by annotating it with `aws.provider.extensions.gardener.cloud/legacy-xfs=true`.
@@ -678,6 +686,6 @@ The default implementation currently is the terraform reconciler which uses the 
 
 The "flow" implementation is a newer implementation that is trying to solve issues we faced with managing terraform infrastructure on Kubernetes. The goal is to have more control over the reconciliation process and be able to perform fine-grained tuning over it. The implementation is completely backwards-compatible and offers a migration route from the legacy terraformer implementation.
 
-For most users there will be no noticable difference. However for certain use-cases, users may notice a slight deviation from the previous behavior. For example, with flow-based infrastructure users may be able to perform certain modifications to infrastructure resources without having them reconciled back by terraform. Operations that would degrade the shoot infrastructure are still expected to be reverted back.
+For most users there will be no noticeable difference. However for certain use-cases, users may notice a slight deviation from the previous behavior. For example, with flow-based infrastructure users may be able to perform certain modifications to infrastructure resources without having them reconciled back by terraform. Operations that would degrade the shoot infrastructure are still expected to be reverted back.
 
-For the time-being, to take advantage of the flow reconcilier users have to "opt-in" by annotating the shoot manifest with: `aws.provider.extensions.gardener.cloud/use-flow="true"`. For existing shoots with this annotation, the migration will take place on the next infrastructure reconciliation (on maintenance window or if other infrastructure changes are requested). The migration is not revertible.
+For the time-being, to take advantage of the flow reconciler users have to "opt-in" by annotating the shoot manifest with: `aws.provider.extensions.gardener.cloud/use-flow="true"`. For existing shoots with this annotation, the migration will take place on the next infrastructure reconciliation (on maintenance window or if other infrastructure changes are requested). The migration is not revertible.
