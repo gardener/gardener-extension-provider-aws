@@ -140,7 +140,7 @@ images:
 - name: aws-ipam-controller
   sourceRepository: github.com/gardener/aws-ipam-controller
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/aws-ipam-controller
-  tag: "v0.2.0"
+  tag: "v0.3.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
