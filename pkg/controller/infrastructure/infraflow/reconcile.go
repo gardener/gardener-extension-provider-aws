@@ -725,7 +725,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		return err
 	}
 	toBeDeleted, toBeCreated, toBeChecked := diffByID(desired, current, func(item *awsclient.Subnet) string {
-		if item.Ipv6CidrBlocks != nil {
+		if item.Ipv6CidrBlocks != nil && item.CidrBlock == "" {
 			return item.AvailabilityZone + "-" + item.Ipv6CidrBlocks[0]
 		}
 		return item.AvailabilityZone + "-" + item.CidrBlock
