@@ -16,7 +16,6 @@ package shoot
 
 import (
 	"context"
-	"fmt"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/go-logr/logr"
@@ -38,16 +37,23 @@ func NewMutator() extensionswebhook.Mutator {
 
 // Mutate mutates resources.
 func (m *mutator) Mutate(ctx context.Context, new, _ client.Object) error {
-	configMap, ok := new.(*corev1.ConfigMap)
-	if !ok {
-		return fmt.Errorf("wrong object type %T", new)
-	}
+	switch x := new.(type) {
+	case *corev1.ConfigMap:
+		// If the object does have a deletion timestamp then we don't want to mutate anything.
+		if x.GetDeletionTimestamp() != nil {
+			return nil
+		}
+		extensionswebhook.LogMutation(logger, x.Kind, x.Namespace, x.Name)
+		return m.mutateNginxIngressControllerConfigMap(ctx, x)
 
-	// If the object does have a deletion timestamp then we don't want to mutate anything.
-	if configMap.GetDeletionTimestamp() != nil {
-		return nil
-	}
+	case *corev1.Service:
+		// If the object does have a deletion timestamp then we don't want to mutate anything.
+		if x.GetDeletionTimestamp() != nil {
+			return nil
+		}
+		extensionswebhook.LogMutation(logger, x.Kind, x.Namespace, x.Name)
+		return m.mutateService(ctx, x)
 
-	extensionswebhook.LogMutation(logger, configMap.Kind, configMap.Namespace, configMap.Name)
-	return m.mutateNginxIngressControllerConfigMap(ctx, configMap)
+	}
+	return nil
 }
