@@ -8,7 +8,6 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/extensions/pkg/webhook/shoot"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -26,19 +25,18 @@ var logger = log.Log.WithName("aws-shoot-webhook")
 // AddToManagerWithOptions creates a webhook with the given options and adds it to the manager.
 func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebhook.Webhook, error) {
 	logger.Info("Adding webhook to manager")
-	return shoot.New(mgr, shoot.Args{
+	wb, err := shoot.New(mgr, shoot.Args{
 		Types: []extensionswebhook.Type{
 			{Obj: &corev1.ConfigMap{}},
+			{Obj: &corev1.Service{}},
 		},
-		Mutator: NewMutator(),
-		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"app":       "nginx-ingress",
-				"component": "controller",
-				"release":   "addons",
-			},
-		},
+		MutatorWithShootClient: NewMutatorWithShootClient(),
 	})
+	if err != nil {
+		return nil, err
+	}
+	wb.NamespaceSelector = nil
+	return wb, nil
 }
 
 // AddToManager creates a webhook with the default options and adds it to the manager.
