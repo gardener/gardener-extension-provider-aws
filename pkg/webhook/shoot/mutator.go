@@ -28,17 +28,20 @@ type mutator struct {
 	logger logr.Logger
 }
 
-// NewMutator creates a new Mutator that mutates resources in the shoot cluster.
-func NewMutator() extensionswebhook.Mutator {
+// NewMutatorWithShootClient creates a new Mutator that mutates resources in the shoot cluster.
+func NewMutatorWithShootClient() extensionswebhook.MutatorWithShootClient {
 	return &mutator{
 		logger: log.Log.WithName("shoot-mutator"),
 	}
 }
 
 // Mutate mutates resources.
-func (m *mutator) Mutate(ctx context.Context, new, _ client.Object) error {
+func (m *mutator) Mutate(ctx context.Context, new, _ client.Object, shootClient client.Client) error {
 	switch x := new.(type) {
 	case *corev1.ConfigMap:
+		if !(x.Labels["app"] == "nginx-ingress" && x.Labels["component"] == "controller" && x.Labels["release"] == "addons") {
+			return nil
+		}
 		// If the object does have a deletion timestamp then we don't want to mutate anything.
 		if x.GetDeletionTimestamp() != nil {
 			return nil
@@ -52,7 +55,7 @@ func (m *mutator) Mutate(ctx context.Context, new, _ client.Object) error {
 			return nil
 		}
 		extensionswebhook.LogMutation(logger, x.Kind, x.Namespace, x.Name)
-		return m.mutateService(ctx, x)
+		return m.mutateService(ctx, x, shootClient)
 
 	}
 	return nil
