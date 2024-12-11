@@ -34,3 +34,4 @@ global:
 nodeCIDRMaskSizeIPv4: 24
 nodeCIDRMaskSizeIPv6: 80
 mode: ipv6
+primaryIPFamily: ipv4
