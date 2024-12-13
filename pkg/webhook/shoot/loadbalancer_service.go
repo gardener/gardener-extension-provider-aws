@@ -15,7 +15,10 @@ import (
 
 func (m *mutator) mutateService(ctx context.Context, service *corev1.Service, shootClient client.Client) error {
 	if service.Spec.Type == corev1.ServiceTypeLoadBalancer {
-		if metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme") && service.Annotations["service.beta.kubernetes.io/aws-load-balancer-scheme"] == "internal" {
+		if metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme") &&
+			service.Annotations["service.beta.kubernetes.io/aws-load-balancer-scheme"] == "internal" ||
+			metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-internal") &&
+				service.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] == "true" {
 			return nil
 		}
 		kubeDNSService := &corev1.Service{}
