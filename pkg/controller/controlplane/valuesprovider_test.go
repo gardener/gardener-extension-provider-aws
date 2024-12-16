@@ -255,6 +255,7 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				"region":               "europe",
 				"mode":                 "ipv4",
+				"primaryIPFamily":      "ipv4",
 				"nodeCIDRMaskSizeIPv4": int32(24),
 				"replicas":             0,
 				"clusterName":          "test",

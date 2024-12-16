@@ -55,6 +55,7 @@ spec:
         - --leader-election-namespace=kube-system
         - --cluster-cidrs={{ .Values.podNetwork }}
         - --mode={{ .Values.mode }}
+        - --primary-ip-family={{ .Values.primaryIPFamily }}
         - --node-cidr-mask-size-ipv4={{ .Values.nodeCIDRMaskSizeIPv4 }}
         - --node-cidr-mask-size-ipv6={{ .Values.nodeCIDRMaskSizeIPv6 }}
         - --log-level=info

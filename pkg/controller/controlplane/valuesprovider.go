@@ -643,9 +643,11 @@ func getIPAMChartValues(
 	scaledDown bool,
 ) (map[string]interface{}, error) {
 	mode := "ipv4"
+	primaryIPFamily := "ipv4"
 	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
 		if len(networkingConfig.IPFamilies) == 2 {
 			mode = "dual-stack"
+			primaryIPFamily = strings.ToLower(string(cluster.Shoot.Spec.Networking.IPFamilies[0]))
 		} else if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
 			mode = "ipv6"
 		}
@@ -688,6 +690,7 @@ func getIPAMChartValues(
 		},
 		"region":               cp.Spec.Region,
 		"mode":                 mode,
+		"primaryIPFamily":      primaryIPFamily,
 		"nodeCIDRMaskSizeIPv4": nodeCidrMaskSizeIPv4,
 		"nodeCIDRMaskSizeIPv6": nodeCidrMaskSizeIPv6,
 	}
