@@ -551,6 +551,7 @@ var _ = Describe("ValuesProvider", func() {
 							"caBundle": "",
 						},
 					}),
+					aws.CSIEfsNodeName: enabledFalse,
 				}))
 			})
 		})
@@ -576,6 +577,7 @@ var _ = Describe("ValuesProvider", func() {
 							"caBundle": "",
 						},
 					}),
+					aws.CSIEfsNodeName: enabledFalse,
 				}))
 			})
 		})
@@ -601,6 +603,7 @@ var _ = Describe("ValuesProvider", func() {
 							"caBundle": "",
 						},
 					}),
+					aws.CSIEfsNodeName: enabledFalse,
 				}))
 			})
 		})
@@ -641,6 +644,7 @@ var _ = Describe("ValuesProvider", func() {
 							"caBundle": "",
 						},
 					}),
+					aws.CSIEfsNodeName: enabledFalse,
 				}))
 			})
 		})
