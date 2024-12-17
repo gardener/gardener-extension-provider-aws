@@ -267,6 +267,24 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should successfully create and delete with EFS CSI enabled", func() {
+			if ptr.Deref(reconciler, "") != reconcilerUseFlow {
+				Skip("EFS CSI is only supported with flow reconciler")
+			}
+
+			providerConfig := newProviderConfig(awsv1alpha1.VPC{
+				CIDR:             ptr.To(vpcCIDR),
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			})
+			providerConfig.EnableCsiEfs = ptr.To(true)
+
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("should successfully create and delete with dualstack ingress enabled", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR:             ptr.To(vpcCIDR),
@@ -879,7 +897,7 @@ func verifyCreation(
 	providerConfig *awsv1alpha1.InfrastructureConfig,
 	cidr *string,
 	gatewayEndpoint string,
-	ipfamilies []gardencorev1beta1.IPFamily,
+	ipFamilies []gardencorev1beta1.IPFamily,
 ) (
 	infrastructureIdentifier infrastructureIdentifiers,
 ) {
@@ -927,7 +945,7 @@ func verifyCreation(
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeVpcsOutput.Vpcs).To(HaveLen(1))
 	Expect(describeVpcsOutput.Vpcs[0].VpcId).To(PointTo(Equal(infraStatus.VPC.ID)))
-	if isIPv6(ipfamilies) && !isIPv4(ipfamilies) && providerConfig.Networks.VPC.ID == nil {
+	if isIPv6(ipFamilies) && !isIPv4(ipFamilies) && providerConfig.Networks.VPC.ID == nil {
 		cidr = ptr.To(vpcCIDR)
 	}
 	Expect(describeVpcsOutput.Vpcs[0].CidrBlock).To(Equal(cidr))
@@ -936,7 +954,7 @@ func verifyCreation(
 		infrastructureIdentifier.vpcID = describeVpcsOutput.Vpcs[0].VpcId
 	}
 
-	if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
+	if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 		Expect(describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet).ToNot(BeNil())
 		ipv6CidrBlock = describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
 	}
@@ -1020,8 +1038,8 @@ func verifyCreation(
 			Expect(securityGroup.Tags).To(BeEmpty())
 			infrastructureIdentifier.securityGroupIDs = append(infrastructureIdentifier.securityGroupIDs, securityGroup.GroupId)
 		} else if *securityGroup.GroupName == infra.Namespace+"-nodes" {
-			if isIPv4(ipfamilies) && !isIPv6(ipfamilies) {
-				Expect(securityGroup.IpPermissions).To(BeSemanticallyEqualTo([]ec2types.IpPermission{
+			if isIPv4(ipFamilies) && !isIPv6(ipFamilies) {
+				ipPermissions := []ec2types.IpPermission{
 					{
 						FromPort:   awssdk.Int32(30000),
 						IpProtocol: awssdk.String("tcp"),
@@ -1063,7 +1081,20 @@ func verifyCreation(
 						},
 						ToPort: awssdk.Int32(32767),
 					},
-				}))
+				}
+				if ptr.Deref(providerConfig.EnableCsiEfs, false) {
+					ipPermissions = append(ipPermissions, ec2types.IpPermission{
+						FromPort:   awssdk.Int32(2049),
+						IpProtocol: awssdk.String("tcp"),
+						IpRanges: []ec2types.IpRange{
+							{
+								CidrIp: awssdk.String(internalCIDR),
+							},
+						},
+						ToPort: awssdk.Int32(2049),
+					})
+				}
+				Expect(securityGroup.IpPermissions).To(BeSemanticallyEqualTo(ipPermissions))
 				Expect(securityGroup.IpPermissionsEgress).To(BeSemanticallyEqualTo([]ec2types.IpPermission{
 					{
 						IpProtocol: awssdk.String("-1"),
@@ -1073,7 +1104,7 @@ func verifyCreation(
 					},
 				}))
 			}
-			if !isIPv4(ipfamilies) && isIPv6(ipfamilies) {
+			if !isIPv4(ipFamilies) && isIPv6(ipFamilies) {
 				Expect(securityGroup.IpPermissionsEgress).To(BeSemanticallyEqualTo([]ec2types.IpPermission{
 					{
 						IpProtocol: awssdk.String("-1"),
@@ -1127,10 +1158,10 @@ func verifyCreation(
 				foundExpectedSubnets++
 				workersSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
-				if isIPv4(ipfamilies) {
+				if isIPv4(ipFamilies) {
 					Expect(subnet.CidrBlock).To(PointTo(Equal(workersCIDR)))
 				}
-				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
+				if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeEmpty())
 				}
 				Expect(subnet.State).To(BeEquivalentTo("available"))
@@ -1150,7 +1181,7 @@ func verifyCreation(
 					ID:      ptr.Deref(subnet.SubnetId, ""),
 					Zone:    availabilityZone,
 				})))
-				if isIPv6(ipfamilies) {
+				if isIPv6(ipFamilies) {
 					output, err := awsClient.EC2.GetSubnetCidrReservations(ctx, &ec2.GetSubnetCidrReservationsInput{SubnetId: subnet.SubnetId})
 					Expect(err).NotTo(HaveOccurred())
 					foundCIDRReservation += len(output.SubnetIpv6CidrReservations)
@@ -1160,10 +1191,10 @@ func verifyCreation(
 				foundExpectedSubnets++
 				publicSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
-				if isIPv4(ipfamilies) {
+				if isIPv4(ipFamilies) {
 					Expect(subnet.CidrBlock).To(PointTo(Equal(publicCIDR)))
 				}
-				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
+				if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeEmpty())
 				}
 				Expect(subnet.State).To(BeEquivalentTo("available"))
@@ -1187,10 +1218,10 @@ func verifyCreation(
 				foundExpectedSubnets++
 				internalSubnetID = *subnet.SubnetId
 				Expect(subnet.AvailabilityZone).To(PointTo(Equal(availabilityZone)))
-				if isIPv4(ipfamilies) {
+				if isIPv4(ipFamilies) {
 					Expect(subnet.CidrBlock).To(PointTo(Equal(internalCIDR)))
 				}
-				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
+				if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 					Expect(subnet.Ipv6CidrBlockAssociationSet).NotTo(BeEmpty())
 				}
 				Expect(subnet.State).To(BeEquivalentTo("available"))
@@ -1213,7 +1244,7 @@ func verifyCreation(
 		}
 	}
 	Expect(foundExpectedSubnets).To(Equal(3))
-	if isIPv6(ipfamilies) {
+	if isIPv6(ipFamilies) {
 		Expect(foundCIDRReservation).To(Equal(1))
 	}
 
@@ -1270,7 +1301,7 @@ func verifyCreation(
 	}
 	Expect(infra.Status.EgressCIDRs).To(ContainElements(egressCIDRs))
 
-	if isIPv6(ipfamilies) {
+	if isIPv6(ipFamilies) {
 		// egress only internet gateway
 		describeEgressOnlyInternetGatewaysOutput, err := awsClient.EC2.DescribeEgressOnlyInternetGateways(ctx, &ec2.DescribeEgressOnlyInternetGatewaysInput{})
 		Expect(err).NotTo(HaveOccurred())
@@ -1314,7 +1345,7 @@ func verifyCreation(
 				},
 			}
 
-			if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
+			if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 				expectedRoutes = append(expectedRoutes, ec2types.Route{
 					DestinationIpv6CidrBlock: ipv6CidrBlock,
 					GatewayId:                awssdk.String("local"),
@@ -1349,7 +1380,7 @@ func verifyCreation(
 						State:                ec2types.RouteStateActive,
 					},
 				}
-				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
+				if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 					expectedRoutes = append(expectedRoutes,
 						ec2types.Route{
 							DestinationIpv6CidrBlock: ipv6CidrBlock,
@@ -1409,7 +1440,7 @@ func verifyCreation(
 						State:                   ec2types.RouteStateActive,
 					},
 				}
-				if providerConfig.DualStack.Enabled || isIPv6(ipfamilies) {
+				if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 					expectedRoutes = append(expectedRoutes, ec2types.Route{
 						DestinationIpv6CidrBlock: ipv6CidrBlock,
 						GatewayId:                awssdk.String("local"),
@@ -1417,7 +1448,7 @@ func verifyCreation(
 						State:                    ec2types.RouteStateActive,
 					})
 				}
-				if isIPv6(ipfamilies) {
+				if isIPv6(ipFamilies) {
 					describeEgressOnlyInternetGatewaysOutput, err := awsClient.EC2.DescribeEgressOnlyInternetGateways(ctx, &ec2.DescribeEgressOnlyInternetGatewaysInput{})
 					Expect(err).NotTo(HaveOccurred())
 					var eoigs []ec2types.EgressOnlyInternetGateway
@@ -1504,7 +1535,22 @@ func verifyCreation(
       "Resource": [
         "*"
       ]
-    }{{ if .EnableECRAccess }},
+    }{{ if .enableEfsAccess }},
+	{
+      "Effect": "Allow",
+      "Action": [
+        "elasticfilesystem:DescribeAccessPoints",
+        "elasticfilesystem:DescribeFileSystems",
+        "elasticfilesystem:DescribeMountTargets",
+        "elasticfilesystem:CreateAccessPoint",
+        "elasticfilesystem:DeleteAccessPoint",
+        "elasticfilesystem:TagResource",
+        "ec2:DescribeAvailabilityZones"
+      ],
+      "Resource": [
+        "*"
+      ]
+	}{{ end }}{{ if .enableECRAccess }},
     {
       "Effect": "Allow",
       "Action": [
@@ -1524,7 +1570,11 @@ func verifyCreation(
 }`)
 	Expect(err).NotTo(HaveOccurred())
 	var writer bytes.Buffer
-	err = templateIAMRolePolicyDocumentNodes.Execute(&writer, struct{ EnableECRAccess *bool }{EnableECRAccess: providerConfig.EnableECRAccess})
+	templateData := map[string]any{
+		"enableECRAccess": ptr.Deref(providerConfig.EnableECRAccess, true),
+		"enableEfsAccess": ptr.Deref(providerConfig.EnableCsiEfs, false),
+	}
+	err = templateIAMRolePolicyDocumentNodes.Execute(&writer, templateData)
 	Expect(err).NotTo(HaveOccurred())
 	expectedIAMRolePolicyDocumentNodes := writer.String()
 	Expect(getRolePolicyOutputNodes.PolicyDocument).To(BeSemanticallyEqualToRolePolicyDocument(expectedIAMRolePolicyDocumentNodes))
