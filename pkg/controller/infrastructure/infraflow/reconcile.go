@@ -1624,16 +1624,14 @@ const iamRolePolicyTemplate = `{
 
 func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 	log := LogFromContext(ctx)
-	enableECRAccess := ptr.Deref(c.config.EnableECRAccess, true)
-	enableEfsAccess := ptr.Deref(c.config.EnableCsiEfs, false)
 	t, err := template.New("policyDocument").Parse(iamRolePolicyTemplate)
 	if err != nil {
 		return fmt.Errorf("parsing policyDocument template failed: %s", err)
 	}
 	var buffer bytes.Buffer
 	templateData := map[string]any{
-		"enableECRAccess": enableECRAccess,
-		"enableEfsAccess": enableEfsAccess,
+		"enableECRAccess": ptr.Deref(c.config.EnableECRAccess, true),
+		"enableEfsAccess": ptr.Deref(c.config.EnableCsiEfs, false),
 	}
 	if err := t.Execute(&buffer, templateData); err != nil {
 		return fmt.Errorf("executing policyDocument template failed: %s", err)
