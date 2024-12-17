@@ -295,6 +295,19 @@ This setting is immutable and cannot be changed once the VPC has been created.
 default: false</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>enableCsiEfs</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>EnableCsiEfs enables CSI EFS driver
+infra will add additional security group in bound rules and create an amazon EFS file system
+Defaults to false</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig
@@ -499,6 +512,36 @@ string
 </td>
 <td>
 <p>RoleARN is the identifier of the role that the workload identity will assume.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CSI">CSI
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
+</p>
+<p>
+<p>CSI contains information about the created AWS CSI related resources.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>efsFileSystemID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>EfsSystemID contains the efsFileSystem.</p>
 </td>
 </tr>
 </tbody>
@@ -984,6 +1027,19 @@ VPCStatus
 </td>
 <td>
 <p>VPC contains information about the created AWS VPC and some related resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>csi</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CSI">
+CSI
+</a>
+</em>
+</td>
+<td>
+<p>CSI contains information about the created AWS CSI related resources.</p>
 </td>
 </tr>
 </tbody>

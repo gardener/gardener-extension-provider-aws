@@ -636,6 +636,7 @@ spec:
           internal: 10.250.112.0/22
           public: 10.250.96.0/22
           workers: 10.250.0.0/19
+      enableCsiEfs: true
     controlPlaneConfig:
       apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
       kind: ControlPlaneConfig
@@ -814,6 +815,11 @@ spec:
 Every AWS shoot cluster will be deployed with the AWS EBS CSI driver.
 It is compatible with the legacy in-tree volume provisioner that was deprecated by the Kubernetes community and will be removed in future versions of Kubernetes.
 End-users might want to update their custom `StorageClass`es to the new `ebs.csi.aws.com` provisioner.
+
+
+To deploy the efs-csi-driver add the annotation `enableCsiEfs: true` to your infrastructureConfig like in this [example](#example-shoot-manifest-one-availability-zone).
+Currently, both the controller deployment and the node daemonset will be deployed into the shoot cluster. The necessary IAM privileges will be added to the node instance profile, allowing the driver to access them via the EC2 Metadata Service.
+**Important:** It is not permitted to set `instanceMetadataOptions` to `httpTokens = required` while also enabling `enableCsiEfs: true`. Doing so will prevent the driver from accessing the required metadata.
 
 ### Node-specific Volume Limits
 

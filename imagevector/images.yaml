@@ -178,6 +178,19 @@ images:
       confidentiality_requirement: 'high'
       integrity_requirement: 'high'
       availability_requirement: 'low'
+- name: csi-driver-efs
+  sourceRepository: github.com/kubernetes-sigs/aws-efs-csi-driver
+  repository: public.ecr.aws/efs-csi-driver/amazon/aws-efs-csi-driver
+  tag: "v2.1.0"
+  labels:
+  - name: 'gardener.cloud/cve-categorisation'
+    value:
+      network_exposure: 'protected'
+      authentication_enforced: false
+      user_interaction: 'end-user'
+      confidentiality_requirement: 'high'
+      integrity_requirement: 'high'
+      availability_requirement: 'low'
 - name: csi-volume-modifier
   sourceRepository: github.com/awslabs/volume-modifier-for-k8s
   # We cannot use the upstream repository here as it is not reachable using IPv6.

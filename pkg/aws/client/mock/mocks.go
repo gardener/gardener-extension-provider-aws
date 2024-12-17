@@ -15,6 +15,8 @@ import (
 	time "time"
 
 	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	efs "github.com/aws/aws-sdk-go-v2/service/efs"
+	types0 "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	client "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -145,6 +147,21 @@ func (mr *MockInterfaceMockRecorder) CreateEC2Tags(ctx, resources, tags any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEC2Tags", reflect.TypeOf((*MockInterface)(nil).CreateEC2Tags), ctx, resources, tags)
 }
 
+// CreateEfsFileSystem mocks base method.
+func (m *MockInterface) CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (types0.FileSystemDescription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateEfsFileSystem", ctx, input)
+	ret0, _ := ret[0].(types0.FileSystemDescription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateEfsFileSystem indicates an expected call of CreateEfsFileSystem.
+func (mr *MockInterfaceMockRecorder) CreateEfsFileSystem(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEfsFileSystem", reflect.TypeOf((*MockInterface)(nil).CreateEfsFileSystem), ctx, input)
+}
+
 // CreateEgressOnlyInternetGateway mocks base method.
 func (m *MockInterface) CreateEgressOnlyInternetGateway(ctx context.Context, gateway *client.EgressOnlyInternetGateway) (*client.EgressOnlyInternetGateway, error) {
 	m.ctrl.T.Helper()
@@ -218,6 +235,21 @@ func (m *MockInterface) CreateInternetGateway(ctx context.Context, gateway *clie
 func (mr *MockInterfaceMockRecorder) CreateInternetGateway(ctx, gateway any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInternetGateway", reflect.TypeOf((*MockInterface)(nil).CreateInternetGateway), ctx, gateway)
+}
+
+// CreateMountTargetEfs mocks base method.
+func (m *MockInterface) CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.CreateMountTargetOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateMountTargetEfs", ctx, input)
+	ret0, _ := ret[0].(*efs.CreateMountTargetOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateMountTargetEfs indicates an expected call of CreateMountTargetEfs.
+func (mr *MockInterfaceMockRecorder) CreateMountTargetEfs(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMountTargetEfs", reflect.TypeOf((*MockInterface)(nil).CreateMountTargetEfs), ctx, input)
 }
 
 // CreateNATGateway mocks base method.
@@ -452,6 +484,20 @@ func (mr *MockInterfaceMockRecorder) DeleteELBV2(ctx, arn any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteELBV2", reflect.TypeOf((*MockInterface)(nil).DeleteELBV2), ctx, arn)
 }
 
+// DeleteEfsFileSystem mocks base method.
+func (m *MockInterface) DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEfsFileSystem", ctx, input)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteEfsFileSystem indicates an expected call of DeleteEfsFileSystem.
+func (mr *MockInterfaceMockRecorder) DeleteEfsFileSystem(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEfsFileSystem", reflect.TypeOf((*MockInterface)(nil).DeleteEfsFileSystem), ctx, input)
+}
+
 // DeleteEgressOnlyInternetGateway mocks base method.
 func (m *MockInterface) DeleteEgressOnlyInternetGateway(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
@@ -548,6 +594,20 @@ func (m *MockInterface) DeleteKeyPair(ctx context.Context, keyName string) error
 func (mr *MockInterfaceMockRecorder) DeleteKeyPair(ctx, keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKeyPair", reflect.TypeOf((*MockInterface)(nil).DeleteKeyPair), ctx, keyName)
+}
+
+// DeleteMountTargetEfs mocks base method.
+func (m *MockInterface) DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteMountTargetEfs", ctx, input)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteMountTargetEfs indicates an expected call of DeleteMountTargetEfs.
+func (mr *MockInterfaceMockRecorder) DeleteMountTargetEfs(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMountTargetEfs", reflect.TypeOf((*MockInterface)(nil).DeleteMountTargetEfs), ctx, input)
 }
 
 // DeleteNATGateway mocks base method.
@@ -702,6 +762,36 @@ func (m *MockInterface) DeleteVpcEndpointRouteTableAssociation(ctx context.Conte
 func (mr *MockInterfaceMockRecorder) DeleteVpcEndpointRouteTableAssociation(ctx, routeTableId, vpcEndpointId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcEndpointRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).DeleteVpcEndpointRouteTableAssociation), ctx, routeTableId, vpcEndpointId)
+}
+
+// DescribeEfsFileSystems mocks base method.
+func (m *MockInterface) DescribeEfsFileSystems(ctx context.Context, fileSystemID *string) (types0.FileSystemDescription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeEfsFileSystems", ctx, fileSystemID)
+	ret0, _ := ret[0].(types0.FileSystemDescription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeEfsFileSystems indicates an expected call of DescribeEfsFileSystems.
+func (mr *MockInterfaceMockRecorder) DescribeEfsFileSystems(ctx, fileSystemID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeEfsFileSystems", reflect.TypeOf((*MockInterface)(nil).DescribeEfsFileSystems), ctx, fileSystemID)
+}
+
+// DescribeMountTargetsEfs mocks base method.
+func (m *MockInterface) DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeMountTargetsEfs", ctx, input)
+	ret0, _ := ret[0].(*efs.DescribeMountTargetsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeMountTargetsEfs indicates an expected call of DescribeMountTargetsEfs.
+func (mr *MockInterfaceMockRecorder) DescribeMountTargetsEfs(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeMountTargetsEfs", reflect.TypeOf((*MockInterface)(nil).DescribeMountTargetsEfs), ctx, input)
 }
 
 // DetachInternetGateway mocks base method.

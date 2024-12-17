@@ -19,6 +19,7 @@ import (
 	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -98,6 +99,10 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 	ensureZones := c.AddTask(g, "ensure zones resources",
 		c.ensureZones,
 		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
+
+	_ = c.AddTask(g, "ensure efs file system",
+		c.ensureEfsFileSystem,
+		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout), Dependencies(ensureZones))
 
 	_ = c.AddTask(g, "ensure subnet cidr reservation",
 		c.ensureSubnetCidrReservation,
@@ -595,9 +600,17 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 			Protocol: "udp",
 		}
 
+		ruleEfsInboundNFS := &awsclient.SecurityGroupRule{
+			Type:     awsclient.SecurityGroupRuleTypeIngress,
+			FromPort: 2049,
+			ToPort:   2049,
+			Protocol: "tcp",
+		}
+
 		if isIPv4(c.getIpFamilies()) {
 			ruleNodesInternalTCP.CidrBlocks = []string{zone.Internal}
 			ruleNodesInternalUDP.CidrBlocks = []string{zone.Internal}
+			ruleEfsInboundNFS.CidrBlocks = []string{zone.Internal}
 			ruleNodesPublicTCP.CidrBlocks = []string{zone.Public}
 			ruleNodesPublicUDP.CidrBlocks = []string{zone.Public}
 		}
@@ -616,11 +629,15 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 				}
 				ruleNodesInternalTCP.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
 				ruleNodesInternalUDP.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
+				ruleEfsInboundNFS.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
 				ruleNodesPublicTCP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
 				ruleNodesPublicUDP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
 			}
 		}
 		desired.Rules = append(desired.Rules, ruleNodesInternalTCP, ruleNodesInternalUDP, ruleNodesPublicTCP, ruleNodesPublicUDP)
+		if c.isCsiEfsEnabled() {
+			desired.Rules = append(desired.Rules, ruleEfsInboundNFS)
+		}
 	}
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
@@ -1571,7 +1588,22 @@ const iamRolePolicyTemplate = `{
       "Resource": [
         "*"
       ]
-    }{{ if .enableECRAccess }},
+    }{{ if .enableEfsAccess }},
+	{
+      "Effect": "Allow",
+      "Action": [
+        "elasticfilesystem:DescribeAccessPoints",
+        "elasticfilesystem:DescribeFileSystems",
+        "elasticfilesystem:DescribeMountTargets",
+        "elasticfilesystem:CreateAccessPoint",
+        "elasticfilesystem:DeleteAccessPoint",
+        "elasticfilesystem:TagResource",
+        "ec2:DescribeAvailabilityZones"
+      ],
+      "Resource": [
+        "*"
+      ]
+	}{{ end }}{{ if .enableECRAccess }},
     {
       "Effect": "Allow",
       "Action": [
@@ -1592,16 +1624,18 @@ const iamRolePolicyTemplate = `{
 
 func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 	log := LogFromContext(ctx)
-	enableECRAccess := true
-	if v := c.config.EnableECRAccess; v != nil {
-		enableECRAccess = *v
-	}
+	enableECRAccess := ptr.Deref(c.config.EnableECRAccess, true)
+	enableEfsAccess := ptr.Deref(c.config.EnableCsiEfs, false)
 	t, err := template.New("policyDocument").Parse(iamRolePolicyTemplate)
 	if err != nil {
 		return fmt.Errorf("parsing policyDocument template failed: %s", err)
 	}
 	var buffer bytes.Buffer
-	if err := t.Execute(&buffer, map[string]any{"enableECRAccess": enableECRAccess}); err != nil {
+	templateData := map[string]any{
+		"enableECRAccess": enableECRAccess,
+		"enableEfsAccess": enableEfsAccess,
+	}
+	if err := t.Execute(&buffer, templateData); err != nil {
 		return fmt.Errorf("executing policyDocument template failed: %s", err)
 	}
 
@@ -1685,6 +1719,69 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
+	if c.state.Get(NameEfsSystemID) != nil {
+		return nil
+	}
+
+	inputCreate := &efs.CreateFileSystemInput{
+		Tags:          c.commonTags.ToEfsTags(),
+		CreationToken: ptr.To(createEfsCreationToken(c.namespace)),
+		Encrypted:     ptr.To(true),
+	}
+	efsCreate, err := c.client.CreateEfsFileSystem(ctx, inputCreate)
+	if err != nil {
+		return err
+	}
+
+	if efsCreate.FileSystemId == nil {
+		return fmt.Errorf("the created file system id is <nil>")
+	}
+
+	securityGroupID := c.state.Get(IdentifierNodesSecurityGroup)
+	if securityGroupID == nil {
+		return fmt.Errorf("security group not found in state")
+	}
+
+	childZones := c.state.GetChild(ChildIdZones)
+	for _, zoneKey := range childZones.GetChildrenKeys() {
+		zoneChild := childZones.GetChild(zoneKey)
+		subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers)
+		if subnetID == nil {
+			return fmt.Errorf("subnet not found in state")
+		}
+		inputMount := &efs.CreateMountTargetInput{
+			FileSystemId:   efsCreate.FileSystemId,
+			SecurityGroups: []string{*securityGroupID},
+			SubnetId:       subnetID,
+		}
+		_, err = c.client.CreateMountTargetEfs(ctx, inputMount)
+		if err != nil {
+			return err
+		}
+	}
+
+	c.state.Set(NameEfsSystemID, *efsCreate.FileSystemId)
+	return nil
+}
+
+func createEfsCreationToken(namespace string) string {
+	var efsCreationToken string
+	tokenCandidate := fmt.Sprintf("efs-token-%s", namespace)
+	// only allow ASCII chars
+	for _, r := range tokenCandidate {
+		if r <= 127 {
+			efsCreationToken += string(r)
+		}
+	}
+	// restrict string to 64 characters
+	if len(efsCreationToken) > 64 {
+		efsCreationToken = efsCreationToken[:64]
+	}
+
+	return efsCreationToken
 }
 
 func (c *FlowContext) getSubnetZoneChildByItem(item *awsclient.Subnet) Whiteboard {

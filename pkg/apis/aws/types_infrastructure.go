@@ -37,6 +37,11 @@ type InfrastructureConfig struct {
 	// If this field is set to true, all VMs created in this VPC will have dedicated tenancy enabled.
 	// This setting is immutable and cannot be changed once the VPC has been created.
 	EnableDedicatedTenancyForVPC *bool
+
+	// EnableCsiEfs enables CSI EFS driver
+	// infra will add additional security group in bound rules and create an amazon EFS file system
+	// Defaults to false
+	EnableCsiEfs *bool
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -50,6 +55,8 @@ type InfrastructureStatus struct {
 	IAM IAM
 	// VPC contains information about the created AWS VPC and some related resources.
 	VPC VPCStatus
+	// CSI contains information about the created AWS CSI related resources.
+	CSI CSI
 }
 
 // Networks holds information about the Kubernetes and infrastructure networks.
@@ -119,6 +126,12 @@ type VPCStatus struct {
 	Subnets []Subnet
 	// SecurityGroups is a list of security groups that have been created.
 	SecurityGroups []SecurityGroup
+}
+
+// CSI contains information about the created AWS CSI related resources.
+type CSI struct {
+	// EfsSystemID contains the efsFileSystem.
+	EfsSystemID string
 }
 
 const (
