@@ -207,9 +207,11 @@ output "{{ $.outputKeys.subnetsNodesPrefix }}{{ $index }}" {
 // Therefore, internal and public subnets must not be IPv6 native.
 resource "aws_subnet" "private_utility_z{{ $index }}" {
   vpc_id            = {{ $.vpc.id }}
+  {{ if  $zone.internal }}
   cidr_block        = "{{ $zone.internal }}"
+  {{- end }}
   availability_zone = "{{ $zone.name }}"
-  {{ if $.isIPv6 }}
+  {{ if $.isIPv6 or not $zone.internal }}
   assign_ipv6_address_on_creation = true
   ipv6_cidr_block = "${cidrsubnet({{ $.vpc.ipv6CidrBlock }}, 8, (1 + ({{ $index }} * 3)))}"
   {{- else if $.dualStack.enabled }}
