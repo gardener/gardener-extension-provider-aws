@@ -681,13 +681,17 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		tagsPublic[TagKeyRolePublicELB] = TagValueELB
 		tagsPrivate := c.commonTagsWithSuffix(helper.GetSuffixSubnetPrivate())
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
+		workersCIDR := zone.Workers
+		if !isIPv4(c.getIpFamilies()) {
+			workersCIDR = ""
+		}
 		desired = append(desired,
 			&awsclient.Subnet{
 				Tags:                                    tagsWorkers,
 				VpcId:                                   c.state.Get(IdentifierVPC),
 				AvailabilityZone:                        zone.Name,
 				AssignIpv6AddressOnCreation:             ptr.To(isIPv6(c.getIpFamilies())),
-				CidrBlock:                               zone.Workers,
+				CidrBlock:                               workersCIDR,
 				Ipv6Native:                              ptr.To(!isIPv4(c.getIpFamilies())),
 				EnableResourceNameDnsAAAARecordOnLaunch: ptr.To(!isIPv4(c.getIpFamilies())),
 				EnableDns64:                             ptr.To(!isIPv4(c.getIpFamilies())),
