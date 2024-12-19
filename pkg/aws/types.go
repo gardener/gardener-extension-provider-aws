@@ -127,6 +127,13 @@ const (
 	CSISnapshotValidationName = "csi-snapshot-validation"
 	// CSIVolumeModifierName is the constant for the name of the csi-volume-modifier.
 	CSIVolumeModifierName = "csi-volume-modifier"
+
+	// CSIEfsNodeName is the constant for the name of the efs csi node deployment.
+	CSIEfsNodeName = "csi-driver-efs-node"
+	// CSIEfsControllerName is the constant for the name of the efs csi controller deployment.
+	CSIEfsControllerName = "csi-driver-efs-controller"
+	// CSIDriverEfsImageName is the constant for the name of the efs csi driver image.
+	CSIDriverEfsImageName = "csi-driver-efs"
 )
 
 var (
