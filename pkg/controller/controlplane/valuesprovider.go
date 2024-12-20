@@ -260,7 +260,6 @@ var (
 					{Type: &corev1.ServiceAccount{}, Name: aws.CSIDriverName},
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIDriverName},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIDriverName},
-					{Type: extensionscontroller.GetVerticalPodAutoscalerObject(), Name: aws.CSINodeName},
 					// csi-provisioner
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIProvisionerName},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIProvisionerName},
@@ -826,7 +825,6 @@ func getControlPlaneShootChartValues(
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           true,
 		"kubernetesVersion": kubernetesVersion,
-		"vpaEnabled":        gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
 		"webhookConfig": map[string]interface{}{
 			"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
 			"caBundle": string(caSecret.Data[secretutils.DataKeyCertificateBundle]),

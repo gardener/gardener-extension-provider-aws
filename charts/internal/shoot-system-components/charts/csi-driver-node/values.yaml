@@ -4,7 +4,6 @@ images:
   csi-liveness-probe: image-repository:image-tag
 
 socketPath: /csi/csi.sock
-vpaEnabled: false
 
 driver: {}
   # volumeAttachLimit: -1
@@ -31,8 +30,3 @@ resources:
       cpu: 11m
       memory: 32Mi
 
-vpa:
-  resourcePolicy:
-    driver: {}
-    nodeDriverRegistrar: {}
-    livenessProbe: {}
