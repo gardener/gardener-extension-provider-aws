@@ -94,6 +94,9 @@ const (
 	// KeyPairSpecFingerprint is the key to store the fingerprint of the public key from the spec
 	KeyPairSpecFingerprint = "KeyPairSpecFingerprint"
 
+	// NameEfsSystemID is the key for the EFS system ID
+	NameEfsSystemID = "efsSystemID"
+
 	// ChildIdVPCEndpoints is the child key for the VPC endpoints
 	ChildIdVPCEndpoints = "VPCEndpoints"
 	// ChildIdZones is the child key for the zones
@@ -242,6 +245,7 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 	ec2KeyName := ptr.Deref(c.state.Get(NameKeyPair), "")
 	iamInstanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
 	arnIAMRole := ptr.Deref(c.state.Get(ARNIAMRole), "")
+	efsSystemID := ptr.Deref(c.state.Get(NameEfsSystemID), "")
 
 	if c.config.Networks.VPC.ID != nil {
 		vpcID = *c.config.Networks.VPC.ID
@@ -309,6 +313,10 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 				ARN:     arnIAMRole,
 			},
 		}
+	}
+
+	if efsSystemID != "" {
+		status.CSI.EfsSystemID = efsSystemID
 	}
 
 	return status
@@ -386,6 +394,10 @@ func (c *FlowContext) zoneSuffixHelpers(zoneName string) *ZoneSuffixHelper {
 			return &ZoneSuffixHelper{suffix: suffix}
 		}
 	}
+}
+
+func (c *FlowContext) isCsiEfsEnabled() bool {
+	return c.config != nil && c.config.EnableCsiEfs != nil && *c.config.EnableCsiEfs
 }
 
 // ZoneSuffixHelper provides methods to create suffices for various resources
