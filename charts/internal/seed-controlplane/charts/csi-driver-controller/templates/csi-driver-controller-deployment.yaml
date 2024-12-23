@@ -114,7 +114,6 @@ spec:
         args:
         - --csi-address=$(ADDRESS)
         - --kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
-        - --feature-gates=Topology=true
         - --volume-name-prefix=pv-{{ .Release.Namespace }}
         - --extra-create-metadata=true
         - --default-fstype=ext4
@@ -122,6 +121,9 @@ spec:
         - --leader-election-namespace=kube-system
         - --worker-threads=20
         - --v=5
+        {{- if ((.Values.csiProvisioner).featureGates) }}
+        - --feature-gates={{ range $feature, $enabled := .Values.csiProvisioner.featureGates }}{{ $feature }}={{ $enabled }},{{ end }}
+        {{- end }}
         env:
         - name: ADDRESS
           value: {{ .Values.socketPath }}/csi.sock
@@ -206,6 +208,9 @@ spec:
         - --handle-volume-inuse-error=false
         - --v=5
         - --workers=20
+        {{- if ((.Values.csiResizer).featureGates) }}
+        - --feature-gates={{ range $feature, $enabled := .Values.csiResizer.featureGates }}{{ $feature }}={{ $enabled }},{{ end }}
+        {{- end }}
         env:
         - name: ADDRESS
           value: {{ .Values.socketPath }}/csi.sock

@@ -127,6 +127,9 @@ const (
 	CSISnapshotValidationName = "csi-snapshot-validation"
 	// CSIVolumeModifierName is the constant for the name of the csi-volume-modifier.
 	CSIVolumeModifierName = "csi-volume-modifier"
+
+	// AnnotationEnableVolumeAttributesClass is the annotation to use on shoots to enable VolumeAttributesClasses
+	AnnotationEnableVolumeAttributesClass = "aws.provider.extensions.gardener.cloud/enable-volume-attributes-class"
 )
 
 var (
