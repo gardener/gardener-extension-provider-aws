@@ -24,9 +24,9 @@ import (
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/utils"
+	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -41,18 +41,6 @@ const (
 	// see also: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/729#issuecomment-1942026577
 	CSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
 )
-
-var (
-	// TODO(KA): replace with pkg/utils/version when v1.30 is supported.
-	// TODO(KA): remove when k8s versions < v1.30 are deprecated
-	ConstraintK8sGreaterEqual130 *semver.Constraints
-)
-
-func init() {
-	var err error
-	ConstraintK8sGreaterEqual130, err = semver.NewConstraint(">= 1.30-0")
-	utilruntime.Must(err)
-}
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
 func (w *WorkerDelegate) MachineClassKind() string {
@@ -460,7 +448,7 @@ func ComputeInstanceMetadata(workerConfig *awsapi.WorkerConfig, cluster *control
 			return nil, err
 		}
 
-		if ConstraintK8sGreaterEqual130.Check(k8sVersion) {
+		if versionutils.ConstraintK8sGreaterEqual130.Check(k8sVersion) {
 			res["httpPutResponseHopLimit"] = int64(2)
 			res["httpTokens"] = string(awsapi.HTTPTokensRequired)
 		}
