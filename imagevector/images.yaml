@@ -16,7 +16,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.25.15"
+  tag: "v1.25.16"
   targetVersion: "1.25.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -30,7 +30,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.26.12"
+  tag: "v1.26.14"
   targetVersion: "1.26.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -44,7 +44,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.27.9"
+  tag: "v1.27.10"
   targetVersion: "1.27.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -58,7 +58,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.28.9"
+  tag: "v1.28.11"
   targetVersion: "1.28.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -72,7 +72,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.29.6"
+  tag: "v1.29.8"
   targetVersion: "1.29.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -86,7 +86,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.30.3"
+  tag: "v1.30.7"
   targetVersion: "1.30.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -100,7 +100,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.31.1"
+  tag: "v1.31.5"
   targetVersion: ">= 1.31"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -302,7 +302,7 @@ images:
 - name: ecr-credential-provider
   sourceRepository: github.com/gardener/ecr-credential-provider
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
-  tag: "v1.29.0"
+  tag: "v1.29.8"
   targetVersion: "< 1.30"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
@@ -316,7 +316,7 @@ images:
 - name: ecr-credential-provider
   sourceRepository: github.com/gardener/ecr-credential-provider
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
-  tag: "v1.30.3"
+  tag: "v1.30.7"
   targetVersion: "1.30.x"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
@@ -330,7 +330,7 @@ images:
 - name: ecr-credential-provider
   sourceRepository: github.com/gardener/ecr-credential-provider
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
-  tag: "v1.31.0"
+  tag: "v1.31.5"
   targetVersion: ">= 1.31"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
