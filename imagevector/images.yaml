@@ -185,7 +185,7 @@ images:
   # NOTE: Please make sure to copy new image versions when updating the version by adding them to
   #       https://github.com/gardener/ci-infra/blob/master/config/images/images.yaml.
   repository: europe-docker.pkg.dev/gardener-project/releases/3rd/ebs-csi-driver/volume-modifier-for-k8s
-  tag: "v0.2.1"
+  tag: "v0.5.1"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
