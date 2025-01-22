@@ -12,19 +12,22 @@ metadata:
     {{- if .Values.ignoreResources }}
     resources.gardener.cloud/ignore: "true"
     {{- end }}
-    {{- if (include "topologyAwareRouting.enabled" .) }}
+    {{- if and (include "topologyAwareRouting.enabled" .) (semverCompare "< 1.31-0" .Capabilities.KubeVersion.Version) }}
     service.kubernetes.io/topology-mode: "auto"
     {{- end }}
   labels:
 {{ include "labels" . | indent 4 }}
-    {{- if (include "topologyAwareRouting.enabled" .) }}
+    {{- if and (include "topologyAwareRouting.enabled" .) (semverCompare "< 1.32-0" .Capabilities.KubeVersion.Version) }}
     endpoint-slice-hints.resources.gardener.cloud/consider: "true"
     {{- end }}
 spec:
   type: ClusterIP
   selector:
-{{ include "labels" . | indent 6 }}
+{{ include "labels" . | indent 4 }}
   ports:
   - port: {{ .Values.webhookConfig.servicePort }}
     protocol: TCP
     targetPort: {{ tpl .Values.webhookConfig.serverPort . }}
+  {{- if and (include "topologyAwareRouting.enabled" .) (semverCompare ">= 1.31-0" .Capabilities.KubeVersion.Version) }}
+  trafficDistribution: PreferClose
+  {{- end }}
