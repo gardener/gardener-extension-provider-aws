@@ -45,7 +45,6 @@ securityContext:
   #   - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
-  allowPrivilegeEscalation: false
 
 # Time period for the controller pod to do a graceful shutdown
 terminationGracePeriodSeconds: 10
