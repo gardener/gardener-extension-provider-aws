@@ -407,9 +407,7 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 					// Note: Though as per documentation at https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleRule.html the Filter field is
 					// optional, if not specified the SDK API fails with `Malformed XML` error code. Cross verified same behavior with aws-cli client as well.
 					// Please do not remove it.
-					Filter: &s3types.LifecycleRuleFilterMemberPrefix{
-						Value: "",
-					},
+					Filter: &s3types.LifecycleRuleFilter{Prefix: ptr.To("")},
 					AbortIncompleteMultipartUpload: &s3types.AbortIncompleteMultipartUpload{
 						DaysAfterInitiation: aws.Int32(7),
 					},
