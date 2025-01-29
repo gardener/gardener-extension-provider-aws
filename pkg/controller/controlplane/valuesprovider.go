@@ -18,7 +18,6 @@ import (
 	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	"github.com/gardener/gardener/pkg/utils/chart"
@@ -51,7 +50,6 @@ import (
 const (
 	caNameControlPlane               = "ca-" + aws.Name + "-controlplane"
 	cloudControllerManagerServerName = "cloud-controller-manager-server"
-	csiSnapshotValidationServerName  = aws.CSISnapshotValidationName + "-server"
 	awsLoadBalancerControllerWebhook = aws.AWSLoadBalancerControllerName + "-webhook-service"
 )
 
@@ -74,18 +72,6 @@ func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfig
 				SkipPublishingCACertificate: true,
 			},
 			Options: []secretsmanager.GenerateOption{secretsmanager.SignedByCA(caNameControlPlane)},
-		},
-		{
-			Config: &secretutils.CertificateSecretConfig{
-				Name:                        csiSnapshotValidationServerName,
-				CommonName:                  aws.UsernamePrefix + aws.CSISnapshotValidationName,
-				DNSNames:                    kutil.DNSNamesForService(aws.CSISnapshotValidationName, namespace),
-				CertType:                    secretutils.ServerCert,
-				SkipPublishingCACertificate: true,
-			},
-			// use current CA for signing server cert to prevent mismatches when dropping the old CA from the webhook
-			// config in phase Completing
-			Options: []secretsmanager.GenerateOption{secretsmanager.SignedByCA(caNameControlPlane, secretsmanager.UseCurrentCA)},
 		},
 		{
 			Config: &secretutils.CertificateSecretConfig{
@@ -113,7 +99,6 @@ func shootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
 		gutil.NewShootAccessSecret(aws.CSISnapshotterName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIResizerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSISnapshotControllerName, namespace),
-		gutil.NewShootAccessSecret(aws.CSISnapshotValidationName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIVolumeModifierName, namespace),
 	}
 }
@@ -192,7 +177,6 @@ var (
 					aws.CSIResizerImageName,
 					aws.CSILivenessProbeImageName,
 					aws.CSISnapshotControllerImageName,
-					aws.CSISnapshotValidationWebhookImageName,
 					aws.CSIVolumeModifierImageName,
 				},
 				Objects: []*chart.Object{
@@ -203,9 +187,6 @@ var (
 					// csi-snapshot-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotControllerName},
 					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
-					// csi-snapshot-validation-webhook
-					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotValidationName},
-					{Type: &corev1.Service{}, Name: aws.CSISnapshotValidationName},
 				},
 			},
 		},
@@ -288,10 +269,6 @@ var (
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIResizerName},
 					{Type: &rbacv1.Role{}, Name: aws.UsernamePrefix + aws.CSIResizerName},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIResizerName},
-					// csi-snapshot-validation-webhook
-					{Type: &admissionregistrationv1.ValidatingWebhookConfiguration{}, Name: aws.CSISnapshotValidationName},
-					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
 					// csi-volume-modifier
 					{Type: &corev1.ServiceAccount{}, Name: aws.CSIVolumeModifierName},
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
@@ -792,15 +769,11 @@ func isLoadBalancerControllerEnabled(cpConfig *apisaws.ControlPlaneConfig) bool 
 func getCSIControllerChartValues(
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
-	secretsReader secretsmanager.Reader,
+	_ secretsmanager.Reader,
 	checksums map[string]string,
 	scaledDown bool,
 	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
-	serverSecret, found := secretsReader.Get(csiSnapshotValidationServerName)
-	if !found {
-		return nil, fmt.Errorf("secret %q not found", csiSnapshotValidationServerName)
-	}
 
 	values := map[string]interface{}{
 		"enabled":  true,
@@ -811,13 +784,6 @@ func getCSIControllerChartValues(
 		},
 		"csiSnapshotController": map[string]interface{}{
 			"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
-		},
-		"csiSnapshotValidationWebhook": map[string]interface{}{
-			"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
-			"secrets": map[string]interface{}{
-				"server": serverSecret.Name,
-			},
-			"topologyAwareRoutingEnabled": gardencorev1beta1helper.IsTopologyAwareRoutingForShootControlPlaneEnabled(cluster.Seed, cluster.Shoot),
 		},
 		"useWorkloadIdentity": useWorkloadIdentity,
 	}
@@ -854,11 +820,6 @@ func getControlPlaneShootChartValues(
 ) (map[string]interface{}, error) {
 	kubernetesVersion := cluster.Shoot.Spec.Kubernetes.Version
 
-	caSecret, found := secretsReader.Get(caNameControlPlane)
-	if !found {
-		return nil, fmt.Errorf("secret %q not found", caNameControlPlane)
-	}
-
 	customRouteControllerEnabled := cpConfig.CloudControllerManager != nil &&
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
@@ -871,10 +832,6 @@ func getControlPlaneShootChartValues(
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           true,
 		"kubernetesVersion": kubernetesVersion,
-		"webhookConfig": map[string]interface{}{
-			"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-			"caBundle": string(caSecret.Data[secretutils.DataKeyCertificateBundle]),
-		},
 	}
 
 	driver := map[string]interface{}{}
