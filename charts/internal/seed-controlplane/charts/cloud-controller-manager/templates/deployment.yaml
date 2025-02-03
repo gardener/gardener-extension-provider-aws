@@ -60,6 +60,8 @@ spec:
         env:
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /srv/cloudprovider/credentialsFile
+        securityContext:
+          allowPrivilegeEscalation: false
         livenessProbe:
           httpGet:
             path: /healthz

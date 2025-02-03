@@ -32,6 +32,8 @@ spec:
           - --tls-cert-file=/etc/csi-snapshot-validation/tls.crt
           - --tls-private-key-file=etc/csi-snapshot-validation/tls.key
           - --kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
+        securityContext:
+          allowPrivilegeEscalation: false
         ports:
         - containerPort: 443
 {{- if .Values.csiSnapshotValidationWebhook.resources }}

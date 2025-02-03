@@ -184,6 +184,7 @@ spec:
         command:
         - /controller
         securityContext:
+          allowPrivilegeEscalation: false
           {{- toYaml .Values.securityContext | nindent 10 }}
         # start provider-aws-specific
         image: {{ index .Values.images "aws-load-balancer-controller" }}

@@ -32,6 +32,7 @@ spec:
         command:
         - /mtu-customizer/mtu-customizer.sh
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             add: ["NET_ADMIN", "SYS_TIME"]
         volumeMounts:
@@ -40,6 +41,8 @@ spec:
       containers:
         - name: pause
           image: {{ include "images.pause" .  }}
+          securityContext:
+            allowPrivilegeEscalation: false
       terminationGracePeriodSeconds: 2
       volumes:
         - name: mtu-customizer
