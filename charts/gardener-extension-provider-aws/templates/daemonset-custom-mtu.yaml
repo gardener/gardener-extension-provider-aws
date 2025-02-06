@@ -1,4 +1,4 @@
-{{ if and (eq .Values.gardener.seed.provider "aws") (not .Values.gardener.runtimeCluster.enabled) }}
+{{ if eq (include "seed.provider" .) "aws" }}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
