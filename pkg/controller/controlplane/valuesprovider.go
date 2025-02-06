@@ -392,11 +392,6 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		}
 	}
 
-	// TODO(rfranzke): Delete this in a future release.
-	if err := kutil.DeleteObject(ctx, vp.client, &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "csi-driver-controller-observability-config", Namespace: cp.Namespace}}); err != nil {
-		return nil, fmt.Errorf("failed deleting legacy csi-driver-controller-observability-config ConfigMap: %w", err)
-	}
-
 	// TODO(rfranzke): Delete this after August 2024.
 	gep19Monitoring := vp.client.Get(ctx, k8sclient.ObjectKey{Name: "prometheus-shoot", Namespace: cp.Namespace}, &appsv1.StatefulSet{}) == nil
 	if gep19Monitoring {
