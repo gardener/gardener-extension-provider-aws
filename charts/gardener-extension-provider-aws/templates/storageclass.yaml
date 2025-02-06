@@ -1,4 +1,4 @@
-{{- if eq .Values.gardener.seed.provider "aws" }}
+{{ if eq (include "seed.provider" . ) "aws" }}
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:

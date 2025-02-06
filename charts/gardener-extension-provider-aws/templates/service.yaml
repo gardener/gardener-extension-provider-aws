@@ -12,7 +12,7 @@ metadata:
     {{- if .Values.ignoreResources }}
     resources.gardener.cloud/ignore: "true"
     {{- end }}
-    {{- if .Values.gardener.seed.spec.settings.topologyAwareRouting.enabled }}
+    {{- if eq (include "topologyAwareRouting.enabled" .) "true" }}
     {{- if semverCompare ">= 1.27-0" .Capabilities.KubeVersion.Version }}
     service.kubernetes.io/topology-mode: "auto"
     {{- else }}
@@ -21,7 +21,7 @@ metadata:
     {{- end }}
   labels:
 {{ include "labels" . | indent 4 }}
-    {{- if .Values.gardener.seed.spec.settings.topologyAwareRouting.enabled }}
+    {{- if eq (include "topologyAwareRouting.enabled" .) "true" }}
     endpoint-slice-hints.resources.gardener.cloud/consider: "true"
     {{- end }}
 spec:

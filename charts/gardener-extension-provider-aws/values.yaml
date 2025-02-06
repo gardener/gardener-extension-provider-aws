@@ -91,12 +91,12 @@ gardener:
   version: ""
   gardenlet:
     featureGates: {}
-  seed:
-    provider: aws
-    spec:
-      settings:
-        topologyAwareRouting:
-          enabled: false
-  runtimeCluster:
-    enabled: false
-  # priorityClassName: gardener-garden-system-200
+# seed:
+#   provider: aws
+#   spec:
+#     settings:
+#       topologyAwareRouting:
+#         enabled: false
+# runtimeCluster:
+#   enabled: true
+#   priorityClassName: gardener-garden-system-200
