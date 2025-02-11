@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestShoot(t *testing.T) {
+func TestShootConfigMap(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Shoot Webhook Suite")
+	RunSpecs(t, "Shoot ConfigMap Webhook Suite")
 }
