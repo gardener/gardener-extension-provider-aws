@@ -8,6 +8,7 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/extensions/pkg/webhook/shoot"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -34,6 +35,15 @@ func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebh
 			{Obj: &corev1.Service{}},
 		},
 		MutatorWithShootClient: NewMutatorWithShootClient(),
+		ObjectSelector: &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{
+					Key:      "resources.gardener.cloud/managed-by",
+					Operator: metav1.LabelSelectorOpDoesNotExist,
+					Values:   []string{},
+				},
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
