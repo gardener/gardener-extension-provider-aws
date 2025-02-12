@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package shoot
+package shootconfigmap
 
 import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
