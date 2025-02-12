@@ -6,6 +6,7 @@ package shoot
 
 import (
 	"context"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,13 +26,11 @@ func (m *mutator) mutateService(ctx context.Context, service *corev1.Service, sh
 		if err := shootClient.Get(ctx, types.NamespacedName{Name: "kube-dns", Namespace: "kube-system"}, kubeDNSService); err != nil {
 			return err
 		}
-		for _, v := range kubeDNSService.Spec.IPFamilies {
-			if v == corev1.IPv6Protocol {
-				metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-ip-address-type", "dualstack")
-				metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme", "internet-facing")
-				metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type", "instance")
-				metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-type", "external")
-			}
+		if slices.Contains(kubeDNSService.Spec.IPFamilies, corev1.IPv6Protocol) {
+			metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-ip-address-type", "dualstack")
+			metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme", "internet-facing")
+			metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type", "instance")
+			metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-type", "external")
 		}
 	}
 	return nil
