@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shoot
+package shootservice
 
 import (
 	"context"
+	"fmt"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/go-logr/logr"
@@ -31,32 +32,21 @@ type mutator struct {
 // NewMutatorWithShootClient creates a new Mutator that mutates resources in the shoot cluster.
 func NewMutatorWithShootClient() extensionswebhook.MutatorWithShootClient {
 	return &mutator{
-		logger: log.Log.WithName("shoot-mutator"),
+		logger: log.Log.WithName("shoot-service-mutator"),
 	}
 }
 
 // Mutate mutates resources.
 func (m *mutator) Mutate(ctx context.Context, new, _ client.Object, shootClient client.Client) error {
-	switch x := new.(type) {
-	case *corev1.ConfigMap:
-		if !(x.Labels["app"] == "nginx-ingress" && x.Labels["component"] == "controller" && x.Labels["release"] == "addons") {
-			return nil
-		}
-		// If the object does have a deletion timestamp then we don't want to mutate anything.
-		if x.GetDeletionTimestamp() != nil {
-			return nil
-		}
-		extensionswebhook.LogMutation(logger, x.Kind, x.Namespace, x.Name)
-		return m.mutateNginxIngressControllerConfigMap(ctx, x)
-
-	case *corev1.Service:
-		// If the object does have a deletion timestamp then we don't want to mutate anything.
-		if x.GetDeletionTimestamp() != nil {
-			return nil
-		}
-		extensionswebhook.LogMutation(logger, x.Kind, x.Namespace, x.Name)
-		return m.mutateService(ctx, x, shootClient)
-
+	service, ok := new.(*corev1.Service)
+	if !ok {
+		return fmt.Errorf("could not mutate: object is not of type corev1.Service")
 	}
-	return nil
+
+	// If the object does have a deletion timestamp then we don't want to mutate anything.
+	if service.GetDeletionTimestamp() != nil {
+		return nil
+	}
+	extensionswebhook.LogMutation(logger, service.Kind, service.Namespace, service.Name)
+	return m.mutateService(ctx, service, shootClient)
 }
