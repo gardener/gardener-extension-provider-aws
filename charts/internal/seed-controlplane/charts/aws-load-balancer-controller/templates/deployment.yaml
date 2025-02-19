@@ -61,8 +61,23 @@ spec:
                 name: shoot-access-aws-load-balancer-controller
                 optional: false
       - name: cloudprovider
-        secret:
-          secretName: cloudprovider
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              {{- if .Values.useWorkloadIdentity }}
+              - key: token
+                path: token
+              {{- else}}
+              # TODO: For some reason the aws sdk does not properly read the role_arn
+              # from the shared credentials file.
+              # Use the file when we use >= v2.9.0 of aws-load-balancer-controller.
+              - key: credentialsFile
+                path: credentialsFile
+              {{- end }}
+              name: cloudprovider
+              optional: false
       # end provider-aws-specific
       {{- with .Values.extraVolumes }}
       {{ toYaml . | nindent 6 }}
@@ -172,8 +187,26 @@ spec:
         # end provider-aws-specific
         env:
         # start provider-aws-specific
+        {{- if .Values.useWorkloadIdentity }}
+        # TODO: For some reason the aws sdk does not properly read the role_arn
+        # from the shared credentials file.
+        # Use the file when we use >= v2.9.0 of aws-load-balancer-controller.
+        # - name: AWS_SHARED_CREDENTIALS_FILE
+        #   value: /var/run/secrets/gardener.cloud/workload-identity/credentialsFile
+        - name: AWS_WEB_IDENTITY_TOKEN_FILE
+          valueFrom:
+            secretKeyRef:
+              name: cloudprovider
+              key: workloadIdentityTokenFile
+        - name: AWS_ROLE_ARN
+          valueFrom:
+            secretKeyRef:
+              name: cloudprovider
+              key: roleARN
+        {{- else }}
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /srv/cloudprovider/credentialsFile
+        {{- end }}
         # end provider-aws-specific
         {{- if .Values.env }}
         {{- range $key, $value := .Values.env }}
@@ -197,8 +230,15 @@ spec:
         - name: kubeconfig
           mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
           readOnly: true
+        {{- if .Values.useWorkloadIdentity }}
+        - name: cloudprovider
+          mountPath: /var/run/secrets/gardener.cloud/workload-identity
+          readOnly: true
+        {{- else }}
         - name: cloudprovider
           mountPath: /srv/cloudprovider
+          readOnly: true
+        {{- end }}
         # end provider-aws-specific
         {{- with .Values.extraVolumeMounts }}
         {{ toYaml . | nindent 8 }}

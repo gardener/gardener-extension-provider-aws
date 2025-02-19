@@ -85,6 +85,11 @@ spec:
         - mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
           name: kubeconfig
           readOnly: true
+        {{- if .Values.useWorkloadIdentity }}
+        - name: cloudprovider
+          mountPath: /var/run/secrets/gardener.cloud/workload-identity
+          readOnly: true
+        {{- end }}
       volumes:
       - name: kubeconfig
         projected:
@@ -102,3 +107,15 @@ spec:
                 path: token
               name: shoot-access-aws-custom-route-controller
               optional: false
+      {{- if .Values.useWorkloadIdentity }}
+      - name: cloudprovider
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: token
+                path: token
+              name: cloudprovider
+              optional: false
+      {{- end }}

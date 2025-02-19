@@ -48,12 +48,12 @@ type route53Factory struct {
 }
 
 // NewClient creates a new instance of Interface for the given AWS credentials and region.
-func (f *route53Factory) NewClient(accessKeyID, secretAccessKey, region string) (Interface, error) {
-	c, err := NewClient(accessKeyID, secretAccessKey, region)
+func (f *route53Factory) NewClient(authConfig AuthConfig) (Interface, error) {
+	c, err := NewClient(authConfig)
 	if err != nil {
 		return nil, err
 	}
-	c.Route53RateLimiter = f.getRateLimiter(accessKeyID)
+	c.Route53RateLimiter = f.getRateLimiter(authConfig.AccessKey.ID)
 	c.Route53RateLimiterWaitTimeout = f.waitTimeout
 	return c, nil
 }
