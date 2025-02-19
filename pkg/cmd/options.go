@@ -70,6 +70,7 @@ func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 		webhookcmd.Switch(extensioncontrolplanewebhook.WebhookName, controlplanewebhook.AddToManager),
 		webhookcmd.Switch(extensioncontrolplanewebhook.SeedProviderWebhookName, seedproviderwebhook.AddToManager),
 		webhookcmd.Switch(servicewebhook.WebhookName, servicewebhook.AddToManager),
+		webhookcmd.Switch(servicewebhook.KubeSystemWebhookName, servicewebhook.AddToManagerForKubeSystem),
 		webhookcmd.Switch(configmapwebhook.WebhookName, configmapwebhook.AddToManager),
 		webhookcmd.Switch(extensionscloudproviderwebhook.WebhookName, cloudproviderwebhook.AddToManager),
 		webhookcmd.Switch(infrastructure.WebhookName, infrastructure.AddToManager),

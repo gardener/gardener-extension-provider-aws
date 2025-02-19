@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	WebhookName = "shoot-service"
+	WebhookName           = "shoot-service"
+	KubeSystemWebhookName = "shoot-service-kube-system"
 )
 
 var (
@@ -57,4 +58,30 @@ func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebh
 // AddToManager creates a webhook with the default options and adds it to the manager.
 func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	return AddToManagerWithOptions(mgr, DefaultAddOptions)
+}
+
+// AddToManagerForKubeSystem creates a webhook for the kube-system namespace and adds it to the manager.
+// The webhook specifically targets the nginx-ingress because it is the only resource managed by the
+// Gardener resource manager that needs to be mutated.
+func AddToManagerForKubeSystem(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
+	logger.Info("Adding webhook for kube-system to manager")
+	wb, err := shoot.New(mgr, shoot.Args{
+		Types: []extensionswebhook.Type{
+			{Obj: &corev1.Service{}},
+		},
+		MutatorWithShootClient: NewMutatorWithShootClient(),
+		ObjectSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"app":       "nginx-ingress",
+				"component": "controller",
+				"release":   "addons",
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	wb.Name = KubeSystemWebhookName
+	wb.Path = KubeSystemWebhookName
+	return wb, nil
 }
