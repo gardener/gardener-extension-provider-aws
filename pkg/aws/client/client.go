@@ -54,9 +54,9 @@ type AuthConfig struct {
 
 // AccessKey represents static credentials for authentication to AWS.
 type AccessKey struct {
-	// ID is the key ID used for access to AWS.
+	// ID is the Access Key ID.
 	ID string
-	// Secret is the secret used for access to AWS.
+	// Secret is the Secret Access Key.
 	Secret string
 }
 
