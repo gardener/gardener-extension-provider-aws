@@ -47,7 +47,7 @@ Users can choose to trust Gardener's Workload Identity Issuer and eliminate the 
 ![OIDC Federation](./images/oidc-federation.png)
 
 > [!IMPORTANT]
-> Use an audience that will uniquely identity the trust relationship between your AWS account and Gardener.
+> Use an audience that will uniquely identify the trust relationship between your AWS account and Gardener.
 
 #### 2. Create a policy listing the [required permissions](#permissions).
 
@@ -115,7 +115,7 @@ spec:
 ```
 
 > [!TIP]
-> Once created you can extract the whole subject of the workload identity and edit the create Role's trust replationship configuration to also include the workload identity's id.
+> Once created you can extract the whole subject of the workload identity and edit the created Role's trust relationship configuration to also include the workload identity's id.
 > Obtain the complete `sub` by running the following:
 > 
 > ```bash
