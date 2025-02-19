@@ -23,8 +23,6 @@ const (
 	Name = "validator"
 	// SecretsValidatorName is the name of the secrets validator.
 	SecretsValidatorName = "secrets." + Name
-	// WorkloadIdentitiesValidatorName is the name of the workload identities validator.
-	WorkloadIdentitiesValidatorName = "workloadidentities." + Name
 )
 
 var logger = log.Log.WithName("aws-validator-webhook")
@@ -43,6 +41,7 @@ func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 			NewNamespacedCloudProfileValidator(mgr): {{Obj: &core.NamespacedCloudProfile{}}},
 			NewSecretBindingValidator(mgr):          {{Obj: &core.SecretBinding{}}},
 			NewCredentialsBindingValidator(mgr):     {{Obj: &security.CredentialsBinding{}}},
+			NewWorkloadIdentityValidator(serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder()): {{Obj: &securityv1alpha1.WorkloadIdentity{}}},
 		},
 		Target: extensionswebhook.TargetSeed,
 		ObjectSelector: &metav1.LabelSelector{
@@ -66,24 +65,5 @@ func NewSecretsWebhook(mgr manager.Manager) (*extensionswebhook.Webhook, error) 
 		ObjectSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"provider.shoot.gardener.cloud/aws": "true"},
 		},
-	})
-}
-
-// NewWorkloadIdentitiesWebhook creates a new validation webhook for WorkloadIdentities.
-func NewWorkloadIdentitiesWebhook(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
-	logger.Info("Setting up webhook", "name", WorkloadIdentitiesValidatorName)
-
-	return extensionswebhook.New(mgr, extensionswebhook.Args{
-		Provider: aws.Type,
-		Name:     WorkloadIdentitiesValidatorName,
-		Path:     "/webhooks/validate/workloadidentities",
-		Validators: map[extensionswebhook.Validator][]extensionswebhook.Type{
-			NewWorkloadIdentityValidator(serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder()): {{Obj: &securityv1alpha1.WorkloadIdentity{}}},
-		},
-		Target: extensionswebhook.TargetSeed,
-		// TODO(dimityrmirchev): Uncomment this line and use the object selector once Gardener implements https://github.com/gardener/gardener/pull/10786
-		// ObjectSelector: &metav1.LabelSelector{
-		// 	MatchLabels: map[string]string{"provider.extensions.gardener.cloud/aws": "true"},
-		// },
 	})
 }
