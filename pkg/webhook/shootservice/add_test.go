@@ -21,4 +21,15 @@ var _ = Describe("Add shoot service webhook", func() {
 		Expect(webhook).ToNot(BeNil())
 		Expect(webhook.ObjectSelector).ToNot(BeNil())
 	})
+
+	It("should return webhook for kube-system namespace with ObjectSelector", func() {
+		mgr, err := manager.New(&rest.Config{}, manager.Options{})
+		Expect(err).ToNot(HaveOccurred())
+
+		webhook, err := AddToManagerForKubeSystem(mgr)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(webhook).ToNot(BeNil())
+		Expect(webhook.ObjectSelector).ToNot(BeNil())
+		Expect(webhook.NamespaceSelector).ToNot(BeNil())
+	})
 })
