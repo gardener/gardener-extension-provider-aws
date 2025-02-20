@@ -25,10 +25,9 @@ var (
 // AddOptions are options to apply when adding the AWS shoot webhook to the manager.
 type AddOptions struct{}
 
-var logger = log.Log.WithName("aws-shoot-configmap-webhook")
-
 // AddToManagerWithOptions creates a webhook with the given options and adds it to the manager.
 func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebhook.Webhook, error) {
+	logger := log.Log.WithName("aws-shoot-nginx-ingress-configmap-webhook")
 	logger.Info("Adding webhook for nginx-ingress ConfigMap to manager")
 	wb, err := shoot.New(mgr, shoot.Args{
 		Types: []extensionswebhook.Type{
