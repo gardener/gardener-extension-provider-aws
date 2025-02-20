@@ -29,12 +29,12 @@ var logger = log.Log.WithName("aws-shoot-configmap-webhook")
 
 // AddToManagerWithOptions creates a webhook with the given options and adds it to the manager.
 func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebhook.Webhook, error) {
-	logger.Info("Adding webhook to manager")
+	logger.Info("Adding webhook for nginx-ingress ConfigMap to manager")
 	wb, err := shoot.New(mgr, shoot.Args{
 		Types: []extensionswebhook.Type{
 			{Obj: &corev1.ConfigMap{}},
 		},
-		Mutator: NewMutator(),
+		Mutator: NewMutator(logger),
 		ObjectSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"app":       "nginx-ingress",

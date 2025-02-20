@@ -17,12 +17,14 @@ package shootservice
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type mutator struct {
@@ -30,10 +32,8 @@ type mutator struct {
 }
 
 // NewMutatorWithShootClient creates a new Mutator that mutates resources in the shoot cluster.
-func NewMutatorWithShootClient() extensionswebhook.MutatorWithShootClient {
-	return &mutator{
-		logger: log.Log.WithName("shoot-service-mutator"),
-	}
+func NewMutatorWithShootClient(logger logr.Logger) extensionswebhook.MutatorWithShootClient {
+	return &mutator{logger}
 }
 
 // Mutate mutates resources.
@@ -47,6 +47,29 @@ func (m *mutator) Mutate(ctx context.Context, new, _ client.Object, shootClient 
 	if service.GetDeletionTimestamp() != nil {
 		return nil
 	}
-	extensionswebhook.LogMutation(logger, service.Kind, service.Namespace, service.Name)
-	return m.mutateService(ctx, service, shootClient)
+	extensionswebhook.LogMutation(m.logger, service.Kind, service.Namespace, service.Name)
+
+	if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		return nil
+	}
+
+	if metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme") &&
+		service.Annotations["service.beta.kubernetes.io/aws-load-balancer-scheme"] == "internal" ||
+		metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-internal") &&
+			service.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] == "true" {
+		return nil
+	}
+
+	kubeDNSService := &corev1.Service{}
+	if err := shootClient.Get(ctx, types.NamespacedName{Name: "kube-dns", Namespace: "kube-system"}, kubeDNSService); err != nil {
+		return err
+	}
+	if slices.Contains(kubeDNSService.Spec.IPFamilies, corev1.IPv6Protocol) {
+		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-ip-address-type", "dualstack")
+		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme", "internet-facing")
+		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type", "instance")
+		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-type", "external")
+	}
+
+	return nil
 }
