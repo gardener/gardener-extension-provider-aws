@@ -26,10 +26,9 @@ var (
 // AddOptions are options to apply when adding the AWS shoot webhook to the manager.
 type AddOptions struct{}
 
-var logger = log.Log.WithName("aws-shoot-service-webhook")
-
 // AddToManagerWithOptions creates a webhook with the given options and adds it to the manager.
 func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebhook.Webhook, error) {
+	logger := log.Log.WithName("aws-shoot-workload-service-webhook")
 	logger.Info("Adding Service webhook to manager")
 	wb, err := shoot.New(mgr, shoot.Args{
 		Types: []extensionswebhook.Type{
@@ -64,6 +63,7 @@ func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 // The webhook specifically targets the nginx-ingress because it is the only resource managed by the
 // Gardener resource manager that needs to be mutated.
 func AddNginxIngressWebhookToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
+	logger := log.Log.WithName("aws-shoot-nginx-ingress-service-webhook")
 	logger.Info("Adding webhook for nginx-ingress Service to manager")
 	wb, err := shoot.New(mgr, shoot.Args{
 		Types: []extensionswebhook.Type{
