@@ -26,7 +26,7 @@ var _ = Describe("Add shoot service webhook", func() {
 		mgr, err := manager.New(&rest.Config{}, manager.Options{})
 		Expect(err).ToNot(HaveOccurred())
 
-		webhook, err := AddToManagerForKubeSystem(mgr)
+		webhook, err := AddNginxIngressWebhookToManager(mgr)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(webhook).ToNot(BeNil())
 		Expect(webhook.ObjectSelector).ToNot(BeNil())

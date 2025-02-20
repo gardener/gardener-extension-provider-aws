@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type mutator struct {
@@ -30,10 +29,8 @@ type mutator struct {
 }
 
 // NewMutator creates a new Mutator that mutates resources in the shoot cluster.
-func NewMutator() extensionswebhook.Mutator {
-	return &mutator{
-		logger: log.Log.WithName("shoot-configmap-mutator"),
-	}
+func NewMutator(logger logr.Logger) extensionswebhook.Mutator {
+	return &mutator{logger}
 }
 
 // Mutate mutates resources.
@@ -47,6 +44,14 @@ func (m *mutator) Mutate(ctx context.Context, new, _ client.Object) error {
 	if configMap.GetDeletionTimestamp() != nil {
 		return nil
 	}
-	extensionswebhook.LogMutation(logger, configMap.Kind, configMap.Namespace, configMap.Name)
-	return m.mutateNginxIngressControllerConfigMap(ctx, configMap)
+
+	extensionswebhook.LogMutation(m.logger, configMap.Kind, configMap.Namespace, configMap.Name)
+
+	if configMap.Data == nil {
+		configMap.Data = make(map[string]string, 1)
+	}
+
+	configMap.Data["use-proxy-protocol"] = "true"
+
+	return nil
 }

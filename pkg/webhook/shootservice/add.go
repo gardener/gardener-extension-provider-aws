@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	WebhookName           = "shoot-service"
-	KubeSystemWebhookName = "shoot-service-kube-system"
+	WebhookName             = "shoot-service"
+	NginxIngressWebhookName = "shoot-service-nginx-ingress"
 )
 
 var (
@@ -30,12 +30,12 @@ var logger = log.Log.WithName("aws-shoot-service-webhook")
 
 // AddToManagerWithOptions creates a webhook with the given options and adds it to the manager.
 func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebhook.Webhook, error) {
-	logger.Info("Adding webhook to manager")
+	logger.Info("Adding Service webhook to manager")
 	wb, err := shoot.New(mgr, shoot.Args{
 		Types: []extensionswebhook.Type{
 			{Obj: &corev1.Service{}},
 		},
-		MutatorWithShootClient: NewMutatorWithShootClient(),
+		MutatorWithShootClient: NewMutatorWithShootClient(logger),
 		ObjectSelector: &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
@@ -60,16 +60,16 @@ func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	return AddToManagerWithOptions(mgr, DefaultAddOptions)
 }
 
-// AddToManagerForKubeSystem creates a webhook for the kube-system namespace and adds it to the manager.
+// AddNginxIngressWebhookToManager creates a webhook for the nginx-ingress and adds it to the manager.
 // The webhook specifically targets the nginx-ingress because it is the only resource managed by the
 // Gardener resource manager that needs to be mutated.
-func AddToManagerForKubeSystem(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
-	logger.Info("Adding webhook for kube-system to manager")
+func AddNginxIngressWebhookToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
+	logger.Info("Adding webhook for nginx-ingress Service to manager")
 	wb, err := shoot.New(mgr, shoot.Args{
 		Types: []extensionswebhook.Type{
 			{Obj: &corev1.Service{}},
 		},
-		MutatorWithShootClient: NewMutatorWithShootClient(),
+		MutatorWithShootClient: NewMutatorWithShootClient(logger),
 		ObjectSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"app":       "nginx-ingress",
@@ -81,7 +81,7 @@ func AddToManagerForKubeSystem(mgr manager.Manager) (*extensionswebhook.Webhook,
 	if err != nil {
 		return nil, err
 	}
-	wb.Name = KubeSystemWebhookName
-	wb.Path = KubeSystemWebhookName
+	wb.Name = NginxIngressWebhookName
+	wb.Path = NginxIngressWebhookName
 	return wb, nil
 }
