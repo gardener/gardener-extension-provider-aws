@@ -102,6 +102,7 @@ rules:
   - patch
   - update
   - delete
+  - deletecollection
 - apiGroups:
   - machine.sapcloud.io
   resources:
@@ -117,6 +118,7 @@ rules:
   - patch
   - update
   - delete
+  - deletecollection
 - apiGroups:
   - autoscaling.k8s.io
   resources:
