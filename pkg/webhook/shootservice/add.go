@@ -40,7 +40,6 @@ func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebh
 				{
 					Key:      "resources.gardener.cloud/managed-by",
 					Operator: metav1.LabelSelectorOpDoesNotExist,
-					Values:   []string{},
 				},
 			},
 		},

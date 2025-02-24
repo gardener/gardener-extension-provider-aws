@@ -20,6 +20,7 @@ var _ = Describe("Add shoot service webhook", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(webhook).ToNot(BeNil())
 		Expect(webhook.ObjectSelector).ToNot(BeNil())
+		Expect(webhook.NamespaceSelector).To(BeNil())
 	})
 
 	It("should return webhook for kube-system namespace with ObjectSelector", func() {
