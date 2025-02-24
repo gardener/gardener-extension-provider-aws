@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package shoot_test
+package shootservice_test
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestShoot(t *testing.T) {
+func TestShootService(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Shoot Webhook Suite")
+	RunSpecs(t, "Shoot Service Webhook Suite")
 }
