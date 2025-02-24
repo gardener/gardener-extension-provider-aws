@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package shoot
+package shootconfigmap
 
 import (
 	"context"
@@ -19,7 +19,7 @@ var _ = Describe("Mutator", func() {
 	DescribeTable("#mutateNginxIngressControllerConfigMap",
 		func(configmap *corev1.ConfigMap) {
 			mutator := &mutator{}
-			err := mutator.mutateNginxIngressControllerConfigMap(context.TODO(), configmap)
+			err := mutator.Mutate(context.TODO(), configmap, nil)
 
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(configmap.Data).To(HaveKeyWithValue("use-proxy-protocol", "true"))
@@ -28,4 +28,10 @@ var _ = Describe("Mutator", func() {
 		Entry("no data", &corev1.ConfigMap{ObjectMeta: nginxIngressControllerConfigMapMeta}),
 		Entry("data with undesired field", &corev1.ConfigMap{ObjectMeta: nginxIngressControllerConfigMapMeta, Data: map[string]string{"use-proxy-protocol": "false"}}),
 	)
+
+	It("should return error if resource is not a ConfigMap", func() {
+		mutator := &mutator{}
+		err := mutator.Mutate(context.TODO(), &corev1.Service{}, nil)
+		Expect(err).To(HaveOccurred())
+	})
 })
