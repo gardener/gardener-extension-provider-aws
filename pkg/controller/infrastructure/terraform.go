@@ -43,7 +43,29 @@ func newTerraformer(
 		SetOwnerRef(owner), nil
 }
 
-func generateTerraformerEnvVars(secretRef corev1.SecretReference) []corev1.EnvVar {
+func generateTerraformerEnvVars(secretRef corev1.SecretReference, useWorkloadIdentity bool) []corev1.EnvVar {
+	if useWorkloadIdentity {
+		return []corev1.EnvVar{{
+			Name: "AWS_ROLE_ARN",
+			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretRef.Name,
+				},
+				Key: "roleARN",
+			}},
+		},
+			{
+				Name: "AWS_WEB_IDENTITY_TOKEN_FILE",
+				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretRef.Name,
+					},
+					Key: "workloadIdentityTokenFile",
+				}},
+			},
+		}
+	}
+
 	return []corev1.EnvVar{{
 		Name: "TF_VAR_ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{

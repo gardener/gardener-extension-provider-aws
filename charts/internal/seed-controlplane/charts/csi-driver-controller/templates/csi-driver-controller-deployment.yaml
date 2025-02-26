@@ -49,8 +49,13 @@ spec:
         env:
         - name: CSI_ENDPOINT
           value: unix://{{ .Values.socketPath }}/csi.sock
+        {{- if .Values.useWorkloadIdentity }}
+        - name: AWS_SHARED_CREDENTIALS_FILE
+          value: /var/run/secrets/gardener.cloud/workload-identity/credentialsFile
+        {{- else }}
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /srv/cloudprovider/credentialsFile
+        {{- end }}
         - name: AWS_REGION
           value: {{ .Values.region }}
 {{- if .Values.resources.driver }}
@@ -73,10 +78,17 @@ spec:
           periodSeconds: 10
           failureThreshold: 5
         volumeMounts:
-        - name: socket-dir
-          mountPath: {{ .Values.socketPath }}
+        {{- if .Values.useWorkloadIdentity }}
+        - name: cloudprovider
+          mountPath: /var/run/secrets/gardener.cloud/workload-identity
+          readOnly: true
+        {{- else }}
         - name: cloudprovider
           mountPath: /srv/cloudprovider
+          readOnly: true
+        {{- end }}
+        - name: socket-dir
+          mountPath: {{ .Values.socketPath }}
 
       - name: aws-csi-volume-modifier
         image: {{ index .Values.images "csi-volume-modifier" }}
@@ -246,8 +258,19 @@ spec:
       - name: socket-dir
         emptyDir: {}
       - name: cloudprovider
-        secret:
-          secretName: cloudprovider
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              {{- if .Values.useWorkloadIdentity }}
+              - key: token
+                path: token
+              {{- end }}
+              - key: credentialsFile
+                path: credentialsFile
+              name: cloudprovider
+              optional: false
       - name: kubeconfig-csi-attacher
         projected:
           defaultMode: 420

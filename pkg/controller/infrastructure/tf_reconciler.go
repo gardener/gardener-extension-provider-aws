@@ -18,15 +18,18 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	"github.com/gardener/gardener/pkg/extensions"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
-	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
@@ -38,14 +41,14 @@ import (
 
 // TerraformReconciler can manage infrastructure resources using Terraformer.
 type TerraformReconciler struct {
-	client                     k8sClient.Client
+	client                     client.Client
 	restConfig                 *rest.Config
 	log                        logr.Logger
 	disableProjectedTokenMount bool
 }
 
 // NewTerraformReconciler returns a new instance of TerraformReconciler.
-func NewTerraformReconciler(client k8sClient.Client, restConfig *rest.Config, log logr.Logger, disableProjectedTokenMount bool) *TerraformReconciler {
+func NewTerraformReconciler(client client.Client, restConfig *rest.Config, log logr.Logger, disableProjectedTokenMount bool) *TerraformReconciler {
 	return &TerraformReconciler{
 		client:                     client,
 		restConfig:                 restConfig,
@@ -82,7 +85,18 @@ func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1
 		ipfamilies = []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
 	}
 
-	terraformConfig, err := generateTerraformInfraConfig(ctx, infra, infrastructureConfig, awsClient, ipfamilies)
+	cloudProviderSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v1beta1constants.SecretNameCloudProvider,
+			Namespace: infra.Namespace,
+		},
+	}
+	if err := t.client.Get(ctx, client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret); err != nil {
+		return fmt.Errorf("failed getting cloudprovider secret: %w", err)
+	}
+	useWorkloadIdentity := cloudProviderSecret.Labels[securityv1alpha1constants.LabelPurpose] == securityv1alpha1constants.LabelPurposeWorkloadIdentityTokenRequestor
+
+	terraformConfig, err := generateTerraformInfraConfig(ctx, infra, infrastructureConfig, awsClient, ipfamilies, useWorkloadIdentity)
 	if err != nil {
 		return fmt.Errorf("failed to generate Terraform config: %+v", err)
 	}
@@ -98,7 +112,7 @@ func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1
 	}
 
 	if err := tf.
-		SetEnvVars(generateTerraformerEnvVars(infra.Spec.SecretRef)...).
+		SetEnvVars(generateTerraformerEnvVars(infra.Spec.SecretRef, useWorkloadIdentity)...).
 		InitializeWith(
 			ctx,
 			terraformer.DefaultInitializer(
@@ -212,6 +226,17 @@ func (t *TerraformReconciler) delete(ctx context.Context, infra *extensionsv1alp
 		return util.DetermineError(fmt.Errorf("failed to create new AWS client: %+v", err), helper.KnownCodes)
 	}
 
+	cloudProviderSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v1beta1constants.SecretNameCloudProvider,
+			Namespace: infra.Namespace,
+		},
+	}
+	if err := t.client.Get(ctx, client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret); err != nil {
+		return fmt.Errorf("failed getting cloudprovider secret: %w", err)
+	}
+	useWorkloadIdentity := cloudProviderSecret.Labels[securityv1alpha1constants.LabelPurpose] == securityv1alpha1constants.LabelPurposeWorkloadIdentityTokenRequestor
+
 	var (
 		g = flow.NewGraph("AWS infrastructure destruction")
 
@@ -247,7 +272,7 @@ func (t *TerraformReconciler) delete(ctx context.Context, infra *extensionsv1alp
 
 		_ = g.Add(flow.Task{
 			Name:         "Destroying Shoot infrastructure",
-			Fn:           tf.SetEnvVars(generateTerraformerEnvVars(infra.Spec.SecretRef)...).Destroy,
+			Fn:           tf.SetEnvVars(generateTerraformerEnvVars(infra.Spec.SecretRef, useWorkloadIdentity)...).Destroy,
 			Dependencies: flow.NewTaskIDs(destroyLoadBalancersAndSecurityGroups),
 		})
 
@@ -405,7 +430,7 @@ func (t *TerraformReconciler) computeIPv6ServiceCIDR(ctx context.Context, infra 
 	return cidrs[0], nil
 }
 
-func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *api.InfrastructureConfig, awsClient awsclient.Interface, ipFamilies []v1beta1.IPFamily) (map[string]interface{}, error) {
+func generateTerraformInfraConfig(ctx context.Context, infrastructure *extensionsv1alpha1.Infrastructure, infrastructureConfig *api.InfrastructureConfig, awsClient awsclient.Interface, ipFamilies []v1beta1.IPFamily, useWorkloadIdentity bool) (map[string]interface{}, error) {
 	var (
 		dhcpDomainName              = "ec2.internal"
 		createVPC                   = true
@@ -524,6 +549,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 			"iamInstanceProfileNodes": aws.IAMInstanceProfileNodes,
 			"nodesRole":               aws.NodesRole,
 		},
+		"useWorkloadIdentity": useWorkloadIdentity,
 	}
 
 	if infrastructure.Spec.SSHPublicKey != nil {

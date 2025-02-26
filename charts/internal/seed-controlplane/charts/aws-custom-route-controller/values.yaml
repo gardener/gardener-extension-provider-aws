@@ -26,3 +26,5 @@ resources:
     memory: 50Mi
 
 enabled: false
+
+useWorkloadIdentity: false

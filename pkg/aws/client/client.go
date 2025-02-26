@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v2config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing"
@@ -36,6 +37,37 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// AuthConfig represents AWS auth configuration credentials.
+type AuthConfig struct {
+	// Region is the AWS region.
+	Region string
+
+	// AccessKey represents static credentials for authentication to AWS.
+	// This field is mutually exclusive with WorkloadIdentity.
+	AccessKey *AccessKey
+
+	// WorkloadIdentity contains workload identity configuration.
+	// This field is mutually exclusive with AccessKey.
+	WorkloadIdentity *WorkloadIdentity
+}
+
+// AccessKey represents static credentials for authentication to AWS.
+type AccessKey struct {
+	// ID is the Access Key ID.
+	ID string
+	// Secret is the Secret Access Key.
+	Secret string
+}
+
+// WorkloadIdentity contains workload identity configuration for authentication to AWS.
+type WorkloadIdentity struct {
+	// TokenRetriever a function that retrieves a token used for exchanging AWS credentials.
+	TokenRetriever stscreds.IdentityTokenRetriever
+
+	// RoleARN is the ARN of the role that will be assumed.
+	RoleARN string
+}
 
 // Client is a struct containing several clients for the different AWS services it needs to interact with.
 // * EC2 is the standard client for the EC2 service.
@@ -62,20 +94,29 @@ type Client struct {
 var _ Interface = &Client{}
 
 // NewInterface creates a new instance of Interface for the given AWS credentials and region.
-func NewInterface(accessKeyID, secretAccessKey, region string) (Interface, error) {
-	return NewClient(accessKeyID, secretAccessKey, region)
+func NewInterface(authConfig AuthConfig) (Interface, error) {
+	return NewClient(authConfig)
 }
 
 // NewClient creates a new Client for the given AWS credentials <accessKeyID>, <secretAccessKey>, and
 // the AWS region <region>.
 // It initializes the clients for the various services like EC2, ELB, etc.
-func NewClient(accessKeyID, secretAccessKey, region string) (*Client, error) {
+func NewClient(authConfig AuthConfig) (*Client, error) {
+	var credentialsProvider aws.CredentialsProvider
+	if authConfig.AccessKey != nil {
+		credentialsProvider = credentials.NewStaticCredentialsProvider(authConfig.AccessKey.ID, authConfig.AccessKey.Secret, "")
+	} else {
+		credentialsProvider = stscreds.NewWebIdentityRoleProvider(
+			sts.NewFromConfig(aws.Config{Region: authConfig.Region}),
+			authConfig.WorkloadIdentity.RoleARN,
+			authConfig.WorkloadIdentity.TokenRetriever,
+		)
+	}
 	cfg, err := v2config.LoadDefaultConfig(
 		context.TODO(),
-		v2config.WithRegion(region),
-		v2config.WithCredentialsProvider(aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""))),
+		v2config.WithRegion(authConfig.Region),
+		v2config.WithCredentialsProvider(aws.NewCredentialsCache(credentialsProvider)),
 	)
-
 	if err != nil {
 		return nil, err
 	}

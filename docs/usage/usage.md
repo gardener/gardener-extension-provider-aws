@@ -4,7 +4,17 @@ The [`core.gardener.cloud/v1beta1.Shoot` resource](https://github.com/gardener/g
 
 In this document we are describing how this configuration looks like for AWS and provide an example `Shoot` manifest with minimal configuration that you can use to create an AWS cluster (modulo the landscape-specific information like cloud profile names, secret binding names, etc.).
 
-## Provider Secret Data
+## Accessing AWS APIs
+
+In order for Gardener to create a Kubernetes cluster using AWS infrastructure components, a Shoot has to provide an authentication mechanism giving sufficient permissions to the desired AWS account.
+Every shoot cluster references a `SecretBinding` or a `CredentialsBinding` which itself references a `Secret` which contains the provider credentials of the AWS account.
+
+> [!IMPORTANT]
+> While `SecretBinding`s can only reference `Secret`s, `CredentialsBinding`s can also reference `WorkloadIdentity`s which provide an alternative authentication method.
+> `WorkloadIdentity`s do not directly contain credentials but are rather a representation of the workload that is going to access the user's account.
+> If the user has configured [OIDC Federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html) with Gardener's Workload Identity Issuer then the AWS infrastructure components can access the user's account without the need of preliminary exchange of credentials.
+
+### Provider Secret Data
 
 Every shoot cluster references a `SecretBinding` or a `CredentialsBinding` which itself references a `Secret`, and this `Secret` contains the provider credentials of your AWS account.
 This `Secret` must look as follows:
@@ -23,9 +33,112 @@ data:
 
 The [AWS documentation](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys) explains the necessary steps to enable programmatic access, i.e. create **access key ID** and **access key**, for the user of your choice.
 
-⚠️ For security reasons, we recommend creating a **dedicated user with programmatic access only**. Please avoid re-using a IAM user which has access to the AWS console (human user).
+> [!WARNING]
+> For security reasons, we recommend creating a **dedicated user with programmatic access only**.
+> Please avoid re-using a IAM user which has access to the AWS console (human user).
+>
+> Depending on your AWS API usage it can be problematic to reuse the same AWS Account for different Shoot clusters in the same region due to rate limits.
+> Please consider spreading your Shoots over multiple AWS Accounts if you are hitting those limits.
 
-⚠️ Depending on your AWS API usage it can be problematic to reuse the same AWS Account for different Shoot clusters in the same region due to rate limits. Please consider spreading your Shoots over multiple AWS Accounts if you are hitting those limits.
+### AWS Workload Identity Federation
+Users can choose to trust Gardener's Workload Identity Issuer and eliminate the need for providing AWS Access Key credentials.
+
+#### 1. Configure [OIDC Federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html) with Gardener's Workload Identity Issuer.
+![OIDC Federation](./images/oidc-federation.png)
+
+> [!IMPORTANT]
+> Use an audience that will uniquely identify the trust relationship between your AWS account and Gardener.
+
+#### 2. Create a policy listing the [required permissions](#permissions).
+
+#### 3. Create a role that trusts the external web identity.
+
+In the Identity Provider dropdown menu choose the Gardener's Workload Identity Provider.
+![Role Trust](./images/role-trust.png)
+
+Add the newly created policy that will grant the required permissions.
+![Policy Permissions](./images/policy-premissions.png)
+
+#### 4.  Configure the trust relationship.
+
+> [!CAUTION]
+> Remember to reduce the scope of the identities that can assume this role only to your own controlled identities!
+> In the example shown below `WorkloadIdentity`s that are created in the `garden-myproj` namespace and have the name `aws` will be authenticated and granted permissions.
+> Later on, the scope of the trust configuration can be reduced further by replacing the wildcard "*" with the actual id of the `WorkloadIdentity` and converting the "StringLike" condition to "StringEquals".
+> This is currently not possible since we do not have the id of the `WorkloadIdentity` yet. 
+> ```json
+> {
+>     "Version": "2012-10-17",
+>     "Statement": [
+>         {
+>             "Effect": "Allow",
+>             "Action": "sts:AssumeRoleWithWebIdentity",
+>             "Principal": {
+>                 "Federated": "arn:aws:iam::123456789012:oidc-provider/example.local.gardener.cloud/garden/workload-identity/issuer"
+>             },
+>             "Condition": {
+>                 "StringEquals": {
+>                     "example.local.gardener.cloud/garden/workload-identity/issuer:aud": [
+>                         "my-aws-account-gardener-workload-identity"
+>                     ]
+>                 },
+>                 "StringLike": {
+>                     "example.local.gardener.cloud/garden/workload-identity/issuer:sub": "gardener.cloud:workloadidentity:garden-myproj:aws:*"
+>                 }
+>             }
+>         }
+>     ]
+> }
+> ```
+
+#### 5. Create the `WorkloadIdentity` in the Garden cluster.
+
+This step will require the ARN of the role that was created in the previous step.
+The identity will be used by infrastructure components to authenticate against AWS APIs.
+A sample of such resource is shown below:
+
+```yaml
+apiVersion: security.gardener.cloud/v1alpha1
+kind: WorkloadIdentity
+metadata:
+  name: aws
+  namespace: garden-myproj
+spec:
+  audiences:
+  - my-aws-account-gardener-workload-identity
+  targetSystem:
+    type: aws
+    providerConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: WorkloadIdentityConfig
+      roleARN: arn:aws:iam::123456789012:role/gardener-workload-identity
+```
+
+> [!TIP]
+> Once created you can extract the whole subject of the workload identity and edit the created Role's trust relationship configuration to also include the workload identity's id.
+> Obtain the complete `sub` by running the following:
+> 
+> ```bash
+> SUBJECT=$(kubectl -n garden-myproj get workloadidentity aws -o=jsonpath='{.status.sub}')
+> echo "$SUBJECT"
+> ```
+
+#### 6. Create a `CredentialsBinding` referencing the AWS `WorkloadIdentity` and use it in your `Shoot` definitions.
+
+```yaml
+apiVersion: security.gardener.cloud/v1alpha1
+kind: CredentialsBinding
+metadata:
+  name: aws
+  namespace: garden-myproj
+credentialsRef:
+  apiVersion: security.gardener.cloud/v1alpha1
+  kind: WorkloadIdentity
+  name: aws
+  namespace: garden-myproj
+provider:
+  type: aws
+```
 
 ### Permissions
 
@@ -216,9 +329,10 @@ By default, it also creates a corresponding Elastic IP that it attaches to this 
 The `elasticIPAllocationID` field allows you to specify the ID of an existing Elastic IP allocation in case you want to bring your own.
 If provided, no new Elastic IP will be created and, instead, the Elastic IP specified by you will be used.
 
-⚠️ If you change this field for an already existing infrastructure then it will disrupt egress traffic while AWS applies this change.
-The reason is that the NAT gateway must be recreated with the new Elastic IP association.
-Also, please note that the existing Elastic IP will be permanently deleted if it was earlier created by the AWS extension.
+> [!WARNING] 
+> If you change this field for an already existing infrastructure then it will disrupt egress traffic while AWS applies this change.
+> The reason is that the NAT gateway must be recreated with the new Elastic IP association.
+> Also, please note that the existing Elastic IP will be permanently deleted if it was earlier created by the AWS extension.
 
 You can configure [Gateway VPC Endpoints](https://docs.aws.amazon.com/vpc/latest/userguide/vpce-gateway.html) by adding items in the optional list `networks.vpc.gatewayEndpoints`. Each item in the list is used as a service name and a corresponding endpoint is created for it. All created endpoints point to the service within the cluster's region. For example, consider this (partial) shoot config:
 
@@ -353,7 +467,10 @@ spec:
 
 For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/nlb/)
 
-⚠️ When using Network Load Balancers (NLB) as internal load balancers, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`. Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical. This situation, known as the hairpinning effect, will prevent the request from being processed.
+> [!WARNING] 
+> When using Network Load Balancers (NLB) as internal load balancers, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
+> Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical.
+> This situation, known as the hairpinning effect, will prevent the request from being processed.
 
 ## `WorkerConfig`
 
@@ -382,7 +499,10 @@ spec:
         encrypted: true
 ```
 
-> Note: The AWS extension does not support EBS volume (root & data volumes) encryption with [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk). Support for [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) is out of scope for now. Only [AWS managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk) is supported.
+> [!NOTE]
+> The AWS extension does not support EBS volume (root & data volumes) encryption with [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk).
+> Support for [customer managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk) is out of scope for now.
+> Only [AWS managed CMK](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-managed-cmk) is supported.
 
 Additionally, it is possible to provide further AWS-specific values for configuring the worker pools. The additional configuration must be specified in the `providerConfig` field of the respective worker.
 ```yaml
@@ -450,9 +570,11 @@ The `instanceMetadataOptions` controls access to the instance metadata service (
 - access IMDSv2 only (restrict access to IMDSv1) - `httpPutResponseHopLimit >=2`, `httpTokens = "required"`
 - disable access to IMDS - `httpTokens = "required"`
 
-> Note: The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers  **NOT** running in the host network.
+> [!NOTE]
+> The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers  **NOT** running in the host network.
 > By default on host network IMDSv2 is already enabled (but not accessible from inside the pods).
-> It is currently not possible to create a VM with complete restriction to the IMDS service. It is however possible to restrict access from inside the pods by setting `httpTokens` to `required` and not setting `httpPutResponseHopLimit` (or setting it to 1).
+> It is currently not possible to create a VM with complete restriction to the IMDS service.
+> It is however possible to restrict access from inside the pods by setting `httpTokens` to `required` and not setting `httpPutResponseHopLimit` (or setting it to 1).
 
 You can find more information regarding the options in the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html).
 
