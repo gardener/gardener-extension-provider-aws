@@ -51,7 +51,7 @@ func NewActuator(mgr manager.Manager, awsClientFactory awsclient.Factory) dnsrec
 // Reconcile reconciles the DNSRecord.
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensionsv1alpha1.DNSRecord, _ *extensionscontroller.Cluster) error {
 	// Create AWS client
-	authConfig, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
+	authConfig, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true, "")
 	if err != nil {
 		return util.DetermineError(fmt.Errorf("could not get AWS credentials: %+v", err), helper.KnownCodes)
 	}
@@ -85,7 +85,7 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, dns *extensio
 // Delete deletes the DNSRecord.
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, dns *extensionsv1alpha1.DNSRecord, _ *extensionscontroller.Cluster) error {
 	// Create AWS client
-	authConfig, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true)
+	authConfig, err := aws.GetCredentialsFromSecretRef(ctx, a.client, dns.Spec.SecretRef, true, "")
 	if err != nil {
 		return fmt.Errorf("could not get AWS credentials: %+v", err)
 	}

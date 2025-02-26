@@ -5,6 +5,7 @@
 package aws
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -27,16 +28,16 @@ func (s *staticTokenRetriever) GetIdentityToken() ([]byte, error) {
 
 // GetCredentialsFromSecretRef reads the secret given by the the secret reference and returns the read Credentials
 // object.
-func GetCredentialsFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, allowDNSKeys bool) (*awsclient.AuthConfig, error) {
+func GetCredentialsFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, allowDNSKeys bool, region string) (*awsclient.AuthConfig, error) {
 	secret, err := extensionscontroller.GetSecretByReference(ctx, client, &secretRef)
 	if err != nil {
 		return nil, err
 	}
-	return ReadCredentialsSecret(secret, allowDNSKeys)
+	return ReadCredentialsSecret(secret, allowDNSKeys, region)
 }
 
 // ReadCredentialsSecret reads a secret containing credentials.
-func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*awsclient.AuthConfig, error) {
+func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool, region string) (*awsclient.AuthConfig, error) {
 	if secret.Data == nil {
 		return nil, fmt.Errorf("secret does not contain any data")
 	}
@@ -76,8 +77,8 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*awsclient
 		}
 	}
 
-	region, _ := getSecretDataValue(secret, Region, altRegionKey, false)
-	authConfig.Region = string(region)
+	regionFromSecret, _ := getSecretDataValue(secret, Region, altRegionKey, false)
+	authConfig.Region = cmp.Or(region, string(regionFromSecret))
 
 	return authConfig, nil
 }
@@ -85,11 +86,11 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*awsclient
 // NewClientFromSecretRef creates a new Client for the given AWS credentials from given k8s <secretRef> and
 // the AWS region <region>.
 func NewClientFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, region string) (awsclient.Interface, error) {
-	authConfig, err := GetCredentialsFromSecretRef(ctx, client, secretRef, false)
+	authConfig, err := GetCredentialsFromSecretRef(ctx, client, secretRef, false, region)
 	if err != nil {
 		return nil, err
 	}
-	authConfig.Region = region
+
 	return awsclient.NewClient(*authConfig)
 }
 

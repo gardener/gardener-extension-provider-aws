@@ -61,7 +61,7 @@ var _ = Describe("Secret", func() {
 			fakeErr := errors.New("error")
 			c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
 
-			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
+			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false, "")
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(Equal(fakeErr))
@@ -79,13 +79,14 @@ var _ = Describe("Secret", func() {
 					},
 				)
 
-				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
+				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false, "sample")
 
 				Expect(credentials).To(Equal(&awsclient.AuthConfig{
 					AccessKey: &awsclient.AccessKey{
 						ID:     string(accessKeyID),
 						Secret: string(secretAccessKey),
 					},
+					Region: "sample",
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -101,7 +102,7 @@ var _ = Describe("Secret", func() {
 					},
 				)
 
-				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false)
+				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false, "")
 
 				Expect(credentials).To(BeNil())
 				Expect(err).To(HaveOccurred())
@@ -121,7 +122,7 @@ var _ = Describe("Secret", func() {
 					},
 				)
 
-				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true)
+				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true, "")
 
 				Expect(credentials).To(Equal(&awsclient.AuthConfig{
 					AccessKey: &awsclient.AccessKey{
@@ -145,7 +146,7 @@ var _ = Describe("Secret", func() {
 					},
 				)
 
-				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true)
+				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true, "")
 
 				Expect(credentials).To(Equal(&awsclient.AuthConfig{
 					AccessKey: &awsclient.AccessKey{
@@ -161,7 +162,7 @@ var _ = Describe("Secret", func() {
 
 	Describe("#ReadCredentialsSecret", func() {
 		It("should fail if access key id is missing", func() {
-			credentials, err := ReadCredentialsSecret(secret, false)
+			credentials, err := ReadCredentialsSecret(secret, false, "")
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(HaveOccurred())
@@ -172,7 +173,7 @@ var _ = Describe("Secret", func() {
 				AccessKeyID: accessKeyID,
 			}
 
-			credentials, err := ReadCredentialsSecret(secret, false)
+			credentials, err := ReadCredentialsSecret(secret, false, "")
 
 			Expect(credentials).To(BeNil())
 			Expect(err).To(HaveOccurred())
@@ -185,13 +186,14 @@ var _ = Describe("Secret", func() {
 					SecretAccessKey: secretAccessKey,
 				}
 
-				credentials, err := ReadCredentialsSecret(secret, false)
+				credentials, err := ReadCredentialsSecret(secret, false, "sample")
 
 				Expect(credentials).To(Equal(&awsclient.AuthConfig{
 					AccessKey: &awsclient.AccessKey{
 						ID:     string(accessKeyID),
 						Secret: string(secretAccessKey),
 					},
+					Region: "sample",
 				}))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -203,7 +205,7 @@ var _ = Describe("Secret", func() {
 					Region:    region,
 				}
 
-				credentials, err := ReadCredentialsSecret(secret, false)
+				credentials, err := ReadCredentialsSecret(secret, false, "")
 
 				Expect(credentials.Region).To(Equal(string(region)))
 				Expect(credentials.AccessKey).To(BeNil())
@@ -220,7 +222,7 @@ var _ = Describe("Secret", func() {
 					DNSSecretAccessKey: secretAccessKey,
 				}
 
-				credentials, err := ReadCredentialsSecret(secret, false)
+				credentials, err := ReadCredentialsSecret(secret, false, "")
 
 				Expect(credentials).To(BeNil())
 				Expect(err).To(HaveOccurred())
@@ -235,7 +237,7 @@ var _ = Describe("Secret", func() {
 					DNSRegion:          region,
 				}
 
-				credentials, err := ReadCredentialsSecret(secret, true)
+				credentials, err := ReadCredentialsSecret(secret, true, "")
 
 				Expect(credentials).To(Equal(&awsclient.AuthConfig{
 					AccessKey: &awsclient.AccessKey{
@@ -254,7 +256,7 @@ var _ = Describe("Secret", func() {
 					Region:          region,
 				}
 
-				credentials, err := ReadCredentialsSecret(secret, true)
+				credentials, err := ReadCredentialsSecret(secret, true, "")
 
 				Expect(credentials).To(Equal(&awsclient.AuthConfig{
 					AccessKey: &awsclient.AccessKey{
@@ -273,7 +275,7 @@ var _ = Describe("Secret", func() {
 					Region:    region,
 				}
 
-				credentials, err := ReadCredentialsSecret(secret, true)
+				credentials, err := ReadCredentialsSecret(secret, true, "")
 
 				Expect(credentials.Region).To(Equal(string(region)))
 				Expect(credentials.AccessKey).To(BeNil())
