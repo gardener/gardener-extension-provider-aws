@@ -244,12 +244,6 @@ func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.
 func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version, allocateNodeCIDRs bool) {
 	c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--cloud-provider=", "external")
 
-	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigration=true", ",")
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigrationAWS=true", ",")
-	}
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
