@@ -18,7 +18,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
-	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
@@ -483,7 +483,7 @@ func isIPv6(c *controller.Cluster) bool {
 	if networking != nil {
 		ipFamilies := networking.IPFamilies
 		if ipFamilies != nil {
-			if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
+			if slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6) {
 				return true
 			}
 		}
