@@ -1,4 +1,4 @@
-{{- if eq .Values.gardener.seed.provider "aws" }}
+{{ if and (eq .Values.gardener.seed.provider "aws") (not .Values.gardener.runtimeCluster.enabled) }}
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
