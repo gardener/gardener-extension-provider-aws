@@ -232,6 +232,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
 				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
 				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
+				Priority:       pool.Priority,
 				// add aws csi driver topology label if it's not specified
 				Labels: utils.MergeStringMaps(pool.Labels, map[string]string{
 					CSIDriverTopologyKey:     zone,
