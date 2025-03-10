@@ -576,15 +576,13 @@ func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.Garde
 		return err
 	}
 
-	k8sVersion := cluster.Shoot.Spec.Kubernetes.Version
-
 	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
 	if err != nil {
 		return err
 	}
 
 	if infraConfig != nil && ptr.Deref(infraConfig.EnableECRAccess, true) {
-		binConfig, err := e.credentialProviderBinaryFile(k8sVersion)
+		binConfig, err := e.credentialProviderBinaryFile(cluster.Shoot.Spec.Kubernetes.Version)
 		if err != nil {
 			return err
 		}
