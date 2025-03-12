@@ -226,12 +226,6 @@ func (e *ensurer) EnsureClusterAutoscalerDeployment(ctx context.Context, gctx gc
 }
 
 func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
-	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigration=true", ",")
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigrationAWS=true", ",")
-	}
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
@@ -270,12 +264,6 @@ func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion 
 }
 
 func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
-	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigration=true", ",")
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigrationAWS=true", ",")
-	}
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
@@ -283,12 +271,6 @@ func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.
 }
 
 func ensureClusterAutoscalerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
-	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigration=true", ",")
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigrationAWS=true", ",")
-	}
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
@@ -379,7 +361,7 @@ func (e *ensurer) ensureChecksumAnnotations(template *corev1.PodTemplateSpec) er
 }
 
 // EnsureKubeletServiceUnitOptions ensures that the kubelet.service unit options conform to the provider requirements.
-func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
+func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcontext.GardenContext, _ *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
 	if opt := extensionswebhook.UnitOptionWithSectionAndName(newObj, "Service", "ExecStart"); opt != nil {
 		command := extensionswebhook.DeserializeCommandLine(opt.Value)
 		command = extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
@@ -389,20 +371,13 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcon
 			return nil, err
 		}
 
-		k8sGreaterEqual127, err := versionutils.CompareVersions(kubeletVersion.String(), ">=", "1.27")
+		infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
 		if err != nil {
 			return nil, err
 		}
 
-		if k8sGreaterEqual127 {
-			infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
-			if err != nil {
-				return nil, err
-			}
-
-			if ptr.Deref(infraConfig.EnableECRAccess, true) {
-				command = ensureKubeletECRProviderCommandLineArgs(command)
-			}
+		if infraConfig != nil && ptr.Deref(infraConfig.EnableECRAccess, true) {
+			command = ensureKubeletECRProviderCommandLineArgs(command)
 		}
 
 		opt.Value = extensionswebhook.SerializeCommandLine(command, 1, " \\\n    ")
@@ -425,10 +400,6 @@ func ensureKubeletECRProviderCommandLineArgs(command []string) []string {
 
 // EnsureKubeletConfiguration ensures that the kubelet configuration conforms to the provider requirements.
 func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ *kubeletconfigv1beta1.KubeletConfiguration) error {
-	if versionutils.ConstraintK8sLess127.Check(kubeletVersion) {
-		setKubeletConfigurationFeatureGate(newObj, "CSIMigration", true)
-		setKubeletConfigurationFeatureGate(newObj, "CSIMigrationAWS", true)
-	}
 	if versionutils.ConstraintK8sLess131.Check(kubeletVersion) {
 		setKubeletConfigurationFeatureGate(newObj, "InTreePluginAWSUnregister", true)
 	}
@@ -605,24 +576,13 @@ func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.Garde
 		return err
 	}
 
-	k8sVersion := cluster.Shoot.Spec.Kubernetes.Version
-	k8sGreaterEqual127, err := versionutils.CompareVersions(k8sVersion, ">=", "1.27")
-	if err != nil {
-		return err
-	}
-
-	// return early
-	if !k8sGreaterEqual127 {
-		return nil
-	}
-
 	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
 	if err != nil {
 		return err
 	}
 
-	if ptr.Deref(infraConfig.EnableECRAccess, true) {
-		binConfig, err := e.credentialProviderBinaryFile(k8sVersion)
+	if infraConfig != nil && ptr.Deref(infraConfig.EnableECRAccess, true) {
+		binConfig, err := e.credentialProviderBinaryFile(cluster.Shoot.Spec.Kubernetes.Version)
 		if err != nil {
 			return err
 		}
