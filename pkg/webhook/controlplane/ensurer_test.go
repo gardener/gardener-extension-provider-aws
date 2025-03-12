@@ -419,52 +419,58 @@ done
 			filePath  = "/opt/bin/mtu-customizer.sh"
 		)
 
-		It("should add additional files to the current ones", func() {
-			image, err := imagevector.ImageVector().FindImage(aws.ECRCredentialProviderImageName)
-			Expect(err).NotTo(HaveOccurred())
-			var (
-				oldFile = extensionsv1alpha1.File{Path: "oldpath"}
-				ecrBin  = extensionsv1alpha1.File{
-					Path:        "/opt/bin/ecr-credential-provider",
-					Permissions: ptr.To(uint32(0755)),
-					Content: extensionsv1alpha1.FileContent{
-						ImageRef: &extensionsv1alpha1.FileContentImageRef{
-							Image:           image.String(),
-							FilePathInImage: "/bin/ecr-credential-provider",
+		Context("ECRAccess is enabled", func() {
+			BeforeEach(func() {
+				infraConfig.EnableECRAccess = ptr.To(true)
+			})
+
+			It("should add credential provider files to the current ones", func() {
+				image, err := imagevector.ImageVector().FindImage(aws.ECRCredentialProviderImageName)
+				Expect(err).NotTo(HaveOccurred())
+				var (
+					oldFile = extensionsv1alpha1.File{Path: "oldpath"}
+					ecrBin  = extensionsv1alpha1.File{
+						Path:        "/opt/bin/ecr-credential-provider",
+						Permissions: ptr.To(uint32(0755)),
+						Content: extensionsv1alpha1.FileContent{
+							ImageRef: &extensionsv1alpha1.FileContentImageRef{
+								Image:           image.String(),
+								FilePathInImage: "/bin/ecr-credential-provider",
+							},
 						},
-					},
-				}
-				ecrConfig = extensionsv1alpha1.File{
-					Path:        "/opt/gardener/ecr-credential-provider-config.json",
-					Permissions: ptr.To(uint32(0755)),
-					Content: extensionsv1alpha1.FileContent{
-						Inline: &extensionsv1alpha1.FileContentInline{
-							Data: ecrConfig,
+					}
+					ecrConfig = extensionsv1alpha1.File{
+						Path:        "/opt/gardener/ecr-credential-provider-config.json",
+						Permissions: ptr.To(uint32(0755)),
+						Content: extensionsv1alpha1.FileContent{
+							Inline: &extensionsv1alpha1.FileContentInline{
+								Data: ecrConfig,
+							},
 						},
-					},
-				}
+					}
 
-				additionalFile = extensionsv1alpha1.File{
-					Path:        filePath,
-					Permissions: &permissions,
-					Content: extensionsv1alpha1.FileContent{
-						Inline: &extensionsv1alpha1.FileContentInline{
-							Encoding: "",
-							Data:     customFileContent,
+					additionalFile = extensionsv1alpha1.File{
+						Path:        filePath,
+						Permissions: &permissions,
+						Content: extensionsv1alpha1.FileContent{
+							Inline: &extensionsv1alpha1.FileContentInline{
+								Encoding: "",
+								Data:     customFileContent,
+							},
 						},
-					},
-				}
+					}
 
-				files = []extensionsv1alpha1.File{oldFile}
-			)
+					files = []extensionsv1alpha1.File{oldFile}
+				)
 
-			// Create ensurer
-			ensurer := NewEnsurer(logger, c)
+				// Create ensurer
+				ensurer := NewEnsurer(logger, c)
 
-			// Call EnsureAdditionalFiles method and check the result
-			err = ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(files).To(ConsistOf(oldFile, additionalFile, ecrConfig, ecrBin))
+				// Call EnsureAdditionalFiles method and check the result
+				err = ensurer.EnsureAdditionalFiles(ctx, eContextK8s127, &files, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(files).To(ConsistOf(oldFile, additionalFile, ecrConfig, ecrBin))
+			})
 		})
 
 		Context("ECRAccess is disabled", func() {
@@ -472,7 +478,7 @@ done
 				infraConfig.EnableECRAccess = ptr.To(false)
 			})
 
-			It("should not add credential provider files to the current ones if ECRAccess is disabled", func() {
+			It("should add additional files to the current ones", func() {
 				var (
 					oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
 					additionalFile = extensionsv1alpha1.File{
@@ -497,89 +503,33 @@ done
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(files).To(ConsistOf(oldFile, additionalFile))
 			})
-		})
 
-		It("should add additional files to the current ones", func() {
-			var (
-				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
-				additionalFile = extensionsv1alpha1.File{
-					Path:        filePath,
-					Permissions: &permissions,
-					Content: extensionsv1alpha1.FileContent{
-						Inline: &extensionsv1alpha1.FileContentInline{
-							Encoding: "",
-							Data:     customFileContent,
-						},
-					},
-				}
-
-				files = []extensionsv1alpha1.File{oldFile}
-			)
-
-			eContextK8s131 = gcontext.NewInternalGardenContext(
-				&extensionscontroller.Cluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "shoot--project--foo",
-					},
-					Shoot: &gardencorev1beta1.Shoot{
-						Spec: gardencorev1beta1.ShootSpec{
-							Kubernetes: gardencorev1beta1.Kubernetes{
-								Version: "1.31.1",
+			It("should overwrite existing files of the current ones", func() {
+				var (
+					oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
+					additionalFile = extensionsv1alpha1.File{
+						Path:        filePath,
+						Permissions: &permissions,
+						Content: extensionsv1alpha1.FileContent{
+							Inline: &extensionsv1alpha1.FileContentInline{
+								Encoding: "",
+								Data:     customFileContent,
 							},
 						},
-					},
-				},
-			)
+					}
 
-			// Create ensurer
-			ensurer := NewEnsurer(logger, c)
+					files = []extensionsv1alpha1.File{oldFile, additionalFile}
+				)
 
-			// Call EnsureAdditionalFiles method and check the result
-			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s131, &files, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(files).To(ConsistOf(oldFile, additionalFile))
-		})
+				// Create ensurer
+				ensurer := NewEnsurer(logger, c)
 
-		It("should overwrite existing files of the current ones", func() {
-			var (
-				oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
-				additionalFile = extensionsv1alpha1.File{
-					Path:        filePath,
-					Permissions: &permissions,
-					Content: extensionsv1alpha1.FileContent{
-						Inline: &extensionsv1alpha1.FileContentInline{
-							Encoding: "",
-							Data:     customFileContent,
-						},
-					},
-				}
-
-				files = []extensionsv1alpha1.File{oldFile, additionalFile}
-			)
-
-			eContextK8s131 = gcontext.NewInternalGardenContext(
-				&extensionscontroller.Cluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "shoot--project--foo",
-					},
-					Shoot: &gardencorev1beta1.Shoot{
-						Spec: gardencorev1beta1.ShootSpec{
-							Kubernetes: gardencorev1beta1.Kubernetes{
-								Version: "1.31.1",
-							},
-						},
-					},
-				},
-			)
-
-			// Create ensurer
-			ensurer := NewEnsurer(logger, c)
-
-			// Call EnsureAdditionalFiles method and check the result
-			err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s131, &files, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(files).To(ConsistOf(oldFile, additionalFile))
-			Expect(files).To(HaveLen(2))
+				// Call EnsureAdditionalFiles method and check the result
+				err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s131, &files, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(files).To(ConsistOf(oldFile, additionalFile))
+				Expect(files).To(HaveLen(2))
+			})
 		})
 	})
 
