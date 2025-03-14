@@ -26,6 +26,7 @@ import (
 	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
 	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -169,8 +170,10 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 	}
 
 	allocateNodeCIDRs := true
-	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
-		allocateNodeCIDRs = false
+	networkingConfig := cluster.Shoot.Spec.Networking
+	condition := gardencorev1beta1helper.GetCondition(cluster.Shoot.Status.Constraints, "ToDualStackMigration")
+	if (networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6)) && ( condition == nil || condition.Status != "Progressing"){
+			allocateNodeCIDRs = false
 	}
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-controller-manager"); c != nil {
 		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion, allocateNodeCIDRs)
