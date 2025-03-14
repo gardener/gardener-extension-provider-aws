@@ -12,12 +12,12 @@ metadata:
     {{- if .Values.ignoreResources }}
     resources.gardener.cloud/ignore: "true"
     {{- end }}
-    {{- if eq (include "topologyAwareRouting.enabled" .) "true" }}
+    {{- if (include "topologyAwareRouting.enabled" .) }}
     service.kubernetes.io/topology-mode: "auto"
     {{- end }}
   labels:
 {{ include "labels" . | indent 4 }}
-    {{- if eq (include "topologyAwareRouting.enabled" .) "true" }}
+    {{- if (include "topologyAwareRouting.enabled" .) }}
     endpoint-slice-hints.resources.gardener.cloud/consider: "true"
     {{- end }}
 spec:
