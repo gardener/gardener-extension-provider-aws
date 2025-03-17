@@ -48,6 +48,42 @@ var _ = Describe("Shoot validation", func() {
 		})
 	})
 
+	Describe("#ValidateNetworkingUpdate", func(){
+		var networkingPath = field.NewPath("spec", "networking")
+
+		It("should return no error because ipFamilies update was valid", func() {
+			oldNetworking := &core.Networking{
+				IPFamilies: []core.IPFamily{core.IPFamilyIPv4},
+			}
+			networking := &core.Networking{
+				IPFamilies: []core.IPFamily{core.IPFamilyIPv4, core.IPFamilyIPv6},
+			}
+
+			errorList := ValidateNetworkingUpdate(oldNetworking, networking, networkingPath)
+
+			Expect(errorList).To(BeEmpty())
+		})
+
+		It("should return error because ipFamilies update was not valid", func() {
+			oldNetworking := &core.Networking{
+				IPFamilies: []core.IPFamily{core.IPFamilyIPv4},
+			}
+			networking := &core.Networking{
+				IPFamilies: []core.IPFamily{core.IPFamilyIPv6},
+			}
+
+			errorList := ValidateNetworkingUpdate(oldNetworking, networking, networkingPath)
+
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.networking.ipFamilies"),
+				})),
+			))
+		})
+
+	})
+
 	Describe("#ValidateWorkerConfig", func() {
 		var (
 			worker   core.Worker
