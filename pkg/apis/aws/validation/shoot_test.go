@@ -48,7 +48,7 @@ var _ = Describe("Shoot validation", func() {
 		})
 	})
 
-	Describe("#ValidateNetworkingUpdate", func(){
+	Describe("#ValidateNetworkingUpdate", func() {
 		var networkingPath = field.NewPath("spec", "networking")
 
 		It("should return no error because ipFamilies update was valid", func() {

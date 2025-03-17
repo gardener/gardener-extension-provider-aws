@@ -14,16 +14,15 @@ import (
 	"strconv"
 	"strings"
 
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
-	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/utils"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
@@ -473,7 +472,7 @@ func ComputeInstanceMetadata(workerConfig *awsapi.WorkerConfig, cluster *control
 func isIPv6(c *controller.Cluster) bool {
 	condition := gardencorev1beta1helper.GetCondition(c.Shoot.Status.Constraints, "ToDualStackMigration")
 	if condition != nil && condition.Status == "Progressing" {
-	return false
+		return false
 	}
 	networking := c.Shoot.Spec.Networking
 	if networking != nil {
