@@ -46,6 +46,7 @@ spec:
         - --k8s-tag-cluster-id={{ .Release.Namespace }}
         - --logtostderr
         - --v=5
+        - --batching=true
         env:
         - name: CSI_ENDPOINT
           value: unix://{{ .Values.socketPath }}/csi.sock
@@ -99,7 +100,6 @@ spec:
           - --kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
           - --leader-election
           - --leader-election-namespace=kube-system
-          - --batching=true
         env:
           - name: ADDRESS
             value: {{ .Values.socketPath }}/csi.sock
