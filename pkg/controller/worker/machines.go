@@ -20,6 +20,7 @@ import (
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
@@ -469,6 +470,10 @@ func ComputeInstanceMetadata(workerConfig *awsapi.WorkerConfig, cluster *control
 }
 
 func isIPv6(c *controller.Cluster) bool {
+	condition := gardencorev1beta1helper.GetCondition(c.Shoot.Status.Constraints, "ToDualStackMigration")
+	if condition != nil && condition.Status == "Progressing" {
+		return false
+	}
 	networking := c.Shoot.Spec.Networking
 	if networking != nil {
 		ipFamilies := networking.IPFamilies

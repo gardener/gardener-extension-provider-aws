@@ -135,8 +135,9 @@ func (s *shoot) validateShoot(_ context.Context, shoot *core.Shoot) error {
 
 func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec) error {
 	var (
-		fldPath            = field.NewPath("spec", "provider")
-		infraConfigFldPath = fldPath.Child("infrastructureConfig")
+		fldPath              = field.NewPath("spec", "provider")
+		infraConfigFldPath   = fldPath.Child("infrastructureConfig")
+		networkConfigFldPath = fldPath.Child("networking")
 	)
 
 	if oldShoot.Spec.Provider.InfrastructureConfig == nil {
@@ -157,6 +158,10 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		if errList := awsvalidation.ValidateInfrastructureConfigUpdate(oldInfraConfig, infraConfig); len(errList) != 0 {
 			return errList.ToAggregate()
 		}
+	}
+
+	if errList := awsvalidation.ValidateNetworkingUpdate(oldShoot.Spec.Networking, shoot.Spec.Networking, networkConfigFldPath); len(errList) != 0 {
+		return errList.ToAggregate()
 	}
 
 	if errList := awsvalidation.ValidateWorkersUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, fldPath.Child("workers")); len(errList) != 0 {

@@ -639,12 +639,15 @@ func getIPAMChartValues(
 ) (map[string]interface{}, error) {
 	mode := "ipv4"
 	primaryIPFamily := "ipv4"
-	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
-		if len(networkingConfig.IPFamilies) == 2 {
-			mode = "dual-stack"
-			primaryIPFamily = strings.ToLower(string(cluster.Shoot.Spec.Networking.IPFamilies[0]))
-		} else if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
-			mode = "ipv6"
+	condition := gardencorev1beta1helper.GetCondition(cluster.Shoot.Status.Constraints, "ToDualStackMigration")
+	if condition == nil || condition.Status != "Progressing" {
+		if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
+			if len(networkingConfig.IPFamilies) == 2 {
+				mode = "dual-stack"
+				primaryIPFamily = strings.ToLower(string(cluster.Shoot.Spec.Networking.IPFamilies[0]))
+			} else if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+				mode = "ipv6"
+			}
 		}
 	}
 
@@ -825,7 +828,9 @@ func getControlPlaneShootChartValues(
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
 	ipamControllerEnabled := false
-	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+	networkingConfig := cluster.Shoot.Spec.Networking
+	condition := gardencorev1beta1helper.GetCondition(cluster.Shoot.Status.Constraints, "ToDualStackMigration")
+	if (networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6)) && (condition == nil || condition.Status != "Progressing") {
 		ipamControllerEnabled = true
 	}
 
