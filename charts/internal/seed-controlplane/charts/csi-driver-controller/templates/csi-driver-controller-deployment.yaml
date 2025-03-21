@@ -99,6 +99,7 @@ spec:
           - --kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
           - --leader-election
           - --leader-election-namespace=kube-system
+          - --batching=true
         env:
           - name: ADDRESS
             value: {{ .Values.socketPath }}/csi.sock
@@ -131,7 +132,10 @@ spec:
         - --default-fstype=ext4
         - --leader-election=true
         - --leader-election-namespace=kube-system
-        - --worker-threads=20
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
+        - --retry-interval-max=10m
         - --v=5
         {{- if ((.Values.csiProvisioner).featureGates) }}
         - --feature-gates={{ range $feature, $enabled := .Values.csiProvisioner.featureGates }}{{ $feature }}={{ $enabled }},{{ end }}
@@ -163,8 +167,10 @@ spec:
         - --leader-election-namespace=kube-system
         - --v=5
         - --timeout=60s
-        - --worker-threads=20
         - --retry-interval-max=3m
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
         env:
         - name: ADDRESS
           value: {{ .Values.socketPath }}/csi.sock
@@ -191,7 +197,11 @@ spec:
         - --leader-election
         - --leader-election-namespace=kube-system
         - --snapshot-name-prefix={{ .Release.Namespace }}
-        - --worker-threads=20
+        - --extra-create-metadata
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --worker-threads=100
+        - --retry-interval-max=30m
         env:
         - name: CSI_ENDPOINT
           value: {{ .Values.socketPath }}/csi.sock
@@ -219,7 +229,12 @@ spec:
         - --leader-election-namespace=kube-system
         - --handle-volume-inuse-error=false
         - --v=5
-        - --workers=20
+        - --extra-modify-metadata
+        - --timeout=60s
+        - --kube-api-qps=20
+        - --kube-api-burst=100
+        - --workers=100
+        - --retry-interval-max=10m
         {{- if ((.Values.csiResizer).featureGates) }}
         - --feature-gates={{ range $feature, $enabled := .Values.csiResizer.featureGates }}{{ $feature }}={{ $enabled }},{{ end }}
         {{- end }}
