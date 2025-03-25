@@ -51,6 +51,14 @@ func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha
 	)
 	f.log.V(1).Info("reconcileWithFlow")
 
+	defer func() {
+		// recover from panic if one occurred to log it and panic again afterward.
+		if r := recover(); r != nil {
+			f.log.Error(fmt.Errorf("panic: %v", r), "flow reconciliation panicked")
+			panic(r)
+		}
+	}()
+
 	// when the function is called, we may have: a. no state, b. terraform state (migration) or c. flow state. In case of a TF state
 	// because no explicit migration to the new flow format is necessary, we simply return an empty state.
 	fsOk, err := hasFlowState(infra.Status.State)
