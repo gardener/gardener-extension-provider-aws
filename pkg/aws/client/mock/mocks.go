@@ -14,6 +14,8 @@ import (
 	reflect "reflect"
 
 	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	client "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	gomock "go.uber.org/mock/gomock"
 	sets "k8s.io/apimachinery/pkg/util/sets"
@@ -99,18 +101,18 @@ func (mr *MockInterfaceMockRecorder) AuthorizeSecurityGroupRules(ctx, id, rules 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeSecurityGroupRules", reflect.TypeOf((*MockInterface)(nil).AuthorizeSecurityGroupRules), ctx, id, rules)
 }
 
-// CreateBucketIfNotExists mocks base method.
-func (m *MockInterface) CreateBucketIfNotExists(ctx context.Context, bucket, region string) error {
+// CreateBucket mocks base method.
+func (m *MockInterface) CreateBucket(ctx context.Context, bucket, region string, backupbucketConfig *aws.BackupBucketConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateBucketIfNotExists", ctx, bucket, region)
+	ret := m.ctrl.Call(m, "CreateBucket", ctx, bucket, region, backupbucketConfig)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreateBucketIfNotExists indicates an expected call of CreateBucketIfNotExists.
-func (mr *MockInterfaceMockRecorder) CreateBucketIfNotExists(ctx, bucket, region any) *gomock.Call {
+// CreateBucket indicates an expected call of CreateBucket.
+func (mr *MockInterfaceMockRecorder) CreateBucket(ctx, bucket, region, backupbucketConfig any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucketIfNotExists", reflect.TypeOf((*MockInterface)(nil).CreateBucketIfNotExists), ctx, bucket, region)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucket", reflect.TypeOf((*MockInterface)(nil).CreateBucket), ctx, bucket, region, backupbucketConfig)
 }
 
 // CreateCIDRReservation mocks base method.
@@ -1180,6 +1182,20 @@ func (mr *MockInterfaceMockRecorder) GetRouteTable(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRouteTable", reflect.TypeOf((*MockInterface)(nil).GetRouteTable), ctx, id)
 }
 
+// GetS3Client mocks base method.
+func (m *MockInterface) GetS3Client() s3.Client {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetS3Client")
+	ret0, _ := ret[0].(s3.Client)
+	return ret0
+}
+
+// GetS3Client indicates an expected call of GetS3Client.
+func (mr *MockInterfaceMockRecorder) GetS3Client() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetS3Client", reflect.TypeOf((*MockInterface)(nil).GetS3Client))
+}
+
 // GetSecurityGroup mocks base method.
 func (m *MockInterface) GetSecurityGroup(ctx context.Context, id string) (*client.SecurityGroup, error) {
 	m.ctrl.T.Helper()
@@ -1414,6 +1430,20 @@ func (m *MockInterface) UpdateAssumeRolePolicy(ctx context.Context, roleName, as
 func (mr *MockInterfaceMockRecorder) UpdateAssumeRolePolicy(ctx, roleName, assumeRolePolicy any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAssumeRolePolicy", reflect.TypeOf((*MockInterface)(nil).UpdateAssumeRolePolicy), ctx, roleName, assumeRolePolicy)
+}
+
+// UpdateBucket mocks base method.
+func (m *MockInterface) UpdateBucket(ctx context.Context, bucket string, backupbucketConfig *aws.BackupBucketConfig, isVersioningEnabled bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateBucket", ctx, bucket, backupbucketConfig, isVersioningEnabled)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateBucket indicates an expected call of UpdateBucket.
+func (mr *MockInterfaceMockRecorder) UpdateBucket(ctx, bucket, backupbucketConfig, isVersioningEnabled any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBucket", reflect.TypeOf((*MockInterface)(nil).UpdateBucket), ctx, bucket, backupbucketConfig, isVersioningEnabled)
 }
 
 // UpdateSubnetAttributes mocks base method.
