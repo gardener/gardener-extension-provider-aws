@@ -7,6 +7,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -117,8 +118,22 @@ func (c *BasicFlowContext) AddTask(g *flow.Graph, name string, fn flow.TaskFn, o
 }
 
 func (c *BasicFlowContext) wrapTaskFn(flowName, taskName string, fn flow.TaskFn) flow.TaskFn {
-	return func(ctx context.Context) error {
+	return func(ctx context.Context) (err error) {
 		log := c.log.WithValues("flow", flowName, "task", taskName)
+
+		defer func() {
+			if r := recover(); r != nil {
+				// Try to cast the recovered value to an error
+				if e, ok := r.(error); ok {
+					err = fmt.Errorf("panic %w, stack trace: %v", e, string(debug.Stack()))
+				} else {
+					err = fmt.Errorf("panic %v, stack: %s", r, debug.Stack())
+				}
+				log.Error(err, "panic during node execution")
+				return
+			}
+		}()
+
 		ctx = logf.IntoContext(ctx, log)
 		if c.persistFn != nil {
 			defer func() {
@@ -137,14 +152,14 @@ func (c *BasicFlowContext) wrapTaskFn(flowName, taskName string, fn flow.TaskFn)
 		if c.span {
 			beforeTs = time.Now()
 		}
-		err := fn(ctx)
+		err = fn(ctx)
 		if c.span {
 			log.Info(fmt.Sprintf("task finished - total execution time: %v", time.Since(beforeTs)))
 		}
 		if err != nil {
 			// don't wrap error with '%w', as otherwise the error context get lost
 			err = fmt.Errorf("failed to %q: %s", taskName, err)
-			return err
+			return
 		}
 
 		return nil

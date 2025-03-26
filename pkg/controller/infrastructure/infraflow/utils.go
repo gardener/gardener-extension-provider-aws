@@ -191,3 +191,11 @@ func isIPv6(ipfamilies []gardencorev1beta1.IPFamily) bool {
 func isIPv4(ipfamilies []gardencorev1beta1.IPFamily) bool {
 	return slices.Contains(ipfamilies, gardencorev1beta1.IPFamilyIPv4)
 }
+
+func mmap[T any, R any](in []T, f func(t T) R) []R {
+	res := make([]R, 0, len(in))
+	for _, v := range in {
+		res = append(res, f(v))
+	}
+	return res
+}

@@ -660,6 +660,7 @@ func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureZones(ctx context.Context) error {
+	log := LogFromContext(ctx)
 	var desired []*awsclient.Subnet
 
 	for index, zone := range c.config.Networks.Zones {
@@ -728,6 +729,10 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	log.Info("Found existing subnets", "subnetIDs", mmap(current, func(t *awsclient.Subnet) string {
+		return t.SubnetId
+	}))
 	toBeDeleted, toBeCreated, toBeChecked := diffByID(desired, current, func(item *awsclient.Subnet) string {
 		if item.Ipv6CidrBlocks != nil && item.CidrBlock == "" {
 			return item.AvailabilityZone + "-" + item.Ipv6CidrBlocks[0]
@@ -735,7 +740,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		return item.AvailabilityZone + "-" + item.CidrBlock
 	})
 
-	g := flow.NewGraph("AWS infrastructure reconcilation: zones")
+	g := flow.NewGraph("AWS infrastructure reconciliation: zones")
 
 	if err := c.addZoneDeletionTasksBySubnets(g, toBeDeleted); err != nil {
 		return err
@@ -800,6 +805,7 @@ func (c *FlowContext) collectExistingSubnets(ctx context.Context) ([]*awsclient.
 			ids = append(ids, *id)
 		}
 	}
+
 	var current []*awsclient.Subnet
 	if len(ids) > 0 {
 		found, err := c.client.GetSubnets(ctx, ids)

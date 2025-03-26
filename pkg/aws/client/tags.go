@@ -95,13 +95,13 @@ func (f filterBuilder) Build() []ec2types.Filter {
 }
 
 func filter(key string, values ...string) []ec2types.Filter {
-	if len(values) > 0 {
+	if len(values) == 0 {
 		return nil
 	}
 
 	f := ec2types.Filter{
 		Name:   aws.String(key),
-		Values: make([]string, len(values)),
+		Values: make([]string, 0, len(values)),
 	}
 	f.Values = append(f.Values, values...)
 	return []ec2types.Filter{f}

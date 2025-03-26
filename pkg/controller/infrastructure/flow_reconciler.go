@@ -47,9 +47,7 @@ func NewFlowReconciler(client client.Client, restConfig *rest.Config, log logr.L
 func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, c *controller.Cluster) error {
 	var (
 		infraState *awsapi.InfrastructureState
-		err        error
 	)
-	f.log.V(1).Info("reconcileWithFlow")
 
 	// when the function is called, we may have: a. no state, b. terraform state (migration) or c. flow state. In case of a TF state
 	// because no explicit migration to the new flow format is necessary, we simply return an empty state.
