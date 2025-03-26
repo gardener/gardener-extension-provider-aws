@@ -41,3 +41,23 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "deploymentversion" -}}
 apps/v1
 {{- end -}}
+
+{{- define "topologyAwareRouting.enabled" -}}
+{{- if and .Values.gardener.seed .Values.gardener.seed.spec.settings.topologyAwareRouting.enabled }}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "seed.provider" -}}
+  {{- if .Values.gardener.seed }}
+{{- .Values.gardener.seed.provider }}
+  {{- else -}}
+""
+  {{- end }}
+{{- end -}}
+
+{{- define "runtimeCluster.enabled" -}}
+{{- if and .Values.gardener.runtimeCluster .Values.gardener.runtimeCluster.enabled }}
+true
+{{- end }}
+{{- end -}}

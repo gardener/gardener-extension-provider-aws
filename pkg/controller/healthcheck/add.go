@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	healthcheckconfig "github.com/gardener/gardener/extensions/pkg/apis/config"
+	healthcheckconfig "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck/general"
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck/worker"
@@ -43,9 +43,8 @@ var (
 
 // RegisterHealthChecks registers health checks for each extension resource
 // HealthChecks are grouped by extension (e.g worker), extension.type (e.g aws) and  Health Check Type (e.g SystemComponentsHealthy)
-func RegisterHealthChecks(ctx context.Context, mgr manager.Manager, opts healthcheck.DefaultAddArgs) error {
+func RegisterHealthChecks(_ context.Context, mgr manager.Manager, opts healthcheck.DefaultAddArgs) error {
 	if err := healthcheck.DefaultRegistration(
-		ctx,
 		aws.Type,
 		extensionsv1alpha1.SchemeGroupVersion.WithKind(extensionsv1alpha1.ControlPlaneResource),
 		func() client.ObjectList { return &extensionsv1alpha1.ControlPlaneList{} },
@@ -68,10 +67,6 @@ func RegisterHealthChecks(ctx context.Context, mgr manager.Manager, opts healthc
 			},
 			{
 				ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
-				HealthCheck:   general.NewSeedDeploymentHealthChecker(aws.CSISnapshotValidationName),
-			},
-			{
-				ConditionType: string(gardencorev1beta1.ShootControlPlaneHealthy),
 				HealthCheck:   newCustomRouteControllerHealthCheck(general.NewSeedDeploymentHealthChecker(aws.AWSCustomRouteControllerName)),
 				// no precheck needed, as the deployment is always created (with replicas=0 if not enabled, see valuesprovider.go)
 			},
@@ -82,7 +77,6 @@ func RegisterHealthChecks(ctx context.Context, mgr manager.Manager, opts healthc
 	}
 
 	return healthcheck.DefaultRegistration(
-		ctx,
 		aws.Type,
 		extensionsv1alpha1.SchemeGroupVersion.WithKind(extensionsv1alpha1.WorkerResource),
 		func() client.ObjectList { return &extensionsv1alpha1.WorkerList{} },

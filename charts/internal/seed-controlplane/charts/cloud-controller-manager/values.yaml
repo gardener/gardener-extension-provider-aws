@@ -1,6 +1,6 @@
 replicas: 1
 clusterName: shoot-foo-bar
-kubernetesVersion: 1.26.8
+kubernetesVersion: 1.31.4
 podNetwork: 192.168.0.0/16
 podAnnotations: {}
 podLabels: {}
@@ -19,3 +19,5 @@ vpa:
 
 # TODO(rfranzke): Remove this field after August 2024.
 gep19Monitoring: false
+
+useWorkloadIdentity: false

@@ -114,10 +114,11 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Public, publicPath))
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(publicPath, zone.Public)...)
 
+		internalPath := zonePath.Child("internal")
+		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
+		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, zone.Internal)...)
+
 		if ipFamilies == nil || slices.Contains(ipFamilies, core.IPFamilyIPv4) {
-			internalPath := zonePath.Child("internal")
-			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
-			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, zone.Internal)...)
 
 			workerPath := zonePath.Child("workers")
 			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))

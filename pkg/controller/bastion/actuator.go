@@ -53,12 +53,12 @@ func (a *actuator) getAWSClient(ctx context.Context, bastion *extensionsv1alpha1
 		return nil, fmt.Errorf("failed to find %q Secret: %w", v1beta1constants.SecretNameCloudProvider, err)
 	}
 
-	credentials, err := aws.ReadCredentialsSecret(secret, false)
+	authConfig, err := aws.ReadCredentialsSecret(secret, false, shoot.Spec.Region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read credentials Secret: %w", err)
 	}
 
-	return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), shoot.Spec.Region)
+	return awsclient.NewClient(*authConfig)
 }
 
 // securityGroupHasPermissions checks if the given group has at least

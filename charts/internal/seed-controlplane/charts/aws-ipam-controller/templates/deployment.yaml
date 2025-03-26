@@ -55,9 +55,12 @@ spec:
         - --leader-election-namespace=kube-system
         - --cluster-cidrs={{ .Values.podNetwork }}
         - --mode={{ .Values.mode }}
+        - --primary-ip-family={{ .Values.primaryIPFamily }}
         - --node-cidr-mask-size-ipv4={{ .Values.nodeCIDRMaskSizeIPv4 }}
         - --node-cidr-mask-size-ipv6={{ .Values.nodeCIDRMaskSizeIPv6 }}
         - --log-level=info
+        securityContext:
+          allowPrivilegeEscalation: false
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -87,6 +90,11 @@ spec:
         - mountPath: /var/run/secrets/gardener.cloud/shoot/generic-kubeconfig
           name: kubeconfig
           readOnly: true
+        {{- if .Values.useWorkloadIdentity }}
+        - name: cloudprovider
+          mountPath: /var/run/secrets/gardener.cloud/workload-identity
+          readOnly: true
+        {{- end }}
       volumes:
       - name: kubeconfig
         projected:
@@ -104,3 +112,15 @@ spec:
                 path: token
               name: shoot-access-aws-ipam-controller
               optional: false
+      {{- if .Values.useWorkloadIdentity }}
+      - name: cloudprovider
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: token
+                path: token
+              name: cloudprovider
+              optional: false
+      {{- end }}

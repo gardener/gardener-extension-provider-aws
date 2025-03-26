@@ -20,7 +20,6 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
 
     <img src="images/new-gardener-project.png">
 
-
 1. Choose *Secrets*, then the plus icon <img src="images/plus-icon.png"> and select *AWS*.
 
     <img src="images/create-secret-aws.png">
@@ -31,9 +30,9 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
 
 1. [Create a new policy](https://console.aws.amazon.com/iam/home?#/policies) in AWS:
     1. Choose *Create policy*.
-        
+
         <img src="images/amazon-create-policy.png">
-    
+
     1. Paste the policy that you copied from the Gardener dashboard to this custom policy.
 
         <img src="images/amazon-create-policy-json.png">
@@ -43,7 +42,6 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
     1. Fill in the name and description, then choose *Create policy*.
 
         <img src="images/amazon-review-policy.png">
-        
 
 1. [Create a new technical user](https://console.aws.amazon.com/iam/home?#/users$new?step=details) in AWS:
     1. Type in a username and select the access key credential type.
@@ -58,39 +56,37 @@ Gardener allows you to create a Kubernetes cluster on different infrastructure p
 
     <img src="images/finish-user.png">
 
-    {{% alert color="info"  title="Note" %}}
-    Note: After the user is created, `Access key ID` and `Secret access key` are generated and displayed. Remember to save them. The `Access key ID` is used later to create secrets for Gardener.
-    {{% /alert %}}
-
+    > [!NOTE]
+    > After the user is created, `Access key ID` and `Secret access key` are generated and displayed. Remember to save them. The `Access key ID` is used later to create secrets for Gardener.
 
     <img src="images/save-keys.png">
 
 1. On the Gardener dashboard, choose *Secrets* and then the plus sign <img src="images/plus-icon.png">. Select *AWS* from the drop down menu to add a new AWS secret.
 
-2. Create your secret.
+1. Create your secret.
 
     1. Type the name of your secret.
-    2. Copy and paste the `Access Key ID` and `Secret Access Key` you saved when you created the technical user on AWS.
-    3. Choose *Add secret*.
+    1. Copy and paste the `Access Key ID` and `Secret Access Key` you saved when you created the technical user on AWS.
+    1. Choose *Add secret*.
     <img src="images/add-aws-secret.png">
 
     >After completing these steps, you should see your newly created secret in the *Infrastructure Secrets* section.
 
     <img src="images/secret-stored.png">
 
-3. To create a new cluster, choose *Clusters* and then the plus sign in the upper right corner.
+1. To create a new cluster, choose *Clusters* and then the plus sign in the upper right corner.
 
     <img src="images/new-cluster.png">
 
-4. In the *Create Cluster* section:
+1. In the *Create Cluster* section:
     1. Select *AWS* in the *Infrastructure* tab.
-    2. Type the name of your cluster in the *Cluster Details* tab.
-    3. Choose the secret you created before in the *Infrastructure Details* tab.
-    4. Choose *Create*.
+    1. Type the name of your cluster in the *Cluster Details* tab.
+    1. Choose the secret you created before in the *Infrastructure Details* tab.
+    1. Choose *Create*.
 
     <img src="images/create-cluster.png">
 
-5. Wait for your cluster to get created.
+1. Wait for your cluster to get created.
 
     <img src="images/processing-cluster.png">
 

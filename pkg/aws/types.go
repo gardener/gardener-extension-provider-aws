@@ -45,8 +45,6 @@ const (
 	CSINodeDriverRegistrarImageName = "csi-node-driver-registrar"
 	// CSILivenessProbeImageName is the name of the csi-liveness-probe image.
 	CSILivenessProbeImageName = "csi-liveness-probe"
-	// CSISnapshotValidationWebhookImageName is the name of the csi-snapshot-validation-webhook image.
-	CSISnapshotValidationWebhookImageName = "csi-snapshot-validation-webhook"
 	// CSIVolumeModifierImageName is the name of the csi-volume-modifier image.
 	CSIVolumeModifierImageName = "csi-volume-modifier"
 
@@ -123,8 +121,6 @@ const (
 	CSINodeDriverRegistrarName = "csi-node-driver-registrar"
 	// CSILivenessProbeName is a constant for the name of the csi-liveness-probe component.
 	CSILivenessProbeName = "csi-liveness-probe"
-	// CSISnapshotValidationName is the constant for the name of the csi-snapshot-validation-webhook component.
-	CSISnapshotValidationName = "csi-snapshot-validation"
 	// CSIVolumeModifierName is the constant for the name of the csi-volume-modifier.
 	CSIVolumeModifierName = "csi-volume-modifier"
 
@@ -134,6 +130,20 @@ const (
 	CSIEfsControllerName = "csi-driver-efs-controller"
 	// CSIDriverEfsImageName is the constant for the name of the efs csi driver image.
 	CSIDriverEfsImageName = "csi-driver-efs"
+
+	// AnnotationEnableVolumeAttributesClass is the annotation to use on shoots to enable VolumeAttributesClasses
+	AnnotationEnableVolumeAttributesClass = "aws.provider.extensions.gardener.cloud/enable-volume-attributes-class"
+
+	// WorkloadIdentityMountPath is the path where the workload identity token is usually mounted.
+	WorkloadIdentityMountPath = "/var/run/secrets/gardener.cloud/workload-identity"
+	// WorkloadIdentityTokenFileKey is the key indicating the full path to the workload identity token file.
+	WorkloadIdentityTokenFileKey = "workloadIdentityTokenFile"
+	// RoleARN is a constant for the key in a cloud provider secret that points to the role which should be assumed.
+	RoleARN = "roleARN"
+
+	// CSISnapshotValidationName is the constant for the name of the csi-snapshot-validation-webhook component.
+	// TODO(AndreasBurger): Clean up once SnapshotValidation is removed everywhere
+	CSISnapshotValidationName = "csi-snapshot-validation"
 )
 
 var (

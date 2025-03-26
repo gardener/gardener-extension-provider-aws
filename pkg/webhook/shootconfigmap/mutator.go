@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shoot
+package shootconfigmap
 
 import (
 	"context"
+	"fmt"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type mutator struct {
@@ -29,31 +29,29 @@ type mutator struct {
 }
 
 // NewMutator creates a new Mutator that mutates resources in the shoot cluster.
-func NewMutator() extensionswebhook.Mutator {
-	return &mutator{
-		logger: log.Log.WithName("shoot-mutator"),
-	}
+func NewMutator(logger logr.Logger) extensionswebhook.Mutator {
+	return &mutator{logger}
 }
 
 // Mutate mutates resources.
-func (m *mutator) Mutate(ctx context.Context, new, _ client.Object) error {
-	switch x := new.(type) {
-	case *corev1.ConfigMap:
-		// If the object does have a deletion timestamp then we don't want to mutate anything.
-		if x.GetDeletionTimestamp() != nil {
-			return nil
-		}
-		extensionswebhook.LogMutation(logger, x.Kind, x.Namespace, x.Name)
-		return m.mutateNginxIngressControllerConfigMap(ctx, x)
-
-	case *corev1.Service:
-		// If the object does have a deletion timestamp then we don't want to mutate anything.
-		if x.GetDeletionTimestamp() != nil {
-			return nil
-		}
-		extensionswebhook.LogMutation(logger, x.Kind, x.Namespace, x.Name)
-		return m.mutateService(ctx, x)
-
+func (m *mutator) Mutate(_ context.Context, new, _ client.Object) error {
+	configMap, ok := new.(*corev1.ConfigMap)
+	if !ok {
+		return fmt.Errorf("could not mutate: object is not of type corev1.ConfigMap")
 	}
+
+	// If the object does have a deletion timestamp then we don't want to mutate anything.
+	if configMap.GetDeletionTimestamp() != nil {
+		return nil
+	}
+
+	extensionswebhook.LogMutation(m.logger, configMap.Kind, configMap.Namespace, configMap.Name)
+
+	if configMap.Data == nil {
+		configMap.Data = make(map[string]string, 1)
+	}
+
+	configMap.Data["use-proxy-protocol"] = "true"
+
 	return nil
 }

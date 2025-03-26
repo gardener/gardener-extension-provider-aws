@@ -163,6 +163,10 @@ var _ = Describe("ValuesProvider", func() {
 					}),
 				},
 				Region: region,
+				SecretRef: corev1.SecretReference{
+					Name:      "cloudprovider",
+					Namespace: namespace,
+				},
 			},
 		}
 
@@ -192,9 +196,6 @@ var _ = Describe("ValuesProvider", func() {
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
 						Version: "1.28.2",
-						VerticalPodAutoscaler: &gardencorev1beta1.VerticalPodAutoscaler{
-							Enabled: true,
-						},
 					},
 				},
 			},
@@ -255,9 +256,11 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				"region":               "europe",
 				"mode":                 "ipv4",
+				"primaryIPFamily":      "ipv4",
 				"nodeCIDRMaskSizeIPv4": int32(24),
 				"replicas":             0,
 				"clusterName":          "test",
+				"useWorkloadIdentity":  false,
 			})
 			ccmChartValues = utils.MergeMaps(enabledTrue, map[string]interface{}{
 				"replicas":    1,
@@ -287,6 +290,7 @@ var _ = Describe("ValuesProvider", func() {
 				"secrets": map[string]interface{}{
 					"server": "cloud-controller-manager-server",
 				},
+				"useWorkloadIdentity": false,
 			})
 			crcChartValues = map[string]interface{}{
 				"podLabels": map[string]interface{}{
@@ -300,6 +304,7 @@ var _ = Describe("ValuesProvider", func() {
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 				},
+				"useWorkloadIdentity": false,
 			}
 			albChartValues = map[string]interface{}{
 				"region":                "europe",
@@ -319,15 +324,23 @@ var _ = Describe("ValuesProvider", func() {
 				"podAnnotations": map[string]interface{}{
 					"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 				},
+				"useWorkloadIdentity": false,
 			}
 
 			By("creating secrets managed outside of this package for whose secretsmanager.Get() will be called")
+			c.EXPECT().Delete(context.TODO(), &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}})
+			c.EXPECT().Delete(context.TODO(), &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}})
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca-provider-aws-controlplane", Namespace: namespace}})).To(Succeed())
-			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "csi-snapshot-validation-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: awsLoadBalancerControllerWebhook, Namespace: namespace}})).To(Succeed())
-			c.EXPECT().Delete(context.TODO(), &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "csi-driver-controller-observability-config", Namespace: cp.Namespace}})
 			c.EXPECT().Get(context.TODO(), client.ObjectKey{Name: "prometheus-shoot", Namespace: cp.Namespace}, gomock.AssignableToTypeOf(&appsv1.StatefulSet{})).Return(apierrors.NewNotFound(schema.GroupResource{}, ""))
+			cloudProviderSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloudprovider",
+					Namespace: namespace,
+				},
+			}
+			c.EXPECT().Get(context.TODO(), client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret).Return(nil)
 		})
 
 		It("should return correct control plane chart values", func() {
@@ -353,13 +366,7 @@ var _ = Describe("ValuesProvider", func() {
 					"csiSnapshotController": map[string]interface{}{
 						"replicas": 1,
 					},
-					"csiSnapshotValidationWebhook": map[string]interface{}{
-						"replicas": 1,
-						"secrets": map[string]interface{}{
-							"server": "csi-snapshot-validation-server",
-						},
-						"topologyAwareRoutingEnabled": false,
-					},
+					"useWorkloadIdentity": false,
 				}),
 			}))
 		})
@@ -390,13 +397,7 @@ var _ = Describe("ValuesProvider", func() {
 					"csiSnapshotController": map[string]interface{}{
 						"replicas": 1,
 					},
-					"csiSnapshotValidationWebhook": map[string]interface{}{
-						"replicas": 1,
-						"secrets": map[string]interface{}{
-							"server": "csi-snapshot-validation-server",
-						},
-						"topologyAwareRoutingEnabled": false,
-					},
+					"useWorkloadIdentity": false,
 				}),
 			}))
 		})
@@ -426,13 +427,7 @@ var _ = Describe("ValuesProvider", func() {
 					"csiSnapshotController": map[string]interface{}{
 						"replicas": 1,
 					},
-					"csiSnapshotValidationWebhook": map[string]interface{}{
-						"replicas": 1,
-						"secrets": map[string]interface{}{
-							"server": "csi-snapshot-validation-server",
-						},
-						"topologyAwareRoutingEnabled": false,
-					},
+					"useWorkloadIdentity": false,
 				}),
 			}))
 		})
@@ -463,19 +458,13 @@ var _ = Describe("ValuesProvider", func() {
 					"csiSnapshotController": map[string]interface{}{
 						"replicas": 1,
 					},
-					"csiSnapshotValidationWebhook": map[string]interface{}{
-						"replicas": 1,
-						"secrets": map[string]interface{}{
-							"server": "csi-snapshot-validation-server",
-						},
-						"topologyAwareRoutingEnabled": false,
-					},
+					"useWorkloadIdentity": false,
 				}),
 			}))
 		})
 
 		DescribeTable("topologyAwareRoutingEnabled value",
-			func(seedSettings *gardencorev1beta1.SeedSettings, shootControlPlane *gardencorev1beta1.ControlPlane, expected bool) {
+			func(seedSettings *gardencorev1beta1.SeedSettings, shootControlPlane *gardencorev1beta1.ControlPlane) {
 				cluster.Seed = &gardencorev1beta1.Seed{
 					Spec: gardencorev1beta1.SeedSpec{
 						Settings: seedSettings,
@@ -486,38 +475,31 @@ var _ = Describe("ValuesProvider", func() {
 				values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(values).To(HaveKey(aws.CSIControllerName))
-				Expect(values[aws.CSIControllerName]).To(HaveKeyWithValue("csiSnapshotValidationWebhook", HaveKeyWithValue("topologyAwareRoutingEnabled", expected)))
 			},
 
 			Entry("seed setting is nil, shoot control plane is not HA",
 				nil,
 				&gardencorev1beta1.ControlPlane{HighAvailability: nil},
-				false,
 			),
 			Entry("seed setting is disabled, shoot control plane is not HA",
 				&gardencorev1beta1.SeedSettings{TopologyAwareRouting: &gardencorev1beta1.SeedSettingTopologyAwareRouting{Enabled: false}},
 				&gardencorev1beta1.ControlPlane{HighAvailability: nil},
-				false,
 			),
 			Entry("seed setting is enabled, shoot control plane is not HA",
 				&gardencorev1beta1.SeedSettings{TopologyAwareRouting: &gardencorev1beta1.SeedSettingTopologyAwareRouting{Enabled: true}},
 				&gardencorev1beta1.ControlPlane{HighAvailability: nil},
-				false,
 			),
 			Entry("seed setting is nil, shoot control plane is HA with failure tolerance type 'zone'",
 				nil,
 				&gardencorev1beta1.ControlPlane{HighAvailability: &gardencorev1beta1.HighAvailability{FailureTolerance: gardencorev1beta1.FailureTolerance{Type: gardencorev1beta1.FailureToleranceTypeZone}}},
-				false,
 			),
 			Entry("seed setting is disabled, shoot control plane is HA with failure tolerance type 'zone'",
 				&gardencorev1beta1.SeedSettings{TopologyAwareRouting: &gardencorev1beta1.SeedSettingTopologyAwareRouting{Enabled: false}},
 				&gardencorev1beta1.ControlPlane{HighAvailability: &gardencorev1beta1.HighAvailability{FailureTolerance: gardencorev1beta1.FailureTolerance{Type: gardencorev1beta1.FailureToleranceTypeZone}}},
-				false,
 			),
 			Entry("seed setting is enabled, shoot control plane is HA with failure tolerance type 'zone'",
 				&gardencorev1beta1.SeedSettings{TopologyAwareRouting: &gardencorev1beta1.SeedSettingTopologyAwareRouting{Enabled: true}},
 				&gardencorev1beta1.ControlPlane{HighAvailability: &gardencorev1beta1.HighAvailability{FailureTolerance: gardencorev1beta1.FailureTolerance{Type: gardencorev1beta1.FailureToleranceTypeZone}}},
-				true,
 			),
 		)
 	})
@@ -526,9 +508,15 @@ var _ = Describe("ValuesProvider", func() {
 		BeforeEach(func() {
 			By("creating secrets managed outside of this package for whose secretsmanager.Get() will be called")
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca-provider-aws-controlplane", Namespace: namespace}})).To(Succeed())
-			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "csi-snapshot-validation-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: awsLoadBalancerControllerWebhook, Namespace: namespace}})).To(Succeed())
+			cloudProviderSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloudprovider",
+					Namespace: namespace,
+				},
+			}
+			c.EXPECT().Get(context.TODO(), client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret).Return(nil)
 		})
 
 		Context("shoot control plane chart values", func() {
@@ -542,13 +530,8 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.28.2",
-						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
-						},
-						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-							"caBundle": "",
 						},
 					}),
 					aws.CSIEfsNodeName: enabledFalse,
@@ -568,13 +551,8 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.28.2",
-						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
-						},
-						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-							"caBundle": "",
 						},
 					}),
 					aws.CSIEfsNodeName: enabledFalse,
@@ -594,13 +572,8 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.28.2",
-						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
-						},
-						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-							"caBundle": "",
 						},
 					}),
 					aws.CSIEfsNodeName: enabledFalse,
@@ -625,6 +598,7 @@ var _ = Describe("ValuesProvider", func() {
 						"KubernetesCluster":          "test",
 						"kubernetes.io/cluster/test": "owned",
 					},
+					"useWorkloadIdentity": false,
 				}
 				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, cluster, fakeSecretsManager, nil)
 				Expect(err).NotTo(HaveOccurred())
@@ -635,13 +609,8 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSLoadBalancerControllerName: albChartValues,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
 						"kubernetesVersion": "1.28.2",
-						"vpaEnabled":        true,
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
-						},
-						"webhookConfig": map[string]interface{}{
-							"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-							"caBundle": "",
 						},
 					}),
 					aws.CSIEfsNodeName: enabledFalse,

@@ -192,7 +192,14 @@ var _ = BeforeSuite(func() {
 	flag.Parse()
 	validateFlags()
 
-	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, aws.DefaultDNSRegion)
+	authConfig := awsclient.AuthConfig{
+		AccessKey: &awsclient.AccessKey{
+			ID:     *accessKeyID,
+			Secret: *secretAccessKey,
+		},
+		Region: aws.DefaultDNSRegion,
+	}
+	awsClient, err = awsclient.NewClient(authConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("setting up shoot environment")

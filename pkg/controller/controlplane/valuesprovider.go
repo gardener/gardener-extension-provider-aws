@@ -12,18 +12,20 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	"github.com/gardener/gardener/pkg/utils/chart"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	secretutils "github.com/gardener/gardener/pkg/utils/secrets"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
+	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,7 +50,6 @@ import (
 const (
 	caNameControlPlane               = "ca-" + aws.Name + "-controlplane"
 	cloudControllerManagerServerName = "cloud-controller-manager-server"
-	csiSnapshotValidationServerName  = aws.CSISnapshotValidationName + "-server"
 	awsLoadBalancerControllerWebhook = aws.AWSLoadBalancerControllerName + "-webhook-service"
 )
 
@@ -71,18 +72,6 @@ func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfig
 				SkipPublishingCACertificate: true,
 			},
 			Options: []secretsmanager.GenerateOption{secretsmanager.SignedByCA(caNameControlPlane)},
-		},
-		{
-			Config: &secretutils.CertificateSecretConfig{
-				Name:                        csiSnapshotValidationServerName,
-				CommonName:                  aws.UsernamePrefix + aws.CSISnapshotValidationName,
-				DNSNames:                    kutil.DNSNamesForService(aws.CSISnapshotValidationName, namespace),
-				CertType:                    secretutils.ServerCert,
-				SkipPublishingCACertificate: true,
-			},
-			// use current CA for signing server cert to prevent mismatches when dropping the old CA from the webhook
-			// config in phase Completing
-			Options: []secretsmanager.GenerateOption{secretsmanager.SignedByCA(caNameControlPlane, secretsmanager.UseCurrentCA)},
 		},
 		{
 			Config: &secretutils.CertificateSecretConfig{
@@ -110,7 +99,6 @@ func shootAccessSecretsFunc(namespace string) []*gutil.AccessSecret {
 		gutil.NewShootAccessSecret(aws.CSISnapshotterName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIResizerName, namespace),
 		gutil.NewShootAccessSecret(aws.CSISnapshotControllerName, namespace),
-		gutil.NewShootAccessSecret(aws.CSISnapshotValidationName, namespace),
 		gutil.NewShootAccessSecret(aws.CSIVolumeModifierName, namespace),
 	}
 }
@@ -189,7 +177,6 @@ var (
 					aws.CSIResizerImageName,
 					aws.CSILivenessProbeImageName,
 					aws.CSISnapshotControllerImageName,
-					aws.CSISnapshotValidationWebhookImageName,
 					aws.CSIVolumeModifierImageName,
 				},
 				Objects: []*chart.Object{
@@ -200,9 +187,6 @@ var (
 					// csi-snapshot-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotControllerName},
 					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
-					// csi-snapshot-validation-webhook
-					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotValidationName},
-					{Type: &corev1.Service{}, Name: aws.CSISnapshotValidationName},
 				},
 			},
 		},
@@ -260,7 +244,6 @@ var (
 					{Type: &corev1.ServiceAccount{}, Name: aws.CSIDriverName},
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIDriverName},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIDriverName},
-					{Type: extensionscontroller.GetVerticalPodAutoscalerObject(), Name: aws.CSINodeName},
 					// csi-provisioner
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIProvisionerName},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIProvisionerName},
@@ -286,10 +269,6 @@ var (
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIResizerName},
 					{Type: &rbacv1.Role{}, Name: aws.UsernamePrefix + aws.CSIResizerName},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIResizerName},
-					// csi-snapshot-validation-webhook
-					{Type: &admissionregistrationv1.ValidatingWebhookConfiguration{}, Name: aws.CSISnapshotValidationName},
-					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
-					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSISnapshotValidationName},
 					// csi-volume-modifier
 					{Type: &corev1.ServiceAccount{}, Name: aws.CSIVolumeModifierName},
 					{Type: &rbacv1.ClusterRole{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
@@ -409,9 +388,9 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		return nil, err
 	}
 
-	// TODO(rfranzke): Delete this in a future release.
-	if err := kutil.DeleteObject(ctx, vp.client, &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "csi-driver-controller-observability-config", Namespace: cp.Namespace}}); err != nil {
-		return nil, fmt.Errorf("failed deleting legacy csi-driver-controller-observability-config ConfigMap: %w", err)
+	// TODO(AndreasBurger): rm in future release.
+	if err := cleanupSeedLegacyCSISnapshotValidation(ctx, vp.client, cp.Namespace); err != nil {
+		return nil, err
 	}
 
 	// TODO(rfranzke): Delete this after August 2024.
@@ -422,12 +401,17 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		}
 	}
 
-	return getControlPlaneChartValues(cpConfig, cp, infraStatus, cluster, secretsReader, checksums, scaledDown, gep19Monitoring)
+	useWorkloadIdentity, err := shouldUseWorkloadIdentity(ctx, vp.client, cp.Spec.SecretRef.Name, cp.Spec.SecretRef.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return getControlPlaneChartValues(cpConfig, cp, infraStatus, cluster, secretsReader, checksums, scaledDown, gep19Monitoring, useWorkloadIdentity)
 }
 
 // GetControlPlaneShootChartValues returns the values for the control plane shoot chart applied by the generic actuator.
 func (vp *valuesProvider) GetControlPlaneShootChartValues(
-	_ context.Context,
+	ctx context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 	secretsReader secretsmanager.Reader,
@@ -444,11 +428,16 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	}
 
 	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
+  if err != nil {
+		return nil, err
+	}
+
+	useWorkloadIdentity, err := shouldUseWorkloadIdentity(ctx, vp.client, cp.Spec.SecretRef.Name, cp.Spec.SecretRef.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader, infraConfig, infraStatus)
+	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader, infraConfig, infraStatus, useWorkloadIdentity)
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
@@ -563,28 +552,29 @@ func getControlPlaneChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 	gep19Monitoring bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
-	ccm, err := getCCMChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, gep19Monitoring)
+	ccm, err := getCCMChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, gep19Monitoring, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	crc, err := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown)
+	crc, err := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown)
+	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	alb, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, infraStatus)
+	alb, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, infraStatus, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	csi, err := getCSIControllerChartValues(cp, cluster, secretsReader, checksums, scaledDown)
+	csi, err := getCSIControllerChartValues(cp, cluster, secretsReader, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -610,6 +600,7 @@ func getCCMChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 	gep19Monitoring bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	serverSecret, found := secretsReader.Get(cloudControllerManagerServerName)
 	if !found {
@@ -633,7 +624,8 @@ func getCCMChartValues(
 		"secrets": map[string]interface{}{
 			"server": serverSecret.Name,
 		},
-		"gep19Monitoring": gep19Monitoring,
+		"gep19Monitoring":     gep19Monitoring,
+		"useWorkloadIdentity": useWorkloadIdentity,
 	}
 
 	if cpConfig.CloudControllerManager != nil {
@@ -650,6 +642,7 @@ func getCRCChartValues(
 	cluster *extensionscontroller.Cluster,
 	checksums map[string]string,
 	scaledDown bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	mode := "ipv4"
 	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
@@ -668,7 +661,8 @@ func getCRCChartValues(
 		"podLabels": map[string]interface{}{
 			v1beta1constants.LabelPodMaintenanceRestart: "true",
 		},
-		"region": cp.Spec.Region,
+		"region":              cp.Spec.Region,
+		"useWorkloadIdentity": useWorkloadIdentity,
 	}
 	enabled := cpConfig.CloudControllerManager != nil &&
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
@@ -686,11 +680,14 @@ func getIPAMChartValues(
 	cluster *extensionscontroller.Cluster,
 	checksums map[string]string,
 	scaledDown bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	mode := "ipv4"
+	primaryIPFamily := "ipv4"
 	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
 		if len(networkingConfig.IPFamilies) == 2 {
 			mode = "dual-stack"
+			primaryIPFamily = strings.ToLower(string(cluster.Shoot.Spec.Networking.IPFamilies[0]))
 		} else if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
 			mode = "ipv6"
 		}
@@ -733,8 +730,10 @@ func getIPAMChartValues(
 		},
 		"region":               cp.Spec.Region,
 		"mode":                 mode,
+		"primaryIPFamily":      primaryIPFamily,
 		"nodeCIDRMaskSizeIPv4": nodeCidrMaskSizeIPv4,
 		"nodeCIDRMaskSizeIPv6": nodeCidrMaskSizeIPv6,
+		"useWorkloadIdentity":  useWorkloadIdentity,
 	}
 	enabled := mode != "ipv4"
 	if !enabled {
@@ -753,6 +752,7 @@ func getALBChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 	infraStatus *apisaws.InfrastructureStatus,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	shootChart := infraStatus == nil
 	if shootChart && !isLoadBalancerControllerEnabled(cpConfig) {
@@ -784,6 +784,7 @@ func getALBChartValues(
 			"KubernetesCluster":                     cp.Namespace,
 			"kubernetes.io/cluster/" + cp.Namespace: "owned",
 		},
+		"useWorkloadIdentity": useWorkloadIdentity,
 	}
 	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.IngressClassName != nil {
 		values["ingressClass"] = *cpConfig.LoadBalancerController.IngressClassName
@@ -813,16 +814,13 @@ func isLoadBalancerControllerEnabled(cpConfig *apisaws.ControlPlaneConfig) bool 
 func getCSIControllerChartValues(
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
-	secretsReader secretsmanager.Reader,
+	_ secretsmanager.Reader,
 	checksums map[string]string,
 	scaledDown bool,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
-	serverSecret, found := secretsReader.Get(csiSnapshotValidationServerName)
-	if !found {
-		return nil, fmt.Errorf("secret %q not found", csiSnapshotValidationServerName)
-	}
 
-	return map[string]interface{}{
+	values := map[string]interface{}{
 		"enabled":  true,
 		"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		"region":   cp.Spec.Region,
@@ -832,14 +830,29 @@ func getCSIControllerChartValues(
 		"csiSnapshotController": map[string]interface{}{
 			"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
 		},
-		"csiSnapshotValidationWebhook": map[string]interface{}{
-			"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
-			"secrets": map[string]interface{}{
-				"server": serverSecret.Name,
-			},
-			"topologyAwareRoutingEnabled": gardencorev1beta1helper.IsTopologyAwareRoutingForShootControlPlaneEnabled(cluster.Seed, cluster.Shoot),
-		},
-	}, nil
+		"useWorkloadIdentity": useWorkloadIdentity,
+	}
+
+	k8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
+	if err != nil {
+		return nil, err
+	}
+	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) {
+		if _, ok := cluster.Shoot.Annotations[aws.AnnotationEnableVolumeAttributesClass]; ok {
+			values["csiResizer"] = map[string]interface{}{
+				"featureGates": map[string]string{
+					"VolumeAttributesClass": "true",
+				},
+			}
+			values["csiProvisioner"] = map[string]interface{}{
+				"featureGates": map[string]string{
+					"VolumeAttributesClass": "true",
+				},
+			}
+		}
+	}
+
+	return values, nil
 }
 
 // getControlPlaneShootChartValues collects and returns the control plane shoot chart values.
@@ -850,13 +863,9 @@ func getControlPlaneShootChartValues(
 	secretsReader secretsmanager.Reader,
 	infraConfig *apisaws.InfrastructureConfig,
 	infraStatus *apisaws.InfrastructureStatus,
+	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	kubernetesVersion := cluster.Shoot.Spec.Kubernetes.Version
-
-	caSecret, found := secretsReader.Get(caNameControlPlane)
-	if !found {
-		return nil, fmt.Errorf("secret %q not found", caNameControlPlane)
-	}
 
 	customRouteControllerEnabled := cpConfig.CloudControllerManager != nil &&
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
@@ -870,11 +879,6 @@ func getControlPlaneShootChartValues(
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           true,
 		"kubernetesVersion": kubernetesVersion,
-		"vpaEnabled":        gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
-		"webhookConfig": map[string]interface{}{
-			"url":      "https://" + aws.CSISnapshotValidationName + "." + cp.Namespace + "/volumesnapshot",
-			"caBundle": string(caSecret.Data[secretutils.DataKeyCertificateBundle]),
-		},
 	}
 
 	driver := map[string]interface{}{}
@@ -887,7 +891,7 @@ func getControlPlaneShootChartValues(
 	}
 	csiDriverNodeValues["driver"] = driver
 
-	albValues, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, nil, false, nil)
+	albValues, err := getALBChartValues(cpConfig, cp, cluster, secretsReader, nil, false, nil, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -901,6 +905,7 @@ func getControlPlaneShootChartValues(
 		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
 	}, nil
 }
+
 
 func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
 	return infraConfig != nil && infraConfig.EnableCsiEfs != nil && *infraConfig.EnableCsiEfs
@@ -920,4 +925,36 @@ func getControlPlaneShootChartCSIEfsValues(
 	}
 
 	return values
+}
+
+func cleanupSeedLegacyCSISnapshotValidation(
+	ctx context.Context,
+	client k8sclient.Client,
+	namespace string,
+) error {
+	if err := kutil.DeleteObject(
+		ctx,
+		client,
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}},
+	); err != nil {
+		return fmt.Errorf("failed to delete legacy csi snapshot validation deployment: %w", err)
+	}
+	if err := kutil.DeleteObject(
+		ctx,
+		client,
+		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}},
+	); err != nil {
+		return fmt.Errorf("failed to delete legacy csi snapshot validation service: %w", err)
+	}
+
+	return nil
+}
+
+func shouldUseWorkloadIdentity(ctx context.Context, c k8sclient.Client, secretName, secretNamespace string) (bool, error) {
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: secretNamespace}}
+	if err := c.Get(ctx, k8sclient.ObjectKeyFromObject(secret), secret); err != nil {
+		return false, fmt.Errorf("failed getting controlplane secret: %w", err)
+	}
+
+	return secret.ObjectMeta.Labels[securityv1alpha1constants.LabelPurpose] == securityv1alpha1constants.LabelPurposeWorkloadIdentityTokenRequestor, nil
 }

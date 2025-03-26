@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"slices"
 	"strconv"
@@ -21,8 +22,8 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	"github.com/gardener/gardener/pkg/component/nodemanagement/machinecontrollermanager"
-	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	"github.com/go-logr/logr"
@@ -63,16 +64,56 @@ type ensurer struct {
 var ImageVector = imagevector.ImageVector()
 
 // EnsureMachineControllerManagerDeployment ensures that the machine-controller-manager deployment conforms to the provider requirements.
-func (e *ensurer) EnsureMachineControllerManagerDeployment(_ context.Context, _ gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
+func (e *ensurer) EnsureMachineControllerManagerDeployment(ctx context.Context, _ gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
+	cloudProviderSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v1beta1constants.SecretNameCloudProvider,
+			Namespace: newObj.Namespace,
+		},
+	}
+	if err := e.client.Get(ctx, client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret); err != nil {
+		return fmt.Errorf("failed getting cloudprovider secret: %w", err)
+	}
+
 	image, err := ImageVector.FindImage(aws.MachineControllerManagerProviderAWSImageName)
 	if err != nil {
 		return err
 	}
 
-	newObj.Spec.Template.Spec.Containers = extensionswebhook.EnsureContainerWithName(
-		newObj.Spec.Template.Spec.Containers,
-		machinecontrollermanager.ProviderSidecarContainer(newObj.Namespace, aws.Name, image.String()),
-	)
+	sidecarContainer := machinecontrollermanager.ProviderSidecarContainer(newObj.Namespace, aws.Name, image.String())
+
+	if cloudProviderSecret.Labels[securityv1alpha1constants.LabelPurpose] == securityv1alpha1constants.LabelPurposeWorkloadIdentityTokenRequestor {
+		const volumeName = "workload-identity"
+		sidecarContainer.VolumeMounts = extensionswebhook.EnsureVolumeMountWithName(sidecarContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: aws.WorkloadIdentityMountPath,
+		})
+
+		newObj.Spec.Template.Spec.Volumes = extensionswebhook.EnsureVolumeWithName(newObj.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							Secret: &corev1.SecretProjection{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: v1beta1constants.SecretNameCloudProvider,
+								},
+								Items: []corev1.KeyToPath{
+									{
+										Key:  securityv1alpha1constants.DataKeyToken,
+										Path: "token",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	}
+
+	newObj.Spec.Template.Spec.Containers = extensionswebhook.EnsureContainerWithName(newObj.Spec.Template.Spec.Containers, sidecarContainer)
 	return nil
 }
 
@@ -93,10 +134,6 @@ func (e *ensurer) EnsureMachineControllerManagerVPA(_ context.Context, _ gcontex
 func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
 	template := &newObj.Spec.Template
 	ps := &template.Spec
-
-	// TODO: This label approach is deprecated and no longer needed in the future. Remove it as soon as gardener/gardener@v1.75 has been released.
-	metav1.SetMetaDataLabel(&newObj.Spec.Template.ObjectMeta, gutil.NetworkPolicyLabel(aws.CSISnapshotValidationName, 443), v1beta1constants.LabelNetworkPolicyAllowed)
-	metav1.SetMetaDataLabel(&newObj.Spec.Template.ObjectMeta, gutil.NetworkPolicyLabel(aws.AWSLoadBalancerControllerName+"-webhook-service", 9443), v1beta1constants.LabelNetworkPolicyAllowed)
 
 	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
@@ -189,12 +226,6 @@ func (e *ensurer) EnsureClusterAutoscalerDeployment(ctx context.Context, gctx gc
 }
 
 func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
-	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigration=true", ",")
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigrationAWS=true", ",")
-	}
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
@@ -233,12 +264,6 @@ func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion 
 }
 
 func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
-	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigration=true", ",")
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigrationAWS=true", ",")
-	}
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
@@ -246,12 +271,6 @@ func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.
 }
 
 func ensureClusterAutoscalerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
-	if versionutils.ConstraintK8sLess127.Check(k8sVersion) {
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigration=true", ",")
-		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
-			"CSIMigrationAWS=true", ",")
-	}
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
@@ -342,7 +361,7 @@ func (e *ensurer) ensureChecksumAnnotations(template *corev1.PodTemplateSpec) er
 }
 
 // EnsureKubeletServiceUnitOptions ensures that the kubelet.service unit options conform to the provider requirements.
-func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
+func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcontext.GardenContext, _ *semver.Version, newObj, _ []*unit.UnitOption) ([]*unit.UnitOption, error) {
 	if opt := extensionswebhook.UnitOptionWithSectionAndName(newObj, "Service", "ExecStart"); opt != nil {
 		command := extensionswebhook.DeserializeCommandLine(opt.Value)
 		command = extensionswebhook.EnsureStringWithPrefix(command, "--cloud-provider=", "external")
@@ -352,20 +371,13 @@ func (e *ensurer) EnsureKubeletServiceUnitOptions(ctx context.Context, gctx gcon
 			return nil, err
 		}
 
-		k8sGreaterEqual127, err := versionutils.CompareVersions(kubeletVersion.String(), ">=", "1.27")
+		infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
 		if err != nil {
 			return nil, err
 		}
 
-		if k8sGreaterEqual127 {
-			infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
-			if err != nil {
-				return nil, err
-			}
-
-			if ptr.Deref(infraConfig.EnableECRAccess, true) {
-				command = ensureKubeletECRProviderCommandLineArgs(command)
-			}
+		if infraConfig != nil && ptr.Deref(infraConfig.EnableECRAccess, true) {
+			command = ensureKubeletECRProviderCommandLineArgs(command)
 		}
 
 		opt.Value = extensionswebhook.SerializeCommandLine(command, 1, " \\\n    ")
@@ -388,10 +400,6 @@ func ensureKubeletECRProviderCommandLineArgs(command []string) []string {
 
 // EnsureKubeletConfiguration ensures that the kubelet configuration conforms to the provider requirements.
 func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ *kubeletconfigv1beta1.KubeletConfiguration) error {
-	if versionutils.ConstraintK8sLess127.Check(kubeletVersion) {
-		setKubeletConfigurationFeatureGate(newObj, "CSIMigration", true)
-		setKubeletConfigurationFeatureGate(newObj, "CSIMigrationAWS", true)
-	}
 	if versionutils.ConstraintK8sLess131.Check(kubeletVersion) {
 		setKubeletConfigurationFeatureGate(newObj, "InTreePluginAWSUnregister", true)
 	}
@@ -568,24 +576,13 @@ func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.Garde
 		return err
 	}
 
-	k8sVersion := cluster.Shoot.Spec.Kubernetes.Version
-	k8sGreaterEqual127, err := versionutils.CompareVersions(k8sVersion, ">=", "1.27")
-	if err != nil {
-		return err
-	}
-
-	// return early
-	if !k8sGreaterEqual127 {
-		return nil
-	}
-
 	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
 	if err != nil {
 		return err
 	}
 
-	if ptr.Deref(infraConfig.EnableECRAccess, true) {
-		binConfig, err := e.credentialProviderBinaryFile(k8sVersion)
+	if infraConfig != nil && ptr.Deref(infraConfig.EnableECRAccess, true) {
+		binConfig, err := e.credentialProviderBinaryFile(cluster.Shoot.Spec.Kubernetes.Version)
 		if err != nil {
 			return err
 		}

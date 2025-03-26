@@ -19,6 +19,8 @@ Resource Types:
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>
 </li><li>
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus</a>
+</li><li>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkloadIdentityConfig">WorkloadIdentityConfig</a>
 </li></ul>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CloudProfileConfig">CloudProfileConfig
 </h3>
@@ -416,6 +418,10 @@ reconciliation is possible.</p>
 </p>
 <p>
 <p>CSI contains information about the created AWS CSI related resources.</p>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkloadIdentityConfig">WorkloadIdentityConfig
+</h3>
+<p>
+<p>WorkloadIdentityConfig contains configuration settings for workload identity.</p>
 </p>
 <table>
 <thead>
@@ -428,12 +434,31 @@ reconciliation is possible.</p>
 <tr>
 <td>
 <code>efsFileSystemID</code></br>
+<code>apiVersion</code></br>
+string</td>
+<td>
+<code>
+aws.provider.extensions.gardener.cloud/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code></br>
+string
+</td>
+<td><code>WorkloadIdentityConfig</code></td>
+</tr>
+<tr>
+<td>
+<code>roleARN</code></br>
 <em>
 string
 </em>
 </td>
 <td>
 <p>EfsSystemID contains the efsFileSystem.</p>
+<p>RoleARN is the identifier of the role that the workload identity will assume.</p>
 </td>
 </tr>
 </tbody>

@@ -20,7 +20,6 @@ import (
 	extensionscloudproviderwebhook "github.com/gardener/gardener/extensions/pkg/webhook/cloudprovider"
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 	extensioncontrolplanewebhook "github.com/gardener/gardener/extensions/pkg/webhook/controlplane"
-	extensionshootwebhook "github.com/gardener/gardener/extensions/pkg/webhook/shoot"
 	"github.com/spf13/pflag"
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -35,9 +34,11 @@ import (
 	workercontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
 	cloudproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
-	controlplaneexposurewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplaneexposure"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/webhook/infrastructure"
-	shootwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shoot"
+	seedproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/seedprovider"
+	configmapwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootconfigmap"
+	servicewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootservice"
+	terraformerwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/terraformer"
 )
 
 const (
@@ -68,10 +69,13 @@ func ControllerSwitchOptions() *controllercmd.SwitchOptions {
 func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 	return webhookcmd.NewSwitchOptions(
 		webhookcmd.Switch(extensioncontrolplanewebhook.WebhookName, controlplanewebhook.AddToManager),
-		webhookcmd.Switch(extensioncontrolplanewebhook.ExposureWebhookName, controlplaneexposurewebhook.AddToManager),
-		webhookcmd.Switch(extensionshootwebhook.WebhookName, shootwebhook.AddToManager),
+		webhookcmd.Switch(extensioncontrolplanewebhook.SeedProviderWebhookName, seedproviderwebhook.AddToManager),
+		webhookcmd.Switch(servicewebhook.WebhookName, servicewebhook.AddToManager),
+		webhookcmd.Switch(servicewebhook.NginxIngressWebhookName, servicewebhook.AddNginxIngressWebhookToManager),
+		webhookcmd.Switch(configmapwebhook.WebhookName, configmapwebhook.AddToManager),
 		webhookcmd.Switch(extensionscloudproviderwebhook.WebhookName, cloudproviderwebhook.AddToManager),
 		webhookcmd.Switch(infrastructure.WebhookName, infrastructure.AddToManager),
+		webhookcmd.Switch(terraformerwebhook.WebhookName, terraformerwebhook.AddToManager),
 	)
 }
 

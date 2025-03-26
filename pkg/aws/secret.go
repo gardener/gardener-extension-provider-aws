@@ -5,10 +5,12 @@
 package aws
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
+	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,18 +18,26 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
+type staticTokenRetriever struct {
+	token []byte
+}
+
+func (s *staticTokenRetriever) GetIdentityToken() ([]byte, error) {
+	return s.token, nil
+}
+
 // GetCredentialsFromSecretRef reads the secret given by the the secret reference and returns the read Credentials
 // object.
-func GetCredentialsFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, allowDNSKeys bool) (*Credentials, error) {
+func GetCredentialsFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, allowDNSKeys bool, region string) (*awsclient.AuthConfig, error) {
 	secret, err := extensionscontroller.GetSecretByReference(ctx, client, &secretRef)
 	if err != nil {
 		return nil, err
 	}
-	return ReadCredentialsSecret(secret, allowDNSKeys)
+	return ReadCredentialsSecret(secret, allowDNSKeys, region)
 }
 
 // ReadCredentialsSecret reads a secret containing credentials.
-func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*Credentials, error) {
+func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool, region string) (*awsclient.AuthConfig, error) {
 	if secret.Data == nil {
 		return nil, fmt.Errorf("secret does not contain any data")
 	}
@@ -37,33 +47,51 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool) (*Credentia
 		altAccessKeyIDKey, altSecretAccessKeyKey, altRegionKey = ptr.To(DNSAccessKeyID), ptr.To(DNSSecretAccessKey), ptr.To(DNSRegion)
 	}
 
-	accessKeyID, err := getSecretDataValue(secret, AccessKeyID, altAccessKeyIDKey, true)
+	authConfig := &awsclient.AuthConfig{}
+
+	accessKeyID, err := getSecretDataValue(secret, AccessKeyID, altAccessKeyIDKey, false)
 	if err != nil {
 		return nil, err
 	}
-
-	secretAccessKey, err := getSecretDataValue(secret, SecretAccessKey, altSecretAccessKeyKey, true)
-	if err != nil {
-		return nil, err
+	if len(accessKeyID) != 0 {
+		secretAccessKey, err := getSecretDataValue(secret, SecretAccessKey, altSecretAccessKeyKey, true)
+		if err != nil {
+			return nil, err
+		}
+		authConfig.AccessKey = &awsclient.AccessKey{
+			ID:     string(accessKeyID),
+			Secret: string(secretAccessKey),
+		}
+	} else {
+		// If access key data does not exist then we require that the secret contains
+		// information for workload identity authentication
+		if _, ok := secret.Data[securityv1alpha1constants.DataKeyToken]; !ok {
+			return nil, fmt.Errorf("missing %q field in secret", securityv1alpha1constants.DataKeyToken)
+		}
+		if _, ok := secret.Data[RoleARN]; !ok {
+			return nil, fmt.Errorf("missing %q field in secret", RoleARN)
+		}
+		authConfig.WorkloadIdentity = &awsclient.WorkloadIdentity{
+			TokenRetriever: &staticTokenRetriever{token: secret.Data[securityv1alpha1constants.DataKeyToken]},
+			RoleARN:        string(secret.Data[RoleARN]),
+		}
 	}
 
-	region, _ := getSecretDataValue(secret, Region, altRegionKey, false)
+	regionFromSecret, _ := getSecretDataValue(secret, Region, altRegionKey, false)
+	authConfig.Region = cmp.Or(region, string(regionFromSecret))
 
-	return &Credentials{
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		Region:          region,
-	}, nil
+	return authConfig, nil
 }
 
 // NewClientFromSecretRef creates a new Client for the given AWS credentials from given k8s <secretRef> and
 // the AWS region <region>.
 func NewClientFromSecretRef(ctx context.Context, client client.Client, secretRef corev1.SecretReference, region string) (awsclient.Interface, error) {
-	credentials, err := GetCredentialsFromSecretRef(ctx, client, secretRef, false)
+	authConfig, err := GetCredentialsFromSecretRef(ctx, client, secretRef, false, region)
 	if err != nil {
 		return nil, err
 	}
-	return awsclient.NewClient(string(credentials.AccessKeyID), string(credentials.SecretAccessKey), region)
+
+	return awsclient.NewClient(*authConfig)
 }
 
 func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, required bool) ([]byte, error) {

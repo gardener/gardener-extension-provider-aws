@@ -227,7 +227,14 @@ var _ = BeforeSuite(func() {
 	flag.Parse()
 	validateFlags()
 
-	awsClient, err = awsclient.NewClient(*accessKeyID, *secretAccessKey, *region)
+	authConfig := awsclient.AuthConfig{
+		AccessKey: &awsclient.AccessKey{
+			ID:     *accessKeyID,
+			Secret: *secretAccessKey,
+		},
+		Region: *region,
+	}
+	awsClient, err = awsclient.NewClient(authConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	priorityClass := &schedulingv1.PriorityClass{

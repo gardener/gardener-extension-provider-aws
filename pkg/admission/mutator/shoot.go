@@ -151,6 +151,16 @@ func (s *shoot) Mutate(_ context.Context, newObj, oldObj client.Object) error {
 		Object: controlPlaneConfig,
 	}
 
+	// Disable TCP to upstream DNS queries by default on AWS. DNS over TCP may cause performance issues on larger clusters.
+	if shoot.Spec.SystemComponents != nil {
+		if shoot.Spec.SystemComponents.NodeLocalDNS != nil {
+			if shoot.Spec.SystemComponents.NodeLocalDNS.Enabled {
+				if shoot.Spec.SystemComponents.NodeLocalDNS.ForceTCPToUpstreamDNS == nil {
+					shoot.Spec.SystemComponents.NodeLocalDNS.ForceTCPToUpstreamDNS = ptr.To(false)
+				}
+			}
+		}
+	}
 	return nil
 }
 
