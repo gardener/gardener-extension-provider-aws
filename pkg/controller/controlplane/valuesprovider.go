@@ -428,7 +428,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	}
 
 	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
-  if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -905,7 +905,6 @@ func getControlPlaneShootChartValues(
 		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
 	}, nil
 }
-
 
 func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
 	return infraConfig != nil && infraConfig.EnableCsiEfs != nil && *infraConfig.EnableCsiEfs
