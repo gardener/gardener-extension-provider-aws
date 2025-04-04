@@ -903,7 +903,7 @@ func verifyCreation(
 		}
 		vpcIDFilter = []ec2types.Filter{
 			{
-				Name:   awssdk.String("vpc-id"),
+				Name:   awssdk.String(awsclient.FilterVpcID),
 				Values: []string{infraStatus.VPC.ID},
 			},
 		}

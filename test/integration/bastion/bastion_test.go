@@ -545,7 +545,7 @@ func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, options 
 	output, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   awssdk.String("vpc-id"),
+				Name:   awssdk.String(awsclient.FilterVpcID),
 				Values: []string{options.VPCID},
 			},
 			{
@@ -649,7 +649,7 @@ func verifyDeletion(
 	output, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   awssdk.String("vpc-id"),
+				Name:   awssdk.String(awsclient.FilterVpcID),
 				Values: []string{options.VPCID},
 			},
 			{

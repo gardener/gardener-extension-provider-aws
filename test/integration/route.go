@@ -16,7 +16,7 @@ import (
 func AddRoute(ctx context.Context, awsClient *awsclient.Client, vpcID, gatewayID, myIpCidr string) error {
 	vpcIDFilter := []ec2types.Filter{
 		{
-			Name: awssdk.String("vpc-id"),
+			Name: awssdk.String(awsclient.FilterVpcID),
 			Values: []string{
 				vpcID,
 			},
