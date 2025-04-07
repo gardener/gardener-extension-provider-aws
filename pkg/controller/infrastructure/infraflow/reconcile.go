@@ -191,7 +191,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
 	}
 
-	if isIPv4(c.getIpFamilies()) && c.config.Networks.VPC.CIDR == nil {
+	if c.config.Networks.VPC.CIDR == nil {
 		return fmt.Errorf("missing VPC CIDR")
 	}
 
