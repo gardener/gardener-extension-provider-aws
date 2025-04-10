@@ -349,7 +349,6 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 
 func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
 	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
-
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -422,28 +421,7 @@ func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
 	var additionalData []string = computeAdditionalHashDataV1(pool)
 
-	if opts := workerConfig.CpuOptions; opts != nil {
-		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
-		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
-	}
-
-	if instanceProfile := workerConfig.IAMInstanceProfile; instanceProfile != nil {
-		if arn := instanceProfile.ARN; arn != nil {
-			additionalData = append(additionalData, *arn)
-		}
-		if name := instanceProfile.Name; name != nil {
-			additionalData = append(additionalData, *name)
-		}
-	}
-
-	if instanceMetadataOptions := workerConfig.InstanceMetadataOptions; instanceMetadataOptions != nil {
-		if tokens := instanceMetadataOptions.HTTPTokens; tokens != nil {
-			additionalData = append(additionalData, string(*tokens))
-		}
-		if putResponseHopLimit := instanceMetadataOptions.HTTPPutResponseHopLimit; putResponseHopLimit != nil {
-			additionalData = append(additionalData, fmt.Sprint(*putResponseHopLimit))
-		}
-	}
+	additionalData = append(additionalData, CalculateWorkerConfigDataHash(workerConfig)...)
 
 	return additionalData
 }
