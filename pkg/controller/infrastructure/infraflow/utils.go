@@ -158,17 +158,6 @@ func (w *waiter) Done(err error) {
 	}
 }
 
-func copyMap(src map[string]string) map[string]string {
-	if src == nil {
-		return nil
-	}
-	dst := map[string]string{}
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}
-
 func deref[T any](ts []*T) []T {
 	if reflect.TypeOf(ts).Elem().Kind() != reflect.Pointer {
 		panic("dereferenced type is not a pointer")
