@@ -42,6 +42,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&WorkerConfig{},
 		&WorkerStatus{},
 		&WorkloadIdentityConfig{},
+		&BackupBucketConfig{},
 	)
 	return nil
 }
