@@ -1952,7 +1952,7 @@ func (c *Client) CreateRouteTableAssociation(ctx context.Context, routeTableId, 
 	return output.AssociationId, nil
 }
 
-// DeleteRouteTableAssociation deletes the route table association by the assocation identifier.
+// DeleteRouteTableAssociation deletes the route table association by the association identifier.
 // Returns nil if the resource is not found.
 func (c *Client) DeleteRouteTableAssociation(ctx context.Context, associationId string) error {
 	input := &ec2.DisassociateRouteTableInput{
