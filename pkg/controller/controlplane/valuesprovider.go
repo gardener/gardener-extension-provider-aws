@@ -514,10 +514,7 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
-	crc, err := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown, useWorkloadIdentity)
-	if err != nil {
-		return nil, err
-	}
+	crc := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown, useWorkloadIdentity)
 
 	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
@@ -598,7 +595,7 @@ func getCRCChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 	useWorkloadIdentity bool,
-) (map[string]interface{}, error) {
+) map[string]interface{} {
 	mode := "ipv4"
 	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
 		if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) && !slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv4) {
@@ -626,7 +623,7 @@ func getCRCChartValues(
 		values["replicas"] = 0
 	}
 
-	return values, nil
+	return values
 }
 
 // getIPAMChartValues collects and returns the ipam-controller chart values.

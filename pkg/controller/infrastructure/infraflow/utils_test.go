@@ -21,9 +21,11 @@ var _ = Describe("FindExisting", func() {
 			tags awsclient.Tags
 		}
 
+		//nolint:unparam
 		getter = func(_ context.Context, key string) (*string, error) {
 			return ptr.To(fakeStore[key].id), nil
 		}
+		//nolint:unparam
 		finder = func(_ context.Context, tags awsclient.Tags) ([]*string, error) {
 			var res []*string
 			for _, fakeEntry := range fakeStore {

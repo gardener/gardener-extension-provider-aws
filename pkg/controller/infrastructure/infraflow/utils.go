@@ -118,6 +118,7 @@ type waiter struct {
 	done          chan struct{}
 }
 
+//nolint:unparam
 func informOnWaiting(log logr.Logger, period time.Duration, message string, keysAndValues ...any) *waiter {
 	w := &waiter{
 		log:           log,

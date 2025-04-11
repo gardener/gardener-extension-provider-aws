@@ -19,6 +19,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
+//nolint:unparam
 func newTerraformer(
 	logger logr.Logger,
 	restConfig *rest.Config,
