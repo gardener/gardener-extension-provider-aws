@@ -389,7 +389,7 @@ func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 }
 
 func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
-	var additionalData []string = computeAdditionalHashDataV1(pool)
+	var additionalData = computeAdditionalHashDataV1(pool)
 
 	if opts := workerConfig.CpuOptions; opts != nil {
 		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))

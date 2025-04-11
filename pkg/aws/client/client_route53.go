@@ -242,7 +242,7 @@ func newResourceRecordSets(name string, recordType route53types.RRType, resource
 	return []*route53types.ResourceRecordSet{
 		{
 			Name:            aws.String(name),
-			Type:            route53types.RRType(recordType),
+			Type:            recordType,
 			ResourceRecords: resourceRecords,
 			TTL:             aws.Int64(ttl),
 		},
