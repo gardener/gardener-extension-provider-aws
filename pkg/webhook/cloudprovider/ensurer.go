@@ -37,36 +37,36 @@ type ensurer struct {
 
 // EnsureCloudProviderSecret ensures that cloudprovider secret contains
 // the shared credentials file.
-func (e *ensurer) EnsureCloudProviderSecret(_ context.Context, _ gcontext.GardenContext, new, _ *corev1.Secret) error {
-	if new.ObjectMeta.Labels != nil && new.ObjectMeta.Labels[securityv1alpha1constants.LabelWorkloadIdentityProvider] == "aws" {
-		if _, ok := new.Data[securityv1alpha1constants.DataKeyConfig]; !ok {
+func (e *ensurer) EnsureCloudProviderSecret(_ context.Context, _ gcontext.GardenContext, newSecret, _ *corev1.Secret) error {
+	if newSecret.ObjectMeta.Labels != nil && newSecret.ObjectMeta.Labels[securityv1alpha1constants.LabelWorkloadIdentityProvider] == "aws" {
+		if _, ok := newSecret.Data[securityv1alpha1constants.DataKeyConfig]; !ok {
 			return errors.New("cloudprovider secret is missing a 'config' data key")
 		}
 		workloadIdentityConfig := &apiaws.WorkloadIdentityConfig{}
-		if err := util.Decode(e.decoder, new.Data[securityv1alpha1constants.DataKeyConfig], workloadIdentityConfig); err != nil {
+		if err := util.Decode(e.decoder, newSecret.Data[securityv1alpha1constants.DataKeyConfig], workloadIdentityConfig); err != nil {
 			return fmt.Errorf("could not decode 'config' as WorkloadIdentityConfig: %w", err)
 		}
 
-		new.Data[aws.RoleARN] = []byte(workloadIdentityConfig.RoleARN)
-		new.Data[aws.WorkloadIdentityTokenFileKey] = []byte(aws.WorkloadIdentityMountPath + "/token")
-		new.Data[aws.SharedCredentialsFile] = []byte("[default]\n" +
+		newSecret.Data[aws.RoleARN] = []byte(workloadIdentityConfig.RoleARN)
+		newSecret.Data[aws.WorkloadIdentityTokenFileKey] = []byte(aws.WorkloadIdentityMountPath + "/token")
+		newSecret.Data[aws.SharedCredentialsFile] = []byte("[default]\n" +
 			fmt.Sprintf("web_identity_token_file=%s\n", aws.WorkloadIdentityMountPath+"/token") +
 			fmt.Sprintf("role_arn=%s", workloadIdentityConfig.RoleARN),
 		)
 		return nil
 	}
 
-	if _, ok := new.Data[aws.AccessKeyID]; !ok {
+	if _, ok := newSecret.Data[aws.AccessKeyID]; !ok {
 		return fmt.Errorf("could not mutate cloudprovider secret as %q field is missing", aws.AccessKeyID)
 	}
-	if _, ok := new.Data[aws.SecretAccessKey]; !ok {
+	if _, ok := newSecret.Data[aws.SecretAccessKey]; !ok {
 		return fmt.Errorf("could not mutate cloudprovider secret as %q field is missing", aws.SecretAccessKey)
 	}
 
-	e.logger.V(5).Info("mutate cloudprovider secret", "namespace", new.Namespace, "name", new.Name)
-	new.Data[aws.SharedCredentialsFile] = []byte("[default]\n" +
-		fmt.Sprintf("aws_access_key_id=%s\n", string(new.Data[aws.AccessKeyID])) +
-		fmt.Sprintf("aws_secret_access_key=%s", string(new.Data[aws.SecretAccessKey])),
+	e.logger.V(5).Info("mutate cloudprovider secret", "namespace", newSecret.Namespace, "name", newSecret.Name)
+	newSecret.Data[aws.SharedCredentialsFile] = []byte("[default]\n" +
+		fmt.Sprintf("aws_access_key_id=%s\n", string(newSecret.Data[aws.AccessKeyID])) +
+		fmt.Sprintf("aws_secret_access_key=%s", string(newSecret.Data[aws.SecretAccessKey])),
 	)
 
 	return nil

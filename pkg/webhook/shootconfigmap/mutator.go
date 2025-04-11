@@ -34,8 +34,8 @@ func NewMutator(logger logr.Logger) extensionswebhook.Mutator {
 }
 
 // Mutate mutates resources.
-func (m *mutator) Mutate(_ context.Context, new, _ client.Object) error {
-	configMap, ok := new.(*corev1.ConfigMap)
+func (m *mutator) Mutate(_ context.Context, newObj, _ client.Object) error {
+	configMap, ok := newObj.(*corev1.ConfigMap)
 	if !ok {
 		return fmt.Errorf("could not mutate: object is not of type corev1.ConfigMap")
 	}
