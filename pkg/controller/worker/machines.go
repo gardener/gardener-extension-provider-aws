@@ -318,7 +318,6 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 
 func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
 	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
-
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {

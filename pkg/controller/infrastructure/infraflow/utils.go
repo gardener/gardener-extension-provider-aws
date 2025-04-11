@@ -72,7 +72,6 @@ func FindExisting[T any](ctx context.Context, id *string, tags awsclient.Tags,
 	getter func(ctx context.Context, id string) (*T, error),
 	finder func(ctx context.Context, tags awsclient.Tags) ([]*T, error),
 	selector ...func(item *T) bool) (*T, error) {
-
 	if id != nil {
 		found, err := getter(ctx, *id)
 		if err != nil {

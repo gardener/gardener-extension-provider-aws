@@ -32,7 +32,6 @@ func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, erro
 		for _, zone := range output.HostedZones {
 			zones[normalizeName(aws.ToString(zone.Name))] = normalizeZoneId(aws.ToString(zone.Id))
 		}
-
 	}
 	return zones, nil
 }

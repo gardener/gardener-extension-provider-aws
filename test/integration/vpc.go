@@ -24,7 +24,6 @@ import (
 // CreateVPC creates a new VPC and waits for it to become available. It returns
 // the VPC ID, the Internet Gateway ID or an error in case something unexpected happens.
 func CreateVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcCIDR string, enableDnsHostnames, dualstack bool, egressOnlyIG bool) (string, string, string, error) {
-
 	createVpcOutput, err := awsClient.EC2.CreateVpc(ctx, &ec2.CreateVpcInput{
 		TagSpecifications:           awsclient.Tags{"Name": "aws-infrastructure-it-create-vpc"}.ToTagSpecifications(ec2types.ResourceTypeVpc),
 		CidrBlock:                   aws.String(vpcCIDR),
@@ -193,7 +192,6 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 		}); err != nil {
 			return err
 		}
-
 	}
 	describeEgressOnlyInternetGatewaysOutput, err := awsClient.EC2.DescribeEgressOnlyInternetGateways(ctx, &ec2.DescribeEgressOnlyInternetGatewaysInput{})
 	if err != nil {

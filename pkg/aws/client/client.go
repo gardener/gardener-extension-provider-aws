@@ -504,7 +504,6 @@ func (c *Client) ListKubernetesELBs(ctx context.Context, vpcID, clusterName stri
 				loadBalancerNamesInVPC = append(loadBalancerNamesInVPC, description.LoadBalancerName)
 			}
 		}
-
 	}
 
 	if len(loadBalancerNamesInVPC) == 0 {
@@ -719,7 +718,6 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 
 // WaitForIPv6Cidr waits for the ipv6 cidr block association
 func (c *Client) WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
-
 	maxRetries := 30
 	waitInterval := 10 * time.Second
 	for i := 0; i < maxRetries; i++ {

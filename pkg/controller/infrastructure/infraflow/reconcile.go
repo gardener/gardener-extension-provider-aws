@@ -557,7 +557,6 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	}
 
 	for index, zone := range c.config.Networks.Zones {
-
 		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
 			FromPort: 30000,

@@ -123,7 +123,6 @@ func (t *TerraformReconciler) reconcile(ctx context.Context, infra *extensionsv1
 				initializer,
 			)).
 		Apply(ctx); err != nil {
-
 		return fmt.Errorf("failed to apply the terraform config: %w", err)
 	}
 
@@ -400,7 +399,6 @@ func (t *TerraformReconciler) computeVPCIPv6CIDR(ctx context.Context, infra *ext
 }
 
 func (t *TerraformReconciler) computeIPv6ServiceCIDR(ctx context.Context, infra *extensionsv1alpha1.Infrastructure) (string, error) {
-
 	awsClient, err := aws.NewClientFromSecretRef(ctx, t.client, infra.Spec.SecretRef, infra.Spec.Region)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new AWS client: %w", err)

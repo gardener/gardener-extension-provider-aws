@@ -1265,7 +1265,6 @@ func verifyCreation(
 		for _, nga := range ngo.NatGatewayAddresses {
 			if nga.PublicIp != nil {
 				egressCIDRs = append(egressCIDRs, fmt.Sprintf("%s/32", *nga.PublicIp))
-
 			}
 		}
 	}

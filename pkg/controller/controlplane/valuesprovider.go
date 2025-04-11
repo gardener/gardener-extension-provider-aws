@@ -774,7 +774,6 @@ func getCSIControllerChartValues(
 	scaledDown bool,
 	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
-
 	values := map[string]interface{}{
 		"enabled":  true,
 		"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
