@@ -220,7 +220,7 @@ func newResourceRecords(recordType route53types.RRType, values []string) []route
 func newResourceRecordSets(name string, recordType route53types.RRType, resourceRecords []route53types.ResourceRecord, ttl int64, stack IPStack) []*route53types.ResourceRecordSet {
 	if recordType == route53types.RRTypeCname {
 		loadBalanceHostname := aws.ToString(resourceRecords[0].Value)
-		// if it is a loadbalancer in a known canoncial hosted zone, create resource sets with alias targets for IPv4 and/or IPv6
+		// if it is a loadbalancer in a known canonical hosted zone, create resource sets with alias targets for IPv4 and/or IPv6
 		if zoneId := canonicalHostedZoneId(loadBalanceHostname); zoneId != "" {
 			var rrss []*route53types.ResourceRecordSet
 			for _, recordType := range GetAliasRecordTypes(stack) {
