@@ -15,5 +15,6 @@ import (
 var InternalChart embed.FS
 
 const (
+	// InternalChartsPath is the path to the internal charts.
 	InternalChartsPath = "internal"
 )

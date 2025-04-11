@@ -245,7 +245,7 @@ var _ = BeforeSuite(func() {
 		GlobalDefault: false,
 		Value:         999998300,
 	}
-	Expect(client.IgnoreAlreadyExists(c.Create(ctx, priorityClass))).To(BeNil())
+	Expect(client.IgnoreAlreadyExists(c.Create(ctx, priorityClass))).To(Succeed())
 })
 
 var _ = Describe("Infrastructure tests", func() {
@@ -1265,7 +1265,6 @@ func verifyCreation(
 		for _, nga := range ngo.NatGatewayAddresses {
 			if nga.PublicIp != nil {
 				egressCIDRs = append(egressCIDRs, fmt.Sprintf("%s/32", *nga.PublicIp))
-
 			}
 		}
 	}

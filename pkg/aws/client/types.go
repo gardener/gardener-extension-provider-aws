@@ -14,17 +14,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-const (
-	// AWS-SDK is missing these constant. So, added here till the time it comes from
-	// upstream AWS-SDK-GO
-
-	// errCodeBucketNotEmpty for service response error code
-	// "BucketNotEmpty".
-	//
-	// The specified bucket us exist.
-	errCodeBucketNotEmpty = "BucketNotEmpty"
-)
-
 // IPStack is an enumeration of IP stacks
 type IPStack string
 
@@ -454,6 +443,7 @@ type Route struct {
 	DestinationPrefixListId     *string
 }
 
+// DestinationId returns the destination id of the route.
 func (r *Route) DestinationId() (string, error) {
 	if v := ptr.Deref(r.DestinationCidrBlock, ""); v != "" {
 		return v, nil

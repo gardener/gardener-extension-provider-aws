@@ -185,10 +185,7 @@ func (f *FlowReconciler) migrateFromTerraform(ctx context.Context, infra *extens
 	}
 
 	// TODO duplication of computeProviderStatusFromFlowState and fctx.computeInfrastructureStatus
-	infrastructureStatus, err := computeProviderStatusFromFlowState(infrastructureConfig, state)
-	if err != nil {
-		return nil, err
-	}
+	infrastructureStatus := computeProviderStatusFromFlowState(infrastructureConfig, state)
 
 	if err := infraflow.PatchProviderStatusAndState(ctx, f.client, infra, networking, infrastructureStatus, &runtime.RawExtension{Object: state}, nil, nil, nil); err != nil {
 		return nil, fmt.Errorf("updating status state failed: %w", err)
@@ -197,9 +194,9 @@ func (f *FlowReconciler) migrateFromTerraform(ctx context.Context, infra *extens
 	return state, nil
 }
 
-func computeProviderStatusFromFlowState(config *awsapi.InfrastructureConfig, state *awsapi.InfrastructureState) (*awsv1alpha1.InfrastructureStatus, error) {
+func computeProviderStatusFromFlowState(config *awsapi.InfrastructureConfig, state *awsapi.InfrastructureState) *awsv1alpha1.InfrastructureStatus {
 	if len(state.Data) == 0 {
-		return nil, nil
+		return nil
 	}
 	status := &awsv1alpha1.InfrastructureStatus{
 		TypeMeta: metav1.TypeMeta{
@@ -282,7 +279,7 @@ func computeProviderStatusFromFlowState(config *awsapi.InfrastructureConfig, sta
 		}
 	}
 
-	return status, nil
+	return status
 }
 
 func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones []awsapi.Zone) (*awsapi.InfrastructureState, error) {

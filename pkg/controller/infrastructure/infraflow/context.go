@@ -175,6 +175,7 @@ func (c *FlowContext) persistState(ctx context.Context) error {
 	return PatchProviderStatusAndState(ctx, c.runtimeClient, c.infra, c.networking, nil, c.computeInfrastructureState(), c.getEgressCIDRs(), c.state.Get(IdentifierVpcIPv6CidrBlock), c.state.Get(IdentifierServiceCIDR))
 }
 
+// PatchProviderStatusAndState patches the provider status and state of the infrastructure object
 func PatchProviderStatusAndState(
 	ctx context.Context,
 	runtimeClient client.Client,

@@ -159,7 +159,7 @@ var _ = Describe("Shoot mutator", func() {
 				shootExpected := shootWithAnnotations.DeepCopy()
 
 				err := shootMutator.Mutate(ctx, shootWithAnnotations, shoot)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(shootWithAnnotations).To(DeepEqual(shootExpected))
 			})
 
@@ -234,7 +234,7 @@ var _ = Describe("Shoot mutator", func() {
 				shootExpected := shootWithAnnotations.DeepCopy()
 
 				err := shootMutator.Mutate(ctx, shootWithAnnotations, shoot)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(shootWithAnnotations).To(DeepEqual(shootExpected))
 			})
 

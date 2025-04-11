@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	WebhookName             = "shoot-service"
+	// WebhookName is the name of the webhook.
+	WebhookName = "shoot-service"
+	// NginxIngressWebhookName is the name of the webhook for nginx-ingress.
 	NginxIngressWebhookName = "shoot-service-nginx-ingress"
 )
 

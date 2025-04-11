@@ -85,7 +85,7 @@ var _ = Describe("SecurityGroup", func() {
 			Expect(clone1.GroupId).To(Equal(sg1.GroupId))
 			Expect(clone1.GroupName).To(Equal(sg1.GroupName))
 			Expect(clone1.VpcId).To(Equal(sg1.VpcId))
-			Expect(len(clone1.Rules)).To(Equal(len(sg1.Rules)))
+			Expect(clone1.Rules).To(HaveLen(len(sg1.Rules)))
 		outer:
 			for i, r1 := range clone1.Rules {
 				for _, r2 := range sg1.Rules {
@@ -112,8 +112,8 @@ var _ = Describe("SecurityGroup", func() {
 	DescribeTable("#DiffRules",
 		func(a, b *SecurityGroup, expectedAddedCount, expectedRemovedCount int) {
 			added, removed := a.DiffRules(b)
-			Expect(len(added)).To(Equal(expectedAddedCount))
-			Expect(len(removed)).To(Equal(expectedRemovedCount))
+			Expect(added).To(HaveLen(expectedAddedCount))
+			Expect(removed).To(HaveLen(expectedRemovedCount))
 		},
 
 		Entry("sg1-sg1", sg1, sg1, 0, 0),

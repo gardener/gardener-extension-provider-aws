@@ -32,7 +32,6 @@ func (c *Client) GetDNSHostedZones(ctx context.Context) (map[string]string, erro
 		for _, zone := range output.HostedZones {
 			zones[normalizeName(aws.ToString(zone.Name))] = normalizeZoneId(aws.ToString(zone.Id))
 		}
-
 	}
 	return zones, nil
 }
@@ -221,7 +220,7 @@ func newResourceRecords(recordType route53types.RRType, values []string) []route
 func newResourceRecordSets(name string, recordType route53types.RRType, resourceRecords []route53types.ResourceRecord, ttl int64, stack IPStack) []*route53types.ResourceRecordSet {
 	if recordType == route53types.RRTypeCname {
 		loadBalanceHostname := aws.ToString(resourceRecords[0].Value)
-		// if it is a loadbalancer in a known canoncial hosted zone, create resource sets with alias targets for IPv4 and/or IPv6
+		// if it is a loadbalancer in a known canonical hosted zone, create resource sets with alias targets for IPv4 and/or IPv6
 		if zoneId := canonicalHostedZoneId(loadBalanceHostname); zoneId != "" {
 			var rrss []*route53types.ResourceRecordSet
 			for _, recordType := range GetAliasRecordTypes(stack) {
@@ -242,7 +241,7 @@ func newResourceRecordSets(name string, recordType route53types.RRType, resource
 	return []*route53types.ResourceRecordSet{
 		{
 			Name:            aws.String(name),
-			Type:            route53types.RRType(recordType),
+			Type:            recordType,
 			ResourceRecords: resourceRecords,
 			TTL:             aws.Int64(ttl),
 		},

@@ -37,8 +37,8 @@ func NewMutatorWithShootClient(logger logr.Logger) extensionswebhook.MutatorWith
 }
 
 // Mutate mutates resources.
-func (m *mutator) Mutate(ctx context.Context, new, _ client.Object, shootClient client.Client) error {
-	service, ok := new.(*corev1.Service)
+func (m *mutator) Mutate(ctx context.Context, newObj, _ client.Object, shootClient client.Client) error {
+	service, ok := newObj.(*corev1.Service)
 	if !ok {
 		return fmt.Errorf("could not mutate: object is not of type corev1.Service")
 	}

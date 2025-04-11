@@ -13,7 +13,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,7 +42,7 @@ func (hc *customRouteControllerHealthCheck) Check(ctx context.Context, request t
 }
 
 func (hc *customRouteControllerHealthCheck) checkEvents(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
-	list := &v1.EventList{}
+	list := &corev1.EventList{}
 	selector := fields.AndSelectors(fields.OneTermEqualSelector("involvedObject.kind", "ServiceAccount"), fields.OneTermEqualSelector("involvedObject.name", "aws-custom-route-controller"))
 	err := hc.shootClient.List(ctx, list, client.InNamespace(metav1.NamespaceSystem), client.MatchingFieldsSelector{Selector: selector})
 	if err != nil {
@@ -51,14 +51,14 @@ func (hc *customRouteControllerHealthCheck) checkEvents(ctx context.Context, req
 		return nil, err
 	}
 
-	var newestEvent *v1.Event
+	var newestEvent *corev1.Event
 	for i := range list.Items {
 		event := &list.Items[i]
 		if newestEvent == nil || newestEvent.LastTimestamp.Time.Before(event.LastTimestamp.Time) {
 			newestEvent = event
 		}
 	}
-	if newestEvent != nil && newestEvent.Type == v1.EventTypeWarning {
+	if newestEvent != nil && newestEvent.Type == corev1.EventTypeWarning {
 		var codes []gardencorev1beta1.ErrorCode
 		if strings.Contains(newestEvent.Message, "RouteLimitExceeded") {
 			codes = append(codes, gardencorev1beta1.ErrorInfraQuotaExceeded)

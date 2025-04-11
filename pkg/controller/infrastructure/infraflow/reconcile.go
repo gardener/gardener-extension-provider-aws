@@ -57,7 +57,7 @@ func (c *FlowContext) Reconcile(ctx context.Context) error {
 
 func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 	createVPC := c.config.Networks.VPC.ID == nil
-	g := flow.NewGraph("AWS infrastructure reconcilation")
+	g := flow.NewGraph("AWS infrastructure reconciliation")
 
 	ensureDhcpOptions := c.AddTask(g, "ensure DHCP options for VPC",
 		c.ensureDhcpOptions,
@@ -557,7 +557,6 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	}
 
 	for index, zone := range c.config.Networks.Zones {
-
 		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
 			FromPort: 30000,

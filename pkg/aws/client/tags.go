@@ -72,6 +72,7 @@ func (tags Tags) Clone() Tags {
 	return cp
 }
 
+// WithFilters is a builder for EC2 filters.
 func WithFilters() *filterBuilder {
 	return &filterBuilder{}
 }

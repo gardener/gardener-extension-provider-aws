@@ -91,6 +91,7 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	return allErrs
 }
 
+// ValidateWorkersAgainstCloudProfileOnCreation validates the worker configurations against the cloud profile on creation.
 func ValidateWorkersAgainstCloudProfileOnCreation(workers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
@@ -100,6 +101,7 @@ func ValidateWorkersAgainstCloudProfileOnCreation(workers []core.Worker, region 
 	return allErrs
 }
 
+// ValidateWorkersAgainstCloudProfileOnUpdate validates the worker configurations against the cloud profile on update.
 func ValidateWorkersAgainstCloudProfileOnUpdate(oldWorkers, newWorkers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 

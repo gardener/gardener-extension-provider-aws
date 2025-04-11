@@ -369,8 +369,7 @@ func teardownShootEnvironment(ctx context.Context, c client.Client, namespace *c
 }
 
 func setupBastion(ctx context.Context, awsClient *awsclient.Client, c client.Client, name string, cluster *controller.Cluster) (*extensionsv1alpha1.Bastion, *bastionctrl.Options) {
-	bastion, err := newBastion(name)
-	Expect(err).NotTo(HaveOccurred())
+	bastion := newBastion(name)
 
 	options, err := bastionctrl.DetermineOptions(ctx, bastion, cluster, awsClient)
 	Expect(err).NotTo(HaveOccurred())
@@ -506,7 +505,7 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 	return extensionscluster, corecluster
 }
 
-func newBastion(namespace string) (*extensionsv1alpha1.Bastion, error) {
+func newBastion(namespace string) *extensionsv1alpha1.Bastion {
 	randString, err := randomString()
 	Expect(err).NotTo(HaveOccurred())
 
@@ -530,7 +529,7 @@ func newBastion(namespace string) (*extensionsv1alpha1.Bastion, error) {
 				},
 			}},
 		},
-	}, nil
+	}
 }
 
 func randomString() (string, error) {

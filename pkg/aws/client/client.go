@@ -504,7 +504,6 @@ func (c *Client) ListKubernetesELBs(ctx context.Context, vpcID, clusterName stri
 				loadBalancerNamesInVPC = append(loadBalancerNamesInVPC, description.LoadBalancerName)
 			}
 		}
-
 	}
 
 	if len(loadBalancerNamesInVPC) == 0 {
@@ -696,7 +695,7 @@ func (e *RetryableIPv6CIDRError) Error() string {
 	return "no ipv6 CIDR assigned"
 }
 
-// RetryableIPv6CIDRError returns true if the error indicates that getting the IPv6 CIDR can be retried.
+// IsRetryableIPv6CIDRError returns true if the error indicates that getting the IPv6 CIDR can be retried.
 func IsRetryableIPv6CIDRError(err error) bool {
 	_, ok := err.(*RetryableIPv6CIDRError)
 	return ok
@@ -719,7 +718,6 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 
 // WaitForIPv6Cidr waits for the ipv6 cidr block association
 func (c *Client) WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
-
 	maxRetries := 30
 	waitInterval := 10 * time.Second
 	for i := 0; i < maxRetries; i++ {
@@ -739,6 +737,7 @@ func (c *Client) WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, err
 	return "", fmt.Errorf("no IPv6 CIDR Block was assigned to VPC")
 }
 
+// GetIPv6Cidr returns the IPv6 CIDR block for the given VPC ID.
 func (c *Client) GetIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
 	var ipv6CidrBlock string
 	describeVPCInput := &ec2.DescribeVpcsInput{
@@ -1550,7 +1549,7 @@ func (c *Client) CreateCIDRReservation(ctx context.Context, subnet *Subnet, cidr
 	return *output.SubnetCidrReservation.Cidr, nil
 }
 
-// CreateCIDRReservation gets EC2 subnet cidr reservations.
+// GetIPv6CIDRReservations gets the IPv6 CIDR reservations for the given subnet.
 func (c *Client) GetIPv6CIDRReservations(ctx context.Context, subnet *Subnet) ([]string, error) {
 	input := &ec2.GetSubnetCidrReservationsInput{
 		SubnetId: &subnet.SubnetId,
@@ -1582,7 +1581,7 @@ func (c *Client) FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, e
 	return c.describeSubnets(ctx, input)
 }
 
-// ListSubnets lists subnet resources.
+// FindSubnets finds subnets matching the given filters.
 func (c *Client) FindSubnets(ctx context.Context, filters []ec2types.Filter) ([]*Subnet, error) {
 	input := &ec2.DescribeSubnetsInput{Filters: filters}
 	return c.describeSubnets(ctx, input)
@@ -1954,7 +1953,7 @@ func (c *Client) CreateRouteTableAssociation(ctx context.Context, routeTableId, 
 	return output.AssociationId, nil
 }
 
-// DeleteRouteTableAssociation deletes the route table association by the assocation identifier.
+// DeleteRouteTableAssociation deletes the route table association by the association identifier.
 // Returns nil if the resource is not found.
 func (c *Client) DeleteRouteTableAssociation(ctx context.Context, associationId string) error {
 	input := &ec2.DisassociateRouteTableInput{
@@ -2203,6 +2202,7 @@ func ignoreAlreadyAssociated(err error) error {
 	return err
 }
 
+// IgnoreAlreadyDetached ignores the error if it is nil or indicates that the resource was already detached.
 func IgnoreAlreadyDetached(err error) error {
 	if err == nil || IsAlreadyDetachedError(err) {
 		return nil

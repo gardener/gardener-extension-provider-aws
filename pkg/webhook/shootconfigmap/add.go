@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	// WebhookName is the name of the webhook.
 	WebhookName = "shoot-configmap"
 )
 
