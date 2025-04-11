@@ -18,7 +18,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
-	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
@@ -224,15 +224,45 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				className      = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
 			)
 
+			updateConfiguration := machinev1alpha1.UpdateConfiguration{
+				MaxUnavailable: ptr.To(worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum)),
+				MaxSurge:       ptr.To(worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum)),
+			}
+
+			machineDeploymentStrategy := machinev1alpha1.MachineDeploymentStrategy{
+				Type: machinev1alpha1.RollingUpdateMachineDeploymentStrategyType,
+				RollingUpdate: &machinev1alpha1.RollingUpdateMachineDeployment{
+					UpdateConfiguration: updateConfiguration,
+				},
+			}
+
+			switch ptr.Deref(pool.UpdateStrategy, "") {
+			case gardencorev1beta1.AutoInPlaceUpdate:
+				machineDeploymentStrategy = machinev1alpha1.MachineDeploymentStrategy{
+					Type: machinev1alpha1.InPlaceUpdateMachineDeploymentStrategyType,
+					InPlaceUpdate: &machinev1alpha1.InPlaceUpdateMachineDeployment{
+						UpdateConfiguration: updateConfiguration,
+						OrchestrationType:   machinev1alpha1.OrchestrationTypeAuto,
+					},
+				}
+			case gardencorev1beta1.ManualInPlaceUpdate:
+				machineDeploymentStrategy = machinev1alpha1.MachineDeploymentStrategy{
+					Type: machinev1alpha1.InPlaceUpdateMachineDeploymentStrategyType,
+					InPlaceUpdate: &machinev1alpha1.InPlaceUpdateMachineDeployment{
+						UpdateConfiguration: updateConfiguration,
+						OrchestrationType:   machinev1alpha1.OrchestrationTypeManual,
+					},
+				}
+			}
+
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
-				Name:           deploymentName,
-				ClassName:      className,
-				SecretName:     className,
-				Minimum:        worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
-				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
-				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
-				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
-				Priority:       pool.Priority,
+				Name:       deploymentName,
+				ClassName:  className,
+				SecretName: className,
+				PoolName:   pool.Name,
+				Minimum:    worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
+				Maximum:    worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
+				Priority:   pool.Priority,
 				// add aws csi driver topology label if it's not specified
 				Labels: utils.MergeStringMaps(pool.Labels, map[string]string{
 					CSIDriverTopologyKey:     zone,
@@ -242,6 +272,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				Taints:                       pool.Taints,
 				MachineConfiguration:         genericworkeractuator.ReadMachineConfiguration(pool),
 				ClusterAutoscalerAnnotations: extensionsv1alpha1helper.GetMachineDeploymentClusterAutoscalerAnnotations(pool.ClusterAutoscaler),
+				Strategy:                     machineDeploymentStrategy,
 			})
 
 			machineClassSpec["name"] = className
@@ -318,7 +349,6 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 
 func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
 	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
-
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -391,28 +421,7 @@ func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
 	var additionalData []string = computeAdditionalHashDataV1(pool)
 
-	if opts := workerConfig.CpuOptions; opts != nil {
-		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
-		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
-	}
-
-	if instanceProfile := workerConfig.IAMInstanceProfile; instanceProfile != nil {
-		if arn := instanceProfile.ARN; arn != nil {
-			additionalData = append(additionalData, *arn)
-		}
-		if name := instanceProfile.Name; name != nil {
-			additionalData = append(additionalData, *name)
-		}
-	}
-
-	if instanceMetadataOptions := workerConfig.InstanceMetadataOptions; instanceMetadataOptions != nil {
-		if tokens := instanceMetadataOptions.HTTPTokens; tokens != nil {
-			additionalData = append(additionalData, string(*tokens))
-		}
-		if putResponseHopLimit := instanceMetadataOptions.HTTPPutResponseHopLimit; putResponseHopLimit != nil {
-			additionalData = append(additionalData, fmt.Sprint(*putResponseHopLimit))
-		}
-	}
+	additionalData = append(additionalData, CalculateWorkerConfigDataHash(workerConfig)...)
 
 	return additionalData
 }
@@ -473,7 +482,7 @@ func isIPv6(c *controller.Cluster) bool {
 	if networking != nil {
 		ipFamilies := networking.IPFamilies
 		if ipFamilies != nil {
-			if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
+			if slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6) {
 				return true
 			}
 		}
