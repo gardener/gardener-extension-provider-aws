@@ -99,7 +99,7 @@ var _ = Describe("Helper", func() {
 		Entry("profile entry not found (version does not exist)", makeProfileMachineImages("ubuntu", "2", "europe", "0", ptr.To("foo")), "ubuntu", "1", "europe", ptr.To("foo"), ""),
 		Entry("profile entry not found (architecture does not exist)", makeProfileMachineImages("ubuntu", "1", "europe", "0", ptr.To("bar")), "ubuntu", "1", "europe", ptr.To("foo"), ""),
 		Entry("profile entry", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234", ptr.To("foo")), "ubuntu", "1", "europe", ptr.To("foo"), "ami-1234"),
-		Entry("profile non matching region", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234", ptr.To("foo")), "ubuntu", "1", "china", ptr.To("foo"), ""),
+		Entry("profile non matching region", makeProfileMachineImages("ubuntu", "1", "us-west", "ami-1234", ptr.To("foo")), "ubuntu", "1", "china", ptr.To("foo"), ""),
 	)
 
 	DescribeTable("#FindDataVolumeByName",
