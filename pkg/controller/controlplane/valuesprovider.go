@@ -277,6 +277,30 @@ var (
 					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
 				},
 			},
+			{
+				Name: aws.CSIEfsNodeName,
+				Images: []string{
+					aws.CSIDriverEfsImageName,
+					aws.CSINodeDriverRegistrarImageName,
+					aws.CSILivenessProbeImageName,
+					aws.CSIProvisionerImageName,
+				},
+				Objects: []*chart.Object{
+					// csi-driver-efs-node
+					{Type: &appsv1.DaemonSet{}, Name: aws.CSIEfsNodeName},
+					{Type: &storagev1.CSIDriver{}, Name: "efs.csi.aws.com"},
+					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-node-sa"},
+					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-node-role"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-node-binding"},
+					// csi-driver-efs-controller
+					{Type: &appsv1.Deployment{}, Name: "efs-csi-controller"},
+					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-controller-sa"},
+					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role"},
+					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role-describe-secrets"},
+					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-provisioner-binding"},
+					{Type: &rbacv1.RoleBinding{}, Name: "efs-csi-provisioner-binding"},
+				},
+			},
 		},
 	}
 
@@ -354,20 +378,14 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 ) (map[string]interface{}, error) {
-	// Decode providerConfig
-	cpConfig := &apisaws.ControlPlaneConfig{}
-	if cp.Spec.ProviderConfig != nil {
-		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
-		}
+	cpConfig, err := vp.decodeControlPlaneConfig(cp)
+	if err != nil {
+		return nil, err
 	}
 
-	// Decode infrastructureProviderStatus
-	infraStatus := &apisaws.InfrastructureStatus{}
-	if cp.Spec.InfrastructureProviderStatus != nil {
-		if _, _, err := vp.decoder.Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
-			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
-		}
+	infraStatus, err := vp.decodeInfrastructureStatus(cp)
+	if err != nil {
+		return nil, err
 	}
 
 	// TODO(AndreasBurger): rm in future release.
@@ -399,12 +417,19 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 	secretsReader secretsmanager.Reader,
 	_ map[string]string,
 ) (map[string]interface{}, error) {
-	// Decode providerConfig
-	cpConfig := &apisaws.ControlPlaneConfig{}
-	if cp.Spec.ProviderConfig != nil {
-		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
-			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
-		}
+	cpConfig, err := vp.decodeControlPlaneConfig(cp)
+	if err != nil {
+		return nil, err
+	}
+
+	infraStatus, err := vp.decodeInfrastructureStatus(cp)
+	if err != nil {
+		return nil, err
+	}
+
+	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
+	if err != nil {
+		return nil, err
 	}
 
 	useWorkloadIdentity, err := shouldUseWorkloadIdentity(ctx, vp.client, cp.Spec.SecretRef.Name, cp.Spec.SecretRef.Namespace)
@@ -412,7 +437,7 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 		return nil, err
 	}
 
-	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader, useWorkloadIdentity)
+	return getControlPlaneShootChartValues(cluster, cpConfig, cp, secretsReader, infraConfig, infraStatus, useWorkloadIdentity)
 }
 
 // GetControlPlaneShootCRDsChartValues returns the values for the control plane shoot CRDs chart applied by the generic actuator.
@@ -465,6 +490,26 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 	return map[string]interface{}{
 		"managedDefaultClass": managedDefaultClass,
 	}, nil
+}
+
+func (vp *valuesProvider) decodeControlPlaneConfig(cp *extensionsv1alpha1.ControlPlane) (*apisaws.ControlPlaneConfig, error) {
+	cpConfig := &apisaws.ControlPlaneConfig{}
+	if cp.Spec.ProviderConfig != nil {
+		if _, _, err := vp.decoder.Decode(cp.Spec.ProviderConfig.Raw, nil, cpConfig); err != nil {
+			return nil, fmt.Errorf("could not decode providerConfig of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
+		}
+	}
+	return cpConfig, nil
+}
+
+func (vp *valuesProvider) decodeInfrastructureStatus(cp *extensionsv1alpha1.ControlPlane) (*apisaws.InfrastructureStatus, error) {
+	infraStatus := &apisaws.InfrastructureStatus{}
+	if cp.Spec.InfrastructureProviderStatus != nil {
+		if _, _, err := vp.decoder.Decode(cp.Spec.InfrastructureProviderStatus.Raw, nil, infraStatus); err != nil {
+			return nil, fmt.Errorf("could not decode infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
+		}
+	}
+	return infraStatus, nil
 }
 
 // getConfigChartValues collects and returns the configuration chart values.
@@ -816,6 +861,8 @@ func getControlPlaneShootChartValues(
 	cpConfig *apisaws.ControlPlaneConfig,
 	cp *extensionsv1alpha1.ControlPlane,
 	secretsReader secretsmanager.Reader,
+	infraConfig *apisaws.InfrastructureConfig,
+	infraStatus *apisaws.InfrastructureStatus,
 	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
 	kubernetesVersion := cluster.Shoot.Spec.Kubernetes.Version
@@ -855,7 +902,28 @@ func getControlPlaneShootChartValues(
 		aws.AWSIPAMControllerImageName:    map[string]interface{}{"enabled": ipamControllerEnabled},
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
+		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
 	}, nil
+}
+
+func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
+	return infraConfig != nil && infraConfig.EnableCsiEfs != nil && *infraConfig.EnableCsiEfs
+}
+
+func getControlPlaneShootChartCSIEfsValues(
+	infraConfig *apisaws.InfrastructureConfig,
+	infraStatus *apisaws.InfrastructureStatus,
+) map[string]interface{} {
+	csiEsfEnabled := isCSIEfsEnabled(infraConfig)
+	values := map[string]interface{}{
+		"enabled": csiEsfEnabled,
+	}
+
+	if csiEsfEnabled {
+		values["fileSystemID"] = infraStatus.CSI.EfsSystemID
+	}
+
+	return values
 }
 
 func cleanupSeedLegacyCSISnapshotValidation(

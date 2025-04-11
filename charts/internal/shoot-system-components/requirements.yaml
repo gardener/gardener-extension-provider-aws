@@ -19,3 +19,7 @@ dependencies:
   repository: http://localhost:10191
   version: 0.1.0
   condition: aws-ipam-controller.enabled
+- name: csi-driver-efs-node
+  repository: http://localhost:10191
+  version: 0.1.0
+  condition: csi-driver-efs-node.enabled
