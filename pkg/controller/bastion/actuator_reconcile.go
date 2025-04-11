@@ -288,6 +288,11 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 		},
 	}
 
+	if opt.IPv6 {
+		input.NetworkInterfaces[0].Ipv6AddressCount = aws.Int32(1)
+		input.NetworkInterfaces[0].PrimaryIpv6 = aws.Bool(true)
+	}
+
 	logger.Info("Running new bastion instance")
 
 	_, err = awsClient.EC2.RunInstances(ctx, input)
