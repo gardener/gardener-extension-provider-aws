@@ -36,12 +36,14 @@ linters:
         # gardener/gardener packages
         - pkg: github.com/gardener/gardener/pkg/component/(\w+)/constants
           alias: ${1}constants
-        - pkg: github.com/gardener/gardener/pkg/utils/(\w+)
-          alias: ${1}utils
         - pkg: github.com/gardener/gardener/extensions/pkg/webhook
           alias: extensionswebhook
         - pkg: github.com/gardener/gardener/extensions/pkg/util/secret/manager
           alias: extensionssecretsmanager
+        - pkg: github.com/gardener/gardener/pkg/utils/gardener
+          alias: gutil
+        - pkg: github.com/gardener/gardener/pkg/utils/kubernetes
+          alias: kutil
     loggercheck:
       require-string-key: true
       no-printf-like: true

@@ -83,6 +83,7 @@ func (d *delegateFactory) WorkerDelegate(_ context.Context, worker *extensionsv1
 	)
 }
 
+// WorkerDelegate is a delegate for the worker actuator that contains all information needed to reconcile a worker.
 type WorkerDelegate struct {
 	client  client.Client
 	decoder runtime.Decoder

@@ -443,6 +443,7 @@ type Route struct {
 	DestinationPrefixListId     *string
 }
 
+// DestinationId returns the destination id of the route.
 func (r *Route) DestinationId() (string, error) {
 	if v := ptr.Deref(r.DestinationCidrBlock, ""); v != "" {
 		return v, nil

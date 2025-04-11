@@ -13,8 +13,8 @@ import (
 
 	"github.com/gardener/gardener/test/testmachinery/extensions/generator"
 	"github.com/go-logr/logr"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -56,15 +56,15 @@ func addFlags() {
 func main() {
 	addFlags()
 	flag.Parse()
-	log.SetLogger(zap.New(zap.UseDevMode(false)))
-	logger = log.Log.WithName("aws-generator")
+	logf.SetLogger(zap.New(zap.UseDevMode(false)))
+	logger = logf.Log.WithName("aws-generator")
 	if err := validate(); err != nil {
 		logger.Error(err, "error validating input flags")
 		os.Exit(1)
 	}
 
 	infra := v1alpha1.InfrastructureConfig{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha1.SchemeGroupVersion.String(),
 			Kind:       reflect.TypeOf(v1alpha1.InfrastructureConfig{}).Name(),
 		},
@@ -84,7 +84,7 @@ func main() {
 	}
 
 	cp := v1alpha1.ControlPlaneConfig{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha1.SchemeGroupVersion.String(),
 			Kind:       reflect.TypeOf(v1alpha1.ControlPlaneConfig{}).Name(),
 		},

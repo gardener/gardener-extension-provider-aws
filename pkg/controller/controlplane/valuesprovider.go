@@ -30,14 +30,14 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/policy/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -130,7 +130,7 @@ var (
 					{Type: &corev1.ConfigMap{}, Name: aws.CloudControllerManagerName + "-observability-config"},
 					{Type: &monitoringv1.ServiceMonitor{}, Name: "shoot-cloud-controller-manager"},
 					{Type: &monitoringv1.PrometheusRule{}, Name: "shoot-cloud-controller-manager"},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
 				},
 			},
 			{
@@ -141,7 +141,7 @@ var (
 					{Type: &rbacv1.Role{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSCustomRouteControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
 				},
 				SubCharts: nil,
 			},
@@ -153,7 +153,7 @@ var (
 					{Type: &rbacv1.Role{}, Name: aws.AWSIPAMControllerName},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSIPAMControllerName},
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSIPAMControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSIPAMControllerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSIPAMControllerName + "-vpa"},
 				},
 				SubCharts: nil,
 			},
@@ -162,7 +162,7 @@ var (
 				Images: []string{aws.AWSLoacBalancerControllerImageName},
 				Objects: []*chart.Object{
 					{Type: &appsv1.Deployment{}, Name: aws.AWSLoadBalancerControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSLoadBalancerControllerName},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSLoadBalancerControllerName},
 					{Type: &corev1.Service{}, Name: awsLoadBalancerControllerWebhook},
 					{Type: &corev1.Service{}, Name: aws.AWSLoadBalancerControllerName},
 				},
@@ -182,11 +182,11 @@ var (
 				Objects: []*chart.Object{
 					// csi-driver-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSIControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
 					{Type: &corev1.ConfigMap{}, Name: aws.CSIControllerName + "-observability-config"},
 					// csi-snapshot-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
 				},
 			},
 		},
@@ -227,7 +227,7 @@ var (
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSLoadBalancerControllerName},
 					{Type: &admissionregistrationv1.MutatingWebhookConfiguration{}, Name: aws.AWSLoadBalancerControllerName + "-webhook"},
 					{Type: &admissionregistrationv1.ValidatingWebhookConfiguration{}, Name: aws.AWSLoadBalancerControllerName + "-webhook"},
-					{Type: &v1.PodDisruptionBudget{}, Name: aws.AWSLoadBalancerControllerName},
+					{Type: &policyv1.PodDisruptionBudget{}, Name: aws.AWSLoadBalancerControllerName},
 				},
 			},
 			{
