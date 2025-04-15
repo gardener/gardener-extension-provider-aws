@@ -15,7 +15,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
-	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
+	extensionssecretmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -53,8 +53,8 @@ const (
 	awsLoadBalancerControllerWebhook = aws.AWSLoadBalancerControllerName + "-webhook-service"
 )
 
-func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfigWithOptions {
-	return []extensionssecretsmanager.SecretConfigWithOptions{
+func secretConfigsFunc(namespace string) []extensionssecretmanager.SecretConfigWithOptions {
+	return []extensionssecretmanager.SecretConfigWithOptions{
 		{
 			Config: &secretutils.CertificateSecretConfig{
 				Name:       caNameControlPlane,
