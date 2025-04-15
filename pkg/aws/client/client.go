@@ -321,7 +321,6 @@ func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix str
 	if bucketVersioningStatus != nil && bucketVersioningStatus.Status == s3types.BucketVersioningStatusEnabled {
 		// object versioning is found to be enabled on the bucket
 		return deleteVersionedObjectsWithPrefix(ctx, c.S3, bucket, prefix)
-
 	}
 	return deleteObjectsWithPrefix(ctx, c.S3, bucket, prefix)
 }
@@ -464,7 +463,6 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, backup
 
 // UpdateBucket updates the bucket with provided backupbucket Configuration.
 func (c *Client) UpdateBucket(ctx context.Context, bucket string, backupbucketConfig *apisaws.BackupBucketConfig, isVersioningEnabled bool) error {
-
 	// As a prerequisite for enabling immutable(object lock) settings,
 	// enable the versioning on the bucket if versioning is not enabled.
 	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil && !isVersioningEnabled {

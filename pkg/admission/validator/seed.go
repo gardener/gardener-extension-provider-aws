@@ -138,7 +138,7 @@ func (s *seedValidator) validateImmutabilityUpdate(oldConfig, newConfig *apisaws
 		return allErrs
 	}
 
-	// TODO: @ishan16696 uncomment this peice of code, so once disablement of the immutability settings on bucket is not allowed.
+	// TODO: @ishan16696 uncomment this piece of code, so once disablement of the immutability settings on bucket is not allowed.
 	/*
 		if newConfig == nil || newConfig.Immutability == nil || *newConfig.Immutability == (apisaws.ImmutableConfig{}) {
 			allErrs = append(allErrs, field.Invalid(immutabilityPath, newConfig, "immutability cannot be disabled"))
