@@ -15,7 +15,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
-	extensionssecretsmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
+	extensionssecretmanager "github.com/gardener/gardener/extensions/pkg/util/secret/manager"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -30,14 +30,14 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/policy/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	autoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
+	vpaautoscalingv1 "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -53,8 +53,8 @@ const (
 	awsLoadBalancerControllerWebhook = aws.AWSLoadBalancerControllerName + "-webhook-service"
 )
 
-func secretConfigsFunc(namespace string) []extensionssecretsmanager.SecretConfigWithOptions {
-	return []extensionssecretsmanager.SecretConfigWithOptions{
+func secretConfigsFunc(namespace string) []extensionssecretmanager.SecretConfigWithOptions {
+	return []extensionssecretmanager.SecretConfigWithOptions{
 		{
 			Config: &secretutils.CertificateSecretConfig{
 				Name:       caNameControlPlane,
@@ -130,7 +130,7 @@ var (
 					{Type: &corev1.ConfigMap{}, Name: aws.CloudControllerManagerName + "-observability-config"},
 					{Type: &monitoringv1.ServiceMonitor{}, Name: "shoot-cloud-controller-manager"},
 					{Type: &monitoringv1.PrometheusRule{}, Name: "shoot-cloud-controller-manager"},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
 				},
 			},
 			{
@@ -141,7 +141,7 @@ var (
 					{Type: &rbacv1.Role{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSCustomRouteControllerName},
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSCustomRouteControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSCustomRouteControllerName + "-vpa"},
 				},
 				SubCharts: nil,
 			},
@@ -153,7 +153,7 @@ var (
 					{Type: &rbacv1.Role{}, Name: aws.AWSIPAMControllerName},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.AWSIPAMControllerName},
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSIPAMControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSIPAMControllerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSIPAMControllerName + "-vpa"},
 				},
 				SubCharts: nil,
 			},
@@ -162,7 +162,7 @@ var (
 				Images: []string{aws.AWSLoacBalancerControllerImageName},
 				Objects: []*chart.Object{
 					{Type: &appsv1.Deployment{}, Name: aws.AWSLoadBalancerControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSLoadBalancerControllerName},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.AWSLoadBalancerControllerName},
 					{Type: &corev1.Service{}, Name: awsLoadBalancerControllerWebhook},
 					{Type: &corev1.Service{}, Name: aws.AWSLoadBalancerControllerName},
 				},
@@ -182,11 +182,11 @@ var (
 				Objects: []*chart.Object{
 					// csi-driver-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSIControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
 					{Type: &corev1.ConfigMap{}, Name: aws.CSIControllerName + "-observability-config"},
 					// csi-snapshot-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotControllerName},
-					{Type: &autoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
+					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
 				},
 			},
 		},
@@ -227,7 +227,7 @@ var (
 					{Type: &corev1.ServiceAccount{}, Name: aws.AWSLoadBalancerControllerName},
 					{Type: &admissionregistrationv1.MutatingWebhookConfiguration{}, Name: aws.AWSLoadBalancerControllerName + "-webhook"},
 					{Type: &admissionregistrationv1.ValidatingWebhookConfiguration{}, Name: aws.AWSLoadBalancerControllerName + "-webhook"},
-					{Type: &v1.PodDisruptionBudget{}, Name: aws.AWSLoadBalancerControllerName},
+					{Type: &policyv1.PodDisruptionBudget{}, Name: aws.AWSLoadBalancerControllerName},
 				},
 			},
 			{
@@ -514,10 +514,7 @@ func getControlPlaneChartValues(
 		return nil, err
 	}
 
-	crc, err := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown, useWorkloadIdentity)
-	if err != nil {
-		return nil, err
-	}
+	crc := getCRCChartValues(cpConfig, cp, cluster, checksums, scaledDown, useWorkloadIdentity)
 
 	ipam, err := getIPAMChartValues(cp, cluster, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
@@ -598,7 +595,7 @@ func getCRCChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 	useWorkloadIdentity bool,
-) (map[string]interface{}, error) {
+) map[string]interface{} {
 	mode := "ipv4"
 	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil {
 		if slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) && !slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv4) {
@@ -626,7 +623,7 @@ func getCRCChartValues(
 		values["replicas"] = 0
 	}
 
-	return values, nil
+	return values
 }
 
 // getIPAMChartValues collects and returns the ipam-controller chart values.
@@ -774,7 +771,6 @@ func getCSIControllerChartValues(
 	scaledDown bool,
 	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
-
 	values := map[string]interface{}{
 		"enabled":  true,
 		"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),

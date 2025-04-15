@@ -115,6 +115,7 @@ var _ = Describe("Helper", func() {
 	)
 })
 
+//nolint:unparam
 func makeProfileMachineImages(name, version, region, ami string, arch *string) []api.MachineImages {
 	versions := []api.MachineImageVersion{
 		{

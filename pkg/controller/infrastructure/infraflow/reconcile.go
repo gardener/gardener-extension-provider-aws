@@ -57,7 +57,7 @@ func (c *FlowContext) Reconcile(ctx context.Context) error {
 
 func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 	createVPC := c.config.Networks.VPC.ID == nil
-	g := flow.NewGraph("AWS infrastructure reconcilation")
+	g := flow.NewGraph("AWS infrastructure reconciliation")
 
 	ensureDhcpOptions := c.AddTask(g, "ensure DHCP options for VPC",
 		c.ensureDhcpOptions,
@@ -260,7 +260,7 @@ func (c *FlowContext) ensureExistingVpc(ctx context.Context) error {
 	}
 	gw, err := c.client.FindInternetGatewayByVPC(ctx, vpcID)
 	if err != nil {
-		return fmt.Errorf("Internet Gateway not found for VPC %s", vpcID)
+		return fmt.Errorf("internet Gateway not found for VPC %s", vpcID)
 	}
 	c.state.Set(IdentifierInternetGateway, gw.InternetGatewayId)
 
@@ -557,7 +557,6 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	}
 
 	for index, zone := range c.config.Networks.Zones {
-
 		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
 			FromPort: 30000,

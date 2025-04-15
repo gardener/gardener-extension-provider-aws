@@ -19,6 +19,7 @@ import (
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
+// ErrorMultipleMatches is returned when multiple matches are found
 var ErrorMultipleMatches = fmt.Errorf("error multiple matches")
 
 type zoneDependencies map[string][]flow.TaskIDer
@@ -68,11 +69,11 @@ outerCreate:
 	return
 }
 
+// FindExisting is a generic function to find resources based on their ID or tags.
 func FindExisting[T any](ctx context.Context, id *string, tags awsclient.Tags,
 	getter func(ctx context.Context, id string) (*T, error),
 	finder func(ctx context.Context, tags awsclient.Tags) ([]*T, error),
 	selector ...func(item *T) bool) (*T, error) {
-
 	if id != nil {
 		found, err := getter(ctx, *id)
 		if err != nil {
@@ -119,6 +120,7 @@ type waiter struct {
 	done          chan struct{}
 }
 
+//nolint:unparam
 func informOnWaiting(log logr.Logger, period time.Duration, message string, keysAndValues ...any) *waiter {
 	w := &waiter{
 		log:           log,
@@ -157,17 +159,6 @@ func (w *waiter) Done(err error) {
 	} else {
 		w.log.Info("succeeded")
 	}
-}
-
-func copyMap(src map[string]string) map[string]string {
-	if src == nil {
-		return nil
-	}
-	dst := map[string]string{}
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
 }
 
 func deref[T any](ts []*T) []T {

@@ -155,7 +155,7 @@ func getRegion(dns *extensionsv1alpha1.DNSRecord, credentials *awsclient.AuthCon
 	case dns.Spec.Region != nil && *dns.Spec.Region != "":
 		return *dns.Spec.Region
 	case len(credentials.Region) > 0:
-		return string(credentials.Region)
+		return credentials.Region
 	default:
 		return aws.DefaultDNSRegion
 	}
