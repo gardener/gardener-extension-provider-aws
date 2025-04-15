@@ -260,7 +260,7 @@ func (c *FlowContext) ensureExistingVpc(ctx context.Context) error {
 	}
 	gw, err := c.client.FindInternetGatewayByVPC(ctx, vpcID)
 	if err != nil {
-		return fmt.Errorf("Internet Gateway not found for VPC %s", vpcID)
+		return fmt.Errorf("internet Gateway not found for VPC %s", vpcID)
 	}
 	c.state.Set(IdentifierInternetGateway, gw.InternetGatewayId)
 
