@@ -39,7 +39,7 @@ linters:
         - pkg: github.com/gardener/gardener/extensions/pkg/webhook
           alias: extensionswebhook
         - pkg: github.com/gardener/gardener/extensions/pkg/util/secret/manager
-          alias: extensionssecretsmanager
+          alias: extensionssecretmanager
         - pkg: github.com/gardener/gardener/pkg/utils/gardener
           alias: gutil
         - pkg: github.com/gardener/gardener/pkg/utils/kubernetes
