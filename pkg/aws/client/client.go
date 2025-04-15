@@ -303,11 +303,6 @@ func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]s
 	return result, nil
 }
 
-// GetS3Client returns the S3 client
-func (c *Client) GetS3Client() s3.Client {
-	return c.S3
-}
-
 // DeleteObjectsWithPrefix deletes the s3 objects with the specific <prefix> from <bucket>. If it does not exist,
 // no error is returned.
 func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error {
@@ -342,6 +337,7 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, backup
 	}
 
 	// If immutability settings are provided then create bucket with object lock enabled.
+	// Note: while creating a bucket with object lock enabled, object versioning will automatically gets enabled.
 	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil {
 		createBucketInput.ObjectLockEnabledForBucket = aws.Bool(true)
 	}
@@ -469,7 +465,7 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, backup
 // UpdateBucket updates the bucket with provided backupbucket Configuration.
 func (c *Client) UpdateBucket(ctx context.Context, bucket string, backupbucketConfig *apisaws.BackupBucketConfig, isVersioningEnabled bool) error {
 
-	// As a prerequisite for enabling immutable settings,
+	// As a prerequisite for enabling immutable(object lock) settings,
 	// enable the versioning on the bucket if versioning is not enabled.
 	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil && !isVersioningEnabled {
 		input := &s3.PutBucketVersioningInput{
@@ -525,6 +521,24 @@ func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error 
 		return err
 	}
 	return nil
+}
+
+// GetBucketVersioningStatus is wrapper for S3's API GetBucketVersioning to get bucket versioning status
+func (c *Client) GetBucketVersioningStatus(ctx context.Context, bucket string) (*s3.GetBucketVersioningOutput, error) {
+	bucketVersioningStatus, err := c.S3.GetBucketVersioning(ctx, &s3.GetBucketVersioningInput{
+		Bucket: aws.String(bucket),
+	})
+
+	return bucketVersioningStatus, err
+}
+
+// GetObjectLockConfiguration is wrapper for S3's API GetObjectLockConfiguration to get object lock settings.
+func (c *Client) GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error) {
+	objectConfig, err := c.S3.GetObjectLockConfiguration(ctx, &s3.GetObjectLockConfigurationInput{
+		Bucket: aws.String(bucket),
+	})
+
+	return objectConfig, err
 }
 
 // The following functions are only temporary needed due to https://github.com/gardener/gardener/issues/129.

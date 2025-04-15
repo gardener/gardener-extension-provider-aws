@@ -957,6 +957,21 @@ func (mr *MockInterfaceMockRecorder) GetAccountID(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountID", reflect.TypeOf((*MockInterface)(nil).GetAccountID), ctx)
 }
 
+// GetBucketVersioningStatus mocks base method.
+func (m *MockInterface) GetBucketVersioningStatus(ctx context.Context, bucket string) (*s3.GetBucketVersioningOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBucketVersioningStatus", ctx, bucket)
+	ret0, _ := ret[0].(*s3.GetBucketVersioningOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBucketVersioningStatus indicates an expected call of GetBucketVersioningStatus.
+func (mr *MockInterfaceMockRecorder) GetBucketVersioningStatus(ctx, bucket any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBucketVersioningStatus", reflect.TypeOf((*MockInterface)(nil).GetBucketVersioningStatus), ctx, bucket)
+}
+
 // GetDHCPOptions mocks base method.
 func (m *MockInterface) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error) {
 	m.ctrl.T.Helper()
@@ -1167,6 +1182,21 @@ func (mr *MockInterfaceMockRecorder) GetNATGatewayAddressAllocations(ctx, shootN
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNATGatewayAddressAllocations", reflect.TypeOf((*MockInterface)(nil).GetNATGatewayAddressAllocations), ctx, shootNamespace)
 }
 
+// GetObjectLockConfiguration mocks base method.
+func (m *MockInterface) GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetObjectLockConfiguration", ctx, bucket)
+	ret0, _ := ret[0].(*s3.GetObjectLockConfigurationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetObjectLockConfiguration indicates an expected call of GetObjectLockConfiguration.
+func (mr *MockInterfaceMockRecorder) GetObjectLockConfiguration(ctx, bucket any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObjectLockConfiguration", reflect.TypeOf((*MockInterface)(nil).GetObjectLockConfiguration), ctx, bucket)
+}
+
 // GetRouteTable mocks base method.
 func (m *MockInterface) GetRouteTable(ctx context.Context, id string) (*client.RouteTable, error) {
 	m.ctrl.T.Helper()
@@ -1180,20 +1210,6 @@ func (m *MockInterface) GetRouteTable(ctx context.Context, id string) (*client.R
 func (mr *MockInterfaceMockRecorder) GetRouteTable(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRouteTable", reflect.TypeOf((*MockInterface)(nil).GetRouteTable), ctx, id)
-}
-
-// GetS3Client mocks base method.
-func (m *MockInterface) GetS3Client() s3.Client {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetS3Client")
-	ret0, _ := ret[0].(s3.Client)
-	return ret0
-}
-
-// GetS3Client indicates an expected call of GetS3Client.
-func (mr *MockInterfaceMockRecorder) GetS3Client() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetS3Client", reflect.TypeOf((*MockInterface)(nil).GetS3Client))
 }
 
 // GetSecurityGroup mocks base method.
