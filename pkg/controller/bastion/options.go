@@ -36,6 +36,7 @@ type Options struct {
 	InstanceName             string
 	InstanceType             string
 	ImageID                  string
+	IPv6                     bool
 
 	// set later during reconciling phase
 	BastionSecurityGroupID string
@@ -88,6 +89,8 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		return nil, fmt.Errorf("failed to find image AMI by region: %w", err)
 	}
 
+	ipV6 := cluster.Shoot.Spec.Networking != nil && slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, gardencorev1beta1.IPFamilyIPv6)
+
 	return &Options{
 		Shoot:                    cluster.Shoot,
 		SubnetID:                 subnetID,
@@ -98,6 +101,7 @@ func DetermineOptions(ctx context.Context, bastion *extensionsv1alpha1.Bastion, 
 		InstanceName:             instanceName,
 		InstanceType:             vmDetails.MachineTypeName,
 		ImageID:                  ami,
+		IPv6:                     ipV6,
 	}, nil
 }
 
