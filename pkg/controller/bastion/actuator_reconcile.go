@@ -413,7 +413,7 @@ func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, vpcID st
 	groups, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   aws.String("vpc-id"),
+				Name:   aws.String(awsclient.FilterVpcID),
 				Values: []string{vpcID},
 			},
 			{
