@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
@@ -24,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	awsV2 "github.com/aws/aws-sdk-go-v2/aws"
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -148,7 +148,7 @@ var _ = Describe("Actuator", func() {
 
 		Context("when decoder failed to decode backupBucket provider config", func() {
 			BeforeEach(func() {
-				// wrong "providerConfig" is created
+				// wrong "providerConfig" is passed
 				backupBucket.Spec.ProviderConfig = &runtime.RawExtension{
 					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1","kind": "BackupBucketConfig","immutability":{"retentionType":"bucket","retentionPeriod":"24h","mo":"compliance"}}`),
 				}
@@ -267,7 +267,7 @@ var _ = Describe("Actuator", func() {
 									ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
 									Rule: &s3types.ObjectLockRule{
 										DefaultRetention: &s3types.DefaultRetention{
-											Days: awsV2.Int32(1),
+											Days: awsv2.Int32(1),
 											Mode: s3types.ObjectLockRetentionModeCompliance,
 										},
 									},
@@ -294,7 +294,7 @@ var _ = Describe("Actuator", func() {
 									ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
 									Rule: &s3types.ObjectLockRule{
 										DefaultRetention: &s3types.DefaultRetention{
-											Days: awsV2.Int32(1),
+											Days: awsv2.Int32(1),
 											Mode: s3types.ObjectLockRetentionModeGovernance,
 										},
 									},
@@ -341,7 +341,7 @@ var _ = Describe("Actuator", func() {
 									ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
 									Rule: &s3types.ObjectLockRule{
 										DefaultRetention: &s3types.DefaultRetention{
-											Days: awsV2.Int32(1),
+											Days: awsv2.Int32(1),
 											Mode: s3types.ObjectLockRetentionModeCompliance,
 										},
 									},
@@ -403,6 +403,5 @@ var _ = Describe("Actuator", func() {
 			err := a.Delete(ctx, logger, backupBucket)
 			Expect(err).Should(HaveOccurred())
 		})
-
 	})
 })
