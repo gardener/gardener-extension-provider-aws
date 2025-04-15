@@ -69,7 +69,7 @@ outerCreate:
 	return
 }
 
-// FindExisting is a generic function to find resources based on its ID or tags.
+// FindExisting is a generic function to find resources based on their ID or tags.
 func FindExisting[T any](ctx context.Context, id *string, tags awsclient.Tags,
 	getter func(ctx context.Context, id string) (*T, error),
 	finder func(ctx context.Context, tags awsclient.Tags) ([]*T, error),
