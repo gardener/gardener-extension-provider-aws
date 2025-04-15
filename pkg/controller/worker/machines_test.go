@@ -524,7 +524,7 @@ var _ = Describe("Machines", func() {
 						"instanceMetadataOptions": map[string]interface{}{},
 						"operatingSystem": map[string]interface{}{
 							"operatingSystemName":    machineImageName,
-							"operatingSystemVersion": strings.Replace(machineImageVersion, "+", "_", -1),
+							"operatingSystemVersion": strings.ReplaceAll(machineImageVersion, "+", "_"),
 						},
 					}
 
