@@ -1,5 +1,5 @@
 gardener-extension-provider-aws:
-  templates: 
+  templates:
     helmcharts:
     - &provider-aws
       name: provider-aws
@@ -43,6 +43,9 @@ gardener-extension-provider-aws:
         preprocess: 'inject-commit-hash'
       publish:
         oci-builder: 'docker-buildx'
+        platforms:
+        - 'linux/x86_64'
+        - 'linux/arm64'
         dockerimages:
           gardener-extension-provider-aws:
             image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/extensions/provider-aws
