@@ -86,6 +86,8 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 		if isBucketUpdateRequired(ctx, awsClient, bb.Name, backupbucketConfig) {
 			return util.DetermineError(awsClient.UpdateBucket(ctx, bb.Name, backupbucketConfig, true), helper.KnownCodes)
 		}
+		// do nothing if bucket configurations isn't required to be updated.
+		return nil
 	}
 
 	// bucket versioning is not found to be enabled on the bucket,

@@ -349,7 +349,6 @@ var _ = Describe("Actuator", func() {
 							}, nil
 						},
 					)
-					awsClient.EXPECT().UpdateBucket(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).ShouldNot(HaveOccurred())
