@@ -485,6 +485,7 @@ func (c *Client) UpdateBucket(ctx context.Context, bucket string, backupbucketCo
 				ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
 				Rule: &s3types.ObjectLockRule{
 					DefaultRetention: &s3types.DefaultRetention{
+						// #nosec G115
 						Days: aws.Int32(int32(backupbucketConfig.Immutability.RetentionPeriod.Duration / (24 * time.Hour))),
 						Mode: getBuckeRetentiontMode(backupbucketConfig.Immutability.Mode),
 					},
