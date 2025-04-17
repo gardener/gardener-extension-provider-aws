@@ -1520,7 +1520,7 @@ func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, err
 		Ipv6Native:        subnet.Ipv6Native,
 	}
 
-	if subnet.CidrBlock != "" && !(subnet.Ipv6Native != nil && *subnet.Ipv6Native) {
+	if subnet.CidrBlock != "" && (subnet.Ipv6Native == nil || !*subnet.Ipv6Native) {
 		input.CidrBlock = aws.String(subnet.CidrBlock)
 	}
 
@@ -1702,7 +1702,7 @@ func (c *Client) UpdateSubnetAttributes(ctx context.Context, desired, current *S
 	}
 	privateDnsHostnameTypeOnLaunch := desired.PrivateDnsHostnameTypeOnLaunch
 	if privateDnsHostnameTypeOnLaunch == nil {
-		if desired.CidrBlock != "" && !(desired.Ipv6Native != nil && *desired.Ipv6Native) {
+		if desired.CidrBlock != "" && (desired.Ipv6Native == nil || !*desired.Ipv6Native) {
 			privateDnsHostnameTypeOnLaunch = ptr.To(string(ec2types.HostnameTypeIpName))
 		} else {
 			privateDnsHostnameTypeOnLaunch = ptr.To(string(ec2types.HostnameTypeResourceName))

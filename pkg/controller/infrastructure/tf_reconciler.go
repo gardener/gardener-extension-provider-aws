@@ -449,7 +449,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	isIPv4 := slices.Contains(ipFamilies, v1beta1.IPFamilyIPv4)
 	isIPv6 := slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6)
 
-	if !(isIPv4 || isIPv6) {
+	if !isIPv4 && !isIPv6 {
 		return nil, fmt.Errorf("there are no IPFamilies configured")
 	}
 
