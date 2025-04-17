@@ -1756,7 +1756,7 @@ func (c *Client) CreateElasticIP(ctx context.Context, eip *ElasticIP) (*ElasticI
 		return nil, err
 	}
 	return &ElasticIP{
-		Tags:         eip.Tags.Clone(),
+		Tags:         eip.Clone(),
 		Vpc:          eip.Vpc,
 		AllocationId: aws.ToString(output.AllocationId),
 		PublicIp:     aws.ToString(output.PublicIp),

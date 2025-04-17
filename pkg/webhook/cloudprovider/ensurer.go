@@ -38,7 +38,7 @@ type ensurer struct {
 // EnsureCloudProviderSecret ensures that cloudprovider secret contains
 // the shared credentials file.
 func (e *ensurer) EnsureCloudProviderSecret(_ context.Context, _ gcontext.GardenContext, newSecret, _ *corev1.Secret) error {
-	if newSecret.ObjectMeta.Labels != nil && newSecret.ObjectMeta.Labels[securityv1alpha1constants.LabelWorkloadIdentityProvider] == "aws" {
+	if newSecret.Labels != nil && newSecret.Labels[securityv1alpha1constants.LabelWorkloadIdentityProvider] == "aws" {
 		if _, ok := newSecret.Data[securityv1alpha1constants.DataKeyConfig]; !ok {
 			return errors.New("cloudprovider secret is missing a 'config' data key")
 		}
