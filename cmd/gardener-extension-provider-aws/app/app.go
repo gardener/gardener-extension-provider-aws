@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
+	druidcorev1alpha1 "github.com/gardener/etcd-druid/api/core/v1alpha1"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	controllercmd "github.com/gardener/gardener/extensions/pkg/controller/cmd"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
@@ -186,7 +186,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			if err := awsinstall.AddToScheme(scheme); err != nil {
 				return fmt.Errorf("could not update manager scheme: %w", err)
 			}
-			if err := druidv1alpha1.AddToScheme(scheme); err != nil {
+			if err := druidcorev1alpha1.AddToScheme(scheme); err != nil {
 				return fmt.Errorf("could not update manager scheme: %w", err)
 			}
 			if err := vpaautoscalingv1.AddToScheme(scheme); err != nil {
