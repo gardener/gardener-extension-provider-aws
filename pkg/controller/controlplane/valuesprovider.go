@@ -127,7 +127,6 @@ var (
 				Objects: []*chart.Object{
 					{Type: &corev1.Service{}, Name: aws.CloudControllerManagerName},
 					{Type: &appsv1.Deployment{}, Name: aws.CloudControllerManagerName},
-					{Type: &corev1.ConfigMap{}, Name: aws.CloudControllerManagerName + "-observability-config"},
 					{Type: &monitoringv1.ServiceMonitor{}, Name: "shoot-cloud-controller-manager"},
 					{Type: &monitoringv1.PrometheusRule{}, Name: "shoot-cloud-controller-manager"},
 					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CloudControllerManagerName + "-vpa"},
@@ -183,7 +182,6 @@ var (
 					// csi-driver-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSIControllerName},
 					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSIControllerName + "-vpa"},
-					{Type: &corev1.ConfigMap{}, Name: aws.CSIControllerName + "-observability-config"},
 					// csi-snapshot-controller
 					{Type: &appsv1.Deployment{}, Name: aws.CSISnapshotControllerName},
 					{Type: &vpaautoscalingv1.VerticalPodAutoscaler{}, Name: aws.CSISnapshotControllerName + "-vpa"},
