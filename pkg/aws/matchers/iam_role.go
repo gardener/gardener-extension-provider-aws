@@ -33,21 +33,19 @@ func (m *iamRoleMatcher) Match(actual interface{}) (success bool, err error) {
 	expectedRole, ok := m.expected.(iamtypes.Role)
 	if !ok {
 		expectedRolePointer, ok2 := m.expected.(*iamtypes.Role)
-		if ok2 {
-			expectedRole = *expectedRolePointer
-		} else {
+		if !ok2 {
 			return false, fmt.Errorf("refusing to compare expected which is neither a iam.Role nor a *iam.Role")
 		}
+		expectedRole = *expectedRolePointer
 	}
 
 	actualRole, ok := actual.(iamtypes.Role)
 	if !ok {
 		actualRolePointer, ok2 := actual.(*iamtypes.Role)
-		if ok2 {
-			actualRole = *actualRolePointer
-		} else {
+		if !ok2 {
 			return false, fmt.Errorf("refusing to compare actual which is neither a iam.Role nor a *iam.Role")
 		}
+		actualRole = *actualRolePointer
 	}
 
 	return MatchFields(IgnoreExtras, Fields{

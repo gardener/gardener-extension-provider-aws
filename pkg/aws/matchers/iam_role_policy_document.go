@@ -32,14 +32,13 @@ func (m *rolePolicyDocumentMatcher) Match(actual interface{}) (bool, error) {
 	expectedString, ok := m.expected.(string)
 	if !ok {
 		expectedStringPointer, ok2 := m.expected.(*string)
-		if ok2 {
-			if expectedStringPointer == nil {
-				return false, fmt.Errorf("refusing to compare expected which is a nil string")
-			}
-			expectedString = *expectedStringPointer
-		} else {
+		if !ok2 {
 			return false, fmt.Errorf("refusing to compare expected which is neither a string nor a *string")
 		}
+		if expectedStringPointer == nil {
+			return false, fmt.Errorf("refusing to compare expected which is a nil string")
+		}
+		expectedString = *expectedStringPointer
 	}
 
 	expectedUnescaped, err := url.QueryUnescape(expectedString)
@@ -50,14 +49,13 @@ func (m *rolePolicyDocumentMatcher) Match(actual interface{}) (bool, error) {
 	actualString, ok := actual.(string)
 	if !ok {
 		actualStringPointer, ok2 := actual.(*string)
-		if ok2 {
-			if actualStringPointer == nil {
-				return false, fmt.Errorf("refusing to compare actual which is a nil string")
-			}
-			actualString = *actualStringPointer
-		} else {
+		if !ok2 {
 			return false, fmt.Errorf("refusing to compare actual which is neither a string nor a *string")
 		}
+		if actualStringPointer == nil {
+			return false, fmt.Errorf("refusing to compare actual which is a nil string")
+		}
+		actualString = *actualStringPointer
 	}
 
 	actualUnescaped, err := url.QueryUnescape(actualString)
