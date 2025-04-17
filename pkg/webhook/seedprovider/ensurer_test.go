@@ -8,7 +8,7 @@ import (
 	"context"
 	"testing"
 
-	druidv1alpha1 "github.com/gardener/etcd-druid/api/v1alpha1"
+	druidcorev1alpha1 "github.com/gardener/etcd-druid/api/core/v1alpha1"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	. "github.com/onsi/ginkgo/v2"
@@ -42,7 +42,7 @@ var _ = Describe("Ensurer", func() {
 	Describe("#EnsureETCD", func() {
 		It("should add an etcd-main storage configuration when etcd-main is new and does not specify a storage configuration", func() {
 			var (
-				etcd = &druidv1alpha1.Etcd{
+				etcd = &druidcorev1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
 				}
 			)
@@ -59,9 +59,9 @@ var _ = Describe("Ensurer", func() {
 		It("should modify an etcd-main storage configuration when etcd-main is new and specifies a storage configuration", func() {
 			var (
 				r    = resource.MustParse("10Gi")
-				etcd = &druidv1alpha1.Etcd{
+				etcd = &druidcorev1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
-					Spec: druidv1alpha1.EtcdSpec{
+					Spec: druidcorev1alpha1.EtcdSpec{
 						StorageCapacity: &r,
 					},
 				}
@@ -79,16 +79,16 @@ var _ = Describe("Ensurer", func() {
 		It("should not modify an etcd-main storage configuration when etcd-main is old with volume size 80Gi", func() {
 			var (
 				rOld    = resource.MustParse("80Gi")
-				oldEtcd = &druidv1alpha1.Etcd{
+				oldEtcd = &druidcorev1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
-					Spec: druidv1alpha1.EtcdSpec{
+					Spec: druidcorev1alpha1.EtcdSpec{
 						StorageCapacity: &rOld,
 					},
 				}
 				rNew         = resource.MustParse("10Gi")
-				modifiedEtcd = &druidv1alpha1.Etcd{
+				modifiedEtcd = &druidcorev1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
-					Spec: druidv1alpha1.EtcdSpec{
+					Spec: druidcorev1alpha1.EtcdSpec{
 						StorageCapacity: &rNew,
 					},
 				}
@@ -106,16 +106,16 @@ var _ = Describe("Ensurer", func() {
 		It("should not modify an etcd-main storage configuration when etcd-main is old with volume size 25Gi", func() {
 			var (
 				rOld    = resource.MustParse("25Gi")
-				oldEtcd = &druidv1alpha1.Etcd{
+				oldEtcd = &druidcorev1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
-					Spec: druidv1alpha1.EtcdSpec{
+					Spec: druidcorev1alpha1.EtcdSpec{
 						StorageCapacity: &rOld,
 					},
 				}
 				rNew         = resource.MustParse("10Gi")
-				modifiedEtcd = &druidv1alpha1.Etcd{
+				modifiedEtcd = &druidcorev1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDMain},
-					Spec: druidv1alpha1.EtcdSpec{
+					Spec: druidcorev1alpha1.EtcdSpec{
 						StorageCapacity: &rNew,
 					},
 				}
@@ -132,7 +132,7 @@ var _ = Describe("Ensurer", func() {
 
 		It("should add an etcd-events storage configuration when etcd-events is new and does not specify a storage configuration", func() {
 			var (
-				etcd = &druidv1alpha1.Etcd{
+				etcd = &druidcorev1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDEvents},
 				}
 			)
@@ -149,9 +149,9 @@ var _ = Describe("Ensurer", func() {
 		It("should always modify an existing etcd-events storage configuration", func() {
 			var (
 				r    = resource.MustParse("20Gi")
-				etcd = &druidv1alpha1.Etcd{
+				etcd = &druidcorev1alpha1.Etcd{
 					ObjectMeta: metav1.ObjectMeta{Name: v1beta1constants.ETCDEvents},
-					Spec: druidv1alpha1.EtcdSpec{
+					Spec: druidcorev1alpha1.EtcdSpec{
 						StorageCapacity: &r,
 					},
 				}
@@ -169,18 +169,18 @@ var _ = Describe("Ensurer", func() {
 })
 
 // checkOldETCDMain tests older Etcds which have volumes of size 80Gi
-func checkOldETCDMain(etcd *druidv1alpha1.Etcd) {
+func checkOldETCDMain(etcd *druidcorev1alpha1.Etcd) {
 	Expect(*etcd.Spec.StorageClass).To(Equal("gardener.cloud-fast"))
 	Expect(*etcd.Spec.StorageCapacity).To(Equal(resource.MustParse("80Gi")))
 }
 
 // checkNewETCDMain tests newer Etcds which have volumes of size 25Gi
-func checkNewETCDMain(etcd *druidv1alpha1.Etcd) {
+func checkNewETCDMain(etcd *druidcorev1alpha1.Etcd) {
 	Expect(*etcd.Spec.StorageClass).To(Equal("gardener.cloud-fast"))
 	Expect(*etcd.Spec.StorageCapacity).To(Equal(resource.MustParse("25Gi")))
 }
 
-func checkETCDEvents(etcd *druidv1alpha1.Etcd) {
+func checkETCDEvents(etcd *druidcorev1alpha1.Etcd) {
 	Expect(*etcd.Spec.StorageClass).To(Equal(""))
 	Expect(*etcd.Spec.StorageCapacity).To(Equal(resource.MustParse("10Gi")))
 }

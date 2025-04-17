@@ -224,15 +224,26 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				className      = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
 			)
 
+			updateConfiguration := machinev1alpha1.UpdateConfiguration{
+				MaxUnavailable: ptr.To(worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum)),
+				MaxSurge:       ptr.To(worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum)),
+			}
+
+			machineDeploymentStrategy := machinev1alpha1.MachineDeploymentStrategy{
+				Type: machinev1alpha1.RollingUpdateMachineDeploymentStrategyType,
+				RollingUpdate: &machinev1alpha1.RollingUpdateMachineDeployment{
+					UpdateConfiguration: updateConfiguration,
+				},
+			}
+
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
-				Name:           deploymentName,
-				ClassName:      className,
-				SecretName:     className,
-				Minimum:        worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
-				Maximum:        worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
-				MaxSurge:       worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxSurge, zoneLen, pool.Maximum),
-				MaxUnavailable: worker.DistributePositiveIntOrPercent(zoneIdx, pool.MaxUnavailable, zoneLen, pool.Minimum),
-				Priority:       pool.Priority,
+				Name:       deploymentName,
+				ClassName:  className,
+				SecretName: className,
+				Minimum:    worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
+				Maximum:    worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
+				Strategy:   machineDeploymentStrategy,
+				Priority:   pool.Priority,
 				// add aws csi driver topology label if it's not specified
 				Labels: utils.MergeStringMaps(pool.Labels, map[string]string{
 					CSIDriverTopologyKey:     zone,
