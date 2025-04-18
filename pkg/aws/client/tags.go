@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 )
 
 // Tags is map of string key to string values. Duplicate keys are not supported in AWS.
@@ -47,6 +48,15 @@ func (tags Tags) ToEC2Tags() []ec2types.Tag {
 	var cp []ec2types.Tag
 	for k, v := range tags {
 		cp = append(cp, ec2types.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+	return cp
+}
+
+// ToEfsTags exports the tags map as a EC2 Tag array.
+func (tags Tags) ToEfsTags() []efstypes.Tag {
+	var cp []efstypes.Tag
+	for k, v := range tags {
+		cp = append(cp, efstypes.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
 	return cp
 }
