@@ -234,6 +234,20 @@ func (mr *MockInterfaceMockRecorder) CreateNATGateway(ctx, gateway any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNATGateway", reflect.TypeOf((*MockInterface)(nil).CreateNATGateway), ctx, gateway)
 }
 
+// CreateObjectTag mocks base method.
+func (m *MockInterface) CreateObjectTag(ctx context.Context, bucket, key, verionID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateObjectTag", ctx, bucket, key, verionID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateObjectTag indicates an expected call of CreateObjectTag.
+func (mr *MockInterfaceMockRecorder) CreateObjectTag(ctx, bucket, key, verionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateObjectTag", reflect.TypeOf((*MockInterface)(nil).CreateObjectTag), ctx, bucket, key, verionID)
+}
+
 // CreateOrUpdateDNSRecordSet mocks base method.
 func (m *MockInterface) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64, stack client.IPStack) error {
 	m.ctrl.T.Helper()

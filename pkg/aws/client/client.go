@@ -310,10 +310,12 @@ func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix str
 		Bucket: aws.String(bucket),
 	})
 	if err != nil {
-		var noSuchBucket *s3types.NoSuchBucket
-		if errors.As(err, &noSuchBucket) {
-			// bucket doesn't exist, no action required
-			return nil
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			if apiErr.ErrorCode() == "NoSuchBucket" {
+				// bucket doesn't exist, no action required
+				return nil
+			}
 		}
 		return err
 	}
@@ -505,11 +507,15 @@ func (c *Client) UpdateBucket(ctx context.Context, bucket string, backupbucketCo
 func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error {
 	if _, err := c.S3.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil {
 		var (
-			nsb *s3types.NoSuchBucket
 			bae *s3types.BucketAlreadyExists
 		)
-		if errors.As(err, &nsb) {
-			return nil
+
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			if apiErr.ErrorCode() == "NoSuchBucket" {
+				// bucket doesn't exist, no action required
+				return nil
+			}
 		}
 		if errors.As(err, &bae) {
 			if err := c.DeleteObjectsWithPrefix(ctx, bucket, ""); err != nil {
@@ -538,6 +544,32 @@ func (c *Client) GetObjectLockConfiguration(ctx context.Context, bucket string) 
 	})
 
 	return objectConfig, err
+}
+
+// CreateObjectTag set the tag to an object specified by <key> in <bucket>.
+func (c *Client) CreateObjectTag(ctx context.Context, bucket, key, verionID string) error {
+	objectTag := make([]s3types.Tag, 1)
+
+	input := s3.PutObjectTaggingInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+		Tagging: &s3types.Tagging{
+			TagSet: append(objectTag, s3types.Tag{
+				Key:   aws.String(""),
+				Value: aws.String(""),
+			}),
+		},
+	}
+
+	if len(verionID) > 0 {
+		input.VersionId = aws.String(verionID)
+	}
+
+	if _, err := c.S3.PutObjectTagging(ctx, &input); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // The following functions are only temporary needed due to https://github.com/gardener/gardener/issues/129.
@@ -2516,7 +2548,7 @@ func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, b
 	paginator := s3.NewListObjectVersionsPaginator(&s3client, input)
 	for paginator.HasMorePages() {
 		objectIDs := make([]s3types.ObjectIdentifier, 0)
-		deleteMarkersIDs := make([]s3types.ObjectIdentifier, 0)
+		deleteMarkerIDs := make([]s3types.ObjectIdentifier, 0)
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return err
@@ -2538,7 +2570,7 @@ func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, b
 				Key:       deleteMarker.Key,
 				VersionId: deleteMarker.VersionId,
 			}
-			deleteMarkersIDs = append(objectIDs, identifier)
+			deleteMarkerIDs = append(deleteMarkerIDs, identifier)
 		}
 
 		// Delete all the objects(versioned and non-versioned) present in bucket.
@@ -2559,11 +2591,11 @@ func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, b
 		}
 
 		// Delete all the delete markers present(if any) in bucket.
-		if len(deleteMarkersIDs) != 0 {
+		if len(deleteMarkerIDs) != 0 {
 			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 				Bucket: aws.String(bucket),
 				Delete: &s3types.Delete{
-					Objects: deleteMarkersIDs,
+					Objects: deleteMarkerIDs,
 					Quiet:   aws.Bool(true),
 				},
 			}); err != nil {
@@ -2576,5 +2608,29 @@ func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, b
 		}
 	}
 
+	if !validatePrefixIsEmpty(ctx, s3client, input) {
+		// Set lifecycle rule to purge the remaining snapshots objects present in the prefix.
+		return fmt.Errorf("Objects are still present in bucket prefix")
+	}
+
 	return nil
+}
+
+func validatePrefixIsEmpty(ctx context.Context, s3client s3.Client, input *s3.ListObjectVersionsInput) bool {
+	paginator := s3.NewListObjectVersionsPaginator(&s3client, input)
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return true
+		}
+		for range page.Versions {
+			return false
+		}
+
+		for range page.DeleteMarkers {
+			return false
+		}
+	}
+	return true
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -51,7 +52,7 @@ func NewActuator(mgr manager.Manager, awsClientFactory awsclient.Factory) backup
 //   - If yes then update the backup bucket settings according to backupbucketConfig(if provided)
 //     otherwise do nothing.
 func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extensionsv1alpha1.BackupBucket) error {
-	logger.Info("Starting reconciliation for BackupBucket...")
+	logger.Info("Starting reconciliation of BackupBucket...")
 
 	authConfig, err := aws.GetCredentialsFromSecretRef(ctx, a.client, bb.Spec.SecretRef, false, bb.Spec.Region)
 	if err != nil {
@@ -74,10 +75,12 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 
 	bucketVersioningStatus, err := awsClient.GetBucketVersioningStatus(ctx, bb.Name)
 	if err != nil {
-		var noSuchBucket *s3types.NoSuchBucket
-		if errors.As(err, &noSuchBucket) {
-			// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
-			return util.DetermineError(awsClient.CreateBucket(ctx, bb.Name, bb.Spec.Region, backupbucketConfig), helper.KnownCodes)
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			if apiErr.ErrorCode() == "NoSuchBucket" {
+				// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
+				return util.DetermineError(awsClient.CreateBucket(ctx, bb.Name, bb.Spec.Region, backupbucketConfig), helper.KnownCodes)
+			}
 		}
 	}
 

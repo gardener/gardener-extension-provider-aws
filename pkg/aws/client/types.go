@@ -45,6 +45,7 @@ type Interface interface {
 	GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error)
 	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
 	DeleteBucketIfExists(ctx context.Context, bucket string) error
+	CreateObjectTag(ctx context.Context, bucket, key, verionID string) error
 
 	// Route53 wrappers
 	GetDNSHostedZones(ctx context.Context) (map[string]string, error)
