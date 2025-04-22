@@ -26,10 +26,8 @@ import (
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -333,7 +331,6 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca-provider-aws-controlplane", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cloud-controller-manager-server", Namespace: namespace}})).To(Succeed())
 			Expect(fakeClient.Create(context.TODO(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: awsLoadBalancerControllerWebhook, Namespace: namespace}})).To(Succeed())
-			c.EXPECT().Get(context.TODO(), client.ObjectKey{Name: "prometheus-shoot", Namespace: cp.Namespace}, gomock.AssignableToTypeOf(&appsv1.StatefulSet{})).Return(apierrors.NewNotFound(schema.GroupResource{}, ""))
 			cloudProviderSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cloudprovider",
@@ -352,7 +349,6 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSIPAMControllerName:         ipamChartValues,
@@ -383,7 +379,6 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSIPAMControllerName:         ipamChartValues,
@@ -413,7 +408,6 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSIPAMControllerName:         ipamChartValues,
@@ -444,7 +438,6 @@ var _ = Describe("ValuesProvider", func() {
 				},
 				aws.CloudControllerManagerName: utils.MergeMaps(ccmChartValues, map[string]interface{}{
 					"kubernetesVersion": cluster.Shoot.Spec.Kubernetes.Version,
-					"gep19Monitoring":   false,
 				}),
 				aws.AWSCustomRouteControllerName:  crcChartValues,
 				aws.AWSIPAMControllerName:         ipamChartValues,
