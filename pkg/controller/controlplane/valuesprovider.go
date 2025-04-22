@@ -870,5 +870,5 @@ func shouldUseWorkloadIdentity(ctx context.Context, c k8sclient.Client, secretNa
 		return false, fmt.Errorf("failed getting controlplane secret: %w", err)
 	}
 
-	return secret.ObjectMeta.Labels[securityv1alpha1constants.LabelPurpose] == securityv1alpha1constants.LabelPurposeWorkloadIdentityTokenRequestor, nil
+	return secret.Labels[securityv1alpha1constants.LabelPurpose] == securityv1alpha1constants.LabelPurposeWorkloadIdentityTokenRequestor, nil
 }

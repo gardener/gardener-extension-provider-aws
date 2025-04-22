@@ -33,21 +33,19 @@ func (m *ipPermissionMatcher) Match(actual interface{}) (success bool, err error
 	expectedPermission, ok := m.expected.(ec2types.IpPermission)
 	if !ok {
 		expectedPermissionPointer, ok2 := m.expected.(*ec2types.IpPermission)
-		if ok2 {
-			expectedPermission = *expectedPermissionPointer
-		} else {
+		if !ok2 {
 			return false, fmt.Errorf("refusing to compare expected which is neither a ec2.IpPermission nor a *ec2.IpPermission")
 		}
+		expectedPermission = *expectedPermissionPointer
 	}
 
 	actualPermission, ok := actual.(ec2types.IpPermission)
 	if !ok {
 		actualPermissionPointer, ok2 := actual.(*ec2types.IpPermission)
-		if ok2 {
-			actualPermission = *actualPermissionPointer
-		} else {
+		if !ok2 {
 			return false, fmt.Errorf("refusing to compare actual which is neither a ec2.IpPermission nor a *ec2.IpPermission")
 		}
+		actualPermission = *actualPermissionPointer
 	}
 
 	return MatchFields(IgnoreExtras, Fields{

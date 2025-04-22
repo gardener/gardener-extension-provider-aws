@@ -206,7 +206,7 @@ var _ = BeforeSuite(func() {
 var _ = Describe("Bastion tests", func() {
 	It("should successfully create and delete", func() {
 		By("setup infrastructure")
-		infra := setupInfrastructure(ctx, log, awsClient, extensionscluster.ObjectMeta.Name)
+		infra := setupInfrastructure(ctx, log, awsClient, extensionscluster.Name)
 		framework.AddCleanupAction(func() {
 			teardownInfrastructure(ctx, awsClient, infra)
 		})

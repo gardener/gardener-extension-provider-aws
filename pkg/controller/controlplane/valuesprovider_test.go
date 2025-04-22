@@ -618,7 +618,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct storage class chart values and default is set to true", func() {
-			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
+			cp.Spec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
 				Storage: &apisawsv1alpha1.Storage{
 					ManagedDefaultClass: ptr.To(true),
 				},
@@ -632,7 +632,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct storage class chart values and default is set to false", func() {
-			cp.Spec.DefaultSpec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
+			cp.Spec.ProviderConfig.Raw = encode(&apisawsv1alpha1.ControlPlaneConfig{
 				Storage: &apisawsv1alpha1.Storage{
 					ManagedDefaultClass: ptr.To(false),
 				},
