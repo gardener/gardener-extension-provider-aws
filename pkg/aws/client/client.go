@@ -547,7 +547,7 @@ func (c *Client) GetObjectLockConfiguration(ctx context.Context, bucket string) 
 }
 
 // CreateObjectTag set the tag to an object specified by <key> in <bucket>.
-func (c *Client) CreateObjectTag(ctx context.Context, bucket, key, verionID string) error {
+func (c *Client) CreateObjectTag(ctx context.Context, bucket, key, verionID, tagKey, tagValue string) error {
 	objectTag := make([]s3types.Tag, 1)
 
 	input := s3.PutObjectTaggingInput{
@@ -555,8 +555,8 @@ func (c *Client) CreateObjectTag(ctx context.Context, bucket, key, verionID stri
 		Key:    aws.String(key),
 		Tagging: &s3types.Tagging{
 			TagSet: append(objectTag, s3types.Tag{
-				Key:   aws.String(""),
-				Value: aws.String(""),
+				Key:   aws.String(tagKey),
+				Value: aws.String(tagValue),
 			}),
 		},
 	}
@@ -569,6 +569,21 @@ func (c *Client) CreateObjectTag(ctx context.Context, bucket, key, verionID stri
 		return err
 	}
 
+	return nil
+}
+
+// RemoveObjectLockConfig removes the object lock configuration rules from bucket.
+// Note: Object lock can't be disabled in S3, only object lock configuration rules can be removed from bucket.
+func (c *Client) RemoveObjectLockConfig(ctx context.Context, bucket string) error {
+	input := &s3.PutObjectLockConfigurationInput{
+		Bucket: &bucket,
+		ObjectLockConfiguration: &s3types.ObjectLockConfiguration{
+			ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
+		},
+	}
+	if _, err := c.S3.PutObjectLockConfiguration(ctx, input); err != nil {
+		return err
+	}
 	return nil
 }
 

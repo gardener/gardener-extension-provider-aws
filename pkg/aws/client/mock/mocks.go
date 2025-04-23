@@ -235,17 +235,17 @@ func (mr *MockInterfaceMockRecorder) CreateNATGateway(ctx, gateway any) *gomock.
 }
 
 // CreateObjectTag mocks base method.
-func (m *MockInterface) CreateObjectTag(ctx context.Context, bucket, key, verionID string) error {
+func (m *MockInterface) CreateObjectTag(ctx context.Context, bucket, key, verionID, tagKey, tagValue string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateObjectTag", ctx, bucket, key, verionID)
+	ret := m.ctrl.Call(m, "CreateObjectTag", ctx, bucket, key, verionID, tagKey, tagValue)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateObjectTag indicates an expected call of CreateObjectTag.
-func (mr *MockInterfaceMockRecorder) CreateObjectTag(ctx, bucket, key, verionID any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateObjectTag(ctx, bucket, key, verionID, tagKey, tagValue any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateObjectTag", reflect.TypeOf((*MockInterface)(nil).CreateObjectTag), ctx, bucket, key, verionID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateObjectTag", reflect.TypeOf((*MockInterface)(nil).CreateObjectTag), ctx, bucket, key, verionID, tagKey, tagValue)
 }
 
 // CreateOrUpdateDNSRecordSet mocks base method.
@@ -1403,6 +1403,20 @@ func (m *MockInterface) PutIAMRolePolicy(ctx context.Context, policy *client.IAM
 func (mr *MockInterfaceMockRecorder) PutIAMRolePolicy(ctx, policy any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).PutIAMRolePolicy), ctx, policy)
+}
+
+// RemoveObjectLockConfig mocks base method.
+func (m *MockInterface) RemoveObjectLockConfig(ctx context.Context, bucket string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveObjectLockConfig", ctx, bucket)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveObjectLockConfig indicates an expected call of RemoveObjectLockConfig.
+func (mr *MockInterfaceMockRecorder) RemoveObjectLockConfig(ctx, bucket any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveObjectLockConfig", reflect.TypeOf((*MockInterface)(nil).RemoveObjectLockConfig), ctx, bucket)
 }
 
 // RemoveRoleFromIAMInstanceProfile mocks base method.

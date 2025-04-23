@@ -77,16 +77,23 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 	if err != nil {
 		var apiErr smithy.APIError
 		if errors.As(err, &apiErr) {
-			if apiErr.ErrorCode() == "NoSuchBucket" {
+			switch apiErr.ErrorCode() {
+			case "NoSuchBucket":
 				// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
 				return util.DetermineError(awsClient.CreateBucket(ctx, bb.Name, bb.Spec.Region, backupbucketConfig), helper.KnownCodes)
+			case "PermanentRedirect":
+				return util.DetermineError(fmt.Errorf("bucket exists in different region"), helper.KnownCodes)
+			default:
+				return util.DetermineError(fmt.Errorf("unable to check bucket versioning status: %v", apiErr.ErrorCode()), helper.KnownCodes)
 			}
 		}
 	}
 
 	if bucketVersioningStatus != nil && bucketVersioningStatus.Status == s3types.BucketVersioningStatusEnabled {
 		// versioning is found to be enabled on bucket
-		if isBucketUpdateRequired(ctx, awsClient, bb.Name, backupbucketConfig) {
+		if isObjectLockConfigNeedToBeRemoved(ctx, awsClient, bb.Name, backupbucketConfig) {
+			return util.DetermineError(awsClient.RemoveObjectLockConfig(ctx, bb.Name), helper.KnownCodes)
+		} else if isBucketUpdateRequired(ctx, awsClient, bb.Name, backupbucketConfig) {
 			return util.DetermineError(awsClient.UpdateBucket(ctx, bb.Name, backupbucketConfig, true), helper.KnownCodes)
 		}
 		// do nothing if bucket configurations isn't required to be updated.
@@ -131,6 +138,24 @@ func isBucketUpdateRequired(ctx context.Context, awsClient awsclient.Interface, 
 	}
 
 	return true
+}
+
+func isObjectLockConfigNeedToBeRemoved(ctx context.Context, awsClient awsclient.Interface, bucket string, backupbucketConfig *apisaws.BackupBucketConfig) bool {
+	objectConfig, err := awsClient.GetObjectLockConfiguration(ctx, bucket)
+	if err != nil {
+		// object lock config is not set
+		return false
+	}
+
+	if objectConfig != nil && objectConfig.ObjectLockConfiguration != nil && objectConfig.ObjectLockConfiguration.ObjectLockEnabled == s3types.ObjectLockEnabledEnabled {
+		if objectConfig.ObjectLockConfiguration.Rule == nil {
+			// object lock config rules are already not set on bucket.
+			return false
+		} else if backupbucketConfig == nil || backupbucketConfig.Immutability == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func getBuckeRetentiontMode(mode string) s3types.ObjectLockRetentionMode {

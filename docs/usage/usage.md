@@ -882,3 +882,6 @@ spec:
       retentionPeriod: 24h
       mode: compliance
 ```
+
+> [!Note]
+> Once S3 Object Lock is enabled, it cannot be disabled, nor can S3 versioning. However, you can remove the default retention settings by removing the `BackupBucketConfig` from `.spec.providerConfig`.
