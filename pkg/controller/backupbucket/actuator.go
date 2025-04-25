@@ -94,7 +94,7 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 		if isObjectLockConfigNeedToBeRemoved(ctx, awsClient, bb.Name, backupbucketConfig) {
 			return util.DetermineError(awsClient.RemoveObjectLockConfig(ctx, bb.Name), helper.KnownCodes)
 		} else if isBucketUpdateRequired(ctx, awsClient, bb.Name, backupbucketConfig) {
-			return util.DetermineError(awsClient.UpdateBucket(ctx, bb.Name, backupbucketConfig, true), helper.KnownCodes)
+			return util.DetermineError(awsClient.UpdateBucketConfig(ctx, bb.Name, backupbucketConfig, true), helper.KnownCodes)
 		}
 		// do nothing if bucket configurations isn't required to be updated.
 		return nil
@@ -102,7 +102,7 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 
 	// bucket versioning is not found to be enabled on the bucket,
 	// update the bucket according to buckupbucketConfig(if provided)
-	return util.DetermineError(awsClient.UpdateBucket(ctx, bb.Name, backupbucketConfig, false), helper.KnownCodes)
+	return util.DetermineError(awsClient.UpdateBucketConfig(ctx, bb.Name, backupbucketConfig, false), helper.KnownCodes)
 }
 
 func (a *actuator) Delete(ctx context.Context, _ logr.Logger, bb *extensionsv1alpha1.BackupBucket) error {

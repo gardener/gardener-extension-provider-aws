@@ -146,9 +146,9 @@ func (s *seedValidator) validateImmutabilityUpdate(oldConfig, newConfig *apisaws
 		}
 	*/
 
-	if oldConfig.Immutability.Mode == "compliance" && newConfig.Immutability.Mode == "governance" {
+	if oldConfig.Immutability.Mode == apisaws.ComplianceMode && newConfig.Immutability.Mode == apisaws.GovernanceMode {
 		allErrs = append(allErrs, field.Forbidden(immutabilityPath.Child("mode"), "immutable retention mode can't be change to governance once it is compliance"))
-	} else if oldConfig.Immutability.Mode == "compliance" && newConfig.Immutability.RetentionPeriod.Duration < oldConfig.Immutability.RetentionPeriod.Duration {
+	} else if oldConfig.Immutability.Mode == apisaws.ComplianceMode && newConfig.Immutability.RetentionPeriod.Duration < oldConfig.Immutability.RetentionPeriod.Duration {
 		allErrs = append(allErrs, field.Forbidden(
 			immutabilityPath.Child("retentionPeriod"),
 			fmt.Sprintf("reducing the retention period from %v to %v is prohibited when the immutable retention mode is compliance",

@@ -203,14 +203,14 @@ var _ = Describe("Actuator", func() {
 			})
 
 			It("should update the bucket", func() {
-				awsClient.EXPECT().UpdateBucket(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
+				awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).ShouldNot(HaveOccurred())
 			})
 
 			It("should return error if bucket updation failed", func() {
-				awsClient.EXPECT().UpdateBucket(ctx, gomock.Any(), gomock.Any(), false).Return(fmt.Errorf("bucket update failed"))
+				awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), false).Return(fmt.Errorf("bucket update failed"))
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).Should(HaveOccurred())
@@ -239,14 +239,14 @@ var _ = Describe("Actuator", func() {
 					awsClient.EXPECT().GetObjectLockConfiguration(ctx, gomock.Any()).Return(nil, fmt.Errorf("ObjectLockConfigurationNotFoundError")).AnyTimes()
 				})
 				It("should update the bucket", func() {
-					awsClient.EXPECT().UpdateBucket(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
+					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 
 				It("should return error if bucket updation failed", func() {
-					awsClient.EXPECT().UpdateBucket(ctx, gomock.Any(), gomock.Any(), true).Return(fmt.Errorf("bucket update failed"))
+					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(fmt.Errorf("bucket update failed"))
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).Should(HaveOccurred())
@@ -348,7 +348,7 @@ var _ = Describe("Actuator", func() {
 						},
 					).AnyTimes()
 
-					awsClient.EXPECT().UpdateBucket(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
+					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).ShouldNot(HaveOccurred())
@@ -375,7 +375,7 @@ var _ = Describe("Actuator", func() {
 						},
 					).AnyTimes()
 
-					awsClient.EXPECT().UpdateBucket(ctx, gomock.Any(), gomock.Any(), true).Return(fmt.Errorf("bucket updation failed"))
+					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(fmt.Errorf("bucket updation failed"))
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).Should(HaveOccurred())
@@ -395,7 +395,7 @@ var _ = Describe("Actuator", func() {
 							}, nil
 						},
 					).AnyTimes()
-					awsClient.EXPECT().UpdateBucket(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
+					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).ShouldNot(HaveOccurred())

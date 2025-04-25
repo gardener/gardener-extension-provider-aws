@@ -36,7 +36,7 @@ func ValidateBackupBucketConfig(backupBucketConfig *apisaws.BackupBucketConfig, 
 	}
 
 	// AWS S3 only supports two types of retention modes: compliance and governance mode.
-	if backupBucketConfig.Immutability.Mode != "compliance" && backupBucketConfig.Immutability.Mode != "governance" {
+	if backupBucketConfig.Immutability.Mode != apisaws.ComplianceMode && backupBucketConfig.Immutability.Mode != apisaws.GovernanceMode {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("immutability", "mode"), backupBucketConfig.Immutability.Mode, "should be either compliance mode or governance mode"))
 	}
 
