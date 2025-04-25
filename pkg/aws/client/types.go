@@ -6,11 +6,13 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
@@ -27,6 +29,13 @@ const (
 	IPStackIPDualStack IPStack = "dual-stack"
 	// IPStackIPv6 is the IPv6 stack
 	IPStackIPv6 IPStack = "ipv6"
+
+	// S3ObjectDeletionLifecyclePolicy is the name of the lifecycle policy that is added to bucket which expires current objects after their immutability period.
+	S3ObjectDeletionLifecyclePolicy = "GC-forTaggedObjects"
+	// S3DeleteMarkerDeletionLifecyclePolicy is the name of the lifecycle policy that is added to bucket which deletes delete-markers(if present).
+	S3DeleteMarkerDeletionLifecyclePolicy = "GC-delete-markers-objects"
+	// S3ObjectMarkedForDeletionTagKey is the tag "key" to be added on objects to be garbage-collected by provider's lifecycle policy.
+	S3ObjectMarkedForDeletionTagKey = "gc-marked-for-deletion"
 )
 
 // Interface is an interface which must be implemented by AWS clients.
@@ -40,12 +49,11 @@ type Interface interface {
 
 	// S3 wrappers
 	CreateBucket(ctx context.Context, bucket, region string, backupbucketConfig *apisaws.BackupBucketConfig) error
-	UpdateBucket(ctx context.Context, bucket string, backupbucketConfig *apisaws.BackupBucketConfig, isVersioningEnabled bool) error
+	UpdateBucketConfig(ctx context.Context, bucket string, backupbucketConfig *apisaws.BackupBucketConfig, isVersioningEnabled bool) error
 	GetBucketVersioningStatus(ctx context.Context, bucket string) (*s3.GetBucketVersioningOutput, error)
 	GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error)
 	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
 	DeleteBucketIfExists(ctx context.Context, bucket string) error
-	CreateObjectTag(ctx context.Context, bucket, key, verionID, tagKey, tagValue string) error
 	RemoveObjectLockConfig(ctx context.Context, bucket string) error
 
 	// Route53 wrappers
@@ -546,4 +554,15 @@ type IAMRolePolicy struct {
 	PolicyName     string
 	RoleName       string
 	PolicyDocument string
+}
+
+// GetAWSAPIErrorCode return error code of AWS api error code.
+func GetAWSAPIErrorCode(err error) string {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode()
+	}
+
+	// not an AWS API error
+	return ""
 }

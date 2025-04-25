@@ -234,20 +234,6 @@ func (mr *MockInterfaceMockRecorder) CreateNATGateway(ctx, gateway any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNATGateway", reflect.TypeOf((*MockInterface)(nil).CreateNATGateway), ctx, gateway)
 }
 
-// CreateObjectTag mocks base method.
-func (m *MockInterface) CreateObjectTag(ctx context.Context, bucket, key, verionID, tagKey, tagValue string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateObjectTag", ctx, bucket, key, verionID, tagKey, tagValue)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateObjectTag indicates an expected call of CreateObjectTag.
-func (mr *MockInterfaceMockRecorder) CreateObjectTag(ctx, bucket, key, verionID, tagKey, tagValue any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateObjectTag", reflect.TypeOf((*MockInterface)(nil).CreateObjectTag), ctx, bucket, key, verionID, tagKey, tagValue)
-}
-
 // CreateOrUpdateDNSRecordSet mocks base method.
 func (m *MockInterface) CreateOrUpdateDNSRecordSet(ctx context.Context, zoneId, name, recordType string, values []string, ttl int64, stack client.IPStack) error {
 	m.ctrl.T.Helper()
@@ -1476,18 +1462,18 @@ func (mr *MockInterfaceMockRecorder) UpdateAssumeRolePolicy(ctx, roleName, assum
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAssumeRolePolicy", reflect.TypeOf((*MockInterface)(nil).UpdateAssumeRolePolicy), ctx, roleName, assumeRolePolicy)
 }
 
-// UpdateBucket mocks base method.
-func (m *MockInterface) UpdateBucket(ctx context.Context, bucket string, backupbucketConfig *aws.BackupBucketConfig, isVersioningEnabled bool) error {
+// UpdateBucketConfig mocks base method.
+func (m *MockInterface) UpdateBucketConfig(ctx context.Context, bucket string, backupbucketConfig *aws.BackupBucketConfig, isVersioningEnabled bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateBucket", ctx, bucket, backupbucketConfig, isVersioningEnabled)
+	ret := m.ctrl.Call(m, "UpdateBucketConfig", ctx, bucket, backupbucketConfig, isVersioningEnabled)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateBucket indicates an expected call of UpdateBucket.
-func (mr *MockInterfaceMockRecorder) UpdateBucket(ctx, bucket, backupbucketConfig, isVersioningEnabled any) *gomock.Call {
+// UpdateBucketConfig indicates an expected call of UpdateBucketConfig.
+func (mr *MockInterfaceMockRecorder) UpdateBucketConfig(ctx, bucket, backupbucketConfig, isVersioningEnabled any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBucket", reflect.TypeOf((*MockInterface)(nil).UpdateBucket), ctx, bucket, backupbucketConfig, isVersioningEnabled)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBucketConfig", reflect.TypeOf((*MockInterface)(nil).UpdateBucketConfig), ctx, bucket, backupbucketConfig, isVersioningEnabled)
 }
 
 // UpdateSubnetAttributes mocks base method.
