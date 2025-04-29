@@ -128,6 +128,9 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 func (c *FlowContext) getDesiredDhcpOptions() *awsclient.DhcpOptions {
 	dhcpDomainName := "ec2.internal"
+
+	// This handles a special case for a rule predefined by AWS.
+	// See https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver-overview-DSN-queries-to-vpc.html
 	if c.infraSpec.Region != "us-east-1" {
 		dhcpDomainName = fmt.Sprintf("%s.compute.internal", c.infraSpec.Region)
 	}
