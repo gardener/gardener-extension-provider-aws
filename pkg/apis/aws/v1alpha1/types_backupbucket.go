@@ -15,9 +15,9 @@ const (
 	// BucketLevelImmutability sets the immutability feature on the bucket level.
 	BucketLevelImmutability RetentionType = "bucket"
 	// ComplianceMode is for "compliance" mode immutability.
-	ComplianceMode string = "compliance"
+	ComplianceMode = "compliance"
 	// GovernanceMode mode is of "governance" mode immutability.
-	GovernanceMode string = "governance"
+	GovernanceMode = "governance"
 )
 
 // +genclient

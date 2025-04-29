@@ -2648,7 +2648,7 @@ func toGCobjectsAddLifeCyclePolicyObjects(ctx context.Context, s3Client *s3.Clie
 						Days: aws.Int32(1),
 					},
 					NoncurrentVersionExpiration: &s3types.NoncurrentVersionExpiration{
-						NoncurrentDays: aws.Int32(2),
+						NoncurrentDays: aws.Int32(1),
 					},
 				},
 				{

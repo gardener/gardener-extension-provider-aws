@@ -556,7 +556,7 @@ type IAMRolePolicy struct {
 	PolicyDocument string
 }
 
-// GetAWSAPIErrorCode return error code of AWS api error code.
+// GetAWSAPIErrorCode return error code of AWS api error.
 func GetAWSAPIErrorCode(err error) string {
 	var apiErr smithy.APIError
 	if errors.As(err, &apiErr) {
