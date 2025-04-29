@@ -454,7 +454,7 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, backup
 
 	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil {
 		// update the bucket with object lock settings.
-		// note: object versioning is automatically get enabled if bucket is created with object lock.
+		// note: object versioning is automatically enabled if bucket is created with object lock.
 		return c.UpdateBucketConfig(ctx, bucket, backupbucketConfig, true)
 	}
 	return err
@@ -486,7 +486,7 @@ func (c *Client) UpdateBucketConfig(ctx context.Context, bucket string, backupbu
 					DefaultRetention: &s3types.DefaultRetention{
 						// #nosec G115
 						Days: aws.Int32(int32(backupbucketConfig.Immutability.RetentionPeriod.Duration / (24 * time.Hour))),
-						Mode: getBuckeRetentiontMode(backupbucketConfig.Immutability.Mode),
+						Mode: getBucketRetentiontMode(backupbucketConfig.Immutability.Mode),
 					},
 				},
 			},
@@ -2476,7 +2476,7 @@ func trueOrFalse(value *bool) bool {
 	return *value
 }
 
-func getBuckeRetentiontMode(mode string) s3types.ObjectLockRetentionMode {
+func getBucketRetentiontMode(mode string) s3types.ObjectLockRetentionMode {
 	if mode == "governance" {
 		return s3types.ObjectLockRetentionModeGovernance
 	}

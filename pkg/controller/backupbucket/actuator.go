@@ -6,12 +6,10 @@ package backupbucket
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/smithy-go"
 	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -76,17 +74,15 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 
 	bucketVersioningStatus, err := awsClient.GetBucketVersioningStatus(ctx, bb.Name)
 	if err != nil {
-		var apiErr smithy.APIError
-		if errors.As(err, &apiErr) {
-			switch apiErr.ErrorCode() {
-			case "NoSuchBucket":
-				// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
-				return util.DetermineError(awsClient.CreateBucket(ctx, bb.Name, bb.Spec.Region, backupbucketConfig), helper.KnownCodes)
-			case "PermanentRedirect":
-				return util.DetermineError(fmt.Errorf("bucket exists in different region"), helper.KnownCodes)
-			default:
-				return util.DetermineError(fmt.Errorf("unable to check bucket versioning status: %v", apiErr.ErrorCode()), helper.KnownCodes)
-			}
+		apiErrCode := awsclient.GetAWSAPIErrorCode(err)
+		switch apiErrCode {
+		case "NoSuchBucket":
+			// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
+			return util.DetermineError(awsClient.CreateBucket(ctx, bb.Name, bb.Spec.Region, backupbucketConfig), helper.KnownCodes)
+		case "PermanentRedirect":
+			return util.DetermineError(fmt.Errorf("bucket exists in different region %v", err), helper.KnownCodes)
+		default:
+			return util.DetermineError(fmt.Errorf("unable to check bucket versioning status: %v", err), helper.KnownCodes)
 		}
 	}
 
@@ -133,7 +129,7 @@ func isBucketUpdateRequired(ctx context.Context, awsClient awsclient.Interface, 
 		// If object lock is enabled for bucket then check the object lock rules defined for bucket
 		// #nosec G115
 		if objectConfig.ObjectLockConfiguration.Rule != nil && *objectConfig.ObjectLockConfiguration.Rule.DefaultRetention.Days == int32(backupbucketConfig.Immutability.RetentionPeriod.Duration/(24*time.Hour)) &&
-			objectConfig.ObjectLockConfiguration.Rule.DefaultRetention.Mode == getBuckeRetentiontMode(backupbucketConfig.Immutability.Mode) {
+			objectConfig.ObjectLockConfiguration.Rule.DefaultRetention.Mode == getBucketRetentiontMode(backupbucketConfig.Immutability.Mode) {
 			return false
 		}
 	}
@@ -159,7 +155,7 @@ func isObjectLockConfigNeedToBeRemoved(ctx context.Context, awsClient awsclient.
 	return false
 }
 
-func getBuckeRetentiontMode(mode string) s3types.ObjectLockRetentionMode {
+func getBucketRetentiontMode(mode string) s3types.ObjectLockRetentionMode {
 	if mode == "governance" {
 		return s3types.ObjectLockRetentionModeGovernance
 	}
