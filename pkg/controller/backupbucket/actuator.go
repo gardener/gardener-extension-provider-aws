@@ -33,6 +33,7 @@ type actuator struct {
 	awsClientFactory awsclient.Factory
 }
 
+// NewActuator creates a new Actuator that creates/updates backup-bucket.
 func NewActuator(mgr manager.Manager, awsClientFactory awsclient.Factory) backupbucket.Actuator {
 	return &actuator{
 		client:           mgr.GetClient(),
