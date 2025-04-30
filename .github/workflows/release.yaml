@@ -1,0 +1,20 @@
+name: Release
+on:
+  workflow_dispatch:
+
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yaml
+    with:
+      mode: release
+
+  release-to-github-and-bump:
+    uses: ./.github/workflows/release.yaml
+    needs:
+      - build
+    secrets:
+      github-app-secret-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
+    with:
+      release-commit-target: branch
+      next-version: bump-minor
