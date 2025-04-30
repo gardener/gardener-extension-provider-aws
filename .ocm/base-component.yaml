@@ -1,0 +1,6 @@
+labels:
+  - name: cloud.gardener.cnudie/responsibles
+    value:
+    - type: githubTeam
+      teamname: gardener/gardener-extension-provider-aws-maintainers
+      github_hostname: github.com
