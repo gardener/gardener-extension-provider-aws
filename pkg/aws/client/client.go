@@ -2476,8 +2476,8 @@ func trueOrFalse(value *bool) bool {
 	return *value
 }
 
-func getBucketRetentiontMode(mode string) s3types.ObjectLockRetentionMode {
-	if mode == "governance" {
+func getBucketRetentiontMode(mode apisaws.ModeType) s3types.ObjectLockRetentionMode {
+	if mode == apisaws.GovernanceMode {
 		return s3types.ObjectLockRetentionModeGovernance
 	}
 	return s3types.ObjectLockRetentionModeCompliance

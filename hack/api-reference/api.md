@@ -882,7 +882,9 @@ S3 only supports immutability durations in days or years, therefore this field m
 <td>
 <code>mode</code></br>
 <em>
-string
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ModeType">
+ModeType
+</a>
 </em>
 </td>
 <td>
@@ -1249,6 +1251,15 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ModeType">ModeType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ImmutableConfig">ImmutableConfig</a>)
+</p>
+<p>
+<p>ModeType defines the type of object lock mode for immutability settings.</p>
+</p>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Networks">Networks
 </h3>
 <p>

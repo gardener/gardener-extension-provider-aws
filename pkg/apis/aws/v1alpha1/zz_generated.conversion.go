@@ -613,7 +613,7 @@ func Convert_aws_IgnoreTags_To_v1alpha1_IgnoreTags(in *aws.IgnoreTags, out *Igno
 func autoConvert_v1alpha1_ImmutableConfig_To_aws_ImmutableConfig(in *ImmutableConfig, out *aws.ImmutableConfig, s conversion.Scope) error {
 	out.RetentionType = aws.RetentionType(in.RetentionType)
 	out.RetentionPeriod = in.RetentionPeriod
-	out.Mode = in.Mode
+	out.Mode = aws.ModeType(in.Mode)
 	return nil
 }
 
@@ -625,7 +625,7 @@ func Convert_v1alpha1_ImmutableConfig_To_aws_ImmutableConfig(in *ImmutableConfig
 func autoConvert_aws_ImmutableConfig_To_v1alpha1_ImmutableConfig(in *aws.ImmutableConfig, out *ImmutableConfig, s conversion.Scope) error {
 	out.RetentionType = RetentionType(in.RetentionType)
 	out.RetentionPeriod = in.RetentionPeriod
-	out.Mode = in.Mode
+	out.Mode = ModeType(in.Mode)
 	return nil
 }
 

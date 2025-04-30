@@ -11,13 +11,16 @@ import (
 // RetentionType defines the level at which immutability properties are applied on objects.
 type RetentionType string
 
+// ModeType defines the type of object lock mode for immutability settings.
+type ModeType string
+
 const (
 	// BucketLevelImmutability sets the immutability feature on the bucket level.
 	BucketLevelImmutability RetentionType = "bucket"
 	// ComplianceMode is for "compliance" mode immutability.
-	ComplianceMode = "compliance"
+	ComplianceMode ModeType = "compliance"
 	// GovernanceMode mode is of "governance" mode immutability.
-	GovernanceMode = "governance"
+	GovernanceMode ModeType = "governance"
 )
 
 // +genclient
@@ -44,5 +47,5 @@ type ImmutableConfig struct {
 
 	// S3 provides two retention modes that apply different levels of protection to objects:
 	// Allowed values are: "governance" or "compliance" mode.
-	Mode string
+	Mode ModeType
 }
