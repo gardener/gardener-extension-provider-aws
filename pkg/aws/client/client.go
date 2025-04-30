@@ -503,20 +503,19 @@ func (c *Client) UpdateBucketConfig(ctx context.Context, bucket string, backupbu
 // no error is returned.
 func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error {
 	if _, err := c.S3.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil {
-		var (
-			bae *s3types.BucketAlreadyExists
-		)
-		if GetAWSAPIErrorCode(err) == "NoSuchBucket" {
+		apiErrCode := GetAWSAPIErrorCode(err)
+		switch apiErrCode {
+		case "NoSuchBucket":
 			// bucket doesn't exist, no action required
 			return nil
-		}
-		if errors.As(err, &bae) {
+		case "BucketNotEmpty":
 			if err := c.DeleteObjectsWithPrefix(ctx, bucket, ""); err != nil {
 				return err
 			}
 			return c.DeleteBucketIfExists(ctx, bucket)
+		default:
+			return err
 		}
-		return err
 	}
 	return nil
 }
