@@ -164,10 +164,6 @@ var _ = Describe("Actuator", func() {
 
 		Context("when bucket does not exist", func() {
 			BeforeEach(func() {
-				backupBucket.Spec.ProviderConfig = &runtime.RawExtension{
-					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1","kind": "BackupBucketConfig","immutability":{"retentionType":"bucket","retentionPeriod":"24h","mode":"compliance"}}`),
-				}
-
 				awsClientFactory.EXPECT().NewClient(authConfig).Return(awsClient, nil)
 
 				awsClient.EXPECT().GetBucketVersioningStatus(ctx, gomock.Any()).DoAndReturn(
@@ -177,8 +173,21 @@ var _ = Describe("Actuator", func() {
 				)
 			})
 
-			It("should create the bucket successfully", func() {
-				awsClient.EXPECT().CreateBucket(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			It("should create the bucket successfully without object lock enabled", func() {
+				awsClient.EXPECT().CreateBucket(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
+				awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
+
+				err := a.Reconcile(ctx, logger, backupBucket)
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+
+			It("should create and update the bucket successfully with object lock enabled", func() {
+				backupBucket.Spec.ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1","kind": "BackupBucketConfig","immutability":{"retentionType":"bucket","retentionPeriod":"24h","mode":"compliance"}}`),
+				}
+
+				awsClient.EXPECT().CreateBucket(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
+				awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).ShouldNot(HaveOccurred())
