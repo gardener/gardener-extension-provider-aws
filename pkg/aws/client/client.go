@@ -324,20 +324,16 @@ func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix str
 	return deleteObjectsWithPrefix(ctx, c.S3, bucket, prefix)
 }
 
-// CreateBucket creates the s3 bucket with name <bucket> in <region> with provided backupbucket config.
-func (c *Client) CreateBucket(ctx context.Context, bucket, region string, backupbucketConfig *apisaws.BackupBucketConfig) error {
+// CreateBucket creates the s3 bucket with name <bucket> in <region>.
+func (c *Client) CreateBucket(ctx context.Context, bucket, region string, objectLockEnabled bool) error {
 	createBucketInput := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 		ACL:    s3types.BucketCannedACLPrivate,
 		CreateBucketConfiguration: &s3types.CreateBucketConfiguration{
 			LocationConstraint: s3types.BucketLocationConstraint(region),
 		},
-	}
-
-	// If immutability settings are provided then create bucket with object lock enabled.
-	// Note: while creating a bucket with object lock enabled, object versioning will automatically gets enabled.
-	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil {
-		createBucketInput.ObjectLockEnabledForBucket = aws.Bool(true)
+		// Note: while creating a bucket with object lock enabled, object versioning will automatically gets enabled.
+		ObjectLockEnabledForBucket: aws.Bool(objectLockEnabled),
 	}
 
 	if region == "us-east-1" {
@@ -452,11 +448,6 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, backup
 		return err
 	}
 
-	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil {
-		// update the bucket with object lock settings.
-		// note: object versioning is automatically enabled if bucket is created with object lock.
-		return c.UpdateBucketConfig(ctx, bucket, backupbucketConfig, true)
-	}
 	return err
 }
 

@@ -17,9 +17,9 @@ type ModeType string
 const (
 	// BucketLevelImmutability sets the immutability feature on the bucket level.
 	BucketLevelImmutability RetentionType = "bucket"
-	// ComplianceMode is for "compliance" mode immutability.
+	// ComplianceMode sets the "compliance" mode immutability.
 	ComplianceMode ModeType = "compliance"
-	// GovernanceMode mode is of "governance" mode immutability.
+	// GovernanceMode sets the "governance" mode immutability.
 	GovernanceMode ModeType = "governance"
 )
 

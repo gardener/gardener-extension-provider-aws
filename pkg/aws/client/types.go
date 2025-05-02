@@ -48,7 +48,7 @@ type Interface interface {
 	GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.Set[string], error)
 
 	// S3 wrappers
-	CreateBucket(ctx context.Context, bucket, region string, backupbucketConfig *apisaws.BackupBucketConfig) error
+	CreateBucket(ctx context.Context, bucket, region string, objectLockEnabled bool) error
 	UpdateBucketConfig(ctx context.Context, bucket string, backupbucketConfig *apisaws.BackupBucketConfig, isVersioningEnabled bool) error
 	GetBucketVersioningStatus(ctx context.Context, bucket string) (*s3.GetBucketVersioningOutput, error)
 	GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error)

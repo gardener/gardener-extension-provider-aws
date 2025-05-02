@@ -102,17 +102,17 @@ func (mr *MockInterfaceMockRecorder) AuthorizeSecurityGroupRules(ctx, id, rules 
 }
 
 // CreateBucket mocks base method.
-func (m *MockInterface) CreateBucket(ctx context.Context, bucket, region string, backupbucketConfig *aws.BackupBucketConfig) error {
+func (m *MockInterface) CreateBucket(ctx context.Context, bucket, region string, objectLockEnabled bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateBucket", ctx, bucket, region, backupbucketConfig)
+	ret := m.ctrl.Call(m, "CreateBucket", ctx, bucket, region, objectLockEnabled)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateBucket indicates an expected call of CreateBucket.
-func (mr *MockInterfaceMockRecorder) CreateBucket(ctx, bucket, region, backupbucketConfig any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateBucket(ctx, bucket, region, objectLockEnabled any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucket", reflect.TypeOf((*MockInterface)(nil).CreateBucket), ctx, bucket, region, backupbucketConfig)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucket", reflect.TypeOf((*MockInterface)(nil).CreateBucket), ctx, bucket, region, objectLockEnabled)
 }
 
 // CreateCIDRReservation mocks base method.
