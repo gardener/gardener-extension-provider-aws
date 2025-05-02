@@ -86,7 +86,7 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 }
 
 func createBucketAndUpdateBucket(ctx context.Context, awsClient awsclient.Interface, bucketName, region string, backupbucketConfig *apisaws.BackupBucketConfig) error {
-	isObjectLockRequired := false
+	var isObjectLockRequired bool
 
 	// If immutability settings are provided then create bucket with object lock enabled.
 	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil {
