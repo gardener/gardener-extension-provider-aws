@@ -142,6 +142,11 @@ Please note that the only change compared to an IPv4-only shoot cluster is the a
 The order of the IP families defines the preference of the IP family.
 In this case, IPv4 is preferred over IPv6, e.g. services specifying no IP family will get only an IPv4 address.
 
+### Bring your own VPC
+To create an IPv6 shoot cluster or a dual-stack shoot within your own Virtual Private Cloud (VPC), it is necessary to have an Amazon-provided IPv6 CIDR block added to the VPC. This block can be assigned during the initial setup of the VPC, as illustrated in the accompanying screenshot.
+![bring your own vpc](./images/bring-your-own-vpc.png)
+An egress-only internet gateway is required for outbound internet traffic (IPv6) from the instances within your VPC. Please create one egress-only internet gateway and attach it to the VPC. Please also make sure that the VPC has an attached internet gateway and the following attributes set: `enableDnsHostnames` and `enableDnsSupport` as described under [usage](usage.md#infrastructureConfig).
+
 ### Migration of IPv4-only Shoot Clusters to Dual-Stack
 
 Eventually, migration should be as easy as changing the `.spec.networking.ipFamilies` field in the `Shoot` resource from `IPv4` to `IPv4, IPv6`.
