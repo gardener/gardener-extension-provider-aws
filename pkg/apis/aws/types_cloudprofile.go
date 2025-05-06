@@ -5,6 +5,7 @@
 package aws
 
 import (
+	"github.com/gardener/gardener/pkg/apis/core"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,7 +33,16 @@ type MachineImageVersion struct {
 	// Version is the version of the image.
 	Version string
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
+	// deprecated
 	Regions []RegionAMIMapping
+	// CapabilitySets are a list of distinct capability sets for the machine image version.
+	CapabilitySets []CapabilitySet
+}
+
+// CapabilitySet groups all RegionAMIMappings for a specific et of capabilities.
+type CapabilitySet struct {
+	Regions      []RegionAMIMapping
+	Capabilities core.Capabilities
 }
 
 // RegionAMIMapping is a mapping to the correct AMI for the machine image in the given region.
