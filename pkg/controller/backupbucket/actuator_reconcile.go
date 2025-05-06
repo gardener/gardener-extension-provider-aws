@@ -114,7 +114,7 @@ func isBucketUpdateRequired(ctx context.Context, awsClient awsclient.Interface, 
 		// If object lock is enabled for bucket then check the object lock rules defined for bucket
 		// #nosec G115
 		if objectConfig.ObjectLockConfiguration.Rule != nil && *objectConfig.ObjectLockConfiguration.Rule.DefaultRetention.Days == int32(backupbucketConfig.Immutability.RetentionPeriod.Duration/(24*time.Hour)) &&
-			objectConfig.ObjectLockConfiguration.Rule.DefaultRetention.Mode == getBucketRetentiontMode(backupbucketConfig.Immutability.Mode) {
+			objectConfig.ObjectLockConfiguration.Rule.DefaultRetention.Mode == awsclient.GetBucketRetentiontMode(backupbucketConfig.Immutability.Mode) {
 			return false
 		}
 	}
@@ -138,11 +138,4 @@ func isObjectLockConfigNeedToBeRemoved(ctx context.Context, awsClient awsclient.
 		}
 	}
 	return false
-}
-
-func getBucketRetentiontMode(mode apisaws.ModeType) s3types.ObjectLockRetentionMode {
-	if mode == apisaws.GovernanceMode {
-		return s3types.ObjectLockRetentionModeGovernance
-	}
-	return s3types.ObjectLockRetentionModeCompliance
 }

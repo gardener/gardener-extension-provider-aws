@@ -243,7 +243,7 @@ var _ = Describe("Actuator", func() {
 				)
 			})
 
-			Context("GetObjectLockConfiguration API call fails", func() {
+			Context("ObjectLockConfiguration isn't present on bucket", func() {
 				BeforeEach(func() {
 					awsClient.EXPECT().GetObjectLockConfiguration(ctx, gomock.Any()).Return(nil, fmt.Errorf("ObjectLockConfigurationNotFoundError")).AnyTimes()
 				})
@@ -262,7 +262,7 @@ var _ = Describe("Actuator", func() {
 				})
 			})
 
-			Context("GetObjectLockConfiguration API call succeeds", func() {
+			Context("ObjectLockConfiguration is present on bucket", func() {
 
 				Context("Disable the object lock settings if backupbucketConfig isn't provided in ProviderConfig", func() {
 					It("should be removed the object lock settings", func() {

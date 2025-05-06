@@ -477,7 +477,7 @@ func (c *Client) UpdateBucketConfig(ctx context.Context, bucket string, backupbu
 					DefaultRetention: &s3types.DefaultRetention{
 						// #nosec G115
 						Days: aws.Int32(int32(backupbucketConfig.Immutability.RetentionPeriod.Duration / (24 * time.Hour))),
-						Mode: getBucketRetentiontMode(backupbucketConfig.Immutability.Mode),
+						Mode: GetBucketRetentiontMode(backupbucketConfig.Immutability.Mode),
 					},
 				},
 			},
@@ -2466,7 +2466,8 @@ func trueOrFalse(value *bool) bool {
 	return *value
 }
 
-func getBucketRetentiontMode(mode apisaws.ModeType) s3types.ObjectLockRetentionMode {
+// GetBucketRetentiontMode returns the s3typed ObjectLockRetentionMode
+func GetBucketRetentiontMode(mode apisaws.ModeType) s3types.ObjectLockRetentionMode {
 	if mode == apisaws.GovernanceMode {
 		return s3types.ObjectLockRetentionModeGovernance
 	}
