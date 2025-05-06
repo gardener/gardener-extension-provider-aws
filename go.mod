@@ -21,8 +21,8 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid/api v0.29.1
 	github.com/gardener/external-dns-management v0.23.5
-	github.com/gardener/gardener v1.117.1
-	github.com/gardener/machine-controller-manager v0.57.2
+	github.com/gardener/gardener v1.118.0
+	github.com/gardener/machine-controller-manager v0.58.0
 	github.com/go-logr/logr v1.4.2
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
@@ -34,14 +34,14 @@ require (
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/time v0.11.0
 	golang.org/x/tools v0.32.0
-	k8s.io/api v0.32.3
-	k8s.io/apiextensions-apiserver v0.32.3
-	k8s.io/apimachinery v0.32.3
-	k8s.io/autoscaler/vertical-pod-autoscaler v1.3.0
-	k8s.io/client-go v0.32.3
-	k8s.io/code-generator v0.32.3
-	k8s.io/component-base v0.32.3
-	k8s.io/kubelet v0.32.3
+	k8s.io/api v0.32.4
+	k8s.io/apiextensions-apiserver v0.32.4
+	k8s.io/apimachinery v0.32.4
+	k8s.io/autoscaler/vertical-pod-autoscaler v1.3.1
+	k8s.io/client-go v0.32.4
+	k8s.io/code-generator v0.32.4
+	k8s.io/component-base v0.32.4
+	k8s.io/kubelet v0.32.4
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/controller-tools v0.17.3
@@ -157,16 +157,16 @@ require (
 	helm.sh/helm/v3 v3.17.3 // indirect
 	istio.io/api v1.25.2 // indirect
 	istio.io/client-go v1.25.1 // indirect
-	k8s.io/apiserver v0.32.3 // indirect
-	k8s.io/cluster-bootstrap v0.32.3 // indirect
-	k8s.io/component-helpers v0.32.3 // indirect
+	k8s.io/apiserver v0.32.4 // indirect
+	k8s.io/cluster-bootstrap v0.32.4 // indirect
+	k8s.io/component-helpers v0.32.4 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/kube-aggregator v0.32.3 // indirect
+	k8s.io/kube-aggregator v0.32.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 // indirect
-	k8s.io/metrics v0.32.3 // indirect
+	k8s.io/metrics v0.32.4 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
