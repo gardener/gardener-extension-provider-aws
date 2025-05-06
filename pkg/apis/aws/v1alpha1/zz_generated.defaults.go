@@ -32,6 +32,13 @@ func SetObjectDefaults_CloudProfileConfig(in *CloudProfileConfig) {
 				c := &b.Regions[k]
 				SetDefaults_RegionAMIMapping(c)
 			}
+			for k := range b.CapabilitySets {
+				c := &b.CapabilitySets[k]
+				for l := range c.Regions {
+					d := &c.Regions[l]
+					SetDefaults_RegionAMIMapping(d)
+				}
+			}
 		}
 	}
 }
