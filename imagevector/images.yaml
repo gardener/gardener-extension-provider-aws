@@ -154,7 +154,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: registry.k8s.io/provider-aws/aws-ebs-csi-driver
-  tag: "v1.39.0"
+  tag: "v1.43.0"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
     value:
