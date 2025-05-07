@@ -244,8 +244,9 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			reconcileOpts.Completed().Apply(&awsdnsrecord.DefaultAddOptions.IgnoreOperationAnnotation, &awsdnsrecord.DefaultAddOptions.ExtensionClass)
 			workerCtrlOpts.Completed().Apply(&awsworker.DefaultAddOptions.Controller)
 			awsworker.DefaultAddOptions.GardenCluster = gardenCluster
+			awsworker.DefaultAddOptions.AutonomousShootCluster = generalOpts.Completed().AutonomousShootCluster
 
-			atomicShootWebhookConfig, err := webhookOptions.Completed().AddToManager(ctx, mgr, nil)
+			atomicShootWebhookConfig, err := webhookOptions.Completed().AddToManager(ctx, mgr, nil, generalOpts.Completed().AutonomousShootCluster)
 			if err != nil {
 				return fmt.Errorf("could not add webhooks to manager: %w", err)
 			}
