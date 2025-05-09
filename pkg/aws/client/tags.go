@@ -71,39 +71,3 @@ func (tags Tags) Clone() Tags {
 	}
 	return cp
 }
-
-// WithFilters is a builder for EC2 filters.
-func WithFilters() *filterBuilder {
-	return &filterBuilder{}
-}
-
-type filterBuilder struct {
-	filters []ec2types.Filter
-}
-
-func (f filterBuilder) WithVpcId(vpcId string) filterBuilder {
-	f.filters = append(f.filters, filter("vpc-id", vpcId)...)
-	return f
-}
-
-func (f filterBuilder) WithTags(tags Tags) filterBuilder {
-	f.filters = append(f.filters, tags.ToFilters()...)
-	return f
-}
-
-func (f filterBuilder) Build() []ec2types.Filter {
-	return f.filters
-}
-
-func filter(key string, values ...string) []ec2types.Filter {
-	if len(values) == 0 {
-		return nil
-	}
-
-	f := ec2types.Filter{
-		Name:   aws.String(key),
-		Values: make([]string, 0, len(values)),
-	}
-	f.Values = append(f.Values, values...)
-	return []ec2types.Filter{f}
-}

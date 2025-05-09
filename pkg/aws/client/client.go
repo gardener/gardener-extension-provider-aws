@@ -260,7 +260,7 @@ func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]s
 	describeVpcsInput := &ec2.DescribeVpcsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   aws.String("vpc-id"),
+				Name:   aws.String(FilterVpcID),
 				Values: []string{vpcID},
 			},
 		},
@@ -612,7 +612,7 @@ func (c *Client) ListKubernetesSecurityGroups(ctx context.Context, vpcID, cluste
 	groups, err := c.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   aws.String("vpc-id"),
+				Name:   aws.String(FilterVpcID),
 				Values: []string{vpcID}},
 			{
 				Name:   aws.String("tag-key"),
@@ -1119,7 +1119,7 @@ func (c *Client) describeSecurityGroups(ctx context.Context, input *ec2.Describe
 func (c *Client) FindDefaultSecurityGroupByVpcId(ctx context.Context, vpcId string) (*SecurityGroup, error) {
 	input := &ec2.DescribeSecurityGroupsInput{
 		Filters: []ec2types.Filter{
-			{Name: aws.String("vpc-id"), Values: []string{vpcId}},
+			{Name: aws.String(FilterVpcID), Values: []string{vpcId}},
 		},
 	}
 	groups, err := c.describeSecurityGroups(ctx, input)
