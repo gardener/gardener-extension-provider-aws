@@ -147,28 +147,19 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 					continue
 				}
 
-				if len(version.CapabilitySets) == 0 {
-					// It is allowed not to define capabilitySets in the machine image version if there is only one architecture
-					// if so the capabilityDefinition is used as default
-					if len(capabilitiesDefinition[v1beta1constants.ArchitectureName]) == 1 {
-						version.CapabilitySets = []core.CapabilitySet{{Capabilities: capabilitiesDefinition}}
-					} else {
-						allErrs = append(allErrs, field.Required(machineImageVersionPath.Child("capabilitySets"),
-							fmt.Sprintf("must provide at least one capabilitySet for machine image version %q@%q", machineImage.Name, version.Version)))
-					}
-				}
+				versionCapabilitySets := GetVersionCapabilitySets(version, capabilitiesDefinition)
 
-				for idxCapability, coreCapabilitySet := range version.CapabilitySets {
+				for idxCapability, coreCapabilitySet := range versionCapabilitySets {
 					isFound := false
 					// search for the corresponding imageVersion.CapabilitySet
 					for _, providerCapabilitySet := range imageVersion.CapabilitySets {
-						if AreCapabilitiesEqual(coreCapabilitySet.Capabilities, providerCapabilitySet.Capabilities) {
+						if AreCapabilitiesEqual(coreCapabilitySet.Capabilities, providerCapabilitySet.Capabilities, capabilitiesDefinition) {
 							isFound = true
 						}
 					}
 					if !isFound {
 						allErrs = append(allErrs, field.Required(machineImageVersionPath.Child("capabilitySets").Index(idxCapability),
-							fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and capabilitySet %q",
+							fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and capabilitySet %v",
 								machineImage.Name, version.Version, coreCapabilitySet.Capabilities)))
 					}
 				}
@@ -212,6 +203,34 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 	return allErrs
 }
 
+// GetVersionCapabilitySets returns the capability for a given machine image version and adds the default capabilitySet if applicable.
+func GetVersionCapabilitySets(version core.MachineImageVersion, capabilitiesDefinition core.Capabilities) []core.CapabilitySet {
+	versionCapabilitySets := version.CapabilitySets
+	if len(version.CapabilitySets) == 0 {
+		// It is allowed not to define capabilitySets in the machine image version if there is only one architecture
+		// if so the capabilityDefinition is used as default
+		if len(capabilitiesDefinition[v1beta1constants.ArchitectureName]) == 1 {
+			versionCapabilitySets = []core.CapabilitySet{{Capabilities: capabilitiesDefinition}}
+		}
+	}
+	return versionCapabilitySets
+}
+
+// SetDefaultCapabilities sets the default capabilities based on a capabilitiesDefinition for a machine type or machine image.
+func SetDefaultCapabilities(capabilities, capabilitiesDefinition core.Capabilities) core.Capabilities {
+	if len(capabilities) == 0 {
+		capabilities = make(core.Capabilities)
+	}
+
+	for key, values := range capabilitiesDefinition {
+		if _, exists := capabilities[key]; !exists {
+			capabilities[key] = values
+		}
+	}
+
+	return capabilities
+}
+
 // ValidateCapabilities validates the capabilities of a machine type or machine image.
 // It checks if the capabilities are supported by the cloud profile and if the architecture is defined correctly.
 // It returns a list of field errors if any validation fails.
@@ -247,7 +266,9 @@ func ValidateCapabilities(capabilities core.Capabilities, capabilitiesDefinition
 // AreCapabilitiesEqual checks if two capabilities are equal.
 // It compares the keys and values of the capabilities maps.
 // THIS FUNCTION SHOULD BE MOVED TO GARDENER CORE AS IT WILL BE USED BY OTHER PROVIDERS AS WELL
-func AreCapabilitiesEqual(a, b core.Capabilities) bool {
+func AreCapabilitiesEqual(a, b, capabilitiesDefinition core.Capabilities) bool {
+	a = SetDefaultCapabilities(a, capabilitiesDefinition)
+	b = SetDefaultCapabilities(b, capabilitiesDefinition)
 	for key, valuesA := range a {
 		valuesB, exists := b[key]
 		if !exists || len(valuesA) != len(valuesB) {
