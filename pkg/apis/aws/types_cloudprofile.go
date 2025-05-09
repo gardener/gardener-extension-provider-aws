@@ -35,13 +35,15 @@ type MachineImageVersion struct {
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	// deprecated
 	Regions []RegionAMIMapping
-	// CapabilitySets are a list of distinct capability sets for the machine image version.
+	// CapabilitySets is grouping of region AMIs by capabilities.
 	CapabilitySets []CapabilitySet
 }
 
 // CapabilitySet groups all RegionAMIMappings for a specific et of capabilities.
 type CapabilitySet struct {
-	Regions      []RegionAMIMapping
+	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
+	Regions []RegionAMIMapping
+	// Capabilities is the set of capabilities that are supported by the AMIs in this set.
 	Capabilities core.Capabilities
 }
 

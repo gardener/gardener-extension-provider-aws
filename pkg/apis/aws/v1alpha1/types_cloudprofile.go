@@ -35,13 +35,16 @@ type MachineImageVersion struct {
 	Version string `json:"version"`
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	// deprecated
-	Regions        []RegionAMIMapping `json:"regions"`
-	CapabilitySets []CapabilitySet    `json:"capabilitySets"`
+	Regions []RegionAMIMapping `json:"regions"`
+	// CapabilitySets is grouping of region AMIs by capabilities.
+	CapabilitySets []CapabilitySet `json:"capabilitySets"`
 }
 
 // CapabilitySet groups all RegionAMIMappings for a specific et of capabilities.
 type CapabilitySet struct {
-	Regions      []RegionAMIMapping             `json:"regions"`
+	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
+	Regions []RegionAMIMapping `json:"regions"`
+	// Capabilities is the set of capabilities that are supported by the AMIs in this set.
 	Capabilities gardencorev1beta1.Capabilities `json:"capabilities,omitempty"`
 }
 

@@ -495,6 +495,7 @@ string
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion</a>)
 </p>
 <p>
+<p>CapabilitySet groups all RegionAMIMappings for a specific et of capabilities.</p>
 </p>
 <table>
 <thead>
@@ -514,6 +515,7 @@ string
 </em>
 </td>
 <td>
+<p>Regions is a mapping to the correct AMI for the machine image in the supported regions.</p>
 </td>
 </tr>
 <tr>
@@ -524,6 +526,7 @@ github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
 </em>
 </td>
 <td>
+<p>Capabilities is the set of capabilities that are supported by the AMIs in this set.</p>
 </td>
 </tr>
 </tbody>
@@ -1257,6 +1260,7 @@ deprecated</p>
 </em>
 </td>
 <td>
+<p>CapabilitySets is grouping of region AMIs by capabilities.</p>
 </td>
 </tr>
 </tbody>

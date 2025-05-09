@@ -236,7 +236,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 				))
 			})
 
-			FIt("should automatically use amd64 (or default to capabilitiesDefinition)", func() {
+			It("should automatically use amd64 (or default to capabilitiesDefinition)", func() {
 				if !isCapabilitiesCloudProfile {
 					cloudProfileConfig.MachineImages[0].Versions[0].Regions[0].Architecture = nil
 				}
