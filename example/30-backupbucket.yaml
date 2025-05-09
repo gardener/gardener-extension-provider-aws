@@ -19,3 +19,10 @@ spec:
   secretRef:
     name: backupprovider
     namespace: garden
+  # providerConfig:
+  #   apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+  #   kind: BackupBucketConfig
+  #   immutability:
+  #     retentionType: bucket
+  #     retentionPeriod: 24h
+  #     mode: compliance

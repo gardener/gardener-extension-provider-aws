@@ -14,6 +14,8 @@ import (
 	reflect "reflect"
 
 	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	client "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	gomock "go.uber.org/mock/gomock"
 	sets "k8s.io/apimachinery/pkg/util/sets"
@@ -99,18 +101,18 @@ func (mr *MockInterfaceMockRecorder) AuthorizeSecurityGroupRules(ctx, id, rules 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeSecurityGroupRules", reflect.TypeOf((*MockInterface)(nil).AuthorizeSecurityGroupRules), ctx, id, rules)
 }
 
-// CreateBucketIfNotExists mocks base method.
-func (m *MockInterface) CreateBucketIfNotExists(ctx context.Context, bucket, region string) error {
+// CreateBucket mocks base method.
+func (m *MockInterface) CreateBucket(ctx context.Context, bucket, region string, objectLockEnabled bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateBucketIfNotExists", ctx, bucket, region)
+	ret := m.ctrl.Call(m, "CreateBucket", ctx, bucket, region, objectLockEnabled)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreateBucketIfNotExists indicates an expected call of CreateBucketIfNotExists.
-func (mr *MockInterfaceMockRecorder) CreateBucketIfNotExists(ctx, bucket, region any) *gomock.Call {
+// CreateBucket indicates an expected call of CreateBucket.
+func (mr *MockInterfaceMockRecorder) CreateBucket(ctx, bucket, region, objectLockEnabled any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucketIfNotExists", reflect.TypeOf((*MockInterface)(nil).CreateBucketIfNotExists), ctx, bucket, region)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucket", reflect.TypeOf((*MockInterface)(nil).CreateBucket), ctx, bucket, region, objectLockEnabled)
 }
 
 // CreateCIDRReservation mocks base method.
@@ -955,6 +957,21 @@ func (mr *MockInterfaceMockRecorder) GetAccountID(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountID", reflect.TypeOf((*MockInterface)(nil).GetAccountID), ctx)
 }
 
+// GetBucketVersioningStatus mocks base method.
+func (m *MockInterface) GetBucketVersioningStatus(ctx context.Context, bucket string) (*s3.GetBucketVersioningOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBucketVersioningStatus", ctx, bucket)
+	ret0, _ := ret[0].(*s3.GetBucketVersioningOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBucketVersioningStatus indicates an expected call of GetBucketVersioningStatus.
+func (mr *MockInterfaceMockRecorder) GetBucketVersioningStatus(ctx, bucket any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBucketVersioningStatus", reflect.TypeOf((*MockInterface)(nil).GetBucketVersioningStatus), ctx, bucket)
+}
+
 // GetDHCPOptions mocks base method.
 func (m *MockInterface) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]string, error) {
 	m.ctrl.T.Helper()
@@ -1165,6 +1182,21 @@ func (mr *MockInterfaceMockRecorder) GetNATGatewayAddressAllocations(ctx, shootN
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNATGatewayAddressAllocations", reflect.TypeOf((*MockInterface)(nil).GetNATGatewayAddressAllocations), ctx, shootNamespace)
 }
 
+// GetObjectLockConfiguration mocks base method.
+func (m *MockInterface) GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetObjectLockConfiguration", ctx, bucket)
+	ret0, _ := ret[0].(*s3.GetObjectLockConfigurationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetObjectLockConfiguration indicates an expected call of GetObjectLockConfiguration.
+func (mr *MockInterfaceMockRecorder) GetObjectLockConfiguration(ctx, bucket any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObjectLockConfiguration", reflect.TypeOf((*MockInterface)(nil).GetObjectLockConfiguration), ctx, bucket)
+}
+
 // GetRouteTable mocks base method.
 func (m *MockInterface) GetRouteTable(ctx context.Context, id string) (*client.RouteTable, error) {
 	m.ctrl.T.Helper()
@@ -1359,6 +1391,20 @@ func (mr *MockInterfaceMockRecorder) PutIAMRolePolicy(ctx, policy any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).PutIAMRolePolicy), ctx, policy)
 }
 
+// RemoveObjectLockConfig mocks base method.
+func (m *MockInterface) RemoveObjectLockConfig(ctx context.Context, bucket string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveObjectLockConfig", ctx, bucket)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveObjectLockConfig indicates an expected call of RemoveObjectLockConfig.
+func (mr *MockInterfaceMockRecorder) RemoveObjectLockConfig(ctx, bucket any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveObjectLockConfig", reflect.TypeOf((*MockInterface)(nil).RemoveObjectLockConfig), ctx, bucket)
+}
+
 // RemoveRoleFromIAMInstanceProfile mocks base method.
 func (m *MockInterface) RemoveRoleFromIAMInstanceProfile(ctx context.Context, profileName, roleName string) error {
 	m.ctrl.T.Helper()
@@ -1414,6 +1460,20 @@ func (m *MockInterface) UpdateAssumeRolePolicy(ctx context.Context, roleName, as
 func (mr *MockInterfaceMockRecorder) UpdateAssumeRolePolicy(ctx, roleName, assumeRolePolicy any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAssumeRolePolicy", reflect.TypeOf((*MockInterface)(nil).UpdateAssumeRolePolicy), ctx, roleName, assumeRolePolicy)
+}
+
+// UpdateBucketConfig mocks base method.
+func (m *MockInterface) UpdateBucketConfig(ctx context.Context, bucket string, backupbucketConfig *aws.BackupBucketConfig, isVersioningEnabled bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateBucketConfig", ctx, bucket, backupbucketConfig, isVersioningEnabled)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateBucketConfig indicates an expected call of UpdateBucketConfig.
+func (mr *MockInterfaceMockRecorder) UpdateBucketConfig(ctx, bucket, backupbucketConfig, isVersioningEnabled any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBucketConfig", reflect.TypeOf((*MockInterface)(nil).UpdateBucketConfig), ctx, bucket, backupbucketConfig, isVersioningEnabled)
 }
 
 // UpdateSubnetAttributes mocks base method.

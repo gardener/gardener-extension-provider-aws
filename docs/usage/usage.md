@@ -817,3 +817,71 @@ The "flow" implementation is a newer implementation that is trying to solve issu
 For most users there will be no noticeable difference. However for certain use-cases, users may notice a slight deviation from the previous behavior. For example, with flow-based infrastructure users may be able to perform certain modifications to infrastructure resources without having them reconciled back by terraform. Operations that would degrade the shoot infrastructure are still expected to be reverted back.
 
 For the time-being, to take advantage of the flow reconciler users have to "opt-in" by annotating the shoot manifest with: `aws.provider.extensions.gardener.cloud/use-flow="true"`. For existing shoots with this annotation, the migration will take place on the next infrastructure reconciliation (on maintenance window or if other infrastructure changes are requested). The migration is not revertible.
+
+## BackupBucket
+
+Gardener manages `etcd's` backups for Shoot clusters using provider specific storage solutions. On AWS, this storage is implemented through [AWS S3](https://aws.amazon.com/s3/), which store the backups/snapshots of the `etcd's` cluster data.
+
+The `BackupBucket` resource abstracts the backup infrastructure, enabling Gardener and its extension controllers to manage it seamlessly. This abstraction allows Gardener to create, delete, and maintain backup buckets across various cloud providers in a standardized manner.
+
+The `BackupBucket` resource includes a `spec` field, which defines the configuration details for the backup bucket. These details include:
+
+- A `region` is reference to a region where the bucket should be created.
+- A `secretRef` is reference to the secret containing credentials for accessing the cloud provider.
+- A `type` field defines the storage provider type like aws, azure etc.
+- A `providerConfig` field defines provider specific configurations.
+
+### BackupBucketConfig
+
+The `BackupBucketConfig` describes the configuration that needs to be passed over for creation of the backup bucket infrastructure. Configuration for immutability feature a.k.a [object lock](https://aws.amazon.com/s3/features/object-lock/) in S3 that can be set on the bucket are specified in `BackupBucketConfig`.
+
+Immutability feature (WORM, i.e. write-once-read-many model) ensures that once backups is written to the bucket, it will prevent locked object versions from being permanently deleted, hence it cannot be modified or deleted for a specified period. This feature is crucial for protecting backups from accidental or malicious deletion, ensuring data safety and availability for restoration.
+
+> [!Note]
+> With enabling S3 object lock, S3 versioning will also get enabled.
+
+The Gardener extension provider for AWS supports creating bucket (and enabling already existing buckets if immutability configured) to use [object lock](https://aws.amazon.com/s3/features/object-lock/) feature provided by storage provider AWS S3.
+
+Here is an example configuration for `BackupBucketConfig`:
+
+```yaml
+apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: BackupBucketConfig
+immutability:
+  retentionType: bucket
+  retentionPeriod: 24h
+  mode: compliance
+```
+
+- **`retentionType`**: Specifies the type of retention policy. Currently, S3 supports object lock on `bucket` level as well as on `object` level. The allowed value is `bucket`, which applies the retention policy and retention period to the entire bucket. For more details, refer to the [documentation](https://aws.amazon.com/s3/features/object-lock/). Objects in the bucket will inherit the retention period which is set on the bucket. Please refer [here](https://github.com/gardener/etcd-backup-restore/blob/master/docs/usage/enabling_immutable_snapshots.md#s3-object-lock-and-working-with-snapshots) to see working of backups/snapshots with immutable feature.
+- **`retentionPeriod`**: Defines the duration for which object version in the bucket will remain immutable. AWS S3 only supports immutability durations in days or years, therefore this field must be set as multiple of 24h.
+- **`mode`**: Defines the mode for object locked enabled S3 bucket, S3 provides two retention modes that apply different levels of protection to objects:
+  1. **Governance mode**: Users with special permissions can overwrite, delete or alter object versions during retention period.
+  2. **Compliance mode**: No users(including root user) can overwrite, delete or alter object versions during retention period.
+
+To configure a `BackupBucket` with immutability feature, include the `BackupBucketConfig` in the `.spec.providerConfig` of the `BackupBucket` resource.
+
+Here is an example of configuring a `BackupBucket` S3 object lock with retentionPeriod set to `24h` i.e `1 Day` and with mode `Compliance`.
+
+```yaml
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: BackupBucket
+metadata:
+  name: my-backup-bucket
+spec:
+  type: aws
+  region: eu-west-1
+  secretRef:
+    name: my-aws-secret
+    namespace: my-namespace
+  providerConfig:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: BackupBucketConfig
+    immutability:
+      retentionType: bucket
+      retentionPeriod: 24h
+      mode: compliance
+```
+
+> [!Note]
+> Once S3 Object Lock is enabled, it cannot be disabled, nor can S3 versioning. However, you can remove the default retention settings by removing the `BackupBucketConfig` from `.spec.providerConfig`.
