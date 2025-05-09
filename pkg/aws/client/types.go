@@ -124,6 +124,7 @@ type Interface interface {
 	GetElasticIP(ctx context.Context, id string) (*ElasticIP, error)
 	FindElasticIPsByTags(ctx context.Context, tags Tags) ([]*ElasticIP, error)
 	DeleteElasticIP(ctx context.Context, id string) error
+	IsEIPAttachedToNatGateway(ctx context.Context, allocationID string) (bool, error)
 
 	// NAT gateway
 	CreateNATGateway(ctx context.Context, gateway *NATGateway) (*NATGateway, error)

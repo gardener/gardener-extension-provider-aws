@@ -1006,13 +1006,29 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 
 func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 	return func(ctx context.Context) error {
-		if zone.ElasticIPAllocationID != nil {
-			return nil
-		}
 		log := LogFromContext(ctx)
 		helper := c.zoneSuffixHelpers(zone.Name)
 		child := c.getSubnetZoneChild(zone.Name)
 		id := child.Get(IdentifierZoneNATGWElasticIP)
+		if zone.ElasticIPAllocationID != nil {
+			// if there was once a managed elastic IP we need to clean up
+			if id != nil {
+				isAttached, err := c.client.IsEIPAttachedToNatGateway(ctx, *id)
+				if err != nil {
+					return err
+				}
+				if isAttached {
+					return fmt.Errorf("both gardener managed IP with id %s and user owned IP with alloc id %s are used",
+						*id, *zone.ElasticIPAllocationID)
+				}
+				log.Info("found unused managed elastic IP", "elastic IP", *id)
+				err = c.client.DeleteElasticIP(ctx, *id)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}
 		desired := &awsclient.ElasticIP{
 			Tags: c.commonTagsWithSuffix(helper.GetSuffixElasticIP()),
 			Vpc:  true,
@@ -1090,30 +1106,62 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 		}
 
 		if current != nil {
-			child.Set(IdentifierZoneNATGateway, current.NATGatewayId)
-			if _, err := c.updater.UpdateEC2Tags(ctx, current.NATGatewayId, desired.Tags, current.Tags); err != nil {
-				return err
+			if current.EIPAllocationId != desired.EIPAllocationId {
+				log.Info("elasticIPAllocationID change detected",
+					"current EIPAllocationId", current.EIPAllocationId,
+					"desired EIPAllocationId", desired.EIPAllocationId)
+				// 1. delete the current NAT gateway 2. delete old public IP 3. create new NAT gateway
+
+				// TODO what happens if reconcile stops after deleting the NAT gateway
+				err := c.deleteNATGateway(zone.Name)(ctx)
+				if err != nil {
+					return err
+				}
+				err = c.deleteElasticIP(zone.Name)(ctx)
+				if err != nil {
+					return err
+				}
+				err = c.createNATGateway(ctx, desired, zone.Name)
+				if err != nil {
+					return err
+				}
+			} else {
+				// only update tags
+				child.Set(IdentifierZoneNATGateway, current.NATGatewayId)
+				if _, err := c.updater.UpdateEC2Tags(ctx, current.NATGatewayId, desired.Tags, current.Tags); err != nil {
+					return err
+				}
 			}
 		} else {
-			child.Set(IdentifierZoneNATGateway, "")
-			log.Info("creating...")
-			waiter := informOnWaiting(log, 10*time.Second, "still creating...")
-			created, err := c.client.CreateNATGateway(ctx, desired)
-			if created != nil {
-				waiter.UpdateMessage("waiting until available...")
-				if perr := c.PersistState(ctx); perr != nil {
-					log.Info("persisting state failed", "error", perr)
-				}
-				child.Set(IdentifierZoneNATGateway, created.NATGatewayId)
-				err = c.client.WaitForNATGatewayAvailable(ctx, created.NATGatewayId)
-			}
-			waiter.Done(err)
+			err := c.createNATGateway(ctx, desired, zone.Name)
 			if err != nil {
 				return err
 			}
 		}
 		return nil
 	}
+}
+
+func (c *FlowContext) createNATGateway(ctx context.Context, desired *awsclient.NATGateway, zoneName string) error {
+	log := LogFromContext(ctx)
+	child := c.getSubnetZoneChild(zoneName)
+	child.Set(IdentifierZoneNATGateway, "")
+	log.Info("creating...")
+	waiter := informOnWaiting(log, 10*time.Second, "still creating...")
+	created, err := c.client.CreateNATGateway(ctx, desired)
+	if created != nil {
+		waiter.UpdateMessage("waiting until available...")
+		if perr := c.PersistState(ctx); perr != nil {
+			log.Info("persisting state failed", "error", perr)
+		}
+		child.Set(IdentifierZoneNATGateway, created.NATGatewayId)
+		err = c.client.WaitForNATGatewayAvailable(ctx, created.NATGatewayId)
+	}
+	waiter.Done(err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
@@ -1184,7 +1232,7 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 		child := c.getSubnetZoneChild(zoneName)
 		id := child.Get(IdentifierZoneRouteTable)
 
-		routes := []*awsclient.Route{}
+		var routes []*awsclient.Route
 
 		routes = append(routes, &awsclient.Route{
 			DestinationCidrBlock: ptr.To(allIPv4),
