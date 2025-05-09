@@ -11,7 +11,6 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/apis/core"
-	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -96,11 +95,12 @@ func validateRegions(regions []apisaws.RegionAMIMapping, version, name string, h
 			if !slices.Contains(v1beta1constants.ValidArchitectures, arch) {
 				allErrs = append(allErrs, field.NotSupported(kdxPath.Child("architecture"), arch, v1beta1constants.ValidArchitectures))
 			}
-		} else {
-			if region.Architecture != nil {
-				allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in ..capabilities.architecture"+*region.Architecture))
-			}
 		}
+		//if hasCloudProfileCapabilities {
+		//	if region.Architecture != nil {
+		//		allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in ..capabilities.architecture"+*region.Architecture))
+		//	}
+		//}
 	}
 	return allErrs
 }
@@ -281,16 +281,4 @@ func AreCapabilitiesEqual(a, b, capabilitiesDefinition core.Capabilities) bool {
 		}
 	}
 	return true
-}
-
-// CapabilityDefinitionsToCapabilities takes the capability definitions and converts them to capabilities.
-func CapabilityDefinitionsToCapabilities(capabilityDefinitions []gardencorev1beta1.CapabilityDefinition) gardencorev1beta1.Capabilities {
-	if len(capabilityDefinitions) == 0 {
-		return nil
-	}
-	capabilities := make(gardencorev1beta1.Capabilities, len(capabilityDefinitions))
-	for _, capability := range capabilityDefinitions {
-		capabilities[capability.Name] = capability.Values
-	}
-	return capabilities
 }
