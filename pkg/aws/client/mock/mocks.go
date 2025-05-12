@@ -1300,6 +1300,21 @@ func (mr *MockInterfaceMockRecorder) ImportKeyPair(ctx, keyName, publicKey, tags
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportKeyPair", reflect.TypeOf((*MockInterface)(nil).ImportKeyPair), ctx, keyName, publicKey, tags)
 }
 
+// IsEIPAttachedToNatGateway mocks base method.
+func (m *MockInterface) IsEIPAttachedToNatGateway(ctx context.Context, allocationID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsEIPAttachedToNatGateway", ctx, allocationID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsEIPAttachedToNatGateway indicates an expected call of IsEIPAttachedToNatGateway.
+func (mr *MockInterfaceMockRecorder) IsEIPAttachedToNatGateway(ctx, allocationID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEIPAttachedToNatGateway", reflect.TypeOf((*MockInterface)(nil).IsEIPAttachedToNatGateway), ctx, allocationID)
+}
+
 // ListKubernetesELBs mocks base method.
 func (m *MockInterface) ListKubernetesELBs(ctx context.Context, vpcID, clusterName string) ([]string, error) {
 	m.ctrl.T.Helper()
