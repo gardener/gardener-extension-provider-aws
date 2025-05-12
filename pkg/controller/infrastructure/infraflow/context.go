@@ -61,7 +61,7 @@ const (
 	IdentifierZoneSubnetPrivate = "SubnetPrivateUtility"
 	// IdentifierZoneSuffix is the key for the suffix used for a zone
 	IdentifierZoneSuffix = "Suffix"
-	// IdentifierZoneNATGWElasticIP is the key for the id of the elastic IP resource used for the NAT gateway
+	// IdentifierZoneNATGWElasticIP is the key for the allocationID of the elastic IP resource used for the NAT gateway
 	IdentifierZoneNATGWElasticIP = "NATGatewayElasticIP"
 	// IdentifierZoneNATGateway is the key for the id of the NAT gateway resource
 	IdentifierZoneNATGateway = "NATGateway"
