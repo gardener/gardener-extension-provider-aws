@@ -1011,20 +1011,18 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 		child := c.getSubnetZoneChild(zone.Name)
 		id := child.Get(IdentifierZoneNATGWElasticIP)
 		if zone.ElasticIPAllocationID != nil {
-			// if there was once a managed elastic IP we need to clean up
-			if id != nil {
+			// check if we need to clean up IPs
+			if id != nil && *id != *zone.ElasticIPAllocationID {
 				isAttached, err := c.client.IsEIPAttachedToNatGateway(ctx, *id)
 				if err != nil {
 					return err
 				}
-				if isAttached {
-					return fmt.Errorf("both gardener managed IP with id %s and user owned IP with alloc id %s are used",
-						*id, *zone.ElasticIPAllocationID)
-				}
-				log.Info("found unused managed elastic IP", "elastic IP", *id)
-				err = c.client.DeleteElasticIP(ctx, *id)
-				if err != nil {
-					return err
+				if !isAttached {
+					log.Info("NATs elastic IP from state is unused", "elastic IP ID", *id)
+					err = c.client.DeleteElasticIP(ctx, *id)
+					if err != nil {
+						return err
+					}
 				}
 			}
 			return nil
@@ -1107,12 +1105,9 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 
 		if current != nil {
 			if current.EIPAllocationId != desired.EIPAllocationId {
-				log.Info("elasticIPAllocationID change detected",
-					"current EIPAllocationId", current.EIPAllocationId,
-					"desired EIPAllocationId", desired.EIPAllocationId)
+				log.Info("EIPAllocationID change detected", "current EIPAllocationId",
+					current.EIPAllocationId, "desired EIPAllocationId", desired.EIPAllocationId)
 				// 1. delete the current NAT gateway 2. delete old public IP 3. create new NAT gateway
-
-				// TODO what happens if reconcile stops after deleting the NAT gateway
 				err := c.deleteNATGateway(zone.Name)(ctx)
 				if err != nil {
 					return err
