@@ -149,13 +149,28 @@ An egress-only internet gateway is required for outbound internet traffic (IPv6)
 
 ### Migration of IPv4-only Shoot Clusters to Dual-Stack
 
-Eventually, migration should be as easy as changing the `.spec.networking.ipFamilies` field in the `Shoot` resource from `IPv4` to `IPv4, IPv6`.
-However, as of now, this is not supported.
+To migrate an IPv4-only shoot cluster to Dual-Stack simply change the `.spec.networking.ipFamilies` field in the `Shoot` resource from `IPv4` to `IPv4, IPv6` as shown below.
 
-It is worth recognizing that the migration from an IPv4-only shoot cluster to a dual-stack shoot cluster involves rolling of the nodes/workload as well.
-Nodes will not get a new IPv6 address assigned automatically.
-The same is true for pods as well.
-Once the migration is supported, the detailed caveats will be documented here.
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  ...
+spec:
+  ...
+  networking:
+    type: ...
+    ipFamilies:
+      - IPv4
+      - IPv6
+  ...
+```
+
+You can find more information about the process and the steps required [here](https://gardener.cloud/docs/gardener/networking/dual-stack-networking-migration/).
+
+> [!WARNING]
+> Please note that the dual-stack migration requires the IPv4-only cluster to run in native routing mode, i.e. pod overlay network needs to be disabled.
+> The default quota of routes per route table in AWS is 50. This restricts the cluster size to about 50 nodes. Therefore, please adapt (if necessary) the routes per route table limit in the Amazon Virtual Private Cloud quotas accordingly before switching to native routing. The maximum setting is currently 1000.
 
 ### Load Balancer Configuration
 
