@@ -287,6 +287,111 @@ var _ = Describe("Shoot validation", func() {
 					})),
 				))
 			})
+
+			It("should forbid changing the providerConfig if the update strategy is in-place", func() {
+				workers[0].UpdateStrategy = ptr.To(core.AutoInPlaceUpdate)
+				workers[0].ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"foo":"bar"}`),
+				}
+
+				workers[1].Name = "worker2"
+				workers[1].UpdateStrategy = ptr.To(core.ManualInPlaceUpdate)
+				workers[1].ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"zoo":"dash"}`),
+				}
+
+				// provider config changed but update strategy is not in-place
+				workers = append(workers, core.Worker{
+					Name:           "worker3",
+					UpdateStrategy: ptr.To(core.AutoRollingUpdate),
+					ProviderConfig: &runtime.RawExtension{
+						Raw: []byte(`{"bar":"foo"}`),
+					},
+				})
+
+				// no change in provider config
+				workers = append(workers, core.Worker{
+					Name:           "worker4",
+					UpdateStrategy: ptr.To(core.AutoInPlaceUpdate),
+					ProviderConfig: &runtime.RawExtension{
+						Raw: []byte(`{"bar":"foo"}`),
+					},
+				})
+
+				newWorkers := copyWorkers(workers)
+				newWorkers[0].ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"foo":"baz"}`),
+				}
+				newWorkers[1].ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"zoo":"bash"}`),
+				}
+				newWorkers[2].ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"bar":"baz"}`),
+				}
+
+				Expect(ValidateWorkersUpdate(workers, newWorkers, field.NewPath("spec", "provider", "workers"))).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("spec.provider.workers[0].providerConfig"),
+						"Detail": Equal("providerConfig is immutable when update strategy is in-place"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("spec.provider.workers[1].providerConfig"),
+						"Detail": Equal("providerConfig is immutable when update strategy is in-place"),
+					})),
+				))
+			})
+
+			It("should forbid changing the data volumes if the update strategy is in-place", func() {
+				workers[0].UpdateStrategy = ptr.To(core.AutoInPlaceUpdate)
+				workers[0].DataVolumes = []core.DataVolume{
+					{
+						Name:       "foo",
+						VolumeSize: "20Gi",
+						Type:       ptr.To("foo"),
+					},
+				}
+
+				workers[1].Name = "worker2"
+				workers[1].UpdateStrategy = ptr.To(core.ManualInPlaceUpdate)
+				workers[1].DataVolumes = []core.DataVolume{
+					{
+						Name:       "bar",
+						VolumeSize: "30Gi",
+						Type:       ptr.To("bar"),
+					},
+				}
+
+				newWorkers := copyWorkers(workers)
+				newWorkers[0].DataVolumes = []core.DataVolume{
+					{
+						Name:       "baz",
+						VolumeSize: "40Gi",
+						Type:       ptr.To("baz"),
+					},
+				}
+				newWorkers[1].DataVolumes = []core.DataVolume{
+					{
+						Name:       "qux",
+						VolumeSize: "50Gi",
+						Type:       ptr.To("qux"),
+					},
+				}
+
+				Expect(ValidateWorkersUpdate(workers, newWorkers, field.NewPath("spec", "provider", "workers"))).To(ConsistOf(
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("spec.provider.workers[0].dataVolumes"),
+						"Detail": Equal("dataVolumes are immutable when update strategy is in-place"),
+					})),
+					PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("spec.provider.workers[1].dataVolumes"),
+						"Detail": Equal("dataVolumes are immutable when update strategy is in-place"),
+					})),
+				))
+			})
 		})
 	})
 })
