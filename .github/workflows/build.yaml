@@ -18,6 +18,7 @@ jobs:
       mode: ${{ inputs.mode }}
 
   oci-images:
+    name: Build OCI-Images
     needs:
       - prepare
     permissions:
