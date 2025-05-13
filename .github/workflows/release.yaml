@@ -10,7 +10,7 @@ jobs:
       mode: release
 
   release-to-github-and-bump:
-    uses: ./.github/workflows/release.yaml
+    uses: gardener/cc-utils/.github/workflows/release.yaml@master
     needs:
       - build
     secrets:
