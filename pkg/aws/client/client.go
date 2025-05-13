@@ -1807,24 +1807,6 @@ func (c *Client) DeleteElasticIP(ctx context.Context, id string) error {
 	return err
 }
 
-// IsEIPAttachedToNatGateway checks if the given elastic IP is attached to a NAT gateway.
-func (c *Client) IsEIPAttachedToNatGateway(ctx context.Context, allocationID string) (bool, error) {
-	out, err := c.EC2.DescribeNatGateways(ctx, &ec2.DescribeNatGatewaysInput{})
-	if err != nil {
-		return false, err
-	}
-
-	for _, ngw := range out.NatGateways {
-		for _, addr := range ngw.NatGatewayAddresses {
-			if addr.AllocationId != nil && *addr.AllocationId == allocationID {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 // CreateNATGateway creates an EC2 NAT gateway resource.
 // The method does NOT wait until the NAT gateway is available.
 func (c *Client) CreateNATGateway(ctx context.Context, gateway *NATGateway) (*NATGateway, error) {
@@ -2326,10 +2308,11 @@ func fromSubnet(item *ec2types.Subnet) *Subnet {
 
 func fromAddress(item *ec2types.Address) *ElasticIP {
 	return &ElasticIP{
-		Tags:         FromTags(item.Tags),
-		Vpc:          item.Domain == ec2types.DomainTypeVpc,
-		AllocationId: aws.ToString(item.AllocationId),
-		PublicIp:     aws.ToString(item.PublicIp),
+		Tags:          FromTags(item.Tags),
+		Vpc:           item.Domain == ec2types.DomainTypeVpc,
+		AllocationId:  aws.ToString(item.AllocationId),
+		PublicIp:      aws.ToString(item.PublicIp),
+		AssociationID: item.AssociationId,
 	}
 }
 

@@ -845,9 +845,13 @@ func (c *FlowContext) addSubnetReconcileTasks(g *flow.Graph, desired, current *a
 }
 
 func (c *FlowContext) addZoneReconcileTasks(g *flow.Graph, zone *aws.Zone, dependencies []flow.TaskIDer) {
+	ensureRecreateNATGateway := c.AddTask(g, "ensure NAT gateway recreation "+zone.Name,
+		c.ensureRecreateNATGateway(zone),
+		Timeout(defaultTimeout), Dependencies(dependencies...))
+
 	ensureElasticIP := c.AddTask(g, "ensure NAT gateway elastic IP "+zone.Name,
 		c.ensureElasticIP(zone),
-		Timeout(defaultTimeout), Dependencies(dependencies...))
+		Timeout(defaultTimeout), Dependencies(dependencies...), Dependencies(ensureRecreateNATGateway))
 
 	ensureNATGateway := c.AddTask(g, "ensure NAT gateway "+zone.Name,
 		c.ensureNATGateway(zone),
@@ -1011,14 +1015,15 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 		child := c.getSubnetZoneChild(zone.Name)
 		id := child.Get(IdentifierZoneNATGWElasticIP)
 		if zone.ElasticIPAllocationID != nil {
-			// check if we need to clean up IPs
+			// check if we need to clean up gardener managed IP, after user switched from managed to unmanaged
 			if id != nil && *id != *zone.ElasticIPAllocationID {
-				isAttached, err := c.client.IsEIPAttachedToNatGateway(ctx, *id)
+				ip, err := c.client.GetElasticIP(ctx, *id)
 				if err != nil {
 					return err
 				}
-				if !isAttached {
-					log.Info("NATs elastic IP from state is unused", "elastic IP ID", *id)
+				// make sure that the EIP is not in use
+				if ip.AssociationID == nil {
+					log.Info("deleting unused managed elastic IP found in state", "id", *id)
 					err = c.client.DeleteElasticIP(ctx, *id)
 					if err != nil {
 						return err
@@ -1081,6 +1086,41 @@ func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 	}
 }
 
+// ensureRecreateNATGateway checks if the EIPAllocationId has changed.
+func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
+	return func(ctx context.Context) error {
+		log := LogFromContext(ctx)
+		child := c.getSubnetZoneChild(zone.Name)
+		helper := c.zoneSuffixHelpers(zone.Name)
+		desired := &awsclient.NATGateway{
+			Tags:     c.commonTagsWithSuffix(helper.GetSuffixNATGateway()),
+			SubnetId: *child.Get(IdentifierZoneSubnetPublic),
+		}
+		if zone.ElasticIPAllocationID != nil {
+			desired.EIPAllocationId = *zone.ElasticIPAllocationID
+		} else {
+			desired.EIPAllocationId = *child.Get(IdentifierZoneNATGWElasticIP)
+		}
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
+			func(item *awsclient.NATGateway) bool {
+				return !strings.EqualFold(item.State, string(ec2types.StateDeleting)) && !strings.EqualFold(item.State, string(ec2types.StateFailed))
+			})
+		if err != nil {
+			return err
+		}
+
+		if current.EIPAllocationId != desired.EIPAllocationId {
+			log.Info("deleting NAT because of EIPAllocationID change detected", "current EIPAllocationId",
+				current.EIPAllocationId, "desired EIPAllocationId", desired.EIPAllocationId)
+			err := c.deleteNATGateway(zone.Name)(ctx)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
 func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 	return func(ctx context.Context) error {
 		log := LogFromContext(ctx)
@@ -1104,59 +1144,30 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 		}
 
 		if current != nil {
-			if current.EIPAllocationId != desired.EIPAllocationId {
-				log.Info("EIPAllocationID change detected", "current EIPAllocationId",
-					current.EIPAllocationId, "desired EIPAllocationId", desired.EIPAllocationId)
-				// 1. delete the current NAT gateway 2. delete old public IP 3. create new NAT gateway
-				err := c.deleteNATGateway(zone.Name)(ctx)
-				if err != nil {
-					return err
-				}
-				err = c.deleteElasticIP(zone.Name)(ctx)
-				if err != nil {
-					return err
-				}
-				err = c.createNATGateway(ctx, desired, zone.Name)
-				if err != nil {
-					return err
-				}
-			} else {
-				// only update tags
-				child.Set(IdentifierZoneNATGateway, current.NATGatewayId)
-				if _, err := c.updater.UpdateEC2Tags(ctx, current.NATGatewayId, desired.Tags, current.Tags); err != nil {
-					return err
-				}
+			child.Set(IdentifierZoneNATGateway, current.NATGatewayId)
+			if _, err := c.updater.UpdateEC2Tags(ctx, current.NATGatewayId, desired.Tags, current.Tags); err != nil {
+				return err
 			}
 		} else {
-			err := c.createNATGateway(ctx, desired, zone.Name)
+			child.Set(IdentifierZoneNATGateway, "")
+			log.Info("creating...")
+			waiter := informOnWaiting(log, 10*time.Second, "still creating...")
+			created, err := c.client.CreateNATGateway(ctx, desired)
+			if created != nil {
+				waiter.UpdateMessage("waiting until available...")
+				if perr := c.PersistState(ctx); perr != nil {
+					log.Info("persisting state failed", "error", perr)
+				}
+				child.Set(IdentifierZoneNATGateway, created.NATGatewayId)
+				err = c.client.WaitForNATGatewayAvailable(ctx, created.NATGatewayId)
+			}
+			waiter.Done(err)
 			if err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-}
-
-func (c *FlowContext) createNATGateway(ctx context.Context, desired *awsclient.NATGateway, zoneName string) error {
-	log := LogFromContext(ctx)
-	child := c.getSubnetZoneChild(zoneName)
-	child.Set(IdentifierZoneNATGateway, "")
-	log.Info("creating...")
-	waiter := informOnWaiting(log, 10*time.Second, "still creating...")
-	created, err := c.client.CreateNATGateway(ctx, desired)
-	if created != nil {
-		waiter.UpdateMessage("waiting until available...")
-		if perr := c.PersistState(ctx); perr != nil {
-			log.Info("persisting state failed", "error", perr)
-		}
-		child.Set(IdentifierZoneNATGateway, created.NATGatewayId)
-		err = c.client.WaitForNATGatewayAvailable(ctx, created.NATGatewayId)
-	}
-	waiter.Done(err)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {

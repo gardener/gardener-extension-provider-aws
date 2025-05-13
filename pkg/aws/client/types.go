@@ -124,7 +124,6 @@ type Interface interface {
 	GetElasticIP(ctx context.Context, id string) (*ElasticIP, error)
 	FindElasticIPsByTags(ctx context.Context, tags Tags) ([]*ElasticIP, error)
 	DeleteElasticIP(ctx context.Context, id string) error
-	IsEIPAttachedToNatGateway(ctx context.Context, allocationID string) (bool, error)
 
 	// NAT gateway
 	CreateNATGateway(ctx context.Context, gateway *NATGateway) (*NATGateway, error)
@@ -495,9 +494,10 @@ func (s *Subnet) Clone() *Subnet {
 // ElasticIP contains the relevant fields for an EC2 elastic IP resource.
 type ElasticIP struct {
 	Tags
-	AllocationId string
-	PublicIp     string
-	Vpc          bool
+	AllocationId  string
+	PublicIp      string
+	Vpc           bool
+	AssociationID *string
 }
 
 // NATGateway contains the relevant fields for an EC2 NAT gateway resource.
