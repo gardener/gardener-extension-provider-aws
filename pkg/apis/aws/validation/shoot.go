@@ -9,20 +9,15 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"strings"
 
-	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/apis/core"
 	validationutils "github.com/gardener/gardener/pkg/utils/validation"
-	"github.com/go-test/deep"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/ptr"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	workercontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
 )
 
 const (
@@ -103,56 +98,18 @@ func ValidateWorker(worker core.Worker, zones []apisaws.Zone, workerConfig *apis
 }
 
 // ValidateWorkersUpdate validates updates on `workers`
-func ValidateWorkersUpdate(decoder runtime.Decoder, oldWorkers, newWorkers []core.Worker, fldPath *field.Path) field.ErrorList {
+func ValidateWorkersUpdate(oldWorkers, newWorkers []core.Worker, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	for i, newWorker := range newWorkers {
-		for j, oldWorker := range oldWorkers {
+		for _, oldWorker := range oldWorkers {
 			if newWorker.Name == oldWorker.Name {
 				if validationutils.ShouldEnforceImmutability(newWorker.Zones, oldWorker.Zones) {
 					allErrs = append(allErrs, apivalidation.ValidateImmutableField(newWorker.Zones, oldWorker.Zones, fldPath.Index(i).Child("zones"))...)
 				}
-
-				if sets.New(core.AutoInPlaceUpdate, core.ManualInPlaceUpdate).Has(ptr.Deref(newWorker.UpdateStrategy, "")) {
-					decodingErrors := field.ErrorList{}
-
-					oldWorkerConfig := &apisaws.WorkerConfig{}
-					if err := util.Decode(decoder, oldWorker.ProviderConfig.Raw, oldWorkerConfig); err != nil {
-						decodingErrors = append(decodingErrors, field.Invalid(fldPath.Index(j).Child("providerConfig"), string(oldWorker.ProviderConfig.Raw), fmt.Sprintf("could not decode old provider config: %v", err)))
-					}
-
-					newWorkerConfig := &apisaws.WorkerConfig{}
-					if err := util.Decode(decoder, newWorker.ProviderConfig.Raw, newWorkerConfig); err != nil {
-						decodingErrors = append(decodingErrors, field.Invalid(fldPath.Index(i).Child("providerConfig"), string(newWorker.ProviderConfig.Raw), fmt.Sprintf("could not decode new provider config: %v", err)))
-					}
-
-					if len(decodingErrors) > 0 {
-						// No need to validate further
-						allErrs = append(allErrs, decodingErrors...)
-					} else {
-						allErrs = append(allErrs, validateWorkerConfigImmutability(oldWorkerConfig, newWorkerConfig, fldPath.Index(i).Child("providerConfig"))...)
-					}
-				}
-
 				break
 			}
 		}
 	}
-	return allErrs
-}
-
-func validateWorkerConfigImmutability(oldWorkerConfig, newWorkerConfig *apisaws.WorkerConfig, fldPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	oldConfigDataHash := workercontroller.CalculateWorkerConfigDataHash(*oldWorkerConfig)
-	newConfigDataHash := workercontroller.CalculateWorkerConfigDataHash(*newWorkerConfig)
-	if !slices.Equal(oldConfigDataHash, newConfigDataHash) {
-		allErrs = append(allErrs, field.Forbidden(fldPath, "some fields of provider config is immutable when the update strategy is AutoInPlaceUpdate or ManualInPlaceUpdate"))
-
-		if diff := deep.Equal(oldWorkerConfig, newWorkerConfig); diff != nil {
-			allErrs = field.ErrorList{field.Forbidden(fldPath, fmt.Sprintf("some fields of provider config is immutable when the update strategy is AutoInPlaceUpdate or ManualInPlaceUpdate. Diff: %s", strings.Join(diff, ", ")))}
-		}
-	}
-
 	return allErrs
 }
 

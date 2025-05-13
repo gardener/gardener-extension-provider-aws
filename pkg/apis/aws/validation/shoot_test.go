@@ -5,22 +5,17 @@
 package validation_test
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/gardener/gardener/pkg/apis/core"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
-	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
@@ -217,22 +212,15 @@ var _ = Describe("Shoot validation", func() {
 		})
 
 		Describe("#ValidateWorkersUpdate", func() {
-			var (
-				workers []core.Worker
-				decoder runtime.Decoder
-			)
+			var workers []core.Worker
 
 			BeforeEach(func() {
 				workers = []core.Worker{worker, worker}
-
-				scheme := runtime.NewScheme()
-				Expect(awsinstall.AddToScheme(scheme)).To(Succeed())
-				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 			})
 
 			It("should pass because workers are unchanged", func() {
 				newWorkers := copyWorkers(workers)
-				errorList := ValidateWorkersUpdate(decoder, workers, newWorkers, field.NewPath("workers"))
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
 
 				Expect(errorList).To(BeEmpty())
 			})
@@ -240,7 +228,7 @@ var _ = Describe("Shoot validation", func() {
 			It("should allow adding workers", func() {
 				newWorkers := append(workers[:0:0], workers...)
 				workers = workers[:1]
-				errorList := ValidateWorkersUpdate(decoder, workers, newWorkers, field.NewPath("workers"))
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
 
 				Expect(errorList).To(BeEmpty())
 			})
@@ -248,7 +236,7 @@ var _ = Describe("Shoot validation", func() {
 			It("should allow adding a zone to a worker", func() {
 				newWorkers := copyWorkers(workers)
 				newWorkers[0].Zones = append(newWorkers[0].Zones, "another-zone")
-				errorList := ValidateWorkersUpdate(decoder, workers, newWorkers, field.NewPath("workers"))
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
 
 				Expect(errorList).To(BeEmpty())
 			})
@@ -256,7 +244,7 @@ var _ = Describe("Shoot validation", func() {
 			It("should forbid removing a zone from a worker", func() {
 				newWorkers := copyWorkers(workers)
 				newWorkers[1].Zones = newWorkers[1].Zones[1:]
-				errorList := ValidateWorkersUpdate(decoder, workers, newWorkers, field.NewPath("workers"))
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -272,7 +260,7 @@ var _ = Describe("Shoot validation", func() {
 				newWorkers[0].Zones[1] = workers[0].Zones[0]
 				newWorkers[1].Zones[0] = workers[1].Zones[1]
 				newWorkers[1].Zones[1] = workers[1].Zones[0]
-				errorList := ValidateWorkersUpdate(decoder, workers, newWorkers, field.NewPath("workers"))
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -290,7 +278,7 @@ var _ = Describe("Shoot validation", func() {
 				newWorkers := copyWorkers(workers)
 				newWorkers = append(newWorkers, core.Worker{Name: "worker3", Zones: []string{"zone1"}})
 				newWorkers[1].Zones[0] = workers[1].Zones[1]
-				errorList := ValidateWorkersUpdate(decoder, workers, newWorkers, field.NewPath("workers"))
+				errorList := ValidateWorkersUpdate(workers, newWorkers, field.NewPath("workers"))
 
 				Expect(errorList).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
@@ -298,115 +286,6 @@ var _ = Describe("Shoot validation", func() {
 						"Field": Equal("workers[1].zones"),
 					})),
 				))
-			})
-
-			Context("InPlace Update", func() {
-				var (
-					oldWorker, newWorker             core.Worker
-					oldWorkerConfig, newWorkerConfig *apisawsv1alpha1.WorkerConfig
-				)
-
-				BeforeEach(func() {
-					oldWorkerConfig = &apisawsv1alpha1.WorkerConfig{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: apisawsv1alpha1.SchemeGroupVersion.String(),
-							Kind:       "WorkerConfig",
-						},
-						CpuOptions: &apisawsv1alpha1.CpuOptions{
-							CoreCount:      ptr.To(int64(4)),
-							ThreadsPerCore: ptr.To(int64(2)),
-						},
-						IAMInstanceProfile: &apisawsv1alpha1.IAMInstanceProfile{
-							ARN:  ptr.To("arn"),
-							Name: ptr.To("name"),
-						},
-						InstanceMetadataOptions: &apisawsv1alpha1.InstanceMetadataOptions{
-							HTTPTokens:              ptr.To(apisawsv1alpha1.HTTPTokensRequired),
-							HTTPPutResponseHopLimit: ptr.To(int64(1)),
-						},
-					}
-
-					newWorkerConfig = oldWorkerConfig.DeepCopy()
-
-					oldWorker = core.Worker{
-						Name: "worker1",
-						Volume: &core.Volume{
-							Type: ptr.To("Volume"),
-						},
-						ProviderConfig: &runtime.RawExtension{Raw: encode(oldWorkerConfig)},
-						UpdateStrategy: ptr.To(core.AutoInPlaceUpdate),
-					}
-
-					newWorker = *oldWorker.DeepCopy()
-				})
-
-				It("should error if old provider config is invalid", func() {
-					oldWorker.ProviderConfig.Raw = []byte("invalid")
-					newWorker.ProviderConfig.Raw = encode(newWorkerConfig)
-					errorList := ValidateWorkersUpdate(decoder, []core.Worker{oldWorker}, []core.Worker{newWorker}, field.NewPath("workers"))
-					Expect(errorList).To(ConsistOf(
-						PointTo(MatchFields(IgnoreExtras, Fields{
-							"Type":   Equal(field.ErrorTypeInvalid),
-							"Field":  Equal("workers[0].providerConfig"),
-							"Detail": ContainSubstring("could not decode old provider config"),
-						})),
-					))
-				})
-
-				It("should error if new provider config is invalid", func() {
-					newWorker.ProviderConfig.Raw = []byte("invalid")
-					errorList := ValidateWorkersUpdate(decoder, []core.Worker{oldWorker}, []core.Worker{newWorker}, field.NewPath("workers"))
-					Expect(errorList).To(ConsistOf(
-						PointTo(MatchFields(IgnoreExtras, Fields{
-							"Type":   Equal(field.ErrorTypeInvalid),
-							"Field":  Equal("workers[0].providerConfig"),
-							"Detail": ContainSubstring("could not decode new provider config"),
-						})),
-					))
-				})
-
-				DescribeTable("should not allow changing provider config", func(mutateNewWorkerConfig func(*apisawsv1alpha1.WorkerConfig), errorString string) {
-					if mutateNewWorkerConfig != nil {
-						mutateNewWorkerConfig(newWorkerConfig)
-					}
-
-					oldWorker.ProviderConfig.Raw = encode(oldWorkerConfig)
-					newWorker.ProviderConfig.Raw = encode(newWorkerConfig)
-
-					Expect(ValidateWorkersUpdate(decoder, []core.Worker{oldWorker}, []core.Worker{newWorker}, field.NewPath("workers"))).To(ConsistOf(
-						PointTo(MatchFields(IgnoreExtras, Fields{
-							"Type":   Equal(field.ErrorTypeForbidden),
-							"Field":  Equal("workers[0].providerConfig"),
-							"Detail": Equal(fmt.Sprintf("some fields of provider config is immutable when the update strategy is AutoInPlaceUpdate or ManualInPlaceUpdate. Diff: %s", errorString)),
-						})),
-					))
-				},
-					Entry("cpuOptions.coreCount", func(config *apisawsv1alpha1.WorkerConfig) { config.CpuOptions.CoreCount = ptr.To(int64(8)) }, "CpuOptions.CoreCount: 4 != 8"),
-					Entry("cpuOptions.threadsPerCore", func(config *apisawsv1alpha1.WorkerConfig) { config.CpuOptions.ThreadsPerCore = ptr.To(int64(4)) }, "CpuOptions.ThreadsPerCore: 2 != 4"),
-					Entry("iamInstanceProfile.arn", func(config *apisawsv1alpha1.WorkerConfig) { config.IAMInstanceProfile.ARN = ptr.To("new-arn") }, "IAMInstanceProfile.ARN: arn != new-arn"),
-					Entry("iamInstanceProfile.name", func(config *apisawsv1alpha1.WorkerConfig) { config.IAMInstanceProfile.Name = ptr.To("new-name") }, "IAMInstanceProfile.Name: name != new-name"),
-					Entry("instanceMetadataOptions.httpTokens", func(config *apisawsv1alpha1.WorkerConfig) {
-						config.InstanceMetadataOptions.HTTPTokens = ptr.To(apisawsv1alpha1.HTTPTokensOptional)
-					}, "InstanceMetadataOptions.HTTPTokens: required != optional"),
-					Entry("instanceMetadataOptions.httpPutResponseHopLimit", func(config *apisawsv1alpha1.WorkerConfig) {
-						config.InstanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To(int64(2))
-					}, "InstanceMetadataOptions.HTTPPutResponseHopLimit: 1 != 2"),
-					Entry("multiple changes", func(config *apisawsv1alpha1.WorkerConfig) {
-						config.CpuOptions.CoreCount = ptr.To(int64(8))
-						config.CpuOptions.ThreadsPerCore = ptr.To(int64(4))
-						config.IAMInstanceProfile.ARN = ptr.To("new-arn")
-						config.IAMInstanceProfile.Name = ptr.To("new-name")
-						config.InstanceMetadataOptions.HTTPTokens = ptr.To(apisawsv1alpha1.HTTPTokensOptional)
-						config.InstanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To(int64(2))
-					}, "IAMInstanceProfile.Name: name != new-name, IAMInstanceProfile.ARN: arn != new-arn, InstanceMetadataOptions.HTTPTokens: required != optional, InstanceMetadataOptions.HTTPPutResponseHopLimit: 1 != 2, CpuOptions.CoreCount: 4 != 8, CpuOptions.ThreadsPerCore: 2 != 4"),
-				)
-
-				It("should allow if new and old provider config are the same", func() {
-					oldWorker.ProviderConfig.Raw = encode(oldWorkerConfig)
-					newWorker.ProviderConfig.Raw = encode(newWorkerConfig)
-
-					Expect(ValidateWorkersUpdate(decoder, []core.Worker{oldWorker}, []core.Worker{newWorker}, field.NewPath("workers"))).To(BeEmpty())
-				})
 			})
 		})
 	})
@@ -418,9 +297,4 @@ func copyWorkers(workers []core.Worker) []core.Worker {
 		cp[i].Zones = append(workers[i].Zones[:0:0], workers[i].Zones...)
 	}
 	return cp
-}
-
-func encode(obj runtime.Object) []byte {
-	data, _ := json.Marshal(obj)
-	return data
 }

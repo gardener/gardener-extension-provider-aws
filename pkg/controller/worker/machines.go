@@ -401,7 +401,28 @@ func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
 	var additionalData = computeAdditionalHashDataV1(pool)
 
-	additionalData = append(additionalData, CalculateWorkerConfigDataHash(workerConfig)...)
+	if opts := workerConfig.CpuOptions; opts != nil {
+		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
+		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
+	}
+
+	if instanceProfile := workerConfig.IAMInstanceProfile; instanceProfile != nil {
+		if arn := instanceProfile.ARN; arn != nil {
+			additionalData = append(additionalData, *arn)
+		}
+		if name := instanceProfile.Name; name != nil {
+			additionalData = append(additionalData, *name)
+		}
+	}
+
+	if instanceMetadataOptions := workerConfig.InstanceMetadataOptions; instanceMetadataOptions != nil {
+		if tokens := instanceMetadataOptions.HTTPTokens; tokens != nil {
+			additionalData = append(additionalData, string(*tokens))
+		}
+		if putResponseHopLimit := instanceMetadataOptions.HTTPPutResponseHopLimit; putResponseHopLimit != nil {
+			additionalData = append(additionalData, fmt.Sprint(*putResponseHopLimit))
+		}
+	}
 
 	return additionalData
 }
