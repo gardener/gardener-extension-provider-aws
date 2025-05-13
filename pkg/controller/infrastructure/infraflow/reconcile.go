@@ -1109,7 +1109,7 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 			return err
 		}
 
-		if current.EIPAllocationId != desired.EIPAllocationId {
+		if current != nil && current.EIPAllocationId != desired.EIPAllocationId {
 			log.Info("deleting NAT because of EIPAllocationID change detected", "current EIPAllocationId",
 				current.EIPAllocationId, "desired EIPAllocationId", desired.EIPAllocationId)
 			err := c.deleteNATGateway(zone.Name)(ctx)
