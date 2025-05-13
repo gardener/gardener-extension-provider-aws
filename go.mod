@@ -24,7 +24,6 @@ require (
 	github.com/gardener/gardener v1.118.0
 	github.com/gardener/machine-controller-manager v0.58.0
 	github.com/go-logr/logr v1.4.2
-	github.com/go-test/deep v1.1.0
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.82.0

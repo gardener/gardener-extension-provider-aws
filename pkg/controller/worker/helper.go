@@ -7,7 +7,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,34 +45,4 @@ func (w *WorkerDelegate) updateWorkerProviderStatus(ctx context.Context, workerS
 	patch := k8sclient.MergeFrom(w.worker.DeepCopy())
 	w.worker.Status.ProviderStatus = &runtime.RawExtension{Object: workerStatusV1alpha1}
 	return w.client.Status().Patch(ctx, w.worker, patch)
-}
-
-// CalculateWorkerConfigDataHash returns relevant strings for the hash calculation of the workerConfig.
-func CalculateWorkerConfigDataHash(workerConfig api.WorkerConfig) []string {
-	var data []string
-
-	if opts := workerConfig.CpuOptions; opts != nil {
-		data = append(data, strconv.Itoa(int(*opts.CoreCount)))
-		data = append(data, strconv.Itoa(int(*opts.ThreadsPerCore)))
-	}
-
-	if instanceProfile := workerConfig.IAMInstanceProfile; instanceProfile != nil {
-		if arn := instanceProfile.ARN; arn != nil {
-			data = append(data, *arn)
-		}
-		if name := instanceProfile.Name; name != nil {
-			data = append(data, *name)
-		}
-	}
-
-	if instanceMetadataOptions := workerConfig.InstanceMetadataOptions; instanceMetadataOptions != nil {
-		if tokens := instanceMetadataOptions.HTTPTokens; tokens != nil {
-			data = append(data, string(*tokens))
-		}
-		if putResponseHopLimit := instanceMetadataOptions.HTTPPutResponseHopLimit; putResponseHopLimit != nil {
-			data = append(data, fmt.Sprint(*putResponseHopLimit))
-		}
-	}
-
-	return data
 }
