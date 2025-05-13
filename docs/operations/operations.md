@@ -158,4 +158,4 @@ If it is not enabled, the fields mentioned in the [Gardener doc](https://github.
 - `.spec.provider.workers[].dataVolumes[].encrypted` (only the affected worker pool)
 
 For now, if the feature gate _is_ enabled, also the complete provider config is used.
-However, as soon as MCM is able to handle in place updates for volumes this will be changed.
+This behavior will change once MCM supports in-place volume updates.
