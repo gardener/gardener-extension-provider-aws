@@ -451,45 +451,6 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, object
 	return err
 }
 
-// UpdateBucketConfig updates the bucket with provided backupbucket Configuration.
-func (c *Client) UpdateBucketConfig(ctx context.Context, bucket string, backupbucketConfig *apisaws.BackupBucketConfig, isVersioningEnabled bool) error {
-	// As a prerequisite for enabling immutable(object lock) settings,
-	// enable the versioning on the bucket if versioning is not enabled.
-	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil && !isVersioningEnabled {
-		input := &s3.PutBucketVersioningInput{
-			Bucket: aws.String(bucket),
-			VersioningConfiguration: &s3types.VersioningConfiguration{
-				Status: s3types.BucketVersioningStatusEnabled,
-			},
-		}
-
-		if _, err := c.S3.PutBucketVersioning(ctx, input); err != nil {
-			return err
-		}
-	}
-
-	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil {
-		input := &s3.PutObjectLockConfigurationInput{
-			Bucket: &bucket,
-			ObjectLockConfiguration: &s3types.ObjectLockConfiguration{
-				ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
-				Rule: &s3types.ObjectLockRule{
-					DefaultRetention: &s3types.DefaultRetention{
-						// #nosec G115
-						Days: aws.Int32(int32(backupbucketConfig.Immutability.RetentionPeriod.Duration / (24 * time.Hour))),
-						Mode: GetBucketRetentiontMode(backupbucketConfig.Immutability.Mode),
-					},
-				},
-			},
-		}
-		if _, err := c.S3.PutObjectLockConfiguration(ctx, input); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // DeleteBucketIfExists deletes the s3 bucket with name <bucket>. If it does not exist,
 // no error is returned.
 func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error {
@@ -520,6 +481,21 @@ func (c *Client) GetBucketVersioningStatus(ctx context.Context, bucket string) (
 	return bucketVersioningStatus, err
 }
 
+// EnableBucketVersioning enables the versioning on the given bucket.
+func (c *Client) EnableBucketVersioning(ctx context.Context, bucket string) error {
+	input := &s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3types.VersioningConfiguration{
+			Status: s3types.BucketVersioningStatusEnabled,
+		},
+	}
+
+	if _, err := c.S3.PutBucketVersioning(ctx, input); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetObjectLockConfiguration is wrapper for S3's API GetObjectLockConfiguration to get object lock settings.
 func (c *Client) GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error) {
 	objectConfig, err := c.S3.GetObjectLockConfiguration(ctx, &s3.GetObjectLockConfigurationInput{
@@ -529,9 +505,31 @@ func (c *Client) GetObjectLockConfiguration(ctx context.Context, bucket string) 
 	return objectConfig, err
 }
 
-// RemoveObjectLockConfig removes the object lock configuration rules from bucket.
+// UpdateObjectLockConfiguration updates the object lock configuration on the bucket.
+func (c *Client) UpdateObjectLockConfiguration(ctx context.Context, bucket string, mode apisaws.ModeType, days int32) error {
+	input := &s3.PutObjectLockConfigurationInput{
+		Bucket: &bucket,
+		ObjectLockConfiguration: &s3types.ObjectLockConfiguration{
+			ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
+			Rule: &s3types.ObjectLockRule{
+				DefaultRetention: &s3types.DefaultRetention{
+					// #nosec G115
+					Days: aws.Int32(days),
+					Mode: GetBucketRetentiontMode(mode),
+				},
+			},
+		},
+	}
+	if _, err := c.S3.PutObjectLockConfiguration(ctx, input); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RemoveObjectLockConfiguration removes the object lock configuration rules from bucket.
 // Note: Object lock can't be disabled in S3, only object lock configuration rules can be removed from bucket.
-func (c *Client) RemoveObjectLockConfig(ctx context.Context, bucket string) error {
+func (c *Client) RemoveObjectLockConfiguration(ctx context.Context, bucket string) error {
 	input := &s3.PutObjectLockConfigurationInput{
 		Bucket: &bucket,
 		ObjectLockConfiguration: &s3types.ObjectLockConfiguration{

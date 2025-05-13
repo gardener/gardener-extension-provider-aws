@@ -132,12 +132,6 @@ var _ = Describe("Actuator", func() {
 		})
 
 		Context("when creating aws client fails", func() {
-			BeforeEach(func() {
-				backupBucket.Spec.ProviderConfig = &runtime.RawExtension{
-					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1","kind": "BackupBucketConfig","immutability":{"retentionType":"bucket","retentionPeriod":"24h","mode":"compliance"}}`),
-				}
-			})
-
 			It("should return an error if storage client creation fails", func() {
 				awsClientFactory.EXPECT().NewClient(authConfig).Return(nil, fmt.Errorf("failed to created aws client"))
 
@@ -175,7 +169,6 @@ var _ = Describe("Actuator", func() {
 
 			It("should create the bucket successfully without object lock enabled", func() {
 				awsClient.EXPECT().CreateBucket(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
-				awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -187,7 +180,7 @@ var _ = Describe("Actuator", func() {
 				}
 
 				awsClient.EXPECT().CreateBucket(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
-				awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
+				awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -195,6 +188,18 @@ var _ = Describe("Actuator", func() {
 
 			It("should return error if creation of bucket fails", func() {
 				awsClient.EXPECT().CreateBucket(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("unable to create bucket"))
+
+				err := a.Reconcile(ctx, logger, backupBucket)
+				Expect(err).Should(HaveOccurred())
+			})
+
+			It("should return error if creation of bucket succeeds but objectLock config failed to get updated", func() {
+				backupBucket.Spec.ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1","kind": "BackupBucketConfig","immutability":{"retentionType":"bucket","retentionPeriod":"24h","mode":"compliance"}}`),
+				}
+
+				awsClient.EXPECT().CreateBucket(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
+				awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("unable to update object lock config"))
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).Should(HaveOccurred())
@@ -211,18 +216,34 @@ var _ = Describe("Actuator", func() {
 				awsClient.EXPECT().GetBucketVersioningStatus(ctx, gomock.Any()).Return(nil, nil)
 			})
 
-			It("should update the bucket", func() {
-				awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), false).Return(nil)
+			It("should enable the bucket versioning and update the object lock config", func() {
+				awsClient.EXPECT().EnableBucketVersioning(ctx, gomock.Any()).Return(nil)
+				awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).ShouldNot(HaveOccurred())
 			})
 
-			It("should return error if bucket updation failed", func() {
-				awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), false).Return(fmt.Errorf("bucket update failed"))
+			It("should return error if bucket versioning failed to get enabled", func() {
+				awsClient.EXPECT().EnableBucketVersioning(ctx, gomock.Any()).Return(fmt.Errorf("unable to enable the bucket versioning"))
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).Should(HaveOccurred())
+			})
+
+			It("should return error if enable the bucket versioning succeeds but failed to update object lock config", func() {
+				awsClient.EXPECT().EnableBucketVersioning(ctx, gomock.Any()).Return(nil)
+				awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("unable to update object lock config"))
+
+				err := a.Reconcile(ctx, logger, backupBucket)
+				Expect(err).Should(HaveOccurred())
+			})
+
+			It("should do nothing if provider config isn't provided", func() {
+				backupBucket.Spec.ProviderConfig = nil
+
+				err := a.Reconcile(ctx, logger, backupBucket)
+				Expect(err).ShouldNot(HaveOccurred())
 			})
 		})
 
@@ -248,14 +269,14 @@ var _ = Describe("Actuator", func() {
 					awsClient.EXPECT().GetObjectLockConfiguration(ctx, gomock.Any()).Return(nil, fmt.Errorf("ObjectLockConfigurationNotFoundError")).AnyTimes()
 				})
 				It("should update the bucket", func() {
-					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
+					awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 
 				It("should return error if bucket updation failed", func() {
-					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(fmt.Errorf("bucket update failed"))
+					awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("unable to update object lock config"))
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).Should(HaveOccurred())
@@ -263,7 +284,6 @@ var _ = Describe("Actuator", func() {
 			})
 
 			Context("ObjectLockConfiguration is present on bucket", func() {
-
 				Context("Disable the object lock settings if backupbucketConfig isn't provided in ProviderConfig", func() {
 					It("should be removed the object lock settings", func() {
 						// set the providerConfig to nil
@@ -284,7 +304,7 @@ var _ = Describe("Actuator", func() {
 								}, nil
 							},
 						)
-						awsClient.EXPECT().RemoveObjectLockConfig(ctx, gomock.Any()).Return(nil)
+						awsClient.EXPECT().RemoveObjectLockConfiguration(ctx, gomock.Any()).Return(nil)
 
 						err := a.Reconcile(ctx, logger, backupBucket)
 						Expect(err).ShouldNot(HaveOccurred())
@@ -308,7 +328,7 @@ var _ = Describe("Actuator", func() {
 						Expect(err).ShouldNot(HaveOccurred())
 					})
 
-					It("should return error if the object lock settings are failed to remove", func() {
+					It("should return error if the object lock settings are failed to get removed", func() {
 						// set the providerConfig to nil
 						backupBucket.Spec.ProviderConfig = nil
 
@@ -328,7 +348,7 @@ var _ = Describe("Actuator", func() {
 							},
 						)
 
-						awsClient.EXPECT().RemoveObjectLockConfig(ctx, gomock.Any()).Return(fmt.Errorf("Unable to remove object lock settings"))
+						awsClient.EXPECT().RemoveObjectLockConfiguration(ctx, gomock.Any()).Return(fmt.Errorf("unable to remove object lock settings"))
 
 						err := a.Reconcile(ctx, logger, backupBucket)
 						Expect(err).Should(HaveOccurred())
@@ -357,7 +377,7 @@ var _ = Describe("Actuator", func() {
 						},
 					).AnyTimes()
 
-					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
+					awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).ShouldNot(HaveOccurred())
@@ -384,7 +404,7 @@ var _ = Describe("Actuator", func() {
 						},
 					).AnyTimes()
 
-					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(fmt.Errorf("bucket updation failed"))
+					awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("unable to update object lock config"))
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).Should(HaveOccurred())
@@ -404,7 +424,7 @@ var _ = Describe("Actuator", func() {
 							}, nil
 						},
 					).AnyTimes()
-					awsClient.EXPECT().UpdateBucketConfig(ctx, gomock.Any(), gomock.Any(), true).Return(nil)
+					awsClient.EXPECT().UpdateObjectLockConfiguration(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 					err := a.Reconcile(ctx, logger, backupBucket)
 					Expect(err).ShouldNot(HaveOccurred())

@@ -50,18 +50,42 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 	if bb.Spec.ProviderConfig != nil {
 		backupbucketConfig, err = validator.DecodeBackupBucketConfig(serializer.NewCodecFactory(a.client.Scheme(), serializer.EnableStrict).UniversalDecoder(), bb.Spec.ProviderConfig)
 		if err != nil {
-			logger.Error(err, "Failed to decode provider config")
-			return err
+			return util.DetermineError(fmt.Errorf("failed to decode provider config: %w", err), helper.KnownCodes)
 		}
 	}
 
+	// If immutability settings are provided then "isObjectLockRequired" will get set to `true`.
+	isObjectLockRequired := (backupbucketConfig != nil && backupbucketConfig.Immutability != nil)
+
+	enableOrUpdateObjectLock := func(ctx context.Context, enableVersioning bool) error {
+		// Enable versioning on the bucket as a prerequisite for enabling object lock.
+		if enableVersioning {
+			// enable the versioning on the bucket,
+			if err := awsClient.EnableBucketVersioning(ctx, bb.Name); err != nil {
+				return err
+			}
+		}
+
+		// enable or update the object lock config on the bucket.
+		if isObjectLockRequired {
+			// #nosec G115
+			return awsClient.UpdateObjectLockConfiguration(ctx, bb.Name, backupbucketConfig.Immutability.Mode, int32(backupbucketConfig.Immutability.RetentionPeriod.Duration/(24*time.Hour)))
+		}
+		return nil
+	}
+	a.action = ActionFunc(enableOrUpdateObjectLock)
+
+	return util.DetermineError(a.reconcile(ctx, backupbucketConfig, awsClient, bb, isObjectLockRequired), helper.KnownCodes)
+}
+
+func (a *actuator) reconcile(ctx context.Context, backupbucketConfig *apisaws.BackupBucketConfig, awsClient awsclient.Interface, bb *extensionsv1alpha1.BackupBucket, isObjectLockRequired bool) error {
 	bucketVersioningStatus, err := awsClient.GetBucketVersioningStatus(ctx, bb.Name)
 	if err != nil {
 		apiErrCode := awsclient.GetAWSAPIErrorCode(err)
 		switch apiErrCode {
 		case "NoSuchBucket":
 			// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
-			return util.DetermineError(createBucketAndUpdateBucket(ctx, awsClient, bb.Name, bb.Spec.Region, backupbucketConfig), helper.KnownCodes)
+			return util.DetermineError(a.createBucketWithConfig(ctx, awsClient, bb.Name, bb.Spec.Region, isObjectLockRequired), helper.KnownCodes)
 		case "PermanentRedirect":
 			return util.DetermineError(fmt.Errorf("bucket exists in different region %v", err), helper.KnownCodes)
 		default:
@@ -69,36 +93,37 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 		}
 	}
 
+	// versioning is found to be enabled on bucket
 	if bucketVersioningStatus != nil && bucketVersioningStatus.Status == s3types.BucketVersioningStatusEnabled {
-		// versioning is found to be enabled on bucket
 		if isObjectLockConfigNeedToBeRemoved(ctx, awsClient, bb.Name, backupbucketConfig) {
-			return util.DetermineError(awsClient.RemoveObjectLockConfig(ctx, bb.Name), helper.KnownCodes)
+			return util.DetermineError(awsClient.RemoveObjectLockConfiguration(ctx, bb.Name), helper.KnownCodes)
 		} else if isBucketUpdateRequired(ctx, awsClient, bb.Name, backupbucketConfig) {
-			return util.DetermineError(awsClient.UpdateBucketConfig(ctx, bb.Name, backupbucketConfig, true), helper.KnownCodes)
+			// take action: update the bucket with object lock settings.
+			return util.DetermineError(a.action.Do(ctx, false), helper.KnownCodes)
 		}
 		// do nothing if bucket configurations isn't required to be updated.
 		return nil
 	}
 
-	// bucket versioning is not found to be enabled on the bucket,
-	// update the bucket according to buckupbucketConfig(if provided)
-	return util.DetermineError(awsClient.UpdateBucketConfig(ctx, bb.Name, backupbucketConfig, false), helper.KnownCodes)
+	if isObjectLockRequired {
+		// take action: enable object lock on the bucket.
+		// Note: Enable versioning on the bucket as a prerequisite for enabling object lock.
+		return util.DetermineError(a.action.Do(ctx, true), helper.KnownCodes)
+	}
+	return nil
 }
 
-func createBucketAndUpdateBucket(ctx context.Context, awsClient awsclient.Interface, bucketName, region string, backupbucketConfig *apisaws.BackupBucketConfig) error {
-	var isObjectLockRequired bool
-
-	// If immutability settings are provided then create bucket with object lock enabled.
-	if backupbucketConfig != nil && backupbucketConfig.Immutability != nil {
-		isObjectLockRequired = true
-	}
-
+func (a *actuator) createBucketWithConfig(ctx context.Context, awsClient awsclient.Interface, bucketName, region string, isObjectLockRequired bool) error {
+	// create the bucket in a given region
 	if err := awsClient.CreateBucket(ctx, bucketName, region, isObjectLockRequired); err != nil {
 		return err
 	}
 
-	// update the bucket with object lock settings.
-	return awsClient.UpdateBucketConfig(ctx, bucketName, backupbucketConfig, false)
+	if isObjectLockRequired {
+		// take action: update the bucket with object lock settings.
+		return a.action.Do(ctx, false)
+	}
+	return nil
 }
 
 func isBucketUpdateRequired(ctx context.Context, awsClient awsclient.Interface, bucket string, backupbucketConfig *apisaws.BackupBucketConfig) bool {
