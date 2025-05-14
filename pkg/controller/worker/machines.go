@@ -429,7 +429,7 @@ func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfi
 		return additionalData
 	}
 
-	// in the future, we may not calculate a hash for the whole workerConfig
+	// in the future, we may not calculate a hash for the whole ProviderConfig
 	// for example volume IOPS changes could be done in place
 	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
 		additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
