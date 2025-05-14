@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// TODO (georgibaltiev): Remove after the extension's next release
+// TODO (georgibaltiev): Remove after the release of version 1.62.0
 func purgeMachineControllerManagerRBACResources(ctx context.Context, client client.Client) error {
 	var (
 		clusterRoleBindingList = &rbacv1.ClusterRoleBindingList{}
