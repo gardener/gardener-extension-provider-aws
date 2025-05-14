@@ -240,7 +240,7 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 	vpcs, err := awsClient.EC2.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   ptr.To("vpc-id"),
+				Name:   ptr.To(awsclient.FilterVpcID),
 				Values: []string{vpcID},
 			},
 		},
