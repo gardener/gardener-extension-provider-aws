@@ -401,7 +401,7 @@ func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, _ awsapi.WorkerConfig) []string {
 	var additionalData = computeAdditionalHashDataV1(pool)
 
-	// in the future, we may not calculate a hash for the whole workerConfig
+	// in the future, we may not calculate a hash for the whole ProviderConfig
 	// for example volume IOPS changes could be done in place
 	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
 		additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
