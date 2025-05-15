@@ -9,42 +9,51 @@ import (
 	"fmt"
 	"regexp"
 
+	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var nameRegex = regexp.MustCompile("extensions.gardener.cloud:provider-aws:shoot--.*:machine-controller-manager")
 
 // TODO (georgibaltiev): Remove after the release of version 1.62.0
-func purgeMachineControllerManagerRBACResources(ctx context.Context, client client.Client) error {
+func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Client) error {
 	var (
 		clusterRoleBindingList = &rbacv1.ClusterRoleBindingList{}
 		clusterRoleList        = &rbacv1.ClusterRoleList{}
 	)
 
-	if err := client.List(ctx, clusterRoleBindingList); err != nil {
+	if err := c.List(ctx, clusterRoleBindingList); err != nil {
 		return fmt.Errorf("failed to list clusterRoleBindings: %w", err)
 	}
 
 	for _, clusterRoleBinding := range clusterRoleBindingList.Items {
 		if nameRegex.Match([]byte(clusterRoleBinding.Name)) {
-			if err := client.Delete(ctx, clusterRoleBinding.DeepCopy()); err != nil {
+			if err := kutil.DeleteObject(
+				ctx,
+				c,
+				&rbacv1.ClusterRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: clusterRoleBinding.Name}},
+			); err != nil {
 				return fmt.Errorf("failed to delete clusterRoleBinding: %w", err)
 			}
 		}
 	}
 
-	if err := client.List(ctx, clusterRoleList); err != nil {
+	if err := c.List(ctx, clusterRoleList); err != nil {
 		return fmt.Errorf("failed to list clusterRoles: %w", err)
 	}
 
 	for _, clusterRole := range clusterRoleList.Items {
 		if nameRegex.Match([]byte(clusterRole.Name)) {
-			if err := client.Delete(ctx, clusterRole.DeepCopy()); err != nil {
+			if err := kutil.DeleteObject(
+				ctx,
+				c,
+				&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: clusterRole.Name}},
+			); err != nil {
 				return fmt.Errorf("failed to delete clusterRole: %w", err)
 			}
 		}
 	}
-
 	return nil
 }
