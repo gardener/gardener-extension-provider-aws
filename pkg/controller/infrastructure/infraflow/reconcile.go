@@ -1096,6 +1096,10 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 			Tags:     c.commonTagsWithSuffix(helper.GetSuffixNATGateway()),
 			SubnetId: *child.Get(IdentifierZoneSubnetPublic),
 		}
+		// no NAT was created yet
+		if zone.ElasticIPAllocationID == nil && child.Get(IdentifierZoneNATGWElasticIP) == nil {
+			return nil
+		}
 		if zone.ElasticIPAllocationID != nil {
 			desired.EIPAllocationId = *zone.ElasticIPAllocationID
 		} else {
