@@ -33,7 +33,7 @@ func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Cl
 
 	for _, clusterRoleBinding := range clusterRoleBindingList.Items {
 		if nameRegex.Match([]byte(clusterRoleBinding.Name)) {
-			log.Info("Removing ClusterRoleBinding %s", client.ObjectKeyFromObject(&clusterRoleBinding))
+			log.Info("Removing ClusterRoleBinding", "ClusterRoleBinding", client.ObjectKeyFromObject(&clusterRoleBinding))
 			if err := kutil.DeleteObject(
 				ctx,
 				c,
@@ -50,13 +50,13 @@ func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Cl
 
 	for _, clusterRole := range clusterRoleList.Items {
 		if nameRegex.Match([]byte(clusterRole.Name)) {
-			log.Info("Removing ClusterRole %s", client.ObjectKeyFromObject(&clusterRole))
+			log.Info("Removing ClusterRole", "ClusterRole", client.ObjectKeyFromObject(&clusterRole))
 			if err := kutil.DeleteObject(
 				ctx,
 				c,
 				&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: clusterRole.Name}},
 			); err != nil {
-				return fmt.Errorf("failed to delete clusterRole: %w", err)
+				return fmt.Errorf("failed to delete ClusterRole: %w", err)
 			}
 		}
 	}
