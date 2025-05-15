@@ -1013,7 +1013,7 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 		log := LogFromContext(ctx)
 		helper := c.zoneSuffixHelpers(zone.Name)
 		child := c.getSubnetZoneChild(zone.Name)
-		id := child.Get(IdentifierZoneNATGWElasticIP)
+		id := child.Get(IdentifierManagedZoneNATGWElasticIP)
 		if zone.ElasticIPAllocationID != nil {
 			// check if we need to clean up gardener managed IP, after user switched from managed to unmanaged
 			if id != nil && *id != *zone.ElasticIPAllocationID {
@@ -1042,7 +1042,7 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 		}
 
 		if current != nil {
-			child.Set(IdentifierZoneNATGWElasticIP, current.AllocationId)
+			child.Set(IdentifierManagedZoneNATGWElasticIP, current.AllocationId)
 			if _, err := c.updater.UpdateEC2Tags(ctx, current.AllocationId, desired.Tags, current.Tags); err != nil {
 				return err
 			}
@@ -1052,7 +1052,7 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 			if err != nil {
 				return err
 			}
-			child.Set(IdentifierZoneNATGWElasticIP, created.AllocationId)
+			child.Set(IdentifierManagedZoneNATGWElasticIP, created.AllocationId)
 		}
 
 		return nil
@@ -1062,12 +1062,12 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
 		child := c.getSubnetZoneChild(zoneName)
-		if child.Get(IdentifierZoneNATGWElasticIP) == nil {
+		if child.Get(IdentifierManagedZoneNATGWElasticIP) == nil {
 			return nil
 		}
 		helper := c.zoneSuffixHelpers(zoneName)
 		tags := c.commonTagsWithSuffix(helper.GetSuffixElasticIP())
-		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGWElasticIP), tags, c.client.GetElasticIP, c.client.FindElasticIPsByTags)
+		current, err := FindExisting(ctx, child.Get(IdentifierManagedZoneNATGWElasticIP), tags, c.client.GetElasticIP, c.client.FindElasticIPsByTags)
 		if err != nil {
 			return err
 		}
@@ -1081,7 +1081,7 @@ func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 				return err
 			}
 		}
-		child.Delete(IdentifierZoneNATGWElasticIP)
+		child.Delete(IdentifierManagedZoneNATGWElasticIP)
 		return nil
 	}
 }
@@ -1097,13 +1097,13 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 			SubnetId: *child.Get(IdentifierZoneSubnetPublic),
 		}
 		// no NAT was created yet
-		if zone.ElasticIPAllocationID == nil && child.Get(IdentifierZoneNATGWElasticIP) == nil {
+		if zone.ElasticIPAllocationID == nil && child.Get(IdentifierManagedZoneNATGWElasticIP) == nil {
 			return nil
 		}
 		if zone.ElasticIPAllocationID != nil {
 			desired.EIPAllocationId = *zone.ElasticIPAllocationID
 		} else {
-			desired.EIPAllocationId = *child.Get(IdentifierZoneNATGWElasticIP)
+			desired.EIPAllocationId = *child.Get(IdentifierManagedZoneNATGWElasticIP)
 		}
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
@@ -1137,7 +1137,7 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 		if zone.ElasticIPAllocationID != nil {
 			desired.EIPAllocationId = *zone.ElasticIPAllocationID
 		} else {
-			desired.EIPAllocationId = *child.Get(IdentifierZoneNATGWElasticIP)
+			desired.EIPAllocationId = *child.Get(IdentifierManagedZoneNATGWElasticIP)
 		}
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {

@@ -342,7 +342,7 @@ func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones 
 			setFlowStateData(flowState, keyPrefix+flowNames[j],
 				tfState.GetManagedResourceInstanceID("aws_subnet", tfNamePrefixes[j]+suffix))
 		}
-		setFlowStateData(flowState, keyPrefix+infraflow.IdentifierZoneNATGWElasticIP,
+		setFlowStateData(flowState, keyPrefix+infraflow.IdentifierManagedZoneNATGWElasticIP,
 			tfState.GetManagedResourceInstanceID("aws_eip", "eip_natgw_"+suffix))
 		setFlowStateData(flowState, keyPrefix+infraflow.IdentifierZoneNATGateway,
 			tfState.GetManagedResourceInstanceID("aws_nat_gateway", "natgw_"+suffix))
