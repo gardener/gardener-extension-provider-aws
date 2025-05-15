@@ -13,18 +13,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var nameRegex = regexp.MustCompile("extensions.gardener.cloud:provider-aws:shoot--.*:machine-controller-manager")
+
 // TODO (georgibaltiev): Remove after the release of version 1.62.0
 func purgeMachineControllerManagerRBACResources(ctx context.Context, client client.Client) error {
 	var (
 		clusterRoleBindingList = &rbacv1.ClusterRoleBindingList{}
 		clusterRoleList        = &rbacv1.ClusterRoleList{}
-		nameRegex              *regexp.Regexp
 	)
-
-	nameRegex, err := regexp.Compile("extensions.gardener.cloud:provider-aws:shoot--.*:machine-controller-manager")
-	if err != nil {
-		return fmt.Errorf("failed to compile regex: %w", err)
-	}
 
 	if err := client.List(ctx, clusterRoleBindingList); err != nil {
 		return fmt.Errorf("failed to list clusterRoleBindings: %w", err)
@@ -49,5 +45,6 @@ func purgeMachineControllerManagerRBACResources(ctx context.Context, client clie
 			}
 		}
 	}
+
 	return nil
 }
