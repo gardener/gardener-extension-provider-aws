@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"time"
 
 	druidcorev1alpha1 "github.com/gardener/etcd-druid/api/core/v1alpha1"
@@ -16,6 +17,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane/genericactuator"
 	"github.com/gardener/gardener/extensions/pkg/controller/heartbeat"
 	heartbeatcmd "github.com/gardener/gardener/extensions/pkg/controller/heartbeat/cmd"
+	extensionsworkercontroller "github.com/gardener/gardener/extensions/pkg/controller/worker"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	webhookcmd "github.com/gardener/gardener/extensions/pkg/webhook/cmd"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
@@ -270,11 +272,13 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			}
 
 			// TODO (georgibaltiev): Remove after the release of version 1.64.0
-			log.Info("Adding migration runnables")
-			if err := mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
-				return purgeMachineControllerManagerRBACResources(ctx, mgr.GetClient(), log)
-			})); err != nil {
-				return fmt.Errorf("error adding migrations: %w", err)
+			if !slices.Contains(controllerSwitches.Disabled, extensionsworkercontroller.ControllerName) {
+				log.Info("Adding migration runnables")
+				if err := mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+					return purgeMachineControllerManagerRBACResources(ctx, mgr.GetClient(), log)
+				})); err != nil {
+					return fmt.Errorf("error adding migrations: %w", err)
+				}
 			}
 
 			if err := mgr.Start(ctx); err != nil {
