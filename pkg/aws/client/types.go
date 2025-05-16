@@ -511,9 +511,10 @@ func (s *Subnet) Clone() *Subnet {
 // ElasticIP contains the relevant fields for an EC2 elastic IP resource.
 type ElasticIP struct {
 	Tags
-	AllocationId string
-	PublicIp     string
-	Vpc          bool
+	AllocationId  string
+	PublicIp      string
+	Vpc           bool
+	AssociationID *string
 }
 
 // NATGateway contains the relevant fields for an EC2 NAT gateway resource.
