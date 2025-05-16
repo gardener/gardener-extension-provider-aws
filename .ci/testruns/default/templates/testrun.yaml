@@ -82,6 +82,19 @@ spec:
       - name: RECONCILER
         type: env
         value: recover
+  - name: backupbucket-test
+    definition:
+      name: backupbucket-test
+      config:
+        - name: REGION
+          type: env
+          value: eu-west-1
+        - name: LOG_LEVEL
+          type: env
+          value: debug
+        - name: USE_EXISTING_CLUSTER
+          type: env
+          value: "true"
   - name: bastion-test
     definition:
       name: bastion-test
