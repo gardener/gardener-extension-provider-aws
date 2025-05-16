@@ -846,19 +846,13 @@ func cleanupSeedLegacyCSISnapshotValidation(
 	client k8sclient.Client,
 	namespace string,
 ) error {
-	if err := kutil.DeleteObject(
-		ctx,
-		client,
+	if err := kutil.DeleteObjects(ctx, client,
 		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}},
-	); err != nil {
-		return fmt.Errorf("failed to delete legacy csi snapshot validation deployment: %w", err)
-	}
-	if err := kutil.DeleteObject(
-		ctx,
-		client,
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}},
+		&vpaautoscalingv1.VerticalPodAutoscaler{ObjectMeta: metav1.ObjectMeta{Name: "csi-snapshot-webhook-vpa", Namespace: namespace}},
+		&policyv1.PodDisruptionBudget{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}},
 	); err != nil {
-		return fmt.Errorf("failed to delete legacy csi snapshot validation service: %w", err)
+		return fmt.Errorf("failed to delete legacy csi-snapshot-validation resources: %w", err)
 	}
 
 	return nil
