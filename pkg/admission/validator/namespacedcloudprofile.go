@@ -11,7 +11,9 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	gardencoreapi "github.com/gardener/gardener/pkg/api"
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/gardener/gardener/pkg/apis/core/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -82,13 +84,12 @@ func (p *namespacedCloudProfile) validateNamespacedCloudProfileProviderConfig(pr
 func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.CloudProfileConfig, machineImages []core.MachineImage, parentSpec gardencorev1beta1.CloudProfileSpec) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	capabilitiesDefinition := core.Capabilities{}
-	for _, capabilityDefinition := range parentSpec.Capabilities {
-		capabilitiesDefinition[capabilityDefinition.Name] = core.CapabilityValues{}
-		for _, capabilityValue := range capabilityDefinition.Values {
-			capabilitiesDefinition[capabilityDefinition.Name] = append(capabilitiesDefinition[capabilityDefinition.Name], capabilityValue)
-		}
+	var parentCloudProfileSpecCore core.CloudProfileSpec
+	if err := gardencoreapi.Scheme.Convert(&parentSpec, &parentCloudProfileSpecCore, nil); err != nil {
+		return append(allErrs, field.InternalError(field.NewPath(""), err))
 	}
+
+	capabilitiesDefinition := helper.CapabilityDefinitionsToCapabilities(parentCloudProfileSpecCore.Capabilities)
 
 	machineImagesPath := field.NewPath("spec.providerConfig.machineImages")
 	for i, machineImage := range providerConfig.MachineImages {
@@ -164,14 +165,14 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 func validateMachineImageCapabilities(machineImage core.MachineImage, version core.MachineImageVersion, providerImageVersion api.MachineImageVersion, capabilitiesDefinition core.Capabilities) field.ErrorList {
 	allErrs := field.ErrorList{}
 	path := field.NewPath("spec.providerConfig.machineImages")
-	coreVersionCapabilitySets := validation.GetVersionCapabilitySets(version, capabilitiesDefinition)
+	coreVersionCapabilitySets := util.GetVersionCapabilitySets(version, capabilitiesDefinition)
 	regionsCapabilitiesMap := map[string][]core.Capabilities{}
 
 	// 1. Create an error for each capabilitySet in the providerConfig that is not defined in the core machine image version
 	for _, capabilitySet := range providerImageVersion.CapabilitySets {
 		isFound := false
 		for _, coreCapabilitySet := range coreVersionCapabilitySets {
-			if validation.AreCapabilitiesEqual(coreCapabilitySet.Capabilities, capabilitySet.Capabilities, capabilitiesDefinition) {
+			if util.AreCapabilitiesEqual(coreCapabilitySet.Capabilities, capabilitySet.Capabilities, capabilitiesDefinition) {
 				isFound = true
 			}
 		}
@@ -190,7 +191,7 @@ func validateMachineImageCapabilities(machineImage core.MachineImage, version co
 	for _, coreCapabilitySet := range coreVersionCapabilitySets {
 		isFound := false
 		for _, capabilitySet := range providerImageVersion.CapabilitySets {
-			if validation.AreCapabilitiesEqual(coreCapabilitySet.Capabilities, capabilitySet.Capabilities, capabilitiesDefinition) {
+			if util.AreCapabilitiesEqual(coreCapabilitySet.Capabilities, capabilitySet.Capabilities, capabilitiesDefinition) {
 				isFound = true
 			}
 		}
@@ -206,7 +207,7 @@ func validateMachineImageCapabilities(machineImage core.MachineImage, version co
 		for region, regionCapabilities := range regionsCapabilitiesMap {
 			isFound := false
 			for _, capabilities := range regionCapabilities {
-				if validation.AreCapabilitiesEqual(capabilities, coreCapabilitySet.Capabilities, capabilitiesDefinition) {
+				if util.AreCapabilitiesEqual(capabilities, coreCapabilitySet.Capabilities, capabilitiesDefinition) {
 					isFound = true
 				}
 			}

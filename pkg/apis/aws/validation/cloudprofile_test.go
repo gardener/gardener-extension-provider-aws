@@ -151,8 +151,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 
 			It("should forbid unsupported machine image region configuration", func() {
 				var machineImageVersion apisaws.MachineImageVersion
-				var nameMatcher types.GomegaMatcher
-				var amiMatcher types.GomegaMatcher
+				var nameMatcher, amiMatcher types.GomegaMatcher
 				if isCapabilitiesCloudProfile {
 					nameMatcher = Equal("machineImages[0].versions[0].capabilitySets[0].regions[0].name")
 					amiMatcher = Equal("machineImages[0].versions[0].capabilitySets[0].regions[0].ami")
@@ -219,7 +218,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 				}))))
 			})
 
-			It("should forbid missing architecture mapping", func() {
+			It("should forbid missing architecture or capabilitySet mapping", func() {
 				var fieldMatcher types.GomegaMatcher
 				if isCapabilitiesCloudProfile {
 					machineImages[0].Versions[0].CapabilitySets = []core.CapabilitySet{

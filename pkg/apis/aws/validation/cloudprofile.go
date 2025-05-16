@@ -20,35 +20,35 @@ import (
 )
 
 // ValidateCloudProfileConfig validates a CloudProfileConfig object.
-func ValidateCloudProfileConfig(cloudProfile *apisaws.CloudProfileConfig, machineImages []core.MachineImage, capabilitiesDefinition core.Capabilities, fldPath *field.Path) field.ErrorList {
+func ValidateCloudProfileConfig(cpConfig *apisaws.CloudProfileConfig, machineImages []core.MachineImage, capabilitiesDefinition core.Capabilities, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	machineImagesPath := fldPath.Child("machineImages")
-	if len(cloudProfile.MachineImages) == 0 {
+	if len(cpConfig.MachineImages) == 0 {
 		allErrs = append(allErrs, field.Required(machineImagesPath, "must provide at least one machine image"))
 	}
-	for i, machineImage := range cloudProfile.MachineImages {
+	for i, machineImage := range cpConfig.MachineImages {
 		idxPath := machineImagesPath.Index(i)
 		allErrs = append(allErrs, ValidateProviderMachineImage(idxPath, machineImage, capabilitiesDefinition)...)
 	}
-	allErrs = append(allErrs, validateMachineImageMapping(machineImages, cloudProfile, capabilitiesDefinition, field.NewPath("spec").Child("machineImages"))...)
+	allErrs = append(allErrs, validateMachineImageMapping(machineImages, cpConfig, capabilitiesDefinition, field.NewPath("spec").Child("machineImages"))...)
 
 	return allErrs
 }
 
 // ValidateProviderMachineImage validates a CloudProfileConfig MachineImages entry.
-func ValidateProviderMachineImage(validationPath *field.Path, machineImage apisaws.MachineImages, capabilitiesDefinition core.Capabilities) field.ErrorList {
+func ValidateProviderMachineImage(validationPath *field.Path, providerImage apisaws.MachineImages, capabilitiesDefinition core.Capabilities) field.ErrorList {
 	allErrs := field.ErrorList{}
 	hasCloudProfileCapabilities := len(capabilitiesDefinition) > 0
 
-	if len(machineImage.Name) == 0 {
+	if len(providerImage.Name) == 0 {
 		allErrs = append(allErrs, field.Required(validationPath.Child("name"), "must provide a name"))
 	}
 
-	if len(machineImage.Versions) == 0 {
-		allErrs = append(allErrs, field.Required(validationPath.Child("versions"), fmt.Sprintf("must provide at least one version for machine image %q", machineImage.Name)))
+	if len(providerImage.Versions) == 0 {
+		allErrs = append(allErrs, field.Required(validationPath.Child("versions"), fmt.Sprintf("must provide at least one version for machine image %q", providerImage.Name)))
 	}
-	for j, version := range machineImage.Versions {
+	for j, version := range providerImage.Versions {
 		jdxPath := validationPath.Child("versions").Index(j)
 
 		if len(version.Version) == 0 {
@@ -58,14 +58,14 @@ func ValidateProviderMachineImage(validationPath *field.Path, machineImage apisa
 		if hasCloudProfileCapabilities {
 			for k, capabilitySet := range version.CapabilitySets {
 				kdxPath := jdxPath.Child("capabilitySets").Index(k)
-				allErrs = append(allErrs, ValidateCapabilities(capabilitySet.Capabilities, capabilitiesDefinition, kdxPath.Child("capabilities"))...)
-				allErrs = append(allErrs, validateRegions(capabilitySet.Regions, machineImage.Name, version.Version, hasCloudProfileCapabilities, kdxPath)...)
+				allErrs = append(allErrs, util.ValidateCapabilities(capabilitySet.Capabilities, capabilitiesDefinition, kdxPath.Child("capabilities"))...)
+				allErrs = append(allErrs, validateRegions(capabilitySet.Regions, providerImage.Name, version.Version, hasCloudProfileCapabilities, kdxPath)...)
 			}
 			if len(version.Regions) > 0 {
 				allErrs = append(allErrs, field.Forbidden(jdxPath.Child("regions"), "must not be set as CloudProfile defines capabilities. Use capabilitySets.regions instead."))
 			}
 		} else {
-			allErrs = append(allErrs, validateRegions(version.Regions, machineImage.Name, version.Version, hasCloudProfileCapabilities, jdxPath)...)
+			allErrs = append(allErrs, validateRegions(version.Regions, providerImage.Name, version.Version, hasCloudProfileCapabilities, jdxPath)...)
 			if len(version.CapabilitySets) > 0 {
 				allErrs = append(allErrs, field.Forbidden(jdxPath.Child("capabilitySets"), "must not be set as CloudProfile does not define capabilities. Use regions instead."))
 			}
@@ -147,13 +147,13 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 					continue
 				}
 
-				versionCapabilitySets := GetVersionCapabilitySets(version, capabilitiesDefinition)
+				versionCapabilitySets := util.GetVersionCapabilitySets(version, capabilitiesDefinition)
 
 				for idxCapability, coreCapabilitySet := range versionCapabilitySets {
 					isFound := false
 					// search for the corresponding imageVersion.CapabilitySet
 					for _, providerCapabilitySet := range imageVersion.CapabilitySets {
-						if AreCapabilitiesEqual(coreCapabilitySet.Capabilities, providerCapabilitySet.Capabilities, capabilitiesDefinition) {
+						if util.AreCapabilitiesEqual(coreCapabilitySet.Capabilities, providerCapabilitySet.Capabilities, capabilitiesDefinition) {
 							isFound = true
 						}
 					}
@@ -201,84 +201,4 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 	}
 
 	return allErrs
-}
-
-// GetVersionCapabilitySets returns the capability for a given machine image version and adds the default capabilitySet if applicable.
-func GetVersionCapabilitySets(version core.MachineImageVersion, capabilitiesDefinition core.Capabilities) []core.CapabilitySet {
-	versionCapabilitySets := version.CapabilitySets
-	if len(version.CapabilitySets) == 0 {
-		// It is allowed not to define capabilitySets in the machine image version if there is only one architecture
-		// if so the capabilityDefinition is used as default
-		if len(capabilitiesDefinition[v1beta1constants.ArchitectureName]) == 1 {
-			versionCapabilitySets = []core.CapabilitySet{{Capabilities: capabilitiesDefinition}}
-		}
-	}
-	return versionCapabilitySets
-}
-
-// SetDefaultCapabilities sets the default capabilities based on a capabilitiesDefinition for a machine type or machine image.
-func SetDefaultCapabilities(capabilities, capabilitiesDefinition core.Capabilities) core.Capabilities {
-	if len(capabilities) == 0 {
-		capabilities = make(core.Capabilities)
-	}
-
-	for key, values := range capabilitiesDefinition {
-		if _, exists := capabilities[key]; !exists {
-			capabilities[key] = values
-		}
-	}
-
-	return capabilities
-}
-
-// ValidateCapabilities validates the capabilities of a machine type or machine image.
-// It checks if the capabilities are supported by the cloud profile and if the architecture is defined correctly.
-// It returns a list of field errors if any validation fails.
-// THIS FUNCTION SHOULD BE MOVED TO GARDENER CORE AS IT WILL BE USED BY OTHER PROVIDERS AS WELL
-func ValidateCapabilities(capabilities core.Capabilities, capabilitiesDefinition core.Capabilities, fldPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
-	supportedCapabilityKeys := slices.Collect(maps.Keys(capabilitiesDefinition))
-
-	for capabilityKey, capability := range capabilities {
-		supportedValues, keyExists := capabilitiesDefinition[capabilityKey]
-		if !keyExists {
-			allErrs = append(allErrs, field.NotSupported(fldPath, capabilityKey, supportedCapabilityKeys))
-			continue
-		}
-		for i, value := range capability {
-			if !slices.Contains(supportedValues, value) {
-				allErrs = append(allErrs, field.NotSupported(fldPath.Child(capabilityKey).Index(i), value, supportedValues))
-			}
-		}
-	}
-
-	// Check additional requirements for architecture
-	//  must be defined when multiple architectures are supported by the cloud profile
-	supportedArchitectures := capabilitiesDefinition[v1beta1constants.ArchitectureName]
-	architectures := capabilities[v1beta1constants.ArchitectureName]
-	if len(supportedArchitectures) > 1 && len(architectures) != 1 {
-		allErrs = append(allErrs, field.Invalid(fldPath.Child(v1beta1constants.ArchitectureName), architectures, "must define exactly one architecture when multiple architectures are supported by the cloud profile"))
-	}
-
-	return allErrs
-}
-
-// AreCapabilitiesEqual checks if two capabilities are equal.
-// It compares the keys and values of the capabilities maps.
-// THIS FUNCTION SHOULD BE MOVED TO GARDENER CORE AS IT WILL BE USED BY OTHER PROVIDERS AS WELL
-func AreCapabilitiesEqual(a, b, capabilitiesDefinition core.Capabilities) bool {
-	a = SetDefaultCapabilities(a, capabilitiesDefinition)
-	b = SetDefaultCapabilities(b, capabilitiesDefinition)
-	for key, valuesA := range a {
-		valuesB, exists := b[key]
-		if !exists || len(valuesA) != len(valuesB) {
-			return false
-		}
-		for _, value := range valuesA {
-			if !slices.Contains(valuesB, value) {
-				return false
-			}
-		}
-	}
-	return true
 }

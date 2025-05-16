@@ -48,7 +48,7 @@ func (cp *cloudProfile) Validate(_ context.Context, newObj, _ client.Object) err
 		return err
 	}
 
-	capabilities := helper.CapabilityDefinitionsToCapabilities(cloudProfile.Spec.Capabilities)
+	capabilitiesDefinition := helper.CapabilityDefinitionsToCapabilities(cloudProfile.Spec.Capabilities)
 
-	return awsvalidation.ValidateCloudProfileConfig(cpConfig, cloudProfile.Spec.MachineImages, capabilities, providerConfigPath).ToAggregate()
+	return awsvalidation.ValidateCloudProfileConfig(cpConfig, cloudProfile.Spec.MachineImages, capabilitiesDefinition, providerConfigPath).ToAggregate()
 }
