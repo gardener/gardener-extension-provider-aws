@@ -18,9 +18,9 @@ import (
 
 var nameRegex = regexp.MustCompile("extensions.gardener.cloud:provider-aws:shoot--.*:machine-controller-manager")
 
-// TODO (georgibaltiev): Remove after the release of version 1.62.0
+// TODO (georgibaltiev): Remove after the release of version 1.64.0
 func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Client, log logr.Logger) error {
-	log.Info("Starting the removal of obsolete ClusterRoles and ClusterRoleBindings")
+	log.Info("Starting the deletion of obsolete ClusterRoles and ClusterRoleBindings")
 
 	var (
 		clusterRoleBindingList = &rbacv1.ClusterRoleBindingList{}
@@ -33,7 +33,7 @@ func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Cl
 
 	for _, clusterRoleBinding := range clusterRoleBindingList.Items {
 		if nameRegex.Match([]byte(clusterRoleBinding.Name)) {
-			log.Info("Removing ClusterRoleBinding", "ClusterRoleBinding", client.ObjectKeyFromObject(&clusterRoleBinding))
+			log.Info("Deleting ClusterRoleBinding", "clusterRoleBinding", client.ObjectKeyFromObject(&clusterRoleBinding))
 			if err := kutil.DeleteObject(
 				ctx,
 				c,
@@ -50,7 +50,7 @@ func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Cl
 
 	for _, clusterRole := range clusterRoleList.Items {
 		if nameRegex.Match([]byte(clusterRole.Name)) {
-			log.Info("Removing ClusterRole", "ClusterRole", client.ObjectKeyFromObject(&clusterRole))
+			log.Info("Deleting ClusterRole", "clusterRole", client.ObjectKeyFromObject(&clusterRole))
 			if err := kutil.DeleteObject(
 				ctx,
 				c,
@@ -61,6 +61,6 @@ func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Cl
 		}
 	}
 
-	log.Info("Succesfully removed the obsolete ClusterRoles and ClusterRoleBindings")
+	log.Info("Succesfully deleted the obsolete ClusterRoles and ClusterRoleBindings")
 	return nil
 }
