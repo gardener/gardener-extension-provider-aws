@@ -18,7 +18,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
-	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
@@ -27,6 +27,7 @@ import (
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -328,7 +329,16 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 }
 
 func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
-	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
+	hashDataV1 := []string{}
+
+	if pool.UpdateStrategy != nil && sets.New(gardencorev1beta1.AutoInPlaceUpdate, gardencorev1beta1.ManualInPlaceUpdate).Has(*pool.UpdateStrategy) {
+		// This data is omitted in the hash by gardener if the update strategy is in-place
+		if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
+			hashDataV1 = append(hashDataV1, string(pool.ProviderConfig.Raw))
+		}
+	}
+
+	return worker.WorkerPoolHash(pool, w.cluster, append(hashDataV1, computeAdditionalHashDataV1(pool)...), computeAdditionalHashDataV2(pool, workerConfig))
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -483,7 +493,7 @@ func isIPv6(c *controller.Cluster) bool {
 	if networking != nil {
 		ipFamilies := networking.IPFamilies
 		if ipFamilies != nil {
-			if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
+			if slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6) {
 				return true
 			}
 		}
