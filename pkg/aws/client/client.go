@@ -36,6 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
 
 // AuthConfig represents AWS auth configuration credentials.
@@ -304,50 +306,34 @@ func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]s
 // DeleteObjectsWithPrefix deletes the s3 objects with the specific <prefix> from <bucket>. If it does not exist,
 // no error is returned.
 func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error {
-	input := &s3.ListObjectsV2Input{
+	bucketVersioningStatus, err := c.S3.GetBucketVersioning(ctx, &s3.GetBucketVersioningInput{
 		Bucket: aws.String(bucket),
-		Prefix: aws.String(prefix),
+	})
+	if err != nil {
+		if GetAWSAPIErrorCode(err) == "NoSuchBucket" {
+			// bucket doesn't exist, no action required
+			return nil
+		}
+		return err
 	}
 
-	paginator := s3.NewListObjectsV2Paginator(&c.S3, input)
-	for paginator.HasMorePages() {
-		objectIDs := make([]s3types.ObjectIdentifier, 0)
-		output, err := paginator.NextPage(ctx)
-		if err != nil {
-			return err
-		}
-		for _, object := range output.Contents {
-			identifier := s3types.ObjectIdentifier{Key: object.Key}
-			objectIDs = append(objectIDs, identifier)
-		}
-		if len(objectIDs) != 0 {
-			if _, err = c.S3.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-				Bucket: aws.String(bucket),
-				Delete: &s3types.Delete{
-					Objects: objectIDs,
-					Quiet:   aws.Bool(true),
-				},
-			}); err != nil {
-				var nsk *s3types.NoSuchKey
-				if errors.As(err, &nsk) {
-					return nil
-				}
-				return err
-			}
-		}
+	if bucketVersioningStatus != nil && bucketVersioningStatus.Status == s3types.BucketVersioningStatusEnabled {
+		// object versioning is found to be enabled on the bucket
+		return deleteVersionedObjectsWithPrefix(ctx, c.S3, bucket, prefix)
 	}
-	return nil
+	return deleteObjectsWithPrefix(ctx, c.S3, bucket, prefix)
 }
 
-// CreateBucketIfNotExists creates the s3 bucket with name <bucket> in <region>. If it already exists,
-// no error is returned.
-func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region string) error {
+// CreateBucket creates the s3 bucket with name <bucket> in <region>.
+func (c *Client) CreateBucket(ctx context.Context, bucket, region string, objectLockEnabled bool) error {
 	createBucketInput := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 		ACL:    s3types.BucketCannedACLPrivate,
 		CreateBucketConfiguration: &s3types.CreateBucketConfiguration{
 			LocationConstraint: s3types.BucketLocationConstraint(region),
 		},
+		// Note: while creating a bucket with object lock enabled, object versioning will automatically gets enabled.
+		ObjectLockEnabledForBucket: aws.Bool(objectLockEnabled),
 	}
 
 	if region == "us-east-1" {
@@ -458,7 +444,10 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 		},
 	}
 
-	_, err = c.S3.PutBucketLifecycleConfiguration(ctx, putBucketLifecycleConfigurationInput)
+	if _, err = c.S3.PutBucketLifecycleConfiguration(ctx, putBucketLifecycleConfigurationInput); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -466,19 +455,88 @@ func (c *Client) CreateBucketIfNotExists(ctx context.Context, bucket, region str
 // no error is returned.
 func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error {
 	if _, err := c.S3.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil {
-		var (
-			nsb *s3types.NoSuchBucket
-			bae *s3types.BucketAlreadyExists
-		)
-		if errors.As(err, &nsb) {
+		apiErrCode := GetAWSAPIErrorCode(err)
+		switch apiErrCode {
+		case "NoSuchBucket":
+			// bucket doesn't exist, no action required
 			return nil
-		}
-		if errors.As(err, &bae) {
+		case "BucketNotEmpty":
 			if err := c.DeleteObjectsWithPrefix(ctx, bucket, ""); err != nil {
 				return err
 			}
 			return c.DeleteBucketIfExists(ctx, bucket)
+		default:
+			return err
 		}
+	}
+	return nil
+}
+
+// GetBucketVersioningStatus is wrapper for S3's API GetBucketVersioning to get bucket versioning status
+func (c *Client) GetBucketVersioningStatus(ctx context.Context, bucket string) (*s3.GetBucketVersioningOutput, error) {
+	bucketVersioningStatus, err := c.S3.GetBucketVersioning(ctx, &s3.GetBucketVersioningInput{
+		Bucket: aws.String(bucket),
+	})
+
+	return bucketVersioningStatus, err
+}
+
+// EnableBucketVersioning enables the versioning on the given bucket.
+func (c *Client) EnableBucketVersioning(ctx context.Context, bucket string) error {
+	input := &s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3types.VersioningConfiguration{
+			Status: s3types.BucketVersioningStatusEnabled,
+		},
+	}
+
+	if _, err := c.S3.PutBucketVersioning(ctx, input); err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetObjectLockConfiguration is wrapper for S3's API GetObjectLockConfiguration to get object lock settings.
+func (c *Client) GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error) {
+	objectConfig, err := c.S3.GetObjectLockConfiguration(ctx, &s3.GetObjectLockConfigurationInput{
+		Bucket: aws.String(bucket),
+	})
+
+	return objectConfig, err
+}
+
+// UpdateObjectLockConfiguration updates the object lock configuration on the bucket.
+func (c *Client) UpdateObjectLockConfiguration(ctx context.Context, bucket string, mode apisaws.ModeType, days int32) error {
+	input := &s3.PutObjectLockConfigurationInput{
+		Bucket: &bucket,
+		ObjectLockConfiguration: &s3types.ObjectLockConfiguration{
+			ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
+			Rule: &s3types.ObjectLockRule{
+				DefaultRetention: &s3types.DefaultRetention{
+					// #nosec G115
+					Days: aws.Int32(days),
+					Mode: GetBucketRetentiontMode(mode),
+				},
+			},
+		},
+	}
+	if _, err := c.S3.PutObjectLockConfiguration(ctx, input); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RemoveObjectLockConfiguration removes the object lock configuration rules from bucket.
+// Note: Object lock can't be disabled in S3, only object lock configuration rules can be removed from bucket.
+func (c *Client) RemoveObjectLockConfiguration(ctx context.Context, bucket string) error {
+	input := &s3.PutObjectLockConfigurationInput{
+		Bucket: &bucket,
+		ObjectLockConfiguration: &s3types.ObjectLockConfiguration{
+			ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
+		},
+	}
+	if _, err := c.S3.PutObjectLockConfiguration(ctx, input); err != nil {
 		return err
 	}
 	return nil
@@ -2404,4 +2462,234 @@ func trueOrFalse(value *bool) bool {
 		return false
 	}
 	return *value
+}
+
+// GetBucketRetentiontMode returns the s3typed ObjectLockRetentionMode
+func GetBucketRetentiontMode(mode apisaws.ModeType) s3types.ObjectLockRetentionMode {
+	if mode == apisaws.GovernanceMode {
+		return s3types.ObjectLockRetentionModeGovernance
+	}
+	return s3types.ObjectLockRetentionModeCompliance
+}
+
+// deleteObjectsWithPrefix deletes all objects present in a bucket(object versioning is not enabled) for a given prefix.
+func deleteObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, prefix string) error {
+	input := &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	}
+
+	paginator := s3.NewListObjectsV2Paginator(&s3client, input)
+	for paginator.HasMorePages() {
+		objectIDs := make([]s3types.ObjectIdentifier, 0)
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return err
+		}
+		for _, object := range output.Contents {
+			identifier := s3types.ObjectIdentifier{Key: object.Key}
+			objectIDs = append(objectIDs, identifier)
+		}
+		if len(objectIDs) != 0 {
+			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+				Bucket: aws.String(bucket),
+				Delete: &s3types.Delete{
+					Objects: objectIDs,
+					Quiet:   aws.Bool(true),
+				},
+			}); err != nil {
+				var nsk *s3types.NoSuchKey
+				if errors.As(err, &nsk) {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// deleteVersionedObjectsWithPrefix tries to delete all versioned objects and delete markers(if any) present inside the object versioned enabled bucket for a given prefix.
+func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, prefix string) error {
+	input := &s3.ListObjectVersionsInput{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	}
+
+	paginator := s3.NewListObjectVersionsPaginator(&s3client, input)
+	for paginator.HasMorePages() {
+		objectIDs := make([]s3types.ObjectIdentifier, 0)
+		deleteMarkerIDs := make([]s3types.ObjectIdentifier, 0)
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return err
+		}
+
+		for _, objVersion := range page.Versions {
+			identifier := s3types.ObjectIdentifier{
+				Key: objVersion.Key,
+			}
+			// To handle non-versioned objects present in the bucket
+			if objVersion.VersionId != nil {
+				identifier.VersionId = objVersion.VersionId
+			}
+			objectIDs = append(objectIDs, identifier)
+		}
+
+		for _, deleteMarker := range page.DeleteMarkers {
+			identifier := s3types.ObjectIdentifier{
+				Key:       deleteMarker.Key,
+				VersionId: deleteMarker.VersionId,
+			}
+			deleteMarkerIDs = append(deleteMarkerIDs, identifier)
+		}
+
+		// Delete all the objects(versioned and non-versioned) present in bucket.
+		if len(objectIDs) != 0 {
+			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+				Bucket: aws.String(bucket),
+				Delete: &s3types.Delete{
+					Objects: objectIDs,
+					Quiet:   aws.Bool(true),
+				},
+			}); err != nil {
+				var nsk *s3types.NoSuchKey
+				if errors.As(err, &nsk) {
+					return nil
+				}
+				return err
+			}
+		}
+
+		// Delete all the delete markers present(if any) in bucket.
+		if len(deleteMarkerIDs) != 0 {
+			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+				Bucket: aws.String(bucket),
+				Delete: &s3types.Delete{
+					Objects: deleteMarkerIDs,
+					Quiet:   aws.Bool(true),
+				},
+			}); err != nil {
+				var nsk *s3types.NoSuchKey
+				if errors.As(err, &nsk) {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+
+	if isObjectPresent, err := addTagToObjectsIfPresent(ctx, &s3client, input); err != nil {
+		return err
+	} else if isObjectPresent {
+		// add the lifecycle policies to bucket to purge the remaining snapshot objects present in the prefix.
+		return toGCobjectsAddLifeCyclePolicyObjects(ctx, &s3client, bucket)
+	}
+
+	return nil
+}
+
+func addTagToObjectsIfPresent(ctx context.Context, s3client *s3.Client, input *s3.ListObjectVersionsInput) (bool, error) {
+	paginator := s3.NewListObjectVersionsPaginator(s3client, input)
+
+	isObjectPresent := false
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return isObjectPresent, err
+		}
+
+		for _, object := range page.Versions {
+			isObjectPresent = true
+			// if object present in the prefix then tagged those object
+			if err := setObjectTag(ctx, s3client, *input.Bucket, *object.Key, *object.VersionId, S3ObjectMarkedForDeletionTagKey, "true"); err != nil {
+				return isObjectPresent, err
+			}
+		}
+
+		for range page.DeleteMarkers {
+			isObjectPresent = true
+		}
+	}
+	return isObjectPresent, nil
+}
+
+// To know more about working of Lifecycle in versioning enabled S3 bucket, please refer here:
+// https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html
+func toGCobjectsAddLifeCyclePolicyObjects(ctx context.Context, s3Client *s3.Client, bucket string) error {
+	putBucketLifecycleConfigurationInput1 := &s3.PutBucketLifecycleConfigurationInput{
+		Bucket: aws.String(bucket),
+		LifecycleConfiguration: &s3types.BucketLifecycleConfiguration{
+			Rules: []s3types.LifecycleRule{
+				{
+					// Lifecycle rule to expire the current version of "tagged" objects and permanently delete the noncurrent version of objects.
+					ID:     aws.String(S3ObjectDeletionLifecyclePolicy),
+					Status: s3types.ExpirationStatusEnabled,
+					Filter: &s3types.LifecycleRuleFilter{
+						Tag: &s3types.Tag{
+							Key:   aws.String(S3ObjectMarkedForDeletionTagKey),
+							Value: aws.String("true"),
+						},
+					},
+
+					Expiration: &s3types.LifecycleExpiration{
+						Days: aws.Int32(1),
+					},
+					NoncurrentVersionExpiration: &s3types.NoncurrentVersionExpiration{
+						NoncurrentDays: aws.Int32(1),
+					},
+				},
+				{
+					// Lifecycle rule to delete the delete markers that are generated by the above lifecycle rule.
+					ID:     aws.String(S3DeleteMarkerDeletionLifecyclePolicy),
+					Filter: &s3types.LifecycleRuleFilter{Prefix: ptr.To("")},
+					Status: s3types.ExpirationStatusEnabled,
+					Expiration: &s3types.LifecycleExpiration{
+						ExpiredObjectDeleteMarker: aws.Bool(true),
+					},
+				},
+				{
+					// re-add the lifecycle rule to purge incomplete multipart upload as by adding above rules, old rule get overwritten.
+					Filter: &s3types.LifecycleRuleFilter{Prefix: ptr.To("")},
+					AbortIncompleteMultipartUpload: &s3types.AbortIncompleteMultipartUpload{
+						DaysAfterInitiation: aws.Int32(7),
+					},
+					Status: s3types.ExpirationStatusEnabled,
+				},
+			},
+		},
+	}
+
+	if _, err := s3Client.PutBucketLifecycleConfiguration(ctx, putBucketLifecycleConfigurationInput1); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setObjectTag set the tag to an object specified by <key> and <versionID> in <bucket>.
+func setObjectTag(ctx context.Context, s3Client *s3.Client, bucket, key, verionID, tagKey, tagValue string) error {
+	input := s3.PutObjectTaggingInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+		Tagging: &s3types.Tagging{
+			TagSet: []s3types.Tag{
+				{
+					Key:   aws.String(tagKey),
+					Value: aws.String(tagValue),
+				},
+			},
+		},
+	}
+
+	if len(verionID) > 0 {
+		input.VersionId = aws.String(verionID)
+	}
+
+	if _, err := s3Client.PutObjectTagging(ctx, &input); err != nil {
+		return err
+	}
+
+	return nil
 }

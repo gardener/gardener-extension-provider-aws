@@ -8,41 +8,37 @@ import (
 	"context"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
-	"github.com/gardener/gardener/extensions/pkg/util"
-	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
 
 type actuator struct {
 	backupbucket.Actuator
-	client client.Client
+	client           client.Client
+	awsClientFactory awsclient.Factory
+	action           Action
 }
 
-func newActuator(mgr manager.Manager) backupbucket.Actuator {
+// Action is a context-aware action.
+type Action interface {
+	// Do performs an action.
+	Do(context.Context, bool) error
+}
+
+// ActionFunc is a function that implements Action.
+type ActionFunc func(context.Context, bool) error
+
+// Do performs an action.
+func (f ActionFunc) Do(ctx context.Context, enabled bool) error {
+	return f(ctx, enabled)
+}
+
+// NewActuator creates a new Actuator that creates/updates backup-bucket.
+func NewActuator(mgr manager.Manager, awsClientFactory awsclient.Factory) backupbucket.Actuator {
 	return &actuator{
-		client: mgr.GetClient(),
+		client:           mgr.GetClient(),
+		awsClientFactory: awsClientFactory,
 	}
-}
-
-func (a *actuator) Reconcile(ctx context.Context, _ logr.Logger, bb *extensionsv1alpha1.BackupBucket) error {
-	awsClient, err := aws.NewClientFromSecretRef(ctx, a.client, bb.Spec.SecretRef, bb.Spec.Region)
-	if err != nil {
-		return util.DetermineError(err, helper.KnownCodes)
-	}
-
-	return util.DetermineError(awsClient.CreateBucketIfNotExists(ctx, bb.Name, bb.Spec.Region), helper.KnownCodes)
-}
-
-func (a *actuator) Delete(ctx context.Context, _ logr.Logger, bb *extensionsv1alpha1.BackupBucket) error {
-	awsClient, err := aws.NewClientFromSecretRef(ctx, a.client, bb.Spec.SecretRef, bb.Spec.Region)
-	if err != nil {
-		return util.DetermineError(err, helper.KnownCodes)
-	}
-
-	return util.DetermineError(awsClient.DeleteBucketIfExists(ctx, bb.Name), helper.KnownCodes)
 }
