@@ -61,6 +61,6 @@ func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Cl
 		}
 	}
 
-	log.Info("Succesfully deleted the obsolete ClusterRoles and ClusterRoleBindings")
+	log.Info("Successfully deleted the obsolete ClusterRoles and ClusterRoleBindings")
 	return nil
 }
