@@ -56,7 +56,7 @@ func purgeMachineControllerManagerRBACResources(ctx context.Context, c client.Cl
 				c,
 				&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: clusterRole.Name}},
 			); err != nil {
-				return fmt.Errorf("failed to delete ClusterRole: %w", err)
+				return fmt.Errorf("failed to delete ClusterRole %s: %w", client.ObjectKeyFromObject(&clusterRole), err)
 			}
 		}
 	}
