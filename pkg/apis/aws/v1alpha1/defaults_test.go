@@ -35,11 +35,11 @@ var _ = Describe("Defaults", func() {
 
 	Describe("#SetDefaults_RegionAMIMapping", func() {
 		It("should default the architecture to amd64", func() {
-			//obj := &RegionAMIMapping{}
+			obj := &RegionAMIMapping{}
 
-			//SetDefaults_RegionAMIMapping(obj)
+			SetDefaults_RegionAMIMapping(obj)
 
-			//Expect(*obj.Architecture).To(Equal(v1beta1constants.ArchitectureAMD64))
+			Expect(*obj.Architecture).To(Equal(v1beta1constants.ArchitectureAMD64))
 		})
 	})
 

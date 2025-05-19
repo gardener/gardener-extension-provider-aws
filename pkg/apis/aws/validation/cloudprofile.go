@@ -96,6 +96,8 @@ func validateRegions(regions []apisaws.RegionAMIMapping, version, name string, h
 				allErrs = append(allErrs, field.NotSupported(kdxPath.Child("architecture"), arch, v1beta1constants.ValidArchitectures))
 			}
 		}
+		// This should be commented in once the defaulting of the architecture field is implemented via mutating webhook
+		// currently there is no way to distinguish between a user set architecture and the default one
 		//if hasCloudProfileCapabilities {
 		//	if region.Architecture != nil {
 		//		allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in ..capabilities.architecture"+*region.Architecture))
