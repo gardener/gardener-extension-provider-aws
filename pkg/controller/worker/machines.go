@@ -20,6 +20,7 @@ import (
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
@@ -400,6 +401,11 @@ func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 
 func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
 	var additionalData = computeAdditionalHashDataV1(pool)
+
+	// Do not include providerConfig in hash if the update strategy is InPlace.
+	if gardencorev1beta1helper.IsUpdateStrategyInPlace(pool.UpdateStrategy) {
+		return additionalData
+	}
 
 	if opts := workerConfig.CpuOptions; opts != nil {
 		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
