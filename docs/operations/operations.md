@@ -143,3 +143,22 @@ Please make sure that the provided credentials have the correct privileges. You 
   }
   ```
 </details>
+
+### Rolling Update Triggers
+
+Changes to the `Shoot` worker-pools are applied in-place where possible.
+In case this is not possible a rolling update of the workers will be performed to apply the new configuration, as outlined in [the Gardener documentation](https://github.com/gardener/gardener/blob/master/docs/usage/shoot-operations/shoot_updates.md#in-place-vs-rolling-updates).
+The exact fields that trigger this behavior are defined in the [Gardener doc](https://github.com/gardener/gardener/blob/master/docs/usage/shoot-operations/shoot_updates.md#rolling-update-triggers), with a few additions:
+
+- `.spec.provider.workers[].providerConfig`
+- `.spec.provider.workers[].volume.encrypted`
+- `.spec.provider.workers[].dataVolumes[].size` (only the affected worker pool)
+- `.spec.provider.workers[].dataVolumes[].type` (only the affected worker pool)
+- `.spec.provider.workers[].dataVolumes[].encrypted` (only the affected worker pool)
+
+For now, if the feature gate `NewWorkerPoolHash` _is_ enabled, the same fields are used.
+This behavior might change once MCM supports in-place volume updates.
+If updateStrategy _is_ set to `inPlace` and `NewWorkerPoolHash` _is_ enabled, 
+all the fields mentioned above except of the providerConifg are used.
+
+If in-place-updates are enabled for a worker-pool, then updates to the fields that trigger rolling updates will be disallowed.

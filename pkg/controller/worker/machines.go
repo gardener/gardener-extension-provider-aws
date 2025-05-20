@@ -429,27 +429,10 @@ func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfi
 		return additionalData
 	}
 
-	if opts := workerConfig.CpuOptions; opts != nil {
-		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
-		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
-	}
-
-	if instanceProfile := workerConfig.IAMInstanceProfile; instanceProfile != nil {
-		if arn := instanceProfile.ARN; arn != nil {
-			additionalData = append(additionalData, *arn)
-		}
-		if name := instanceProfile.Name; name != nil {
-			additionalData = append(additionalData, *name)
-		}
-	}
-
-	if instanceMetadataOptions := workerConfig.InstanceMetadataOptions; instanceMetadataOptions != nil {
-		if tokens := instanceMetadataOptions.HTTPTokens; tokens != nil {
-			additionalData = append(additionalData, string(*tokens))
-		}
-		if putResponseHopLimit := instanceMetadataOptions.HTTPPutResponseHopLimit; putResponseHopLimit != nil {
-			additionalData = append(additionalData, fmt.Sprint(*putResponseHopLimit))
-		}
+	// in the future, we may not calculate a hash for the whole ProviderConfig
+	// for example volume IOPS changes could be done in place
+	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
+		additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
 	}
 
 	return additionalData
