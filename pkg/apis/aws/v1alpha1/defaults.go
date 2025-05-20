@@ -35,6 +35,7 @@ func SetDefaults_Storage(obj *Storage) {
 // SetDefaults_RegionAMIMapping set the architecture of machine ami image.
 func SetDefaults_RegionAMIMapping(obj *RegionAMIMapping) {
 	if obj.Architecture == nil {
+		//this defaulting is not persisted in etcd
 		obj.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
 	}
 }
