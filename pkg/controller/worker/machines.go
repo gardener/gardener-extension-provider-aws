@@ -392,6 +392,8 @@ func computeEBSDeviceNameForIndex(index int) (string, error) {
 	return deviceNamePrefix + deviceNameSuffix[index:index+1], nil
 }
 
+// ComputeAdditionalHashDataV1 computes additional hash data for the worker pool. It returns a slice of strings containing the
+// additional data used for hashing.
 func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData []string
 
@@ -417,6 +419,8 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 	return additionalData
 }
 
+// ComputeAdditionalHashDataV2 computes additional hash data for the worker pool. It returns a slice of strings containing the
+// additional data used for hashing. The function takes into account the worker pool's update strategy and the worker configuration.
 func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
 	var additionalData = ComputeAdditionalHashDataV1(pool)
 
