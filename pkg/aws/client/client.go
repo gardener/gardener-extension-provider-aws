@@ -2366,10 +2366,11 @@ func fromSubnet(item *ec2types.Subnet) *Subnet {
 
 func fromAddress(item *ec2types.Address) *ElasticIP {
 	return &ElasticIP{
-		Tags:         FromTags(item.Tags),
-		Vpc:          item.Domain == ec2types.DomainTypeVpc,
-		AllocationId: aws.ToString(item.AllocationId),
-		PublicIp:     aws.ToString(item.PublicIp),
+		Tags:          FromTags(item.Tags),
+		Vpc:           item.Domain == ec2types.DomainTypeVpc,
+		AllocationId:  aws.ToString(item.AllocationId),
+		PublicIp:      aws.ToString(item.PublicIp),
+		AssociationID: item.AssociationId,
 	}
 }
 
