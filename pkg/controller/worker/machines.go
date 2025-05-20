@@ -18,8 +18,9 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
-	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
@@ -236,10 +237,25 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				},
 			}
 
+			if gardencorev1beta1helper.IsUpdateStrategyInPlace(pool.UpdateStrategy) {
+				machineDeploymentStrategy = machinev1alpha1.MachineDeploymentStrategy{
+					Type: machinev1alpha1.InPlaceUpdateMachineDeploymentStrategyType,
+					InPlaceUpdate: &machinev1alpha1.InPlaceUpdateMachineDeployment{
+						UpdateConfiguration: updateConfiguration,
+						OrchestrationType:   machinev1alpha1.OrchestrationTypeAuto,
+					},
+				}
+
+				if gardencorev1beta1helper.IsUpdateStrategyManualInPlace(pool.UpdateStrategy) {
+					machineDeploymentStrategy.InPlaceUpdate.OrchestrationType = machinev1alpha1.OrchestrationTypeManual
+				}
+			}
+
 			machineDeployments = append(machineDeployments, worker.MachineDeployment{
 				Name:       deploymentName,
 				ClassName:  className,
 				SecretName: className,
+				PoolName:   pool.Name,
 				Minimum:    worker.DistributeOverZones(zoneIdx, pool.Minimum, zoneLen),
 				Maximum:    worker.DistributeOverZones(zoneIdx, pool.Maximum, zoneLen),
 				Strategy:   machineDeploymentStrategy,
@@ -401,6 +417,11 @@ func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
 	var additionalData = computeAdditionalHashDataV1(pool)
 
+	// Do not include providerConfig in hash if the update strategy is InPlace.
+	if gardencorev1beta1helper.IsUpdateStrategyInPlace(pool.UpdateStrategy) {
+		return additionalData
+	}
+
 	if opts := workerConfig.CpuOptions; opts != nil {
 		additionalData = append(additionalData, strconv.Itoa(int(*opts.CoreCount)))
 		additionalData = append(additionalData, strconv.Itoa(int(*opts.ThreadsPerCore)))
@@ -483,7 +504,7 @@ func isIPv6(c *controller.Cluster) bool {
 	if networking != nil {
 		ipFamilies := networking.IPFamilies
 		if ipFamilies != nil {
-			if slices.Contains(ipFamilies, v1beta1.IPFamilyIPv6) {
+			if slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6) {
 				return true
 			}
 		}
