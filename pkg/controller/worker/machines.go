@@ -344,7 +344,7 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 }
 
 func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
-	return worker.WorkerPoolHash(pool, w.cluster, computeAdditionalHashDataV1(pool), computeAdditionalHashDataV2(pool, workerConfig))
+	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool, workerConfig))
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -392,32 +392,39 @@ func computeEBSDeviceNameForIndex(index int) (string, error) {
 	return deviceNamePrefix + deviceNameSuffix[index:index+1], nil
 }
 
-func computeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
+// ComputeAdditionalHashDataV1 computes additional hash data for the worker pool. It returns a slice of strings containing the
+// additional data used for hashing.
+func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData []string
 
 	if pool.Volume != nil && pool.Volume.Encrypted != nil {
 		additionalData = append(additionalData, strconv.FormatBool(*pool.Volume.Encrypted))
 	}
 
-	for _, dv := range pool.DataVolumes {
-		additionalData = append(additionalData, dv.Size)
+	// Do not include data volumes in the hash if the update strategy is InPlace.
+	if !gardencorev1beta1helper.IsUpdateStrategyInPlace(pool.UpdateStrategy) {
+		for _, dv := range pool.DataVolumes {
+			additionalData = append(additionalData, dv.Size)
 
-		if dv.Type != nil {
-			additionalData = append(additionalData, *dv.Type)
-		}
+			if dv.Type != nil {
+				additionalData = append(additionalData, *dv.Type)
+			}
 
-		if dv.Encrypted != nil {
-			additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
+			if dv.Encrypted != nil {
+				additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
+			}
 		}
 	}
 
 	return additionalData
 }
 
-func computeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
-	var additionalData = computeAdditionalHashDataV1(pool)
+// ComputeAdditionalHashDataV2 computes additional hash data for the worker pool. It returns a slice of strings containing the
+// additional data used for hashing. The function takes into account the worker pool's update strategy and the worker configuration.
+func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
+	var additionalData = ComputeAdditionalHashDataV1(pool)
 
-	// Do not include providerConfig in hash if the update strategy is InPlace.
+	// Do not include providerConfig in the hash if the update strategy is InPlace.
 	if gardencorev1beta1helper.IsUpdateStrategyInPlace(pool.UpdateStrategy) {
 		return additionalData
 	}

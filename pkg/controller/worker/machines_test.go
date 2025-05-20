@@ -1237,6 +1237,100 @@ var _ = Describe("Machines", func() {
 				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUnreadyTimeAnnotation]).To(Equal("3m0s"))
 				Expect(result[1].ClusterAutoscalerAnnotations[extensionsv1alpha1.ScaleDownUtilizationThresholdAnnotation]).To(Equal("0.5"))
 			})
+
+			Describe("Worker pool hash additional data calculation", func() {
+				var pool extensionsv1alpha1.WorkerPool
+
+				BeforeEach(func() {
+					pool = extensionsv1alpha1.WorkerPool{
+						Name: "pool1",
+						Volume: &extensionsv1alpha1.Volume{
+							Encrypted: ptr.To(true),
+						},
+						DataVolumes: []extensionsv1alpha1.DataVolume{
+							{
+								Name:      "data-volume-1",
+								Encrypted: ptr.To(true),
+								Size:      "10Gi",
+								Type:      ptr.To("type1"),
+							},
+							{
+								Name:      "data-volume-2",
+								Encrypted: ptr.To(false),
+								Size:      "20Gi",
+								Type:      ptr.To("type2"),
+							},
+						},
+					}
+				})
+
+				Describe("ComputeAdditionalHashDataV1", func() {
+					It("should return the expected hash data for Rolling update strategy", func() {
+						Expect(ComputeAdditionalHashDataV1(pool)).To(Equal([]string{
+							"true",
+							"10Gi",
+							"type1",
+							"true",
+							"20Gi",
+							"type2",
+							"false",
+						}))
+					})
+
+					It("should return the expected hash data for InPlace update strategy", func() {
+						pool.UpdateStrategy = ptr.To(gardencorev1beta1.AutoInPlaceUpdate)
+						Expect(ComputeAdditionalHashDataV1(pool)).To(Equal([]string{
+							"true",
+						}))
+					})
+				})
+
+				Describe("ComputeAdditionalHashDataV2", func() {
+					var workerConfig api.WorkerConfig
+
+					BeforeEach(func() {
+						workerConfig = api.WorkerConfig{
+							CpuOptions: &api.CpuOptions{
+								CoreCount:      ptr.To(int64(4)),
+								ThreadsPerCore: ptr.To(int64(2)),
+							},
+							IAMInstanceProfile: &api.IAMInstanceProfile{
+								ARN:  ptr.To("arn"),
+								Name: ptr.To("name1"),
+							},
+							InstanceMetadataOptions: &api.InstanceMetadataOptions{
+								HTTPTokens:              ptr.To(api.HTTPTokensRequired),
+								HTTPPutResponseHopLimit: ptr.To(int64(1)),
+							},
+						}
+					})
+
+					It("should return the expected hash data for Rolling update strategy", func() {
+						Expect(ComputeAdditionalHashDataV2(pool, workerConfig)).To(Equal([]string{
+							"true",
+							"10Gi",
+							"type1",
+							"true",
+							"20Gi",
+							"type2",
+							"false",
+							"4",
+							"2",
+							"arn",
+							"name1",
+							"required",
+							"1",
+						}))
+					})
+
+					It("should return the expected hash data for InPlace update strategy", func() {
+						pool.UpdateStrategy = ptr.To(gardencorev1beta1.AutoInPlaceUpdate)
+						Expect(ComputeAdditionalHashDataV2(pool, workerConfig)).To(Equal([]string{
+							"true",
+						}))
+					})
+				})
+			})
 		})
 
 		Describe("InstanceMetadata", func() {
