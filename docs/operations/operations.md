@@ -160,4 +160,4 @@ The exact fields that trigger this behavior are defined in the [Gardener doc](ht
 For now, if the feature gate `NewWorkerPoolHash` _is_ enabled, the same fields are used.
 This behavior might change once MCM supports in-place volume updates.
 If updateStrategy _is_ set to `inPlace` and `NewWorkerPoolHash` _is_ enabled, 
-none of the providerConifg is used to calculate the hash but only the fields mentioned above.
+all the fields mentioned above except of the providerConifg are used.
