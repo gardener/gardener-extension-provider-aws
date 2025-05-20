@@ -151,7 +151,6 @@ In case this is not possible a rolling update of the workers will be performed t
 The exact fields that trigger this behavior are defined in the [Gardener doc](https://github.com/gardener/gardener/blob/master/docs/usage/shoot-operations/shoot_updates.md#rolling-update-triggers), with a few additions:
 
 - `.spec.provider.workers[].providerConfig`
-- `.spec.provider.workers[].machine.image.name`
 - `.spec.provider.workers[].volume.encrypted`
 - `.spec.provider.workers[].dataVolumes[].size` (only the affected worker pool)
 - `.spec.provider.workers[].dataVolumes[].type` (only the affected worker pool)
@@ -161,3 +160,5 @@ For now, if the feature gate `NewWorkerPoolHash` _is_ enabled, the same fields a
 This behavior might change once MCM supports in-place volume updates.
 If updateStrategy _is_ set to `inPlace` and `NewWorkerPoolHash` _is_ enabled, 
 all the fields mentioned above except of the providerConifg are used.
+
+If in-place-updates are enabled for a worker-pool, then updates to the fields that trigger rolling updates will be disallowed.
