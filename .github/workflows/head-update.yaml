@@ -12,12 +12,40 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
+    permissions:
+      id-token: write
     steps:
       - name: collect-component-descriptor
         uses: gardener/cc-utils/.github/actions/merge-ocm-fragments@master
         with:
           component-descriptor-artefact: base-component-descriptor
           outdir: /tmp/ocm
+      - name: read-target-oci-ref
+        id: read-oci-ref
+        shell: python
+        run: |
+          import os
+          import yaml
+          import ocm
+
+          with open('/tmp/ocm/component-descriptor.yaml') as f:
+            component_descriptor = ocm.ComponentDescriptor.from_dict(
+              yaml.safe_load(f.read())
+            )
+          component = component_descriptor.component
+          tgt_ocm_repo = component.current_ocm_repo
+          tgt_oci_ref = tgt_ocm_repo.component_version_oci_ref(
+            name=component.name,
+            version=component.version,
+          )
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f'ocm-target-oci-ref={tgt_oci_ref}\n')
+
+      - name: authenticate-against-oci-registry
+        uses: gardener/cc-utils/.github/actions/oci-auth@master
+        with:
+          oci-image-reference: ${{ steps.read-oci-ref.outputs.ocm-target-oci-ref }}
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
       - name: upload-component-descriptor
         run: |
           python -m ocm upload \
