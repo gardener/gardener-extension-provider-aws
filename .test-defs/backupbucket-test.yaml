@@ -17,4 +17,12 @@ spec:
       --region=${REGION}
       --use-existing-cluster=${USE_EXISTING_CLUSTER}
       --log-level=${LOG_LEVEL}
+
   image: golang:1.24
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "5Gi"
+      cpu: "1"
