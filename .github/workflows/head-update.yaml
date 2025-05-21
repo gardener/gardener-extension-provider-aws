@@ -16,7 +16,7 @@ jobs:
       - name: collect-component-descriptor
         uses: gardener/cc-utils/.github/actions/merge-ocm-fragments@master
         with:
-          component-descriptor: ${{ needs.build.outputs.component-descriptor }}
+          component-descriptor-artefact: base-component-descriptor
           outdir: /tmp/ocm
       - name: upload-component-descriptor
         run: |

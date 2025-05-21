@@ -10,9 +10,6 @@ on:
         description: |
           the mode to use. either `snapshot` or `release`. Will affect effective version, as well
           as target-oci-registry.
-    outputs:
-      component-descriptor:
-        value: ${{ jobs.prepare.outputs.component-descriptor }}
 
 jobs:
   prepare:
