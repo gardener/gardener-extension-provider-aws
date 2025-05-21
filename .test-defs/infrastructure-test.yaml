@@ -9,7 +9,7 @@ spec:
   command: [bash, -c]
   args:
   - >-
-    go test -timeout=120m ./test/integration/infrastructure
+    GOMAXPROCS=2 go test -timeout=120m ./test/integration/infrastructure
     --v -ginkgo.v -ginkgo.progress -ginkgo.no-color
     --kubeconfig=$TM_KUBECONFIG_PATH/testmachinery.config
     --access-key-id=$ACCESS_KEY_ID
@@ -18,3 +18,10 @@ spec:
     --reconciler="${RECONCILER}"
 
   image: golang:1.24
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "5Gi"
+      cpu: "1"

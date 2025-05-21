@@ -9,10 +9,17 @@ spec:
   command: [bash, -c]
   args:
   - >-
-    go test -timeout=25m ./test/integration/dnsrecord
+    GOMAXPROCS=2 go test -timeout=25m ./test/integration/dnsrecord
     --v -ginkgo.v -ginkgo.progress -ginkgo.no-color
     --kubeconfig=$TM_KUBECONFIG_PATH/testmachinery.config
     --access-key-id=$DNS_ACCESS_KEY_ID
     --secret-access-key=$DNS_SECRET_ACCESS_KEY
 
   image: golang:1.24
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "5Gi"
+      cpu: "1"
