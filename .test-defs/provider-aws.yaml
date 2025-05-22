@@ -21,8 +21,5 @@ spec:
   image: golang:1.24
   resources:
     requests:
-      memory: "800Mi"
-      cpu: "400m"
-    limits:
-      memory: "4Gi"
-      cpu: "800m"
+      memory: "1.5Gi"
+      cpu: "1"
