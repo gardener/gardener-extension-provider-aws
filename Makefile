@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and Gardener contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -34,6 +34,8 @@ endif
 REGION                 := eu-west-1
 ACCESS_KEY_ID_FILE     := .kube-secrets/aws/access_key_id.secret
 SECRET_ACCESS_KEY_FILE := .kube-secrets/aws/secret_access_key.secret
+IT_LOGLEVEL := info
+IT_USE_EXISTING_CLUSTER := false # set to true if you want to use an existing cluster for backupbucket integration tests
 
 ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
 	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-dirty
@@ -194,3 +196,14 @@ integration-test-dnsrecord:
 		--kubeconfig=${KUBECONFIG} \
 		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))'
+
+.PHONY: integration-test-backupbucket
+integration-test-backupbucket:
+	@go test -timeout=0 ./test/integration/backupbucket \
+		--v -ginkgo.v -ginkgo.show-node-events \
+		--kubeconfig=${KUBECONFIG} \
+		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
+		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
+		--region=$(REGION) \
+		--use-existing-cluster=$(IT_USE_EXISTING_CLUSTER) \
+		--log-level=$(IT_LOGLEVEL)
