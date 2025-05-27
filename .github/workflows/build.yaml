@@ -30,7 +30,7 @@ jobs:
       matrix:
         args:
           - name: gardener-extension-provider-aws
-            oci-repository: extensions/provider-aws
+            oci-repository: gardener/extensions/provider-aws
             target: gardener-extension-provider-aws
             ocm-labels:
               name: gardener.cloud/cve-categorisation
@@ -42,7 +42,7 @@ jobs:
                 integrity_requirement: high
                 availability_requirement: high
           - name: gardener-extension-admission-aws
-            oci-repository: extensions/admission-aws
+            oci-repository: gardener/extensions/admission-aws
             target: gardener-extension-admission-aws
             ocm-labels:
               name: gardener.cloud/cve-categorisation
