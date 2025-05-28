@@ -1286,7 +1286,10 @@ var _ = Describe("Machines", func() {
 				})
 
 				Describe("ComputeAdditionalHashDataV2", func() {
-					var workerConfig api.WorkerConfig
+					var (
+						workerConfig     api.WorkerConfig
+						workerConfigData []byte
+					)
 
 					BeforeEach(func() {
 						workerConfig = api.WorkerConfig{
@@ -1303,10 +1306,14 @@ var _ = Describe("Machines", func() {
 								HTTPPutResponseHopLimit: ptr.To(int64(1)),
 							},
 						}
+						workerConfigData = encode(&workerConfig)
+						pool.ProviderConfig = &runtime.RawExtension{
+							Raw: workerConfigData,
+						}
 					})
 
 					It("should return the expected hash data for Rolling update strategy", func() {
-						Expect(ComputeAdditionalHashDataV2(pool, workerConfig)).To(Equal([]string{
+						Expect(ComputeAdditionalHashDataV2(pool)).To(Equal([]string{
 							"true",
 							"10Gi",
 							"type1",
@@ -1314,18 +1321,13 @@ var _ = Describe("Machines", func() {
 							"20Gi",
 							"type2",
 							"false",
-							"4",
-							"2",
-							"arn",
-							"name1",
-							"required",
-							"1",
+							string(workerConfigData),
 						}))
 					})
 
 					It("should return the expected hash data for InPlace update strategy", func() {
 						pool.UpdateStrategy = ptr.To(gardencorev1beta1.AutoInPlaceUpdate)
-						Expect(ComputeAdditionalHashDataV2(pool, workerConfig)).To(Equal([]string{
+						Expect(ComputeAdditionalHashDataV2(pool)).To(Equal([]string{
 							"true",
 						}))
 					})

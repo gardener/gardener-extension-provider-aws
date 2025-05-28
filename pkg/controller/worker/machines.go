@@ -104,7 +104,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 		}
 
-		workerPoolHash, err := w.generateWorkerPoolHash(pool, *workerConfig)
+		workerPoolHash, err := w.generateWorkerPoolHash(pool)
 		if err != nil {
 			return err
 		}
@@ -343,8 +343,8 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	return blockDevices, nil
 }
 
-func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) (string, error) {
-	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool, workerConfig))
+func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool) (string, error) {
+	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool))
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -421,7 +421,7 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 
 // ComputeAdditionalHashDataV2 computes additional hash data for the worker pool. It returns a slice of strings containing the
 // additional data used for hashing. The function takes into account the worker pool's update strategy and the worker configuration.
-func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig awsapi.WorkerConfig) []string {
+func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData = ComputeAdditionalHashDataV1(pool)
 
 	// Do not include providerConfig in the hash if the update strategy is InPlace.
