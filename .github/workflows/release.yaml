@@ -1,6 +1,12 @@
 name: Release
 on:
   workflow_dispatch:
+    inputs:
+      next-version:
+        type: choice
+        options:
+          - bump-minor
+          - bump-patch
 
 
 jobs:
@@ -17,4 +23,4 @@ jobs:
       github-app-secret-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
     with:
       release-commit-target: branch
-      next-version: bump-minor
+      next-version: ${{ inputs-next-version }}
