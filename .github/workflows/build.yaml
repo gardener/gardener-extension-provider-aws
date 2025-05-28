@@ -35,7 +35,7 @@ jobs:
     needs:
       - prepare
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
     uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
