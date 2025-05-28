@@ -4,3 +4,21 @@ labels:
     - type: githubTeam
       teamname: gardener/gardener-extension-provider-aws-maintainers
       github_hostname: github.com
+
+resources:
+  # todo: resolve double-maintenance w/ charts/gardener-extension-provider-aws/templates/_images.tpl
+  - name: alpine
+    version: '3.20.3'
+    type: ociImage
+    relation: external
+    access:
+      type: ociRegistry
+      imageReference: registry-1.docker.io/library/alpine:3.20.3
+  # todo: resolve double-maintenance w/ charts/gardener-extension-provider-aws/templates/_images.tpl
+  - name: pause
+    version: '3.10'
+    type: ociImage
+    relation: external
+    access:
+      type: ociRegistry
+      imageReference: registry.k8s.io/pause:3.10
