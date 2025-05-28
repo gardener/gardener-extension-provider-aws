@@ -23,4 +23,4 @@ jobs:
       github-app-secret-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
     with:
       release-commit-target: branch
-      next-version: ${{ inputs-next-version }}
+      next-version: ${{ inputs.next-version }}
