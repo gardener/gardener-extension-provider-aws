@@ -924,12 +924,12 @@ func getControlPlaneShootChartCSIEfsValues(
 	infraConfig *apisaws.InfrastructureConfig,
 	infraStatus *apisaws.InfrastructureStatus,
 ) map[string]interface{} {
-	csiEsfEnabled := isCSIEfsEnabled(infraConfig)
+	csiEfsEnabled := isCSIEfsEnabled(infraConfig)
 	values := map[string]interface{}{
-		"enabled": csiEsfEnabled,
+		"enabled": csiEfsEnabled,
 	}
 
-	if csiEsfEnabled {
+	if csiEfsEnabled {
 		values["fileSystemID"] = infraStatus.CSI.EfsSystemID
 	}
 
