@@ -430,6 +430,7 @@ func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool) []string {
 	return additionalData
 }
 
+// ComputeAdditionalHashDataInPlace computes additional hash data for a worker pool with in-place update strategy.
 func ComputeAdditionalHashDataInPlace(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData []string
 
