@@ -344,7 +344,7 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 }
 
 func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool) (string, error) {
-	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool))
+	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool), ComputeAdditionalHashDataInPlace(pool))
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -401,18 +401,15 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 		additionalData = append(additionalData, strconv.FormatBool(*pool.Volume.Encrypted))
 	}
 
-	// Do not include data volumes in the hash if the update strategy is InPlace.
-	if !gardencorev1beta1helper.IsUpdateStrategyInPlace(pool.UpdateStrategy) {
-		for _, dv := range pool.DataVolumes {
-			additionalData = append(additionalData, dv.Size)
+	for _, dv := range pool.DataVolumes {
+		additionalData = append(additionalData, dv.Size)
 
-			if dv.Type != nil {
-				additionalData = append(additionalData, *dv.Type)
-			}
+		if dv.Type != nil {
+			additionalData = append(additionalData, *dv.Type)
+		}
 
-			if dv.Encrypted != nil {
-				additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
-			}
+		if dv.Encrypted != nil {
+			additionalData = append(additionalData, strconv.FormatBool(*dv.Encrypted))
 		}
 	}
 
@@ -420,19 +417,25 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 }
 
 // ComputeAdditionalHashDataV2 computes additional hash data for the worker pool. It returns a slice of strings containing the
-// additional data used for hashing. The function takes into account the worker pool's update strategy and the worker configuration.
+// additional data used for hashing.
 func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool) []string {
 	var additionalData = ComputeAdditionalHashDataV1(pool)
-
-	// Do not include providerConfig in the hash if the update strategy is InPlace.
-	if gardencorev1beta1helper.IsUpdateStrategyInPlace(pool.UpdateStrategy) {
-		return additionalData
-	}
 
 	// in the future, we may not calculate a hash for the whole ProviderConfig
 	// for example volume IOPS changes could be done in place
 	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
 		additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
+	}
+
+	return additionalData
+}
+
+// ComputeAdditionalHashDataInPlace computes additional hash data for a worker pool with in-place update strategy.
+func ComputeAdditionalHashDataInPlace(pool extensionsv1alpha1.WorkerPool) []string {
+	var additionalData []string
+
+	if pool.Volume != nil && pool.Volume.Encrypted != nil {
+		additionalData = append(additionalData, strconv.FormatBool(*pool.Volume.Encrypted))
 	}
 
 	return additionalData

@@ -401,6 +401,7 @@ var _ = Describe("Machines", func() {
 									Name:    machineImageName,
 									Version: machineImageVersion,
 								},
+								KubernetesVersion: ptr.To("1.32.0"),
 								ProviderConfig: &runtime.RawExtension{
 									Raw: encode(&api.WorkerConfig{
 										Volume: &api.Volume{
@@ -467,6 +468,7 @@ var _ = Describe("Machines", func() {
 									Name:    machineImageName,
 									Version: machineImageVersion,
 								},
+								KubernetesVersion: ptr.To("1.32.0"),
 								UserDataSecretRef: corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{Name: userDataSecretName},
 									Key:                  userDataSecretDataKey,
@@ -498,6 +500,7 @@ var _ = Describe("Machines", func() {
 									Name:    machineImageName,
 									Version: machineImageVersion,
 								},
+								KubernetesVersion: ptr.To("1.32.0"),
 								UserDataSecretRef: corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{Name: userDataSecretName},
 									Key:                  userDataSecretDataKey,
@@ -523,9 +526,9 @@ var _ = Describe("Machines", func() {
 				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 
 				additionalData := []string{strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted)}
-				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalData, additionalData)
-				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
-				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil)
+				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalData, additionalData, nil)
+				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
+				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil, nil)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, clusterWithoutImages)
 			})
@@ -948,7 +951,7 @@ var _ = Describe("Machines", func() {
 
 				Context("using workerConfig.iamInstanceProfile", func() {
 					modifyExpectedMachineClasses := func(expectedIamInstanceProfile map[string]interface{}) {
-						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
+						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						var (
@@ -1276,13 +1279,6 @@ var _ = Describe("Machines", func() {
 							"false",
 						}))
 					})
-
-					It("should return the expected hash data for InPlace update strategy", func() {
-						pool.UpdateStrategy = ptr.To(gardencorev1beta1.AutoInPlaceUpdate)
-						Expect(ComputeAdditionalHashDataV1(pool)).To(Equal([]string{
-							"true",
-						}))
-					})
 				})
 
 				Describe("ComputeAdditionalHashDataV2", func() {
@@ -1324,10 +1320,11 @@ var _ = Describe("Machines", func() {
 							string(workerConfigData),
 						}))
 					})
+				})
 
+				Describe("ComputeAdditionalHashDataInPlace", func() {
 					It("should return the expected hash data for InPlace update strategy", func() {
-						pool.UpdateStrategy = ptr.To(gardencorev1beta1.AutoInPlaceUpdate)
-						Expect(ComputeAdditionalHashDataV2(pool)).To(Equal([]string{
+						Expect(ComputeAdditionalHashDataInPlace(pool)).To(Equal([]string{
 							"true",
 						}))
 					})
@@ -1345,7 +1342,7 @@ var _ = Describe("Machines", func() {
 					Shoot: &gardencorev1beta1.Shoot{
 						Spec: gardencorev1beta1.ShootSpec{
 							Kubernetes: gardencorev1beta1.Kubernetes{
-								Version: "v1.29.0",
+								Version: "1.29.0",
 							},
 						},
 					},
@@ -1360,7 +1357,7 @@ var _ = Describe("Machines", func() {
 				Expect(res).To(BeEmpty())
 			})
 			It("should calculate correct IMDS for k8s >=1.30", func() {
-				cluster.Shoot.Spec.Kubernetes.Version = "v1.30.0"
+				cluster.Shoot.Spec.Kubernetes.Version = "1.30.0"
 
 				res, err := ComputeInstanceMetadata(workerConfig, cluster)
 				Expect(err).NotTo(HaveOccurred())
