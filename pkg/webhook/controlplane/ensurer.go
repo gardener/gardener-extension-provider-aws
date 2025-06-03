@@ -64,7 +64,7 @@ type ensurer struct {
 var ImageVector = imagevector.ImageVector()
 
 // EnsureMachineControllerManagerDeployment ensures that the machine-controller-manager deployment conforms to the provider requirements.
-func (e *ensurer) EnsureMachineControllerManagerDeployment(ctx context.Context, _ gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
+func (e *ensurer) EnsureMachineControllerManagerDeployment(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *appsv1.Deployment) error {
 	cloudProviderSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v1beta1constants.SecretNameCloudProvider,
@@ -80,7 +80,12 @@ func (e *ensurer) EnsureMachineControllerManagerDeployment(ctx context.Context, 
 		return err
 	}
 
-	sidecarContainer := machinecontrollermanager.ProviderSidecarContainer(newObj.Namespace, aws.Name, image.String())
+	cluster, err := gctx.GetCluster(ctx)
+	if err != nil {
+		return fmt.Errorf("failed reading Cluster: %w", err)
+	}
+
+	sidecarContainer := machinecontrollermanager.ProviderSidecarContainer(cluster.Shoot, newObj.GetNamespace(), aws.Name, image.String())
 
 	if cloudProviderSecret.Labels[securityv1alpha1constants.LabelPurpose] == securityv1alpha1constants.LabelPurposeWorkloadIdentityTokenRequestor {
 		const volumeName = "workload-identity"
