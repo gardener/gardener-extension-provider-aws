@@ -58,8 +58,8 @@ var (
 )
 
 const (
-	BackupBucketSecretName = "backupbucket"
-	GardenNamespaceName    = "garden"
+	backupBucketSecretName = "backupbucket"
+	gardenNamespaceName    = "garden"
 )
 
 var runTest = func(tc *TestContext, backupBucket *v1alpha1.BackupBucket) {
@@ -188,7 +188,7 @@ var _ = BeforeSuite(func() {
 	By("creating aws provider secret")
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      BackupBucketSecretName,
+			Name:      backupBucketSecretName,
 			Namespace: testName,
 		},
 		Data: map[string][]byte{
