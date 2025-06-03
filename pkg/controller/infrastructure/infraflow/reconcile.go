@@ -1022,12 +1022,13 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 					return err
 				}
 				// make sure that the EIP is not in use
-				if ip.AssociationID == nil {
+				if ip != nil && ip.AssociationID == nil {
 					log.Info("deleting unused managed elastic IP found in state", "id", *id)
-					err = c.client.DeleteElasticIP(ctx, *id)
+					err = c.deleteElasticIpWithWait(ctx, ip)
 					if err != nil {
 						return err
 					}
+					child.Delete(IdentifierManagedZoneNATGWElasticIP)
 				}
 			}
 			return nil
@@ -1071,19 +1072,27 @@ func (c *FlowContext) deleteElasticIP(zoneName string) flow.TaskFn {
 		if err != nil {
 			return err
 		}
-		if current != nil {
-			log := LogFromContext(ctx)
-			log.Info("deleting...", "AllocationId", current.AllocationId)
-			waiter := informOnWaiting(log, 10*time.Second, "still deleting...", "AllocationId", current.AllocationId)
-			err = c.client.DeleteElasticIP(ctx, current.AllocationId)
-			waiter.Done(err)
-			if err != nil {
-				return err
-			}
+		err = c.deleteElasticIpWithWait(ctx, current)
+		if err != nil {
+			return err
 		}
 		child.Delete(IdentifierManagedZoneNATGWElasticIP)
 		return nil
 	}
+}
+
+func (c *FlowContext) deleteElasticIpWithWait(ctx context.Context, elasticIP *awsclient.ElasticIP) error {
+	if elasticIP != nil {
+		log := LogFromContext(ctx)
+		log.Info("deleting...", "AllocationId", elasticIP.AllocationId)
+		waiter := informOnWaiting(log, 10*time.Second, "still deleting...", "AllocationId", elasticIP.AllocationId)
+		err := c.client.DeleteElasticIP(ctx, elasticIP.AllocationId)
+		waiter.Done(err)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ensureRecreateNATGateway checks if the EIPAllocationId has changed.
