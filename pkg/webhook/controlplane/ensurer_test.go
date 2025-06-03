@@ -58,6 +58,8 @@ var _ = Describe("Ensurer", func() {
 		eContextK8s127 gcontext.GardenContext
 		eContextK8s131 gcontext.GardenContext
 
+		shoot131 *gardencorev1beta1.Shoot
+
 		infraConfig *v1alpha1.InfrastructureConfig
 	)
 
@@ -97,23 +99,25 @@ var _ = Describe("Ensurer", func() {
 			},
 		)
 
+		shoot131 = &gardencorev1beta1.Shoot{
+			Spec: gardencorev1beta1.ShootSpec{
+				Kubernetes: gardencorev1beta1.Kubernetes{
+					Version: "1.31.1",
+				},
+				Provider: gardencorev1beta1.Provider{
+					InfrastructureConfig: &runtime.RawExtension{
+						Raw: encode(infraConfig),
+					},
+				},
+			},
+		}
+
 		eContextK8s131 = gcontext.NewInternalGardenContext(
 			&extensionscontroller.Cluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "shoot--project--foo",
 				},
-				Shoot: &gardencorev1beta1.Shoot{
-					Spec: gardencorev1beta1.ShootSpec{
-						Kubernetes: gardencorev1beta1.Kubernetes{
-							Version: "1.31.1",
-						},
-						Provider: gardencorev1beta1.Provider{
-							InfrastructureConfig: &runtime.RawExtension{
-								Raw: encode(infraConfig),
-							},
-						},
-					},
-				},
+				Shoot: shoot131,
 			},
 		)
 	})
@@ -705,8 +709,8 @@ done
 			})
 
 			Expect(deployment.Spec.Template.Spec.Containers).To(BeEmpty())
-			Expect(ensurer.EnsureMachineControllerManagerDeployment(context.TODO(), nil, deployment, nil)).To(Succeed())
-			expectedContainer := machinecontrollermanager.ProviderSidecarContainer(deployment.Namespace, "provider-aws", "foo:bar")
+			Expect(ensurer.EnsureMachineControllerManagerDeployment(context.TODO(), eContextK8s131, deployment, nil)).To(Succeed())
+			expectedContainer := machinecontrollermanager.ProviderSidecarContainer(shoot131, deployment.Namespace, "provider-aws", "foo:bar")
 			Expect(deployment.Spec.Template.Spec.Containers).To(ConsistOf(expectedContainer))
 		})
 
@@ -724,8 +728,8 @@ done
 				return nil
 			})
 			Expect(deployment.Spec.Template.Spec.Containers).To(BeEmpty())
-			Expect(ensurer.EnsureMachineControllerManagerDeployment(context.TODO(), nil, deployment, nil)).To(Succeed())
-			expectedContainer := machinecontrollermanager.ProviderSidecarContainer(deployment.Namespace, "provider-aws", "foo:bar")
+			Expect(ensurer.EnsureMachineControllerManagerDeployment(context.TODO(), eContextK8s131, deployment, nil)).To(Succeed())
+			expectedContainer := machinecontrollermanager.ProviderSidecarContainer(shoot131, deployment.Namespace, "provider-aws", "foo:bar")
 			expectedContainer.VolumeMounts = append(expectedContainer.VolumeMounts, corev1.VolumeMount{
 				Name:      "workload-identity",
 				MountPath: "/var/run/secrets/gardener.cloud/workload-identity",
