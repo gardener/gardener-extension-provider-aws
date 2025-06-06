@@ -9,14 +9,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
+
+// ensure staticTokenRetriever implements github.com/aws/aws-sdk-go-v2/credentials/stscreds.IdentityTokenRetriever
+var _ stscreds.IdentityTokenRetriever = (*staticTokenRetriever)(nil)
 
 type staticTokenRetriever struct {
 	token []byte
@@ -68,12 +73,14 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool, region stri
 		if _, ok := secret.Data[securityv1alpha1constants.DataKeyToken]; !ok {
 			return nil, fmt.Errorf("missing %q field in secret", securityv1alpha1constants.DataKeyToken)
 		}
-		if _, ok := secret.Data[RoleARN]; !ok {
-			return nil, fmt.Errorf("missing %q field in secret", RoleARN)
+
+		roleARN, err := getRoleARN(secret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve role ARN from secret: %w", err)
 		}
 		authConfig.WorkloadIdentity = &awsclient.WorkloadIdentity{
 			TokenRetriever: &staticTokenRetriever{token: secret.Data[securityv1alpha1constants.DataKeyToken]},
-			RoleARN:        string(secret.Data[RoleARN]),
+			RoleARN:        *roleARN,
 		}
 	}
 
@@ -110,4 +117,22 @@ func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, requi
 		return nil, fmt.Errorf("missing %q field in secret", key)
 	}
 	return nil, nil
+}
+
+func getRoleARN(secret *corev1.Secret) (*string, error) {
+	if roleARN, ok := secret.Data[RoleARN]; ok {
+		return ptr.To(string(roleARN)), nil
+	}
+	if _, ok := secret.Data[securityv1alpha1constants.DataKeyConfig]; !ok {
+		return nil, fmt.Errorf("missing %q field in secret", securityv1alpha1constants.DataKeyConfig)
+	}
+	workloadIdentityConfig, err := helper.WorkloadIdentityConfigFromBytes(secret.Data[securityv1alpha1constants.DataKeyConfig])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse WorkloadIdentityConfig: %w", err)
+	}
+	if len(workloadIdentityConfig.RoleARN) == 0 {
+		return nil, fmt.Errorf("workloadIdentityConfig.roleARN is empty")
+	}
+
+	return &workloadIdentityConfig.RoleARN, nil
 }
