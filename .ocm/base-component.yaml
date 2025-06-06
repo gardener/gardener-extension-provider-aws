@@ -5,6 +5,14 @@ labels:
       teamname: gardener/gardener-extension-provider-aws-maintainers
       github_hostname: github.com
 
+main-source:
+  labels:
+    - name: cloud.gardener.cnudie/dso/scanning-hints/source_analysis/v1
+      value: |
+        policy: skip
+        comment: |
+          we use gosec for SAST Scanning. See attached log.
+
 resources:
   # todo: resolve double-maintenance w/ charts/gardener-extension-provider-aws/templates/_images.tpl
   - name: alpine
