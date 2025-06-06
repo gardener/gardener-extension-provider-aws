@@ -198,7 +198,7 @@ var _ = Describe("Secret", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should return the correct credentials object if non-DNS keys are used with workload identity config", func() {
+			It("should return the correct credentials object if non-DNS keys are used with workload identity and roleARN data key", func() {
 				secret.Data = map[string][]byte{
 					"token":   []byte("foo"),
 					"roleARN": []byte("arn"),
@@ -214,6 +214,54 @@ var _ = Describe("Secret", func() {
 				token, err := credentials.WorkloadIdentity.TokenRetriever.GetIdentityToken()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(token).To(Equal([]byte("foo")))
+			})
+
+			It("should return the correct credentials object if non-DNS keys are used with workload identity and without roleARN data key", func() {
+				secret.Data = map[string][]byte{
+					"token": []byte("foo"),
+					"config": []byte(`apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkloadIdentityConfig
+roleARN: role-arn`),
+					Region: region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, false, "")
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(credentials.Region).To(Equal(string(region)))
+				Expect(credentials.AccessKey).To(BeNil())
+				Expect(credentials.WorkloadIdentity.RoleARN).To(Equal("role-arn"))
+
+				token, err := credentials.WorkloadIdentity.TokenRetriever.GetIdentityToken()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(token).To(Equal([]byte("foo")))
+			})
+
+			It("should fail to return the correct credentials object if non-DNS keys are used with workload identity without roleARN and config data key", func() {
+				secret.Data = map[string][]byte{
+					"token": []byte("foo"),
+					Region:  region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, false, "")
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError("failed to retrieve role ARN from secret: missing \"config\" field in secret"))
+				Expect(credentials).To(BeNil())
+			})
+
+			It("should fail to the correct credentials object if non-DNS keys are used with workload identity without roleARN data key and empty roleARN in workloadIdentityConfig", func() {
+				secret.Data = map[string][]byte{
+					"token": []byte("foo"),
+					"config": []byte(`apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkloadIdentityConfig
+roleARN:`),
+					Region: region,
+				}
+
+				credentials, err := ReadCredentialsSecret(secret, false, "")
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError("failed to retrieve role ARN from secret: workloadIdentityConfig.roleARN is empty"))
+				Expect(credentials).To(BeNil())
 			})
 
 			It("should fail if DNS keys are used", func() {

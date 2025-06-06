@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -241,7 +242,7 @@ type SecurityGroup struct {
 // Clone creates a copy.
 func (sg *SecurityGroup) Clone() *SecurityGroup {
 	cp := *sg
-	cp.Rules = copySlice(sg.Rules)
+	cp.Rules = slices.Clone(sg.Rules)
 	cp.Tags = sg.Tags.Clone()
 	return &cp
 }
@@ -337,8 +338,8 @@ type SecurityGroupRule struct {
 // Clone creates a copy.
 func (sgr *SecurityGroupRule) Clone() *SecurityGroupRule {
 	cp := *sgr
-	cp.CidrBlocks = copySlice(sgr.CidrBlocks)
-	cp.CidrBlocksv6 = copySlice(sgr.CidrBlocksv6)
+	cp.CidrBlocks = slices.Clone(sgr.CidrBlocks)
+	cp.CidrBlocksv6 = slices.Clone(sgr.CidrBlocksv6)
 	return &cp
 }
 
