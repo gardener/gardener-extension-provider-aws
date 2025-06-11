@@ -7,12 +7,17 @@ In this document we are describing how this configuration looks like for AWS and
 ## Accessing AWS APIs
 
 In order for Gardener to create a Kubernetes cluster using AWS infrastructure components, a Shoot has to provide an authentication mechanism giving sufficient permissions to the desired AWS account.
-Every shoot cluster references a `SecretBinding` or a `CredentialsBinding` which itself references a `Secret` which contains the provider credentials of the AWS account.
+Every shoot cluster references a `SecretBinding` or a [`CredentialsBinding`](https://gardener.cloud/docs/gardener/api-reference/security/#security.gardener.cloud/v1alpha1.CredentialsBinding).
 
 > [!IMPORTANT]
 > While `SecretBinding`s can only reference `Secret`s, `CredentialsBinding`s can also reference `WorkloadIdentity`s which provide an alternative authentication method.
 > `WorkloadIdentity`s do not directly contain credentials but are rather a representation of the workload that is going to access the user's account.
 > If the user has configured [OIDC Federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html) with Gardener's Workload Identity Issuer then the AWS infrastructure components can access the user's account without the need of preliminary exchange of credentials.
+
+> [!IMPORTANT]
+> The `SecretBinding`/`CredentialsBinding` is configurable in the [Shoot cluster](https://github.com/gardener/gardener/blob/master/example/90-shoot.yaml) with the field `secretBindingName`/`credentialsBindingName`.
+> `SecretBinding`s are considered legacy and will be deprecated in the future.
+> It is advised to use `CredentialsBinding`s instead.
 
 ### Provider Secret Data
 
@@ -45,6 +50,13 @@ Users can choose to trust Gardener's Workload Identity Issuer and eliminate the 
 
 #### 1. Configure [OIDC Federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html) with Gardener's Workload Identity Issuer.
 ![OIDC Federation](./images/oidc-federation.png)
+
+> [!TIP]
+> You can retrieve Gardener's Workload Identity Issuer URL directly from the Garden cluster by reading the contents of the [Gardener Info ConfigMap](https://gardener.cloud/docs/gardener/gardener/gardener_info_configmap/).
+>
+> ```bash
+> kubectl -n gardener-system-public get configmap -o yaml
+> ```
 
 > [!IMPORTANT]
 > Use an audience that will uniquely identify the trust relationship between your AWS account and Gardener.
@@ -138,6 +150,17 @@ credentialsRef:
   namespace: garden-myproj
 provider:
   type: aws
+```
+
+```yaml
+apiVersion: core.gardener.cloud/v1beta1
+kind: Shoot
+metadata:
+  name: aws
+  namespace: garden-myproj
+spec:
+  credentialsBindingName: aws
+  ...
 ```
 
 ### Permissions
@@ -599,7 +622,7 @@ spec:
   cloudProfile:
     name: aws
   region: eu-central-1
-  secretBindingName: core-aws
+  credentialsBindingName: core-aws
   provider:
     type: aws
     infrastructureConfig:
@@ -663,7 +686,7 @@ spec:
   cloudProfile:
     name: aws
   region: eu-central-1
-  secretBindingName: core-aws
+  credentialsBindingName: core-aws
   provider:
     type: aws
     infrastructureConfig:
@@ -731,7 +754,7 @@ spec:
   cloudProfile:
     name: aws
   region: eu-central-1
-  secretBindingName: core-aws
+  credentialsBindingName: core-aws
   provider:
     type: aws
     infrastructureConfig:
