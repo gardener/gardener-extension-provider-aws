@@ -37,7 +37,12 @@ type ensurer struct {
 
 // EnsureCloudProviderSecret ensures that cloudprovider secret contains
 // the shared credentials file.
-func (e *ensurer) EnsureCloudProviderSecret(_ context.Context, _ gcontext.GardenContext, newSecret, _ *corev1.Secret) error {
+func (e *ensurer) EnsureCloudProviderSecret(ctx context.Context, gctx gcontext.GardenContext, newSecret, _ *corev1.Secret) error {
+	cluster, err := gctx.GetCluster(ctx)
+	if err != nil {
+		return err
+	}
+
 	if newSecret.Labels != nil && newSecret.Labels[securityv1alpha1constants.LabelWorkloadIdentityProvider] == "aws" {
 		if _, ok := newSecret.Data[securityv1alpha1constants.DataKeyConfig]; !ok {
 			return errors.New("cloudprovider secret is missing a 'config' data key")
@@ -51,7 +56,8 @@ func (e *ensurer) EnsureCloudProviderSecret(_ context.Context, _ gcontext.Garden
 		newSecret.Data[aws.WorkloadIdentityTokenFileKey] = []byte(aws.WorkloadIdentityMountPath + "/token")
 		newSecret.Data[aws.SharedCredentialsFile] = []byte("[default]\n" +
 			fmt.Sprintf("web_identity_token_file=%s\n", aws.WorkloadIdentityMountPath+"/token") +
-			fmt.Sprintf("role_arn=%s", workloadIdentityConfig.RoleARN),
+			fmt.Sprintf("role_arn=%s\n", workloadIdentityConfig.RoleARN) +
+			fmt.Sprintf("region=%s", cluster.Shoot.Spec.Region),
 		)
 		return nil
 	}
@@ -66,7 +72,8 @@ func (e *ensurer) EnsureCloudProviderSecret(_ context.Context, _ gcontext.Garden
 	e.logger.V(5).Info("mutate cloudprovider secret", "namespace", newSecret.Namespace, "name", newSecret.Name)
 	newSecret.Data[aws.SharedCredentialsFile] = []byte("[default]\n" +
 		fmt.Sprintf("aws_access_key_id=%s\n", string(newSecret.Data[aws.AccessKeyID])) +
-		fmt.Sprintf("aws_secret_access_key=%s", string(newSecret.Data[aws.SecretAccessKey])),
+		fmt.Sprintf("aws_secret_access_key=%s\n", string(newSecret.Data[aws.SecretAccessKey])) +
+		fmt.Sprintf("region=%s", cluster.Shoot.Spec.Region),
 	)
 
 	return nil
