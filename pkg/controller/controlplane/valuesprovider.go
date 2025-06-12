@@ -565,6 +565,7 @@ func getCCMChartValues(
 			"server": serverSecret.Name,
 		},
 		"useWorkloadIdentity": useWorkloadIdentity,
+		"region":              cp.Spec.Region,
 	}
 
 	if cpConfig.CloudControllerManager != nil {

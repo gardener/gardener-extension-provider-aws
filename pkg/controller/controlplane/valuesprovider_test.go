@@ -291,6 +291,7 @@ var _ = Describe("ValuesProvider", func() {
 					"server": "cloud-controller-manager-server",
 				},
 				"useWorkloadIdentity": false,
+				"region":              "europe",
 			})
 			crcChartValues = map[string]interface{}{
 				"podLabels": map[string]interface{}{
