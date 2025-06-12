@@ -18,3 +18,5 @@ vpa:
   resourcePolicy: {}
 
 useWorkloadIdentity: false
+
+region: eu-west-1

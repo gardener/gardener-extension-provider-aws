@@ -78,6 +78,8 @@ spec:
         - name: AWS_SHARED_CREDENTIALS_FILE
           value: /srv/cloudprovider/credentialsFile
         {{- end }}
+        - name: AWS_REGION
+          value: {{ .Values.region }}
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
