@@ -9,6 +9,7 @@ import (
 
 	"github.com/gardener/gardener/pkg/apis/core"
 	"golang.org/x/exp/slices"
+	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -71,17 +72,18 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	}
 
 	if nodeTemplate := workerConfig.NodeTemplate; nodeTemplate != nil {
-		if len(nodeTemplate.Capacity) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("nodeTemplate").Child("capacity"), "capacity must not be empty"))
-		}
-		for _, capacityAttribute := range []corev1.ResourceName{"cpu", "gpu", "memory"} {
-			value, ok := nodeTemplate.Capacity[capacityAttribute]
-			if !ok {
-				// core resources such as "cpu", "gpu", "memory" need not all be explicitly specified in workerConfig.NodeTemplate.
-				// Will fall back to the worker pool's node template if missing.
-				continue
+		for capacityAttribute, value := range nodeTemplate.Capacity {
+			// core resources such as "cpu", "gpu", "memory" need not all be explicitly specified in workerConfig.NodeTemplate.
+			// Will fall back to the worker pool's node template if missing.
+			if capacityAttribute == corev1.ResourceCPU { // CPU is allowed to be a decimal value, such as 1500m.
+				allErrs = append(allErrs, validateResourceQuantityValue(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("capacity").Child(string(capacityAttribute)))...)
+			} else { // extended resources need to be whole, non-negative numbers. GPU and memory also need to be whole numbers.
+				allErrs = append(allErrs, validateResourceQuantityWholeNumber(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("capacity").Child(string(capacityAttribute)))...)
 			}
-			allErrs = append(allErrs, validateResourceQuantityValue(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("capacity").Child(string(capacityAttribute)))...)
+		}
+		for capacityAttribute, value := range nodeTemplate.VirtualCapacity {
+			// extended resources need to be whole, non-negative numbers
+			allErrs = append(allErrs, validateResourceQuantityWholeNumber(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("virtualCapacity").Child(string(capacityAttribute)))...)
 		}
 	}
 
@@ -147,6 +149,18 @@ func validateResourceQuantityValue(key corev1.ResourceName, value resource.Quant
 
 	if value.Cmp(resource.Quantity{}) < 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath, value.String(), fmt.Sprintf("%s value must not be negative", key)))
+	}
+
+	return allErrs
+}
+
+func validateResourceQuantityWholeNumber(key corev1.ResourceName, value resource.Quantity, fldPath *field.Path) field.ErrorList {
+	allErrs := validateResourceQuantityValue(key, value, fldPath)
+
+	dec := value.AsDec()
+	var roundedDec inf.Dec
+	if roundedDec.Round(dec, 0, inf.RoundExact) == nil {
+		allErrs = append(allErrs, field.Invalid(fldPath, value.String(), fmt.Sprintf("%s value must be a whole number", key)))
 	}
 
 	return allErrs
