@@ -29,7 +29,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.28.10"
+  tag: "v1.28.11"
   targetVersion: "1.28.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -43,7 +43,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.29.7"
+  tag: "v1.29.8"
   targetVersion: "1.29.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -57,7 +57,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.30.6"
+  tag: "v1.30.8"
   targetVersion: "1.30.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -71,7 +71,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.31.4"
+  tag: "v1.31.6"
   targetVersion: "1.31.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -85,8 +85,22 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.32.0"
-  targetVersion: ">= 1.32"
+  tag: "v1.32.3"
+  targetVersion: "1.32.x"
+  labels:
+    - name: 'gardener.cloud/cve-categorisation'
+      value:
+        network_exposure: 'protected'
+        authentication_enforced: false
+        user_interaction: 'gardener-operator'
+        confidentiality_requirement: 'high'
+        integrity_requirement: 'high'
+        availability_requirement: 'low'
+- name: cloud-controller-manager
+  sourceRepository: github.com/kubernetes/cloud-provider-aws
+  repository: registry.k8s.io/provider-aws/cloud-controller-manager
+  tag: "v1.33.0"
+  targetVersion: ">= 1.33"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
@@ -317,7 +331,21 @@ images:
   sourceRepository: github.com/gardener/ecr-credential-provider
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
   tag: "v1.32.0"
-  targetVersion: ">= 1.32"
+  targetVersion: "1.32.x"
+  labels:
+    - name: 'gardener.cloud/cve-categorisation'
+      value:
+        network_exposure: 'protected'
+        authentication_enforced: false
+        user_interaction: 'end-user'
+        confidentiality_requirement: 'high'
+        integrity_requirement: 'high'
+        availability_requirement: 'low'
+- name: ecr-credential-provider
+  sourceRepository: github.com/gardener/ecr-credential-provider
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
+  tag: "v1.33.0"
+  targetVersion: ">= 1.33"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
