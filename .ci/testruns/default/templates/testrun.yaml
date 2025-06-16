@@ -40,6 +40,18 @@ spec:
       secretKeyRef:
         name: route53-operator-aws
         key: secretAccessKey
+  - name: ACCESS_KEY_ID_BACKUP
+    type: env
+    valueFrom:
+      secretKeyRef:
+        name: backup-operator-aws
+        key: accessKeyID
+  - name: SECRET_ACCESS_KEY_BACKUP
+    type: env
+    valueFrom:
+      secretKeyRef:
+        name: backup-operator-aws
+        key: secretAccessKey
 
   testflow:
   - name: infrastructure-test-tf
