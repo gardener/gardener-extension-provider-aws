@@ -55,7 +55,7 @@ Users can choose to trust Gardener's Workload Identity Issuer and eliminate the 
 > You can retrieve Gardener's Workload Identity Issuer URL directly from the Garden cluster by reading the contents of the [Gardener Info ConfigMap](https://gardener.cloud/docs/gardener/gardener/gardener_info_configmap/).
 >
 > ```bash
-> kubectl -n gardener-system-public get configmap -o yaml
+> kubectl -n gardener-system-public get configmap gardener-info -o yaml
 > ```
 
 > [!IMPORTANT]
@@ -670,6 +670,29 @@ spec:
       enabled: true
     nginxIngress:
       enabled: true
+---
+apiVersion: security.gardener.cloud/v1alpha1
+kind: CredentialsBinding
+metadata:
+  name: core-aws
+  namespace: garden-dev
+credentialsRef:
+  apiVersion: v1
+  kind: Secret
+  name: core-aws
+  namespace: garden-dev
+provider:
+  type: aws
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: core-aws
+  namespace: garden-dev
+type: Opaque
+data:
+  accessKeyID: base64(access-key-id)
+  secretAccessKey: base64(secret-access-key)
 ```
 
 ## Example `Shoot` manifest (three availability zones)
