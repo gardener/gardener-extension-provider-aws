@@ -96,7 +96,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty())
 		})
 
-		It("should return errors for a invalid nodetemplate configuration", func() {
+		It("should return errors for an invalid nodetemplate configuration", func() {
 			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
 				Capacity: corev1.ResourceList{
 					"cpu":    resource.MustParse("-1"),
@@ -113,16 +113,80 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			}))))
 		})
 
-		It("should return error for an empty nodetemplate capacity", func() {
+		It("should return errors for resources other than cpu, which are not a whole number", func() {
 			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
-				Capacity: corev1.ResourceList{},
+				Capacity: corev1.ResourceList{
+					"gpu": resource.MustParse("200m"),
+				},
 			}
 			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type":   Equal(field.ErrorTypeRequired),
-				"Field":  Equal("config.nodeTemplate.capacity"),
-				"Detail": Equal("capacity must not be empty"),
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("config.nodeTemplate.capacity.gpu"),
+				"Detail": Equal("gpu value must be a whole number"),
+			}))))
+		})
+
+		It("should return no error for an empty nodetemplate", func() {
+			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{}
+			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty())
+		})
+
+		It("should return no error if only virtualCapacities are set", func() {
+			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+				VirtualCapacity: corev1.ResourceList{
+					"foo": resource.MustParse("1"),
+					"bar": resource.MustParse("50Gi"),
+				},
+			}
+			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty())
+		})
+
+		It("should return no error if both virtualCapacities and capacities are set", func() {
+			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+				Capacity: corev1.ResourceList{
+					"cpu":    resource.MustParse("1"),
+					"memory": resource.MustParse("50Gi"),
+					"gpu":    resource.MustParse("0"),
+				},
+				VirtualCapacity: corev1.ResourceList{
+					"foo":    resource.MustParse("1"),
+					"bar":    resource.MustParse("50Gi"),
+					"foobar": resource.MustParse("0"),
+				},
+			}
+			Expect(ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)).To(BeEmpty())
+		})
+
+		It("should return errors for negative virtualCapacities", func() {
+			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+				VirtualCapacity: corev1.ResourceList{
+					"foo": resource.MustParse("-1"),
+					"bar": resource.MustParse("50Gi"),
+				},
+			}
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("config.nodeTemplate.virtualCapacity.foo"),
+				"Detail": Equal("foo value must not be negative"),
+			}))))
+		})
+
+		It("should return errors for virtualCapacities which are not whole numbers", func() {
+			worker.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+				VirtualCapacity: corev1.ResourceList{
+					"foo": resource.MustParse("1500m"), // equal to 1.5 and thus not a whole number
+				},
+			}
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("config.nodeTemplate.virtualCapacity.foo"),
+				"Detail": Equal("foo value must be a whole number"),
 			}))))
 		})
 
