@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	"github.com/gardener/gardener/pkg/utils/gardener"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -88,8 +88,8 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage)...)
 	}
 
-	profileImages := util.NewCoreImagesContext(machineImages)
-	parentImages := util.NewV1beta1ImagesContext(parentSpec.MachineImages)
+	profileImages := gardener.NewCoreImagesContext(machineImages)
+	parentImages := gardener.NewV1beta1ImagesContext(parentSpec.MachineImages)
 	providerImages := validation.NewProviderImagesContext(providerConfig.MachineImages)
 
 	for _, machineImage := range profileImages.Images {

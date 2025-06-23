@@ -9,10 +9,10 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/apis/core"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils"
+	"github.com/gardener/gardener/pkg/utils/gardener"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 
@@ -77,8 +77,8 @@ func ValidateProviderMachineImage(validationPath *field.Path, machineImage apisa
 }
 
 // NewProviderImagesContext creates a new ImagesContext for provider images.
-func NewProviderImagesContext(providerImages []apisaws.MachineImages) *util.ImagesContext[apisaws.MachineImages, apisaws.MachineImageVersion] {
-	return util.NewImagesContext(
+func NewProviderImagesContext(providerImages []apisaws.MachineImages) *gardener.ImagesContext[apisaws.MachineImages, apisaws.MachineImageVersion] {
+	return gardener.NewImagesContext(
 		utils.CreateMapFromSlice(providerImages, func(mi apisaws.MachineImages) string { return mi.Name }),
 		func(mi apisaws.MachineImages) map[string]apisaws.MachineImageVersion {
 			return utils.CreateMapFromSlice(mi.Versions, func(v apisaws.MachineImageVersion) string { return v.Version })
