@@ -28,16 +28,23 @@ import (
 )
 
 type mutator struct {
-	logger logr.Logger
+	logger           logr.Logger
+	wantsShootClient bool
 }
 
 // NewMutatorWithShootClient creates a new Mutator that mutates resources in the shoot cluster.
-func NewMutatorWithShootClient(logger logr.Logger) extensionswebhook.MutatorWithShootClient {
-	return &mutator{logger}
+func NewMutatorWithShootClient(logger logr.Logger) extensionswebhook.Mutator {
+	return &mutator{logger, true}
+}
+
+// WantsShootClient indicates that this mutator wants the shoot client to be injected into the context.
+// The corresponding client can be found in the passed context via the ShootClientContextKey.
+func (m *mutator) WantsShootClient() bool {
+	return m.wantsShootClient
 }
 
 // Mutate mutates resources.
-func (m *mutator) Mutate(ctx context.Context, newObj, _ client.Object, shootClient client.Client) error {
+func (m *mutator) Mutate(ctx context.Context, newObj, _ client.Object) error {
 	service, ok := newObj.(*corev1.Service)
 	if !ok {
 		return fmt.Errorf("could not mutate: object is not of type corev1.Service")
@@ -58,6 +65,11 @@ func (m *mutator) Mutate(ctx context.Context, newObj, _ client.Object, shootClie
 		metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-internal") &&
 			service.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] == "true" {
 		return nil
+	}
+
+	shootClient, isClient := ctx.Value(extensionswebhook.ShootClientContextKey{}).(client.Client)
+	if !isClient {
+		return fmt.Errorf("could not mutate: no shoot client found in context")
 	}
 
 	kubeDNSService := &corev1.Service{}

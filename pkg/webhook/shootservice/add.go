@@ -36,7 +36,7 @@ func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebh
 		Types: []extensionswebhook.Type{
 			{Obj: &corev1.Service{}},
 		},
-		MutatorWithShootClient: NewMutatorWithShootClient(logger),
+		Mutator: NewMutatorWithShootClient(logger),
 		ObjectSelector: &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
@@ -70,7 +70,7 @@ func AddNginxIngressWebhookToManager(mgr manager.Manager) (*extensionswebhook.We
 		Types: []extensionswebhook.Type{
 			{Obj: &corev1.Service{}},
 		},
-		MutatorWithShootClient: NewMutatorWithShootClient(logger),
+		Mutator: NewMutatorWithShootClient(logger),
 		ObjectSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"app":       "nginx-ingress",
