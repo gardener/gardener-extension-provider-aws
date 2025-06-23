@@ -128,7 +128,7 @@ var _ = Describe("ValuesProvider", func() {
 
 		encoder = codec.EncoderForVersion(info.Serializer, apisawsv1alpha1.SchemeGroupVersion)
 
-		region = "europe"
+		region = "eu-west-1"
 		cidr = "10.250.0.0/19"
 
 		cp = &extensionsv1alpha1.ControlPlane{
@@ -254,7 +254,7 @@ var _ = Describe("ValuesProvider", func() {
 				"podLabels": map[string]interface{}{
 					"maintenance.gardener.cloud/restart": "true",
 				},
-				"region":               "europe",
+				"region":               "eu-west-1",
 				"mode":                 "ipv4",
 				"primaryIPFamily":      "ipv4",
 				"nodeCIDRMaskSizeIPv4": int32(24),
@@ -291,12 +291,13 @@ var _ = Describe("ValuesProvider", func() {
 					"server": "cloud-controller-manager-server",
 				},
 				"useWorkloadIdentity": false,
+				"region":              "eu-west-1",
 			})
 			crcChartValues = map[string]interface{}{
 				"podLabels": map[string]interface{}{
 					"maintenance.gardener.cloud/restart": "true",
 				},
-				"region":      "europe",
+				"region":      "eu-west-1",
 				"enabled":     true,
 				"replicas":    0,
 				"clusterName": "test",
@@ -307,7 +308,7 @@ var _ = Describe("ValuesProvider", func() {
 				"useWorkloadIdentity": false,
 			}
 			albChartValues = map[string]interface{}{
-				"region":                "europe",
+				"region":                "eu-west-1",
 				"vpcId":                 "vpc-1234",
 				"enabled":               true,
 				"replicaCount":          0,
@@ -579,7 +580,7 @@ var _ = Describe("ValuesProvider", func() {
 			It("should return correct shoot control plane chart when ca is secret found", func() {
 				setLoadBalancerControllerEnabled(cp, nil)
 				albChartValues := map[string]interface{}{
-					"region":                "europe",
+					"region":                "eu-west-1",
 					"enabled":               true,
 					"clusterName":           "test",
 					"webhookCertSecretName": awsLoadBalancerControllerWebhook,
