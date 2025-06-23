@@ -67,8 +67,8 @@ func (m *mutator) Mutate(ctx context.Context, newObj, _ client.Object) error {
 		return nil
 	}
 
-	shootClient, isClient := ctx.Value(extensionswebhook.ShootClientContextKey{}).(client.Client)
-	if !isClient {
+	shootClient, ok := ctx.Value(extensionswebhook.ShootClientContextKey{}).(client.Client)
+	if !ok {
 		return fmt.Errorf("could not mutate: no shoot client found in context")
 	}
 
