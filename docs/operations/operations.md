@@ -115,7 +115,9 @@ spec:
   backup:
     provider: aws
     region: eu-central-1
-    secretRef:
+    credentialsRef:
+      apiVersion: v1
+      kind: Secret
       name: backup-credentials
       namespace: garden
   ...
@@ -158,7 +160,7 @@ The exact fields that trigger this behavior are defined in the [Gardener doc](ht
 
 For now, if the feature gate `NewWorkerPoolHash` _is_ enabled, the same fields are used.
 This behavior might change once MCM supports in-place volume updates.
-If updateStrategy _is_ set to `inPlace` and `NewWorkerPoolHash` _is_ enabled, 
+If updateStrategy _is_ set to `inPlace` and `NewWorkerPoolHash` _is_ enabled,
 all the fields mentioned above except of the providerConifg are used.
 
 If in-place-updates are enabled for a worker-pool, then updates to the fields that trigger rolling updates will be disallowed.
