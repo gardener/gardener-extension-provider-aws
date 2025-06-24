@@ -21,8 +21,9 @@ Please find more information regarding the extensibility concepts and a detailed
 
 This extension controller supports the following Kubernetes versions:
 
-| Version         | Support | Conformance test results                                                                                                                                                                                           |
-|-----------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Version         | Support | Conformance test results |
+|-----------------|---------|--------------------------|
+| Kubernetes 1.33 | 1.33.0+ | N/A |
 | Kubernetes 1.32 | 1.32.0+ | [![Gardener v1.32 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.32%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.32%20AWS) |
 | Kubernetes 1.31 | 1.31.0+ | [![Gardener v1.31 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.31%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.31%20AWS) |
 | Kubernetes 1.30 | 1.30.0+ | [![Gardener v1.30 Conformance Tests](https://testgrid.k8s.io/q/summary/conformance-gardener/Gardener,%20v1.30%20AWS/tests_status?style=svg)](https://testgrid.k8s.io/conformance-gardener#Gardener,%20v1.30%20AWS) |
