@@ -20,7 +20,7 @@ require (
 	github.com/aws/smithy-go v1.22.2
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid/api v0.30.1
-	github.com/gardener/external-dns-management v0.24.0
+	github.com/gardener/external-dns-management v0.25.1
 	github.com/gardener/gardener v1.121.1
 	github.com/gardener/machine-controller-manager v0.58.0
 	github.com/go-logr/logr v1.4.2
@@ -164,7 +164,7 @@ require (
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
