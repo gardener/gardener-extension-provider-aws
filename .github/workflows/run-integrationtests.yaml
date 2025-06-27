@@ -13,7 +13,9 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - uses: gardener/cc-utils/.github/actions/setup-testrunner@master
       - uses: azure/setup-kubectl@v4
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
       - name: trigger-test
         run: |
           set -eu
@@ -54,37 +56,10 @@ jobs:
               token: ${auth_token}
           EOF
 
-          # hack: dummy-resource for triggering testrun
-          cat <<EOF > testrun.yaml
-          apiVersion: testmachinery.sapcloud.io/v1beta1
-          kind: Testrun
-          metadata:
-            generateName: dummy-
-            namespace: default
-          spec:
-            owner: hendrik.kahl@sap.com
-            locationSets:
-            - name: github-locations
-              default: true
-              locations:
-                - type: git
-                  repo: https://github.com/gardener/test-infra.git
-                  revision: master
-            config:
-              - name: DURATION
-                value: "5"
-                type: env
-            testflow:
-              - name: dummy
-                definition:
-                  name: dummy
-          EOF
-
-          curl -kv https://api.tm-os-opensource.core.shoot.canary.k8s-hana.ondemand.com
-
-          echo "triggering testmachinery-run (running kubectl apply)"
-          KUBECONFIG=kubeconfig.yaml \
-            kubectl \
-              create \
-              --validate=false \
-              -f testrun.yaml
+          testrunner run  \
+            --tm-kubeconfig-path=$PWD/kubeconfig.yaml \
+            --no-execution-group \
+            --testrun-prefix tm-extension-aws \
+            --timeout=7200 \
+            --testruns-chart-path=.ci/testruns/default \
+            --set revision="$(git rev-parse @)"
