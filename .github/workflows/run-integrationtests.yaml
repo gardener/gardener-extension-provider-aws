@@ -1,0 +1,65 @@
+name: Integration-Tests
+description: |
+  Runs Integrationtests using TestMachinery
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest-static-ip
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gardener/cc-utils/.github/actions/setup-testrunner@master
+      - uses: azure/setup-kubectl@v4
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - name: trigger-test
+        run: |
+          set -eu
+
+          gh_token="${ACTIONS_ID_TOKEN_REQUEST_TOKEN}"
+          auth_token=$(curl -sLS \
+            -H "Authorization: Bearer ${gh_token}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=gardener" \
+             | jq .value
+            )
+
+          if [ -z "${auth_token}" ]; then
+            echo "failed to retrieve an auth-token"
+            exit 1
+          else
+            echo "successfully retrieved an auth-token"
+          fi
+
+          # hack: generate kubectl (let us refactor after successful test)
+          cat <<EOF > kubeconfig.yaml
+          apiVersion: v1
+          clusters:
+          - cluster:
+              server: https://api.tm-os-opensource.core.shoot.canary.k8s-hana.ondemand.com
+              certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVCRENDQW15Z0F3SUJBZ0lRTEkvT21sandOSm9pUW11a3lDaHEwekFOQmdrcWhraUc5dzBCQVFzRkFEQWMKTVJvd0dBWURWUVFERXhGallTMW1OakF6TW1WaE1DMWxOVFkxWXpBZUZ3MHlOVEEwTVRneU1UTXdNREJhRncwegpOVEEwTVRneU1UTXhNREJhTUJ3eEdqQVlCZ05WQkFNVEVXTmhMV1kyTURNeVpXRXdMV1UxTmpWak1JSUJvakFOCkJna3Foa2lHOXcwQkFRRUZBQU9DQVk4QU1JSUJpZ0tDQVlFQWxPN3kybTB5N2lBS2VuZU5zVnVEK2FWUkFTVjUKODNtaWpPc0xjM1p3WDdLbjFxcmpmYzdpQW5uMFR3QzlYdU9kTTdTbEVpUS82K1IyVm15ZHhzREFObkk3YUNobQplVEpGUmFqVXRyam1nd2dUSjk0K1p6UjJLdVozTlNUZWdiaDZMREU5SGpVK1VFb1NkMkRJS3hSTTdvblVCVXdSCkI0S3c2SkVRV0JDbHd3VnlyZk12ZXlucmUxZkVONUtvS0dpVCtSN2lnL2EvVy9kaWZmMDBOdVkzUHRlUU9RbDQKRjVoNlF0dkpibi9lcis5bW53N0tDQy94K2Z0b0FSR0VZbHhWVC9kTXpvdC9LdWhRSkc0bTdtUWJiNUNGc1pxRwpwM3pYN0ZXeURxRmRnR3BJRSthL3pkdVgvQ2IvQS90VHZNTFJkZ2h6UjdzRmhtUnRadkhVNDVBaGRJWUxxWnBSCjJ4OEEwVFJVV0dRSU5haVhTbGpVUDJBNnNJYm9Db2QrcjlTakR4cTBxMk9VRGsyb281Qm5lWFFmejhueThlVHUKMWx4bkdBWTV3WW41MkFLME5yMW8xOHcwTmdlZGtyUktweEZYSTZmbHNtUFhOWU5UNHJvcnh3WlpVbTlGR2Y4dApTSklNZWNyVEJJVytRZnJ1T2p2WktzVGZZa0YxcG0yRXU2QnZBZ01CQUFHalFqQkFNQTRHQTFVZER3RUIvd1FFCkF3SUJwakFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVdCQlE4c3Q3ZW1nbGJmSUh1RlFiaEN6MUUKNEJ3MkxEQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FZRUFMS0VvQm9HbU1XclVhSHl4ekRvUmo4bFI3VHVuZVRNbApnSVB5a2hNYmxmOFRZZVdEbUw3Wm50Q1kyL3ZWQ0puZ0QzSUNJUVZ2V3FIUjJGamdNajlweWNQdnVYYmxJSVFBCnA4Nkxab0J1SGtpLzVHR3JIaUY2VHQ4Q2RvbnRGUGlSY2RvbG5VVXNEYXZIVzNTZHVYdC9SWk9JWGhDRVZER00KY3VMNC9rTk1wdWtxUzIyWDNZTGlDd3EraW1xZXUxMmFRNWtIZEo3NFhlTlVkSFBRU0Q1VGlPMEN0dFBVa3I0bwpHTy9obWtMejZ6NDR3R2V1dDB3d3VrcndqaC9hUXdnUUdEb0FBTDVhWm0xdk5RNXZsaS9lV09GeU1WcWRIcTRVCmdwbHI5WU0vQ0lpUXFoQ0dnSzF6b3VyYXZISitmWmpTUDJHVEhkN1RFVzg3Mk9QZVg0Tk5oN05WdGpLc2lDbFIKbmE5TDU5eG1Rc0xmdUVmaHlmM0c4cnRncXNOdUhIVE5FTUt0MytQdCtLcVAvdWNyajdUOTI3NGliTkpmdWZYawpNc21LeXdTQkxtMXFDTzRyc3ZhZ1ZGdXZScGtsemMvdENyc0tEUG9IK1NNcTlZang2U2xaTFVUUEgrc3dlRTlvCkdMMythb05sZm9UNmc1OWt2VDhnc1VwYVBBalk4ZklhCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0KLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVCVENDQW0yZ0F3SUJBZ0lSQU00ZmZrMGxHdXNVZHY5djM2TjVpcTh3RFFZSktvWklodmNOQVFFTEJRQXcKSERFYU1CZ0dBMVVFQXhNUlkyRXRaall3TXpKbFlUQXRNemt5T0RNd0hoY05NalV3TVRFMk1qRXlOalE1V2hjTgpNelV3TVRFMk1qRXlOelE1V2pBY01Sb3dHQVlEVlFRREV4RmpZUzFtTmpBek1tVmhNQzB6T1RJNE16Q0NBYUl3CkRRWUpLb1pJaHZjTkFRRUJCUUFEZ2dHUEFEQ0NBWW9DZ2dHQkFLMnl2NWRGem5TUy95T1RaVzVpK0VaRXAyc0YKMXhqQ0Q1ODM1TnVqY2NvSFlYUXhhNUM1bWZsa3lHYWFpUkZSNTVtTmJHYWQ5bmFrTDFjMVY2dHVudVVnRGlLNwp6T1J0SGU5T1ZjRyszUkhFNVlvVW1sTUFZUG9wMlJ2dXhRZjArbkJPREFRUnFaRWpnNHEyK1BZR2JWbXArWldnCjFtMlpkdTlaUzFrTlVZYzNSbG8yR3N1cGlXemx2cVkxRDIyTnluZ0wxVVRqTUYxVldPUnNoWG1aTW1ZWjQwQ2QKU04zUkFsOTJhZ3J0amxueVZCVzBPYlI4YW9sdUloY01MOE5NZkVjNXZHb3FseUd2bHBiTzZVYXQ4WFBzL0g5dQo3dGVYTE5INyt5NFBQYmdWd2JlVUVucXFFWjBkR01VU0F0ek1HZmFQOXFiemVVcDZlT0Vsc0xKRWcwa2pFSitoCldwZ21IaG52bEdhOVJlTVMxWTd2Y0paTDFqdmdXNlJ2OUE5NXl1bHA0VXRHcWl6bVA0RDV5ZTFnam9jS3AwTFoKMHlSZVE2L29sZUFxNzlIaFBoRmpFSnFaWTc4dm9nNzVzb0N5aUppeTBMQkl6VFZ0RTVBWm12WnRXTklwek5QYQpMUU8vU2hheGRYSmlsTHVHUnJQOTVjTVIxN2JqVGRMNER3WGVHUUlEQVFBQm8wSXdRREFPQmdOVkhROEJBZjhFCkJBTUNBYVl3RHdZRFZSMFRBUUgvQkFVd0F3RUIvekFkQmdOVkhRNEVGZ1FVcWJFcGQzQ0tkSWpFa1NlaStvNU4KNVhtNHBCTXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnR0JBS1prN1BOYzJ5UnpPMGM3Q1JRNnNVcE1ValVkdC96dQpZcXQ0MXIxQ3VKZGhzVXQ0blVJUEs4SGU0bkJMdEQxcFZWQ2hYbjBYelVXS0ZpMVllMWNHQWNBa1NzSFoySW1DCkdFYkdCQkJFa1dSSWk3NnFoR3VyV2wyMHlxK1JwUkpnVXd0bzZVQ21USFJQUi9GSjFSNllNa0dVSGJEaUoxUmwKV3FVSlRjZXVxZEdPWExhT0hISFRCdTZKaU9aaUJQMjFMVXBaWXF5L0gvUWovRUlQcDVDcVVsOVZrdEYvY1M3MwpFL25KTzU1dndHZk1TVUIvdjdCMTVhRnhqQzZiaHpnbHVLYXRmdjQvRVFHODM5K1NDMjNaYnNJc0FCcGhUVVk4CnlUL2hJQSt6OWxldEw4ZTRNZWxOK1VHOEM1YXdmc3VJTWdSMTlDOE4yZFZaeHhielUvMG1pb0hWMkZQQlkrajMKaEpCbmJVbHNqZXVJNFBsQ0lEZHR1Z2doSTI2T2x1cFF3RzU2YnlwYzd1K01zWmVVNXdxcnNNV2FQMW05VWlMbwppMVpORFhRQUtZZnI0UFJQcGZLaVY4T0dPRmRaZENUT2d3RENlWk5EYjZTb1pyL3djb2ZQTDNuUW9iNy9TS2Q0CmJNV0hMdENsc1duYkcydVV1VkpXbUhzaVdIT3BIRFBaM0E9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+            name: cluster
+          contexts:
+          - context:
+              cluster: cluster
+              user: gha
+            name: gha
+          current-context: gha
+          kind: Config
+          preferences: {}
+          users:
+          - name: gha
+            user:
+              token: ${auth_token}
+          EOF
+
+          testrunner run  \
+            --tm-kubeconfig-path=$PWD/kubeconfig.yaml \
+            --no-execution-group \
+            --testrun-prefix tm-extension-aws \
+            --timeout=7200 \
+            --testruns-chart-path=.ci/testruns/default \
+            --set revision="$(git rev-parse @)"
