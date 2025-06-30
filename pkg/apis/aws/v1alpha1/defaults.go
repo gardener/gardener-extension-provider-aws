@@ -45,3 +45,13 @@ func SetDefaults_MachineImage(obj *MachineImage) {
 		obj.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
 	}
 }
+
+func SetDefaults_CapabilitySet(obj *CapabilitySet) {
+	// Implementation is only needed to ensure SetDefaults_RegionAMIMapping is not executed on CapabilitySet.Regions
+	for l := range obj.Regions {
+		d := &obj.Regions[l]
+		if d.Architecture == nil {
+			d.Architecture = ptr.To("ignore")
+		}
+	}
+}
