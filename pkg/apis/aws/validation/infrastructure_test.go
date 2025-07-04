@@ -54,6 +54,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					},
 				},
 			},
+			EnableDedicatedTenancyForVPC: ptr.To(false),
 		}
 	})
 
@@ -583,6 +584,18 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Field": Equal("networks.zones[1].workers"),
 				})),
 			))
+		})
+
+		It("should forbid changing dedicated tenancy configuration", func() {
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newInfrastructureConfig.EnableDedicatedTenancyForVPC = ptr.To(true)
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeInvalid),
+				"Field": Equal("enableDedicatedTenancyForVPC"),
+			}))))
 		})
 	})
 
