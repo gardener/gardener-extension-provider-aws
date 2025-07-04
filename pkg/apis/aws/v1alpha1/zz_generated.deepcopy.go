@@ -339,6 +339,11 @@ func (in *InfrastructureConfig) DeepCopyInto(out *InfrastructureConfig) {
 		*out = new(IgnoreTags)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EnableDedicatedTenancyForVPC != nil {
+		in, out := &in.EnableDedicatedTenancyForVPC, &out.EnableDedicatedTenancyForVPC
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
