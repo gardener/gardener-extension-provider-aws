@@ -15,7 +15,6 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -48,7 +47,7 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 
 	var backupbucketConfig *apisaws.BackupBucketConfig
 	if bb.Spec.ProviderConfig != nil {
-		backupbucketConfig, err = validator.DecodeBackupBucketConfig(serializer.NewCodecFactory(a.client.Scheme(), serializer.EnableStrict).UniversalDecoder(), bb.Spec.ProviderConfig)
+		backupbucketConfig, err = helper.DecodeBackupBucketConfig(serializer.NewCodecFactory(a.client.Scheme(), serializer.EnableStrict).UniversalDecoder(), bb.Spec.ProviderConfig)
 		if err != nil {
 			return util.DetermineError(fmt.Errorf("failed to decode provider config: %w", err), helper.KnownCodes)
 		}

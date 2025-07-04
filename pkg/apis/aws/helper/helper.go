@@ -7,7 +7,9 @@ package helper
 import (
 	"fmt"
 
+	"github.com/gardener/gardener/extensions/pkg/util"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -122,4 +124,17 @@ func FindDataVolumeByName(dataVolumes []api.DataVolume, name string) *api.DataVo
 		}
 	}
 	return nil
+}
+
+// DecodeBackupBucketConfig decodes the `BackupBucketConfig` from the given `RawExtension`.
+func DecodeBackupBucketConfig(decoder runtime.Decoder, config *runtime.RawExtension) (*api.BackupBucketConfig, error) {
+	backupbucketConfig := &api.BackupBucketConfig{}
+
+	if config != nil && config.Raw != nil {
+		if err := util.Decode(decoder, config.Raw, backupbucketConfig); err != nil {
+			return nil, err
+		}
+	}
+
+	return backupbucketConfig, nil
 }

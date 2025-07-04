@@ -46,16 +46,3 @@ func decodeCloudProfileConfig(decoder runtime.Decoder, config *runtime.RawExtens
 	}
 	return cloudProfileConfig, nil
 }
-
-// DecodeBackupBucketConfig decodes the `BackupBucketConfig` from the given `RawExtension`.
-func DecodeBackupBucketConfig(decoder runtime.Decoder, config *runtime.RawExtension) (*apisaws.BackupBucketConfig, error) {
-	backupbucketConfig := &apisaws.BackupBucketConfig{}
-
-	if config != nil && config.Raw != nil {
-		if err := util.Decode(decoder, config.Raw, backupbucketConfig); err != nil {
-			return nil, err
-		}
-	}
-
-	return backupbucketConfig, nil
-}
