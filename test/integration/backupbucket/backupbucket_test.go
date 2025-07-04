@@ -55,10 +55,7 @@ var (
 	useExistingCluster = flag.Bool("use-existing-cluster", true, "Set to true to use an existing cluster for the test")
 )
 
-const (
-	backupBucketSecretName = "backupbucket"
-	gardenNamespaceName    = "garden"
-)
+const backupBucketSecretName = "backupbucket"
 
 var runTest = func(tc *TestContext, backupBucket *v1alpha1.BackupBucket) {
 	log.Info("Running BackupBucket test", "backupBucketName", backupBucket.Name)
