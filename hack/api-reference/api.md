@@ -280,6 +280,21 @@ See <a href="https://registry.terraform.io/providers/hashicorp/aws/latest/docs/g
 for details of the underlying terraform implementation.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>enableDedicatedTenancyForVPC</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EnableDedicatedTenancyForVPC allows to configure the VPC to use dedicated tenancy.
+If this field is set to true, all VMs created in this VPC will have dedicated tenancy enabled.
+This setting is immutable and cannot be changed once the VPC has been created.
+default: false</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig
