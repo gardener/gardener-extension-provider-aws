@@ -47,5 +47,5 @@ func (cp *cloudProfile) Validate(_ context.Context, newObj, _ client.Object) err
 		return err
 	}
 
-	return awsvalidation.ValidateCloudProfileConfig(cpConfig, cloudProfile.Spec.MachineImages, providerConfigPath).ToAggregate()
+	return awsvalidation.ValidateCloudProfileConfig(cpConfig, cloudProfile.Spec.MachineImages, cloudProfile.Spec.Capabilities, providerConfigPath).ToAggregate()
 }
