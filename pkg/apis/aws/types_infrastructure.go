@@ -32,6 +32,11 @@ type InfrastructureConfig struct {
 	// See https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources
 	// for details of the underlying terraform implementation.
 	IgnoreTags *IgnoreTags
+
+	// EnableDedicatedTenancyForVPC allows to configure the VPC to use dedicated tenancy.
+	// If this field is set to true, all VMs created in this VPC will have dedicated tenancy enabled.
+	// This setting is immutable and cannot be changed once the VPC has been created.
+	EnableDedicatedTenancyForVPC *bool
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
