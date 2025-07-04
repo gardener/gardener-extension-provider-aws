@@ -33,14 +33,12 @@ import (
 )
 
 type TestContext struct {
-	ctx                   context.Context
-	client                client.Client
-	s3Client              *s3.Client
-	testNamespace         *corev1.Namespace
-	testName              string
-	secret                *corev1.Secret
-	gardenNamespace       *corev1.Namespace
-	gardenNamespaceExists bool
+	ctx           context.Context
+	client        client.Client
+	s3Client      *s3.Client
+	testNamespace *corev1.Namespace
+	testName      string
+	secret        *corev1.Secret
 }
 
 var (
@@ -57,10 +55,7 @@ var (
 	useExistingCluster = flag.Bool("use-existing-cluster", true, "Set to true to use an existing cluster for the test")
 )
 
-const (
-	backupBucketSecretName = "backupbucket"
-	gardenNamespaceName    = "garden"
-)
+const backupBucketSecretName = "backupbucket"
 
 var runTest = func(tc *TestContext, backupBucket *v1alpha1.BackupBucket) {
 	log.Info("Running BackupBucket test", "backupBucketName", backupBucket.Name)
@@ -111,11 +106,8 @@ var _ = BeforeSuite(func() {
 		By("deleting aws provider secret")
 		deleteBackupBucketSecret(tc.ctx, tc.client, tc.secret)
 
-		By("deleting namespaces")
+		By("deleting test namespace")
 		deleteNamespace(tc.ctx, tc.client, tc.testNamespace)
-		if !tc.gardenNamespaceExists {
-			deleteNamespace(tc.ctx, tc.client, tc.gardenNamespace)
-		}
 
 		By("stopping test environment")
 		Expect(testEnv.Stop()).To(Succeed())
@@ -182,9 +174,6 @@ var _ = BeforeSuite(func() {
 	}
 	createNamespace(ctx, c, testNamespace)
 
-	By("ensuring garden namespace exists")
-	gardenNamespace, gardenNamespaceExists := ensureGardenNamespace(ctx, c)
-
 	By("creating aws provider secret")
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -200,14 +189,12 @@ var _ = BeforeSuite(func() {
 
 	// Initialize the TestContext
 	tc = &TestContext{
-		ctx:                   ctx,
-		client:                c,
-		s3Client:              s3Client,
-		testNamespace:         testNamespace,
-		testName:              testName,
-		secret:                secret,
-		gardenNamespace:       gardenNamespace,
-		gardenNamespaceExists: gardenNamespaceExists,
+		ctx:           ctx,
+		client:        c,
+		s3Client:      s3Client,
+		testNamespace: testNamespace,
+		testName:      testName,
+		secret:        secret,
 	}
 })
 
