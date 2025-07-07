@@ -83,10 +83,10 @@ func (a *actuator) reconcile(ctx context.Context, backupbucketConfig *apisaws.Ba
 	if err != nil {
 		apiErrCode := awsclient.GetAWSAPIErrorCode(err)
 		switch apiErrCode {
-		case "NoSuchBucket":
+		case awsclient.NoSuchBucket:
 			// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
 			return util.DetermineError(a.createBucketWithConfig(ctx, awsClient, bb.Name, bb.Spec.Region, isObjectLockRequired), helper.KnownCodes)
-		case "PermanentRedirect":
+		case awsclient.PermanentRedirect:
 			return util.DetermineError(fmt.Errorf("bucket exists in different region %v", err), helper.KnownCodes)
 		default:
 			return util.DetermineError(fmt.Errorf("unable to check bucket versioning status: %v", err), helper.KnownCodes)
