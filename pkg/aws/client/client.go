@@ -310,8 +310,9 @@ func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix str
 		Bucket: aws.String(bucket),
 	})
 	if err != nil {
-		if GetAWSAPIErrorCode(err) == "NoSuchBucket" {
-			// bucket doesn't exist, no action required
+		switch GetAWSAPIErrorCode(err) {
+		case NoSuchBucket, PermanentRedirect:
+			// No action required: either the bucket doesn't exist or it exists in a different region and wasn't created.
 			return nil
 		}
 		return err
@@ -457,10 +458,10 @@ func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error 
 	if _, err := c.S3.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil {
 		apiErrCode := GetAWSAPIErrorCode(err)
 		switch apiErrCode {
-		case "NoSuchBucket":
-			// bucket doesn't exist, no action required
+		case NoSuchBucket, PermanentRedirect:
+			// No action required: either the bucket doesn't exist or it exists in a different region and wasn't created.
 			return nil
-		case "BucketNotEmpty":
+		case BucketNotEmpty:
 			if err := c.DeleteObjectsWithPrefix(ctx, bucket, ""); err != nil {
 				return err
 			}

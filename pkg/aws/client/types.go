@@ -36,6 +36,14 @@ const (
 	S3DeleteMarkerDeletionLifecyclePolicy = "GC-delete-markers-objects"
 	// S3ObjectMarkedForDeletionTagKey is the tag "key" to be added on objects to be garbage-collected by provider's lifecycle policy.
 	S3ObjectMarkedForDeletionTagKey = "gc-marked-for-deletion"
+
+	// S3 API error code constants
+	// NoSuchBucket is the S3 api error code constant indicating that bucket doesn't exist.
+	NoSuchBucket = "NoSuchBucket"
+	// PermanentRedirect is the S3 api error code constant indicating that bucket exist in different region.
+	PermanentRedirect = "PermanentRedirect"
+	// BucketNotEmpty is the S3 api error code constant indicating that bucket isn't empty.
+	BucketNotEmpty = "BucketNotEmpty"
 )
 
 // Interface is an interface which must be implemented by AWS clients.
