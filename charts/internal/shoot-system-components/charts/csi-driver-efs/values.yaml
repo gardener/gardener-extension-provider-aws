@@ -67,7 +67,6 @@ node:
     fsGroup: 0
   env: []
   volumes: []
-  volumeMounts: []
   kubeletPath: /var/lib/kubelet
   dnsPolicy: ClusterFirst
   useFIPS: false

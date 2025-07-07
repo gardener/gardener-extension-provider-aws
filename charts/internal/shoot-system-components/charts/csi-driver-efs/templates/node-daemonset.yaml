@@ -71,13 +71,6 @@ spec:
               mountPath: /csi
             - name: efs-state-dir
               mountPath: /var/run/efs
-            - name: efs-utils-config
-              mountPath: /var/amazon/efs
-            - name: efs-utils-config-legacy
-              mountPath: /etc/amazon/efs-legacy
-            {{- with .Values.node.volumeMounts }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
           ports:
             - name: healthz
               containerPort: {{ .Values.node.healthPort }}
@@ -153,14 +146,3 @@ spec:
           hostPath:
             path: /var/run/efs
             type: DirectoryOrCreate
-        - name: efs-utils-config
-          hostPath:
-            path: /var/amazon/efs
-            type: DirectoryOrCreate
-        - name: efs-utils-config-legacy
-          hostPath:
-            path: /etc/amazon/efs
-            type: DirectoryOrCreate
-        {{- with .Values.node.volumes }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
