@@ -111,7 +111,7 @@ func marshalRaw(raw *runtime.RawExtension) ([]byte, error) {
 	return data, err
 }
 
-// WorkloadIdentityConfigFromBytes extracts WorkloadIdentityConfig from the provide byte array.
+// WorkloadIdentityConfigFromBytes extracts WorkloadIdentityConfig from the provided byte array.
 func WorkloadIdentityConfigFromBytes(config []byte) (*api.WorkloadIdentityConfig, error) {
 	if len(config) == 0 {
 		return nil, fmt.Errorf("cannot parse WorkloadIdentityConfig from empty config")

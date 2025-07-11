@@ -80,7 +80,7 @@ func ReadCredentialsSecret(secret *corev1.Secret, allowDNSKeys bool, region stri
 		}
 		authConfig.WorkloadIdentity = &awsclient.WorkloadIdentity{
 			TokenRetriever: &staticTokenRetriever{token: secret.Data[securityv1alpha1constants.DataKeyToken]},
-			RoleARN:        *roleARN,
+			RoleARN:        roleARN,
 		}
 	}
 
@@ -119,20 +119,20 @@ func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, requi
 	return nil, nil
 }
 
-func getRoleARN(secret *corev1.Secret) (*string, error) {
+func getRoleARN(secret *corev1.Secret) (string, error) {
 	if roleARN, ok := secret.Data[RoleARN]; ok {
-		return ptr.To(string(roleARN)), nil
+		return string(roleARN), nil
 	}
 	if _, ok := secret.Data[securityv1alpha1constants.DataKeyConfig]; !ok {
-		return nil, fmt.Errorf("missing %q field in secret", securityv1alpha1constants.DataKeyConfig)
+		return "", fmt.Errorf("missing %q field in secret", securityv1alpha1constants.DataKeyConfig)
 	}
 	workloadIdentityConfig, err := helper.WorkloadIdentityConfigFromBytes(secret.Data[securityv1alpha1constants.DataKeyConfig])
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse WorkloadIdentityConfig: %w", err)
+		return "", fmt.Errorf("failed to parse WorkloadIdentityConfig: %w", err)
 	}
 	if len(workloadIdentityConfig.RoleARN) == 0 {
-		return nil, fmt.Errorf("workloadIdentityConfig.roleARN is empty")
+		return "", fmt.Errorf("workloadIdentityConfig.roleARN is empty")
 	}
 
-	return &workloadIdentityConfig.RoleARN, nil
+	return workloadIdentityConfig.RoleARN, nil
 }
