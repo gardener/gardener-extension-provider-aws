@@ -1,0 +1,23 @@
+name: Integration-Tests
+description: |
+  Runs Integrationtests using TestMachinery
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    uses: gardener/cc-utils/.github/workflows/run-testmachinery-tests.yaml@master
+    permissions:
+      id-token: write
+    with:
+      test-command: |
+        ${testrunner_run} \
+            --no-execution-group \
+            --testrun-prefix tm-extension-aws \
+            --timeout=7200 \
+            --testruns-chart-path=.ci/testruns/default \
+            --set revision="$(git rev-parse @)"
