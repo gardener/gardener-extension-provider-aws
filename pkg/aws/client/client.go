@@ -2244,7 +2244,7 @@ func (c *Client) CreateMountTargetEfs(ctx context.Context, input *efs.CreateMoun
 // DeleteMountTargetEfs deletes an efs mount target
 func (c *Client) DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error {
 	_, err := c.EFS.DeleteMountTarget(ctx, input)
-	return err
+	return ignoreNotFound(err)
 }
 
 // CreateEC2Tags creates the tags for the given EC2 resource identifiers

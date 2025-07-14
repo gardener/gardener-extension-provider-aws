@@ -1870,6 +1870,7 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to delete mount target id %s: %w", *mountTargetID, err)
 		}
+		childMountTargets.Delete(existingMountTargetKey)
 	}
 
 	return nil
