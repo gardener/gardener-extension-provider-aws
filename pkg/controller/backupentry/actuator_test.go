@@ -122,7 +122,7 @@ roleARN: "foo"`,
 			res, err := actuator.GetETCDSecretData(ctx, log, backupEntry, data)
 
 			Expect(err).To(HaveOccurred())
-			Expect(res).To(HaveLen(0))
+			Expect(res).To(BeEmpty())
 		})
 
 		It("should fail to inject role ARN due to deleted secret", func() {
