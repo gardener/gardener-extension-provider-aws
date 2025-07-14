@@ -94,8 +94,10 @@ const (
 	// KeyPairSpecFingerprint is the key to store the fingerprint of the public key from the spec
 	KeyPairSpecFingerprint = "KeyPairSpecFingerprint"
 
-	// NameEfsSystemID is the key for the EFS system ID
-	NameEfsSystemID = "efsSystemID"
+	// IdentifierManagedEfsID is the key for the EFS system ID
+	IdentifierManagedEfsID = "efsSystemID"
+	// ChildEfsMountTargets is the children key for the EFS mount targets
+	ChildEfsMountTargets = "efsMountTargets"
 
 	// ChildIdVPCEndpoints is the child key for the VPC endpoints
 	ChildIdVPCEndpoints = "VPCEndpoints"
@@ -246,7 +248,11 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 	ec2KeyName := ptr.Deref(c.state.Get(NameKeyPair), "")
 	iamInstanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
 	arnIAMRole := ptr.Deref(c.state.Get(ARNIAMRole), "")
-	efsSystemID := ptr.Deref(c.state.Get(NameEfsSystemID), "")
+	efsID := ptr.Deref(c.state.Get(IdentifierManagedEfsID), "")
+	// check if user provided a custom EFS ID
+	if c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.ID != nil {
+		efsID = *c.config.ElasticFileSystem.ID
+	}
 
 	if c.config.Networks.VPC.ID != nil {
 		vpcID = *c.config.Networks.VPC.ID
@@ -316,8 +322,8 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 		}
 	}
 
-	if efsSystemID != "" {
-		status.CSI.EfsSystemID = efsSystemID
+	if efsID != "" {
+		status.CSI.EfsID = efsID
 	}
 
 	return status
@@ -398,7 +404,7 @@ func (c *FlowContext) zoneSuffixHelpers(zoneName string) *ZoneSuffixHelper {
 }
 
 func (c *FlowContext) isCsiEfsEnabled() bool {
-	return c.config != nil && c.config.EnableCsiEfs != nil && *c.config.EnableCsiEfs
+	return c.config != nil && c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.Enabled
 }
 
 // ZoneSuffixHelper provides methods to create suffices for various resources

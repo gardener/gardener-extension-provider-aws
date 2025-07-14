@@ -636,7 +636,8 @@ spec:
           internal: 10.250.112.0/22
           public: 10.250.96.0/22
           workers: 10.250.0.0/19
-      enableCsiEfs: true
+      elasticFileSystem:
+        enabled: true
     controlPlaneConfig:
       apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
       kind: ControlPlaneConfig
@@ -817,9 +818,13 @@ It is compatible with the legacy in-tree volume provisioner that was deprecated 
 End-users might want to update their custom `StorageClass`es to the new `ebs.csi.aws.com` provisioner.
 
 
-To deploy the efs-csi-driver add the annotation `enableCsiEfs: true` to your infrastructureConfig like in this [example](#example-shoot-manifest-one-availability-zone).
-Currently, both the controller deployment and the node daemonset will be deployed into the shoot cluster. The necessary IAM privileges will be added to the node instance profile, allowing the driver to access them via the EC2 Metadata Service.
-**Important:** It is not permitted to set `instanceMetadataOptions` to `httpTokens = required` while also enabling `enableCsiEfs: true`. Doing so will prevent the driver from accessing the required metadata.
+To deploy the efs-csi-driver add the `elasticFileSystem` section in your infrastructureConfig like in this [example](#example-shoot-manifest-one-availability-zone).
+Currently, both the controller deployment and the node daemonset will be deployed into the shoot cluster.
+The necessary IAM privileges will be added to the node instance profile, allowing the driver to access them via the EC2 Metadata Service.
+**Important:** It is not permitted to set `instanceMetadataOptions` to `httpTokens = required` while also enabling `efsFileSystem`.
+Doing so will prevent the driver from accessing the required metadata.
+You can also use an existing elastic file system by specifying the `id` field in the `elasticFileSystem` section.
+However, you have to make sure that the EFS is in the same region as the shoot cluster.
 
 ### Node-specific Volume Limits
 

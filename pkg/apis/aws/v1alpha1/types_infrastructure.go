@@ -43,10 +43,9 @@ type InfrastructureConfig struct {
 	// +optional
 	EnableDedicatedTenancyForVPC *bool `json:"enableDedicatedTenancyForVPC,omitempty"`
 
-	// EnableCsiEfs enables CSI EFS driver
-	// infra will add additional security group in bound rules and create an amazon EFS file system
-	// Defaults to false
-	EnableCsiEfs *bool `json:"enableCsiEfs,omitempty"`
+	// ElasticFileSystem contains information about the EFS that should be used.
+	// +optional
+	ElasticFileSystem *ElasticFileSystem `json:"elasticFileSystem,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -141,8 +140,8 @@ type VPCStatus struct {
 
 // CSI contains information about the created AWS CSI related resources.
 type CSI struct {
-	// EfsSystemID contains the efsFileSystem.
-	EfsSystemID string `json:"efsFileSystemID"`
+	// EfsID contains the Elastic Files System ID.
+	EfsID string `json:"efsID"`
 }
 
 const (
@@ -201,4 +200,16 @@ type InfrastructureState struct {
 	metav1.TypeMeta
 
 	Data map[string]string `json:"data"`
+}
+
+// ElasticFileSystem holds information about the EFS storage
+type ElasticFileSystem struct {
+	// Enabled is the switch to install the CSI EFS driver
+	// if enabled:
+	// - the IAM role policy for the worker nodes shall contain permissions to access the EFS.
+	// - an EFS will be created if the ID is not specified.
+	// - firewall rules will be created to allow access to the EFS from the worker nodes.
+	Enabled bool `json:"enabled"`
+	// ID of the EFS to use. For example: fs-0272b97527ed4de53.
+	ID *string `json:"id"`
 }

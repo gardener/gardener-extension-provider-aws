@@ -1,6 +1,8 @@
-kind: StorageClass
 apiVersion: storage.k8s.io/v1
+kind: StorageClass
 metadata:
+  annotations:
+    resources.gardener.cloud/delete-on-invalid-update: "true"
   name: efs-sc
 provisioner: efs.csi.aws.com
 parameters:

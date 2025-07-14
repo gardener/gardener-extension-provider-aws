@@ -297,15 +297,16 @@ default: false</p>
 </tr>
 <tr>
 <td>
-<code>enableCsiEfs</code></br>
+<code>elasticFileSystem</code></br>
 <em>
-bool
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystem">
+ElasticFileSystem
+</a>
 </em>
 </td>
 <td>
-<p>EnableCsiEfs enables CSI EFS driver
-infra will add additional security group in bound rules and create an amazon EFS file system
-Defaults to false</p>
+<em>(Optional)</em>
+<p>ElasticFileSystem contains information about the EFS that should be used.</p>
 </td>
 </tr>
 </tbody>
@@ -535,13 +536,13 @@ string
 <tbody>
 <tr>
 <td>
-<code>efsFileSystemID</code></br>
+<code>efsID</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>EfsSystemID contains the efsFileSystem.</p>
+<p>EfsID contains the Elastic Files System ID.</p>
 </td>
 </tr>
 </tbody>
@@ -745,6 +746,51 @@ string
 </td>
 <td>
 <p>KeyName is the name of the SSH key.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystem">ElasticFileSystem
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
+</p>
+<p>
+<p>ElasticFileSystem holds information about the EFS storage</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled is the switch to install the CSI EFS driver
+if enabled:
+- the IAM role policy for the worker nodes shall contain permissions to access the EFS.
+- an EFS will be created if the ID is not specified.
+- firewall rules will be created to allow access to the EFS from the worker nodes.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>id</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ID of the EFS to use. For example: fs-0272b97527ed4de53.</p>
 </td>
 </tr>
 </tbody>

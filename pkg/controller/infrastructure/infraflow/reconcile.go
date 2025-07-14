@@ -17,6 +17,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
@@ -101,7 +102,7 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
 
 	_ = c.AddTask(g, "ensure efs file system",
-		c.ensureEfsFileSystem,
+		c.ensureEfs,
 		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout), Dependencies(ensureZones))
 
 	_ = c.AddTask(g, "ensure subnet cidr reservation",
@@ -1631,7 +1632,7 @@ func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 	var buffer bytes.Buffer
 	templateData := map[string]any{
 		"enableECRAccess": ptr.Deref(c.config.EnableECRAccess, true),
-		"enableEfsAccess": ptr.Deref(c.config.EnableCsiEfs, false),
+		"enableEfsAccess": ptr.Deref(c.config.ElasticFileSystem, aws.ElasticFileSystem{}).Enabled,
 	}
 	if err := t.Execute(&buffer, templateData); err != nil {
 		return fmt.Errorf("executing policyDocument template failed: %s", err)
@@ -1719,8 +1720,42 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 	return nil
 }
 
-func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
-	if c.state.Get(NameEfsSystemID) != nil {
+func (c *FlowContext) ensureEfs(ctx context.Context) error {
+	g := flow.NewGraph("AWS infrastructure reconciliation: zones")
+
+	ensureEfsFileSystem := c.AddTask(g, "ensure EFS File System",
+		c.ensureEfsCreateFileSystem,
+		Timeout(defaultTimeout))
+
+	c.AddTask(g, "ensure EFS Mount Targets",
+		c.ensureEfsMountTargets,
+		Timeout(defaultTimeout), Dependencies(ensureEfsFileSystem))
+
+	f := g.Compile()
+	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
+		return flow.Causes(err)
+	}
+
+	return nil
+}
+
+func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
+	log := LogFromContext(ctx)
+
+	// check for user provided EFS file system
+	if c.config.ElasticFileSystem.ID != nil {
+		if c.state.Get(IdentifierManagedEfsID) != nil {
+			if err := c.deleteEfs(ctx); err != nil {
+				return fmt.Errorf("failed to delete managed EFS file system: %w", err)
+			}
+			c.state.Delete(IdentifierManagedEfsID)
+		}
+
+		return nil
+	}
+
+	// check if we already created an EFS file system
+	if c.state.Get(IdentifierManagedEfsID) != nil {
 		return nil
 	}
 
@@ -1738,39 +1773,20 @@ func (c *FlowContext) ensureEfsFileSystem(ctx context.Context) error {
 		return fmt.Errorf("the created file system id is <nil>")
 	}
 
-	securityGroupID := c.state.Get(IdentifierNodesSecurityGroup)
-	if securityGroupID == nil {
-		return fmt.Errorf("security group not found in state")
-	}
+	c.state.Set(IdentifierManagedEfsID, *efsCreate.FileSystemId)
 
-	childZones := c.state.GetChild(ChildIdZones)
-	for _, zoneKey := range childZones.GetChildrenKeys() {
-		zoneChild := childZones.GetChild(zoneKey)
-		subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers)
-		if subnetID == nil {
-			return fmt.Errorf("subnet not found in state")
-		}
-		inputMount := &efs.CreateMountTargetInput{
-			FileSystemId:   efsCreate.FileSystemId,
-			SecurityGroups: []string{*securityGroupID},
-			SubnetId:       subnetID,
-		}
-		_, err = c.client.CreateMountTargetEfs(ctx, inputMount)
-		if err != nil {
-			return err
-		}
-	}
+	log.Info("created file system", "id", *efsCreate.FileSystemId)
 
-	c.state.Set(NameEfsSystemID, *efsCreate.FileSystemId)
 	return nil
 }
 
+// AWS uses this to ensure idempotent creation.
 func createEfsCreationToken(namespace string) string {
 	var efsCreationToken string
-	tokenCandidate := fmt.Sprintf("efs-token-%s", namespace)
+	tokenCandidate := fmt.Sprintf("efs-%s", namespace)
 	// only allow ASCII chars
 	for _, r := range tokenCandidate {
-		if r <= 127 {
+		if r <= unicode.MaxASCII {
 			efsCreationToken += string(r)
 		}
 	}
@@ -1780,6 +1796,83 @@ func createEfsCreationToken(namespace string) string {
 	}
 
 	return efsCreationToken
+}
+
+func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
+	log := LogFromContext(ctx)
+
+	var efsID *string
+	if c.config.ElasticFileSystem.ID != nil {
+		efsID = c.config.ElasticFileSystem.ID
+	} else if c.state.Get(IdentifierManagedEfsID) != nil {
+		efsID = c.state.Get(IdentifierManagedEfsID)
+	}
+
+	if efsID == nil {
+		return fmt.Errorf("trying to ensure efs mount targets, but efs id is not set")
+	}
+
+	securityGroupID := c.state.Get(IdentifierNodesSecurityGroup)
+	if securityGroupID == nil {
+		return fmt.Errorf("security group not found in state")
+	}
+
+	mountTargetsToCreate := make(map[string]*efs.CreateMountTargetInput)
+	childMountTargets := c.state.GetChild(ChildEfsMountTargets)
+	existingMountTargetKeys := childMountTargets.Keys()
+	childZones := c.state.GetChild(ChildIdZones)
+
+	for _, zoneKey := range childZones.GetChildrenKeys() {
+		zoneChild := childZones.GetChild(zoneKey)
+		subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers)
+		if subnetID == nil {
+			return fmt.Errorf("subnet not found in state")
+		}
+
+		mountKey := fmt.Sprintf("%s_%s_%s", *efsID, *subnetID, *securityGroupID)
+		mountInput := &efs.CreateMountTargetInput{
+			FileSystemId:   efsID,
+			SubnetId:       subnetID,
+			SecurityGroups: []string{*securityGroupID},
+		}
+		mountTargetsToCreate[mountKey] = mountInput
+
+		if slices.Contains(existingMountTargetKeys, mountKey) {
+			continue
+		}
+
+		output, err := c.client.CreateMountTargetEfs(ctx, mountInput)
+		if err != nil {
+			return err
+		}
+		if output.MountTargetId == nil {
+			return fmt.Errorf("got empty mount target id in response")
+		}
+		log.Info("created EFS mount target", "SubnetId", *mountInput.SubnetId)
+
+		childMountTargets.Set(mountKey, *output.MountTargetId)
+	}
+
+	// delete unused mount targets
+	for _, existingMountTargetKey := range existingMountTargetKeys {
+		if _, ok := mountTargetsToCreate[existingMountTargetKey]; ok {
+			continue
+		}
+
+		// this mount target is not in the list of mount targets to create, so we delete it
+		mountTargetID := childMountTargets.Get(existingMountTargetKey)
+		if mountTargetID == nil {
+			return fmt.Errorf("mount target id not found in state for key %s", existingMountTargetKey)
+		}
+		err := c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
+			MountTargetId: mountTargetID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete mount target id %s: %w", *mountTargetID, err)
+		}
+	}
+
+	return nil
 }
 
 func (c *FlowContext) getSubnetZoneChildByItem(item *awsclient.Subnet) Whiteboard {

@@ -917,7 +917,7 @@ func shouldUseWorkloadIdentity(ctx context.Context, c k8sclient.Client, secretNa
 }
 
 func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
-	return infraConfig != nil && infraConfig.EnableCsiEfs != nil && *infraConfig.EnableCsiEfs
+	return infraConfig != nil && infraConfig.ElasticFileSystem != nil && infraConfig.ElasticFileSystem.Enabled
 }
 
 func getControlPlaneShootChartCSIEfsValues(
@@ -930,7 +930,7 @@ func getControlPlaneShootChartCSIEfsValues(
 	}
 
 	if csiEfsEnabled {
-		values["fileSystemID"] = infraStatus.CSI.EfsSystemID
+		values["fileSystemID"] = infraStatus.CSI.EfsID
 	}
 
 	return values

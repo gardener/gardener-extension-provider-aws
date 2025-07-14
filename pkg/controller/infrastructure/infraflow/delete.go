@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/utils/flow"
-	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -52,7 +51,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 		Timeout(defaultTimeout))
 
 	_ = c.AddTask(g, "delete efs file system",
-		c.deleteEfsFileSystem,
+		c.deleteEfs,
 		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout))
 
 	deleteIAMInstanceProfile := c.AddTask(g, "delete IAM instance profile",
@@ -373,38 +372,37 @@ func (c *FlowContext) deleteKeyPair(ctx context.Context) error {
 	return nil
 }
 
-func (c *FlowContext) deleteEfsFileSystem(ctx context.Context) error {
-	efsSystemID := c.state.Get(NameEfsSystemID)
-	if efsSystemID == nil {
-		return nil
-	}
+func (c *FlowContext) deleteEfs(ctx context.Context) error {
 	log := LogFromContext(ctx)
 
-	efsMounts, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
-		FileSystemId: efsSystemID,
-	})
-	if err != nil {
-		return err
+	childMountTargets := c.state.GetChild(ChildEfsMountTargets)
+	for _, mountTargetKey := range childMountTargets.Keys() {
+		mountTargetID := childMountTargets.Get(mountTargetKey)
+		if mountTargetID == nil {
+			return fmt.Errorf("mount target id not found in state for key %s", mountTargetKey)
+		}
+		log.Info("deleting...", "efsMountTarget", mountTargetKey, "mountTargetId", *mountTargetID)
+		err := c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
+			MountTargetId: mountTargetID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete mount target id %s: %w", *mountTargetID, err)
+		}
+		log.Info("deleted", "efsMountTarget", mountTargetKey, "mountTargetId", *mountTargetID)
+		childMountTargets.Delete(mountTargetKey)
 	}
 
-	for _, mount := range efsMounts.MountTargets {
-		log.Info("deleting...", "efsMountTarget", ptr.Deref(mount.MountTargetId, "<nil>"))
-		err = c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
-			MountTargetId: mount.MountTargetId,
+	// Delete the EFS file system only if it was created by Gardener.
+	if efsSystemID := c.state.Get(IdentifierManagedEfsID); efsSystemID != nil {
+		log.Info("deleting...", "efsFileSystem", *efsSystemID)
+		err := c.client.DeleteEfsFileSystem(ctx, &efs.DeleteFileSystemInput{
+			FileSystemId: efsSystemID,
 		})
 		if err != nil {
 			return err
 		}
+		c.state.Delete(IdentifierManagedEfsID)
 	}
 
-	log.Info("deleting...", "efsFileSystem", *efsSystemID)
-	err = c.client.DeleteEfsFileSystem(ctx, &efs.DeleteFileSystemInput{
-		FileSystemId: efsSystemID,
-	})
-	if err != nil {
-		return err
-	}
-
-	c.state.Delete(NameEfsSystemID)
 	return nil
 }

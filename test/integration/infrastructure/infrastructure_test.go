@@ -276,7 +276,9 @@ var _ = Describe("Infrastructure tests", func() {
 				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			})
-			providerConfig.EnableCsiEfs = ptr.To(true)
+			providerConfig.ElasticFileSystem = &awsv1alpha1.ElasticFileSystem{
+				Enabled: true,
+			}
 
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
@@ -1082,7 +1084,7 @@ func verifyCreation(
 						ToPort: awssdk.Int32(32767),
 					},
 				}
-				if ptr.Deref(providerConfig.EnableCsiEfs, false) {
+				if ptr.Deref(providerConfig.ElasticFileSystem, awsv1alpha1.ElasticFileSystem{}).Enabled {
 					ipPermissions = append(ipPermissions, ec2types.IpPermission{
 						FromPort:   awssdk.Int32(2049),
 						IpProtocol: awssdk.String("tcp"),
@@ -1572,7 +1574,7 @@ func verifyCreation(
 	var writer bytes.Buffer
 	templateData := map[string]any{
 		"enableECRAccess": ptr.Deref(providerConfig.EnableECRAccess, true),
-		"enableEfsAccess": ptr.Deref(providerConfig.EnableCsiEfs, false),
+		"enableEfsAccess": ptr.Deref(providerConfig.ElasticFileSystem, awsv1alpha1.ElasticFileSystem{}).Enabled,
 	}
 	err = templateIAMRolePolicyDocumentNodes.Execute(&writer, templateData)
 	Expect(err).NotTo(HaveOccurred())
