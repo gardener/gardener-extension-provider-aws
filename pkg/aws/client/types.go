@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -121,7 +122,7 @@ type Interface interface {
 	DeleteRoute(ctx context.Context, routeTableId string, route *Route) error
 
 	// Subnets
-	CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, error)
+	CreateSubnet(ctx context.Context, subnet *Subnet, maxWaitDur time.Duration) (*Subnet, error)
 	GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error)
 	FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, error)
 	FindSubnets(ctx context.Context, filters []ec2types.Filter) ([]*Subnet, error)

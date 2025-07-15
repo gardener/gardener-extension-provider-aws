@@ -930,7 +930,7 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 		return func(ctx context.Context) error {
 			log := LogFromContext(ctx)
 			log.Info("creating...")
-			created, err := c.client.CreateSubnet(ctx, desired)
+			created, err := c.client.CreateSubnet(ctx, desired, defaultTimeout)
 			if err != nil {
 				return err
 			}
