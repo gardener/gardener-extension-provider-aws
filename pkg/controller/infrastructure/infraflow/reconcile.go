@@ -655,6 +655,9 @@ func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 		return err
 	}
 	for _, nat := range nats {
+		if isNATGatewayDeletingOrFailed(nat) {
+			continue
+		}
 		egressIPs = append(egressIPs, fmt.Sprintf("%s/32", nat.PublicIP))
 	}
 	c.state.Set(IdentifierEgressCIDRs, strings.Join(egressIPs, ","))
@@ -1116,7 +1119,7 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 		}
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
-				return !strings.EqualFold(item.State, string(ec2types.StateDeleting)) && !strings.EqualFold(item.State, string(ec2types.StateFailed))
+				return !isNATGatewayDeletingOrFailed(item)
 			})
 		if err != nil {
 			return err
