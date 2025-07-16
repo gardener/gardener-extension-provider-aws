@@ -185,6 +185,8 @@ func isIPv4(ipfamilies []gardencorev1beta1.IPFamily) bool {
 	return slices.Contains(ipfamilies, gardencorev1beta1.IPFamilyIPv4)
 }
 
+// a failed NAT will automatically be deleted by AWS
+// https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-troubleshooting.html#nat-gateway-troubleshooting-failed
 func isNATGatewayDeletingOrFailed(nat *awsclient.NATGateway) bool {
 	return strings.EqualFold(nat.State, string(ec2types.StateDeleting)) || strings.EqualFold(nat.State, string(ec2types.StateFailed))
 }

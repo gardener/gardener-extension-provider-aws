@@ -18,7 +18,6 @@ import (
 	"text/template"
 	"time"
 
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -1119,6 +1118,7 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 		}
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
+				// a failed NAT will automatically be deleted by AWS
 				return !isNATGatewayDeletingOrFailed(item)
 			})
 		if err != nil {
@@ -1153,7 +1153,7 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 		}
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
-				return !strings.EqualFold(item.State, string(ec2types.StateDeleting)) && !strings.EqualFold(item.State, string(ec2types.StateFailed))
+				return !isNATGatewayDeletingOrFailed(item)
 			})
 		if err != nil {
 			return err
@@ -1197,7 +1197,8 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 		tags := c.commonTagsWithSuffix(helper.GetSuffixNATGateway())
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
-				return !strings.EqualFold(item.State, string(ec2types.StateDeleting)) && !strings.EqualFold(item.State, string(ec2types.StateFailed))
+				// a failed NAT will automatically be deleted by AWS
+				return !isNATGatewayDeletingOrFailed(item)
 			})
 		if err != nil {
 			return err
