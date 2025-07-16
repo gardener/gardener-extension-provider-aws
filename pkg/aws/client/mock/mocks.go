@@ -12,6 +12,7 @@ package client
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
@@ -308,18 +309,18 @@ func (mr *MockInterfaceMockRecorder) CreateSecurityGroup(ctx, sg any) *gomock.Ca
 }
 
 // CreateSubnet mocks base method.
-func (m *MockInterface) CreateSubnet(ctx context.Context, subnet *client.Subnet) (*client.Subnet, error) {
+func (m *MockInterface) CreateSubnet(ctx context.Context, subnet *client.Subnet, maxWaitDur time.Duration) (*client.Subnet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSubnet", ctx, subnet)
+	ret := m.ctrl.Call(m, "CreateSubnet", ctx, subnet, maxWaitDur)
 	ret0, _ := ret[0].(*client.Subnet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSubnet indicates an expected call of CreateSubnet.
-func (mr *MockInterfaceMockRecorder) CreateSubnet(ctx, subnet any) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) CreateSubnet(ctx, subnet, maxWaitDur any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnet", reflect.TypeOf((*MockInterface)(nil).CreateSubnet), ctx, subnet)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnet", reflect.TypeOf((*MockInterface)(nil).CreateSubnet), ctx, subnet, maxWaitDur)
 }
 
 // CreateVpc mocks base method.

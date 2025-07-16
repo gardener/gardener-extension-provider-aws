@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
@@ -181,6 +183,12 @@ func isIPv6(ipfamilies []gardencorev1beta1.IPFamily) bool {
 
 func isIPv4(ipfamilies []gardencorev1beta1.IPFamily) bool {
 	return slices.Contains(ipfamilies, gardencorev1beta1.IPFamilyIPv4)
+}
+
+// a failed NAT will automatically be deleted by AWS
+// https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-troubleshooting.html#nat-gateway-troubleshooting-failed
+func isNATGatewayDeletingOrFailed(nat *awsclient.NATGateway) bool {
+	return strings.EqualFold(nat.State, string(ec2types.StateDeleting)) || strings.EqualFold(nat.State, string(ec2types.StateFailed))
 }
 
 func mmap[T any, R any](in []T, f func(t T) R) []R {

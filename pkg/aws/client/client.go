@@ -1570,7 +1570,7 @@ func (c *Client) DeleteRouteTable(ctx context.Context, id string) error {
 }
 
 // CreateSubnet creates an EC2 subnet resource.
-func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, error) {
+func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet, maxWaitDur time.Duration) (*Subnet, error) {
 	input := &ec2.CreateSubnetInput{
 		AvailabilityZone:  aws.String(subnet.AvailabilityZone),
 		TagSpecifications: subnet.ToTagSpecifications(ec2types.ResourceTypeSubnet),
@@ -1589,6 +1589,21 @@ func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet) (*Subnet, err
 	if err != nil {
 		return nil, err
 	}
+	if output.Subnet == nil || output.Subnet.SubnetId == nil {
+		return nil, fmt.Errorf("subnet creation failed, no SubnetId returned")
+	}
+
+	// wait until the subnet is available
+	waiter := ec2.NewSubnetAvailableWaiter(&c.EC2)
+	err = waiter.Wait(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{*output.Subnet.SubnetId}}, maxWaitDur,
+		func(o *ec2.SubnetAvailableWaiterOptions) {
+			o.MinDelay = 5 * time.Second  // Optional; defaults to 15s if not set
+			o.MaxDelay = 60 * time.Second // Optional; defaults to 120s if not set
+		})
+	if err != nil {
+		return nil, fmt.Errorf("subnet %s did not become available: %w", *output.Subnet.SubnetId, err)
+	}
+
 	return fromSubnet(output.Subnet), nil
 }
 
