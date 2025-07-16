@@ -18,6 +18,7 @@ import (
 	"text/template"
 	"time"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -1111,28 +1112,19 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 		if zone.ElasticIPAllocationID == nil && child.Get(IdentifierManagedZoneNATGWElasticIP) == nil {
 			return nil
 		}
-
 		if zone.ElasticIPAllocationID != nil {
 			desired.EIPAllocationId = *zone.ElasticIPAllocationID
 		} else {
 			desired.EIPAllocationId = *child.Get(IdentifierManagedZoneNATGWElasticIP)
 		}
-		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags)
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
+			func(item *awsclient.NATGateway) bool {
+				return !isNATGatewayDeletingOrFailed(item)
+			})
 		if err != nil {
 			return err
 		}
 
-		// delete if NAT gateway is in failed state
-		if current != nil && isNATGatewayDeletingOrFailed(current) {
-			log.Info("NAT gateway is in deleting or failed state, will recreate it", "NATGatewayId", current.NATGatewayId)
-			err := c.deleteNATGateway(zone.Name)(ctx)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-
-		// check for EIPAllocationId change
 		if current != nil && current.EIPAllocationId != desired.EIPAllocationId {
 			log.Info("deleting NAT because of EIPAllocationID change detected", "current EIPAllocationId",
 				current.EIPAllocationId, "desired EIPAllocationId", desired.EIPAllocationId)
@@ -1141,7 +1133,6 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 				return err
 			}
 		}
-
 		return nil
 	}
 }
@@ -1160,15 +1151,15 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 		} else {
 			desired.EIPAllocationId = *child.Get(IdentifierManagedZoneNATGWElasticIP)
 		}
-		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags)
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
+			func(item *awsclient.NATGateway) bool {
+				return !strings.EqualFold(item.State, string(ec2types.StateDeleting)) && !strings.EqualFold(item.State, string(ec2types.StateFailed))
+			})
 		if err != nil {
 			return err
 		}
 
 		if current != nil {
-			if isNATGatewayDeletingOrFailed(current) {
-				return fmt.Errorf("NAT gateway %s is in deleting or failed state, will recreate it", current.NATGatewayId)
-			}
 			child.Set(IdentifierZoneNATGateway, current.NATGatewayId)
 			if _, err := c.updater.UpdateEC2Tags(ctx, current.NATGatewayId, desired.Tags, current.Tags); err != nil {
 				return err
@@ -1204,7 +1195,10 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 		log := LogFromContext(ctx)
 		helper := c.zoneSuffixHelpers(zoneName)
 		tags := c.commonTagsWithSuffix(helper.GetSuffixNATGateway())
-		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags)
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
+			func(item *awsclient.NATGateway) bool {
+				return !strings.EqualFold(item.State, string(ec2types.StateDeleting)) && !strings.EqualFold(item.State, string(ec2types.StateFailed))
+			})
 		if err != nil {
 			return err
 		}
