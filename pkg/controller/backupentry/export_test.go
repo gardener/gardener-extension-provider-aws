@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package client
+package backupentry
 
-func copySlice[T any](array []T) []T {
-	var cp []T
-	return append(cp, array...)
-}
+// Functions exported for testing.
+
+var NewActuator = newActuator
