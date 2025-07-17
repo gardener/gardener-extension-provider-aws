@@ -2191,29 +2191,59 @@ func (c *Client) DeleteIAMRolePolicy(ctx context.Context, policyName, roleName s
 	return ignoreNotFound(err)
 }
 
-// DescribeEfsFileSystems retrieve information about an efs file system by its ID
-func (c *Client) DescribeEfsFileSystems(ctx context.Context, fileSystemID *string) (efstypes.FileSystemDescription, error) {
+// GetFileSystems retrieve information about an efs file system by its ID
+func (c *Client) GetFileSystems(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error) {
 	output, err := c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{
-		FileSystemId: fileSystemID,
+		FileSystemId: &fileSystemID,
 	})
 	if err != nil {
-		return efstypes.FileSystemDescription{}, err
+		return nil, err
 	}
 	if len(output.FileSystems) != 1 {
-		return efstypes.FileSystemDescription{}, fmt.Errorf("expected 1 file system, got %d", len(output.FileSystems))
+		return nil, fmt.Errorf("expected 1 file system, got %d", len(output.FileSystems))
 	}
-	return output.FileSystems[0], nil
+	return &output.FileSystems[0], nil
 }
 
-// CreateEfsFileSystem creates an efs file system
-func (c *Client) CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (efstypes.FileSystemDescription, error) {
+// FindFileSystemsByTags retrieve information about an efs file system by its ID
+func (c *Client) FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efstypes.FileSystemDescription, error) {
+	var result []*efstypes.FileSystemDescription
+
+	output, err := c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{})
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+
+	for _, fs := range output.FileSystems {
+		tagsResp, err := c.EFS.ListTagsForResource(ctx, &efs.ListTagsForResourceInput{
+			ResourceId: fs.FileSystemId,
+		})
+		if err != nil {
+			c.Logger.Info("could not get tags for fs %s: %v", *fs.FileSystemId, err)
+			continue
+		}
+
+		if tags.ContainEfsTags(tagsResp.Tags) {
+			result = append(result, &fs)
+		}
+	}
+
+	return result, nil
+}
+
+// CreateFileSystem creates an efs file system
+func (c *Client) CreateFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efstypes.FileSystemDescription, error) {
 	output, err := c.EFS.CreateFileSystem(ctx, input)
 	if ignoreAlreadyExists(err) != nil {
-		return efstypes.FileSystemDescription{}, err
+		return nil, err
 	}
-	var fsDescription efstypes.FileSystemDescription
+	if output == nil || output.FileSystemId == nil {
+		return nil, fmt.Errorf("efs file system creation failed, no FileSystemId returned")
+	}
+
+	var fsDescription *efstypes.FileSystemDescription
 	err = c.PollImmediateUntil(ctx, func(ctx context.Context) (bool, error) {
-		fsDescription, err = c.DescribeEfsFileSystems(ctx, output.FileSystemId)
+		fsDescription, err = c.GetFileSystems(ctx, *output.FileSystemId)
 		if err != nil {
 			return true, err
 		}
@@ -2225,18 +2255,27 @@ func (c *Client) CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileS
 	return fsDescription, err
 }
 
-// DeleteEfsFileSystem deletes an efs file system
-func (c *Client) DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
+// DeleteFileSystem deletes an efs file system
+func (c *Client) DeleteFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
 	_, err := c.EFS.DeleteFileSystem(ctx, input)
 	return ignoreNotFound(err)
 }
 
 // DescribeMountTargetsEfs describes an efs mount target
 func (c *Client) DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
-	return c.EFS.DescribeMountTargets(ctx, input)
+	output, err := c.EFS.DescribeMountTargets(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	return output, nil
 }
 
 // CreateMountTargetEfs creates an efs mount target
+// You can create one mount target in each Availability Zone in your VPC. All EC2
+// instances in a VPC within a given Availability Zone share a single mount target
+// for a given file system. If you have multiple subnets in an Availability Zone,
+// you create a mount target in one of the subnets. EC2 instances do not need to be
+// in the same subnet as the mount target in order to access their file system.
 func (c *Client) CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.CreateMountTargetOutput, error) {
 	return c.EFS.CreateMountTarget(ctx, input)
 }

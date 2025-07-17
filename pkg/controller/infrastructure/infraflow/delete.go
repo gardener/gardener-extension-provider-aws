@@ -50,7 +50,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 		c.deleteIAMRolePolicy,
 		Timeout(defaultTimeout))
 
-	_ = c.AddTask(g, "delete efs file system",
+	deleteEfs := c.AddTask(g, "delete efs file system",
 		c.deleteEfs,
 		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout))
 
@@ -64,7 +64,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 
 	deleteZones := c.AddTask(g, "delete zones resources",
 		c.deleteZones,
-		DoIf(c.hasVPC()), Timeout(defaultLongTimeout))
+		DoIf(c.hasVPC()), Timeout(defaultLongTimeout), Dependencies(deleteEfs))
 
 	deleteNodesSecurityGroup := c.AddTask(g, "delete nodes security group",
 		c.deleteNodesSecurityGroup,
@@ -375,28 +375,62 @@ func (c *FlowContext) deleteKeyPair(ctx context.Context) error {
 func (c *FlowContext) deleteEfs(ctx context.Context) error {
 	log := LogFromContext(ctx)
 
-	childMountTargets := c.state.GetChild(ChildEfsMountTargets)
-	for _, mountTargetKey := range childMountTargets.Keys() {
-		mountTargetID := childMountTargets.Get(mountTargetKey)
-		if mountTargetID == nil {
-			return fmt.Errorf("mount target id not found in state for key %s", mountTargetKey)
-		}
-		log.Info("deleting...", "efsMountTarget", mountTargetKey, "mountTargetId", *mountTargetID)
-		err := c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
-			MountTargetId: mountTargetID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to delete mount target id %s: %w", *mountTargetID, err)
-		}
-		log.Info("deleted", "efsMountTarget", mountTargetKey, "mountTargetId", *mountTargetID)
-		childMountTargets.Delete(mountTargetKey)
+	managedEfs, err := FindExisting(ctx, c.state.Get(IdentifierManagedEfsID), c.commonTags.AddManagedTag(),
+		c.client.GetFileSystems, c.client.FindFileSystemsByTags)
+	if err != nil {
+		return fmt.Errorf("failed to find managed EFS file system: %w", err)
 	}
 
+	var efsID *string
+	switch {
+	case c.config.ElasticFileSystem.ID != nil:
+		efsID = c.config.ElasticFileSystem.ID
+	case managedEfs != nil && managedEfs.FileSystemId != nil:
+		efsID = managedEfs.FileSystemId
+	default:
+		log.Info("no EFS found")
+		return nil
+	}
+
+	output, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
+		FileSystemId: efsID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to describe mount targets for EFS %s: %w", *efsID, err)
+	}
+
+	// delete mount targets that were created by this shoot
+	for _, mountTarget := range output.MountTargets {
+		if mountTarget.SubnetId == nil {
+			continue
+		}
+		subnets, err := c.client.GetSubnets(ctx, []string{*mountTarget.SubnetId})
+		if err != nil {
+			return fmt.Errorf("failed to describe subnets for deleting EFS mounts %s: %w", *efsID, err)
+		}
+		if len(subnets) != 1 {
+			return fmt.Errorf("expected exactly one subnet for mount target %s, got %d", *mountTarget.MountTargetId, len(subnets))
+		}
+		// check if mount target was created by this shoot
+		if subnets[0].Tags == nil || subnets[0].Tags[c.tagKeyCluster()] == TagValueCluster {
+			continue
+		}
+		log.Info("deleting...", "mountTargetId", *mountTarget.MountTargetId)
+		err = c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
+			MountTargetId: mountTarget.MountTargetId,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete mount target id %s: %w", *mountTarget.MountTargetId, err)
+		}
+		log.Info("deleted", "mountTargetId", *mountTarget.MountTargetId)
+	}
+	c.state.Delete(ChildEfsMountTargets)
+
 	// Delete the EFS file system only if it was created by Gardener.
-	if efsSystemID := c.state.Get(IdentifierManagedEfsID); efsSystemID != nil {
-		log.Info("deleting...", "efsFileSystem", *efsSystemID)
-		err := c.client.DeleteEfsFileSystem(ctx, &efs.DeleteFileSystemInput{
-			FileSystemId: efsSystemID,
+	if managedEfs != nil && managedEfs.FileSystemId != nil {
+		log.Info("deleting...", "efsFileSystem", *managedEfs.FileSystemId)
+		err := c.client.DeleteFileSystem(ctx, &efs.DeleteFileSystemInput{
+			FileSystemId: managedEfs.FileSystemId,
 		})
 		if err != nil {
 			return err

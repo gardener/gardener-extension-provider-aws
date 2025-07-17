@@ -1742,34 +1742,40 @@ func (c *FlowContext) ensureEfs(ctx context.Context) error {
 func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
 	log := LogFromContext(ctx)
 
-	// check for user provided EFS file system
-	if c.config.ElasticFileSystem.ID != nil {
-		if c.state.Get(IdentifierManagedEfsID) != nil {
-			if err := c.deleteEfs(ctx); err != nil {
-				return fmt.Errorf("failed to delete managed EFS file system: %w", err)
-			}
-			c.state.Delete(IdentifierManagedEfsID)
-		}
+	current, err := FindExisting(ctx, c.state.Get(IdentifierManagedEfsID), c.commonTags.AddManagedTag(),
+		c.client.GetFileSystems, c.client.FindFileSystemsByTags)
+	if err != nil {
+		return fmt.Errorf("failed to find managed EFS file system: %w", err)
+	}
 
+	// check for user provided EFS file system
+	if c.config.ElasticFileSystem.ID != nil && current != nil {
+		if err := c.deleteEfs(ctx); err != nil {
+			return fmt.Errorf("failed to delete managed EFS file system: %w", err)
+		}
+		c.state.Delete(IdentifierManagedEfsID)
+	}
+	if c.config.ElasticFileSystem.ID != nil {
 		return nil
 	}
 
 	// check if we already created an EFS file system
-	if c.state.Get(IdentifierManagedEfsID) != nil {
+	if current != nil {
+		c.state.Set(IdentifierManagedEfsID, *current.FileSystemId)
 		return nil
 	}
 
 	inputCreate := &efs.CreateFileSystemInput{
-		Tags:          c.commonTags.ToEfsTags(),
+		Tags:          c.commonTags.AddManagedTag().ToEfsTags(),
 		CreationToken: ptr.To(createEfsCreationToken(c.namespace)),
 		Encrypted:     ptr.To(true),
 	}
-	efsCreate, err := c.client.CreateEfsFileSystem(ctx, inputCreate)
+	efsCreate, err := c.client.CreateFileSystem(ctx, inputCreate)
 	if err != nil {
 		return err
 	}
 
-	if efsCreate.FileSystemId == nil {
+	if efsCreate == nil || efsCreate.FileSystemId == nil {
 		return fmt.Errorf("the created file system id is <nil>")
 	}
 
@@ -1802,13 +1808,12 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 	log := LogFromContext(ctx)
 
 	var efsID *string
-	if c.config.ElasticFileSystem.ID != nil {
+	switch {
+	case c.config.ElasticFileSystem.ID != nil:
 		efsID = c.config.ElasticFileSystem.ID
-	} else if c.state.Get(IdentifierManagedEfsID) != nil {
+	case c.state.Get(IdentifierManagedEfsID) != nil:
 		efsID = c.state.Get(IdentifierManagedEfsID)
-	}
-
-	if efsID == nil {
+	default:
 		return fmt.Errorf("trying to ensure efs mount targets, but efs id is not set")
 	}
 
@@ -1824,6 +1829,7 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 
 	for _, zoneKey := range childZones.GetChildrenKeys() {
 		zoneChild := childZones.GetChild(zoneKey)
+		// every zone must have a subnet for workers, we use this subnet for the mount target
 		subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers)
 		if subnetID == nil {
 			return fmt.Errorf("subnet not found in state")
@@ -1841,6 +1847,21 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 			continue
 		}
 
+		// check if mount target already exists but was not in state
+		mountTargetOutput, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
+			FileSystemId: efsID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to describe mount targets for EFS %s: %w", *efsID, err)
+		}
+		containsSubnet, mountTargetID := mountTargetsContainSubnet(mountTargetOutput.MountTargets, *subnetID)
+		if containsSubnet {
+			log.Info("found existing EFS mount target", "MountTargetId", mountTargetID, "SubnetId", *subnetID)
+			childMountTargets.Set(mountKey, mountTargetID)
+			continue
+		}
+
+		log.Info("creating EFS mount target", "SubnetId", *mountInput.SubnetId)
 		output, err := c.client.CreateMountTargetEfs(ctx, mountInput)
 		if err != nil {
 			return err

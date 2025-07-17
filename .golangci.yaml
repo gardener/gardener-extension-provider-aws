@@ -48,6 +48,9 @@ linters:
           alias: druidcorev1alpha1
         - pkg: github.com/gardener/etcd-druid/api/core/crds
           alias: druidcorecrds
+        # aws sdk
+        - pkg: github.com/aws/aws-sdk-go-v2/service/efs/types
+          alias: efstypes
     loggercheck:
       require-string-key: true
       no-printf-like: true

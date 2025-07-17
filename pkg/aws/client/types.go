@@ -188,9 +188,10 @@ type Interface interface {
 	DeleteEC2Tags(ctx context.Context, resources []string, tags Tags) error
 
 	// Efs
-	DescribeEfsFileSystems(ctx context.Context, fileSystemID *string) (efstypes.FileSystemDescription, error)
-	CreateEfsFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (efstypes.FileSystemDescription, error)
-	DeleteEfsFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error
+	GetFileSystems(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error)
+	FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efstypes.FileSystemDescription, error)
+	CreateFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efstypes.FileSystemDescription, error)
+	DeleteFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error
 	DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error)
 	CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.CreateMountTargetOutput, error)
 	DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error
