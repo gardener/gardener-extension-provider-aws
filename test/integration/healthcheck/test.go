@@ -5,7 +5,7 @@
 /**
 	Overview
 		- Tests the health checks of the extension: provider-aws.
-		- Manipulates health check relevant resources and expects the extension-provider to properly report the results as conditions in the respective CRD (ControlPlane(Type Normal & Exposure) & Worker CRD).
+		- Manipulates health check relevant resources and expects the extension-provider to properly report the results as conditions in the respective CRD (ControlPlane & Worker CRD).
 
 	Prerequisites
 		- A Shoot exists.
