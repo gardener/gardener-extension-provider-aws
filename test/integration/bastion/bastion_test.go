@@ -58,8 +58,10 @@ const (
 	vpcCIDR             = "10.250.0.0/16"
 	subnetCIDR          = "10.250.0.0/18"
 	publicUtilitySuffix = "public-utility-z0"
-	imageVersion        = "1.0.0" // not the real version - only used in the cloudProfile
+	imageVersionMock    = "1.0.0" // not the real version - only used in the cloudProfile
 	imageName           = "gardenlinux-aws-gardener*"
+	machineTypeName     = "t4g.nano"
+	machineArch         = "arm64"
 )
 
 var (
@@ -288,18 +290,34 @@ func getImageAMI(ctx context.Context, name string, awsClient *awsclient.Client) 
 	result, err := awsClient.EC2.DescribeImages(ctx, &ec2.DescribeImagesInput{
 		Filters: filters,
 	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(result.Images).ToNot(BeEmpty())
 
-	sort.Slice(result.Images, func(i, j int) bool {
-		t1, err := time.Parse(time.RFC3339, *result.Images[i].CreationDate)
+	// filter for images with legacy BIOS boot mode
+	var filteredImages []ec2types.Image
+	for _, img := range result.Images {
+		// empty boot mode means legacy BIOS
+		if img.BootMode == ec2types.BootModeValuesLegacyBios || img.BootMode == "" {
+			filteredImages = append(filteredImages, img)
+		}
+	}
+
+	// sort images by creation date, newest first
+	sort.Slice(filteredImages, func(i, j int) bool {
+		t1, err := time.Parse(time.RFC3339, *filteredImages[i].CreationDate)
 		Expect(err).NotTo(HaveOccurred())
-		t2, err := time.Parse(time.RFC3339, *result.Images[j].CreationDate)
+		t2, err := time.Parse(time.RFC3339, *filteredImages[j].CreationDate)
 		Expect(err).NotTo(HaveOccurred())
 		return t1.After(t2)
 	})
 
 	Expect(err).NotTo(HaveOccurred())
-	Expect(result.Images).ToNot(BeEmpty())
-	return *result.Images[0].ImageId
+	Expect(filteredImages).ToNot(BeEmpty())
+
+	log.Info(fmt.Sprintf("Will use image with name %s, id %s, architecture %s, creation date %s",
+		*filteredImages[0].Name, *filteredImages[0].ImageId, filteredImages[0].Architecture, *filteredImages[0].CreationDate))
+
+	return *filteredImages[0].ImageId
 }
 
 func normaliseCIDR(cidr string) string {
@@ -407,7 +425,7 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 				Name: "gardenlinux",
 				Versions: []awsv1alpha1.MachineImageVersion{
 					{
-						Version: imageVersion,
+						Version: imageVersionMock,
 						Regions: []awsv1alpha1.RegionAMIMapping{
 							{
 								Name:         *region,
@@ -441,7 +459,7 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 					Versions: []gardencorev1beta1.MachineImageVersion{
 						{
 							ExpirableVersion: gardencorev1beta1.ExpirableVersion{
-								Version:        imageVersion,
+								Version:        imageVersionMock,
 								Classification: ptr.To(gardencorev1beta1.ClassificationSupported),
 							},
 							Architectures: []string{"arm64"},
@@ -452,8 +470,8 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 			MachineTypes: []gardencorev1beta1.MachineType{{
 				CPU:          resource.MustParse("4"),
 				Memory:       resource.MustParse("4"),
-				Name:         "t4g.nano",
-				Architecture: ptr.To("arm64"),
+				Name:         machineTypeName,
+				Architecture: ptr.To(machineArch),
 			}},
 			ProviderConfig: &runtime.RawExtension{
 				Raw:    providerConfigJSON,
