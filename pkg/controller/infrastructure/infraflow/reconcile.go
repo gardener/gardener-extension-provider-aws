@@ -185,6 +185,8 @@ func (c *FlowContext) getIpFamilies() []v1beta1.IPFamily {
 func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	log.Info("using managed VPC")
+	// Default to shared tenancy unless dedicated tenancy is explicitly enabled.
+	// AWS API does this as well, so all VPCs created before have instanceTenancy = "default".
 	instanceTenancy := ec2types.TenancyDefault
 	if c.config.EnableDedicatedTenancyForVPC != nil && *c.config.EnableDedicatedTenancyForVPC {
 		instanceTenancy = ec2types.TenancyDedicated
