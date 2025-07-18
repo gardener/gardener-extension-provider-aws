@@ -929,12 +929,33 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 		return func(ctx context.Context) error {
 			log := LogFromContext(ctx)
 			log.Info("creating...")
-			created, err := c.client.CreateSubnet(ctx, desired, defaultTimeout)
-			if err != nil {
+			var lastErr error
+			for attempts := 0; attempts < 256; attempts++ {
+				created, err := c.client.CreateSubnet(ctx, desired, defaultTimeout)
+				if err == nil {
+					zoneChild.Set(subnetKey, created.SubnetId)
+					return nil
+				}
+				// Check for InvalidSubnet.Conflict error
+				apiErrCode := awsclient.GetAWSAPIErrorCode(err)
+				if apiErrCode == "InvalidSubnet.Conflict" {
+					log.Info("CIDR conflict, trying next CIDR block")
+					newCIDRs, nextErr := calcNextIPCidrBlock(desired.Ipv6CidrBlocks[0])
+					if nextErr != nil {
+						return nextErr
+					}
+					desired.Ipv6CidrBlocks = newCIDRs
+					lastErr = err
+					continue
+				}
+				// Any other error, return immediately
 				return err
 			}
-			zoneChild.Set(subnetKey, created.SubnetId)
-			return nil
+			// If we exhausted all attempts, return the last error
+			if lastErr != nil {
+				return lastErr
+			}
+			return fmt.Errorf("failed to create subnet after multiple attempts")
 		}
 	}
 	return func(ctx context.Context) error {
@@ -1772,4 +1793,27 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 	offset := big.NewInt(0).Mul(big.NewInt(int64(index)), big.NewInt(0).Lsh(big.NewInt(1), uint(addrSize-newPrefixLength)))
 	subnetIP := net.IP(big.NewInt(0).Add(big.NewInt(0).SetBytes(baseIP), offset).Bytes())
 	return fmt.Sprintf("%s/%d", subnetIP.String(), newPrefixLength), nil
+}
+
+func calcNextIPCidrBlock(currentSubnetCIDR string) ([]string, error) {
+	ip, _, err := net.ParseCIDR(currentSubnetCIDR)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CIDR: %v", err)
+	}
+
+	currentIndex := int(ip[7])
+
+	if currentIndex >= 255 {
+		return nil, fmt.Errorf("already at maximum index (255) within /56 range")
+	}
+
+	nextIndex := currentIndex + 1
+
+	nextIP := make(net.IP, 16)
+	copy(nextIP, ip)
+	nextIP[7] = byte(nextIndex)
+
+	nextCIDR := fmt.Sprintf("%s/64", nextIP.String())
+
+	return []string{nextCIDR}, nil
 }
