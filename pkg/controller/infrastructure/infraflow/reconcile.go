@@ -185,9 +185,9 @@ func (c *FlowContext) getIpFamilies() []v1beta1.IPFamily {
 func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	log.Info("using managed VPC")
-	instanceTenancy := ptr.To(string(ec2types.TenancyDefault))
+	instanceTenancy := ec2types.TenancyDefault
 	if c.config.EnableDedicatedTenancyForVPC != nil && *c.config.EnableDedicatedTenancyForVPC {
-		instanceTenancy = ptr.To(string(ec2types.TenancyDedicated))
+		instanceTenancy = ec2types.TenancyDedicated
 	}
 	desired := &awsclient.VPC{
 		Tags:                         c.commonTags,
