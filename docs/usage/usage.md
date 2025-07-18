@@ -800,7 +800,7 @@ spec:
     - IPv6
     type: calico
   kubernetes:
-    version: 1.32.2
+    version: 1.32.0
   ...
   addons:
     kubernetesDashboard:
