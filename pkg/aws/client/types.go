@@ -217,7 +217,7 @@ type VPC struct {
 	EnableDnsHostnames           bool
 	AssignGeneratedIPv6CidrBlock bool
 	DhcpOptionsId                *string
-	InstanceTenancy              *string
+	InstanceTenancy              ec2types.Tenancy
 	State                        *string
 }
 

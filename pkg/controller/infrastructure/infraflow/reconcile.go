@@ -18,6 +18,7 @@ import (
 	"text/template"
 	"time"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -185,12 +186,19 @@ func (c *FlowContext) getIpFamilies() []v1beta1.IPFamily {
 func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	log.Info("using managed VPC")
+	// Default to shared tenancy unless dedicated tenancy is explicitly enabled.
+	// AWS API does this as well, so all VPCs created before have instanceTenancy = "default".
+	instanceTenancy := ec2types.TenancyDefault
+	if c.config.EnableDedicatedTenancyForVPC != nil && *c.config.EnableDedicatedTenancyForVPC {
+		instanceTenancy = ec2types.TenancyDedicated
+	}
 	desired := &awsclient.VPC{
 		Tags:                         c.commonTags,
 		EnableDnsSupport:             true,
 		EnableDnsHostnames:           true,
 		AssignGeneratedIPv6CidrBlock: (c.config.DualStack != nil && c.config.DualStack.Enabled) || isIPv6(c.getIpFamilies()),
 		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
+		InstanceTenancy:              instanceTenancy,
 	}
 
 	if c.config.Networks.VPC.CIDR == nil {

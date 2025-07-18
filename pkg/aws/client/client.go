@@ -765,6 +765,7 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 		CidrBlock:                   aws.String(desired.CidrBlock),
 		AmazonProvidedIpv6CidrBlock: aws.Bool(desired.AssignGeneratedIPv6CidrBlock),
 		TagSpecifications:           desired.ToTagSpecifications(ec2types.ResourceTypeVpc),
+		InstanceTenancy:             desired.InstanceTenancy,
 	}
 	output, err := c.EC2.CreateVpc(ctx, input)
 	if err != nil {
@@ -973,7 +974,7 @@ func (c *Client) fromVpc(ctx context.Context, item ec2types.Vpc, withAttributes 
 			return ""
 		}(),
 		DhcpOptionsId:   item.DhcpOptionsId,
-		InstanceTenancy: ptr.To(string(item.InstanceTenancy)),
+		InstanceTenancy: item.InstanceTenancy,
 		State:           ptr.To(string(item.State)),
 	}
 	var err error

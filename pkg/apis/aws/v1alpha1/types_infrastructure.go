@@ -35,6 +35,13 @@ type InfrastructureConfig struct {
 	// for details of the underlying terraform implementation.
 	// +optional
 	IgnoreTags *IgnoreTags `json:"ignoreTags,omitempty"`
+
+	// EnableDedicatedTenancyForVPC allows to configure the VPC to use dedicated tenancy.
+	// If this field is set to true, all VMs created in this VPC will have dedicated tenancy enabled.
+	// This setting is immutable and cannot be changed once the VPC has been created.
+	// default: false
+	// +optional
+	EnableDedicatedTenancyForVPC *bool `json:"enableDedicatedTenancyForVPC,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
