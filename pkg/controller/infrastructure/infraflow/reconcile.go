@@ -1854,11 +1854,13 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to describe mount targets for EFS %s: %w", *efsID, err)
 		}
-		containsSubnet, mountTargetID := mountTargetsContainSubnet(mountTargetOutput.MountTargets, *subnetID)
-		if containsSubnet {
-			log.Info("found existing EFS mount target", "MountTargetId", mountTargetID, "SubnetId", *subnetID)
-			childMountTargets.Set(mountKey, mountTargetID)
-			continue
+		if mountTargetOutput != nil && len(mountTargetOutput.MountTargets) > 0 {
+			containsSubnet, mountTargetID := mountTargetsContainSubnet(mountTargetOutput.MountTargets, *subnetID)
+			if containsSubnet {
+				log.Info("found existing EFS mount target", "MountTargetId", mountTargetID, "SubnetId", *subnetID)
+				childMountTargets.Set(mountKey, mountTargetID)
+				continue
+			}
 		}
 
 		log.Info("creating EFS mount target", "SubnetId", *mountInput.SubnetId)
