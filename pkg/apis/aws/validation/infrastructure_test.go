@@ -18,6 +18,8 @@ import (
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
+var dedicatedTenancyEnabled *bool
+
 var _ = Describe("InfrastructureConfig validation", func() {
 	var (
 		infrastructureConfig *apisaws.InfrastructureConfig
@@ -40,6 +42,10 @@ var _ = Describe("InfrastructureConfig validation", func() {
 	)
 
 	BeforeEach(func() {
+		dedicatedTenancyEnabled = nil
+	})
+
+	JustBeforeEach(func() {
 		infrastructureConfig = &apisaws.InfrastructureConfig{
 			Networks: apisaws.Networks{
 				VPC: apisaws.VPC{
@@ -54,7 +60,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					},
 				},
 			},
-			EnableDedicatedTenancyForVPC: ptr.To(false),
+			EnableDedicatedTenancyForVPC: dedicatedTenancyEnabled,
 		}
 	})
 
@@ -586,16 +592,61 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			))
 		})
 
-		It("should forbid changing dedicated tenancy configuration", func() {
+		Context("For an existing VPC with dedicated tenancy enabled", func() {
+			BeforeEach(func() {
+				dedicatedTenancyEnabled = ptr.To(true)
+			})
+			It("should forbid to turn off dedicated tenancy", func() {
+				newInfrastructureConfig := infrastructureConfig.DeepCopy()
+				newInfrastructureConfig.EnableDedicatedTenancyForVPC = ptr.To(false)
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("enableDedicatedTenancyForVPC"),
+				}))))
+			})
+		})
+
+		Context("For an existing VPC with dedicated tenancy disabled", func() {
+			BeforeEach(func() {
+				dedicatedTenancyEnabled = ptr.To(false)
+			})
+			It("should forbid to turn on dedicated tenancy", func() {
+				newInfrastructureConfig := infrastructureConfig.DeepCopy()
+				newInfrastructureConfig.EnableDedicatedTenancyForVPC = ptr.To(true)
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("enableDedicatedTenancyForVPC"),
+				}))))
+			})
+		})
+
+		Context("For an existing VPC with dedicated tenancy as default(=disabled)", func() {
+			It("should forbid to turn on dedicated tenancy", func() {
+				newInfrastructureConfig := infrastructureConfig.DeepCopy()
+				newInfrastructureConfig.EnableDedicatedTenancyForVPC = ptr.To(true)
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("enableDedicatedTenancyForVPC"),
+				}))))
+			})
+		})
+
+		It("should not fail if dedicated tenancy configuration isn't set", func() {
 			newInfrastructureConfig := infrastructureConfig.DeepCopy()
-			newInfrastructureConfig.EnableDedicatedTenancyForVPC = ptr.To(true)
+			newInfrastructureConfig.EnableDedicatedTenancyForVPC = nil
 
 			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
 
-			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type":  Equal(field.ErrorTypeInvalid),
-				"Field": Equal("enableDedicatedTenancyForVPC"),
-			}))))
+			Expect(errorList).To(BeEmpty())
 		})
 	})
 
