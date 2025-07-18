@@ -295,6 +295,20 @@ This setting is immutable and cannot be changed once the VPC has been created.
 default: false</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>elasticFileSystem</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystem">
+ElasticFileSystem
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ElasticFileSystem contains information about the EFS that should be used.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig
@@ -503,6 +517,36 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CSI">CSI
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
+</p>
+<p>
+<p>CSI contains information about the created AWS CSI related resources.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>efsID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>EfsID contains the Elastic Files System ID.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CloudControllerManagerConfig">CloudControllerManagerConfig
 </h3>
 <p>
@@ -702,6 +746,51 @@ string
 </td>
 <td>
 <p>KeyName is the name of the SSH key.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystem">ElasticFileSystem
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
+</p>
+<p>
+<p>ElasticFileSystem holds information about the EFS storage</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Enabled is the switch to install the CSI EFS driver
+if enabled:
+- the IAM role policy for the worker nodes shall contain permissions to access the EFS.
+- an EFS will be created if the ID is not specified.
+- firewall rules will be created to allow access to the EFS from the worker nodes.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>id</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ID of the EFS to use. For example: fs-0272b97527ed4de53.</p>
 </td>
 </tr>
 </tbody>
@@ -984,6 +1073,19 @@ VPCStatus
 </td>
 <td>
 <p>VPC contains information about the created AWS VPC and some related resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>csi</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CSI">
+CSI
+</a>
+</em>
+</td>
+<td>
+<p>CSI contains information about the created AWS CSI related resources.</p>
 </td>
 </tr>
 </tbody>
