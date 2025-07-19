@@ -32,7 +32,6 @@ import (
 	healthcheckcontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	infrastructurecontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	workercontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/webhook/backupbucket"
 	cloudproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/webhook/infrastructure"
@@ -76,7 +75,6 @@ func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 		webhookcmd.Switch(configmapwebhook.WebhookName, configmapwebhook.AddToManager),
 		webhookcmd.Switch(extensionscloudproviderwebhook.WebhookName, cloudproviderwebhook.AddToManager),
 		webhookcmd.Switch(infrastructure.WebhookName, infrastructure.AddToManager),
-		webhookcmd.Switch(backupbucket.WebhookName, backupbucket.AddToManager),
 		webhookcmd.Switch(terraformerwebhook.WebhookName, terraformerwebhook.AddToManager),
 	)
 }
