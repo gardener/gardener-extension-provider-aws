@@ -648,6 +648,50 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 			Expect(errorList).To(BeEmpty())
 		})
+
+		Context("EFS config updates", func() {
+			It("should allow setting the efs config once", func() {
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.ElasticFileSystem = &apisaws.ElasticFileSystem{
+					Enabled: true,
+				}
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should forbid updating an existing efs config", func() {
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystem{
+					Enabled: true,
+					ID:      nil,
+				}
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.ElasticFileSystem.ID = ptr.To("fs-06fbb971c2e1c6cdd")
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("elasticFileSystem"),
+				}))))
+			})
+
+			It("should forbid to remove existing efs config", func() {
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystem{
+					Enabled: true,
+				}
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.ElasticFileSystem.Enabled = false
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("elasticFileSystem"),
+				}))))
+			})
+		})
 	})
 
 	Describe("#ValidateIgnoreTags", func() {

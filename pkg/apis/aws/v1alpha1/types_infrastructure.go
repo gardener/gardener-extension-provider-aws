@@ -44,6 +44,7 @@ type InfrastructureConfig struct {
 	EnableDedicatedTenancyForVPC *bool `json:"enableDedicatedTenancyForVPC,omitempty"`
 
 	// ElasticFileSystem contains information about the EFS that should be used.
+	// This field is immutable and cannot be changed once created.
 	// +optional
 	ElasticFileSystem *ElasticFileSystem `json:"elasticFileSystem,omitempty"`
 }

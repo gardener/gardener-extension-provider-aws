@@ -39,6 +39,7 @@ type InfrastructureConfig struct {
 	EnableDedicatedTenancyForVPC *bool
 
 	// ElasticFileSystem contains optional information about the EFS that should be used.
+	// This field is immutable and cannot be changed once created.
 	ElasticFileSystem *ElasticFileSystem
 }
 

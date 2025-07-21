@@ -306,7 +306,8 @@ ElasticFileSystem
 </td>
 <td>
 <em>(Optional)</em>
-<p>ElasticFileSystem contains information about the EFS that should be used.</p>
+<p>ElasticFileSystem contains information about the EFS that should be used.
+This field is immutable and cannot be changed once created.</p>
 </td>
 </tr>
 </tbody>
