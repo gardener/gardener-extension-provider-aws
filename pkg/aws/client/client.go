@@ -135,7 +135,7 @@ func NewClient(authConfig AuthConfig) (*Client, error) {
 					middleware.BuildOutput, middleware.Metadata, error,
 				) {
 					req, ok := input.Request.(*smithyhttp.Request)
-					userAgent := []string{"Gardener Extension for AWS provider"}
+					userAgent := []string{"gardener-extension-provider-aws"}
 
 					if ok {
 						header := req.Header["User-Agent"]
