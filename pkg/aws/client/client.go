@@ -2341,6 +2341,11 @@ func IsNotFoundError(err error) bool {
 		return true
 	}
 
+	var efsMountTargetFound *efstypes.MountTargetNotFound
+	if errors.As(err, &efsMountTargetFound) {
+		return true
+	}
+
 	var apiError smithy.APIError
 	if errors.As(err, &apiError) {
 		if code := apiError.ErrorCode(); code == "NatGatewayNotFound" || strings.HasSuffix(code, ".NotFound") {

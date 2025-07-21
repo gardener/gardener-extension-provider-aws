@@ -394,6 +394,10 @@ func (c *FlowContext) deleteEfs(ctx context.Context) error {
 			return fmt.Errorf("failed to delete EFS mount targets: %w", err)
 		}
 	}
+	// delete mounts from state
+	for _, mountKeys := range c.state.GetChild(ChildEfsMountTargets).Keys() {
+		c.state.Delete(mountKeys)
+	}
 	c.state.Delete(ChildEfsMountTargets)
 
 	// delete the EFS file system only if it was created by Gardener.
