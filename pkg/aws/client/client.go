@@ -30,6 +30,8 @@ import (
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/go-logr/logr"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -122,6 +124,34 @@ func NewClient(authConfig AuthConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cfg.APIOptions = append(cfg.APIOptions, func(stack *middleware.Stack) error {
+		return stack.Build.Add(
+			middleware.BuildMiddlewareFunc(
+				"addUserAgent",
+				func(
+					ctx context.Context, input middleware.BuildInput, handler middleware.BuildHandler,
+				) (
+					middleware.BuildOutput, middleware.Metadata, error,
+				) {
+					req, ok := input.Request.(*smithyhttp.Request)
+					userAgent := []string{"gardener-extension-provider-aws"}
+
+					if ok {
+						header := req.Header["User-Agent"]
+						if len(header) == 0 {
+							header = userAgent
+						} else {
+							header = append(userAgent, header...)
+						}
+						req.Header["User-Agent"] = header
+					}
+					return handler.HandleBuild(ctx, input)
+				},
+			),
+			middleware.Before,
+		)
+	})
 
 	return &Client{
 		EC2:                           *ec2.NewFromConfig(cfg),
