@@ -562,8 +562,9 @@ var _ = Describe("Infrastructure tests", func() {
 				5*time.Minute,
 				nil,
 			)
+			Expect(err).To(HaveOccurred())
 			var errorWithCode *gardencorev1beta1helper.ErrorWithCodes
-			Expect(errors.As(err, &errorWithCode)).To(BeTrue())
+			Expect(errors.As(err, &errorWithCode)).To(BeTrue(), "actual error: %v", err)
 			Expect(errorWithCode.Codes()).To(ContainElement(gardencorev1beta1.ErrorInfraUnauthorized))
 		})
 	})

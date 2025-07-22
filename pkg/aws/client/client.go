@@ -32,6 +32,8 @@ import (
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/go-logr/logr"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -125,6 +127,34 @@ func NewClient(authConfig AuthConfig) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cfg.APIOptions = append(cfg.APIOptions, func(stack *middleware.Stack) error {
+		return stack.Build.Add(
+			middleware.BuildMiddlewareFunc(
+				"addUserAgent",
+				func(
+					ctx context.Context, input middleware.BuildInput, handler middleware.BuildHandler,
+				) (
+					middleware.BuildOutput, middleware.Metadata, error,
+				) {
+					req, ok := input.Request.(*smithyhttp.Request)
+					userAgent := []string{"gardener-extension-provider-aws"}
+
+					if ok {
+						header := req.Header["User-Agent"]
+						if len(header) == 0 {
+							header = userAgent
+						} else {
+							header = append(userAgent, header...)
+						}
+						req.Header["User-Agent"] = header
+					}
+					return handler.HandleBuild(ctx, input)
+				},
+			),
+			middleware.Before,
+		)
+	})
 
 	return &Client{
 		EC2:                           *ec2.NewFromConfig(cfg),
@@ -314,8 +344,9 @@ func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix str
 		Bucket: aws.String(bucket),
 	})
 	if err != nil {
-		if GetAWSAPIErrorCode(err) == "NoSuchBucket" {
-			// bucket doesn't exist, no action required
+		switch GetAWSAPIErrorCode(err) {
+		case NoSuchBucket, PermanentRedirect:
+			// No action required: either the bucket doesn't exist or it exists in a different region and wasn't created.
 			return nil
 		}
 		return err
@@ -461,10 +492,10 @@ func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error 
 	if _, err := c.S3.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil {
 		apiErrCode := GetAWSAPIErrorCode(err)
 		switch apiErrCode {
-		case "NoSuchBucket":
-			// bucket doesn't exist, no action required
+		case NoSuchBucket, PermanentRedirect:
+			// No action required: either the bucket doesn't exist or it exists in a different region and wasn't created.
 			return nil
-		case "BucketNotEmpty":
+		case BucketNotEmpty:
 			if err := c.DeleteObjectsWithPrefix(ctx, bucket, ""); err != nil {
 				return err
 			}
