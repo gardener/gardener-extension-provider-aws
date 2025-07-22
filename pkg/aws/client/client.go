@@ -1933,7 +1933,7 @@ func (c *Client) WaitForNATGatewayAvailable(ctx context.Context, id string) erro
 		if item, err := c.GetNATGateway(ctx, id); err != nil {
 			return false, err
 		} else {
-			return strings.EqualFold(item.State, string(ec2types.StateAvailable)), nil
+			return strings.EqualFold(item.State, string(ec2types.NatGatewayStateAvailable)), nil
 		}
 	})
 }

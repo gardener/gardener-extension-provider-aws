@@ -662,7 +662,7 @@ func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 		return err
 	}
 	for _, nat := range nats {
-		if isNATGatewayDeletingOrFailed(nat) {
+		if nat.State != string(ec2types.NatGatewayStateAvailable) {
 			continue
 		}
 		egressIPs = append(egressIPs, fmt.Sprintf("%s/32", nat.PublicIP))
