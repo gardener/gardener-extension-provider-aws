@@ -1177,18 +1177,17 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 			log.Info("creating...")
 			waiter := informOnWaiting(log, 10*time.Second, "still creating...")
 			created, err := c.client.CreateNATGateway(ctx, desired)
-			if err != nil {
-				return fmt.Errorf("creating NAT gateway failed: %w", err)
-			}
 			if created != nil {
 				waiter.UpdateMessage("waiting until available...")
-				err := c.client.WaitForNATGatewayAvailable(ctx, created.NATGatewayId)
-				waiter.Done(err)
-				child.Set(IdentifierZoneNATGateway, created.NATGatewayId)
-				err = c.PersistState(ctx)
-				if err != nil {
-					log.Info("persisting state failed", "error", err)
+				if perr := c.PersistState(ctx); perr != nil {
+					log.Info("persisting state failed", "error", perr)
 				}
+				child.Set(IdentifierZoneNATGateway, created.NATGatewayId)
+				err = c.client.WaitForNATGatewayAvailable(ctx, created.NATGatewayId)
+			}
+			waiter.Done(err)
+			if err != nil {
+				return err
 			}
 		}
 		return nil
