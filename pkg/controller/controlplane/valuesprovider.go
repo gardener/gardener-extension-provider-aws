@@ -930,7 +930,7 @@ func getControlPlaneShootChartCSIEfsValues(
 	}
 
 	if csiEfsEnabled {
-		values["fileSystemID"] = infraStatus.CSI.EfsID
+		values["fileSystemID"] = infraStatus.ElasticFileSystem.ID
 	}
 
 	return values

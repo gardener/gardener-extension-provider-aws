@@ -17,7 +17,6 @@ import (
 	"strings"
 	"text/template"
 	"time"
-	"unicode"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
@@ -1632,7 +1631,7 @@ func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 	var buffer bytes.Buffer
 	templateData := map[string]any{
 		"enableECRAccess": ptr.Deref(c.config.EnableECRAccess, true),
-		"enableEfsAccess": ptr.Deref(c.config.ElasticFileSystem, aws.ElasticFileSystem{}).Enabled,
+		"enableEfsAccess": ptr.Deref(c.config.ElasticFileSystem, aws.ElasticFileSystemConfig{}).Enabled,
 	}
 	if err := t.Execute(&buffer, templateData); err != nil {
 		return fmt.Errorf("executing policyDocument template failed: %s", err)
@@ -1721,22 +1720,12 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureEfs(ctx context.Context) error {
-	g := flow.NewGraph("AWS infrastructure reconciliation: zones")
-
-	ensureEfsFileSystem := c.AddTask(g, "ensure EFS File System",
-		c.ensureEfsCreateFileSystem,
-		Timeout(defaultTimeout))
-
-	c.AddTask(g, "ensure EFS Mount Targets",
-		c.ensureEfsMountTargets,
-		Timeout(defaultTimeout), Dependencies(ensureEfsFileSystem))
-
-	f := g.Compile()
-	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
-		return flow.Causes(err)
+	err := c.ensureEfsCreateFileSystem(ctx)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return c.ensureEfsMountTargets(ctx)
 }
 
 func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
@@ -1767,7 +1756,7 @@ func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
 
 	inputCreate := &efs.CreateFileSystemInput{
 		Tags:          c.commonTags.AddManagedTag().ToEfsTags(),
-		CreationToken: ptr.To(createEfsCreationToken(c.namespace)),
+		CreationToken: ptr.To(c.shootUUID),
 		Encrypted:     ptr.To(true),
 	}
 	efsCreate, err := c.client.CreateFileSystem(ctx, inputCreate)
@@ -1784,24 +1773,6 @@ func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
 	log.Info("created file system", "id", *efsCreate.FileSystemId)
 
 	return nil
-}
-
-// AWS uses this to ensure idempotent creation.
-func createEfsCreationToken(namespace string) string {
-	var efsCreationToken string
-	tokenCandidate := fmt.Sprintf("efs-%s", namespace)
-	// only allow ASCII chars
-	for _, r := range tokenCandidate {
-		if r <= unicode.MaxASCII {
-			efsCreationToken += string(r)
-		}
-	}
-	// restrict string to 64 characters
-	if len(efsCreationToken) > 64 {
-		efsCreationToken = efsCreationToken[:64]
-	}
-
-	return efsCreationToken
 }
 
 func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {

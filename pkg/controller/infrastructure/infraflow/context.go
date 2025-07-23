@@ -126,7 +126,7 @@ type Opts struct {
 	State          *awsapi.InfrastructureState
 	AwsClient      awsclient.Interface
 	RuntimeClient  client.Client
-	Networking     *v1beta1.Networking
+	Shoot          *v1beta1.Shoot
 }
 
 // FlowContext contains the logic to reconcile or delete the AWS infrastructure.
@@ -134,6 +134,7 @@ type FlowContext struct {
 	log           logr.Logger
 	state         shared.Whiteboard
 	namespace     string
+	shootUUID     string
 	infra         *extensionsv1alpha1.Infrastructure
 	infraSpec     extensionsv1alpha1.InfrastructureSpec
 	config        *awsapi.InfrastructureConfig
@@ -167,7 +168,8 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		infra:         opts.Infrastructure,
 		client:        opts.AwsClient,
 		runtimeClient: opts.RuntimeClient,
-		networking:    opts.Networking,
+		networking:    opts.Shoot.Spec.Networking,
+		shootUUID:     string(opts.Shoot.UID),
 	}
 	flowContext.commonTags = awsclient.Tags{
 		flowContext.tagKeyCluster(): TagValueCluster,
@@ -323,7 +325,7 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 	}
 
 	if efsID != "" {
-		status.CSI.EfsID = efsID
+		status.ElasticFileSystem.ID = efsID
 	}
 
 	return status

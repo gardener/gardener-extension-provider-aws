@@ -40,7 +40,7 @@ type InfrastructureConfig struct {
 
 	// ElasticFileSystem contains optional information about the EFS that should be used.
 	// This field is immutable and cannot be changed once created.
-	ElasticFileSystem *ElasticFileSystem
+	ElasticFileSystem *ElasticFileSystemConfig
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -54,8 +54,8 @@ type InfrastructureStatus struct {
 	IAM IAM
 	// VPC contains information about the created AWS VPC and some related resources.
 	VPC VPCStatus
-	// CSI contains information about the created AWS CSI related resources.
-	CSI CSI
+	// ElasticFileSystem contains information about the created ElasticFileSystem.
+	ElasticFileSystem ElasticFileSystemStatus
 }
 
 // Networks holds information about the Kubernetes and infrastructure networks.
@@ -127,10 +127,10 @@ type VPCStatus struct {
 	SecurityGroups []SecurityGroup
 }
 
-// CSI contains information about the created AWS CSI related resources.
-type CSI struct {
-	// EfsID contains the Elastic Files System ID.
-	EfsID string
+// ElasticFileSystemStatus contains status info about the Elastic File System (EFS).
+type ElasticFileSystemStatus struct {
+	// ID contains the Elastic Files System ID.
+	ID string
 }
 
 const (
@@ -191,8 +191,8 @@ type InfrastructureState struct {
 	Data map[string]string
 }
 
-// ElasticFileSystem holds information about the EFS storage
-type ElasticFileSystem struct {
+// ElasticFileSystemConfig holds config information about the EFS storage
+type ElasticFileSystemConfig struct {
 	// Enabled is the switch to install the CSI EFS driver
 	// if enabled:
 	// - the IAM role policy for the worker nodes shall contain permissions to access the EFS.

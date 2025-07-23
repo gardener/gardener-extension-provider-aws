@@ -299,8 +299,8 @@ default: false</p>
 <td>
 <code>elasticFileSystem</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystem">
-ElasticFileSystem
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystemConfig">
+ElasticFileSystemConfig
 </a>
 </em>
 </td>
@@ -518,36 +518,6 @@ string
 </tr>
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CSI">CSI
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
-</p>
-<p>
-<p>CSI contains information about the created AWS CSI related resources.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>efsID</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>EfsID contains the Elastic Files System ID.</p>
-</td>
-</tr>
-</tbody>
-</table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CloudControllerManagerConfig">CloudControllerManagerConfig
 </h3>
 <p>
@@ -751,14 +721,14 @@ string
 </tr>
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystem">ElasticFileSystem
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystemConfig">ElasticFileSystemConfig
 </h3>
 <p>
 (<em>Appears on:</em>
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
 </p>
 <p>
-<p>ElasticFileSystem holds information about the EFS storage</p>
+<p>ElasticFileSystemConfig holds config information about the EFS storage</p>
 </p>
 <table>
 <thead>
@@ -792,6 +762,36 @@ string
 </td>
 <td>
 <p>ID of the EFS to use. For example: fs-0272b97527ed4de53.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystemStatus">ElasticFileSystemStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
+</p>
+<p>
+<p>ElasticFileSystemStatus contains status info about the Elastic File System (EFS).</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ID contains the Elastic Files System ID.</p>
 </td>
 </tr>
 </tbody>
@@ -1078,15 +1078,15 @@ VPCStatus
 </tr>
 <tr>
 <td>
-<code>csi</code></br>
+<code>elasticFileSystem</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CSI">
-CSI
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystemStatus">
+ElasticFileSystemStatus
 </a>
 </em>
 </td>
 <td>
-<p>CSI contains information about the created AWS CSI related resources.</p>
+<p>ElasticFileSystem contains information about the created ElasticFileSystem.</p>
 </td>
 </tr>
 </tbody>

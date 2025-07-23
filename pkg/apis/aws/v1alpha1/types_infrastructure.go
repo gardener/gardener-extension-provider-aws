@@ -46,7 +46,7 @@ type InfrastructureConfig struct {
 	// ElasticFileSystem contains information about the EFS that should be used.
 	// This field is immutable and cannot be changed once created.
 	// +optional
-	ElasticFileSystem *ElasticFileSystem `json:"elasticFileSystem,omitempty"`
+	ElasticFileSystem *ElasticFileSystemConfig `json:"elasticFileSystem,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -60,8 +60,8 @@ type InfrastructureStatus struct {
 	IAM IAM `json:"iam"`
 	// VPC contains information about the created AWS VPC and some related resources.
 	VPC VPCStatus `json:"vpc"`
-	// CSI contains information about the created AWS CSI related resources.
-	CSI CSI `json:"csi"`
+	// ElasticFileSystem contains information about the created ElasticFileSystem.
+	ElasticFileSystem ElasticFileSystemStatus `json:"elasticFileSystem,omitempty"`
 }
 
 // Networks holds information about the Kubernetes and infrastructure networks.
@@ -139,10 +139,10 @@ type VPCStatus struct {
 	SecurityGroups []SecurityGroup `json:"securityGroups"`
 }
 
-// CSI contains information about the created AWS CSI related resources.
-type CSI struct {
-	// EfsID contains the Elastic Files System ID.
-	EfsID string `json:"efsID"`
+// ElasticFileSystemStatus contains status info about the Elastic File System (EFS).
+type ElasticFileSystemStatus struct {
+	// ID contains the Elastic Files System ID.
+	ID string `json:"ID"`
 }
 
 const (
@@ -203,8 +203,8 @@ type InfrastructureState struct {
 	Data map[string]string `json:"data"`
 }
 
-// ElasticFileSystem holds information about the EFS storage
-type ElasticFileSystem struct {
+// ElasticFileSystemConfig holds config information about the EFS storage
+type ElasticFileSystemConfig struct {
 	// Enabled is the switch to install the CSI EFS driver
 	// if enabled:
 	// - the IAM role policy for the worker nodes shall contain permissions to access the EFS.
@@ -212,5 +212,5 @@ type ElasticFileSystem struct {
 	// - firewall rules will be created to allow access to the EFS from the worker nodes.
 	Enabled bool `json:"enabled"`
 	// ID of the EFS to use. For example: fs-0272b97527ed4de53.
-	ID *string `json:"id"`
+	ID *string `json:"id,omitempty"`
 }

@@ -652,7 +652,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 		Context("EFS config updates", func() {
 			It("should allow setting the efs config once", func() {
 				newInfraConfig := infrastructureConfig.DeepCopy()
-				newInfraConfig.ElasticFileSystem = &apisaws.ElasticFileSystem{
+				newInfraConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
 					Enabled: true,
 				}
 
@@ -662,7 +662,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			})
 
 			It("should forbid updating an existing efs config", func() {
-				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystem{
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
 					Enabled: true,
 					ID:      nil,
 				}
@@ -678,7 +678,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			})
 
 			It("should forbid to remove existing efs config", func() {
-				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystem{
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
 					Enabled: true,
 				}
 				newInfraConfig := infrastructureConfig.DeepCopy()
