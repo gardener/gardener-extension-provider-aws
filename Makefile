@@ -84,7 +84,7 @@ start-admission:
 
 .PHONY: hook-me
 hook-me: $(KUBECTL)
-	bash $(GARDENER_HACK_DIR)/hook-me.sh $(EXTENSION_PREFIX)-$(NAME) $$(kubectl get namespace -o custom-columns=NAME:.metadata.name | grep $(NAME) | head -n1)  $(WEBHOOK_CONFIG_PORT)
+	bash $(GARDENER_HACK_DIR)/hook-me.sh $(EXTENSION_PREFIX)-$(NAME) $$(kubectl get namespace -o custom-columns=NAME:.metadata.name | grep $(NAME) | head -n1) $(WEBHOOK_CONFIG_PORT)
 
 #################################################################
 # Rules related to binary build, Docker image build and release #
