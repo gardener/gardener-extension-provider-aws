@@ -6,7 +6,6 @@ package validation
 
 import (
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -19,9 +18,6 @@ import (
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
-
-// valid values for networks.vpc.gatewayEndpoints
-var gatewayEndpointPattern = regexp.MustCompile(`^[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*$`)
 
 // ValidateInfrastructureConfigAgainstCloudProfile validates the given `InfrastructureConfig` against the given `CloudProfile`.
 func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec, fldPath *field.Path) field.ErrorList {
@@ -95,9 +91,7 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 	if len(infra.Networks.VPC.GatewayEndpoints) > 0 {
 		epsPath := networksPath.Child("vpc", "gatewayEndpoints")
 		for i, svc := range infra.Networks.VPC.GatewayEndpoints {
-			if !gatewayEndpointPattern.MatchString(svc) {
-				allErrs = append(allErrs, field.Invalid(epsPath.Index(i), svc, "must be a valid domain name"))
-			}
+			allErrs = append(allErrs, validateGatewayEndpointName(svc, epsPath.Index(i))...)
 		}
 	}
 
@@ -109,6 +103,8 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 
 	for i, zone := range infra.Networks.Zones {
 		zonePath := networksPath.Child("zones").Index(i)
+
+		allErrs = append(allErrs, validateZoneName(zone.Name, zonePath.Child("name"))...)
 
 		publicPath := zonePath.Child("public")
 		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Public, publicPath))
@@ -134,9 +130,7 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 			}
 			referencedElasticIPAllocationIDs = append(referencedElasticIPAllocationIDs, *zone.ElasticIPAllocationID)
 
-			if !strings.HasPrefix(*zone.ElasticIPAllocationID, "eipalloc-") {
-				allErrs = append(allErrs, field.Invalid(zonePath.Child("elasticIPAllocationID"), *zone.ElasticIPAllocationID, "must start with eipalloc-"))
-			}
+			allErrs = append(allErrs, validateEipAllocationID(*zone.ElasticIPAllocationID, zonePath.Child("elasticIPAllocationID"))...)
 		}
 	}
 
@@ -146,9 +140,14 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		allErrs = append(allErrs, nodes.ValidateSubset(workerCIDRs...)...)
 	}
 
-	if (infra.Networks.VPC.ID == nil && infra.Networks.VPC.CIDR == nil) || (infra.Networks.VPC.ID != nil && infra.Networks.VPC.CIDR != nil) {
+	idProvided := infra.Networks.VPC.ID != nil
+	cidrProvided := infra.Networks.VPC.CIDR != nil
+	switch {
+	case !idProvided && !cidrProvided:
 		allErrs = append(allErrs, field.Invalid(networksPath.Child("vpc"), infra.Networks.VPC, "must specify either a vpc id or a cidr"))
-	} else if infra.Networks.VPC.CIDR != nil && infra.Networks.VPC.ID == nil && !slices.Contains(ipFamilies, core.IPFamilyIPv6) {
+	case idProvided && cidrProvided:
+		allErrs = append(allErrs, field.Invalid(networksPath.Child("vpc"), infra.Networks.VPC, "cannot specify both vpc id and cidr"))
+	case cidrProvided && !idProvided && !slices.Contains(ipFamilies, core.IPFamilyIPv6):
 		cidrPath := networksPath.Child("vpc", "cidr")
 		vpcCIDR := cidrvalidation.NewCIDR(*infra.Networks.VPC.CIDR, cidrPath)
 		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(cidrPath, *infra.Networks.VPC.CIDR)...)
@@ -156,6 +155,8 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		allErrs = append(allErrs, vpcCIDR.ValidateSubset(nodes)...)
 		allErrs = append(allErrs, vpcCIDR.ValidateSubset(cidrs...)...)
 		allErrs = append(allErrs, vpcCIDR.ValidateNotOverlap(pods, services)...)
+	case idProvided && !cidrProvided:
+		allErrs = append(allErrs, validateVpcID(*infra.Networks.VPC.ID, networksPath.Child("vpc", "id"))...)
 	}
 
 	// make sure that VPC cidrs don't overlap with each other
@@ -259,8 +260,8 @@ func ValidateIgnoreTags(fldPath *field.Path, ignoreTags *apisaws.IgnoreTags) fie
 	keysPath := fldPath.Child("keys")
 	for i, key := range ignoreTags.Keys {
 		idxPath := keysPath.Index(i)
-		if key == "" {
-			allErrs = append(allErrs, field.Invalid(idxPath, key, "ignored key must not be empty"))
+		if errs := validateTagKey(key, idxPath); errs != nil {
+			allErrs = append(allErrs, errs...)
 			continue
 		}
 		allErrs = append(allErrs, validateKeyIsReserved(idxPath, key)...)
@@ -270,8 +271,8 @@ func ValidateIgnoreTags(fldPath *field.Path, ignoreTags *apisaws.IgnoreTags) fie
 	prefixesPath := fldPath.Child("keyPrefixes")
 	for i, prefix := range ignoreTags.KeyPrefixes {
 		idxPath := prefixesPath.Index(i)
-		if prefix == "" {
-			allErrs = append(allErrs, field.Invalid(idxPath, prefix, "ignored key prefix must not be empty"))
+		if errs := validateTagKey(prefix, idxPath); errs != nil {
+			allErrs = append(allErrs, errs...)
 			continue
 		}
 		allErrs = append(allErrs, validatePrefixIncludesReservedKey(idxPath, prefix)...)

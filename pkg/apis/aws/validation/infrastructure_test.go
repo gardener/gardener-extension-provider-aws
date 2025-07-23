@@ -5,6 +5,8 @@
 package validation_test
 
 import (
+	"fmt"
+
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/gardener/gardener/pkg/utils/test/matchers"
@@ -27,10 +29,10 @@ var _ = Describe("InfrastructureConfig validation", func() {
 		pods        = "100.96.0.0/11"
 		services    = "100.64.0.0/13"
 		nodes       = "10.250.0.0/16"
-		vpc         = "10.0.0.0/8"
+		vpcCIDR     = "10.0.0.0/8"
 		invalidCIDR = "invalid-cidr"
-		zone        = "zone1"
-		zone2       = "zone2"
+		zone        = "eu-central-1c"
+		zone2       = "us-east-1a"
 
 		awsZone2 = apisaws.Zone{
 			Name:     zone2,
@@ -49,7 +51,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 		infrastructureConfig = &apisaws.InfrastructureConfig{
 			Networks: apisaws.Networks{
 				VPC: apisaws.VPC{
-					CIDR: &vpc,
+					CIDR: &vpcCIDR,
 				},
 				Zones: []apisaws.Zone{
 					{
@@ -169,7 +171,76 @@ var _ = Describe("InfrastructureConfig validation", func() {
 	})
 
 	Describe("#ValidateInfrastructureConfig", func() {
+		Context("VPC", func() {
+			Context("ID", func() {
+				It("should pass with ID", func() {
+					infrastructureConfig.Networks.VPC.ID = ptr.To("vpc-064b5b7771f63317c")
+					infrastructureConfig.Networks.VPC.CIDR = nil
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).To(BeEmpty())
+				})
+
+				It("should reject setting both ID and CIDR", func() {
+					infrastructureConfig.Networks.VPC.ID = ptr.To("vpc-123456")
+					infrastructureConfig.Networks.VPC.CIDR = &vpcCIDR
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.vpc"),
+						"Detail": Equal("cannot specify both vpc id and cidr"),
+					}))
+				})
+
+				It("should reject invalid format", func() {
+					infrastructureConfig.Networks.VPC.ID = ptr.To("no-vpc-prefix-1234")
+					infrastructureConfig.Networks.VPC.CIDR = nil
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("networks.vpc.id"),
+						"Detail": Equal(fmt.Sprintf("does not match expected regex %s", VpcIDRegex)),
+					}))
+				})
+			})
+
+			Context("gatewayEndpoints", func() {
+				It("should accept empty list", func() {
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).To(BeEmpty())
+				})
+
+				It("should reject non-alphanumeric endpoints", func() {
+					infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"s3", "my-endpoint"}
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":     Equal(field.ErrorTypeInvalid),
+						"Field":    Equal("networks.vpc.gatewayEndpoints[1]"),
+						"BadValue": Equal("my-endpoint"),
+						"Detail":   Equal(fmt.Sprintf("does not match expected regex %s", GatewayEndpointRegex)),
+					}))
+				})
+
+				It("should accept all-valid lists", func() {
+					infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"myservice", "s3", "my.other.service"}
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).To(BeEmpty())
+				})
+			})
+		})
+
 		Context("Zones", func() {
+			It("should reject invalid zone name", func() {
+				infrastructureConfig.Networks.Zones[0].Name = "US-East-1a"
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("networks.zones[0].name"),
+					"Detail": Equal(fmt.Sprintf("does not match expected regex %s", ZoneNameRegex)),
+				}))
+			})
+
 			It("should forbid empty zones", func() {
 				infrastructureConfig.Networks.Zones = nil
 
@@ -369,8 +440,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = ptr.To("foo")
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("networks.zones[0].elasticIPAllocationID"),
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("networks.zones[0].elasticIPAllocationID"),
+					"Detail": Equal(fmt.Sprintf("does not match expected regex %s", EipAllocationIDRegex)),
 				}))
 
 				infrastructureConfig.Networks.Zones[0].ElasticIPAllocationID = ptr.To("eipalloc-123456")
@@ -391,30 +463,6 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = ptr.To("eipalloc-654321")
 				errorList = ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
-				Expect(errorList).To(BeEmpty())
-			})
-		})
-
-		Context("gatewayEndpoints", func() {
-			It("should accept empty list", func() {
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
-				Expect(errorList).To(BeEmpty())
-			})
-
-			It("should reject non-domain name endpoints", func() {
-				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"s3", "my_endpoint", "guardduty-data"}
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
-				Expect(errorList).To(ConsistOfFields(Fields{
-					"Type":     Equal(field.ErrorTypeInvalid),
-					"Field":    Equal("networks.vpc.gatewayEndpoints[1]"),
-					"BadValue": Equal("my_endpoint"),
-					"Detail":   Equal("must be a valid domain name"),
-				}))
-			})
-
-			It("should accept all-valid lists", func() {
-				infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"myservice", "s3", "my.other.service"}
-				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
 			})
 		})
@@ -729,6 +777,19 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("ignoreTags.keyPrefixes[1]"),
+				})),
+			))
+		})
+
+		It("should forbid invalid values", func() {
+			errorList := ValidateIgnoreTags(fldPath, &apisaws.IgnoreTags{
+				Keys: []string{"notAllowedChar{}"},
+			})
+			Expect(errorList).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("ignoreTags.keys[0]"),
+					"Detail": Equal(fmt.Sprintf("does not match expected regex %s", TagKeyRegex)),
 				})),
 			))
 		})

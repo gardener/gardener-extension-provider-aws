@@ -59,17 +59,22 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		} else {
 			dataVolumeConfigNames.Insert(dv.Name)
 		}
+
+		if id := dv.SnapshotID; id != nil {
+			allErrs = append(allErrs, validateSnapshotID(*id, idxPath.Child("snapshotID"))...)
+		}
 	}
 
 	if iam := workerConfig.IAMInstanceProfile; iam != nil {
 		if (iam.Name == nil && iam.ARN == nil) || (iam.Name != nil && iam.ARN != nil) {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("iamInstanceProfile"), iam, "either <name> or <arn> must be provided"))
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("iamInstanceProfile"), iam,
+				"exactly one of 'name' or 'arn' must be specified"))
 		}
-		if iam.Name != nil && len(*iam.Name) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("iamInstanceProfile", "name"), "name must not be empty"))
+		if iam.Name != nil {
+			allErrs = append(allErrs, validateIamInstanceProfileName(*iam.Name, fldPath.Child("iamInstanceProfile", "name"))...)
 		}
-		if iam.ARN != nil && len(*iam.ARN) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("iamInstanceProfile", "arn"), "arn must not be empty"))
+		if iam.ARN != nil {
+			allErrs = append(allErrs, validateIamInstanceProfileArn(*iam.ARN, fldPath.Child("iamInstanceProfile", "arn"))...)
 		}
 	}
 

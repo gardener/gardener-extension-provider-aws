@@ -12,11 +12,17 @@ import (
 )
 
 // ValidateControlPlaneConfig validates a ControlPlaneConfig object.
-func ValidateControlPlaneConfig(controlPlaneConfig *apisaws.ControlPlaneConfig, version string, fldPath *field.Path) field.ErrorList {
+func ValidateControlPlaneConfig(cpConfig *apisaws.ControlPlaneConfig, version string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if controlPlaneConfig.CloudControllerManager != nil {
-		allErrs = append(allErrs, featurevalidation.ValidateFeatureGates(controlPlaneConfig.CloudControllerManager.FeatureGates, version, fldPath.Child("cloudControllerManager", "featureGates"))...)
+	if cpConfig.CloudControllerManager != nil {
+		allErrs = append(allErrs, featurevalidation.ValidateFeatureGates(cpConfig.CloudControllerManager.FeatureGates, version, fldPath.Child("cloudControllerManager", "featureGates"))...)
+	}
+
+	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.IngressClassName != nil {
+		ingressClassName := *cpConfig.LoadBalancerController.IngressClassName
+		ingressPath := fldPath.Child("loadBalancerController", "ingressClassName")
+		allErrs = append(allErrs, validateK8sResourceName(ingressClassName, ingressPath)...)
 	}
 
 	return allErrs
