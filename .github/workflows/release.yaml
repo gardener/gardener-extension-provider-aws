@@ -2,11 +2,18 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      release-version:
+        type: choice
+        options:
+          - noop
+          - finalize
+        description: 'Select whether to modify the release version.'
       next-version:
         type: choice
         options:
           - bump-minor
           - bump-patch
+        description: 'Select the type of version bump for the next release.'
 
 
 jobs:
@@ -14,6 +21,7 @@ jobs:
     uses: ./.github/workflows/build.yaml
     with:
       mode: release
+      release-version: ${{ inputs.release-version }}
 
   release-to-github-and-bump:
     uses: gardener/cc-utils/.github/workflows/release.yaml@master
