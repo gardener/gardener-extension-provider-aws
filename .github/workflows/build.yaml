@@ -33,29 +33,40 @@ jobs:
       - name: verify
         run: |
           set -eu
-          make verify-extended
-          tar czf gosec-report.tar.gz gosec-report.sarif
-      - name: add-report-to-component-descriptor
+          mkdir /tmp/blobs.d
+          make verify-extended |& tee /tmp/blobs.d/verify-log.txt
+          tar czf /tmp/blobs.d/verify-log.tar.gz -C/tmp/blobs.d verify-log.txt
+          tar czf /tmp/blobs.d/gosec-report.tar.gz gosec-report.sarif
+      - name: add-reports-to-component-descriptor
         uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
         with:
-          blobs-directory: .
+          blobs-directory: /tmp/blobs.d
           ocm-resources: |
-            name: gosec-report
-            relation: local
-            access:
-              type: localBlob
-              localReference: gosec-report.tar.gz
-            labels:
-              - name: gardener.cloud/purposes
-                value:
-                  - lint
-                  - sast
-                  - pybandit
-              - name: gardener.cloud/comment
-                value: |
-                  we use gosec (linter) for SAST Scans.
-                  see: https://github.com/securego/gosec
-                  enabled by: https://github.com/gardener/gardener-extension-provider-aws/pull/112
+            - name: gosec-report
+              relation: local
+              access:
+                type: localBlob
+                localReference: gosec-report.tar.gz
+              labels:
+                - name: gardener.cloud/purposes
+                  value:
+                    - lint
+                    - sast
+                    - pybandit
+                - name: gardener.cloud/comment
+                  value: |
+                    we use gosec (linter) for SAST Scans.
+                    see: https://github.com/securego/gosec
+                    enabled by: https://github.com/gardener/gardener-extension-provider-aws/pull/112
+            - name: test-results
+              relation: local
+              access:
+                type: localBlob
+                localReference: verify-log.tar.gz
+              labels:
+                - name: gardener.cloud/purposes
+                  value:
+                    - test
 
   oci-images:
     name: Build OCI-Images
