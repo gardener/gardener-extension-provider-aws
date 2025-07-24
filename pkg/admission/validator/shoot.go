@@ -163,8 +163,12 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 		return errList.ToAggregate()
 	}
 
-	if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, fldPath.Child("workers")); len(errList) != 0 {
-		return errList.ToAggregate()
+	if shoot.DeletionTimestamp == nil {
+		// If the Shoot is being deleted, we do not validate the workers against the cloud
+		// profile, as the workers will be deleted anyway.
+		if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, fldPath.Child("workers")); len(errList) != 0 {
+			return errList.ToAggregate()
+		}
 	}
 
 	return s.validateShoot(ctx, shoot)
