@@ -5,7 +5,7 @@ on:
     inputs:
       release-version:
         type: string
-        default: noop
+        default: set-prerelease
       mode:
         required: true
         type: string
