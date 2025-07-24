@@ -7,6 +7,7 @@ package validator_test
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -41,6 +42,7 @@ var _ = Describe("Shoot validator", func() {
 			c                      *mockclient.MockClient
 			cloudProfile           *gardencorev1beta1.CloudProfile
 			namespacedCloudProfile *gardencorev1beta1.NamespacedCloudProfile
+			oldShoot               *core.Shoot
 			shoot                  *core.Shoot
 
 			ctx                       = context.Background()
@@ -188,6 +190,8 @@ var _ = Describe("Shoot validator", func() {
 					},
 				},
 			}
+
+			oldShoot = shoot.DeepCopy()
 		})
 
 		Context("Shoot creation (old is nil)", func() {
@@ -423,6 +427,124 @@ var _ = Describe("Shoot validator", func() {
 				c.EXPECT().Get(ctx, namespacedCloudProfileKey, &gardencorev1beta1.NamespacedCloudProfile{}).SetArg(2, *namespacedCloudProfile)
 
 				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("shoot update validation", func() {
+			It("should return error if old InfrastructureConfig is nil", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				oldShoot.Spec.Provider.InfrastructureConfig = nil
+
+				err := shootValidator.Validate(ctx, shoot, oldShoot)
+				Expect(err).To(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInternal),
+					"Field": Equal("spec.provider.infrastructureConfig"),
+				})))
+			})
+
+			It("should return error if old InfrastructureConfig fails to decode", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				oldShoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{Raw: []byte("invalid")}
+
+				err := shootValidator.Validate(ctx, shoot, oldShoot)
+				Expect(err).To(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.provider.infrastructureConfig"),
+				})))
+			})
+
+			It("should return error if InfrastructureConfig update is invalid", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{
+					Raw: encode(&apisawsv1alpha1.InfrastructureConfig{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: apisawsv1alpha1.SchemeGroupVersion.String(),
+							Kind:       "InfrastructureConfig",
+						},
+						Networks: apisawsv1alpha1.Networks{
+							Zones: []apisawsv1alpha1.Zone{
+								{
+									Name: "zone1",
+								},
+							},
+						},
+					}),
+				}
+
+				oldShoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{
+					Raw: encode(&apisawsv1alpha1.InfrastructureConfig{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: apisawsv1alpha1.SchemeGroupVersion.String(),
+							Kind:       "InfrastructureConfig",
+						},
+						Networks: apisawsv1alpha1.Networks{
+							Zones: []apisawsv1alpha1.Zone{
+								{
+									Name: "zone2",
+								},
+							},
+						},
+					}),
+				}
+
+				err := shootValidator.Validate(ctx, shoot, oldShoot)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("networks.zones[0].name"),
+					"Detail": Equal("field is immutable"),
+				}))))
+			})
+
+			It("should return error if worker update is invalid", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Provider.Workers[0].Zones = []string{"zone2"}
+
+				err := shootValidator.Validate(ctx, shoot, oldShoot)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("spec.provider.workers[0].zones"),
+					"Detail": Equal("field is immutable"),
+				}))))
+			})
+
+			It("should return error if worker update is invalid against CloudProfile", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Provider.Workers[0].Machine.Image = &core.ShootMachineImage{
+					Name:    "Bar",
+					Version: imageVersion,
+				}
+
+				err := shootValidator.Validate(ctx, shoot, oldShoot)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("spec.provider.workers[0].machine.image"),
+					"Detail": ContainSubstring("could not find an AMI for region"),
+				}))))
+			})
+
+			It("should not return error if worker update is invalid against CloudProfile is shoot has deletion timestamp", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Provider.Workers[0].Machine.Image = &core.ShootMachineImage{
+					Name:    "Bar",
+					Version: imageVersion,
+				}
+				shoot.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+
+				err := shootValidator.Validate(ctx, shoot, oldShoot)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should succeed for valid Shoot update", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				err := shootValidator.Validate(ctx, shoot, oldShoot)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
