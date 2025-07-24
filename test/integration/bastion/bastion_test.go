@@ -180,7 +180,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 	}()
 
-	// test client should be uncached and independent from the tested manager
+	// test client should be uncached and independent of the tested manager
 	c, err = client.New(cfg, client.Options{
 		Scheme: mgr.GetScheme(),
 		Mapper: mgr.GetRESTMapper(),
@@ -386,10 +386,10 @@ func teardownShootEnvironment(ctx context.Context, c client.Client, namespace *c
 	Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
 }
 
-func setupBastion(ctx context.Context, awsClient *awsclient.Client, c client.Client, name string, cluster *controller.Cluster) (*extensionsv1alpha1.Bastion, *bastionctrl.Options) {
+func setupBastion(ctx context.Context, awsClient *awsclient.Client, c client.Client, name string, cluster *controller.Cluster) (*extensionsv1alpha1.Bastion, bastionctrl.Options) {
 	bastion := newBastion(name)
 
-	options, err := bastionctrl.DetermineOptions(ctx, bastion, cluster, awsClient)
+	options, err := bastionctrl.NewOpts(ctx, bastion, cluster, awsClient)
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(c.Create(ctx, bastion)).To(Succeed())
@@ -559,12 +559,12 @@ func randomString() (string, error) {
 	return suffix, nil
 }
 
-func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, options *bastionctrl.Options, groupName string) ec2types.SecurityGroup {
+func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, options bastionctrl.Options, groupName string) ec2types.SecurityGroup {
 	output, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String(awsclient.FilterVpcID),
-				Values: []string{options.VPCID},
+				Values: []string{options.VpcID},
 			},
 			{
 				Name:   awssdk.String("group-name"),
@@ -582,7 +582,7 @@ func getSecurityGroup(ctx context.Context, awsClient *awsclient.Client, options 
 func verifyCreation(
 	ctx context.Context,
 	awsClient *awsclient.Client,
-	options *bastionctrl.Options,
+	options bastionctrl.Options,
 ) {
 	accountID, err := awsClient.GetAccountID(ctx)
 	Expect(err).NotTo(HaveOccurred())
@@ -661,14 +661,14 @@ func verifyCreation(
 func verifyDeletion(
 	ctx context.Context,
 	awsClient *awsclient.Client,
-	options *bastionctrl.Options,
+	options bastionctrl.Options,
 ) {
 	// bastion security group should be gone
 	output, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
 		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String(awsclient.FilterVpcID),
-				Values: []string{options.VPCID},
+				Values: []string{options.VpcID},
 			},
 			{
 				Name:   awssdk.String("group-name"),

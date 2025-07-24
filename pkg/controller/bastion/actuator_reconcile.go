@@ -21,33 +21,37 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
 
 func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster) error {
+	ctx = logf.IntoContext(ctx, log)
+
 	awsClient, err := a.getAWSClient(ctx, bastion, cluster.Shoot)
 	if err != nil {
 		return util.DetermineError(fmt.Errorf("failed to create AWS client: %w", err), helper.KnownCodes)
 	}
 
-	opt, err := DetermineOptions(ctx, bastion, cluster, awsClient)
+	opts, err := NewOpts(ctx, bastion, cluster, awsClient)
 	if err != nil {
 		return util.DetermineError(fmt.Errorf("failed to setup AWS client options: %w", err), helper.KnownCodes)
 	}
 
-	opt.BastionSecurityGroupID, err = ensureSecurityGroup(ctx, log, bastion, awsClient, opt)
+	opts.BastionSecurityGroupID, err = ensureSecurityGroup(ctx, bastion, awsClient, opts.BaseOptions)
 	if err != nil {
 		return util.DetermineError(fmt.Errorf("failed to ensure security group: %w", err), helper.KnownCodes)
 	}
 
-	endpoints, err := ensureBastionInstance(ctx, log, bastion, awsClient, opt)
+	endpoints, err := ensureBastionInstance(ctx, bastion, awsClient, opts)
 	if err != nil {
 		return util.DetermineError(fmt.Errorf("failed to ensure bastion instance: %w", err), helper.KnownCodes)
 	}
 
-	if err := ensureWorkerPermissions(ctx, log, awsClient, opt); err != nil {
+	if err := ensureWorkerPermissions(ctx, awsClient, opts); err != nil {
 		return util.DetermineError(fmt.Errorf("failed to authorize bastion host in worker security group: %w", err), helper.KnownCodes)
 	}
 
@@ -68,17 +72,90 @@ func (a *actuator) Reconcile(ctx context.Context, log logr.Logger, bastion *exte
 	return a.client.Status().Patch(ctx, bastion, patch)
 }
 
-func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *Options) (string, error) {
-	group, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.BastionSecurityGroupName)
+// ensureSecurityGroup ensures the security group is created and configured.
+func ensureSecurityGroup(ctx context.Context, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt BaseOptions) (string, error) {
+	securityGroup, err := createSecurityGroup(ctx, awsClient, opt)
 	if err != nil {
 		return "", err
 	}
 
+	if err := authorizeIngress(ctx, awsClient, bastion, securityGroup); err != nil {
+		return "", err
+	}
+
+	if err := authorizeEgress(ctx, awsClient, securityGroup, opt); err != nil {
+		return "", err
+	}
+
+	return *securityGroup.GroupId, nil
+}
+
+// createSecurityGroup creates a new security group and returns its ID.
+func createSecurityGroup(ctx context.Context, awsClient *awsclient.Client, opt BaseOptions) (*ec2types.SecurityGroup, error) {
+	log := shared.LogFromContext(ctx)
+
+	// check if the security group already exists
+	group, err := getSecurityGroup(ctx, awsClient, opt.VpcID, opt.BastionSecurityGroupName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for existing security group: %w", err)
+	}
+
+	if group != nil && group.GroupId != nil {
+		return group, nil
+	}
+
+	log.Info("Creating bastion security group", "name", opt.BastionSecurityGroupName, "vpcID", opt.VpcID)
+	_, err = awsClient.EC2.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
+		GroupName:   aws.String(opt.BastionSecurityGroupName),
+		Description: aws.String("Bastion security group"),
+		VpcId:       aws.String(opt.VpcID),
+		TagSpecifications: []ec2types.TagSpecification{
+			{
+				ResourceType: ec2types.ResourceTypeSecurityGroup,
+				Tags: []ec2types.Tag{
+					{
+						Key:   aws.String("Name"),
+						Value: aws.String(opt.BastionSecurityGroupName),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not create security group: %w", err)
+	}
+	log.Info("Created bastion security group", "name", opt.BastionSecurityGroupName)
+	return getSecurityGroup(ctx, awsClient, opt.VpcID, opt.BastionSecurityGroupName)
+}
+
+// authorizeIngress adds ingress rules to the security group.
+func authorizeIngress(ctx context.Context, awsClient *awsclient.Client, bastion *extensionsv1alpha1.Bastion, group *ec2types.SecurityGroup) error {
 	// prepare rules
 	ingressPermission, err := ingressPermissions(ctx, bastion)
 	if err != nil {
-		return "", fmt.Errorf("invalid ingress rules configured for bastion: %w", err)
+		return fmt.Errorf("invalid ingress rules configured for bastion: %w", err)
 	}
+
+	hasIngressPermissions := securityGroupHasPermissions(group.IpPermissions, *ingressPermission)
+
+	if !hasIngressPermissions {
+		shared.LogFromContext(ctx).Info("Authorizing ingress bastion security group", "name", group.GroupId)
+
+		_, err = awsClient.EC2.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+			GroupId:       group.GroupId,
+			IpPermissions: []ec2types.IpPermission{*ingressPermission},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to authorize ingress: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// authorizeEgress adds egress rules to the security group.
+func authorizeEgress(ctx context.Context, awsClient *awsclient.Client, group *ec2types.SecurityGroup, opt BaseOptions) error {
+	log := shared.LogFromContext(ctx)
 
 	egressPermission := ec2types.IpPermission{
 		FromPort:   aws.Int32(SSHPort),
@@ -91,72 +168,20 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 		},
 	}
 
-	// create group if it doesn't exist yet
-	var (
-		groupID               *string
-		hasIngressPermissions = false
-		hasEgressPermissions  = false
-	)
-
-	if group == nil {
-		logger.Info("Creating security group")
-		output, err := awsClient.EC2.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
-			Description: aws.String("SSH access for Bastion"),
-			GroupName:   aws.String(opt.BastionSecurityGroupName),
-			VpcId:       aws.String(opt.VPCID),
-			TagSpecifications: []ec2types.TagSpecification{
-				{
-					ResourceType: ec2types.ResourceTypeSecurityGroup,
-					Tags: []ec2types.Tag{
-						{
-							Key:   aws.String("Name"),
-							Value: aws.String(opt.BastionSecurityGroupName),
-						},
-					},
-				},
-			},
-		})
-		if err != nil {
-			return "", fmt.Errorf("could not create security group: %w", err)
-		}
-
-		groupID = output.GroupId
-	} else {
-		groupID = group.GroupId
-		hasIngressPermissions = securityGroupHasPermissions(group.IpPermissions, *ingressPermission)
-		hasEgressPermissions = securityGroupHasPermissions(group.IpPermissionsEgress, egressPermission)
-	}
-
-	if !hasIngressPermissions {
-		logger.Info("Authorizing SSH ingress")
-
-		_, err = awsClient.EC2.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
-			GroupId:       groupID,
-			IpPermissions: []ec2types.IpPermission{*ingressPermission},
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to authorize ingress: %w", err)
-		}
-	}
+	hasEgressPermissions := securityGroupHasPermissions(group.IpPermissionsEgress, egressPermission)
 
 	if !hasEgressPermissions {
-		logger.Info("Revoking bastion egress")
-
-		_, err = awsClient.EC2.AuthorizeSecurityGroupEgress(ctx, &ec2.AuthorizeSecurityGroupEgressInput{
-			GroupId:       groupID,
+		log.Info("Authorizing egress bastion security group", "name", opt.BastionSecurityGroupName)
+		_, err := awsClient.EC2.AuthorizeSecurityGroupEgress(ctx, &ec2.AuthorizeSecurityGroupEgressInput{
+			GroupId:       group.GroupId,
 			IpPermissions: []ec2types.IpPermission{egressPermission},
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to revoke egress: %w", err)
+			return fmt.Errorf("failed to authorize egress: %w", err)
 		}
 	}
 
 	// remove all additional egress rules (like the default "allow all" rule created by AWS)
-	group, err = getSecurityGroup(ctx, awsClient, opt.VPCID, opt.BastionSecurityGroupName)
-	if err != nil {
-		return "", err
-	}
-
 	var permsToDelete []ec2types.IpPermission
 	for i, perm := range group.IpPermissionsEgress {
 		if !ipPermissionsEqual(perm, egressPermission) {
@@ -165,18 +190,18 @@ func ensureSecurityGroup(ctx context.Context, logger logr.Logger, bastion *exten
 	}
 
 	if len(permsToDelete) > 0 {
-		logger.Info("Revoking default bastion egress")
+		log.Info("Revoking default bastion egress", "groupID", *group.GroupId)
 
-		_, err = awsClient.EC2.RevokeSecurityGroupEgress(ctx, &ec2.RevokeSecurityGroupEgressInput{
-			GroupId:       groupID,
+		_, err := awsClient.EC2.RevokeSecurityGroupEgress(ctx, &ec2.RevokeSecurityGroupEgressInput{
+			GroupId:       group.GroupId,
 			IpPermissions: permsToDelete,
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to revoke egress: %w", err)
+			return fmt.Errorf("failed to revoke egress: %w", err)
 		}
 	}
 
-	return *groupID, nil
+	return nil
 }
 
 // ingressPermissions converts the Ingress rules from the Bastion resource to EC2-compatible
@@ -248,7 +273,7 @@ func IngressReady(ingress *corev1.LoadBalancerIngress) bool {
 	return ingress != nil && (ingress.Hostname != "" || ingress.IP != "")
 }
 
-func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt *Options) (*bastionEndpoints, error) {
+func ensureBastionInstance(ctx context.Context, bastion *extensionsv1alpha1.Bastion, awsClient *awsclient.Client, opt Options) (*bastionEndpoints, error) {
 	// check if the instance already exists and has an IP
 	endpoints, err := getInstanceEndpoints(ctx, awsClient, opt.InstanceName)
 	if err != nil { // could not check for instance
@@ -293,7 +318,7 @@ func ensureBastionInstance(ctx context.Context, logger logr.Logger, bastion *ext
 		input.NetworkInterfaces[0].PrimaryIpv6 = aws.Bool(true)
 	}
 
-	logger.Info("Running new bastion instance")
+	shared.LogFromContext(ctx).Info("Running new bastion instance")
 
 	_, err = awsClient.EC2.RunInstances(ctx, input)
 	if err != nil {
@@ -361,8 +386,8 @@ func addressToIngress(dnsName *string, ipAddress *string) *corev1.LoadBalancerIn
 
 // ensureWorkerPermissions authorizes the bastion host's private IP to access
 // the worker nodes on port 22.
-func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient *awsclient.Client, opt *Options) error {
-	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opt.VPCID, opt.WorkerSecurityGroupName)
+func ensureWorkerPermissions(ctx context.Context, awsClient *awsclient.Client, opts Options) error {
+	workerSecurityGroup, err := getSecurityGroup(ctx, awsClient, opts.VpcID, opts.WorkerSecurityGroupName)
 	if err != nil {
 		return fmt.Errorf("failed to fetch worker security group: %w", err)
 	}
@@ -370,13 +395,13 @@ func ensureWorkerPermissions(ctx context.Context, logger logr.Logger, awsClient 
 		return fmt.Errorf("cannot find security group for workers")
 	}
 
-	permission := workerSecurityGroupPermission(opt)
+	permission := workerSecurityGroupPermission(opts.BaseOptions)
 
 	if !securityGroupHasPermissions(workerSecurityGroup.IpPermissions, permission) {
-		logger.Info("Authorizing SSH ingress to worker nodes")
+		shared.LogFromContext(ctx).Info("Authorizing SSH ingress to worker nodes")
 
 		_, err = awsClient.EC2.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
-			GroupId:       aws.String(opt.WorkerSecurityGroupID),
+			GroupId:       aws.String(opts.WorkerSecurityGroupID),
 			IpPermissions: []ec2types.IpPermission{permission},
 		})
 	}
