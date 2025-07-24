@@ -23,10 +23,17 @@ jobs:
       mode: release
       release-version: ${{ inputs.release-version }}
 
+  integration-tests:
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/run-integration-tests.yaml
+
   release-to-github-and-bump:
     uses: gardener/cc-utils/.github/workflows/release.yaml@master
     needs:
       - build
+      - integration-tests
     secrets:
       github-app-secret-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
     with:
