@@ -117,7 +117,6 @@ func ValidateWorkersAgainstCloudProfileOnUpdate(oldWorkers, newWorkers []core.Wo
 		}
 		// Validate only new Workers (i.e. the cases where w was not reassigned above) or those whose image has changed.
 		if w.Name == "" || newWorker.Machine.Image != w.Machine.Image {
-			fmt.Printf("Validating %v", newWorker.Name)
 			allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(newWorker, region, awsCloudProfile, fldPath.Index(i))...)
 		}
 	}
