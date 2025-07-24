@@ -1,3 +1,4 @@
+name: github.com/gardener/gardener-extension-provider-aws
 labels:
   - name: cloud.gardener.cnudie/responsibles
     value:
