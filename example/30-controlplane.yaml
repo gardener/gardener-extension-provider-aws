@@ -36,7 +36,7 @@ spec:
       networking:
         pods: 10.250.0.0/19
       kubernetes:
-        version: 1.28.2
+        version: 1.32.0
       hibernation:
         enabled: false
     status:
