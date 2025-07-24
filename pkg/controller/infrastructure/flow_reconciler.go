@@ -81,7 +81,7 @@ func (f *FlowReconciler) Reconcile(ctx context.Context, infra *extensionsv1alpha
 		State:          infraState,
 		RuntimeClient:  f.client,
 		AwsClient:      awsClient,
-		Networking:     c.Shoot.Spec.Networking,
+		Shoot:          c.Shoot,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)
@@ -110,7 +110,7 @@ func (f *FlowReconciler) Delete(ctx context.Context, infra *extensionsv1alpha1.I
 		State:          infraState,
 		AwsClient:      awsClient,
 		RuntimeClient:  f.client,
-		Networking:     c.Shoot.Spec.Networking,
+		Shoot:          c.Shoot,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)

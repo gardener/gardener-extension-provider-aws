@@ -15,6 +15,8 @@ import (
 	time "time"
 
 	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	efs "github.com/aws/aws-sdk-go-v2/service/efs"
+	types0 "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	client "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -175,6 +177,21 @@ func (mr *MockInterfaceMockRecorder) CreateElasticIP(ctx, eip any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateElasticIP", reflect.TypeOf((*MockInterface)(nil).CreateElasticIP), ctx, eip)
 }
 
+// CreateFileSystem mocks base method.
+func (m *MockInterface) CreateFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*types0.FileSystemDescription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateFileSystem", ctx, input)
+	ret0, _ := ret[0].(*types0.FileSystemDescription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateFileSystem indicates an expected call of CreateFileSystem.
+func (mr *MockInterfaceMockRecorder) CreateFileSystem(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFileSystem", reflect.TypeOf((*MockInterface)(nil).CreateFileSystem), ctx, input)
+}
+
 // CreateIAMInstanceProfile mocks base method.
 func (m *MockInterface) CreateIAMInstanceProfile(ctx context.Context, profile *client.IAMInstanceProfile) (*client.IAMInstanceProfile, error) {
 	m.ctrl.T.Helper()
@@ -218,6 +235,21 @@ func (m *MockInterface) CreateInternetGateway(ctx context.Context, gateway *clie
 func (mr *MockInterfaceMockRecorder) CreateInternetGateway(ctx, gateway any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInternetGateway", reflect.TypeOf((*MockInterface)(nil).CreateInternetGateway), ctx, gateway)
+}
+
+// CreateMountTargetEfs mocks base method.
+func (m *MockInterface) CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.CreateMountTargetOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateMountTargetEfs", ctx, input)
+	ret0, _ := ret[0].(*efs.CreateMountTargetOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateMountTargetEfs indicates an expected call of CreateMountTargetEfs.
+func (mr *MockInterfaceMockRecorder) CreateMountTargetEfs(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMountTargetEfs", reflect.TypeOf((*MockInterface)(nil).CreateMountTargetEfs), ctx, input)
 }
 
 // CreateNATGateway mocks base method.
@@ -480,6 +512,20 @@ func (mr *MockInterfaceMockRecorder) DeleteElasticIP(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteElasticIP", reflect.TypeOf((*MockInterface)(nil).DeleteElasticIP), ctx, id)
 }
 
+// DeleteFileSystem mocks base method.
+func (m *MockInterface) DeleteFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFileSystem", ctx, input)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteFileSystem indicates an expected call of DeleteFileSystem.
+func (mr *MockInterfaceMockRecorder) DeleteFileSystem(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFileSystem", reflect.TypeOf((*MockInterface)(nil).DeleteFileSystem), ctx, input)
+}
+
 // DeleteIAMInstanceProfile mocks base method.
 func (m *MockInterface) DeleteIAMInstanceProfile(ctx context.Context, profileName string) error {
 	m.ctrl.T.Helper()
@@ -548,6 +594,20 @@ func (m *MockInterface) DeleteKeyPair(ctx context.Context, keyName string) error
 func (mr *MockInterfaceMockRecorder) DeleteKeyPair(ctx, keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKeyPair", reflect.TypeOf((*MockInterface)(nil).DeleteKeyPair), ctx, keyName)
+}
+
+// DeleteMountTargetEfs mocks base method.
+func (m *MockInterface) DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteMountTargetEfs", ctx, input)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteMountTargetEfs indicates an expected call of DeleteMountTargetEfs.
+func (mr *MockInterfaceMockRecorder) DeleteMountTargetEfs(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMountTargetEfs", reflect.TypeOf((*MockInterface)(nil).DeleteMountTargetEfs), ctx, input)
 }
 
 // DeleteNATGateway mocks base method.
@@ -704,6 +764,21 @@ func (mr *MockInterfaceMockRecorder) DeleteVpcEndpointRouteTableAssociation(ctx,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcEndpointRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).DeleteVpcEndpointRouteTableAssociation), ctx, routeTableId, vpcEndpointId)
 }
 
+// DescribeMountTargetsEfs mocks base method.
+func (m *MockInterface) DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeMountTargetsEfs", ctx, input)
+	ret0, _ := ret[0].(*efs.DescribeMountTargetsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeMountTargetsEfs indicates an expected call of DescribeMountTargetsEfs.
+func (mr *MockInterfaceMockRecorder) DescribeMountTargetsEfs(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeMountTargetsEfs", reflect.TypeOf((*MockInterface)(nil).DescribeMountTargetsEfs), ctx, input)
+}
+
 // DetachInternetGateway mocks base method.
 func (m *MockInterface) DetachInternetGateway(ctx context.Context, vpcId, internetGatewayId string) error {
 	m.ctrl.T.Helper()
@@ -790,6 +865,21 @@ func (m *MockInterface) FindElasticIPsByTags(ctx context.Context, tags client.Ta
 func (mr *MockInterfaceMockRecorder) FindElasticIPsByTags(ctx, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindElasticIPsByTags", reflect.TypeOf((*MockInterface)(nil).FindElasticIPsByTags), ctx, tags)
+}
+
+// FindFileSystemsByTags mocks base method.
+func (m *MockInterface) FindFileSystemsByTags(ctx context.Context, tags client.Tags) ([]*types0.FileSystemDescription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindFileSystemsByTags", ctx, tags)
+	ret0, _ := ret[0].([]*types0.FileSystemDescription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindFileSystemsByTags indicates an expected call of FindFileSystemsByTags.
+func (mr *MockInterfaceMockRecorder) FindFileSystemsByTags(ctx, tags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindFileSystemsByTags", reflect.TypeOf((*MockInterface)(nil).FindFileSystemsByTags), ctx, tags)
 }
 
 // FindInternetGatewayByVPC mocks base method.
@@ -1060,6 +1150,21 @@ func (m *MockInterface) GetElasticIPsAssociationIDForAllocationIDs(ctx context.C
 func (mr *MockInterfaceMockRecorder) GetElasticIPsAssociationIDForAllocationIDs(ctx, allocationIDs any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetElasticIPsAssociationIDForAllocationIDs", reflect.TypeOf((*MockInterface)(nil).GetElasticIPsAssociationIDForAllocationIDs), ctx, allocationIDs)
+}
+
+// GetFileSystems mocks base method.
+func (m *MockInterface) GetFileSystems(ctx context.Context, fileSystemID string) (*types0.FileSystemDescription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFileSystems", ctx, fileSystemID)
+	ret0, _ := ret[0].(*types0.FileSystemDescription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFileSystems indicates an expected call of GetFileSystems.
+func (mr *MockInterfaceMockRecorder) GetFileSystems(ctx, fileSystemID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileSystems", reflect.TypeOf((*MockInterface)(nil).GetFileSystems), ctx, fileSystemID)
 }
 
 // GetIAMInstanceProfile mocks base method.

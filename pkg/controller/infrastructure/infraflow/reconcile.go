@@ -19,6 +19,7 @@ import (
 	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -98,6 +99,10 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 	ensureZones := c.AddTask(g, "ensure zones resources",
 		c.ensureZones,
 		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
+
+	_ = c.AddTask(g, "ensure efs file system",
+		c.ensureEfs,
+		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout), Dependencies(ensureZones))
 
 	_ = c.AddTask(g, "ensure subnet cidr reservation",
 		c.ensureSubnetCidrReservation,
@@ -595,9 +600,17 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 			Protocol: "udp",
 		}
 
+		ruleEfsInboundNFS := &awsclient.SecurityGroupRule{
+			Type:     awsclient.SecurityGroupRuleTypeIngress,
+			FromPort: 2049,
+			ToPort:   2049,
+			Protocol: "tcp",
+		}
+
 		if isIPv4(c.getIpFamilies()) {
 			ruleNodesInternalTCP.CidrBlocks = []string{zone.Internal}
 			ruleNodesInternalUDP.CidrBlocks = []string{zone.Internal}
+			ruleEfsInboundNFS.CidrBlocks = []string{zone.Internal}
 			ruleNodesPublicTCP.CidrBlocks = []string{zone.Public}
 			ruleNodesPublicUDP.CidrBlocks = []string{zone.Public}
 		}
@@ -616,11 +629,15 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 				}
 				ruleNodesInternalTCP.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
 				ruleNodesInternalUDP.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
+				ruleEfsInboundNFS.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
 				ruleNodesPublicTCP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
 				ruleNodesPublicUDP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
 			}
 		}
 		desired.Rules = append(desired.Rules, ruleNodesInternalTCP, ruleNodesInternalUDP, ruleNodesPublicTCP, ruleNodesPublicUDP)
+		if c.isCsiEfsEnabled() {
+			desired.Rules = append(desired.Rules, ruleEfsInboundNFS)
+		}
 	}
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
@@ -1571,7 +1588,22 @@ const iamRolePolicyTemplate = `{
       "Resource": [
         "*"
       ]
-    }{{ if .enableECRAccess }},
+    }{{ if .enableEfsAccess }},
+	{
+      "Effect": "Allow",
+      "Action": [
+        "elasticfilesystem:DescribeAccessPoints",
+        "elasticfilesystem:DescribeFileSystems",
+        "elasticfilesystem:DescribeMountTargets",
+        "elasticfilesystem:CreateAccessPoint",
+        "elasticfilesystem:DeleteAccessPoint",
+        "elasticfilesystem:TagResource",
+        "ec2:DescribeAvailabilityZones"
+      ],
+      "Resource": [
+        "*"
+      ]
+	}{{ end }}{{ if .enableECRAccess }},
     {
       "Effect": "Allow",
       "Action": [
@@ -1592,16 +1624,16 @@ const iamRolePolicyTemplate = `{
 
 func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 	log := LogFromContext(ctx)
-	enableECRAccess := true
-	if v := c.config.EnableECRAccess; v != nil {
-		enableECRAccess = *v
-	}
 	t, err := template.New("policyDocument").Parse(iamRolePolicyTemplate)
 	if err != nil {
 		return fmt.Errorf("parsing policyDocument template failed: %s", err)
 	}
 	var buffer bytes.Buffer
-	if err := t.Execute(&buffer, map[string]any{"enableECRAccess": enableECRAccess}); err != nil {
+	templateData := map[string]any{
+		"enableECRAccess": ptr.Deref(c.config.EnableECRAccess, true),
+		"enableEfsAccess": ptr.Deref(c.config.ElasticFileSystem, aws.ElasticFileSystemConfig{}).Enabled,
+	}
+	if err := t.Execute(&buffer, templateData); err != nil {
 		return fmt.Errorf("executing policyDocument template failed: %s", err)
 	}
 
@@ -1682,6 +1714,157 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 		c.state.Set(NameKeyPair, info.KeyName)
 		c.state.Set(KeyPairFingerprint, info.KeyFingerprint)
 		c.state.Set(KeyPairSpecFingerprint, specFingerprint)
+	}
+
+	return nil
+}
+
+func (c *FlowContext) ensureEfs(ctx context.Context) error {
+	err := c.ensureEfsCreateFileSystem(ctx)
+	if err != nil {
+		return err
+	}
+
+	return c.ensureEfsMountTargets(ctx)
+}
+
+func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
+	log := LogFromContext(ctx)
+
+	current, err := FindExisting(ctx, c.state.Get(IdentifierManagedEfsID), c.commonTags.AddManagedTag(),
+		c.client.GetFileSystems, c.client.FindFileSystemsByTags)
+	if err != nil {
+		return fmt.Errorf("failed to find managed EFS file system: %w", err)
+	}
+
+	// check for user provided EFS file system
+	if c.config.ElasticFileSystem.ID != nil && current != nil {
+		if err := c.deleteEfs(ctx); err != nil {
+			return fmt.Errorf("failed to delete managed EFS file system: %w", err)
+		}
+		c.state.Delete(IdentifierManagedEfsID)
+	}
+	if c.config.ElasticFileSystem.ID != nil {
+		return nil
+	}
+
+	// check if we already created an EFS file system
+	if current != nil {
+		c.state.Set(IdentifierManagedEfsID, *current.FileSystemId)
+		return nil
+	}
+
+	inputCreate := &efs.CreateFileSystemInput{
+		Tags:          c.commonTags.AddManagedTag().ToEfsTags(),
+		CreationToken: ptr.To(c.shootUUID),
+		Encrypted:     ptr.To(true),
+	}
+	efsCreate, err := c.client.CreateFileSystem(ctx, inputCreate)
+	if err != nil {
+		return err
+	}
+
+	if efsCreate == nil || efsCreate.FileSystemId == nil {
+		return fmt.Errorf("the created file system id is <nil>")
+	}
+
+	c.state.Set(IdentifierManagedEfsID, *efsCreate.FileSystemId)
+
+	log.Info("created file system", "id", *efsCreate.FileSystemId)
+
+	return nil
+}
+
+func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
+	log := LogFromContext(ctx)
+
+	var efsID *string
+	switch {
+	case c.config.ElasticFileSystem.ID != nil:
+		efsID = c.config.ElasticFileSystem.ID
+	case c.state.Get(IdentifierManagedEfsID) != nil:
+		efsID = c.state.Get(IdentifierManagedEfsID)
+	default:
+		return fmt.Errorf("trying to ensure efs mount targets, but efs id is not set")
+	}
+
+	securityGroupID := c.state.Get(IdentifierNodesSecurityGroup)
+	if securityGroupID == nil {
+		return fmt.Errorf("security group not found in state")
+	}
+
+	mountTargetsToCreate := make(map[string]*efs.CreateMountTargetInput)
+	childMountTargets := c.state.GetChild(ChildEfsMountTargets)
+	existingMountTargetKeys := childMountTargets.Keys()
+	childZones := c.state.GetChild(ChildIdZones)
+
+	for _, zoneKey := range childZones.GetChildrenKeys() {
+		zoneChild := childZones.GetChild(zoneKey)
+		// every zone must have a subnet for workers, we use this subnet for the mount target
+		subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers)
+		if subnetID == nil {
+			return fmt.Errorf("subnet not found in state")
+		}
+
+		mountKey := fmt.Sprintf("%s_%s_%s", *efsID, *subnetID, *securityGroupID)
+		mountInput := &efs.CreateMountTargetInput{
+			FileSystemId:   efsID,
+			SubnetId:       subnetID,
+			SecurityGroups: []string{*securityGroupID},
+		}
+		mountTargetsToCreate[mountKey] = mountInput
+
+		if slices.Contains(existingMountTargetKeys, mountKey) {
+			continue
+		}
+
+		// check if mount target already exists but was not in state
+		mountTargetOutput, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
+			FileSystemId: efsID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to describe mount targets for EFS %s: %w", *efsID, err)
+		}
+		if mountTargetOutput != nil && len(mountTargetOutput.MountTargets) > 0 {
+			containsSubnet, mountTargetID := mountTargetsContainSubnet(mountTargetOutput.MountTargets, *subnetID)
+			if containsSubnet {
+				log.Info("found existing EFS mount target", "MountTargetId", mountTargetID, "SubnetId", *subnetID)
+				childMountTargets.Set(mountKey, mountTargetID)
+				continue
+			}
+		}
+
+		log.Info("creating EFS mount target", "SubnetId", *mountInput.SubnetId)
+		output, err := c.client.CreateMountTargetEfs(ctx, mountInput)
+		if err != nil {
+			return err
+		}
+		if output.MountTargetId == nil {
+			return fmt.Errorf("got empty mount target id in response")
+		}
+		log.Info("created EFS mount target", "SubnetId", *mountInput.SubnetId)
+
+		childMountTargets.Set(mountKey, *output.MountTargetId)
+	}
+
+	// delete unused mount targets
+	for _, existingMountTargetKey := range existingMountTargetKeys {
+		if _, ok := mountTargetsToCreate[existingMountTargetKey]; ok {
+			continue
+		}
+
+		// this mount target is not in the list of mount targets to create, so we delete it
+		mountTargetID := childMountTargets.Get(existingMountTargetKey)
+		if mountTargetID == nil {
+			return fmt.Errorf("mount target id not found in state for key %s", existingMountTargetKey)
+		}
+		err := c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
+			MountTargetId: mountTargetID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete mount target id %s: %w", *mountTargetID, err)
+		}
+		childMountTargets.Delete(existingMountTargetKey)
 	}
 
 	return nil

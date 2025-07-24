@@ -94,6 +94,11 @@ const (
 	// KeyPairSpecFingerprint is the key to store the fingerprint of the public key from the spec
 	KeyPairSpecFingerprint = "KeyPairSpecFingerprint"
 
+	// IdentifierManagedEfsID is the key for the EFS system ID
+	IdentifierManagedEfsID = "efsSystemID"
+	// ChildEfsMountTargets is the children key for the EFS mount targets
+	ChildEfsMountTargets = "efsMountTargets"
+
 	// ChildIdVPCEndpoints is the child key for the VPC endpoints
 	ChildIdVPCEndpoints = "VPCEndpoints"
 	// ChildIdZones is the child key for the zones
@@ -121,7 +126,7 @@ type Opts struct {
 	State          *awsapi.InfrastructureState
 	AwsClient      awsclient.Interface
 	RuntimeClient  client.Client
-	Networking     *v1beta1.Networking
+	Shoot          *v1beta1.Shoot
 }
 
 // FlowContext contains the logic to reconcile or delete the AWS infrastructure.
@@ -129,6 +134,7 @@ type FlowContext struct {
 	log           logr.Logger
 	state         shared.Whiteboard
 	namespace     string
+	shootUUID     string
 	infra         *extensionsv1alpha1.Infrastructure
 	infraSpec     extensionsv1alpha1.InfrastructureSpec
 	config        *awsapi.InfrastructureConfig
@@ -162,7 +168,8 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		infra:         opts.Infrastructure,
 		client:        opts.AwsClient,
 		runtimeClient: opts.RuntimeClient,
-		networking:    opts.Networking,
+		networking:    opts.Shoot.Spec.Networking,
+		shootUUID:     string(opts.Shoot.UID),
 	}
 	flowContext.commonTags = awsclient.Tags{
 		flowContext.tagKeyCluster(): TagValueCluster,
@@ -243,6 +250,11 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 	ec2KeyName := ptr.Deref(c.state.Get(NameKeyPair), "")
 	iamInstanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
 	arnIAMRole := ptr.Deref(c.state.Get(ARNIAMRole), "")
+	efsID := ptr.Deref(c.state.Get(IdentifierManagedEfsID), "")
+	// check if user provided a custom EFS ID
+	if c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.ID != nil {
+		efsID = *c.config.ElasticFileSystem.ID
+	}
 
 	if c.config.Networks.VPC.ID != nil {
 		vpcID = *c.config.Networks.VPC.ID
@@ -310,6 +322,10 @@ func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureS
 				ARN:     arnIAMRole,
 			},
 		}
+	}
+
+	if efsID != "" {
+		status.ElasticFileSystem.ID = efsID
 	}
 
 	return status
@@ -387,6 +403,10 @@ func (c *FlowContext) zoneSuffixHelpers(zoneName string) *ZoneSuffixHelper {
 			return &ZoneSuffixHelper{suffix: suffix}
 		}
 	}
+}
+
+func (c *FlowContext) isCsiEfsEnabled() bool {
+	return c.config != nil && c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.Enabled
 }
 
 // ZoneSuffixHelper provides methods to create suffices for various resources

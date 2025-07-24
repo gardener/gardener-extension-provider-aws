@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 )
 
 // Tags is map of string key to string values. Duplicate keys are not supported in AWS.
@@ -49,6 +50,42 @@ func (tags Tags) ToEC2Tags() []ec2types.Tag {
 		cp = append(cp, ec2types.Tag{Key: aws.String(k), Value: aws.String(v)})
 	}
 	return cp
+}
+
+// ToEfsTags exports the tags map as a EFS Tag array.
+func (tags Tags) ToEfsTags() []efstypes.Tag {
+	var cp []efstypes.Tag
+	for k, v := range tags {
+		cp = append(cp, efstypes.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+	return cp
+}
+
+// ContainEfsTags checks if the tags map contains all the key-value pairs from the given EFS tags.
+func (tags Tags) ContainEfsTags(efsTags []efstypes.Tag) bool {
+	efsTagMap := make(map[string]string)
+	for _, tag := range efsTags {
+		efsTagMap[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
+	}
+
+	for k, v := range tags {
+		if efsTagMap[k] != v {
+			return false
+		}
+	}
+
+	return true
+}
+
+// AddManagedTag adds the "managed-by-gardener" tag to the tags map if it does not already exist.
+func (tags Tags) AddManagedTag() Tags {
+	if tags == nil {
+		tags = Tags{}
+	}
+	if _, exists := tags["managed-by-gardener"]; !exists {
+		tags["managed-by-gardener"] = "true"
+	}
+	return tags
 }
 
 // ToFilters exports the tags map as a EC2 Filter array.

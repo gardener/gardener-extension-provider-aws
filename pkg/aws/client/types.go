@@ -12,6 +12,8 @@ import (
 	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -191,6 +193,15 @@ type Interface interface {
 	// EC2 tags
 	CreateEC2Tags(ctx context.Context, resources []string, tags Tags) error
 	DeleteEC2Tags(ctx context.Context, resources []string, tags Tags) error
+
+	// Efs
+	GetFileSystems(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error)
+	FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efstypes.FileSystemDescription, error)
+	CreateFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efstypes.FileSystemDescription, error)
+	DeleteFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error
+	DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error)
+	CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.CreateMountTargetOutput, error)
+	DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error
 }
 
 // Factory creates instances of Interface.

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/utils/flow"
 
@@ -49,6 +50,10 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 		c.deleteIAMRolePolicy,
 		Timeout(defaultTimeout))
 
+	deleteEfs := c.AddTask(g, "delete efs file system",
+		c.deleteEfs,
+		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout))
+
 	deleteIAMInstanceProfile := c.AddTask(g, "delete IAM instance profile",
 		c.deleteIAMInstanceProfile,
 		Timeout(defaultTimeout), Dependencies(deleteIAMRolePolicy))
@@ -59,7 +64,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 
 	deleteZones := c.AddTask(g, "delete zones resources",
 		c.deleteZones,
-		DoIf(c.hasVPC()), Timeout(defaultLongTimeout))
+		DoIf(c.hasVPC()), Timeout(defaultLongTimeout), Dependencies(deleteEfs))
 
 	deleteNodesSecurityGroup := c.AddTask(g, "delete nodes security group",
 		c.deleteNodesSecurityGroup,
@@ -364,5 +369,91 @@ func (c *FlowContext) deleteKeyPair(ctx context.Context) error {
 		return err
 	}
 	c.state.Delete(NameKeyPair)
+	return nil
+}
+
+func (c *FlowContext) deleteEfs(ctx context.Context) error {
+	log := LogFromContext(ctx)
+
+	managedEfs, err := FindExisting(ctx, c.state.Get(IdentifierManagedEfsID), c.commonTags.AddManagedTag(),
+		c.client.GetFileSystems, c.client.FindFileSystemsByTags)
+	if err != nil {
+		return fmt.Errorf("failed to find managed EFS file system: %w", err)
+	}
+
+	// delete mount targets that were created by this shoot
+	var efsIDs []*string
+	if c.config.ElasticFileSystem.ID != nil {
+		efsIDs = append(efsIDs, c.config.ElasticFileSystem.ID)
+	}
+	if managedEfs != nil && managedEfs.FileSystemId != nil {
+		efsIDs = append(efsIDs, managedEfs.FileSystemId)
+	}
+	for _, efsID := range efsIDs {
+		if err := c.deleteEfsMountTargets(ctx, efsID); err != nil {
+			return fmt.Errorf("failed to delete EFS mount targets: %w", err)
+		}
+	}
+	// delete mounts from state
+	for _, mountKeys := range c.state.GetChild(ChildEfsMountTargets).Keys() {
+		c.state.Delete(mountKeys)
+	}
+	c.state.Delete(ChildEfsMountTargets)
+
+	// delete the EFS file system only if it was created by Gardener.
+	if managedEfs != nil && managedEfs.FileSystemId != nil {
+		log.Info("deleting...", "efsFileSystem", *managedEfs.FileSystemId)
+		err := c.client.DeleteFileSystem(ctx, &efs.DeleteFileSystemInput{
+			FileSystemId: managedEfs.FileSystemId,
+		})
+		if err != nil {
+			return err
+		}
+		c.state.Delete(IdentifierManagedEfsID)
+	}
+
+	return nil
+}
+
+func (c *FlowContext) deleteEfsMountTargets(ctx context.Context, efsID *string) error {
+	log := LogFromContext(ctx)
+
+	output, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
+		FileSystemId: efsID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to describe mount targets for EFS %s: %w", *efsID, err)
+	}
+	if output == nil || len(output.MountTargets) == 0 {
+		log.Info("no mount targets found for EFS", "efsFileSystem", *efsID)
+		return nil
+	}
+
+	// delete mount targets that were created by this shoot
+	for _, mountTarget := range output.MountTargets {
+		if mountTarget.SubnetId == nil {
+			continue
+		}
+		subnets, err := c.client.GetSubnets(ctx, []string{*mountTarget.SubnetId})
+		if err != nil {
+			return fmt.Errorf("failed to describe subnets for deleting EFS mounts %s: %w", *efsID, err)
+		}
+		if len(subnets) != 1 {
+			return fmt.Errorf("expected exactly one subnet for mount target %s, got %d", *mountTarget.MountTargetId, len(subnets))
+		}
+		// check if mount target was created by this shoot
+		if subnets[0].Tags == nil || subnets[0].Tags[c.tagKeyCluster()] != TagValueCluster {
+			continue
+		}
+		log.Info("deleting...", "mountTargetId", *mountTarget.MountTargetId)
+		err = c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
+			MountTargetId: mountTarget.MountTargetId,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete mount target id %s: %w", *mountTarget.MountTargetId, err)
+		}
+		log.Info("deleted", "mountTargetId", *mountTarget.MountTargetId)
+	}
+
 	return nil
 }
