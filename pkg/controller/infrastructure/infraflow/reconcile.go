@@ -841,6 +841,11 @@ func (c *FlowContext) addSubnetReconcileTasks(g *flow.Graph, desired, current *a
 		return nil, err
 	}
 	suffix := fmt.Sprintf("%s-%s", zoneName, subnetKey)
+	if ptr.Deref(desired.AssignIpv6AddressOnCreation, true) {
+		return c.AddTask(g, "ensure subnet "+suffix,
+			c.ensureSubnetIPv6(subnetKey, desired, current),
+			Timeout(defaultTimeout)), nil
+	}
 	return c.AddTask(g, "ensure subnet "+suffix,
 		c.ensureSubnet(subnetKey, desired, current),
 		Timeout(defaultTimeout)), nil
@@ -929,6 +934,34 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 		return func(ctx context.Context) error {
 			log := LogFromContext(ctx)
 			log.Info("creating...")
+			created, err := c.client.CreateSubnet(ctx, desired, defaultTimeout)
+			if err != nil {
+				return err
+			}
+			zoneChild.Set(subnetKey, created.SubnetId)
+			return nil
+		}
+	}
+	return func(ctx context.Context) error {
+		zoneChild.Set(subnetKey, current.SubnetId)
+		modified, err := c.updater.UpdateSubnet(ctx, desired, current)
+		if err != nil {
+			return err
+		}
+		if modified {
+			log := LogFromContext(ctx)
+			log.Info("updated")
+		}
+		return nil
+	}
+}
+
+func (c *FlowContext) ensureSubnetIPv6(subnetKey string, desired, current *awsclient.Subnet) flow.TaskFn {
+	zoneChild := c.getSubnetZoneChildByItem(desired)
+	if current == nil {
+		return func(ctx context.Context) error {
+			log := LogFromContext(ctx)
+			log.Info("creating...")
 			var lastErr error
 			for attempts := 0; attempts < 256; attempts++ {
 				created, err := c.client.CreateSubnet(ctx, desired, defaultTimeout)
@@ -940,11 +973,11 @@ func (c *FlowContext) ensureSubnet(subnetKey string, desired, current *awsclient
 				apiErrCode := awsclient.GetAWSAPIErrorCode(err)
 				if apiErrCode == "InvalidSubnet.Conflict" {
 					log.Info("CIDR conflict, trying next CIDR block")
-					newCIDRs, nextErr := calcNextIPCidrBlock(desired.Ipv6CidrBlocks[0])
+					newCIDRs, nextErr := calcNextIPv6CidrBlock(desired.Ipv6CidrBlocks[0])
 					if nextErr != nil {
 						return nextErr
 					}
-					desired.Ipv6CidrBlocks = newCIDRs
+					desired.Ipv6CidrBlocks = []string{newCIDRs}
 					lastErr = err
 					continue
 				}
@@ -1795,16 +1828,20 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 	return fmt.Sprintf("%s/%d", subnetIP.String(), newPrefixLength), nil
 }
 
-func calcNextIPCidrBlock(currentSubnetCIDR string) ([]string, error) {
+// calcNextIPv6CidrBlock returns the next IPv6 /64 subnet CIDR block within the same /56 VPC range.
+// It increments the 8th byte of the IP address (index 7) to generate the next subnet.
+// This is used to avoid subnet conflicts when creating IPv6 subnets.
+// Returns an error if the maximum index (255) is reached or the input CIDR is invalid.
+func calcNextIPv6CidrBlock(currentSubnetCIDR string) (string, error) {
 	ip, _, err := net.ParseCIDR(currentSubnetCIDR)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse CIDR: %v", err)
+		return "", fmt.Errorf("failed to parse CIDR: %v", err)
 	}
 
 	currentIndex := int(ip[7])
 
 	if currentIndex >= 255 {
-		return nil, fmt.Errorf("already at maximum index (255) within /56 range")
+		return "", fmt.Errorf("already at maximum index (255) within /56 range")
 	}
 
 	nextIndex := currentIndex + 1
@@ -1815,5 +1852,5 @@ func calcNextIPCidrBlock(currentSubnetCIDR string) ([]string, error) {
 
 	nextCIDR := fmt.Sprintf("%s/64", nextIP.String())
 
-	return []string{nextCIDR}, nil
+	return nextCIDR, nil
 }
