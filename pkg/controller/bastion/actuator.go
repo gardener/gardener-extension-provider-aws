@@ -137,7 +137,7 @@ func getSecurityGroupIDs(userGroupPairs []ec2types.UserIdGroupPair) sets.Set[str
 
 // workerSecurityGroupPermission returns the set of permissions that need to be added
 // to the worker security group to allow SSH ingress from the bastion instance.
-func workerSecurityGroupPermission(opt *Options) ec2types.IpPermission {
+func workerSecurityGroupPermission(opt BaseOptions) ec2types.IpPermission {
 	return ec2types.IpPermission{
 		IpProtocol: ptr.To("tcp"),
 		FromPort:   ptr.To(int32(SSHPort)),
