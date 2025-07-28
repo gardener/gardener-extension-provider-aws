@@ -73,6 +73,11 @@ The ranges can be sized according to the expected amount of load balancers per z
 
 The IPv6 address ranges are provided by AWS. It is ensured that the IPv6 ranges are globally unique und internet routable.
 
+Network interfaces with prefixes are supported with [Nitro-based instances](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#instance-hypervisor-type).
+
+> [!WARNING]
+> Please make sure that your specified instance type for IPv6 is nitro-based. The same is valid for dual-stack.
+
 ### Load Balancer Configuration
 
 The AWS Load Balancer Controller is automatically deployed when using an IPv6-only shoot cluster.
