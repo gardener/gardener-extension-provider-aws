@@ -127,7 +127,7 @@ images:
   # NOTE: Please make sure to copy new image versions when updating the version by adding them to
   #       https://github.com/gardener/ci-infra/blob/master/config/images/images.yaml.
   repository: europe-docker.pkg.dev/gardener-project/releases/3rd/eks/aws-load-balancer-controller
-  tag: "v2.11.0"
+  tag: "v2.13.3"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
       value:
