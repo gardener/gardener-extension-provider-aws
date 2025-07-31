@@ -842,7 +842,7 @@ func (c *FlowContext) addSubnetReconcileTasks(g *flow.Graph, desired, current *a
 	}
 	suffix := fmt.Sprintf("%s-%s", zoneName, subnetKey)
 	if ptr.Deref(desired.AssignIpv6AddressOnCreation, true) {
-		return c.AddTask(g, "ensure subnet "+suffix,
+		return c.AddTask(g, "ensure IPv6 subnet "+suffix,
 			c.ensureSubnetIPv6(subnetKey, desired, current),
 			Timeout(defaultTimeout)), nil
 	}
