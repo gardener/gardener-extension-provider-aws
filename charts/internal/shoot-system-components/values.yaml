@@ -6,3 +6,5 @@ aws-custom-route-controller:
   enabled: false
 aws-load-balancer-controller:
   enabled: false
+csi-driver-efs-node:
+  enabled: false

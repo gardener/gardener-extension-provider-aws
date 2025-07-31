@@ -532,6 +532,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 					}),
+					aws.CSIEfsNodeName: enabledFalse,
 				}))
 			})
 		})
@@ -552,6 +553,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 					}),
+					aws.CSIEfsNodeName: enabledFalse,
 				}))
 			})
 		})
@@ -572,6 +574,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 					}),
+					aws.CSIEfsNodeName: enabledFalse,
 				}))
 			})
 		})
@@ -608,6 +611,7 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 					}),
+					aws.CSIEfsNodeName: enabledFalse,
 				}))
 			})
 		})

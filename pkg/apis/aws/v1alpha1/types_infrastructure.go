@@ -42,6 +42,11 @@ type InfrastructureConfig struct {
 	// default: false
 	// +optional
 	EnableDedicatedTenancyForVPC *bool `json:"enableDedicatedTenancyForVPC,omitempty"`
+
+	// ElasticFileSystem contains information about the EFS that should be used.
+	// This field is immutable and cannot be changed once created.
+	// +optional
+	ElasticFileSystem *ElasticFileSystemConfig `json:"elasticFileSystem,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -55,6 +60,8 @@ type InfrastructureStatus struct {
 	IAM IAM `json:"iam"`
 	// VPC contains information about the created AWS VPC and some related resources.
 	VPC VPCStatus `json:"vpc"`
+	// ElasticFileSystem contains information about the created ElasticFileSystem.
+	ElasticFileSystem ElasticFileSystemStatus `json:"elasticFileSystem,omitempty"`
 }
 
 // Networks holds information about the Kubernetes and infrastructure networks.
@@ -132,6 +139,12 @@ type VPCStatus struct {
 	SecurityGroups []SecurityGroup `json:"securityGroups"`
 }
 
+// ElasticFileSystemStatus contains status info about the Elastic File System (EFS).
+type ElasticFileSystemStatus struct {
+	// ID contains the Elastic Files System ID.
+	ID string `json:"ID"`
+}
+
 const (
 	// PurposeNodes is a constant describing that the respective resource is used for nodes.
 	PurposeNodes string = "nodes"
@@ -188,4 +201,16 @@ type InfrastructureState struct {
 	metav1.TypeMeta
 
 	Data map[string]string `json:"data"`
+}
+
+// ElasticFileSystemConfig holds config information about the EFS storage
+type ElasticFileSystemConfig struct {
+	// Enabled is the switch to install the CSI EFS driver
+	// if enabled:
+	// - the IAM role policy for the worker nodes shall contain permissions to access the EFS.
+	// - an EFS will be created if the ID is not specified.
+	// - firewall rules will be created to allow access to the EFS from the worker nodes.
+	Enabled bool `json:"enabled"`
+	// ID of the EFS to use. For example: fs-0272b97527ed4de53.
+	ID *string `json:"id,omitempty"`
 }

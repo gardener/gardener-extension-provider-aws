@@ -176,6 +176,11 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.InfrastructureConfig) field.ErrorList {
 	allErrs := field.ErrorList{}
 
+	// only allowed to be set once
+	if oldConfig.ElasticFileSystem != nil {
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.ElasticFileSystem, oldConfig.ElasticFileSystem, field.NewPath("elasticFileSystem"))...)
+	}
+
 	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.EnableDedicatedTenancyForVPC, oldConfig.EnableDedicatedTenancyForVPC, field.NewPath("enableDedicatedTenancyForVPC"))...)
 
 	vpcPath := field.NewPath("networks.vpc")

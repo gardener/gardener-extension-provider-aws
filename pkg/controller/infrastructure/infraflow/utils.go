@@ -13,6 +13,7 @@ import (
 	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
@@ -197,4 +198,13 @@ func mmap[T any, R any](in []T, f func(t T) R) []R {
 		res = append(res, f(v))
 	}
 	return res
+}
+
+func mountTargetsContainSubnet(mountTargets []efstypes.MountTargetDescription, subnetID string) (bool, string) {
+	for _, mt := range mountTargets {
+		if mt.SubnetId != nil && mt.MountTargetId != nil && *mt.SubnetId == subnetID {
+			return true, *mt.MountTargetId
+		}
+	}
+	return false, ""
 }

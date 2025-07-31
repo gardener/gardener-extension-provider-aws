@@ -20,6 +20,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing"
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing/types"
 	elbv2 "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -88,6 +90,7 @@ type Client struct {
 	S3                            s3.Client
 	ELB                           elb.Client
 	ELBv2                         elbv2.Client
+	EFS                           efs.Client
 	Route53                       route53.Client
 	Route53RateLimiter            *rate.Limiter
 	Route53RateLimiterWaitTimeout time.Duration
@@ -160,6 +163,7 @@ func NewClient(authConfig AuthConfig) (*Client, error) {
 		IAM:                           *iam.NewFromConfig(cfg),
 		STS:                           *sts.NewFromConfig(cfg),
 		S3:                            *s3.NewFromConfig(cfg),
+		EFS:                           *efs.NewFromConfig(cfg),
 		Route53:                       *route53.NewFromConfig(cfg),
 		Route53RateLimiter:            rate.NewLimiter(rate.Inf, 0),
 		Route53RateLimiterWaitTimeout: 1 * time.Second,
@@ -2218,6 +2222,101 @@ func (c *Client) DeleteIAMRolePolicy(ctx context.Context, policyName, roleName s
 	return ignoreNotFound(err)
 }
 
+// GetFileSystems retrieve information about an efs file system by its ID
+func (c *Client) GetFileSystems(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error) {
+	output, err := c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{
+		FileSystemId: &fileSystemID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(output.FileSystems) != 1 {
+		return nil, fmt.Errorf("expected 1 file system, got %d", len(output.FileSystems))
+	}
+	return &output.FileSystems[0], nil
+}
+
+// FindFileSystemsByTags retrieve information about an efs file system by its ID
+func (c *Client) FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efstypes.FileSystemDescription, error) {
+	var result []*efstypes.FileSystemDescription
+
+	output, err := c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{})
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+
+	for _, fs := range output.FileSystems {
+		tagsResp, err := c.EFS.ListTagsForResource(ctx, &efs.ListTagsForResourceInput{
+			ResourceId: fs.FileSystemId,
+		})
+		if err != nil {
+			c.Logger.Info("could not get tags for fs %s: %v", *fs.FileSystemId, err)
+			continue
+		}
+
+		if tags.ContainEfsTags(tagsResp.Tags) {
+			result = append(result, &fs)
+		}
+	}
+
+	return result, nil
+}
+
+// CreateFileSystem creates an efs file system
+func (c *Client) CreateFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efstypes.FileSystemDescription, error) {
+	output, err := c.EFS.CreateFileSystem(ctx, input)
+	if ignoreAlreadyExists(err) != nil {
+		return nil, err
+	}
+	if output == nil || output.FileSystemId == nil {
+		return nil, fmt.Errorf("efs file system creation failed, no FileSystemId returned")
+	}
+
+	var fsDescription *efstypes.FileSystemDescription
+	err = c.PollImmediateUntil(ctx, func(ctx context.Context) (bool, error) {
+		fsDescription, err = c.GetFileSystems(ctx, *output.FileSystemId)
+		if err != nil {
+			return true, err
+		}
+		if fsDescription.LifeCycleState == efstypes.LifeCycleStateAvailable {
+			return true, nil
+		}
+		return false, nil
+	})
+	return fsDescription, err
+}
+
+// DeleteFileSystem deletes an efs file system
+func (c *Client) DeleteFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
+	_, err := c.EFS.DeleteFileSystem(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// DescribeMountTargetsEfs describes an efs mount target
+func (c *Client) DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
+	output, err := c.EFS.DescribeMountTargets(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	return output, nil
+}
+
+// CreateMountTargetEfs creates an efs mount target
+// You can create one mount target in each Availability Zone in your VPC. All EC2
+// instances in a VPC within a given Availability Zone share a single mount target
+// for a given file system. If you have multiple subnets in an Availability Zone,
+// you create a mount target in one of the subnets. EC2 instances do not need to be
+// in the same subnet as the mount target in order to access their file system.
+func (c *Client) CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.CreateMountTargetOutput, error) {
+	return c.EFS.CreateMountTarget(ctx, input)
+}
+
+// DeleteMountTargetEfs deletes an efs mount target
+func (c *Client) DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error {
+	_, err := c.EFS.DeleteMountTarget(ctx, input)
+	return ignoreNotFound(err)
+}
+
 // CreateEC2Tags creates the tags for the given EC2 resource identifiers
 func (c *Client) CreateEC2Tags(ctx context.Context, resources []string, tags Tags) error {
 	input := &ec2.CreateTagsInput{
@@ -2250,6 +2349,12 @@ func (c *Client) PollUntil(ctx context.Context, condition wait.ConditionWithCont
 	return wait.PollUntilContextCancel(ctx, c.PollInterval, false, condition)
 }
 
+// IsAlreadyExistsError returns true if an AWS resource already exists.
+func IsAlreadyExistsError(err error) bool {
+	var efsAlreadyExists *efstypes.FileSystemAlreadyExists
+	return errors.As(err, &efsAlreadyExists)
+}
+
 // IsNotFoundError returns true if the given error is a awserr.Error indicating that an AWS resource was not found.
 func IsNotFoundError(err error) bool {
 	var apnf *elbtypes.AccessPointNotFoundException
@@ -2259,6 +2364,16 @@ func IsNotFoundError(err error) bool {
 
 	var nse *iamtypes.NoSuchEntityException
 	if errors.As(err, &nse) {
+		return true
+	}
+
+	var efsNotFound *efstypes.FileSystemNotFound
+	if errors.As(err, &efsNotFound) {
+		return true
+	}
+
+	var efsMountTargetFound *efstypes.MountTargetNotFound
+	if errors.As(err, &efsMountTargetFound) {
 		return true
 	}
 
@@ -2291,6 +2406,13 @@ func IsAlreadyDetachedError(err error) bool {
 		}
 	}
 	return false
+}
+
+func ignoreAlreadyExists(err error) error {
+	if err == nil || IsAlreadyExistsError(err) {
+		return nil
+	}
+	return err
 }
 
 func ignoreNotFound(err error) error {
