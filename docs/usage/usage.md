@@ -819,6 +819,7 @@ End-users might want to update their custom `StorageClass`es to the new `ebs.csi
 
 
 To deploy the efs-csi-driver add the `elasticFileSystem` section in your infrastructureConfig like in this [example](#example-shoot-manifest-one-availability-zone).
+This feature is only available for shoots with [flow reconciler](#flow-infrastructure-reconciler).
 Currently, both the controller deployment and the node daemonset will be deployed into the shoot cluster.
 The necessary IAM privileges will be added to the node instance profile, allowing the driver to access them via the EC2 Metadata Service.
 You can also use an existing elastic file system by specifying the `id` field in the `elasticFileSystem` section.
