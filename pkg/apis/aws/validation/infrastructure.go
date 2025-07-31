@@ -194,23 +194,48 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 		newZones = newConfig.Networks.Zones
 	)
 
-	if len(oldZones) > len(newZones) {
-		allErrs = append(allErrs, field.Forbidden(field.NewPath("networks.zones"), "removing zones is not allowed"))
-		return allErrs
+	// TODO: @hebelsan remove check after duplicate zones got migrated
+	if !removedDuplicateZones(oldZones, newZones) {
+		if len(oldZones) > len(newZones) {
+			allErrs = append(allErrs, field.Forbidden(field.NewPath("networks.zones"), "removing zones is not allowed"))
+			return allErrs
+		}
+
+		for i, oldZone := range oldZones {
+			idxPath := field.NewPath("networks.zones").Index(i)
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Name, newConfig.Networks.Zones[i].Name, idxPath.Child("name"))...)
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Public, newConfig.Networks.Zones[i].Public, idxPath.Child("public"))...)
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Internal, newConfig.Networks.Zones[i].Internal, idxPath.Child("internal"))...)
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Workers, newConfig.Networks.Zones[i].Workers, idxPath.Child("workers"))...)
+		}
 	}
 
-	for i, oldZone := range oldZones {
-		idxPath := field.NewPath("networks.zones").Index(i)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Name, newConfig.Networks.Zones[i].Name, idxPath.Child("name"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Public, newConfig.Networks.Zones[i].Public, idxPath.Child("public"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Internal, newConfig.Networks.Zones[i].Internal, idxPath.Child("internal"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Workers, newConfig.Networks.Zones[i].Workers, idxPath.Child("workers"))...)
-	}
 	if oldConfig.DualStack != nil && oldConfig.DualStack.Enabled && (newConfig.DualStack == nil || !newConfig.DualStack.Enabled) {
 		dualStackPath := field.NewPath("dualStack.enabled")
 		allErrs = append(allErrs, field.Forbidden(dualStackPath, "field can't be changed from \"true\" to \"false\""))
 	}
 	return allErrs
+}
+
+// removeDuplicateZones checks if duplicate zones got removed from the old
+// TODO: @hebelsan remove after duplicate zones got migrated
+func removedDuplicateZones(old []apisaws.Zone, new []apisaws.Zone) bool {
+	// old must have more zones than new, otherwise we would not be able to remove duplicates
+	if len(old) <= len(new) {
+		return false
+	}
+
+	oldZoneNames := sets.New[string]()
+	for _, zone := range old {
+		oldZoneNames.Insert(zone.Name)
+	}
+
+	newZoneNames := sets.New[string]()
+	for _, zone := range new {
+		newZoneNames.Insert(zone.Name)
+	}
+
+	return oldZoneNames.Equal(newZoneNames)
 }
 
 var (
