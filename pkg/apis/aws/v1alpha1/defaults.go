@@ -46,6 +46,7 @@ func SetDefaults_MachineImage(obj *MachineImage) {
 	}
 }
 
+// SetDefaults_CapabilitySet sets the architecture of capability set regions to "ignore".
 func SetDefaults_CapabilitySet(obj *CapabilitySet) {
 	// Implementation is only needed to ensure SetDefaults_RegionAMIMapping is not executed on CapabilitySet.Regions
 	for l := range obj.Regions {
