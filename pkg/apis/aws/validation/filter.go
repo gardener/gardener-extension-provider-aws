@@ -24,7 +24,8 @@ var (
 	// IamInstanceProfileNameRegex matches https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-iam-instanceprofile.html#:~:text=Properties-,InstanceProfileName,-The%20name%20of
 	IamInstanceProfileNameRegex = `^[\w+=,.@-]+$`
 	// IamInstanceProfileArnRegex matches arn:aws:iam::<account-id>:instance-profile/<path>/<profile-name>
-	IamInstanceProfileArnRegex = `^arn:aws:iam::[\w +=,.@\-/:]+$`
+	// Note: for china landscapes it's arn:aws-cn:iam::<account-id>:instance-profile/<path>/<profile-name>
+	IamInstanceProfileArnRegex = `^arn:[\w +=,.@\-/:]+$`
 	// ZoneNameRegex matches e.g. us-east-1a
 	ZoneNameRegex = `^[a-z0-9-]+$`
 	// TagKeyRegex matches Letters (a–z, A–Z), numbers (0–9), spaces, and the following symbols: + - = . _ : / @
