@@ -556,7 +556,7 @@ github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
 </em>
 </td>
 <td>
-<p>Capabilities is the set of capabilities that are supported by the AMIs in this set.</p>
+<p>Capabilities that are supported by the AMIs in this set.</p>
 </td>
 </tr>
 </tbody>
