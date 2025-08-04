@@ -45,6 +45,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	schemev1 "k8s.io/client-go/kubernetes/scheme"
@@ -616,6 +617,9 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	By("create cluster")
 
 	shootRaw, _ := json.Marshal(gardencorev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{
+			UID: types.UID(namespaceName),
+		},
 		Spec: gardencorev1beta1.ShootSpec{
 			Networking: &gardencorev1beta1.Networking{
 				IPFamilies: ipfamilies,
