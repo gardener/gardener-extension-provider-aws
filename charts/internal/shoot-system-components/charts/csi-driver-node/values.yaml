@@ -7,6 +7,7 @@ socketPath: /csi/csi.sock
 
 driver: {}
   # volumeAttachLimit: -1
+  # reservedVolumeAttachments: -1
   # legacyXFS: true
 
 webhookConfig:

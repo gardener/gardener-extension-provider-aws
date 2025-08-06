@@ -15,6 +15,9 @@ const (
 	// VolumeAttachLimit is the key for an annotation on a Shoot object whose value represents the maximum number of
 	// volumes attachable for all nodes.
 	VolumeAttachLimit = "aws.provider.extensions.gardener.cloud/volume-attach-limit"
+	// VolumeAttachLimit is the key for an annotation on a Shoot object whose value represents the maximum number of
+	// volumes attachable for all nodes.
+	ReservedVolumeAttachements = "aws.provider.extensions.gardener.cloud/reserved-volume-attachments"
 
 	// LegacyXFS is the key for an annotation on a Shoot object whose value represents whether LegacyXFS mode should be
 	// enabled.
