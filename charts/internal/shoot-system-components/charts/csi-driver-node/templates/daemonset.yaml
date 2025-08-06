@@ -48,6 +48,9 @@ spec:
         {{- if .Values.driver.volumeAttachLimit }}
         - --volume-attach-limit={{ .Values.driver.volumeAttachLimit }}
         {{- end }}
+        {{- if .Values.driver.reservedVolumeAttachments }}
+        - --reserved-volume-attachments={{ .Values.driver.reservedVolumeAttachments }}
+        {{- end }}
         {{- if .Values.driver.legacyXFS }}
         - --legacy-xfs={{ .Values.driver.legacyXFS }}
         {{- end }}

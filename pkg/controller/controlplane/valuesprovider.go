@@ -869,6 +869,9 @@ func getControlPlaneShootChartValues(
 	if value, ok := cluster.Shoot.Annotations[aws.VolumeAttachLimit]; ok {
 		driver["volumeAttachLimit"] = value
 	}
+	if value, ok := cluster.Shoot.Annotations[aws.ReservedVolumeAttachements]; ok {
+		driver["reservedVolumeAttachments"] = value
+	}
 
 	if value, ok := cluster.Shoot.Annotations[aws.LegacyXFS]; ok {
 		driver["legacyXFS"] = value

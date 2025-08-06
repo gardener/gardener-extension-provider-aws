@@ -837,7 +837,9 @@ CSI drivers usually have a different procedure for configuring this custom limit
 By default, the EBS CSI driver parses the machine type name and then decides the volume limit.
 However, this is only a rough approximation and not good enough in most cases.
 Specifying the volume attach limit via command line flag (`--volume-attach-limit`) is currently the alternative until a more sophisticated solution presents itself (dynamically discovering the maximum number of attachable volume per EC2 machine type, see also https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/347).
-The AWS extension allows the `--volume-attach-limit` flag of the EBS CSI driver to be configurable via `aws.provider.extensions.gardener.cloud/volume-attach-limit` annotation on the `Shoot` resource.
+Additional CSI flags are supported via annotations by the AWS extension:
+- the `--volume-attach-limit` flag of the EBS CSI driver to be configurable via `aws.provider.extensions.gardener.cloud/volume-attach-limit` annotation on the `Shoot` resource.
+- the `--reserved-volume-attachments` flag of the EBS CSI driver to be configurable via `aws.provider.extensions.gardener.cloud/reserved-volume-attachments` annotation on the `Shoot` resource.
 
 ℹ️ _Please note:_ If the annotation is added to an existing `Shoot`, then reconciliation needs to be triggered manually (see [Immediate reconciliation](https://github.com/gardener/gardener/blob/master/docs/usage/shoot-operations/shoot_operations.md#immediate-reconciliation)), as adding an annotation to a resource is not a change that leads to an increase of `.metadata.generation` in general.
 
