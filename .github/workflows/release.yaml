@@ -15,10 +15,13 @@ on:
           - bump-patch
         description: 'Select the type of version bump for the next release.'
 
-
 jobs:
   build:
     uses: ./.github/workflows/build.yaml
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
     with:
       mode: release
       release-version: ${{ inputs.release-version }}
@@ -40,3 +43,7 @@ jobs:
       release-commit-target: branch
       next-version: ${{ inputs.next-version }}
       next-version-callback-action-path: .github/actions/prepare-release
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
