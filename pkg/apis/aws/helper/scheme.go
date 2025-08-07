@@ -19,17 +19,17 @@ import (
 )
 
 var (
-	// Scheme is a scheme with the types relevant for OpenStack actuators.
-	Scheme *runtime.Scheme
+	// scheme is a scheme with the types relevant for AWS actuators.
+	scheme *runtime.Scheme
 
 	decoder runtime.Decoder
 )
 
 func init() {
-	Scheme = runtime.NewScheme()
-	utilruntime.Must(install.AddToScheme(Scheme))
+	scheme = runtime.NewScheme()
+	utilruntime.Must(install.AddToScheme(scheme))
 
-	decoder = serializer.NewCodecFactory(Scheme, serializer.EnableStrict).UniversalDecoder()
+	decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 }
 
 // CloudProfileConfigFromCluster decodes the provider specific cloud profile configuration for a cluster
@@ -109,4 +109,16 @@ func marshalRaw(raw *runtime.RawExtension) ([]byte, error) {
 	}
 
 	return data, err
+}
+
+// WorkloadIdentityConfigFromBytes extracts WorkloadIdentityConfig from the provided byte array.
+func WorkloadIdentityConfigFromBytes(config []byte) (*api.WorkloadIdentityConfig, error) {
+	if len(config) == 0 {
+		return nil, fmt.Errorf("cannot parse WorkloadIdentityConfig from empty config")
+	}
+	workloadIdentityConfig := &api.WorkloadIdentityConfig{}
+	if _, _, err := decoder.Decode(config, nil, workloadIdentityConfig); err != nil {
+		return nil, err
+	}
+	return workloadIdentityConfig, nil
 }
