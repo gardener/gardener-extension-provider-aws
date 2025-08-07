@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/run-integration-tests.yaml
+    uses: ./.github/workflows/run-integrationtests.yaml
 
   release-to-github-and-bump:
     uses: gardener/cc-utils/.github/workflows/release.yaml@master
