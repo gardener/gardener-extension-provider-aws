@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.0
-	github.com/aws/aws-sdk-go-v2 v1.36.6
+	github.com/aws/aws-sdk-go-v2 v1.37.2
 	github.com/aws/aws-sdk-go-v2/config v1.29.18
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.71
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.234.0
@@ -15,13 +15,13 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.29.7
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.46.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.43.1
-	github.com/aws/aws-sdk-go-v2/service/route53 v1.53.1
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.55.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.84.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1
-	github.com/aws/smithy-go v1.22.4
+	github.com/aws/smithy-go v1.22.5
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/gardener/etcd-druid/api v0.31.0
-	github.com/gardener/external-dns-management v0.25.2
+	github.com/gardener/external-dns-management v0.27.0
 	github.com/gardener/gardener v1.125.0
 	github.com/gardener/machine-controller-manager v0.59.2
 	github.com/go-logr/logr v1.4.3
@@ -62,8 +62,8 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.11 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.33 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.37 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.37 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.2 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.2 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.37 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.4 // indirect
@@ -198,9 +198,9 @@ require (
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.33.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
