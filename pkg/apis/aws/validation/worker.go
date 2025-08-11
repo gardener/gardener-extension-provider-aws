@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -71,9 +72,6 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	}
 
 	if nodeTemplate := workerConfig.NodeTemplate; nodeTemplate != nil {
-		if len(nodeTemplate.Capacity) == 0 {
-			allErrs = append(allErrs, field.Required(fldPath.Child("nodeTemplate").Child("capacity"), "capacity must not be empty"))
-		}
 		for _, capacityAttribute := range []corev1.ResourceName{"cpu", "gpu", "memory"} {
 			value, ok := nodeTemplate.Capacity[capacityAttribute]
 			if !ok {
@@ -82,6 +80,11 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 				continue
 			}
 			allErrs = append(allErrs, validateResourceQuantityValue(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("capacity").Child(string(capacityAttribute)))...)
+		}
+
+		for capacityAttribute, value := range nodeTemplate.VirtualCapacity {
+			// extended resources are required to be whole numbers https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#consuming-extended-resources
+			allErrs = append(allErrs, validateResourceQuantityWholeNumber(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("virtualCapacity").Child(string(capacityAttribute)))...)
 		}
 	}
 
@@ -146,6 +149,18 @@ func validateResourceQuantityValue(key corev1.ResourceName, value resource.Quant
 
 	if value.Cmp(resource.Quantity{}) < 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath, value.String(), fmt.Sprintf("%s value must not be negative", key)))
+	}
+
+	return allErrs
+}
+
+func validateResourceQuantityWholeNumber(key corev1.ResourceName, value resource.Quantity, fldPath *field.Path) field.ErrorList {
+	allErrs := validateResourceQuantityValue(key, value, fldPath)
+
+	dec := value.AsDec()
+	var roundedDec inf.Dec
+	if roundedDec.Round(dec, 0, inf.RoundExact) == nil {
+		allErrs = append(allErrs, field.Invalid(fldPath, value.String(), fmt.Sprintf("%s value must be a whole number", key)))
 	}
 
 	return allErrs
