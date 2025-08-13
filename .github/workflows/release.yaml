@@ -2,12 +2,6 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      release-version:
-        type: choice
-        options:
-          - noop
-          - finalize
-        description: 'Select whether to modify the release version.'
       next-version:
         type: choice
         options:
