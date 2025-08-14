@@ -21,7 +21,7 @@ import (
 )
 
 // valid values for networks.vpc.gatewayEndpoints
-var gatewayEndpointPattern = regexp.MustCompile(`^\w+(\.\w+)*$`)
+var gatewayEndpointPattern = regexp.MustCompile(`^[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*$`)
 
 // ValidateInfrastructureConfigAgainstCloudProfile validates the given `InfrastructureConfig` against the given `CloudProfile`.
 func ValidateInfrastructureConfigAgainstCloudProfile(oldInfra, infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec, fldPath *field.Path) field.ErrorList {
