@@ -1,6 +1,6 @@
 # [Gardener Extension for AWS provider](https://gardener.cloud)
 [![REUSE status](https://api.reuse.software/badge/github.com/gardener/gardener-extension-provider-aws)](https://api.reuse.software/info/github.com/gardener/gardener-extension-provider-aws)
-[![CI Build status](https://concourse.ci.gardener.cloud/api/v1/teams/gardener/pipelines/gardener-extension-provider-aws-master/jobs/master-head-update-job/badge)](https://concourse.ci.gardener.cloud/teams/gardener/pipelines/gardener-extension-provider-aws-master/jobs/master-head-update-job)
+[![Build](https://github.com/gardener/gardener-extension-provider-aws/actions/workflows/head-update.yaml/badge.svg)](https://github.com/gardener/gardener-extension-provider-aws/actions/workflows/head-update.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gardener/gardener-extension-provider-aws)](https://goreportcard.com/report/github.com/gardener/gardener-extension-provider-aws)
 
 Project Gardener implements the automated management and operation of [Kubernetes](https://kubernetes.io/) clusters as a service.
