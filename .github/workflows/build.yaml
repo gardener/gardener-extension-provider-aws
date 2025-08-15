@@ -32,7 +32,7 @@ jobs:
       - uses: gardener/cc-utils/.github/actions/setup-git-identity@master
       - name: verify
         run: |
-          set -eu
+          set -euo pipefail
           mkdir /tmp/blobs.d
           make verify-extended |& tee /tmp/blobs.d/verify-log.txt
           tar czf /tmp/blobs.d/verify-log.tar.gz -C/tmp/blobs.d verify-log.txt
