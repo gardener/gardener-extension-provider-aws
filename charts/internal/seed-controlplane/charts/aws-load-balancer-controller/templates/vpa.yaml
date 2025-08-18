@@ -15,4 +15,5 @@ spec:
     containerPolicies:
     - containerName: {{ .Chart.Name }}
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
 {{- end }}

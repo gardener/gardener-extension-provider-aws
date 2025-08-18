@@ -15,4 +15,5 @@ spec:
     containerPolicies:
     - containerName: aws-custom-route-controller
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
 {{- end }}
