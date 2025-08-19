@@ -17,31 +17,24 @@ region: region
 resources:
   driver:
     requests:
-      cpu: 20m
       memory: 50Mi
   provisioner:
     requests:
-      cpu: 11m
       memory: 38Mi
   attacher:
     requests:
-      cpu: 11m
       memory: 36Mi
   snapshotter:
     requests:
-      cpu: 11m
       memory: 36Mi
   resizer:
     requests:
-      cpu: 11m
       memory: 32Mi
   livenessProbe:
     requests:
-      cpu: 11m
       memory: 32Mi
   volumeModifier:
     requests:
-      cpu: 20m
       memory: 50Mi
 vpa:
   resourcePolicy:
@@ -58,7 +51,6 @@ csiSnapshotController:
   podAnnotations: {}
   resources:
     requests:
-      cpu: 11m
       memory: 32Mi
 
 volumeModifier:
