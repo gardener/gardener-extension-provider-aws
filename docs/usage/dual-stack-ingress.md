@@ -104,6 +104,8 @@ If there are DNS entries directly linked to the corresponding load balancer and 
 annotations with the prefix `dns.gardener.cloud/`. Those annotations can be linked to a `Service`, `Ingress` or
 `Gateway` resources. Alternatively, they may also use `DNSEntry` or `DNSAnnotation` resources.
 
+⚠️ **Note:** Shoot owners using external DNS management with versions below v0.26.0 may experience runtime impacts during migration.
+
 For a seamless migration without downtime use the following three step approach:
 
 1. Temporarily prevent direct DNS updates
@@ -139,3 +141,28 @@ to peek into `status.loadBalancer.ingress` of the corresponding `Service` to ide
 Once the load balancer has been provisioned, you can remove the annotation `dns.gardener.cloud/ignore: 'true'` again
 from the affected resources. It may take some additional time until the domain name change finally propagates
 (up to one hour).
+
+
+
+## Important: Check AWS Quotas Before Migration
+
+Before migrating to dual-stack ingress, verify that your AWS account has sufficient quotas to avoid service disruptions.
+
+### Network Load Balancer Quotas
+
+**1. Network Load Balancers per Region**
+- **Default limit:** 50 per region
+- **Migration impact:** If migrating from Classic Load Balancers to Network Load Balancers, ensure this quota is sufficient
+- **Dual-stack migration:** During migration, you temporarily need **double** the number of load balancers
+
+**2. Targets per Network Load Balancer per Availability Zone**
+- Migrating from classic load balancers to network load balancers, this quota needs to be checked, as a similar limitation does not exist for classic load balancers.
+- **Default limit:** 500 targets per AZ per NLB 
+- **Critical calculation:** `(number of nodes × number of service ports) ÷ number of availability zones`
+
+- **Example:** 10 nodes × 3 service ports ÷ 2 AZs = 15 targets per AZ (well within limit)
+- **Example:** 200 nodes × 5 service ports ÷ 2 AZs = 500 targets per AZ (at limit - consider increasing)
+
+⚠️ **Important:** Quota increase requests can take up to 24-48 hours to process. Plan accordingly.
+
+For complete quota details, see the [AWS Network Load Balancer Limits documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-limits.html).
