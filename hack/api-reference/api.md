@@ -1365,7 +1365,7 @@ string
 </td>
 <td>
 <p>Regions is a mapping to the correct AMI for the machine image in the supported regions.
-deprecated</p>
+TODO @Roncossek add &ldquo;// deprecated&rdquo; once aws cloudprofiles are migrated to use CapabilitySets</p>
 </td>
 </tr>
 <tr>
@@ -1529,7 +1529,8 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>Architecture is the CPU architecture of the machine image.</p>
+<p>Architecture is the CPU architecture of the machine image.
+TODO @Roncossek add &ldquo;// deprecated&rdquo; once aws cloudprofiles are migrated to use CapabilitySets</p>
 </td>
 </tr>
 </tbody>
