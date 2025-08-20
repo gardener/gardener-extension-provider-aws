@@ -34,7 +34,7 @@ type MachineImageVersion struct {
 	// Version is the version of the image.
 	Version string `json:"version"`
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
-	// deprecated
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilitySets
 	Regions []RegionAMIMapping `json:"regions"`
 	// CapabilitySets is grouping of region AMIs by capabilities.
 	CapabilitySets []CapabilitySet `json:"capabilitySets"`
@@ -56,5 +56,6 @@ type RegionAMIMapping struct {
 	AMI string `json:"ami"`
 	// Architecture is the CPU architecture of the machine image.
 	// +optional
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilitySets
 	Architecture *string `json:"architecture,omitempty"`
 }

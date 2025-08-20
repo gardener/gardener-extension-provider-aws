@@ -89,12 +89,12 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 		return append(allErrs, field.InternalError(field.NewPath(""), err))
 	}
 
-	capabilitiesDefinitions := parentCloudProfileSpecCore.Capabilities
+	capabilityDefinitions := parentCloudProfileSpecCore.Capabilities
 
 	machineImagesPath := field.NewPath("spec.providerConfig.machineImages")
 	for i, machineImage := range providerConfig.MachineImages {
 		idxPath := machineImagesPath.Index(i)
-		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage, parentCloudProfileSpecCore.Capabilities)...)
+		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage, capabilityDefinitions)...)
 	}
 
 	profileImages := gutil.NewCoreImagesContext(machineImages)
@@ -121,10 +121,10 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 				continue
 			}
 
-			if len(capabilitiesDefinitions) == 0 {
+			if len(capabilityDefinitions) == 0 {
 				allErrs = append(allErrs, validateMachineImageArchitectures(machineImage, version, providerImageVersion)...)
 			} else {
-				allErrs = append(allErrs, validateMachineImageCapabilities(machineImage, version, providerImageVersion, capabilitiesDefinitions)...)
+				allErrs = append(allErrs, validateMachineImageCapabilities(machineImage, version, providerImageVersion, capabilityDefinitions)...)
 			}
 		}
 	}

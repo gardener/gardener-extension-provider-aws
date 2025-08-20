@@ -103,7 +103,7 @@ func validateRegions(regions []apisaws.RegionAMIMapping, version, name string, h
 			// If Capabilities are defined in the CloudProfile, the architecture gets defaulted to "ignore" during runtime if not set.
 			architecture := ptr.Deref(region.Architecture, "ignore")
 			if architecture != "ignore" {
-				allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in ..capabilities.architecture"+*region.Architecture))
+				allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in .capabilities.architecture"+architecture))
 			}
 		}
 	}
