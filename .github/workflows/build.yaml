@@ -78,6 +78,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      pull-requests: write
     uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
     strategy:
       matrix:
@@ -125,6 +126,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      pull-requests: write
     uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@master
     strategy:
       matrix:
