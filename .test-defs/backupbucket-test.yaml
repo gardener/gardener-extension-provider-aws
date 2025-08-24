@@ -18,7 +18,7 @@ spec:
       --use-existing-cluster=${USE_EXISTING_CLUSTER}
       --log-level=${LOG_LEVEL}
 
-  image: golang:1.24
+  image: golang:1.25
   resources:
     requests:
       memory: "1.5Gi"

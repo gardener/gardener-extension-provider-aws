@@ -18,7 +18,7 @@ spec:
     --network-worker-cidr=$NETWORK_WORKER_CIDR
     --zone=$ZONE
 
-  image: golang:1.24
+  image: golang:1.25
   resources:
     requests:
       memory: "1.5Gi"

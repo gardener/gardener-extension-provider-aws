@@ -15,7 +15,7 @@ spec:
     --access-key-id=$DNS_ACCESS_KEY_ID
     --secret-access-key=$DNS_SECRET_ACCESS_KEY
 
-  image: golang:1.24
+  image: golang:1.25
   resources:
     requests:
       memory: "1.5Gi"
