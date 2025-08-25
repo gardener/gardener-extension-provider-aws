@@ -10,10 +10,12 @@ import (
 	"slices"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	gardencoreapi "github.com/gardener/gardener/pkg/api"
 	"github.com/gardener/gardener/pkg/apis/core"
+	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	"github.com/gardener/gardener/pkg/utils/gardener"
+	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -82,22 +84,28 @@ func (p *namespacedCloudProfile) validateNamespacedCloudProfileProviderConfig(pr
 func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.CloudProfileConfig, machineImages []core.MachineImage, parentSpec gardencorev1beta1.CloudProfileSpec) field.ErrorList {
 	allErrs := field.ErrorList{}
 
+	var parentCloudProfileSpecCore core.CloudProfileSpec
+	if err := gardencoreapi.Scheme.Convert(&parentSpec, &parentCloudProfileSpecCore, nil); err != nil {
+		return append(allErrs, field.InternalError(field.NewPath(""), err))
+	}
+
+	capabilityDefinitions := parentCloudProfileSpecCore.Capabilities
+
 	machineImagesPath := field.NewPath("spec.providerConfig.machineImages")
 	for i, machineImage := range providerConfig.MachineImages {
 		idxPath := machineImagesPath.Index(i)
-		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage)...)
+		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage, capabilityDefinitions)...)
 	}
 
-	profileImages := gardener.NewCoreImagesContext(machineImages)
-	parentImages := gardener.NewV1beta1ImagesContext(parentSpec.MachineImages)
+	profileImages := gutil.NewCoreImagesContext(machineImages)
+	parentImages := gutil.NewV1beta1ImagesContext(parentSpec.MachineImages)
 	providerImages := validation.NewProviderImagesContext(providerConfig.MachineImages)
 
 	for _, machineImage := range profileImages.Images {
 		// Check that for each new image version defined in the NamespacedCloudProfile, the image is also defined in the providerConfig.
 		_, existsInParent := parentImages.GetImage(machineImage.Name)
 		if _, existsInProvider := providerImages.GetImage(machineImage.Name); !existsInParent && !existsInProvider {
-			allErrs = append(allErrs, field.Required(
-				field.NewPath("spec.providerConfig.machineImages"),
+			allErrs = append(allErrs, field.Required(machineImagesPath,
 				fmt.Sprintf("machine image %s is not defined in the NamespacedCloudProfile providerConfig", machineImage.Name),
 			))
 			continue
@@ -106,13 +114,18 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 			_, existsInParent := parentImages.GetImageVersion(machineImage.Name, version.Version)
 			providerImageVersion, exists := providerImages.GetImageVersion(machineImage.Name, version.Version)
 			if !existsInParent && !exists {
-				allErrs = append(allErrs, field.Required(
-					field.NewPath("spec.providerConfig.machineImages"),
+				allErrs = append(allErrs, field.Required(machineImagesPath,
 					fmt.Sprintf("machine image version %s@%s is not defined in the NamespacedCloudProfile providerConfig", machineImage.Name, version.Version),
 				))
+				// no need to check the capabilities and architectures if the version is not defined in the providerConfig
+				continue
 			}
 
-			allErrs = append(allErrs, validateMachineImageArchitectures(machineImage, version, providerImageVersion)...)
+			if len(capabilityDefinitions) == 0 {
+				allErrs = append(allErrs, validateMachineImageArchitectures(machineImage, version, providerImageVersion)...)
+			} else {
+				allErrs = append(allErrs, validateMachineImageCapabilities(machineImage, version, providerImageVersion, capabilityDefinitions)...)
+			}
 		}
 	}
 	for imageIdx, machineImage := range providerConfig.MachineImages {
@@ -142,6 +155,69 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 					fmt.Sprintf("%s@%s", machineImage.Name, version.Version),
 					"machine image version is not defined in the NamespacedCloudProfile",
 				))
+			}
+		}
+	}
+
+	return allErrs
+}
+
+func validateMachineImageCapabilities(machineImage core.MachineImage, version core.MachineImageVersion, providerImageVersion api.MachineImageVersion, capabilitiesDefinition []core.CapabilityDefinition) field.ErrorList {
+	allErrs := field.ErrorList{}
+	path := field.NewPath("spec.providerConfig.machineImages")
+	coreDefaultedCapabilitySets := gardencorehelper.GetCapabilitySetsWithAppliedDefaults(version.CapabilitySets, capabilitiesDefinition)
+	regionsCapabilitiesMap := map[string][]core.Capabilities{}
+
+	// 1. Create an error for each capabilitySet in the providerConfig that is not defined in the core machine image version
+	for _, capabilitySet := range providerImageVersion.CapabilitySets {
+		isFound := false
+		for _, coreDefaultedCapabilitySet := range coreDefaultedCapabilitySets {
+			defaultedProviderCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(capabilitySet.Capabilities, capabilitiesDefinition)
+			if gutil.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
+				isFound = true
+			}
+		}
+		if !isFound {
+			allErrs = append(allErrs, field.Forbidden(path,
+				fmt.Sprintf("machine image version %s@%s has an excess capabilitySet %v, which is not defined in the machineImages spec",
+					machineImage.Name, version.Version, capabilitySet.Capabilities)))
+		}
+
+		for _, regionMapping := range capabilitySet.Regions {
+			regionsCapabilitiesMap[regionMapping.Name] = append(regionsCapabilitiesMap[regionMapping.Name], capabilitySet.Capabilities)
+		}
+	}
+
+	// 2. Create an error for each capabilitySet in the core machine image version that is not defined in the providerConfig
+	for _, coreDefaultedCapabilitySet := range coreDefaultedCapabilitySets {
+		isFound := false
+		for _, capabilitySet := range providerImageVersion.CapabilitySets {
+			defaultedProviderCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(capabilitySet.Capabilities, capabilitiesDefinition)
+			if gutil.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
+				isFound = true
+			}
+		}
+		if !isFound {
+			allErrs = append(allErrs, field.Required(path,
+				fmt.Sprintf("machine image version %s@%s has a capabilitySet %v not defined in the NamespacedCloudProfile providerConfig",
+					machineImage.Name, version.Version, coreDefaultedCapabilitySet.Capabilities)))
+			// no need to check the regions if the capabilitySet is not defined in the providerConfig
+			continue
+		}
+
+		// 3. Create an error for each region that is not part of every capabilitySet
+		for region, regionCapabilities := range regionsCapabilitiesMap {
+			isFound := false
+			for _, capabilities := range regionCapabilities {
+				regionDefaultedCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(capabilities, capabilitiesDefinition)
+				if gutil.AreCapabilitiesEqual(regionDefaultedCapabilities, coreDefaultedCapabilitySet.Capabilities) {
+					isFound = true
+				}
+			}
+			if !isFound {
+				allErrs = append(allErrs, field.Required(path,
+					fmt.Sprintf("machine image version %s@%s is missing region %q in capabilitySet %v in the NamespacedCloudProfile providerConfig",
+						machineImage.Name, version.Version, region, coreDefaultedCapabilitySet.Capabilities)))
 			}
 		}
 	}
