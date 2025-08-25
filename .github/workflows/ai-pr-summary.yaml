@@ -8,6 +8,8 @@ jobs:
     if: ${{ github.event.label.name == 'ai/summary' }}
     name: PR Summary
     runs-on: [ubuntu-latest]
+    permissions:
+      pull-requests: write
     steps:
       - uses: SAP/ai-assisted-github-actions/pr-summary@v3
         with:
@@ -18,6 +20,8 @@ jobs:
     if: ${{ github.event.label.name == 'ai/review' }}
     name: PR Review
     runs-on: [ubuntu-latest]
+    permissions:
+      pull-requests: write
     steps:
       - uses: SAP/ai-assisted-github-actions/pr-review@v3
         with:
