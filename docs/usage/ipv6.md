@@ -85,6 +85,7 @@ When creating a load balancer, the corresponding annotations need to be configur
 
 The AWS Load Balancer Controller allows dual-stack ingress so that an IPv6-only shoot cluster can serve IPv4 and IPv6 clients.
 You can find an example [here](dual-stack-ingress.md#creating-an-ipv4ipv6-dual-stack-ingress).
+A mutating webhook will automatically add the required annotations. To disable this automated behavior, use the annotation `extensions.gardener.cloud/ignore-load-balancer: "true"`.
 
 > [!WARNING]
 > When accessing Network Load Balancers (NLB) from within the same IPv6-only cluster, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
@@ -187,6 +188,7 @@ When creating a load balancer, the corresponding annotations need to be configur
 
 The AWS Load Balancer Controller allows dual-stack ingress so that a dual-stack shoot cluster can serve IPv4 and IPv6 clients.
 You can find an example [here](dual-stack-ingress.md#creating-an-ipv4ipv6-dual-stack-ingress).
+A mutating webhook will automatically add the required annotations. To disable this automated behavior, use the annotation `extensions.gardener.cloud/ignore-load-balancer: "true"`.
 
 > [!WARNING]
 > When accessing external Network Load Balancers (NLB) from within the same cluster via IPv6 or internal NLBs via IPv4, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
