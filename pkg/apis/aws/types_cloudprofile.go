@@ -48,6 +48,16 @@ type CapabilitySet struct {
 	Capabilities core.Capabilities
 }
 
+// GetCapabilities returns the Capabilities of a CapabilitySet
+func (cs *CapabilitySet) GetCapabilities() core.Capabilities {
+	return cs.Capabilities
+}
+
+// SetCapabilities sets the Capabilities on a CapabilitySet
+func (cs *CapabilitySet) SetCapabilities(capabilities core.Capabilities) {
+	cs.Capabilities = capabilities
+}
+
 // RegionAMIMapping is a mapping to the correct AMI for the machine image in the given region.
 type RegionAMIMapping struct {
 	// Name is the name of the region.

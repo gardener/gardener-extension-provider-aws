@@ -1324,6 +1324,17 @@ string
 <p>Architecture is the CPU architecture of the machine image.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>capabilities</code></br>
+<em>
+github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
+</em>
+</td>
+<td>
+<p>Capabilities of the machine image.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion
