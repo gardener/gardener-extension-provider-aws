@@ -1332,7 +1332,7 @@ github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
 </em>
 </td>
 <td>
-<p>Capabilities if the machine image.</p>
+<p>Capabilities of the machine image.</p>
 </td>
 </tr>
 </tbody>
