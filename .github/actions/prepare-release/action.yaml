@@ -9,5 +9,5 @@ runs:
     - name: prepare-release
       shell: bash
       run: |
-        set -eu
+        set -euo pipefail
         make generate
