@@ -177,3 +177,20 @@ You can find more information about the process and the steps required [here](ht
 > [!WARNING]
 > Please note that the dual-stack migration requires the IPv4-only cluster to run in native routing mode, i.e. pod overlay network needs to be disabled.
 > The default quota of routes per route table in AWS is 50. This restricts the cluster size to about 50 nodes. Therefore, please adapt (if necessary) the routes per route table limit in the Amazon Virtual Private Cloud quotas accordingly before switching to native routing. The maximum setting is currently 1000.
+
+### Load Balancer Configuration
+
+The AWS Load Balancer Controller is automatically deployed when using a dual-stack shoot cluster.
+When creating a load balancer, the corresponding annotations need to be configured, see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/nlb/) for details.
+
+> [!WARNING]
+> Please note that load balancer services without any special annotations will default to IPv4-only regardless how `.spec.ipFamilies` is set.
+
+The AWS Load Balancer Controller allows dual-stack ingress so that a dual-stack shoot cluster can serve IPv4 and IPv6 clients.
+You can find an example [here](dual-stack-ingress.md#creating-an-ipv4ipv6-dual-stack-ingress).
+A mutating webhook will automatically add the required annotations. To disable this automated behavior, use the annotation `extensions.gardener.cloud/ignore-load-balancer: "true"`.
+
+> [!WARNING]
+> When accessing external Network Load Balancers (NLB) from within the same cluster via IPv6 or internal NLBs via IPv4, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
+> Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical.
+> This situation, known as the hair-pinning effect, will prevent the request from being processed.
