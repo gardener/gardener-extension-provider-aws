@@ -18,6 +18,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
+	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
@@ -96,6 +97,11 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 		return err
 	}
 
+	capabilitiesDefinitions, err := GetCoreCapabilitiesDefinitions(w.cluster.CloudProfile.Spec.Capabilities)
+	if err != nil {
+		return err
+	}
+
 	for _, pool := range w.worker.Spec.Pools {
 		workerConfig := &awsapi.WorkerConfig{}
 		if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
@@ -110,17 +116,18 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 		}
 
 		arch := ptr.Deref(pool.Architecture, v1beta1constants.ArchitectureAMD64)
+		machineTypeFromCloudProfile := gardencorev1beta1helper.FindMachineTypeByName(w.cluster.CloudProfile.Spec.MachineTypes, pool.MachineType)
+		if machineTypeFromCloudProfile == nil {
+			return fmt.Errorf("machine type %q not found in cloud profile %q", pool.MachineType, w.cluster.CloudProfile.Name)
+		}
 
-		ami, err := w.findMachineImage(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, &arch)
+		machineImage, err := w.selectMachineImageForWorkerPool(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, &arch, machineTypeFromCloudProfile.Capabilities)
 		if err != nil {
 			return err
 		}
-		machineImages = appendMachineImage(machineImages, awsapi.MachineImage{
-			Name:         pool.MachineImage.Name,
-			Version:      pool.MachineImage.Version,
-			AMI:          ami,
-			Architecture: &arch,
-		})
+
+		machineImages = EnsureUniformMachineImages(machineImages, capabilitiesDefinitions)
+		machineImages = appendMachineImage(machineImages, *machineImage, capabilitiesDefinitions)
 
 		blockDevices, err := w.computeBlockDevices(pool, workerConfig)
 		if err != nil {
@@ -152,7 +159,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 
 			machineClassSpec := map[string]interface{}{
-				"ami":                ami,
+				"ami":                machineImage.AMI,
 				"region":             w.worker.Spec.Region,
 				"machineType":        pool.MachineType,
 				"iamInstanceProfile": iamInstanceProfile,
@@ -503,4 +510,69 @@ func isIPv6(c *controller.Cluster) bool {
 		}
 	}
 	return false
+}
+
+// EnsureUniformMachineImages ensures that all machine images are in the same format, either with or without Capabilities.
+func EnsureUniformMachineImages(images []awsapi.MachineImage, definitions []core.CapabilityDefinition) []awsapi.MachineImage {
+	var uniformMachineImages []awsapi.MachineImage
+
+	if len(definitions) == 0 {
+		// transform images that were added with Capabilities to the legacy format without Capabilities
+		for _, img := range images {
+			if len(img.Capabilities) == 0 {
+				// image is already legacy format
+				uniformMachineImages = appendMachineImage(uniformMachineImages, img, definitions)
+				continue
+			}
+			// transform to legacy format by using the Architecture capability if it exists
+			var architecture *string
+			if len(img.Capabilities[v1beta1constants.ArchitectureName]) > 0 {
+				architecture = &img.Capabilities[v1beta1constants.ArchitectureName][0]
+			} else {
+				architecture = nil
+			}
+			uniformMachineImages = appendMachineImage(uniformMachineImages, awsapi.MachineImage{
+				Name:         img.Name,
+				Version:      img.Version,
+				AMI:          img.AMI,
+				Architecture: architecture,
+			}, definitions)
+		}
+		return uniformMachineImages
+	}
+
+	// transform images that were added without Capabilities to contain a CapabilitySet with defaulted Architecture
+	for _, img := range images {
+		if len(img.Capabilities) > 0 {
+			// image is already in the new format with Capabilities
+			uniformMachineImages = appendMachineImage(uniformMachineImages, img, definitions)
+		} else {
+			// add image as a capability set with defaulted Architecture
+			architecture := ptr.Deref(img.Architecture, v1beta1constants.ArchitectureAMD64)
+			uniformMachineImages = appendMachineImage(uniformMachineImages, awsapi.MachineImage{
+				Name:         img.Name,
+				Version:      img.Version,
+				AMI:          img.AMI,
+				Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: []string{architecture}},
+			}, definitions)
+		}
+	}
+	return uniformMachineImages
+}
+
+// GetCoreCapabilitiesDefinitions function in the helper package.
+// TODO @Roncossek remove this function once the gardener-core is updated to a version that contains it.
+// GetCoreCapabilitiesDefinitions converts v1beta1.CapabilityDefinition objects to core.CapabilityDefinition objects.
+// gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
+func GetCoreCapabilitiesDefinitions(capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) ([]core.CapabilityDefinition, error) {
+	var coreCapabilitiesDefinitions []core.CapabilityDefinition
+	for _, capabilityDefinition := range capabilitiesDefinitions {
+		var coreCapabilityDefinition core.CapabilityDefinition
+		err := gardencorev1beta1.Convert_v1beta1_CapabilityDefinition_To_core_CapabilityDefinition(&capabilityDefinition, &coreCapabilityDefinition, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert capability definition: %w", err)
+		}
+		coreCapabilitiesDefinitions = append(coreCapabilitiesDefinitions, coreCapabilityDefinition)
+	}
+	return coreCapabilitiesDefinitions, nil
 }

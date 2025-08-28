@@ -16,6 +16,7 @@ import (
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
+	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -330,6 +331,11 @@ var _ = Describe("Machines", func() {
 							Name: cloudProfileName,
 						},
 						Spec: gardencorev1beta1.CloudProfileSpec{
+							MachineTypes: []gardencorev1beta1.MachineType{
+								{
+									Name: machineType,
+								},
+							},
 							ProviderConfig: &runtime.RawExtension{
 								Raw: cloudProfileConfigJSON,
 							},
@@ -1398,6 +1404,116 @@ var _ = Describe("Machines", func() {
 
 		})
 	})
+	DescribeTable("EnsureUniformMachineImages", func(capabilitiesDefinitions []core.CapabilityDefinition, expectedImages []api.MachineImage) {
+		machineImages := []api.MachineImage{
+			// images with capability sets
+			{
+				Name:    "some-image",
+				Version: "1.2.1",
+				AMI:     "ami-for-arm64",
+				Capabilities: core.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
+				},
+			},
+			{
+				Name:    "some-image",
+				Version: "1.2.2",
+				AMI:     "ami-for-amd64",
+				Capabilities: core.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+				},
+			},
+			// legacy image entry without capability sets
+			{
+				Name:         "some-image",
+				Version:      "1.2.3",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+			{
+				Name:         "some-image",
+				Version:      "1.2.2",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+			{
+				Name:         "some-image",
+				Version:      "1.2.1",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+		}
+		actualImages := EnsureUniformMachineImages(machineImages, capabilitiesDefinitions)
+		Expect(actualImages).To(ContainElements(expectedImages))
+
+	},
+		Entry("should return images with Architecture", nil, []api.MachineImage{
+			// images with capability sets
+			{
+				Name:         "some-image",
+				Version:      "1.2.1",
+				AMI:          "ami-for-arm64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureARM64),
+			},
+			{
+				Name:         "some-image",
+				Version:      "1.2.2",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+			// legacy image entry without capability sets
+			{
+				Name:         "some-image",
+				Version:      "1.2.3",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+			{
+				Name:         "some-image",
+				Version:      "1.2.1",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+		}),
+		Entry("should return images with Capabilities", []core.CapabilityDefinition{{
+			Name:   v1beta1constants.ArchitectureName,
+			Values: []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64},
+		}}, []api.MachineImage{
+			// images with capability sets
+			{
+				Name:    "some-image",
+				Version: "1.2.1",
+				AMI:     "ami-for-arm64",
+				Capabilities: core.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
+				},
+			},
+			{
+				Name:    "some-image",
+				Version: "1.2.2",
+				AMI:     "ami-for-amd64",
+				Capabilities: core.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+				},
+			},
+			// legacy image entry without capability sets
+			{
+				Name:    "some-image",
+				Version: "1.2.3",
+				AMI:     "ami-for-amd64",
+				Capabilities: core.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+				}},
+			{
+				Name:    "some-image",
+				Version: "1.2.1",
+				AMI:     "ami-for-amd64",
+				Capabilities: core.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+				},
+			},
+		}),
+	)
 })
 
 func encode(obj runtime.Object) []byte {

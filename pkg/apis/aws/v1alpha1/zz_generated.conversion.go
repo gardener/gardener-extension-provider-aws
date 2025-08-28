@@ -897,6 +897,7 @@ func autoConvert_v1alpha1_MachineImage_To_aws_MachineImage(in *MachineImage, out
 	out.Version = in.Version
 	out.AMI = in.AMI
 	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
+	out.Capabilities = *(*core.Capabilities)(unsafe.Pointer(&in.Capabilities))
 	return nil
 }
 
@@ -910,6 +911,7 @@ func autoConvert_aws_MachineImage_To_v1alpha1_MachineImage(in *aws.MachineImage,
 	out.Version = in.Version
 	out.AMI = in.AMI
 	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
+	out.Capabilities = *(*v1beta1.Capabilities)(unsafe.Pointer(&in.Capabilities))
 	return nil
 }
 
