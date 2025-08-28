@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- base
+
+patches:
+- patch: |
+    - op: add
+      path: /metadata/annotations/security.gardener.cloud~1pod-security-enforce
+      value: privileged
+  target:
+    kind: Extension
+    name: provider-aws
+- patch: |
+    - op: replace
+      path: /spec/resources/4/type
+      value: aws-route53
+  target:
+    kind: Extension
+    name: provider-aws
