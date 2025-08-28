@@ -5,6 +5,7 @@
 package v1alpha1
 
 import (
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,8 +33,20 @@ type MachineImages struct {
 type MachineImageVersion struct {
 	// Version is the version of the image.
 	Version string `json:"version"`
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilitySets
+
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	Regions []RegionAMIMapping `json:"regions"`
+	// CapabilitySets is grouping of region AMIs by capabilities.
+	CapabilitySets []CapabilitySet `json:"capabilitySets"`
+}
+
+// CapabilitySet groups all RegionAMIMappings for a specific et of capabilities.
+type CapabilitySet struct {
+	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
+	Regions []RegionAMIMapping `json:"regions"`
+	// Capabilities that are supported by the AMIs in this set.
+	Capabilities gardencorev1beta1.Capabilities `json:"capabilities,omitempty"`
 }
 
 // RegionAMIMapping is a mapping to the correct AMI for the machine image in the given region.
@@ -42,6 +55,8 @@ type RegionAMIMapping struct {
 	Name string `json:"name"`
 	// AMI is the AMI for the machine image.
 	AMI string `json:"ami"`
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilitySets
+
 	// Architecture is the CPU architecture of the machine image.
 	// +optional
 	Architecture *string `json:"architecture,omitempty"`
