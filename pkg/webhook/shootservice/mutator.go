@@ -63,7 +63,9 @@ func (m *mutator) Mutate(ctx context.Context, newObj, _ client.Object) error {
 	if metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme") &&
 		service.Annotations["service.beta.kubernetes.io/aws-load-balancer-scheme"] == "internal" ||
 		metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-internal") &&
-			service.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] == "true" {
+			service.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] == "true" ||
+		metav1.HasAnnotation(service.ObjectMeta, "extensions.gardener.cloud/ignore-load-balancer") &&
+			service.Annotations["extensions.gardener.cloud/ignore-load-balancer"] == "true" {
 		return nil
 	}
 
