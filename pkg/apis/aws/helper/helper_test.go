@@ -75,7 +75,7 @@ var _ = Describe("Helper", func() {
 	DescribeTableSubtree("Select Worker Images", func(hasCapabilities bool) {
 		var capabilitiesDefinitions []v1beta1.CapabilityDefinition
 		var machineCapabilities v1beta1.Capabilities
-		var imageCapabilities *core.Capabilities
+		var imageCapabilities v1beta1.Capabilities
 		region := "europe"
 
 		if hasCapabilities {
@@ -87,7 +87,7 @@ var _ = Describe("Helper", func() {
 				"architecture": []string{"amd64"},
 				"capability1":  []string{"value2"},
 			}
-			imageCapabilities = &core.Capabilities{
+			imageCapabilities = v1beta1.Capabilities{
 				"architecture": []string{"amd64"},
 				"capability1":  []string{"value2"},
 			}
@@ -98,7 +98,7 @@ var _ = Describe("Helper", func() {
 				if hasCapabilities {
 					machineCapabilities["architecture"] = []string{*arch}
 					if expectedMachineImage != nil {
-						expectedMachineImage.Capabilities = *imageCapabilities
+						expectedMachineImage.Capabilities = imageCapabilities
 						expectedMachineImage.Architecture = nil
 					}
 				}
@@ -110,7 +110,7 @@ var _ = Describe("Helper", func() {
 			Entry("empty list", []api.MachineImage{}, "image", "1.2.3", ptr.To("amd64"), nil, true),
 			Entry("entry not found (no name)", makeStatusMachineImages("bar", "1.2.3", "ami-1234", ptr.To("amd64"), imageCapabilities), "foo", "1.2.3", ptr.To("amd64"), nil, true),
 			Entry("entry not found (no version)", makeStatusMachineImages("bar", "1.2.3", "ami-1234", ptr.To("amd64"), imageCapabilities), "bar", "1.2.ś", ptr.To("amd64"), nil, true),
-			Entry("entry not found (no architecture)", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: ptr.To("arm64"), Capabilities: core.Capabilities{"architecture": []string{"arm64"}}}}, "bar", "1.2.3", ptr.To("amd64"), nil, true),
+			Entry("entry not found (no architecture)", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: ptr.To("arm64"), Capabilities: v1beta1.Capabilities{"architecture": []string{"arm64"}}}}, "bar", "1.2.3", ptr.To("amd64"), nil, true),
 			Entry("entry exists if architecture is nil", makeStatusMachineImages("bar", "1.2.3", "ami-1234", nil, imageCapabilities), "bar", "1.2.3", ptr.To("amd64"), &api.MachineImage{Name: "bar", Version: "1.2.3", AMI: "ami-1234", Architecture: ptr.To("amd64")}, false),
 			Entry("entry exists", makeStatusMachineImages("bar", "1.2.3", "ami-1234", ptr.To("amd64"), imageCapabilities), "bar", "1.2.3", ptr.To("amd64"), &api.MachineImage{Name: "bar", Version: "1.2.3", AMI: "ami-1234", Architecture: ptr.To("amd64")}, false),
 		)
@@ -224,38 +224,25 @@ func equalBackupBucketConfig(a, b *api.BackupBucketConfig) bool {
 }
 
 //nolint:unparam
-func makeProfileMachineImages(name, version, region, ami string, arch *string, capabilities *core.Capabilities) []api.MachineImages {
-	var versions []api.MachineImageVersion
+func makeProfileMachineImages(name, version, region, ami string, arch *string, capabilities v1beta1.Capabilities) []api.MachineImages {
+	versions := []api.MachineImageVersion{{
+		Version: version,
+	}}
+
 	if capabilities == nil {
-		versions = []api.MachineImageVersion{
-			{
-				Version: version,
-				Regions: []api.RegionAMIMapping{
-					{
-						Name:         region,
-						AMI:          ami,
-						Architecture: arch,
-					},
-				},
-			},
-		}
+		versions[0].Regions = []api.RegionAMIMapping{{
+			Name:         region,
+			AMI:          ami,
+			Architecture: arch,
+		}}
 	} else {
-		versions = []api.MachineImageVersion{
-			{
-				Version: version,
-				CapabilitySets: []api.CapabilitySet{
-					{
-						Capabilities: *capabilities,
-						Regions: []api.RegionAMIMapping{
-							{
-								Name: region,
-								AMI:  ami,
-							},
-						},
-					},
-				},
-			},
-		}
+		versions[0].CapabilitySets = []api.CapabilitySet{{
+			Capabilities: capabilities,
+			Regions: []api.RegionAMIMapping{{
+				Name: region,
+				AMI:  ami,
+			}},
+		}}
 	}
 
 	return []api.MachineImages{
@@ -267,15 +254,15 @@ func makeProfileMachineImages(name, version, region, ami string, arch *string, c
 }
 
 //nolint:unparam
-func makeStatusMachineImages(name, version, ami string, arch *string, capabilities *core.Capabilities) []api.MachineImage {
+func makeStatusMachineImages(name, version, ami string, arch *string, capabilities v1beta1.Capabilities) []api.MachineImage {
 	if capabilities != nil {
-		(*capabilities)["architecture"] = []string{ptr.Deref(arch, "")}
+		capabilities["architecture"] = []string{ptr.Deref(arch, "")}
 		return []api.MachineImage{
 			{
 				Name:         name,
 				Version:      version,
 				AMI:          ami,
-				Capabilities: *capabilities,
+				Capabilities: capabilities,
 			},
 		}
 	}

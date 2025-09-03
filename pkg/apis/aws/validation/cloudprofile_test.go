@@ -6,6 +6,7 @@ package validation_test
 
 import (
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +22,7 @@ import (
 var _ = Describe("CloudProfileConfig validation", func() {
 	DescribeTableSubtree("#ValidateCloudProfileConfig", func(isCapabilitiesCloudProfile bool) {
 		var (
-			capabilitiesDefinitions []core.CapabilityDefinition
+			capabilitiesDefinitions []v1beta1.CapabilityDefinition
 			cloudProfileConfig      *apisaws.CloudProfileConfig
 			machineImages           []core.MachineImage
 			machineImageName        string
@@ -37,13 +38,13 @@ var _ = Describe("CloudProfileConfig validation", func() {
 			var capabilitySets []apisaws.CapabilitySet
 
 			if isCapabilitiesCloudProfile {
-				capabilitiesDefinitions = []core.CapabilityDefinition{{
+				capabilitiesDefinitions = []v1beta1.CapabilityDefinition{{
 					Name:   v1beta1constants.ArchitectureName,
 					Values: []string{v1beta1constants.ArchitectureAMD64},
 				}}
 				capabilitySets = []apisaws.CapabilitySet{{
 					Regions: regions,
-					Capabilities: core.Capabilities{
+					Capabilities: v1beta1.Capabilities{
 						v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
 					}}}
 				regions = nil
@@ -158,7 +159,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 						Version: "1.2.3",
 						CapabilitySets: []apisaws.CapabilitySet{{
 							Regions:      []apisaws.RegionAMIMapping{{}},
-							Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: {v1beta1constants.ArchitectureAMD64}},
+							Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: {v1beta1constants.ArchitectureAMD64}},
 						}},
 					}
 				} else {

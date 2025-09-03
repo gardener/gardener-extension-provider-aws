@@ -13,7 +13,6 @@ import (
 	unsafe "unsafe"
 
 	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	core "github.com/gardener/gardener/pkg/apis/core"
 	v1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
@@ -422,7 +421,7 @@ func Convert_aws_BackupBucketConfig_To_v1alpha1_BackupBucketConfig(in *aws.Backu
 
 func autoConvert_v1alpha1_CapabilitySet_To_aws_CapabilitySet(in *CapabilitySet, out *aws.CapabilitySet, s conversion.Scope) error {
 	out.Regions = *(*[]aws.RegionAMIMapping)(unsafe.Pointer(&in.Regions))
-	out.Capabilities = *(*core.Capabilities)(unsafe.Pointer(&in.Capabilities))
+	out.Capabilities = *(*v1beta1.Capabilities)(unsafe.Pointer(&in.Capabilities))
 	return nil
 }
 
@@ -897,7 +896,7 @@ func autoConvert_v1alpha1_MachineImage_To_aws_MachineImage(in *MachineImage, out
 	out.Version = in.Version
 	out.AMI = in.AMI
 	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
-	out.Capabilities = *(*core.Capabilities)(unsafe.Pointer(&in.Capabilities))
+	out.Capabilities = *(*v1beta1.Capabilities)(unsafe.Pointer(&in.Capabilities))
 	return nil
 }
 

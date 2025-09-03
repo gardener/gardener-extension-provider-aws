@@ -282,7 +282,7 @@ var _ = Describe("Shoot validator", func() {
 						Name:    "Bar",
 						Version: imageVersion,
 					},
-					Type:         "large",
+					Type:         machineType,
 					Architecture: architecture,
 				}
 

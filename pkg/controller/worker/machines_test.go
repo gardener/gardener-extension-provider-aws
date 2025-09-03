@@ -16,7 +16,6 @@ import (
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
-	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -1495,14 +1494,14 @@ var _ = Describe("Machines", func() {
 
 		})
 	})
-	DescribeTable("EnsureUniformMachineImages", func(capabilitiesDefinitions []core.CapabilityDefinition, expectedImages []api.MachineImage) {
+	DescribeTable("EnsureUniformMachineImages", func(capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition, expectedImages []api.MachineImage) {
 		machineImages := []api.MachineImage{
 			// images with capability sets
 			{
 				Name:    "some-image",
 				Version: "1.2.1",
 				AMI:     "ami-for-arm64",
-				Capabilities: core.Capabilities{
+				Capabilities: gardencorev1beta1.Capabilities{
 					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
 				},
 			},
@@ -1510,7 +1509,7 @@ var _ = Describe("Machines", func() {
 				Name:    "some-image",
 				Version: "1.2.2",
 				AMI:     "ami-for-amd64",
-				Capabilities: core.Capabilities{
+				Capabilities: gardencorev1beta1.Capabilities{
 					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
 				},
 			},
@@ -1566,7 +1565,7 @@ var _ = Describe("Machines", func() {
 				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
 			},
 		}),
-		Entry("should return images with Capabilities", []core.CapabilityDefinition{{
+		Entry("should return images with Capabilities", []gardencorev1beta1.CapabilityDefinition{{
 			Name:   v1beta1constants.ArchitectureName,
 			Values: []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64},
 		}}, []api.MachineImage{
@@ -1575,7 +1574,7 @@ var _ = Describe("Machines", func() {
 				Name:    "some-image",
 				Version: "1.2.1",
 				AMI:     "ami-for-arm64",
-				Capabilities: core.Capabilities{
+				Capabilities: gardencorev1beta1.Capabilities{
 					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
 				},
 			},
@@ -1583,7 +1582,7 @@ var _ = Describe("Machines", func() {
 				Name:    "some-image",
 				Version: "1.2.2",
 				AMI:     "ami-for-amd64",
-				Capabilities: core.Capabilities{
+				Capabilities: gardencorev1beta1.Capabilities{
 					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
 				},
 			},
@@ -1592,14 +1591,14 @@ var _ = Describe("Machines", func() {
 				Name:    "some-image",
 				Version: "1.2.3",
 				AMI:     "ami-for-amd64",
-				Capabilities: core.Capabilities{
+				Capabilities: gardencorev1beta1.Capabilities{
 					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
 				}},
 			{
 				Name:    "some-image",
 				Version: "1.2.1",
 				AMI:     "ami-for-amd64",
-				Capabilities: core.Capabilities{
+				Capabilities: gardencorev1beta1.Capabilities{
 					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
 				},
 			},

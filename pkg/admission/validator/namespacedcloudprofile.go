@@ -12,9 +12,9 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencoreapi "github.com/gardener/gardener/pkg/api"
 	"github.com/gardener/gardener/pkg/apis/core"
-	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
@@ -84,17 +85,10 @@ func (p *namespacedCloudProfile) validateNamespacedCloudProfileProviderConfig(pr
 func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.CloudProfileConfig, machineImages []core.MachineImage, parentSpec gardencorev1beta1.CloudProfileSpec) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	var parentCloudProfileSpecCore core.CloudProfileSpec
-	if err := gardencoreapi.Scheme.Convert(&parentSpec, &parentCloudProfileSpecCore, nil); err != nil {
-		return append(allErrs, field.InternalError(field.NewPath(""), err))
-	}
-
-	capabilityDefinitions := parentCloudProfileSpecCore.Capabilities
-
 	machineImagesPath := field.NewPath("spec.providerConfig.machineImages")
 	for i, machineImage := range providerConfig.MachineImages {
 		idxPath := machineImagesPath.Index(i)
-		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage, capabilityDefinitions)...)
+		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage, parentSpec.Capabilities)...)
 	}
 
 	profileImages := gutil.NewCoreImagesContext(machineImages)
@@ -121,13 +115,18 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 				continue
 			}
 
-			if len(capabilityDefinitions) == 0 {
+			if len(parentSpec.Capabilities) == 0 {
 				allErrs = append(allErrs, validateMachineImageArchitectures(machineImage, version, providerImageVersion)...)
 			} else {
-				allErrs = append(allErrs, validateMachineImageCapabilities(machineImage, version, providerImageVersion, capabilityDefinitions)...)
+				var v1betaVersion gardencorev1beta1.MachineImageVersion
+				if err := gardencoreapi.Scheme.Convert(&version, &v1betaVersion, nil); err != nil {
+					return append(allErrs, field.InternalError(machineImagesPath, err))
+				}
+				allErrs = append(allErrs, validateMachineImageCapabilities(machineImage, v1betaVersion, providerImageVersion, parentSpec.Capabilities)...)
 			}
 		}
 	}
+
 	for imageIdx, machineImage := range providerConfig.MachineImages {
 		// Check that the machine image version is not already defined in the parent CloudProfile.
 		if _, exists := parentImages.GetImage(machineImage.Name); exists {
@@ -162,18 +161,18 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 	return allErrs
 }
 
-func validateMachineImageCapabilities(machineImage core.MachineImage, version core.MachineImageVersion, providerImageVersion api.MachineImageVersion, capabilitiesDefinition []core.CapabilityDefinition) field.ErrorList {
+func validateMachineImageCapabilities(machineImage core.MachineImage, version gardencorev1beta1.MachineImageVersion, providerImageVersion api.MachineImageVersion, capabilitiesDefinition []gardencorev1beta1.CapabilityDefinition) field.ErrorList {
 	allErrs := field.ErrorList{}
 	path := field.NewPath("spec.providerConfig.machineImages")
-	coreDefaultedCapabilitySets := gardencorehelper.GetCapabilitySetsWithAppliedDefaults(version.CapabilitySets, capabilitiesDefinition)
-	regionsCapabilitiesMap := map[string][]core.Capabilities{}
+	defaultedCapabilitySets := v1beta1helper.GetCapabilitySetsWithAppliedDefaults(version.CapabilitySets, capabilitiesDefinition)
+	regionsCapabilitiesMap := map[string][]gardencorev1beta1.Capabilities{}
 
 	// 1. Create an error for each capabilitySet in the providerConfig that is not defined in the core machine image version
 	for _, capabilitySet := range providerImageVersion.CapabilitySets {
 		isFound := false
-		for _, coreDefaultedCapabilitySet := range coreDefaultedCapabilitySets {
-			defaultedProviderCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(capabilitySet.Capabilities, capabilitiesDefinition)
-			if gutil.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
+		for _, coreDefaultedCapabilitySet := range defaultedCapabilitySets {
+			defaultedProviderCapabilities := v1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilitySet.Capabilities, capabilitiesDefinition)
+			if helper.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
 				isFound = true
 			}
 		}
@@ -189,11 +188,11 @@ func validateMachineImageCapabilities(machineImage core.MachineImage, version co
 	}
 
 	// 2. Create an error for each capabilitySet in the core machine image version that is not defined in the providerConfig
-	for _, coreDefaultedCapabilitySet := range coreDefaultedCapabilitySets {
+	for _, coreDefaultedCapabilitySet := range defaultedCapabilitySets {
 		isFound := false
 		for _, capabilitySet := range providerImageVersion.CapabilitySets {
-			defaultedProviderCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(capabilitySet.Capabilities, capabilitiesDefinition)
-			if gutil.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
+			defaultedProviderCapabilities := v1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilitySet.Capabilities, capabilitiesDefinition)
+			if helper.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
 				isFound = true
 			}
 		}
@@ -209,8 +208,8 @@ func validateMachineImageCapabilities(machineImage core.MachineImage, version co
 		for region, regionCapabilities := range regionsCapabilitiesMap {
 			isFound := false
 			for _, capabilities := range regionCapabilities {
-				regionDefaultedCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(capabilities, capabilitiesDefinition)
-				if gutil.AreCapabilitiesEqual(regionDefaultedCapabilities, coreDefaultedCapabilitySet.Capabilities) {
+				regionDefaultedCapabilities := v1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities, capabilitiesDefinition)
+				if helper.AreCapabilitiesEqual(regionDefaultedCapabilities, coreDefaultedCapabilitySet.Capabilities) {
 					isFound = true
 				}
 			}

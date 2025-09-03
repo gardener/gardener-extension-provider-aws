@@ -18,7 +18,6 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
-	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
@@ -97,11 +96,6 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 		return err
 	}
 
-	capabilitiesDefinitions, err := GetCoreCapabilitiesDefinitions(w.cluster.CloudProfile.Spec.Capabilities)
-	if err != nil {
-		return err
-	}
-
 	for _, pool := range w.worker.Spec.Pools {
 		workerConfig := &awsapi.WorkerConfig{}
 		if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
@@ -126,8 +120,8 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			return err
 		}
 
-		machineImages = EnsureUniformMachineImages(machineImages, capabilitiesDefinitions)
-		machineImages = appendMachineImage(machineImages, *machineImage, capabilitiesDefinitions)
+		machineImages = EnsureUniformMachineImages(machineImages, w.cluster.CloudProfile.Spec.Capabilities)
+		machineImages = appendMachineImage(machineImages, *machineImage, w.cluster.CloudProfile.Spec.Capabilities)
 
 		blockDevices, err := w.computeBlockDevices(pool, workerConfig)
 		if err != nil {
@@ -513,7 +507,7 @@ func isIPv6(c *controller.Cluster) bool {
 }
 
 // EnsureUniformMachineImages ensures that all machine images are in the same format, either with or without Capabilities.
-func EnsureUniformMachineImages(images []awsapi.MachineImage, definitions []core.CapabilityDefinition) []awsapi.MachineImage {
+func EnsureUniformMachineImages(images []awsapi.MachineImage, definitions []gardencorev1beta1.CapabilityDefinition) []awsapi.MachineImage {
 	var uniformMachineImages []awsapi.MachineImage
 
 	if len(definitions) == 0 {
@@ -528,8 +522,6 @@ func EnsureUniformMachineImages(images []awsapi.MachineImage, definitions []core
 			var architecture *string
 			if len(img.Capabilities[v1beta1constants.ArchitectureName]) > 0 {
 				architecture = &img.Capabilities[v1beta1constants.ArchitectureName][0]
-			} else {
-				architecture = nil
 			}
 			uniformMachineImages = appendMachineImage(uniformMachineImages, awsapi.MachineImage{
 				Name:         img.Name,
@@ -553,26 +545,9 @@ func EnsureUniformMachineImages(images []awsapi.MachineImage, definitions []core
 				Name:         img.Name,
 				Version:      img.Version,
 				AMI:          img.AMI,
-				Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: []string{architecture}},
+				Capabilities: gardencorev1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{architecture}},
 			}, definitions)
 		}
 	}
 	return uniformMachineImages
-}
-
-// GetCoreCapabilitiesDefinitions function in the helper package.
-// TODO @Roncossek remove this function once the gardener-core is updated to a version that contains it.
-// GetCoreCapabilitiesDefinitions converts v1beta1.CapabilityDefinition objects to core.CapabilityDefinition objects.
-// gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
-func GetCoreCapabilitiesDefinitions(capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) ([]core.CapabilityDefinition, error) {
-	var coreCapabilitiesDefinitions []core.CapabilityDefinition
-	for _, capabilityDefinition := range capabilitiesDefinitions {
-		var coreCapabilityDefinition core.CapabilityDefinition
-		err := gardencorev1beta1.Convert_v1beta1_CapabilityDefinition_To_core_CapabilityDefinition(&capabilityDefinition, &coreCapabilityDefinition, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert capability definition: %w", err)
-		}
-		coreCapabilitiesDefinitions = append(coreCapabilitiesDefinitions, coreCapabilityDefinition)
-	}
-	return coreCapabilitiesDefinitions, nil
 }

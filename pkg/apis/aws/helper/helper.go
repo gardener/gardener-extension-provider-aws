@@ -6,17 +6,11 @@ package helper
 
 import (
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/gardener/gardener/extensions/pkg/util"
-	"github.com/gardener/gardener/pkg/apis/core"
-	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -160,14 +154,15 @@ func findCapabilitySetFromMachineImages(
 					if region == mapping.Name && ptr.Equal(arch, mapping.Architecture) {
 						return &api.CapabilitySet{
 							Regions:      []api.RegionAMIMapping{mapping},
-							Capabilities: core.Capabilities{},
+							Capabilities: gardencorev1beta1.Capabilities{},
 						}, nil
 					}
 				}
 				continue
 			}
 
-			bestMatch, err := FindBestCapabilitySet(version.CapabilitySets, machineCapabilities, capabilitiesDefinitions, region)
+			filteredCapabilitySets := filterCapabilitySetsByRegion(version.CapabilitySets, region)
+			bestMatch, err := FindBestCapabilitySet(filteredCapabilitySets, machineCapabilities, capabilitiesDefinitions)
 			if err != nil {
 				return nil, fmt.Errorf("could not determine best capabilitySet %w", err)
 			}
@@ -178,120 +173,10 @@ func findCapabilitySetFromMachineImages(
 	return nil, nil
 }
 
-// FindBestCapabilitySet finds the most appropriate capability set from the provided capability sets
-// based on the requested machine capabilities and the definitions of capabilities.
-func FindBestCapabilitySet(
-	capabilitySets []api.CapabilitySet,
-	machineCapabilities gardencorev1beta1.Capabilities,
-	capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition,
-	regionName string,
-) (*api.CapabilitySet, error) {
-	compatibleCapabilitySets, err := findCompatibleCapabilitySets(capabilitySets, machineCapabilities, capabilitiesDefinitions, regionName)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(compatibleCapabilitySets) == 0 {
-		return nil, fmt.Errorf("no compatible capability set found")
-	}
-
-	// Convert the slice of values to a slice of pointers
-	compatiblePointers := make([]*api.CapabilitySet, len(compatibleCapabilitySets))
-	for i := range compatibleCapabilitySets {
-		compatiblePointers[i] = &compatibleCapabilitySets[i]
-	}
-	bestMatch, err := SelectBestCapabilitySet(compatiblePointers, capabilitiesDefinitions)
-	if err != nil {
-		return nil, err
-	}
-	return bestMatch, nil
-}
-
-// HasCapabilities defines an interface for types that contain Capabilities
-type HasCapabilities interface {
-	GetCapabilities() core.Capabilities
-	SetCapabilities(core.Capabilities)
-}
-
-// TODO @Roncossek move this function gardener/gardener fpr reusability in other extensions
-
-// SelectBestCapabilitySet selects the most appropriate capability set based on the priority
-// of capabilities and their values as defined in capabilitiesDefinitions.
-//
-// Selection follows a priority-based approach:
-// 1. Capabilities are ordered by priority in the definitions list (highest priority first)
-// 2. Within each capability, values are ordered by preference (most preferred first)
-// 3. Selection is determined by the first capability value difference found
-func SelectBestCapabilitySet[T HasCapabilities](
-	compatibleSets []T,
-	capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition,
-) (T, error) {
-	var zeroValue T
-	if len(compatibleSets) == 1 {
-		return compatibleSets[0], nil
-	}
-
-	// Apply capability defaults for better comparison
-	normalizedSets := make([]T, len(compatibleSets))
-	copy(normalizedSets, compatibleSets)
-
-	coreCapabilitiesDefinitions, err := GetCoreCapabilitiesDefinitions(capabilitiesDefinitions)
-	if err != nil {
-		return zeroValue, err
-	}
-
-	// Normalize capability sets by applying defaults
-	for i := range normalizedSets {
-		normalizedSets[i].SetCapabilities(gardencorehelper.GetCapabilitiesWithAppliedDefaults(
-			normalizedSets[i].GetCapabilities(),
-			coreCapabilitiesDefinitions,
-		))
-	}
-
-	// Evaluate capability sets based on capability definitions priority
-	remainingSets := normalizedSets
-
-	// For each capability (in priority order)
-	for _, capabilityDef := range capabilitiesDefinitions {
-		// For each preferred value (in preference order)
-		for _, capabilityValue := range capabilityDef.Values {
-			var setsWithPreferredValue []T
-
-			// Find sets that support this capability value
-			for _, set := range remainingSets {
-				if slices.Contains(set.GetCapabilities()[capabilityDef.Name], capabilityValue) {
-					setsWithPreferredValue = append(setsWithPreferredValue, set)
-				}
-			}
-
-			// If we found sets with this value, narrow down our selection
-			if len(setsWithPreferredValue) > 0 {
-				remainingSets = setsWithPreferredValue
-
-				// If only one set remains, we've found our match
-				if len(remainingSets) == 1 {
-					return remainingSets[0], nil
-				}
-			}
-		}
-	}
-
-	// If we couldn't determine a single best match, this indicates a problem with the cloud profile
-	if len(remainingSets) != 1 {
-		return zeroValue, fmt.Errorf("found multiple capability sets with identical capabilities; this indicates an invalid cloudprofile was admitted. Please open a bug report at https://github.com/gardener/gardener/issues")
-	}
-
-	return remainingSets[0], nil
-}
-
-// findCompatibleCapabilitySets returns all capability sets that are compatible with the given machine capabilities.
-func findCompatibleCapabilitySets(
-	capabilitySets []api.CapabilitySet,
-	machineCapabilities gardencorev1beta1.Capabilities,
-	capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition,
-	regionName string,
-) ([]api.CapabilitySet, error) {
-	var compatibleSets []api.CapabilitySet
+// filterCapabilitySetsByRegion returns a new list with capabilitySets that only contain RegionAMIMappings
+// of the region to filter for.
+func filterCapabilitySetsByRegion(capabilitySets []api.CapabilitySet, regionName string) []*api.CapabilitySet {
+	var compatibleSets []*api.CapabilitySet
 
 	for _, capabilitySet := range capabilitySets {
 		var regionAMIMapping *api.RegionAMIMapping
@@ -300,24 +185,14 @@ func findCompatibleCapabilitySets(
 				regionAMIMapping = &region
 			}
 		}
-		if regionAMIMapping == nil {
-			continue
-		}
-		var v1alphaCapabilitySet v1alpha1.CapabilitySet
-		err := v1alpha1.Convert_aws_CapabilitySet_To_v1alpha1_CapabilitySet(&capabilitySet, &v1alphaCapabilitySet, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert capability set: %w", err)
-		}
-
-		if AreCapabilitiesCompatible(v1alphaCapabilitySet.Capabilities, machineCapabilities, capabilitiesDefinitions) {
-			compatibleSets = append(compatibleSets,
-				api.CapabilitySet{
-					Regions:      []api.RegionAMIMapping{*regionAMIMapping},
-					Capabilities: capabilitySet.Capabilities,
-				})
+		if regionAMIMapping != nil {
+			compatibleSets = append(compatibleSets, &api.CapabilitySet{
+				Regions:      []api.RegionAMIMapping{*regionAMIMapping},
+				Capabilities: capabilitySet.Capabilities,
+			})
 		}
 	}
-	return compatibleSets, nil
+	return compatibleSets
 }
 
 // FindDataVolumeByName takes a list of data volumes and a data volume name. It tries to find the data volume entry for
@@ -342,71 +217,4 @@ func DecodeBackupBucketConfig(decoder runtime.Decoder, config *runtime.RawExtens
 	}
 
 	return backupBucketConfig, nil
-}
-
-// AreCapabilitiesCompatible checks if two sets of capabilities are compatible.
-// It applies defaults from the capability definitions to both sets before checking compatibility.
-// TODO @Roncossek remove this function once the gardener-core is updated to a version that contains it.
-// github.com/gardener/gardener/pkg/apis/core/v1beta1/helper
-func AreCapabilitiesCompatible(capabilities1, capabilities2 gardencorev1beta1.Capabilities, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) bool {
-	defaultedCapabilities1 := v1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities1, capabilitiesDefinitions)
-	defaultedCapabilities2 := v1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities2, capabilitiesDefinitions)
-
-	isSupported := true
-	commonCapabilities := getCapabilitiesIntersection(defaultedCapabilities1, defaultedCapabilities2)
-	// If the intersection has at least one value for each capability, the capabilities are supported.
-	for _, values := range commonCapabilities {
-		if len(values) == 0 {
-			isSupported = false
-			break
-		}
-	}
-
-	return isSupported
-}
-
-// TODO @Roncossek remove this function once the gardener-core is updated to a version that contains it.
-// github.com/gardener/gardener/pkg/apis/core/v1beta1/helper
-func getCapabilitiesIntersection(capabilitiesList ...gardencorev1beta1.Capabilities) gardencorev1beta1.Capabilities {
-	intersection := make(gardencorev1beta1.Capabilities)
-
-	if len(capabilitiesList) == 0 {
-		return intersection
-	}
-
-	// Initialize intersection with the first capabilities object
-	maps.Copy(intersection, capabilitiesList[0])
-
-	intersect := func(slice1, slice2 []string) []string {
-		elementSet1 := sets.New(slice1...)
-		elementSet2 := sets.New(slice2...)
-
-		return elementSet1.Intersection(elementSet2).UnsortedList()
-	}
-
-	// Iterate through the remaining capabilities objects and refine the intersection
-	for _, capabilities := range capabilitiesList[1:] {
-		for key, values := range intersection {
-			intersection[key] = intersect(values, capabilities[key])
-		}
-	}
-
-	return intersection
-}
-
-// GetCoreCapabilitiesDefinitions function in the helper package.
-// TODO @Roncossek remove this function once the gardener-core is updated to a version that contains it.
-// GetCoreCapabilitiesDefinitions converts v1beta1.CapabilityDefinition objects to core.CapabilityDefinition objects.
-// gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
-func GetCoreCapabilitiesDefinitions(capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) ([]core.CapabilityDefinition, error) {
-	var coreCapabilitiesDefinitions []core.CapabilityDefinition
-	for _, capabilityDefinition := range capabilitiesDefinitions {
-		var coreCapabilityDefinition core.CapabilityDefinition
-		err := gardencorev1beta1.Convert_v1beta1_CapabilityDefinition_To_core_CapabilityDefinition(&capabilityDefinition, &coreCapabilityDefinition, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert capability definition: %w", err)
-		}
-		coreCapabilitiesDefinitions = append(coreCapabilitiesDefinitions, coreCapabilityDefinition)
-	}
-	return coreCapabilitiesDefinitions, nil
 }

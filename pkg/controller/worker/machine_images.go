@@ -9,10 +9,8 @@ import (
 	"fmt"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
-	"github.com/gardener/gardener/pkg/apis/core"
-	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	gutil "github.com/gardener/gardener/pkg/utils/gardener"
+	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -67,7 +65,7 @@ func (w *WorkerDelegate) selectMachineImageForWorkerPool(name, version string, r
 	return nil, worker.ErrorMachineImageNotFound(name, version, *arch, region)
 }
 
-func appendMachineImage(machineImages []api.MachineImage, machineImage api.MachineImage, capabilitiesDefinitions []core.CapabilityDefinition) []api.MachineImage {
+func appendMachineImage(machineImages []api.MachineImage, machineImage api.MachineImage, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) []api.MachineImage {
 	// support for cloudprofile machine images without capabilities
 	if len(capabilitiesDefinitions) == 0 {
 		for _, image := range machineImages {
@@ -84,11 +82,11 @@ func appendMachineImage(machineImages []api.MachineImage, machineImage api.Machi
 		})
 	}
 
-	defaultedCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(machineImage.Capabilities, capabilitiesDefinitions)
+	defaultedCapabilities := v1beta1helper.GetCapabilitiesWithAppliedDefaults(machineImage.Capabilities, capabilitiesDefinitions)
 
 	for _, existingMachineImage := range machineImages {
-		existingDefaultedCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(existingMachineImage.Capabilities, capabilitiesDefinitions)
-		if existingMachineImage.Name == machineImage.Name && existingMachineImage.Version == machineImage.Version && gutil.AreCapabilitiesEqual(defaultedCapabilities, existingDefaultedCapabilities) {
+		existingDefaultedCapabilities := v1beta1helper.GetCapabilitiesWithAppliedDefaults(existingMachineImage.Capabilities, capabilitiesDefinitions)
+		if existingMachineImage.Name == machineImage.Name && existingMachineImage.Version == machineImage.Version && helper.AreCapabilitiesEqual(defaultedCapabilities, existingDefaultedCapabilities) {
 			// If the image already exists with the same capabilities return the existing list.
 			return machineImages
 		}
