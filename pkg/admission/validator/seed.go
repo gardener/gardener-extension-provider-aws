@@ -59,15 +59,17 @@ func (s *seedValidator) Validate(_ context.Context, newObj, oldObj client.Object
 // It checks if immutable settings are provided and if provided then it validates the immutable settings.
 func (s *seedValidator) validateCreate(seed *core.Seed) field.ErrorList {
 	var (
-		allErrs               = field.ErrorList{}
-		providerConfigfldPath = field.NewPath("spec", "backup", "providerConfig")
+		allErrs = field.ErrorList{}
 	)
 
-	if seed.Spec.Backup == nil || seed.Spec.Backup.ProviderConfig == nil {
-		return allErrs
-	}
+	if seed.Spec.Backup != nil {
+		backupPath := field.NewPath("spec", "backup")
+		allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(seed.Spec.Backup.CredentialsRef, backupPath.Child("credentialsRef"))...)
 
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigCreate(s.lenientDecoder, seed.Spec.Backup.ProviderConfig, providerConfigfldPath)...)
+		if seed.Spec.Backup.ProviderConfig != nil {
+			allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigCreate(s.lenientDecoder, seed.Spec.Backup.ProviderConfig, backupPath.Child("providerConfig"))...)
+		}
+	}
 
 	return allErrs
 }
@@ -76,16 +78,17 @@ func (s *seedValidator) validateCreate(seed *core.Seed) field.ErrorList {
 // are correctly managed. It enforces constraints such as changing of retention mode from compliance -> governance,
 // and reduction of retention periods in compliance mode.
 func (s *seedValidator) validateUpdate(oldSeed, newSeed *core.Seed) field.ErrorList {
-	var (
-		allErrs               = field.ErrorList{}
-		providerConfigfldPath = field.NewPath("spec", "backup", "providerConfig")
-	)
-
 	if oldSeed.Spec.Backup == nil || oldSeed.Spec.Backup.ProviderConfig == nil {
 		return s.validateCreate(newSeed)
 	}
 
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigUpdate(s.decoder, s.lenientDecoder, oldSeed.Spec.Backup.ProviderConfig, newSeed.Spec.Backup.ProviderConfig, providerConfigfldPath)...)
+	var (
+		allErrs    = field.ErrorList{}
+		backupPath = field.NewPath("spec", "backup")
+	)
+
+	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigUpdate(s.decoder, s.lenientDecoder, oldSeed.Spec.Backup.ProviderConfig, newSeed.Spec.Backup.ProviderConfig, backupPath.Child("providerConfig"))...)
+	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(newSeed.Spec.Backup.CredentialsRef, backupPath.Child("credentialsRef"))...)
 
 	return allErrs
 }

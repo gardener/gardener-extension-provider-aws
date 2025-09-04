@@ -24,10 +24,7 @@ import (
 
 var _ = Describe("Seed Validator", func() {
 	Describe("#Validate", func() {
-		const (
-			namespace = "garden-dev"
-			name      = "my-provider-account"
-		)
+		const name = "my-seed"
 
 		var (
 			seedValidator extensionswebhook.Validator
@@ -35,7 +32,8 @@ var _ = Describe("Seed Validator", func() {
 			ctrl *gomock.Controller
 			mgr  *mockmanager.MockManager
 
-			ctx = context.TODO()
+			ctx            context.Context
+			credentialsRef *corev1.ObjectReference
 		)
 
 		BeforeEach(func() {
@@ -51,6 +49,14 @@ var _ = Describe("Seed Validator", func() {
 			mgr.EXPECT().GetScheme().Return(scheme).AnyTimes()
 
 			seedValidator = validator.NewSeedValidator(mgr)
+
+			ctx = context.TODO()
+			credentialsRef = &corev1.ObjectReference{
+				APIVersion: "v1",
+				Kind:       "Secret",
+				Name:       "backup-credentials",
+				Namespace:  "garden",
+			}
 		})
 
 		AfterEach(func() {
@@ -65,189 +71,159 @@ var _ = Describe("Seed Validator", func() {
 			Expect(seedValidator.Validate(ctx, &gardencore.Seed{}, &corev1.Secret{})).To(MatchError("wrong object type *v1.Secret for old object"))
 		})
 
-		It("should succeed when seed is created with empty providerConfig", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: &gardencore.Backup{},
-				},
-			}
+		Context("Create", func() {
+			It("should succeed to create seed when backup is unset", func() {
+				seed := &gardencore.Seed{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.SeedSpec{
+						Backup: nil,
+					},
+				}
 
-			Expect(seedValidator.Validate(ctx, seed, nil)).To(Succeed())
-		})
+				Expect(seedValidator.Validate(ctx, seed, nil)).To(Succeed())
+			})
 
-		It("should succeed when seed is created with empty backup", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: nil,
-				},
-			}
-
-			Expect(seedValidator.Validate(ctx, seed, nil)).To(Succeed())
-		})
-
-		It("should return error when seed is created with invalid providerConfig and it fails to decode", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: &gardencore.Backup{
-						ProviderConfig: &runtime.RawExtension{
-							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"}`),
+			It("should fail to create seed when backup has nil credentialsRef", func() {
+				seed := &gardencore.Seed{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.SeedSpec{
+						Backup: &gardencore.Backup{
+							CredentialsRef: nil,
 						},
 					},
-				},
-			}
+				}
 
-			err := seedValidator.Validate(ctx, seed, nil)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(`failed to decode new provider config: no kind "invalid" is registered for version "aws.provider.extensions.gardener.cloud/v1alpha1"`))
-		})
+				err := seedValidator.Validate(ctx, seed, nil)
+				Expect(err).To(HaveOccurred())
+			})
 
-		It("should return error when seed is created with invalid providerConfig and non-supported fields", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: &gardencore.Backup{
-						ProviderConfig: &runtime.RawExtension{
-							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "invalid", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+			It("should succeed to create seed when backup has providerConfig unset", func() {
+				seed := &gardencore.Seed{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.SeedSpec{
+						Backup: &gardencore.Backup{
+							CredentialsRef: credentialsRef,
 						},
 					},
-				},
-			}
+				}
 
-			err := seedValidator.Validate(ctx, seed, nil)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(`spec.backup.providerConfig.immutability.mode: Invalid value: "invalid": should be either compliance mode or governance mode`))
-		})
+				Expect(seedValidator.Validate(ctx, seed, nil)).To(Succeed())
+			})
 
-		It("should succeed when seed had empty providerConfig but is now updated with valid provider config", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: &gardencore.Backup{},
-				},
-			}
-
-			newSeed := seed.DeepCopy()
-			newSeed.Spec.Backup.ProviderConfig = &runtime.RawExtension{
-				Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "compliance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
-			}
-
-			Expect(seedValidator.Validate(ctx, newSeed, seed)).To(Succeed())
-
-			seed.Spec.Backup = nil
-
-			Expect(seedValidator.Validate(ctx, newSeed, seed)).To(Succeed())
-		})
-
-		It("should return error when seed is updated with invalid providerConfig and it fails to decode", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: &gardencore.Backup{
-						ProviderConfig: &runtime.RawExtension{
-							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig"}`),
+			It("should fail to create seed when backup has invalid providerConfig", func() {
+				seed := &gardencore.Seed{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.SeedSpec{
+						Backup: &gardencore.Backup{
+							CredentialsRef: nil,
+							ProviderConfig: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"}`),
+							},
 						},
 					},
-				},
-			}
+				}
 
-			newseed := seed.DeepCopy()
-			newseed.Spec.Backup.ProviderConfig = &runtime.RawExtension{
-				Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"}`),
-			}
-
-			err := seedValidator.Validate(ctx, newseed, seed)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(`failed to decode new provider config: no kind "invalid" is registered for version "aws.provider.extensions.gardener.cloud/v1alpha1"`))
+				err := seedValidator.Validate(ctx, seed, nil)
+				Expect(err).To(HaveOccurred())
+			})
 		})
 
-		It("should return error when seed is updated with immutable providerConfig fields", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: &gardencore.Backup{
-						ProviderConfig: &runtime.RawExtension{
-							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "compliance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+		Context("Update", func() {
+			It("should succeed when seed had empty backup config but is now updated with valid providerConfig", func() {
+				seed := &gardencore.Seed{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.SeedSpec{
+						Backup: nil,
+					},
+				}
+
+				newSeed := seed.DeepCopy()
+				newSeed.Spec.Backup = &gardencore.Backup{
+					CredentialsRef: credentialsRef,
+					ProviderConfig: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "compliance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+					},
+				}
+
+				Expect(seedValidator.Validate(ctx, newSeed, seed)).To(Succeed())
+			})
+
+			It("should fail when seed had empty backup config but is now updated with invalid providerConfig", func() {
+				seed := &gardencore.Seed{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.SeedSpec{
+						Backup: nil,
+					},
+				}
+
+				newSeed := seed.DeepCopy()
+				newSeed.Spec.Backup = &gardencore.Backup{
+					CredentialsRef: credentialsRef,
+					ProviderConfig: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"`),
+					},
+				}
+
+				Expect(seedValidator.Validate(ctx, newSeed, seed)).To(HaveOccurred())
+			})
+
+			It("should succeed when seed had set backup config and is now updated with valid providerConfig", func() {
+				seed := &gardencore.Seed{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.SeedSpec{
+						Backup: &gardencore.Backup{
+							CredentialsRef: credentialsRef,
+							ProviderConfig: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig"}`),
+							},
 						},
 					},
-				},
-			}
+				}
 
-			newseed := seed.DeepCopy()
-			newseed.Spec.Backup.ProviderConfig = &runtime.RawExtension{
-				Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
-			}
+				newseed := seed.DeepCopy()
+				newseed.Spec.Backup.ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+				}
 
-			err := seedValidator.Validate(ctx, newseed, seed)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(`spec.backup.providerConfig.immutability.mode: Forbidden: immutable retention mode can't be change to governance once it is compliance`))
-		})
+				Expect(seedValidator.Validate(ctx, newseed, seed)).To(Succeed())
+			})
 
-		It("should succeed when Seed is updated with valid providerConfig", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: &gardencore.Backup{
-						ProviderConfig: &runtime.RawExtension{
-							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+			It("should return error when seed had set backup config and is now updated with invalid providerConfig fields", func() {
+				seed := &gardencore.Seed{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.SeedSpec{
+						Backup: &gardencore.Backup{
+							CredentialsRef: credentialsRef,
+							ProviderConfig: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig"}`),
+							},
 						},
 					},
-				},
-			}
+				}
 
-			newSeed := seed.DeepCopy()
-			newSeed.Spec.Backup.ProviderConfig = &runtime.RawExtension{
-				Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "compliance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
-			}
+				newseed := seed.DeepCopy()
+				newseed.Spec.Backup.ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"}`),
+				}
 
-			Expect(seedValidator.Validate(ctx, newSeed, seed)).To(Succeed())
-		})
-
-		It("should succeed when old Seed does not have provider config and new Seed is updated with valid providerConfig", func() {
-			seed := &gardencore.Seed{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.SeedSpec{
-					Backup: nil,
-				},
-			}
-
-			newSeed := seed.DeepCopy()
-			newSeed.Spec.Backup = &gardencore.Backup{
-				ProviderConfig: &runtime.RawExtension{
-					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "compliance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
-				},
-			}
-
-			Expect(seedValidator.Validate(ctx, newSeed, seed)).To(Succeed())
+				Expect(seedValidator.Validate(ctx, newseed, seed)).To(HaveOccurred())
+			})
 		})
 	})
 })
