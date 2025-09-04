@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
-	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/apis/security"
 	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
@@ -24,8 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
-	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	awsapiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
@@ -57,14 +54,6 @@ var _ = Describe("CredentialsBinding validator", func() {
 
 			apiReader = mockclient.NewMockReader(ctrl)
 			mgr.EXPECT().GetAPIReader().Return(apiReader)
-
-			scheme := runtime.NewScheme()
-			Expect(gardencorev1beta1.AddToScheme(scheme)).To(Succeed())
-			Expect(securityv1alpha1.AddToScheme(scheme)).To(Succeed())
-			Expect(awsapi.AddToScheme(scheme)).To(Succeed())
-			Expect(awsapiv1alpha1.AddToScheme(scheme)).To(Succeed())
-
-			mgr.EXPECT().GetScheme().Return(scheme)
 
 			credentialsBindingValidator = validator.NewCredentialsBindingValidator(mgr)
 
