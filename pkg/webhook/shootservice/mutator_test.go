@@ -106,6 +106,27 @@ var _ = Describe("Mutator", func() {
 
 		Entry("no data", &corev1.Service{ObjectMeta: loadBalancerServiceMapMeta, Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}}}),
 	)
+
+	DescribeTable("#Mutate",
+		func(service *corev1.Service) {
+			metav1.SetMetaDataAnnotation(&service.ObjectMeta, "extensions.gardener.cloud/ignore-load-balancer", "true")
+			Expect(fakeShootClient.Patch(context.TODO(), &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "kube-dns", Namespace: "kube-system"},
+				Spec: corev1.ServiceSpec{
+					IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				},
+			}, client.MergeFrom(&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "kube-dns", Namespace: "kube-system"}}))).To(Succeed())
+			err := mutator.Mutate(ctxWithClient, service, nil)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(service.Annotations).ToNot(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-ip-address-type", "dualstack"))
+			Expect(service.Annotations).ToNot(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-scheme", "internet-facing"))
+			Expect(service.Annotations).ToNot(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-nlb-target-type", "instance"))
+			Expect(service.Annotations).ToNot(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-type", "external"))
+		},
+
+		Entry("no data", &corev1.Service{ObjectMeta: loadBalancerServiceMapMeta, Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}}}),
+	)
+
 	It("should return error if resource is not a Service", func() {
 		err := mutator.Mutate(ctxWithClient, &corev1.ConfigMap{}, nil)
 		Expect(err).To(HaveOccurred())
