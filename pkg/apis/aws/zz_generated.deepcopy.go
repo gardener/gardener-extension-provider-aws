@@ -10,7 +10,7 @@
 package aws
 
 import (
-	core "github.com/gardener/gardener/pkg/apis/core"
+	v1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -57,14 +57,14 @@ func (in *CapabilitySet) DeepCopyInto(out *CapabilitySet) {
 	}
 	if in.Capabilities != nil {
 		in, out := &in.Capabilities, &out.Capabilities
-		*out = make(core.Capabilities, len(*in))
+		*out = make(v1beta1.Capabilities, len(*in))
 		for key, val := range *in {
 			var outVal []string
 			if val == nil {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
-				*out = make(core.CapabilityValues, len(*in))
+				*out = make(v1beta1.CapabilityValues, len(*in))
 				copy(*out, *in)
 			}
 			(*out)[key] = outVal
@@ -593,6 +593,21 @@ func (in *MachineImage) DeepCopyInto(out *MachineImage) {
 		in, out := &in.Architecture, &out.Architecture
 		*out = new(string)
 		**out = **in
+	}
+	if in.Capabilities != nil {
+		in, out := &in.Capabilities, &out.Capabilities
+		*out = make(v1beta1.Capabilities, len(*in))
+		for key, val := range *in {
+			var outVal []string
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = make(v1beta1.CapabilityValues, len(*in))
+				copy(*out, *in)
+			}
+			(*out)[key] = outVal
+		}
 	}
 	return
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,43 +72,80 @@ var _ = Describe("Helper", func() {
 		Entry("entry exists", []api.Subnet{{ID: "bar", Purpose: "baz", Zone: "europe"}}, "baz", "europe", &api.Subnet{ID: "bar", Purpose: "baz", Zone: "europe"}, false),
 	)
 
-	DescribeTable("#FindMachineImage",
-		func(machineImages []api.MachineImage, name, version string, arch *string, expectedMachineImage *api.MachineImage, expectErr bool) {
-			machineImage, err := FindMachineImage(machineImages, name, version, arch)
-			expectResults(machineImage, expectedMachineImage, err, expectErr)
-		},
+	DescribeTableSubtree("Select Worker Images", func(hasCapabilities bool) {
+		var capabilitiesDefinitions []v1beta1.CapabilityDefinition
+		var machineCapabilities v1beta1.Capabilities
+		var imageCapabilities v1beta1.Capabilities
+		region := "europe"
 
-		Entry("list is nil", nil, "foo", "1.2.3", ptr.To("foo"), nil, true),
-		Entry("empty list", []api.MachineImage{}, "foo", "1.2.3", ptr.To("foo"), nil, true),
-		Entry("entry not found (no name)", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "foo", "1.2.ś", ptr.To("foo"), nil, true),
-		Entry("entry not found (no version)", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "foo", "1.2.3", ptr.To("foo"), nil, true),
-		Entry("entry not found (no architecture)", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: ptr.To("bar")}}, "foo", "1.2.3", ptr.To("foo"), nil, true),
-		Entry("entry exists if architecture is nil", []api.MachineImage{{Name: "bar", Version: "1.2.3"}}, "bar", "1.2.3", ptr.To("amd64"), &api.MachineImage{Name: "bar", Version: "1.2.3", Architecture: ptr.To("amd64")}, false),
-		Entry("entry exists", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: ptr.To("foo")}}, "bar", "1.2.3", ptr.To("foo"), &api.MachineImage{Name: "bar", Version: "1.2.3", Architecture: ptr.To("foo")}, false),
-	)
-
-	DescribeTable("#FindAMIForRegion",
-		func(profileImages []api.MachineImages, imageName, version, regionName string, arch *string, expectedAMI string) {
-			cfg := &api.CloudProfileConfig{}
-			cfg.MachineImages = profileImages
-			ami, err := FindAMIForRegionFromCloudProfile(cfg, imageName, version, regionName, arch)
-
-			Expect(ami).To(Equal(expectedAMI))
-			if expectedAMI != "" {
-				Expect(err).NotTo(HaveOccurred())
-			} else {
-				Expect(err).To(HaveOccurred())
+		if hasCapabilities {
+			capabilitiesDefinitions = []v1beta1.CapabilityDefinition{
+				{Name: "architecture", Values: []string{"amd64", "arm64"}},
+				{Name: "capability1", Values: []string{"value1", "value2", "value3"}},
 			}
-		},
+			machineCapabilities = v1beta1.Capabilities{
+				"architecture": []string{"amd64"},
+				"capability1":  []string{"value2"},
+			}
+			imageCapabilities = v1beta1.Capabilities{
+				"architecture": []string{"amd64"},
+				"capability1":  []string{"value2"},
+			}
+		}
 
-		Entry("list is nil", nil, "ubuntu", "1", "europe", ptr.To("foo"), ""),
+		DescribeTable("#FindImageInWorkerStatus",
+			func(machineImages []api.MachineImage, name, version string, arch *string, expectedMachineImage *api.MachineImage, expectErr bool) {
+				if hasCapabilities {
+					machineCapabilities["architecture"] = []string{*arch}
+					if expectedMachineImage != nil {
+						expectedMachineImage.Capabilities = imageCapabilities
+						expectedMachineImage.Architecture = nil
+					}
+				}
+				machineImage, err := FindImageInWorkerStatus(machineImages, name, version, arch, machineCapabilities, capabilitiesDefinitions)
+				expectResults(machineImage, expectedMachineImage, err, expectErr)
+			},
 
-		Entry("profile empty list", []api.MachineImages{}, "ubuntu", "1", "europe", ptr.To("foo"), ""),
-		Entry("profile entry not found (image does not exist)", makeProfileMachineImages("debian", "1", "europe", "0", ptr.To("foo")), "ubuntu", "1", "europe", ptr.To("foo"), ""),
-		Entry("profile entry not found (version does not exist)", makeProfileMachineImages("ubuntu", "2", "europe", "0", ptr.To("foo")), "ubuntu", "1", "europe", ptr.To("foo"), ""),
-		Entry("profile entry not found (architecture does not exist)", makeProfileMachineImages("ubuntu", "1", "europe", "0", ptr.To("bar")), "ubuntu", "1", "europe", ptr.To("foo"), ""),
-		Entry("profile entry", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234", ptr.To("foo")), "ubuntu", "1", "europe", ptr.To("foo"), "ami-1234"),
-		Entry("profile non matching region", makeProfileMachineImages("ubuntu", "1", "europe", "ami-1234", ptr.To("foo")), "ubuntu", "1", "china", ptr.To("foo"), ""),
+			Entry("list is nil", nil, "bar", "1.2.3", ptr.To("amd64"), nil, true),
+			Entry("empty list", []api.MachineImage{}, "image", "1.2.3", ptr.To("amd64"), nil, true),
+			Entry("entry not found (no name)", makeStatusMachineImages("bar", "1.2.3", "ami-1234", ptr.To("amd64"), imageCapabilities), "foo", "1.2.3", ptr.To("amd64"), nil, true),
+			Entry("entry not found (no version)", makeStatusMachineImages("bar", "1.2.3", "ami-1234", ptr.To("amd64"), imageCapabilities), "bar", "1.2.ś", ptr.To("amd64"), nil, true),
+			Entry("entry not found (no architecture)", []api.MachineImage{{Name: "bar", Version: "1.2.3", Architecture: ptr.To("arm64"), Capabilities: v1beta1.Capabilities{"architecture": []string{"arm64"}}}}, "bar", "1.2.3", ptr.To("amd64"), nil, true),
+			Entry("entry exists if architecture is nil", makeStatusMachineImages("bar", "1.2.3", "ami-1234", nil, imageCapabilities), "bar", "1.2.3", ptr.To("amd64"), &api.MachineImage{Name: "bar", Version: "1.2.3", AMI: "ami-1234", Architecture: ptr.To("amd64")}, false),
+			Entry("entry exists", makeStatusMachineImages("bar", "1.2.3", "ami-1234", ptr.To("amd64"), imageCapabilities), "bar", "1.2.3", ptr.To("amd64"), &api.MachineImage{Name: "bar", Version: "1.2.3", AMI: "ami-1234", Architecture: ptr.To("amd64")}, false),
+		)
+
+		DescribeTable("#FindImageInCloudProfile",
+			func(profileImages []api.MachineImages, imageName, version, regionName string, arch *string, expectedAMI string) {
+				if hasCapabilities {
+					machineCapabilities["architecture"] = []string{*arch}
+				}
+				cfg := &api.CloudProfileConfig{}
+				cfg.MachineImages = profileImages
+
+				capabilitySet, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineCapabilities, capabilitiesDefinitions)
+
+				if expectedAMI != "" {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(capabilitySet.Regions[0].AMI).To(Equal(expectedAMI))
+				} else {
+					Expect(err).To(HaveOccurred())
+				}
+			},
+
+			Entry("list is nil", nil, "ubuntu", "1", region, ptr.To("amd64"), ""),
+
+			Entry("profile empty list", []api.MachineImages{}, "ubuntu", "1", region, ptr.To("amd64"), ""),
+			Entry("profile entry not found (image does not exist)", makeProfileMachineImages("debian", "1", region, "0", ptr.To("amd64"), imageCapabilities), "ubuntu", "1", region, ptr.To("amd64"), ""),
+			Entry("profile entry not found (version does not exist)", makeProfileMachineImages("ubuntu", "2", region, "0", ptr.To("amd64"), imageCapabilities), "ubuntu", "1", region, ptr.To("amd64"), ""),
+			Entry("profile entry not found (architecture does not exist)", makeProfileMachineImages("ubuntu", "1", region, "0", ptr.To("amd64"), imageCapabilities), "ubuntu", "1", region, ptr.To("arm64"), ""),
+			Entry("profile entry", makeProfileMachineImages("ubuntu", "1", region, "ami-1234", ptr.To("amd64"), imageCapabilities), "ubuntu", "1", region, ptr.To("amd64"), "ami-1234"),
+			Entry("profile non matching region", makeProfileMachineImages("ubuntu", "1", region, "ami-1234", ptr.To("amd64"), imageCapabilities), "ubuntu", "1", "china", ptr.To("amd64"), ""),
+		)
+
+	},
+		Entry("without capabilities", false),
+		Entry("with capabilities", true),
 	)
 
 	DescribeTable("#FindDataVolumeByName",
@@ -186,24 +224,54 @@ func equalBackupBucketConfig(a, b *api.BackupBucketConfig) bool {
 }
 
 //nolint:unparam
-func makeProfileMachineImages(name, version, region, ami string, arch *string) []api.MachineImages {
-	versions := []api.MachineImageVersion{
-		{
-			Version: version,
-			Regions: []api.RegionAMIMapping{
-				{
-					Name:         region,
-					AMI:          ami,
-					Architecture: arch,
-				},
-			},
-		},
+func makeProfileMachineImages(name, version, region, ami string, arch *string, capabilities v1beta1.Capabilities) []api.MachineImages {
+	versions := []api.MachineImageVersion{{
+		Version: version,
+	}}
+
+	if capabilities == nil {
+		versions[0].Regions = []api.RegionAMIMapping{{
+			Name:         region,
+			AMI:          ami,
+			Architecture: arch,
+		}}
+	} else {
+		versions[0].CapabilitySets = []api.CapabilitySet{{
+			Capabilities: capabilities,
+			Regions: []api.RegionAMIMapping{{
+				Name: region,
+				AMI:  ami,
+			}},
+		}}
 	}
 
 	return []api.MachineImages{
 		{
 			Name:     name,
 			Versions: versions,
+		},
+	}
+}
+
+//nolint:unparam
+func makeStatusMachineImages(name, version, ami string, arch *string, capabilities v1beta1.Capabilities) []api.MachineImage {
+	if capabilities != nil {
+		capabilities["architecture"] = []string{ptr.Deref(arch, "")}
+		return []api.MachineImage{
+			{
+				Name:         name,
+				Version:      version,
+				AMI:          ami,
+				Capabilities: capabilities,
+			},
+		}
+	}
+	return []api.MachineImage{
+		{
+			Name:         name,
+			Version:      version,
+			AMI:          ami,
+			Architecture: arch,
 		},
 	}
 }

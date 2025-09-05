@@ -68,7 +68,7 @@ var _ = Describe("Machines", func() {
 	Context("WorkerDelegate", func() {
 		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, nil, "", nil, nil)
 
-		Describe("#GenerateMachineDeployments, #DeployMachineClasses", func() {
+		DescribeTableSubtree("#GenerateMachineDeployments, #DeployMachineClasses", func(isCapabilitiesCloudProfile bool) {
 			var (
 				namespace        string
 				cloudProfileName string
@@ -78,14 +78,14 @@ var _ = Describe("Machines", func() {
 				machineImageVersion string
 				machineImageAMI     string
 
-				vpcID                 string
-				machineType           string
-				userData              []byte
-				userDataSecretName    string
-				userDataSecretDataKey string
-				instanceProfileName   string
-				securityGroupID       string
-				keyName               string
+				vpcID                       string
+				machineType, machineTypeArm string
+				userData                    []byte
+				userDataSecretName          string
+				userDataSecretDataKey       string
+				instanceProfileName         string
+				securityGroupID             string
+				keyName                     string
 
 				archAMD  string
 				archARM  string
@@ -146,17 +146,31 @@ var _ = Describe("Machines", func() {
 				workerPoolHash2 string
 				workerPoolHash3 string
 
-				shootVersionMajorMinor       string
-				shootVersion                 string
-				scheme                       *runtime.Scheme
-				decoder                      runtime.Decoder
-				clusterWithoutImages         *extensionscontroller.Cluster
-				cluster                      *extensionscontroller.Cluster
-				infrastructureProviderStatus *api.InfrastructureStatus
-				w                            *extensionsv1alpha1.Worker
+				shootVersionMajorMinor           string
+				shootVersion                     string
+				scheme                           *runtime.Scheme
+				decoder                          runtime.Decoder
+				clusterWithoutImages             *extensionscontroller.Cluster
+				cluster                          *extensionscontroller.Cluster
+				infrastructureProviderStatus     *api.InfrastructureStatus
+				w                                *extensionsv1alpha1.Worker
+				capabilitiesAmd, capabilitiesArm gardencorev1beta1.Capabilities
+				capabilityDefinitions            []gardencorev1beta1.CapabilityDefinition
 			)
 
 			BeforeEach(func() {
+				if isCapabilitiesCloudProfile {
+					capabilityDefinitions = []gardencorev1beta1.CapabilityDefinition{
+						{Name: "some-capability", Values: []string{"a", "b", "c"}},
+						{Name: v1beta1constants.ArchitectureName, Values: []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64}},
+					}
+					capabilitiesAmd = gardencorev1beta1.Capabilities{
+						v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+					}
+					capabilitiesArm = gardencorev1beta1.Capabilities{
+						v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
+					}
+				}
 				namespace = "shoot--foobar--aws"
 				cloudProfileName = "aws"
 
@@ -168,6 +182,7 @@ var _ = Describe("Machines", func() {
 
 				vpcID = "vpc-1234"
 				machineType = "large"
+				machineTypeArm = "large-arm"
 				userData = []byte("some-user-data")
 				userDataSecretName = "userdata-secret-name"
 				userDataSecretDataKey = "userdata-secret-key"
@@ -242,14 +257,14 @@ var _ = Describe("Machines", func() {
 
 				nodeTemplatePool2Zone1 = machinev1alpha1.NodeTemplate{
 					Capacity:     nodeCapacity,
-					InstanceType: machineType,
+					InstanceType: machineTypeArm,
 					Region:       region,
 					Zone:         zone1,
 					Architecture: &archARM,
 				}
 				nodeTemplatePool2Zone2 = machinev1alpha1.NodeTemplate{
 					Capacity:     nodeCapacity,
-					InstanceType: machineType,
+					InstanceType: machineTypeArm,
 					Region:       region,
 					Zone:         zone2,
 					Architecture: &archARM,
@@ -257,14 +272,14 @@ var _ = Describe("Machines", func() {
 
 				nodeTemplatePool3Zone1 = machinev1alpha1.NodeTemplate{
 					Capacity:     nodeCapacity,
-					InstanceType: machineType,
+					InstanceType: machineTypeArm,
 					Region:       region,
 					Zone:         zone1,
 					Architecture: &archARM,
 				}
 				nodeTemplatePool3Zone2 = machinev1alpha1.NodeTemplate{
 					Capacity:     nodeCapacity,
-					InstanceType: machineType,
+					InstanceType: machineTypeArm,
 					Region:       region,
 					Zone:         zone2,
 					Architecture: &archARM,
@@ -285,12 +300,39 @@ var _ = Describe("Machines", func() {
 					},
 				}
 
-				cloudProfileConfig := &apiv1alpha1.CloudProfileConfig{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: apiv1alpha1.SchemeGroupVersion.String(),
-						Kind:       "CloudProfileConfig",
+				machineImages := []apiv1alpha1.MachineImages{
+					{
+						Name: machineImageName,
+						Versions: []apiv1alpha1.MachineImageVersion{
+							{
+								Version: machineImageVersion,
+								CapabilitySets: []apiv1alpha1.CapabilitySet{
+									{
+										Capabilities: capabilitiesAmd,
+										Regions: []apiv1alpha1.RegionAMIMapping{
+											{
+												Name: region,
+												AMI:  machineImageAMI,
+											},
+										},
+									},
+									{
+										Capabilities: capabilitiesArm,
+										Regions: []apiv1alpha1.RegionAMIMapping{
+											{
+												Name: region,
+												AMI:  machineImageAMI,
+											},
+										},
+									},
+								},
+							},
+						},
 					},
-					MachineImages: []apiv1alpha1.MachineImages{
+				}
+
+				if !isCapabilitiesCloudProfile {
+					machineImages = []apiv1alpha1.MachineImages{
 						{
 							Name: machineImageName,
 							Versions: []apiv1alpha1.MachineImageVersion{
@@ -305,8 +347,7 @@ var _ = Describe("Machines", func() {
 									},
 								},
 							},
-						},
-						{
+						}, {
 							Name: machineImageName,
 							Versions: []apiv1alpha1.MachineImageVersion{
 								{
@@ -321,7 +362,15 @@ var _ = Describe("Machines", func() {
 								},
 							},
 						},
+					}
+				}
+
+				cloudProfileConfig := &apiv1alpha1.CloudProfileConfig{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: apiv1alpha1.SchemeGroupVersion.String(),
+						Kind:       "CloudProfileConfig",
 					},
+					MachineImages: machineImages,
 				}
 				cloudProfileConfigJSON, _ := json.Marshal(cloudProfileConfig)
 				cluster = &extensionscontroller.Cluster{
@@ -330,6 +379,18 @@ var _ = Describe("Machines", func() {
 							Name: cloudProfileName,
 						},
 						Spec: gardencorev1beta1.CloudProfileSpec{
+							Capabilities: capabilityDefinitions,
+							MachineTypes: []gardencorev1beta1.MachineType{
+								{
+									Name:         machineType,
+									Capabilities: capabilitiesAmd,
+								},
+								{
+									Name:         machineTypeArm,
+									Architecture: ptr.To(archARM),
+									Capabilities: capabilitiesArm,
+								},
+							},
 							ProviderConfig: &runtime.RawExtension{
 								Raw: cloudProfileConfigJSON,
 							},
@@ -461,7 +522,7 @@ var _ = Describe("Machines", func() {
 								Priority:       ptr.To(priorityPool2),
 								MaxSurge:       maxSurgePool2,
 								MaxUnavailable: maxUnavailablePool2,
-								MachineType:    machineType,
+								MachineType:    machineTypeArm,
 								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
 									Capacity: nodeCapacity,
 								},
@@ -493,7 +554,7 @@ var _ = Describe("Machines", func() {
 								Priority:       ptr.To(priorityPool2),
 								MaxSurge:       maxSurgePool2,
 								MaxUnavailable: maxUnavailablePool2,
-								MachineType:    machineType,
+								MachineType:    machineTypeArm,
 								NodeTemplate: &extensionsv1alpha1.NodeTemplate{
 									Capacity: nodeCapacity,
 								},
@@ -562,9 +623,8 @@ var _ = Describe("Machines", func() {
 						"secret": map[string]interface{}{
 							"cloudConfig": string(userData),
 						},
-						"ami":         machineImageAMI,
-						"region":      region,
-						"machineType": machineType,
+						"ami":    machineImageAMI,
+						"region": region,
 						"iamInstanceProfile": map[string]interface{}{
 							"name": instanceProfileName,
 						},
@@ -665,11 +725,22 @@ var _ = Describe("Machines", func() {
 					machineClassPool1Zone2["blockDevices"] = machineClassPool1BlockDevices
 
 					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
+					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "machineType", machineType)
+
 					machineClassPool1Zone2 = addKeyValueToMap(machineClassPool1Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
+					machineClassPool1Zone2 = addKeyValueToMap(machineClassPool1Zone2, "machineType", machineType)
+
 					machineClassPool2Zone1 = addKeyValueToMap(machineClassPool2Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
+					machineClassPool2Zone1 = addKeyValueToMap(machineClassPool2Zone1, "machineType", machineTypeArm)
+
 					machineClassPool2Zone2 = addKeyValueToMap(machineClassPool2Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
+					machineClassPool2Zone2 = addKeyValueToMap(machineClassPool2Zone2, "machineType", machineTypeArm)
+
 					machineClassPool3Zone1 = addKeyValueToMap(machineClassPool3Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
+					machineClassPool3Zone1 = addKeyValueToMap(machineClassPool3Zone1, "machineType", machineTypeArm)
+
 					machineClassPool3Zone2 = addKeyValueToMap(machineClassPool3Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
+					machineClassPool3Zone2 = addKeyValueToMap(machineClassPool3Zone2, "machineType", machineTypeArm)
 
 					var (
 						machineClassNamePool1Zone1 = fmt.Sprintf("%s-%s-z1", namespace, namePool1)
@@ -897,13 +968,22 @@ var _ = Describe("Machines", func() {
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
-					// Test WorkerDelegate.UpdateMachineDeployments()
-					expectedImages := &apiv1alpha1.WorkerStatus{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: apiv1alpha1.SchemeGroupVersion.String(),
-							Kind:       "WorkerStatus",
+					machineImages := []apiv1alpha1.MachineImage{
+						{
+							Name:         machineImageName,
+							Version:      machineImageVersion,
+							AMI:          machineImageAMI,
+							Capabilities: capabilitiesAmd,
 						},
-						MachineImages: []apiv1alpha1.MachineImage{
+						{
+							Name:         machineImageName,
+							Version:      machineImageVersion,
+							AMI:          machineImageAMI,
+							Capabilities: capabilitiesArm,
+						},
+					}
+					if !isCapabilitiesCloudProfile {
+						machineImages = []apiv1alpha1.MachineImage{
 							{
 								Name:         machineImageName,
 								Version:      machineImageVersion,
@@ -916,7 +996,16 @@ var _ = Describe("Machines", func() {
 								AMI:          machineImageAMI,
 								Architecture: ptr.To(archARM),
 							},
+						}
+					}
+
+					// Test WorkerDelegate.UpdateMachineDeployments()
+					expectedImages := &apiv1alpha1.WorkerStatus{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: apiv1alpha1.SchemeGroupVersion.String(),
+							Kind:       "WorkerStatus",
 						},
+						MachineImages: machineImages,
 					}
 
 					workerWithExpectedImages := w.DeepCopy()
@@ -1140,7 +1229,11 @@ var _ = Describe("Machines", func() {
 			})
 
 			It("should fail because the ami for this architecture cannot be found", func() {
-				w.Spec.Pools[0].Architecture = ptr.To(archFAKE)
+				if isCapabilitiesCloudProfile {
+					cluster.CloudProfile.Spec.MachineTypes[0].Capabilities[v1beta1constants.ArchitectureName] = []string{archFAKE}
+				} else {
+					w.Spec.Pools[0].Architecture = ptr.To(archFAKE)
+				}
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
 
@@ -1350,7 +1443,10 @@ var _ = Describe("Machines", func() {
 					})
 				})
 			})
-		})
+		},
+			Entry("with capabilities", true),
+			Entry("without capabilities", false),
+		)
 
 		Describe("InstanceMetadata", func() {
 			var (
@@ -1398,6 +1494,116 @@ var _ = Describe("Machines", func() {
 
 		})
 	})
+	DescribeTable("EnsureUniformMachineImages", func(capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition, expectedImages []api.MachineImage) {
+		machineImages := []api.MachineImage{
+			// images with capability sets
+			{
+				Name:    "some-image",
+				Version: "1.2.1",
+				AMI:     "ami-for-arm64",
+				Capabilities: gardencorev1beta1.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
+				},
+			},
+			{
+				Name:    "some-image",
+				Version: "1.2.2",
+				AMI:     "ami-for-amd64",
+				Capabilities: gardencorev1beta1.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+				},
+			},
+			// legacy image entry without capability sets
+			{
+				Name:         "some-image",
+				Version:      "1.2.3",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+			{
+				Name:         "some-image",
+				Version:      "1.2.2",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+			{
+				Name:         "some-image",
+				Version:      "1.2.1",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+		}
+		actualImages := EnsureUniformMachineImages(machineImages, capabilitiesDefinitions)
+		Expect(actualImages).To(ContainElements(expectedImages))
+
+	},
+		Entry("should return images with Architecture", nil, []api.MachineImage{
+			// images with capability sets
+			{
+				Name:         "some-image",
+				Version:      "1.2.1",
+				AMI:          "ami-for-arm64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureARM64),
+			},
+			{
+				Name:         "some-image",
+				Version:      "1.2.2",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+			// legacy image entry without capability sets
+			{
+				Name:         "some-image",
+				Version:      "1.2.3",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+			{
+				Name:         "some-image",
+				Version:      "1.2.1",
+				AMI:          "ami-for-amd64",
+				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+			},
+		}),
+		Entry("should return images with Capabilities", []gardencorev1beta1.CapabilityDefinition{{
+			Name:   v1beta1constants.ArchitectureName,
+			Values: []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64},
+		}}, []api.MachineImage{
+			// images with capability sets
+			{
+				Name:    "some-image",
+				Version: "1.2.1",
+				AMI:     "ami-for-arm64",
+				Capabilities: gardencorev1beta1.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
+				},
+			},
+			{
+				Name:    "some-image",
+				Version: "1.2.2",
+				AMI:     "ami-for-amd64",
+				Capabilities: gardencorev1beta1.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+				},
+			},
+			// legacy image entry without capability sets
+			{
+				Name:    "some-image",
+				Version: "1.2.3",
+				AMI:     "ami-for-amd64",
+				Capabilities: gardencorev1beta1.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+				}},
+			{
+				Name:    "some-image",
+				Version: "1.2.1",
+				AMI:     "ami-for-amd64",
+				Capabilities: gardencorev1beta1.Capabilities{
+					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+				},
+			},
+		}),
+	)
 })
 
 func encode(obj runtime.Object) []byte {

@@ -110,17 +110,18 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 		}
 
 		arch := ptr.Deref(pool.Architecture, v1beta1constants.ArchitectureAMD64)
+		machineTypeFromCloudProfile := gardencorev1beta1helper.FindMachineTypeByName(w.cluster.CloudProfile.Spec.MachineTypes, pool.MachineType)
+		if machineTypeFromCloudProfile == nil {
+			return fmt.Errorf("machine type %q not found in cloud profile %q", pool.MachineType, w.cluster.CloudProfile.Name)
+		}
 
-		ami, err := w.findMachineImage(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, &arch)
+		machineImage, err := w.selectMachineImageForWorkerPool(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, &arch, machineTypeFromCloudProfile.Capabilities)
 		if err != nil {
 			return err
 		}
-		machineImages = appendMachineImage(machineImages, awsapi.MachineImage{
-			Name:         pool.MachineImage.Name,
-			Version:      pool.MachineImage.Version,
-			AMI:          ami,
-			Architecture: &arch,
-		})
+
+		machineImages = EnsureUniformMachineImages(machineImages, w.cluster.CloudProfile.Spec.Capabilities)
+		machineImages = appendMachineImage(machineImages, *machineImage, w.cluster.CloudProfile.Spec.Capabilities)
 
 		blockDevices, err := w.computeBlockDevices(pool, workerConfig)
 		if err != nil {
@@ -152,7 +153,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 
 			machineClassSpec := map[string]interface{}{
-				"ami":                ami,
+				"ami":                machineImage.AMI,
 				"region":             w.worker.Spec.Region,
 				"machineType":        pool.MachineType,
 				"iamInstanceProfile": iamInstanceProfile,
@@ -503,4 +504,50 @@ func isIPv6(c *controller.Cluster) bool {
 		}
 	}
 	return false
+}
+
+// EnsureUniformMachineImages ensures that all machine images are in the same format, either with or without Capabilities.
+func EnsureUniformMachineImages(images []awsapi.MachineImage, definitions []gardencorev1beta1.CapabilityDefinition) []awsapi.MachineImage {
+	var uniformMachineImages []awsapi.MachineImage
+
+	if len(definitions) == 0 {
+		// transform images that were added with Capabilities to the legacy format without Capabilities
+		for _, img := range images {
+			if len(img.Capabilities) == 0 {
+				// image is already legacy format
+				uniformMachineImages = appendMachineImage(uniformMachineImages, img, definitions)
+				continue
+			}
+			// transform to legacy format by using the Architecture capability if it exists
+			var architecture *string
+			if len(img.Capabilities[v1beta1constants.ArchitectureName]) > 0 {
+				architecture = &img.Capabilities[v1beta1constants.ArchitectureName][0]
+			}
+			uniformMachineImages = appendMachineImage(uniformMachineImages, awsapi.MachineImage{
+				Name:         img.Name,
+				Version:      img.Version,
+				AMI:          img.AMI,
+				Architecture: architecture,
+			}, definitions)
+		}
+		return uniformMachineImages
+	}
+
+	// transform images that were added without Capabilities to contain a CapabilitySet with defaulted Architecture
+	for _, img := range images {
+		if len(img.Capabilities) > 0 {
+			// image is already in the new format with Capabilities
+			uniformMachineImages = appendMachineImage(uniformMachineImages, img, definitions)
+		} else {
+			// add image as a capability set with defaulted Architecture
+			architecture := ptr.Deref(img.Architecture, v1beta1constants.ArchitectureAMD64)
+			uniformMachineImages = appendMachineImage(uniformMachineImages, awsapi.MachineImage{
+				Name:         img.Name,
+				Version:      img.Version,
+				AMI:          img.AMI,
+				Capabilities: gardencorev1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{architecture}},
+			}, definitions)
+		}
+	}
+	return uniformMachineImages
 }
