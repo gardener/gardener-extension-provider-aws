@@ -29,7 +29,7 @@ const (
 	entryName  = "test-entry"
 	region     = "region-1"
 	secretName = "secret-1"
-	namespace  = "shoot-foo--bar"
+	namespace  = "shoot--foo--bar"
 )
 
 var _ = Describe("Actuator", func() {

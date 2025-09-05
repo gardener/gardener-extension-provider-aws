@@ -9,30 +9,25 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/extensions/pkg/webhook/cloudprovider"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	apiaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 // NewEnsurer creates cloudprovider ensurer.
-func NewEnsurer(scheme *runtime.Scheme, logger logr.Logger) cloudprovider.Ensurer {
+func NewEnsurer(logger logr.Logger) cloudprovider.Ensurer {
 	return &ensurer{
-		logger:  logger,
-		decoder: serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder(),
+		logger: logger,
 	}
 }
 
 type ensurer struct {
-	logger  logr.Logger
-	decoder runtime.Decoder
+	logger logr.Logger
 }
 
 // EnsureCloudProviderSecret ensures that cloudprovider secret contains
@@ -47,8 +42,8 @@ func (e *ensurer) EnsureCloudProviderSecret(ctx context.Context, gctx gcontext.G
 		if _, ok := newSecret.Data[securityv1alpha1constants.DataKeyConfig]; !ok {
 			return errors.New("cloudprovider secret is missing a 'config' data key")
 		}
-		workloadIdentityConfig := &apiaws.WorkloadIdentityConfig{}
-		if err := util.Decode(e.decoder, newSecret.Data[securityv1alpha1constants.DataKeyConfig], workloadIdentityConfig); err != nil {
+		workloadIdentityConfig, err := helper.WorkloadIdentityConfigFromBytes(newSecret.Data[securityv1alpha1constants.DataKeyConfig])
+		if err != nil {
 			return fmt.Errorf("could not decode 'config' as WorkloadIdentityConfig: %w", err)
 		}
 
