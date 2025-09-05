@@ -14,6 +14,7 @@ jobs:
     uses: gardener/cc-utils/.github/workflows/run-testmachinery-tests.yaml@master
     permissions:
       id-token: write
+      contents: read
     with:
       test-command: |
         ${testrunner_run} \
