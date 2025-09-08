@@ -20,7 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1
 	github.com/aws/smithy-go v1.22.5
 	github.com/coreos/go-systemd/v22 v22.5.0
-	github.com/gardener/etcd-druid/api v0.31.0
+	github.com/gardener/etcd-druid/api v0.32.0
 	github.com/gardener/external-dns-management v0.27.0
 	github.com/gardener/gardener v1.125.1
 	github.com/gardener/machine-controller-manager v0.59.2
@@ -36,12 +36,12 @@ require (
 	golang.org/x/time v0.12.0
 	golang.org/x/tools v0.35.0
 	gopkg.in/inf.v0 v0.9.1
-	k8s.io/api v0.33.3
+	k8s.io/api v0.33.4
 	k8s.io/apiextensions-apiserver v0.33.3
-	k8s.io/apimachinery v0.33.3
+	k8s.io/apimachinery v0.33.4
 	k8s.io/autoscaler/vertical-pod-autoscaler v1.4.1
 	k8s.io/client-go v0.33.3
-	k8s.io/code-generator v0.33.3
+	k8s.io/code-generator v0.33.4
 	k8s.io/component-base v0.33.3
 	k8s.io/kubelet v0.33.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
