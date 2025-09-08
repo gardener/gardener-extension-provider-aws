@@ -1,7 +1,7 @@
 name: AI-assisted
 on:
   pull_request_target:
-    types: [labeled]
+    types: [labeled, opened, synchronize]
 
 jobs:
   summary:
