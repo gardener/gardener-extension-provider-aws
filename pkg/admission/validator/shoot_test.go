@@ -54,6 +54,7 @@ var _ = Describe("Shoot validator", func() {
 			imageName    = "Foo"
 			imageVersion = "1.0.0"
 			architecture = ptr.To("analog")
+			machineType  = "large"
 		)
 
 		BeforeEach(func() {
@@ -77,6 +78,11 @@ var _ = Describe("Shoot validator", func() {
 					Name: "aws",
 				},
 				Spec: gardencorev1beta1.CloudProfileSpec{
+					MachineTypes: []gardencorev1beta1.MachineType{
+						{
+							Name: machineType,
+						},
+					},
 					Regions: []gardencorev1beta1.Region{
 						{
 							Name: regionName,
@@ -174,6 +180,7 @@ var _ = Describe("Shoot validator", func() {
 								},
 								Zones: []string{"zone1"},
 								Machine: core.Machine{
+									Type: machineType,
 									Image: &core.ShootMachineImage{
 										Name:    imageName,
 										Version: imageVersion,
@@ -251,6 +258,7 @@ var _ = Describe("Shoot validator", func() {
 			It("should return err when worker image is not present in CloudConfiguration", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.Provider.Workers[0].Machine = core.Machine{
+					Type: machineType,
 					Image: &core.ShootMachineImage{
 						Name:    "Bar",
 						Version: imageVersion,
@@ -274,6 +282,7 @@ var _ = Describe("Shoot validator", func() {
 						Name:    "Bar",
 						Version: imageVersion,
 					},
+					Type:         machineType,
 					Architecture: architecture,
 				}
 
@@ -289,6 +298,7 @@ var _ = Describe("Shoot validator", func() {
 
 				newShoot := shoot.DeepCopy()
 				shoot.Spec.Provider.Workers[0].Machine = core.Machine{
+					Type: machineType,
 					Image: &core.ShootMachineImage{
 						Name:    "Bar",
 						Version: imageVersion,
@@ -372,6 +382,9 @@ var _ = Describe("Shoot validator", func() {
 					{
 						Name:           "worker-1",
 						ProviderConfig: &runtime.RawExtension{Raw: []byte("foo")},
+						Machine: core.Machine{
+							Type: machineType,
+						},
 					},
 				}
 
@@ -390,6 +403,9 @@ var _ = Describe("Shoot validator", func() {
 						Name:   "worker-1",
 						Volume: nil,
 						Zones:  nil,
+						Machine: core.Machine{
+							Type: machineType,
+						},
 					},
 				}
 

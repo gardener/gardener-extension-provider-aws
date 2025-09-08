@@ -9,6 +9,8 @@ import (
 	"slices"
 
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -95,17 +97,37 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 }
 
 // ValidateWorkersAgainstCloudProfileOnCreation validates the worker configurations against the cloud profile on creation.
-func ValidateWorkersAgainstCloudProfileOnCreation(workers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+func ValidateWorkersAgainstCloudProfileOnCreation(
+	workers []core.Worker,
+	region string,
+	awsCloudProfile *apisaws.CloudProfileConfig,
+	machineTypes []v1beta1.MachineType,
+	capabilitiesDefinitions []v1beta1.CapabilityDefinition,
+	fldPath *field.Path,
+) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	for i, w := range workers {
-		allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(w, region, awsCloudProfile, fldPath.Index(i))...)
+		machineType := gardencorev1beta1helper.FindMachineTypeByName(machineTypes, w.Machine.Type)
+		if machineType == nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("machine", "type"), w.Machine.Type, " not found in cloud profile"))
+			continue
+		}
+
+		allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(w, region, awsCloudProfile, machineType.Capabilities, capabilitiesDefinitions, fldPath.Index(i))...)
 	}
 	return allErrs
 }
 
 // ValidateWorkersAgainstCloudProfileOnUpdate validates the worker configurations against the cloud profile on update.
-func ValidateWorkersAgainstCloudProfileOnUpdate(oldWorkers, newWorkers []core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+func ValidateWorkersAgainstCloudProfileOnUpdate(
+	oldWorkers, newWorkers []core.Worker,
+	region string,
+	awsCloudProfile *apisaws.CloudProfileConfig,
+	machineTypes []v1beta1.MachineType,
+	capabilitiesDefinitions []v1beta1.CapabilityDefinition,
+	fldPath *field.Path,
+) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Validate the existence of the images the new/updated workers are to use. Validating the images used by old workers is not possible at this point, as they might
@@ -120,14 +142,27 @@ func ValidateWorkersAgainstCloudProfileOnUpdate(oldWorkers, newWorkers []core.Wo
 		}
 		// Validate only new Workers (i.e. the cases where w was not reassigned above) or those whose image has changed.
 		if w.Name == "" || newWorker.Machine.Image != w.Machine.Image {
-			allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(newWorker, region, awsCloudProfile, fldPath.Index(i))...)
+			machineType := gardencorev1beta1helper.FindMachineTypeByName(machineTypes, newWorker.Machine.Type)
+			if machineType == nil {
+				allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("machine", "type"), w.Machine.Type, " not found in cloud profile"))
+				continue
+			}
+
+			allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(newWorker, region, awsCloudProfile, machineType.Capabilities, capabilitiesDefinitions, fldPath.Index(i))...)
 		}
 	}
 
 	return allErrs
 }
 
-func validateWorkerConfigAgainstCloudProfile(worker core.Worker, region string, awsCloudProfile *apisaws.CloudProfileConfig, fldPath *field.Path) field.ErrorList {
+func validateWorkerConfigAgainstCloudProfile(
+	worker core.Worker,
+	region string,
+	awsCloudProfile *apisaws.CloudProfileConfig,
+	machineCapabilities v1beta1.Capabilities,
+	capabilitiesDefinitions []v1beta1.CapabilityDefinition,
+	fldPath *field.Path,
+) field.ErrorList {
 	var (
 		allErrs      = field.ErrorList{}
 		image        = worker.Machine.Image
@@ -138,7 +173,7 @@ func validateWorkerConfigAgainstCloudProfile(worker core.Worker, region string, 
 		return allErrs
 	}
 
-	if _, err := apisawshelper.FindAMIForRegionFromCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture); err != nil {
+	if _, err := apisawshelper.FindImageInCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture, machineCapabilities, capabilitiesDefinitions); err != nil {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("machine", "image"), image, fmt.Sprint(err)))
 	}
 	return allErrs

@@ -5,7 +5,7 @@
 package aws
 
 import (
-	"github.com/gardener/gardener/pkg/apis/core"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,7 +45,17 @@ type CapabilitySet struct {
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	Regions []RegionAMIMapping
 	// Capabilities that are supported by the AMIs in this set.
-	Capabilities core.Capabilities
+	Capabilities gardencorev1beta1.Capabilities
+}
+
+// GetCapabilities returns the Capabilities of a CapabilitySet
+func (cs *CapabilitySet) GetCapabilities() gardencorev1beta1.Capabilities {
+	return cs.Capabilities
+}
+
+// SetCapabilities sets the Capabilities on a CapabilitySet
+func (cs *CapabilitySet) SetCapabilities(capabilities gardencorev1beta1.Capabilities) {
+	cs.Capabilities = capabilities
 }
 
 // RegionAMIMapping is a mapping to the correct AMI for the machine image in the given region.

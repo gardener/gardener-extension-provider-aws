@@ -8,11 +8,13 @@ import (
 	"fmt"
 
 	"github.com/gardener/gardener/extensions/pkg/util"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
 // FindInstanceProfileForPurpose takes a list of instance profiles and tries to find the first entry
@@ -75,44 +77,122 @@ func FindSubnetForPurposeAndZone(subnets []api.Subnet, purpose, zone string) (*a
 	return nil, fmt.Errorf("no subnet with purpose %q in zone %q found", purpose, zone)
 }
 
-// FindMachineImage takes a list of machine images and tries to find the first entry
-// whose name, version, architecture and zone matches with the given name, version, architecture and region. If no such entry is
+// FindImageInCloudProfile takes a list of machine images and tries to find the first entry
+// whose name, version, region, architecture, capabilities and zone matches with the given ones. If no such entry is
 // found then an error will be returned.
-func FindMachineImage(machineImages []api.MachineImage, name, version string, arch *string) (*api.MachineImage, error) {
-	for _, machineImage := range machineImages {
-		if machineImage.Architecture == nil {
-			machineImage.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
-		}
-		if machineImage.Name == name && machineImage.Version == version && ptr.Equal(arch, machineImage.Architecture) {
-			return &machineImage, nil
-		}
+func FindImageInCloudProfile(
+	cloudProfileConfig *api.CloudProfileConfig,
+	name, version, region string,
+	arch *string,
+	machineCapabilities gardencorev1beta1.Capabilities,
+	capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition,
+) (*api.CapabilitySet, error) {
+	if cloudProfileConfig == nil {
+		return nil, fmt.Errorf("cloud profile config is nil")
 	}
-	return nil, fmt.Errorf("no machine image found with name %q, architecture %q and version %q", name, *arch, version)
+	machineImages := cloudProfileConfig.MachineImages
+
+	capabilitySet, err := findCapabilitySetFromMachineImages(machineImages, name, version, region, arch, machineCapabilities, capabilitiesDefinitions)
+	if err != nil {
+		return nil, fmt.Errorf("could not find an AMI for region %q, image %q, version %q that supports %v: %w", region, name, version, machineCapabilities, err)
+	}
+
+	if capabilitySet != nil && len(capabilitySet.Regions) > 0 && capabilitySet.Regions[0].AMI != "" {
+		return capabilitySet, nil
+	}
+	return nil, fmt.Errorf("could not find an AMI for region %q, image %q, version %q that supports %v", region, name, version, machineCapabilities)
 }
 
-// FindAMIForRegionFromCloudProfile takes a list of machine images, and the desired image name, version, architecture and region. It tries
-// to find the image with the given name, architecture and version in the desired region. If it cannot be found then an error
-// is returned.
-func FindAMIForRegionFromCloudProfile(cloudProfileConfig *api.CloudProfileConfig, imageName, imageVersion, regionName string, arch *string) (string, error) {
-	if cloudProfileConfig != nil {
-		for _, machineImage := range cloudProfileConfig.MachineImages {
-			if machineImage.Name != imageName {
-				continue
+// FindImageInWorkerStatus takes a list of machine images from the worker status and tries to find the first entry
+// whose name, version, architecture, capabilities and zone matches with the given ones. If no such entry is
+// found then an error will be returned.
+func FindImageInWorkerStatus(machineImages []api.MachineImage, name string, version string, architecture *string, machineCapabilities gardencorev1beta1.Capabilities, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) (*api.MachineImage, error) {
+	// If no capabilitiesDefinitions are specified, return the (legacy) architecture format field as no Capabilities are used.
+	if len(capabilitiesDefinitions) == 0 {
+		for _, statusMachineImage := range machineImages {
+			if statusMachineImage.Architecture == nil {
+				statusMachineImage.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
 			}
-			for _, version := range machineImage.Versions {
-				if imageVersion != version.Version {
-					continue
-				}
-				for _, mapping := range version.Regions {
-					if regionName == mapping.Name && ptr.Equal(arch, mapping.Architecture) {
-						return mapping.AMI, nil
-					}
-				}
+			if statusMachineImage.Name == name && statusMachineImage.Version == version && ptr.Equal(architecture, statusMachineImage.Architecture) {
+				return &statusMachineImage, nil
 			}
 		}
+		return nil, fmt.Errorf("no machine image found for image %q with version %q and architecture %q", name, version, *architecture)
 	}
 
-	return "", fmt.Errorf("could not find an AMI for region %q, name %q and architecture %q in version %q", regionName, imageName, *arch, imageVersion)
+	// If capabilitiesDefinitions are specified, we need to find the best matching capability set.
+	for _, statusMachineImage := range machineImages {
+		var statusMachineImageV1alpha1 v1alpha1.MachineImage
+		if err := v1alpha1.Convert_aws_MachineImage_To_v1alpha1_MachineImage(&statusMachineImage, &statusMachineImageV1alpha1, nil); err != nil {
+			return nil, fmt.Errorf("failed to convert machine image: %w", err)
+		}
+		if statusMachineImage.Name == name && statusMachineImage.Version == version && AreCapabilitiesCompatible(statusMachineImageV1alpha1.Capabilities, machineCapabilities, capabilitiesDefinitions) {
+			return &statusMachineImage, nil
+		}
+	}
+	return nil, fmt.Errorf("no machine image found for image %q with version %q and capabilities %v", name, version, machineCapabilities)
+}
+
+func findCapabilitySetFromMachineImages(
+	machineImages []api.MachineImages,
+	imageName, imageVersion, region string,
+	arch *string,
+	machineCapabilities gardencorev1beta1.Capabilities,
+	capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition,
+) (*api.CapabilitySet, error) {
+	for _, machineImage := range machineImages {
+		if machineImage.Name != imageName {
+			continue
+		}
+		for _, version := range machineImage.Versions {
+			if imageVersion != version.Version {
+				continue
+			}
+
+			if len(capabilitiesDefinitions) == 0 {
+				for _, mapping := range version.Regions {
+					if region == mapping.Name && ptr.Equal(arch, mapping.Architecture) {
+						return &api.CapabilitySet{
+							Regions:      []api.RegionAMIMapping{mapping},
+							Capabilities: gardencorev1beta1.Capabilities{},
+						}, nil
+					}
+				}
+				continue
+			}
+
+			filteredCapabilitySets := filterCapabilitySetsByRegion(version.CapabilitySets, region)
+			bestMatch, err := FindBestCapabilitySet(filteredCapabilitySets, machineCapabilities, capabilitiesDefinitions)
+			if err != nil {
+				return nil, fmt.Errorf("could not determine best capabilitySet %w", err)
+			}
+
+			return bestMatch, nil
+		}
+	}
+	return nil, nil
+}
+
+// filterCapabilitySetsByRegion returns a new list with capabilitySets that only contain RegionAMIMappings
+// of the region to filter for.
+func filterCapabilitySetsByRegion(capabilitySets []api.CapabilitySet, regionName string) []*api.CapabilitySet {
+	var compatibleSets []*api.CapabilitySet
+
+	for _, capabilitySet := range capabilitySets {
+		var regionAMIMapping *api.RegionAMIMapping
+		for _, region := range capabilitySet.Regions {
+			if region.Name == regionName {
+				regionAMIMapping = &region
+			}
+		}
+		if regionAMIMapping != nil {
+			compatibleSets = append(compatibleSets, &api.CapabilitySet{
+				Regions:      []api.RegionAMIMapping{*regionAMIMapping},
+				Capabilities: capabilitySet.Capabilities,
+			})
+		}
+	}
+	return compatibleSets
 }
 
 // FindDataVolumeByName takes a list of data volumes and a data volume name. It tries to find the data volume entry for
@@ -128,13 +208,13 @@ func FindDataVolumeByName(dataVolumes []api.DataVolume, name string) *api.DataVo
 
 // DecodeBackupBucketConfig decodes the `BackupBucketConfig` from the given `RawExtension`.
 func DecodeBackupBucketConfig(decoder runtime.Decoder, config *runtime.RawExtension) (*api.BackupBucketConfig, error) {
-	backupbucketConfig := &api.BackupBucketConfig{}
+	backupBucketConfig := &api.BackupBucketConfig{}
 
 	if config != nil && config.Raw != nil {
-		if err := util.Decode(decoder, config.Raw, backupbucketConfig); err != nil {
+		if err := util.Decode(decoder, config.Raw, backupBucketConfig); err != nil {
 			return nil, err
 		}
 	}
 
-	return backupbucketConfig, nil
+	return backupBucketConfig, nil
 }

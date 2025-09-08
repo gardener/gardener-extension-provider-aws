@@ -9,19 +9,22 @@ import (
 	"maps"
 	"slices"
 
+	gardencoreapi "github.com/gardener/gardener/pkg/api"
 	"github.com/gardener/gardener/pkg/apis/core"
-	gardencorehelper "github.com/gardener/gardener/pkg/apis/core/helper"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"github.com/gardener/gardener/pkg/utils"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
 // ValidateCloudProfileConfig validates a CloudProfileConfig object.
-func ValidateCloudProfileConfig(cpConfig *apisaws.CloudProfileConfig, machineImages []core.MachineImage, capabilitiesDefinitions []core.CapabilityDefinition, fldPath *field.Path) field.ErrorList {
+func ValidateCloudProfileConfig(cpConfig *apisaws.CloudProfileConfig, machineImages []core.MachineImage, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	machineImagesPath := fldPath.Child("machineImages")
@@ -38,7 +41,7 @@ func ValidateCloudProfileConfig(cpConfig *apisaws.CloudProfileConfig, machineIma
 }
 
 // ValidateProviderMachineImage validates a CloudProfileConfig MachineImages entry.
-func ValidateProviderMachineImage(validationPath *field.Path, providerImage apisaws.MachineImages, capabilitiesDefinitions []core.CapabilityDefinition) field.ErrorList {
+func ValidateProviderMachineImage(validationPath *field.Path, providerImage apisaws.MachineImages, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) field.ErrorList {
 	allErrs := field.ErrorList{}
 	hasCloudProfileCapabilities := len(capabilitiesDefinitions) > 0
 
@@ -59,7 +62,7 @@ func ValidateProviderMachineImage(validationPath *field.Path, providerImage apis
 		if hasCloudProfileCapabilities {
 			for k, capabilitySet := range version.CapabilitySets {
 				kdxPath := jdxPath.Child("capabilitySets").Index(k)
-				allErrs = append(allErrs, gutil.ValidateCapabilities(capabilitySet.Capabilities, capabilitiesDefinitions, kdxPath.Child("capabilities"))...)
+				allErrs = append(allErrs, helper.ValidateCapabilities(capabilitySet.Capabilities, capabilitiesDefinitions, kdxPath.Child("capabilities"))...)
 				allErrs = append(allErrs, validateRegions(capabilitySet.Regions, providerImage.Name, version.Version, hasCloudProfileCapabilities, kdxPath)...)
 			}
 			if len(version.Regions) > 0 {
@@ -121,7 +124,7 @@ func NewProviderImagesContext(providerImages []apisaws.MachineImages) *gutil.Ima
 }
 
 // validateMachineImageMapping validates that for each machine image there is a corresponding cpConfig image.
-func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *apisaws.CloudProfileConfig, capabilitiesDefinitions []core.CapabilityDefinition, fldPath *field.Path) field.ErrorList {
+func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *apisaws.CloudProfileConfig, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	providerImages := NewProviderImagesContext(cpConfig.MachineImages)
 
@@ -151,22 +154,23 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 					))
 					continue
 				}
-
-				coreDefaultedCapabilitySets := gardencorehelper.GetCapabilitySetsWithAppliedDefaults(version.CapabilitySets, capabilitiesDefinitions)
-
-				for idxCapability, coreDefaultedCapabilitySet := range coreDefaultedCapabilitySets {
+				var v1beta1Version gardencorev1beta1.MachineImageVersion
+				if err := gardencoreapi.Scheme.Convert(&version, &v1beta1Version, nil); err != nil {
+					return append(allErrs, field.InternalError(machineImageVersionPath, err))
+				}
+				defaultedCapabilitySets := gardencorev1beta1helper.GetCapabilitySetsWithAppliedDefaults(v1beta1Version.CapabilitySets, capabilitiesDefinitions)
+				for idxCapability, defaultedCapabilitySet := range defaultedCapabilitySets {
 					isFound := false
 					// search for the corresponding imageVersion.CapabilitySet
 					for _, providerCapabilitySet := range imageVersion.CapabilitySets {
-						providerDefaultedCapabilities := gardencorehelper.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilitiesDefinitions)
-						if gutil.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
+						providerDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilitiesDefinitions)
+						if helper.AreCapabilitiesEqual(defaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
 							isFound = true
 						}
 					}
 					if !isFound {
 						allErrs = append(allErrs, field.Required(machineImageVersionPath.Child("capabilitySets").Index(idxCapability),
-							fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and capabilitySet %v",
-								machineImage.Name, version.Version, coreDefaultedCapabilitySet.Capabilities)))
+							fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and capabilitySet %v", machineImage.Name, version.Version, defaultedCapabilitySet.Capabilities)))
 					}
 				}
 				continue
@@ -177,16 +181,12 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 				imageVersion, exists := providerImages.GetImageVersion(machineImage.Name, version.Version)
 				if !exists {
 					allErrs = append(allErrs, field.Required(machineImageVersionPath,
-						fmt.Sprintf("machine image version %s@%s is not defined in the providerConfig",
-							machineImage.Name, version.Version),
-					))
+						fmt.Sprintf("machine image version %s@%s is not defined in the providerConfig", machineImage.Name, version.Version)))
 					continue
 				}
 				// validate machine image version architectures
 				if !slices.Contains(v1beta1constants.ValidArchitectures, expectedArchitecture) {
-					allErrs = append(allErrs, field.NotSupported(
-						machineImageVersionPath.Child("architectures"),
-						expectedArchitecture, v1beta1constants.ValidArchitectures))
+					allErrs = append(allErrs, field.NotSupported(machineImageVersionPath.Child("architectures"), expectedArchitecture, v1beta1constants.ValidArchitectures))
 				}
 
 				// validate that machine image version with architecture x exists in cpConfig
@@ -197,9 +197,7 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 				architectures := slices.Collect(maps.Keys(architecturesMap))
 				if !slices.Contains(architectures, expectedArchitecture) {
 					allErrs = append(allErrs, field.Required(machineImageVersionPath,
-						fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and architecture: %s",
-							machineImage.Name, version.Version, expectedArchitecture),
-					))
+						fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and architecture: %s", machineImage.Name, version.Version, expectedArchitecture)))
 					continue
 				}
 			}
