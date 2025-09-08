@@ -960,8 +960,8 @@ github.com/gardener/external-dns-management v0.27.0 h1:S1j0vbFxiB5qUyX7OwFIOajsV
 github.com/gardener/external-dns-management v0.27.0/go.mod h1:tvnfgbra3qq0UaLBUsuny2TdXw5mev0I/f0rHAF/Uds=
 github.com/gardener/gardener v1.125.1 h1:gcSBw74dKVZFdXURY8d3TypR6U9Rd1ZDKSlLvqzkzaE=
 github.com/gardener/gardener v1.125.1/go.mod h1:ZbpUSrtIABiPqjiT6S/S0zA4mkCNaeMX/spOHaO5inU=
-github.com/gardener/machine-controller-manager v0.59.2 h1:CSDKoNFzn8MdG+gJDp7ntsiuc7c57u82YYHLEbVdyOA=
-github.com/gardener/machine-controller-manager v0.59.2/go.mod h1:TCU/KoudCMt2eV0Jnrq2D1TwgsrBCuhIVgV3j1el6Og=
+github.com/gardener/machine-controller-manager v0.60.0 h1:aaSE85Yu0hcHYsP5/x1rxWa5o2zhmsmXlKQ+xefHY/Q=
+github.com/gardener/machine-controller-manager v0.60.0/go.mod h1:8eE1qLztrWIbOM71mHSQGaC6Q+pl5lvOyN08qP39D7o=
 github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/go-fonts/dejavu v0.1.0/go.mod h1:4Wt4I4OU2Nq9asgDCteaAaWZOV24E+0/Pwo0gppep4g=
