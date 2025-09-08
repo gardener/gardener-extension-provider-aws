@@ -10,7 +10,7 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -82,10 +82,10 @@ func appendMachineImage(machineImages []api.MachineImage, machineImage api.Machi
 		})
 	}
 
-	defaultedCapabilities := v1beta1helper.GetCapabilitiesWithAppliedDefaults(machineImage.Capabilities, capabilitiesDefinitions)
+	defaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(machineImage.Capabilities, capabilitiesDefinitions)
 
 	for _, existingMachineImage := range machineImages {
-		existingDefaultedCapabilities := v1beta1helper.GetCapabilitiesWithAppliedDefaults(existingMachineImage.Capabilities, capabilitiesDefinitions)
+		existingDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(existingMachineImage.Capabilities, capabilitiesDefinitions)
 		if existingMachineImage.Name == machineImage.Name && existingMachineImage.Version == machineImage.Version && helper.AreCapabilitiesEqual(defaultedCapabilities, existingDefaultedCapabilities) {
 			// If the image already exists with the same capabilities return the existing list.
 			return machineImages

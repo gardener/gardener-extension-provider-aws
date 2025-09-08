@@ -18,7 +18,7 @@ import (
 	gardencore "github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -99,8 +99,8 @@ func ValidateCapabilities(capabilities gardencorev1beta1.Capabilities, capabilit
 // AreCapabilitiesCompatible checks if two sets of capabilities are compatible.
 // It applies defaults from the capability definitions to both sets before checking compatibility.
 func AreCapabilitiesCompatible(capabilities1, capabilities2 gardencorev1beta1.Capabilities, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) bool {
-	defaultedCapabilities1 := v1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities1, capabilitiesDefinitions)
-	defaultedCapabilities2 := v1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities2, capabilitiesDefinitions)
+	defaultedCapabilities1 := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities1, capabilitiesDefinitions)
+	defaultedCapabilities2 := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities2, capabilitiesDefinitions)
 
 	isSupported := true
 	commonCapabilities := getCapabilitiesIntersection(defaultedCapabilities1, defaultedCapabilities2)
@@ -205,7 +205,7 @@ func selectBestCapabilitySet[T HasCapabilities](
 
 	// Normalize capability sets by applying defaults
 	for i := range normalizedSets {
-		normalizedSets[i].SetCapabilities(v1beta1helper.GetCapabilitiesWithAppliedDefaults(
+		normalizedSets[i].SetCapabilities(gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(
 			normalizedSets[i].GetCapabilities(),
 			capabilitiesDefinitions,
 		))

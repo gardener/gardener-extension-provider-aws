@@ -13,7 +13,7 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"github.com/gardener/gardener/pkg/utils"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -158,12 +158,12 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 				if err := gardencoreapi.Scheme.Convert(&version, &v1beta1Version, nil); err != nil {
 					return append(allErrs, field.InternalError(machineImageVersionPath, err))
 				}
-				defaultedCapabilitySets := v1beta1helper.GetCapabilitySetsWithAppliedDefaults(v1beta1Version.CapabilitySets, capabilitiesDefinitions)
+				defaultedCapabilitySets := gardencorev1beta1helper.GetCapabilitySetsWithAppliedDefaults(v1beta1Version.CapabilitySets, capabilitiesDefinitions)
 				for idxCapability, defaultedCapabilitySet := range defaultedCapabilitySets {
 					isFound := false
 					// search for the corresponding imageVersion.CapabilitySet
 					for _, providerCapabilitySet := range imageVersion.CapabilitySets {
-						providerDefaultedCapabilities := v1beta1helper.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilitiesDefinitions)
+						providerDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilitiesDefinitions)
 						if helper.AreCapabilitiesEqual(defaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
 							isFound = true
 						}

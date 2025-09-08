@@ -13,7 +13,7 @@ import (
 	extensionscontextwebhook "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	v1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -102,6 +102,6 @@ func (m *mutator) isInMigrationOrRestorePhase(infra *extensionsv1alpha1.Infrastr
 		return true
 	}
 
-	operationType := v1beta1helper.ComputeOperationType(infra.ObjectMeta, infra.Status.LastOperation)
+	operationType := gardencorev1beta1helper.ComputeOperationType(infra.ObjectMeta, infra.Status.LastOperation)
 	return operationType == v1beta1.LastOperationTypeMigrate || operationType == v1beta1.LastOperationTypeRestore
 }
