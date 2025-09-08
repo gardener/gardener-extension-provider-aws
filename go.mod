@@ -23,7 +23,7 @@ require (
 	github.com/gardener/etcd-druid/api v0.31.0
 	github.com/gardener/external-dns-management v0.27.0
 	github.com/gardener/gardener v1.125.1
-	github.com/gardener/machine-controller-manager v0.59.2
+	github.com/gardener/machine-controller-manager v0.60.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/ginkgo/v2 v2.23.4
