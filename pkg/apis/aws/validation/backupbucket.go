@@ -24,7 +24,7 @@ func ValidateBackupBucketProviderConfigCreate(lenientDecoder runtime.Decoder, co
 
 	backupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(lenientDecoder, config)
 	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, config, fmt.Errorf("failed to decode new provider config: %v", err).Error()))
+		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("failed to decode new provider config: %w", err)))
 		return allErrs
 	}
 
@@ -39,13 +39,13 @@ func ValidateBackupBucketProviderConfigUpdate(decoder, lenientDecoder runtime.De
 
 	oldBackupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(lenientDecoder, oldConfig)
 	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, oldConfig, fmt.Errorf("failed to decode old provider config: %v", err).Error()))
+		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("failed to decode old provider config: %w", err)))
 		return allErrs
 	}
 
 	newBackupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(decoder, newConfig)
 	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, newConfig, fmt.Errorf("failed to decode new provider config: %v", err).Error()))
+		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("failed to decode new provider config: %w", err)))
 		return allErrs
 	}
 
