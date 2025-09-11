@@ -78,17 +78,23 @@ func (s *seedValidator) validateCreate(seed *core.Seed) field.ErrorList {
 // are correctly managed. It enforces constraints such as changing of retention mode from compliance -> governance,
 // and reduction of retention periods in compliance mode.
 func (s *seedValidator) validateUpdate(oldSeed, newSeed *core.Seed) field.ErrorList {
-	if oldSeed.Spec.Backup == nil || oldSeed.Spec.Backup.ProviderConfig == nil {
-		return s.validateCreate(newSeed)
-	}
-
 	var (
 		allErrs    = field.ErrorList{}
 		backupPath = field.NewPath("spec", "backup")
+
+		oldBackupBucketConfig *runtime.RawExtension = nil
+		newBackupBucketConfig *runtime.RawExtension = nil
 	)
 
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigUpdate(s.decoder, s.lenientDecoder, oldSeed.Spec.Backup.ProviderConfig, newSeed.Spec.Backup.ProviderConfig, backupPath.Child("providerConfig"))...)
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(newSeed.Spec.Backup.CredentialsRef, backupPath.Child("credentialsRef"))...)
+	if oldSeed.Spec.Backup != nil {
+		oldBackupBucketConfig = oldSeed.Spec.Backup.ProviderConfig
+	}
 
+	if newSeed.Spec.Backup != nil {
+		newBackupBucketConfig = newSeed.Spec.Backup.ProviderConfig
+		allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(newSeed.Spec.Backup.CredentialsRef, backupPath.Child("credentialsRef"))...)
+	}
+
+	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigUpdate(s.decoder, s.lenientDecoder, oldBackupBucketConfig, newBackupBucketConfig, backupPath.Child("providerConfig"))...)
 	return allErrs
 }

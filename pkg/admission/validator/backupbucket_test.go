@@ -87,7 +87,7 @@ var _ = Describe("BackupBucket Validator", func() {
 
 				err := backupBucketValidator.Validate(ctx, backupBucket, nil)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(`failed to decode new provider config: no kind "invalid" is registered for version "aws.provider.extensions.gardener.cloud/v1alpha1"`))
+				Expect(err.Error()).To(ContainSubstring(`failed to decode provider config: no kind "invalid" is registered for version "aws.provider.extensions.gardener.cloud/v1alpha1"`))
 			})
 
 			It("should succeed when BackupBucket is created with valid spec", func() {

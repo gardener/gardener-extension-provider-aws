@@ -59,13 +59,13 @@ func (s *backupBucketValidator) Validate(_ context.Context, newObj, oldObj clien
 // It checks if immutable settings are provided and if provided then it validates the immutable settings.
 func (b *backupBucketValidator) validateCreate(backupBucket *core.BackupBucket) field.ErrorList {
 	var (
-		allErrs               = field.ErrorList{}
-		providerConfigfldPath = field.NewPath("spec", "providerConfig")
+		allErrs            = field.ErrorList{}
+		credentialsRefPath = field.NewPath("spec", "credentialsRef")
+		providerConfigPath = field.NewPath("spec", "providerConfig")
 	)
 
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigCreate(b.lenientDecoder, backupBucket.Spec.ProviderConfig, providerConfigfldPath)...)
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(backupBucket.Spec.CredentialsRef, field.NewPath("spec", "credentialsRef"))...)
-
+	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigCreate(b.lenientDecoder, backupBucket.Spec.ProviderConfig, providerConfigPath)...)
+	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(backupBucket.Spec.CredentialsRef, credentialsRefPath)...)
 	return allErrs
 }
 
@@ -74,16 +74,12 @@ func (b *backupBucketValidator) validateCreate(backupBucket *core.BackupBucket) 
 // and reduction of retention periods in compliance mode.
 func (b *backupBucketValidator) validateUpdate(oldBackupBucket, backupBucket *core.BackupBucket) field.ErrorList {
 	var (
-		allErrs               = field.ErrorList{}
-		providerConfigfldPath = field.NewPath("spec", "providerConfig")
+		allErrs            = field.ErrorList{}
+		credentialsRefPath = field.NewPath("spec", "credentialsRef")
+		providerConfigPath = field.NewPath("spec", "providerConfig")
 	)
 
-	if oldBackupBucket.Spec.ProviderConfig == nil {
-		return b.validateCreate(backupBucket)
-	}
-
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigUpdate(b.decoder, b.lenientDecoder, oldBackupBucket.Spec.ProviderConfig, backupBucket.Spec.ProviderConfig, providerConfigfldPath)...)
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(backupBucket.Spec.CredentialsRef, field.NewPath("spec", "credentialsRef"))...)
-
+	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigUpdate(b.decoder, b.lenientDecoder, oldBackupBucket.Spec.ProviderConfig, backupBucket.Spec.ProviderConfig, providerConfigPath)...)
+	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(backupBucket.Spec.CredentialsRef, credentialsRefPath)...)
 	return allErrs
 }

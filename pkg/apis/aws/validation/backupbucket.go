@@ -18,13 +18,21 @@ import (
 	apisawshelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
+var (
+	secretGVK           = corev1.SchemeGroupVersion.WithKind("Secret")
+	workloadIdentityGVK = securityv1alpha1.SchemeGroupVersion.WithKind("WorkloadIdentity")
+
+	allowedGVKs = sets.New(secretGVK, workloadIdentityGVK)
+	validGVKs   = []string{secretGVK.String(), workloadIdentityGVK.String()}
+)
+
 // ValidateBackupBucketProviderConfigCreate validates the BackupBucket provider config on creation.
 func ValidateBackupBucketProviderConfigCreate(lenientDecoder runtime.Decoder, config *runtime.RawExtension, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	backupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(lenientDecoder, config)
 	if err != nil {
-		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("failed to decode new provider config: %w", err)))
+		allErrs = append(allErrs, field.Invalid(fldPath, rawExtensionToString(config), fmt.Sprintf("failed to decode provider config: %s", err.Error())))
 		return allErrs
 	}
 
@@ -39,13 +47,13 @@ func ValidateBackupBucketProviderConfigUpdate(decoder, lenientDecoder runtime.De
 
 	oldBackupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(lenientDecoder, oldConfig)
 	if err != nil {
-		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("failed to decode old provider config: %w", err)))
+		allErrs = append(allErrs, field.Invalid(fldPath, rawExtensionToString(oldConfig), fmt.Sprintf("failed to decode old provider config: %s", err.Error())))
 		return allErrs
 	}
 
 	newBackupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(decoder, newConfig)
 	if err != nil {
-		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("failed to decode new provider config: %w", err)))
+		allErrs = append(allErrs, field.Invalid(fldPath, rawExtensionToString(newConfig), fmt.Sprintf("failed to decode new provider config: %s", err.Error())))
 		return allErrs
 	}
 
@@ -129,14 +137,6 @@ func ValidateBackupBucketCredentialsRef(credentialsRef *corev1.ObjectReference, 
 	if credentialsRef == nil {
 		return append(allErrs, field.Required(fldPath, "must be set"))
 	}
-
-	var (
-		secretGVK           = corev1.SchemeGroupVersion.WithKind("Secret")
-		workloadIdentityGVK = securityv1alpha1.SchemeGroupVersion.WithKind("WorkloadIdentity")
-
-		allowedGVKs = sets.New(secretGVK, workloadIdentityGVK)
-		validGVKs   = []string{secretGVK.String(), workloadIdentityGVK.String()}
-	)
 
 	if !allowedGVKs.Has(credentialsRef.GroupVersionKind()) {
 		allErrs = append(allErrs, field.NotSupported(fldPath, credentialsRef.String(), validGVKs))

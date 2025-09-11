@@ -85,14 +85,14 @@ roleARN: role-arn
 	})
 
 	Describe("WorkloadIdentityConfigFromRaw", func() {
-		It("should should fail to parse WorkloadIdentityConfig due to nil raw", func() {
+		It("should fail to parse WorkloadIdentityConfig due to nil raw", func() {
 			config, err := helper.WorkloadIdentityConfigFromRaw(nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("cannot parse WorkloadIdentityConfig from empty RawExtension"))
 			Expect(config).To(BeNil())
 		})
 
-		It("should should fail to parse WorkloadIdentityConfig due to nil raw", func() {
+		It("should fail to parse WorkloadIdentityConfig due to nil raw", func() {
 			config, err := helper.WorkloadIdentityConfigFromRaw(&runtime.RawExtension{Raw: nil})
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("cannot parse WorkloadIdentityConfig from empty RawExtension"))

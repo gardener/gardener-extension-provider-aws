@@ -138,9 +138,9 @@ var _ = Describe("BackupBucket", func() {
 		})
 
 		// Helper function to generate provider config
-		generateConfig := func(retentionType, retentionPeriod string, mode string, isImmutableConfigured bool) *runtime.RawExtension {
+		generateConfig := func(retentionType, retentionPeriod string, mode string, isImmutabilityConfigured bool) *runtime.RawExtension {
 			var config *runtime.RawExtension
-			if isImmutableConfigured {
+			if isImmutabilityConfigured {
 
 				immutability := make(map[string]interface{})
 				if retentionType != "" {
