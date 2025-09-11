@@ -24,10 +24,7 @@ import (
 
 var _ = Describe("BackupBucket Validator", func() {
 	Describe("#Validate", func() {
-		const (
-			namespace = "garden-dev"
-			name      = "my-provider-account"
-		)
+		const name = "my-provider-account"
 
 		var (
 			backupBucketValidator extensionswebhook.Validator
@@ -35,7 +32,8 @@ var _ = Describe("BackupBucket Validator", func() {
 			ctrl *gomock.Controller
 			mgr  *mockmanager.MockManager
 
-			ctx = context.TODO()
+			ctx            context.Context
+			credentialsRef *corev1.ObjectReference
 		)
 
 		BeforeEach(func() {
@@ -51,6 +49,14 @@ var _ = Describe("BackupBucket Validator", func() {
 			mgr.EXPECT().GetScheme().Return(scheme).AnyTimes()
 
 			backupBucketValidator = validator.NewBackupBucketValidator(mgr)
+
+			ctx = context.TODO()
+			credentialsRef = &corev1.ObjectReference{
+				APIVersion: "v1",
+				Kind:       "Secret",
+				Name:       "backup-credentials",
+				Namespace:  "garden",
+			}
 		})
 
 		AfterEach(func() {
@@ -65,142 +71,123 @@ var _ = Describe("BackupBucket Validator", func() {
 			Expect(backupBucketValidator.Validate(ctx, &gardencore.BackupBucket{}, &corev1.Secret{})).To(MatchError("wrong object type *v1.Secret for old object"))
 		})
 
-		It("should return error when BackupBucket is created with invalid providerConfig and it fails to decode", func() {
-			backupBucket := &gardencore.BackupBucket{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.BackupBucketSpec{
-					ProviderConfig: &runtime.RawExtension{
-						Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"}`),
+		Context("Create", func() {
+			It("should return error when BackupBucket is created with invalid spec", func() {
+				backupBucket := &gardencore.BackupBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
 					},
-				},
-			}
+					Spec: gardencore.BackupBucketSpec{
+						CredentialsRef: credentialsRef,
+						ProviderConfig: &runtime.RawExtension{
+							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"}`),
+						},
+					},
+				}
 
-			err := backupBucketValidator.Validate(ctx, backupBucket, nil)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(`failed to decode new provider config: no kind "invalid" is registered for version "aws.provider.extensions.gardener.cloud/v1alpha1"`))
+				err := backupBucketValidator.Validate(ctx, backupBucket, nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(`failed to decode provider config: no kind "invalid" is registered for version "aws.provider.extensions.gardener.cloud/v1alpha1"`))
+			})
+
+			It("should succeed when BackupBucket is created with valid spec", func() {
+				backupBucket := &gardencore.BackupBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.BackupBucketSpec{
+						CredentialsRef: credentialsRef,
+						ProviderConfig: &runtime.RawExtension{
+							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+						},
+					},
+				}
+
+				Expect(backupBucketValidator.Validate(ctx, backupBucket, nil)).To(Succeed())
+			})
 		})
 
-		It("should return error when BackupBucket is created with invalid providerConfig and non-supported fields", func() {
-			backupBucket := &gardencore.BackupBucket{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.BackupBucketSpec{
-					ProviderConfig: &runtime.RawExtension{
-						Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "invalid", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+		Context("Update", func() {
+			It("should return error when BackupBucket is updated with invalid spec and old had unset providerConfig", func() {
+				backupBucket := &gardencore.BackupBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
 					},
-				},
-			}
-
-			err := backupBucketValidator.Validate(ctx, backupBucket, nil)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(`spec.providerConfig.immutability.mode: Invalid value: "invalid": should be either compliance mode or governance mode`))
-		})
-
-		It("should succeed when BackupBucket is created with valid providerConfig", func() {
-			backupBucket := &gardencore.BackupBucket{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.BackupBucketSpec{
-					ProviderConfig: &runtime.RawExtension{
-						Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+					Spec: gardencore.BackupBucketSpec{
+						CredentialsRef: credentialsRef,
+						ProviderConfig: nil,
 					},
-				},
-			}
+				}
 
-			Expect(backupBucketValidator.Validate(ctx, backupBucket, nil)).To(Succeed())
-		})
+				newBackupBucket := backupBucket.DeepCopy()
+				newBackupBucket.Spec.ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"}`),
+				}
 
-		It("should return error when BackupBucket is updated with invalid providerConfig and it fails to decode", func() {
-			backupBucket := &gardencore.BackupBucket{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.BackupBucketSpec{
-					ProviderConfig: &runtime.RawExtension{
-						Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig"}`),
+				err := backupBucketValidator.Validate(ctx, newBackupBucket, backupBucket)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(`failed to decode new provider config: no kind "invalid" is registered for version "aws.provider.extensions.gardener.cloud/v1alpha1"`))
+			})
+
+			It("should succeed when BackupBucket is updated with valid spec and old had unset providerConfig", func() {
+				backupBucket := &gardencore.BackupBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
 					},
-				},
-			}
-
-			newBackupBucket := backupBucket.DeepCopy()
-			newBackupBucket.Spec.ProviderConfig = &runtime.RawExtension{
-				Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "invalid"}`),
-			}
-
-			err := backupBucketValidator.Validate(ctx, newBackupBucket, backupBucket)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(`failed to decode new provider config: no kind "invalid" is registered for version "aws.provider.extensions.gardener.cloud/v1alpha1"`))
-		})
-
-		It("should return error when BackupBucket is updated with immutable providerConfig fields", func() {
-			backupBucket := &gardencore.BackupBucket{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.BackupBucketSpec{
-					ProviderConfig: &runtime.RawExtension{
-						Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "compliance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+					Spec: gardencore.BackupBucketSpec{
+						CredentialsRef: credentialsRef,
+						ProviderConfig: nil,
 					},
-				},
-			}
+				}
 
-			newBackupBucket := backupBucket.DeepCopy()
-			newBackupBucket.Spec.ProviderConfig = &runtime.RawExtension{
-				Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
-			}
+				newBackupBucket := backupBucket.DeepCopy()
+				newBackupBucket.Spec.ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+				}
 
-			err := backupBucketValidator.Validate(ctx, newBackupBucket, backupBucket)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(`spec.providerConfig.immutability.mode: Forbidden: immutable retention mode can't be change to governance once it is compliance`))
-		})
+				Expect(backupBucketValidator.Validate(ctx, newBackupBucket, backupBucket)).To(Succeed())
+			})
 
-		It("should succeed when BackupBucket is updated with valid providerConfig", func() {
-			backupBucket := &gardencore.BackupBucket{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.BackupBucketSpec{
-					ProviderConfig: &runtime.RawExtension{
-						Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+			It("should return error when BackupBucket is updated with invalid spec and old had providerConfig set", func() {
+				backupBucket := &gardencore.BackupBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
 					},
-				},
-			}
+					Spec: gardencore.BackupBucketSpec{
+						CredentialsRef: credentialsRef,
+						ProviderConfig: &runtime.RawExtension{
+							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+						},
+					},
+				}
 
-			newBackupBucket := backupBucket.DeepCopy()
-			newBackupBucket.Spec.ProviderConfig = &runtime.RawExtension{
-				Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "compliance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
-			}
+				newBackupBucket := backupBucket.DeepCopy()
+				newBackupBucket.Spec.CredentialsRef = nil
 
-			Expect(backupBucketValidator.Validate(ctx, newBackupBucket, backupBucket)).To(Succeed())
-		})
+				err := backupBucketValidator.Validate(ctx, newBackupBucket, backupBucket)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(`spec.credentialsRef: Required value: must be set`))
+			})
 
-		It("should succeed when old BackupBucket does not have provider config and new BackupBucket is updated with valid providerConfig", func() {
-			backupBucket := &gardencore.BackupBucket{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: gardencore.BackupBucketSpec{
-					ProviderConfig: nil,
-				},
-			}
+			It("should succeed when BackupBucket is updated with valid spec and old had providerConfig set", func() {
+				backupBucket := &gardencore.BackupBucket{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+					},
+					Spec: gardencore.BackupBucketSpec{
+						CredentialsRef: nil,
+						ProviderConfig: &runtime.RawExtension{
+							Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "governance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
+						},
+					},
+				}
 
-			newBackupBucket := backupBucket.DeepCopy()
-			newBackupBucket.Spec.ProviderConfig = &runtime.RawExtension{
-				Raw: []byte(`{"apiVersion": "aws.provider.extensions.gardener.cloud/v1alpha1", "kind": "BackupBucketConfig", "immutability": {"mode": "compliance", "retentionPeriod": "96h", "retentionType": "bucket"}}`),
-			}
+				newBackupBucket := backupBucket.DeepCopy()
+				newBackupBucket.Spec.CredentialsRef = credentialsRef
 
-			Expect(backupBucketValidator.Validate(ctx, newBackupBucket, backupBucket)).To(Succeed())
+				Expect(backupBucketValidator.Validate(ctx, newBackupBucket, backupBucket)).To(Succeed())
+
+			})
 		})
 	})
 })

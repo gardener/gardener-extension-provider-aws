@@ -7,6 +7,7 @@ package helper_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
@@ -22,6 +23,20 @@ roleARN: role-arn
 			Expect(err).ToNot(HaveOccurred())
 			Expect(config).ToNot(BeNil())
 			Expect(config.RoleARN).To(Equal("role-arn"))
+		})
+
+		It("should fail to parse WorkloadIdentityConfig due to nil config", func() {
+			config, err := helper.WorkloadIdentityConfigFromBytes(nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("cannot parse WorkloadIdentityConfig from empty config"))
+			Expect(config).To(BeNil())
+		})
+
+		It("should fail to parse WorkloadIdentityConfig due to empty config", func() {
+			config, err := helper.WorkloadIdentityConfigFromBytes([]byte{})
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("cannot parse WorkloadIdentityConfig from empty config"))
+			Expect(config).To(BeNil())
 		})
 
 		It("should fail to parse WorkloadIdentityConfig due to unknown field", func() {
@@ -42,7 +57,18 @@ roleARN: role-arn
 `)
 			config, err := helper.WorkloadIdentityConfigFromBytes(raw)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError("strict decoding error: unknown field \"roleARN\""))
+			Expect(err).To(MatchError(ContainSubstring("Object 'apiVersion' is missing in")))
+			Expect(config).To(BeNil())
+		})
+
+		It("should fail to parse WorkloadIdentityConfig due to unsupported apiVersion", func() {
+			raw := []byte(`apiVersion: aws.provider.extensions.gardener.cloud/v0
+kind: WorkloadIdentityConfig
+roleARN: role-arn
+`)
+			config, err := helper.WorkloadIdentityConfigFromBytes(raw)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("no kind \"WorkloadIdentityConfig\" is registered for version \"aws.provider.extensions.gardener.cloud/v0\" in scheme")), err.Error())
 			Expect(config).To(BeNil())
 		})
 
@@ -56,13 +82,31 @@ roleARN: role-arn
 			Expect(err).To(MatchError(ContainSubstring("no kind \"FooBar\" is registered for version \"aws.provider.extensions.gardener.cloud/v1alpha1\" in scheme")))
 			Expect(config).To(BeNil())
 		})
+	})
 
-		It("should fail to parse WorkloadIdentityConfig due to empty config", func() {
-			raw := []byte("")
-			config, err := helper.WorkloadIdentityConfigFromBytes(raw)
+	Describe("WorkloadIdentityConfigFromRaw", func() {
+		It("should fail to parse WorkloadIdentityConfig due to nil raw", func() {
+			config, err := helper.WorkloadIdentityConfigFromRaw(nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError("cannot parse WorkloadIdentityConfig from empty config"))
+			Expect(err).To(MatchError("cannot parse WorkloadIdentityConfig from empty RawExtension"))
 			Expect(config).To(BeNil())
+		})
+
+		It("should fail to parse WorkloadIdentityConfig due to nil raw", func() {
+			config, err := helper.WorkloadIdentityConfigFromRaw(&runtime.RawExtension{Raw: nil})
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("cannot parse WorkloadIdentityConfig from empty RawExtension"))
+			Expect(config).To(BeNil())
+		})
+
+		It("should successfully parse WorkloadIdentityConfig", func() {
+			raw := &runtime.RawExtension{Raw: []byte(`apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkloadIdentityConfig
+roleARN: role-arn
+`)}
+			config, err := helper.WorkloadIdentityConfigFromRaw(raw)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.RoleARN).To(Equal("role-arn"))
 		})
 	})
 })

@@ -8,11 +8,22 @@ import (
 	"fmt"
 	"time"
 
+	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apisawshelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+)
+
+var (
+	secretGVK           = corev1.SchemeGroupVersion.WithKind("Secret")
+	workloadIdentityGVK = securityv1alpha1.SchemeGroupVersion.WithKind("WorkloadIdentity")
+
+	allowedGVKs = sets.New(secretGVK, workloadIdentityGVK)
+	validGVKs   = []string{secretGVK.String(), workloadIdentityGVK.String()}
 )
 
 // ValidateBackupBucketProviderConfigCreate validates the BackupBucket provider config on creation.
@@ -21,7 +32,7 @@ func ValidateBackupBucketProviderConfigCreate(lenientDecoder runtime.Decoder, co
 
 	backupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(lenientDecoder, config)
 	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, config, fmt.Errorf("failed to decode new provider config: %v", err).Error()))
+		allErrs = append(allErrs, field.Invalid(fldPath, rawExtensionToString(config), fmt.Sprintf("failed to decode provider config: %s", err.Error())))
 		return allErrs
 	}
 
@@ -36,13 +47,13 @@ func ValidateBackupBucketProviderConfigUpdate(decoder, lenientDecoder runtime.De
 
 	oldBackupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(lenientDecoder, oldConfig)
 	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, oldConfig, fmt.Errorf("failed to decode old provider config: %v", err).Error()))
+		allErrs = append(allErrs, field.Invalid(fldPath, rawExtensionToString(oldConfig), fmt.Sprintf("failed to decode old provider config: %s", err.Error())))
 		return allErrs
 	}
 
 	newBackupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(decoder, newConfig)
 	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, newConfig, fmt.Errorf("failed to decode new provider config: %v", err).Error()))
+		allErrs = append(allErrs, field.Invalid(fldPath, rawExtensionToString(newConfig), fmt.Sprintf("failed to decode new provider config: %s", err.Error())))
 		return allErrs
 	}
 
@@ -114,6 +125,21 @@ func validateBackupBucketImmutabilityUpdate(oldConfig, newConfig *apisaws.Backup
 				newConfig.Immutability.RetentionPeriod.Duration,
 			),
 		))
+	}
+
+	return allErrs
+}
+
+// ValidateBackupBucketCredentialsRef validates credentialsRef is set to supported kind of credentials.
+func ValidateBackupBucketCredentialsRef(credentialsRef *corev1.ObjectReference, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if credentialsRef == nil {
+		return append(allErrs, field.Required(fldPath, "must be set"))
+	}
+
+	if !allowedGVKs.Has(credentialsRef.GroupVersionKind()) {
+		allErrs = append(allErrs, field.NotSupported(fldPath, credentialsRef.String(), validGVKs))
 	}
 
 	return allErrs
