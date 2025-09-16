@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
@@ -692,7 +692,9 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	var desired []*awsclient.Subnet
 
-	for index, zone := range c.config.Networks.Zones {
+	zonesInternal := helper.CreateInternalZones(c.config.Networks.Zones)
+
+	for index, zone := range zonesInternal {
 		ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
 		subnetPrefixLength := 64
 		var subnetCIDRs []string
@@ -705,12 +707,15 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				subnetCIDRs = append(subnetCIDRs, subnetCIDR)
 			}
 		}
-		helper := c.zoneSuffixHelpers(zone.Name)
-		tagsWorkers := c.commonTagsWithSuffix(helper.GetSuffixSubnetWorkers())
-		tagsPublic := c.commonTagsWithSuffix(helper.GetSuffixSubnetPublic())
+		suffixHelper := c.zoneSuffixHelpers(zone.NameInternal)
+		tagsWorkers := c.commonTagsWithSuffix(suffixHelper.GetSuffixSubnetWorkers())
+		helper.AddInternalZoneName(tagsWorkers, TagKeyInternalZoneName, zone)
+		tagsPublic := c.commonTagsWithSuffix(suffixHelper.GetSuffixSubnetPublic())
 		tagsPublic[TagKeyRolePublicELB] = TagValueELB
-		tagsPrivate := c.commonTagsWithSuffix(helper.GetSuffixSubnetPrivate())
+		helper.AddInternalZoneName(tagsPublic, TagKeyInternalZoneName, zone)
+		tagsPrivate := c.commonTagsWithSuffix(suffixHelper.GetSuffixSubnetPrivate())
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
+		helper.AddInternalZoneName(tagsPrivate, TagKeyInternalZoneName, zone)
 		workersCIDR := zone.Workers
 		if !isIPv4(c.getIpFamilies()) {
 			workersCIDR = ""
@@ -781,18 +786,26 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		dependencies.Append(item.AvailabilityZone, taskID)
+		zoneName := item.AvailabilityZone
+		if item.Tags != nil && item.Tags[TagKeyInternalZoneName] != "" {
+			zoneName = item.Tags[TagKeyInternalZoneName]
+		}
+		dependencies.Append(zoneName, taskID)
 	}
 	for _, pair := range toBeChecked {
 		taskID, err := c.addSubnetReconcileTasks(g, pair.desired, pair.current)
 		if err != nil {
 			return err
 		}
-		dependencies.Append(pair.desired.AvailabilityZone, taskID)
+		zoneName := pair.desired.AvailabilityZone
+		if pair.desired.Tags[TagKeyInternalZoneName] != "" {
+			zoneName = pair.desired.Tags[TagKeyInternalZoneName]
+		}
+		dependencies.Append(zoneName, taskID)
 	}
-	for _, item := range c.config.Networks.Zones {
+	for _, item := range zonesInternal {
 		zone := item
-		c.addZoneReconcileTasks(g, &zone, dependencies.Get(zone.Name))
+		c.addZoneReconcileTasks(g, &zone, dependencies.Get(zone.NameInternal))
 	}
 	f := g.Compile()
 	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
@@ -876,29 +889,29 @@ func (c *FlowContext) addSubnetReconcileTasks(g *flow.Graph, desired, current *a
 		Timeout(defaultTimeout)), nil
 }
 
-func (c *FlowContext) addZoneReconcileTasks(g *flow.Graph, zone *aws.Zone, dependencies []flow.TaskIDer) {
-	ensureRecreateNATGateway := c.AddTask(g, "ensure NAT gateway recreation "+zone.Name,
+func (c *FlowContext) addZoneReconcileTasks(g *flow.Graph, zone *helper.ZoneInternal, dependencies []flow.TaskIDer) {
+	ensureRecreateNATGateway := c.AddTask(g, "ensure NAT gateway recreation "+zone.NameInternal,
 		c.ensureRecreateNATGateway(zone),
 		Timeout(defaultTimeout), Dependencies(dependencies...))
 
-	ensureElasticIP := c.AddTask(g, "ensure NAT gateway elastic IP "+zone.Name,
+	ensureElasticIP := c.AddTask(g, "ensure NAT gateway elastic IP "+zone.NameInternal,
 		c.ensureElasticIP(zone),
 		Timeout(defaultTimeout), Dependencies(dependencies...), Dependencies(ensureRecreateNATGateway))
 
-	ensureNATGateway := c.AddTask(g, "ensure NAT gateway "+zone.Name,
+	ensureNATGateway := c.AddTask(g, "ensure NAT gateway "+zone.NameInternal,
 		c.ensureNATGateway(zone),
 		Timeout(defaultLongTimeout), Dependencies(dependencies...), Dependencies(ensureElasticIP))
 
-	ensureRoutingTable := c.AddTask(g, "ensure route table "+zone.Name,
-		c.ensurePrivateRoutingTable(zone.Name),
+	ensureRoutingTable := c.AddTask(g, "ensure route table "+zone.NameInternal,
+		c.ensurePrivateRoutingTable(zone.Name, zone.NameInternal),
 		Timeout(defaultTimeout), Dependencies(dependencies...), Dependencies(ensureNATGateway))
 
-	_ = c.AddTask(g, "ensure route table associations "+zone.Name,
-		c.ensureRoutingTableAssociations(zone.Name),
+	_ = c.AddTask(g, "ensure route table associations "+zone.NameInternal,
+		c.ensureRoutingTableAssociations(zone.NameInternal),
 		Timeout(defaultTimeout), Dependencies(dependencies...), Dependencies(ensureRoutingTable))
 
-	_ = c.AddTask(g, "ensure VPC endpoints route table associations "+zone.Name,
-		c.ensureVPCEndpointsRoutingTableAssociations(zone.Name),
+	_ = c.AddTask(g, "ensure VPC endpoints route table associations "+zone.NameInternal,
+		c.ensureVPCEndpointsRoutingTableAssociations(zone.NameInternal),
 		Timeout(defaultTimeout), Dependencies(dependencies...), Dependencies(ensureRoutingTable))
 }
 
@@ -1089,11 +1102,11 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 	return nil
 }
 
-func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
+func (c *FlowContext) ensureElasticIP(zone *helper.ZoneInternal) flow.TaskFn {
 	return func(ctx context.Context) error {
 		log := LogFromContext(ctx)
-		helper := c.zoneSuffixHelpers(zone.Name)
-		child := c.getSubnetZoneChild(zone.Name)
+		helper := c.zoneSuffixHelpers(zone.NameInternal)
+		child := c.getSubnetZoneChild(zone.NameInternal)
 		id := child.Get(IdentifierManagedZoneNATGWElasticIP)
 		if zone.ElasticIPAllocationID != nil {
 			// check if we need to clean up gardener managed IP, after user switched from managed to unmanaged
@@ -1177,11 +1190,11 @@ func (c *FlowContext) deleteElasticIpWithWait(ctx context.Context, elasticIP *aw
 }
 
 // ensureRecreateNATGateway checks if the EIPAllocationId has changed.
-func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
+func (c *FlowContext) ensureRecreateNATGateway(zone *helper.ZoneInternal) flow.TaskFn {
 	return func(ctx context.Context) error {
 		log := LogFromContext(ctx)
-		child := c.getSubnetZoneChild(zone.Name)
-		helper := c.zoneSuffixHelpers(zone.Name)
+		child := c.getSubnetZoneChild(zone.NameInternal)
+		helper := c.zoneSuffixHelpers(zone.NameInternal)
 		desired := &awsclient.NATGateway{
 			Tags:     c.commonTagsWithSuffix(helper.GetSuffixNATGateway()),
 			SubnetId: *child.Get(IdentifierZoneSubnetPublic),
@@ -1216,11 +1229,11 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 	}
 }
 
-func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
+func (c *FlowContext) ensureNATGateway(zone *helper.ZoneInternal) flow.TaskFn {
 	return func(ctx context.Context) error {
 		log := LogFromContext(ctx)
-		child := c.getSubnetZoneChild(zone.Name)
-		helper := c.zoneSuffixHelpers(zone.Name)
+		child := c.getSubnetZoneChild(zone.NameInternal)
+		helper := c.zoneSuffixHelpers(zone.NameInternal)
 		desired := &awsclient.NATGateway{
 			Tags:     c.commonTagsWithSuffix(helper.GetSuffixNATGateway()),
 			SubnetId: *child.Get(IdentifierZoneSubnetPublic),
@@ -1328,10 +1341,10 @@ func (c *FlowContext) ensureEgressOnlyInternetGateway(ctx context.Context) error
 	return nil
 }
 
-func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
+func (c *FlowContext) ensurePrivateRoutingTable(zoneName, zoneNameInternal string) flow.TaskFn {
 	return func(ctx context.Context) error {
 		log := LogFromContext(ctx)
-		child := c.getSubnetZoneChild(zoneName)
+		child := c.getSubnetZoneChild(zoneNameInternal)
 		id := child.Get(IdentifierZoneRouteTable)
 
 		var routes []*awsclient.Route
@@ -1358,9 +1371,29 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 			Routes: routes,
 		}
 
-		current, err := FindExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
-		if err != nil {
-			return err
+		var (
+			current *awsclient.RouteTable
+			err     error
+		)
+
+		// special use case: if the user has multiple routeTables in the same AZ with same name created by terraformer
+		if helper.HasDuplicatedZoneNames(c.config.Networks.Zones) {
+			routeTables, err := c.client.FindRouteTablesByTags(ctx, c.commonTagsWithSuffix(fmt.Sprintf("private-%s", zoneName)))
+			if err != nil {
+				return err
+			}
+			if len(routeTables) > 1 {
+				log.Info("multiple private route tables with same name detected")
+				current, err = findInRouteTableByWorkerSubnetAssoc(routeTables, child.Get(IdentifierZoneSubnetWorkers))
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			current, err = FindExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+			if err != nil {
+				return err
+			}
 		}
 
 		if current != nil {
@@ -1370,7 +1403,7 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 				return err
 			}
 		} else {
-			log.Info("creating...", "zone", zoneName)
+			log.Info("creating...", "zone", zoneNameInternal)
 			created, err := c.client.CreateRouteTable(ctx, desired)
 			if err != nil {
 				return err
@@ -1384,6 +1417,22 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 
 		return nil
 	}
+}
+
+func findInRouteTableByWorkerSubnetAssoc(routeTables []*awsclient.RouteTable, subnetWorkersID *string) (*awsclient.RouteTable, error) {
+	if subnetWorkersID == nil {
+		return nil, fmt.Errorf("subnetWorkersID is nil")
+	}
+
+	for _, rt := range routeTables {
+		for _, associations := range rt.Associations {
+			if associations.SubnetId != nil && *associations.SubnetId == *subnetWorkersID {
+				return rt, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no matching route table found")
 }
 
 func (c *FlowContext) deletePrivateRoutingTable(zoneName string) flow.TaskFn {
@@ -1452,7 +1501,7 @@ func (c *FlowContext) ensureZoneRoutingTableAssociation(ctx context.Context, zon
 		}
 	}
 	log := LogFromContext(ctx)
-	log.Info("creating...")
+	log.Info("creating...", "subnetID", *subnetID, "routeTableID", routeTable.RouteTableId)
 	assocID, err := c.client.CreateRouteTableAssociation(ctx, routeTable.RouteTableId, *subnetID)
 	if err != nil {
 		return err
@@ -1974,7 +2023,7 @@ func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (zoneName, subnetKey 
 		err = fmt.Errorf("subnetKey could not calculated from subnet item")
 		return
 	}
-	zoneName = zone.Name
+	zoneName = zone.NameInternal
 	switch item.CidrBlock {
 	case zone.Workers:
 		subnetKey = IdentifierZoneSubnetWorkers
@@ -1986,10 +2035,10 @@ func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (zoneName, subnetKey 
 	return
 }
 
-func (c *FlowContext) getZone(item *awsclient.Subnet) *aws.Zone {
+func (c *FlowContext) getZone(item *awsclient.Subnet) *helper.ZoneInternal {
 	zoneName := getZoneName(item)
-	for _, zone := range c.config.Networks.Zones {
-		if zone.Name == zoneName {
+	for _, zone := range helper.CreateInternalZones(c.config.Networks.Zones) {
+		if zone.NameInternal == zoneName {
 			return &zone
 		}
 	}
@@ -1997,6 +2046,9 @@ func (c *FlowContext) getZone(item *awsclient.Subnet) *aws.Zone {
 }
 
 func getZoneName(item *awsclient.Subnet) string {
+	if internalZoneName := item.Tags[TagKeyInternalZoneName]; internalZoneName != "" {
+		return internalZoneName
+	}
 	return item.AvailabilityZone
 }
 
