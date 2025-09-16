@@ -5,9 +5,11 @@
 package helper
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
+	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -111,13 +113,21 @@ func marshalRaw(raw *runtime.RawExtension) ([]byte, error) {
 	return data, err
 }
 
+// WorkloadIdentityConfigFromRaw extracts WorkloadIdentityConfig from the provided [runtime.RawExtension].
+func WorkloadIdentityConfigFromRaw(raw *runtime.RawExtension) (*api.WorkloadIdentityConfig, error) {
+	if raw == nil || raw.Raw == nil {
+		return nil, errors.New("cannot parse WorkloadIdentityConfig from empty RawExtension")
+	}
+	return WorkloadIdentityConfigFromBytes(raw.Raw)
+}
+
 // WorkloadIdentityConfigFromBytes extracts WorkloadIdentityConfig from the provided byte array.
 func WorkloadIdentityConfigFromBytes(config []byte) (*api.WorkloadIdentityConfig, error) {
 	if len(config) == 0 {
 		return nil, fmt.Errorf("cannot parse WorkloadIdentityConfig from empty config")
 	}
 	workloadIdentityConfig := &api.WorkloadIdentityConfig{}
-	if _, _, err := decoder.Decode(config, nil, workloadIdentityConfig); err != nil {
+	if err := util.Decode(decoder, config, workloadIdentityConfig); err != nil {
 		return nil, err
 	}
 	return workloadIdentityConfig, nil

@@ -12,11 +12,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
-	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	awsapiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
 var _ = Describe("WorkloadIdentity validator", func() {
@@ -43,12 +40,7 @@ roleARN: "foo"
 					},
 				},
 			}
-			scheme := runtime.NewScheme()
-			Expect(securityv1alpha1.AddToScheme(scheme)).To(Succeed())
-			Expect(awsapi.AddToScheme(scheme)).To(Succeed())
-			Expect(awsapiv1alpha1.AddToScheme(scheme)).To(Succeed())
-
-			workloadIdentityValidator = validator.NewWorkloadIdentityValidator(serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder())
+			workloadIdentityValidator = validator.NewWorkloadIdentityValidator()
 		})
 
 		It("should skip validation if workload identity is not of type 'aws'", func() {

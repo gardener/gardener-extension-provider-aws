@@ -12,13 +12,11 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/webhook/cloudprovider"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 )
@@ -57,10 +55,7 @@ var _ = Describe("Ensurer", func() {
 			},
 		)
 
-		scheme := kubernetes.SeedScheme
-		Expect(install.AddToScheme(scheme)).To(Succeed())
-
-		ensurer = NewEnsurer(scheme, logger)
+		ensurer = NewEnsurer(logger)
 	})
 
 	Describe("#EnsureCloudProviderSecret", func() {
