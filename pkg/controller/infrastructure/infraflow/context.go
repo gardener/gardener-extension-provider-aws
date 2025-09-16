@@ -34,6 +34,9 @@ const (
 	TagKeyRolePublicELB = "kubernetes.io/role/elb"
 	// TagKeyRolePrivateELB is the tag key for the internal ELB
 	TagKeyRolePrivateELB = "kubernetes.io/role/internal-elb"
+	// TagKeyInternalZoneName is the internal zone name, only used if one zone has multiple entries
+	// if a zone has multiple entries, we need to distinguish between them
+	TagKeyInternalZoneName = "NameInternal"
 	// TagValueCluster is the tag value for the cluster tag
 	TagValueCluster = "1"
 	// TagValueELB is the tag value for the ELB tag keys
