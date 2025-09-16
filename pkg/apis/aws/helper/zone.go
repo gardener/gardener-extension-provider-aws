@@ -19,13 +19,12 @@ type ZoneInternal struct {
 
 // HasDuplicatedZoneNames returns true if there are duplicated zone names in the given zones.
 func HasDuplicatedZoneNames(zones []aws.Zone) bool {
-	zoneNameCount := make(map[string]int)
+	seenZoneNames := make(map[string]bool)
 	for _, zone := range zones {
-		count := zoneNameCount[zone.Name]
-		if count > 0 {
+		if seenZoneNames[zone.Name] {
 			return true
 		}
-		zoneNameCount[zone.Name] = count + 1
+		seenZoneNames[zone.Name] = true
 	}
 	return false
 }

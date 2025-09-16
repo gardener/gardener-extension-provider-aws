@@ -1422,12 +1422,12 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName, zoneNameInternal strin
 
 func findInRouteTableByWorkerSubnetAssoc(routeTables []*awsclient.RouteTable, subnetWorkersID *string) (*awsclient.RouteTable, error) {
 	if subnetWorkersID == nil {
-		return nil, fmt.Errorf("subnetWorkersID is nil")
+		return nil, fmt.Errorf("failed finding matching route table because subnetWorkersID is nil")
 	}
 
 	for _, rt := range routeTables {
 		for _, associations := range rt.Associations {
-			if associations.SubnetId != nil && *associations.SubnetId == *subnetWorkersID {
+			if associations != nil && associations.SubnetId != nil && *associations.SubnetId == *subnetWorkersID {
 				return rt, nil
 			}
 		}
