@@ -1,19 +1,19 @@
-name: AI-assisted PR Summary
+name: AI-assisted PR review
 on:
   pull_request_target:
-    types: [opened, synchronize]
+    types: [labeled]
 
 jobs:
-  summary:
-    name: PR Summary
+  review:
+    if: ${{ github.event.label.name == 'ai/review' }}
+    name: PR Review
     runs-on: [ubuntu-latest]
     permissions:
       pull-requests: write
     steps:
-      - uses: SAP/ai-assisted-github-actions/pr-summary@v3
+      - uses: SAP/ai-assisted-github-actions/pr-review@v3
         with:
           aicore-service-key: ${{ secrets.AICORE_SERVICE_KEY }}
           model: gpt-4o
           exclude-files: package-lock.json
-          display-mode: comment
-          previous-results: delete
+          display-mode: review-comment-delta
