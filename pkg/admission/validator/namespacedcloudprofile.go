@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
@@ -88,7 +87,7 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 	machineImagesPath := field.NewPath("spec.providerConfig.machineImages")
 	for i, machineImage := range providerConfig.MachineImages {
 		idxPath := machineImagesPath.Index(i)
-		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage, parentSpec.Capabilities)...)
+		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage, parentSpec.MachineCapabilities)...)
 	}
 
 	profileImages := gutil.NewCoreImagesContext(machineImages)
@@ -115,14 +114,14 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 				continue
 			}
 
-			if len(parentSpec.Capabilities) == 0 {
+			if len(parentSpec.MachineCapabilities) == 0 {
 				allErrs = append(allErrs, validateMachineImageArchitectures(machineImage, version, providerImageVersion)...)
 			} else {
 				var v1betaVersion gardencorev1beta1.MachineImageVersion
 				if err := gardencoreapi.Scheme.Convert(&version, &v1betaVersion, nil); err != nil {
 					return append(allErrs, field.InternalError(machineImagesPath, err))
 				}
-				allErrs = append(allErrs, validateMachineImageCapabilities(machineImage, v1betaVersion, providerImageVersion, parentSpec.Capabilities)...)
+				allErrs = append(allErrs, validateMachineImageCapabilities(machineImage, v1betaVersion, providerImageVersion, parentSpec.MachineCapabilities)...)
 			}
 		}
 	}
@@ -161,62 +160,62 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 	return allErrs
 }
 
-func validateMachineImageCapabilities(machineImage core.MachineImage, version gardencorev1beta1.MachineImageVersion, providerImageVersion api.MachineImageVersion, capabilitiesDefinition []gardencorev1beta1.CapabilityDefinition) field.ErrorList {
+func validateMachineImageCapabilities(machineImage core.MachineImage, version gardencorev1beta1.MachineImageVersion, providerImageVersion api.MachineImageVersion, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition) field.ErrorList {
 	allErrs := field.ErrorList{}
 	path := field.NewPath("spec.providerConfig.machineImages")
-	defaultedCapabilitySets := gardencorev1beta1helper.GetCapabilitySetsWithAppliedDefaults(version.CapabilitySets, capabilitiesDefinition)
+	defaultedCapabilityFlavors := gardencorev1beta1helper.GetImageFlavorsWithAppliedDefaults(version.CapabilityFlavors, capabilityDefinitions)
 	regionsCapabilitiesMap := map[string][]gardencorev1beta1.Capabilities{}
 
-	// 1. Create an error for each capabilitySet in the providerConfig that is not defined in the core machine image version
-	for _, capabilitySet := range providerImageVersion.CapabilitySets {
+	// 1. Create an error for each capabilityFlavor in the providerConfig that is not defined in the core machine image version
+	for _, capabilityFlavor := range providerImageVersion.CapabilityFlavors {
 		isFound := false
-		for _, coreDefaultedCapabilitySet := range defaultedCapabilitySets {
-			defaultedProviderCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilitySet.Capabilities, capabilitiesDefinition)
-			if helper.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
+		for _, coreDefaultedCapabilitySet := range defaultedCapabilityFlavors {
+			defaultedProviderCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilityFlavor.Capabilities, capabilityDefinitions)
+			if gardencorev1beta1helper.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
 				isFound = true
 			}
 		}
 		if !isFound {
 			allErrs = append(allErrs, field.Forbidden(path,
-				fmt.Sprintf("machine image version %s@%s has an excess capabilitySet %v, which is not defined in the machineImages spec",
-					machineImage.Name, version.Version, capabilitySet.Capabilities)))
+				fmt.Sprintf("machine image version %s@%s has an excess capabilityFlavor %v, which is not defined in the machineImages spec",
+					machineImage.Name, version.Version, capabilityFlavor.Capabilities)))
 		}
 
-		for _, regionMapping := range capabilitySet.Regions {
-			regionsCapabilitiesMap[regionMapping.Name] = append(regionsCapabilitiesMap[regionMapping.Name], capabilitySet.Capabilities)
+		for _, regionMapping := range capabilityFlavor.Regions {
+			regionsCapabilitiesMap[regionMapping.Name] = append(regionsCapabilitiesMap[regionMapping.Name], capabilityFlavor.Capabilities)
 		}
 	}
 
-	// 2. Create an error for each capabilitySet in the core machine image version that is not defined in the providerConfig
-	for _, coreDefaultedCapabilitySet := range defaultedCapabilitySets {
+	// 2. Create an error for each capabilityFlavor in the core machine image version that is not defined in the providerConfig
+	for _, coreDefaultedCapabilityFlavor := range defaultedCapabilityFlavors {
 		isFound := false
-		for _, capabilitySet := range providerImageVersion.CapabilitySets {
-			defaultedProviderCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilitySet.Capabilities, capabilitiesDefinition)
-			if helper.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
+		for _, capabilityFlavor := range providerImageVersion.CapabilityFlavors {
+			defaultedProviderCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilityFlavor.Capabilities, capabilityDefinitions)
+			if gardencorev1beta1helper.AreCapabilitiesEqual(coreDefaultedCapabilityFlavor.Capabilities, defaultedProviderCapabilities) {
 				isFound = true
 			}
 		}
 		if !isFound {
 			allErrs = append(allErrs, field.Required(path,
-				fmt.Sprintf("machine image version %s@%s has a capabilitySet %v not defined in the NamespacedCloudProfile providerConfig",
-					machineImage.Name, version.Version, coreDefaultedCapabilitySet.Capabilities)))
-			// no need to check the regions if the capabilitySet is not defined in the providerConfig
+				fmt.Sprintf("machine image version %s@%s has a capabilityFlavor %v not defined in the NamespacedCloudProfile providerConfig",
+					machineImage.Name, version.Version, coreDefaultedCapabilityFlavor.Capabilities)))
+			// no need to check the regions if the capabilityFlavor is not defined in the providerConfig
 			continue
 		}
 
-		// 3. Create an error for each region that is not part of every capabilitySet
+		// 3. Create an error for each region that is not part of every capabilityFlavor
 		for region, regionCapabilities := range regionsCapabilitiesMap {
 			isFound := false
 			for _, capabilities := range regionCapabilities {
-				regionDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities, capabilitiesDefinition)
-				if helper.AreCapabilitiesEqual(regionDefaultedCapabilities, coreDefaultedCapabilitySet.Capabilities) {
+				regionDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities, capabilityDefinitions)
+				if gardencorev1beta1helper.AreCapabilitiesEqual(regionDefaultedCapabilities, coreDefaultedCapabilityFlavor.Capabilities) {
 					isFound = true
 				}
 			}
 			if !isFound {
 				allErrs = append(allErrs, field.Required(path,
-					fmt.Sprintf("machine image version %s@%s is missing region %q in capabilitySet %v in the NamespacedCloudProfile providerConfig",
-						machineImage.Name, version.Version, region, coreDefaultedCapabilitySet.Capabilities)))
+					fmt.Sprintf("machine image version %s@%s is missing region %q in capabilityFlavor %v in the NamespacedCloudProfile providerConfig",
+						machineImage.Name, version.Version, region, coreDefaultedCapabilityFlavor.Capabilities)))
 			}
 		}
 	}

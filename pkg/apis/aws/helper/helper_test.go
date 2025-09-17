@@ -73,13 +73,13 @@ var _ = Describe("Helper", func() {
 	)
 
 	DescribeTableSubtree("Select Worker Images", func(hasCapabilities bool) {
-		var capabilitiesDefinitions []v1beta1.CapabilityDefinition
+		var capabilityDefinitions []v1beta1.CapabilityDefinition
 		var machineCapabilities v1beta1.Capabilities
 		var imageCapabilities v1beta1.Capabilities
 		region := "europe"
 
 		if hasCapabilities {
-			capabilitiesDefinitions = []v1beta1.CapabilityDefinition{
+			capabilityDefinitions = []v1beta1.CapabilityDefinition{
 				{Name: "architecture", Values: []string{"amd64", "arm64"}},
 				{Name: "capability1", Values: []string{"value1", "value2", "value3"}},
 			}
@@ -102,7 +102,7 @@ var _ = Describe("Helper", func() {
 						expectedMachineImage.Architecture = nil
 					}
 				}
-				machineImage, err := FindImageInWorkerStatus(machineImages, name, version, arch, machineCapabilities, capabilitiesDefinitions)
+				machineImage, err := FindImageInWorkerStatus(machineImages, name, version, arch, machineCapabilities, capabilityDefinitions)
 				expectResults(machineImage, expectedMachineImage, err, expectErr)
 			},
 
@@ -123,7 +123,7 @@ var _ = Describe("Helper", func() {
 				cfg := &api.CloudProfileConfig{}
 				cfg.MachineImages = profileImages
 
-				capabilitySet, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineCapabilities, capabilitiesDefinitions)
+				capabilitySet, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineCapabilities, capabilityDefinitions)
 
 				if expectedAMI != "" {
 					Expect(err).NotTo(HaveOccurred())
@@ -236,7 +236,7 @@ func makeProfileMachineImages(name, version, region, ami string, arch *string, c
 			Architecture: arch,
 		}}
 	} else {
-		versions[0].CapabilitySets = []api.CapabilitySet{{
+		versions[0].CapabilityFlavors = []api.MachineImageFlavor{{
 			Capabilities: capabilities,
 			Regions: []api.RegionAMIMapping{{
 				Name: region,

@@ -32,30 +32,25 @@ type MachineImages struct {
 type MachineImageVersion struct {
 	// Version is the version of the image.
 	Version string
-	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilitySets
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilityFlavors
 
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	Regions []RegionAMIMapping
-	// CapabilitySets is grouping of region AMIs by capabilities.
-	CapabilitySets []CapabilitySet
+	// CapabilityFlavors is grouping of region AMIs by capabilities.
+	CapabilityFlavors []MachineImageFlavor
 }
 
-// CapabilitySet groups all RegionAMIMappings for a specific et of capabilities.
-type CapabilitySet struct {
+// MachineImageFlavor groups all RegionAMIMappings for a specific et of capabilities.
+type MachineImageFlavor struct {
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	Regions []RegionAMIMapping
 	// Capabilities that are supported by the AMIs in this set.
 	Capabilities gardencorev1beta1.Capabilities
 }
 
-// GetCapabilities returns the Capabilities of a CapabilitySet
-func (cs *CapabilitySet) GetCapabilities() gardencorev1beta1.Capabilities {
+// GetCapabilities returns the Capabilities of a MachineImageFlavor
+func (cs MachineImageFlavor) GetCapabilities() gardencorev1beta1.Capabilities {
 	return cs.Capabilities
-}
-
-// SetCapabilities sets the Capabilities on a CapabilitySet
-func (cs *CapabilitySet) SetCapabilities(capabilities gardencorev1beta1.Capabilities) {
-	cs.Capabilities = capabilities
 }
 
 // RegionAMIMapping is a mapping to the correct AMI for the machine image in the given region.
@@ -64,7 +59,7 @@ type RegionAMIMapping struct {
 	Name string
 	// AMI is the AMI for the machine image.
 	AMI string
-	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilitySets
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilityFlavors
 
 	// Architecture is the CPU architecture of the machine image.
 	Architecture *string

@@ -40,12 +40,12 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 		namespacedCloudProfileValidator extensionswebhook.Validator
 		namespacedCloudProfile          *core.NamespacedCloudProfile
 		cloudProfile                    *v1beta1.CloudProfile
-		capabilitiesDefinitions         []v1beta1.CapabilityDefinition
+		capabilityDefinitions           []v1beta1.CapabilityDefinition
 	)
 
 	BeforeEach(func() {
 		if isCapabilitiesCloudProfile {
-			capabilitiesDefinitions = []v1beta1.CapabilityDefinition{
+			capabilityDefinitions = []v1beta1.CapabilityDefinition{
 				{Name: v1beta1constants.ArchitectureName, Values: []string{v1beta1constants.ArchitectureAMD64}},
 			}
 		}
@@ -77,7 +77,7 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 				Name: "cloud-profile",
 			},
 			Spec: v1beta1.CloudProfileSpec{
-				Capabilities: capabilitiesDefinitions,
+				MachineCapabilities: capabilityDefinitions,
 			},
 		}
 	})
@@ -99,9 +99,9 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 			namespacedAmiMappings := `{"name":"image-1","versions":[{"version":"1.1","regions":[{"name":"eu1","ami":"ami-123"}]}]},
   {"name":"image-2","versions":[{"version":"2.0","regions":[{"name":"eu1","ami":"ami-123"}]}]}`
 			if isCapabilitiesCloudProfile {
-				amiMappings = `"capabilitySets":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]`
-				namespacedAmiMappings = `{"name":"image-1","versions":[{"version":"1.1","capabilitySets":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]}]},
-  {"name":"image-2","versions":[{"version":"2.0","capabilitySets":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]}]}`
+				amiMappings = `"capabilityFlavors":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]`
+				namespacedAmiMappings = `{"name":"image-1","versions":[{"version":"1.1","capabilityFlavors":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]}]},
+  {"name":"image-2","versions":[{"version":"2.0","capabilityFlavors":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]}]}`
 			}
 
 			cloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(fmt.Sprintf(`{
@@ -149,7 +149,7 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 			amiMappings := `"regions":[{"name":"eu1","ami":"ami-123"}]`
 
 			if isCapabilitiesCloudProfile {
-				amiMappings = `"capabilitySets":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]`
+				amiMappings = `"capabilityFlavors":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]`
 			}
 
 			cloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
@@ -187,7 +187,7 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 		It("should fail for NamespacedCloudProfile specifying provider config without the according version in the spec.machineImages", func() {
 			amiMappings := `"regions":[{"name":"eu1","ami":"ami-123"}]`
 			if isCapabilitiesCloudProfile {
-				amiMappings = `"capabilitySets":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]`
+				amiMappings = `"capabilityFlavors":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]`
 			}
 
 			namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(fmt.Sprintf(`{
@@ -228,14 +228,14 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 ]`
 			image1FallbackMappings := `"regions":[{"name":"image-region-2","ami":"id-img-reg-2"}]`
 			if isCapabilitiesCloudProfile {
-				image1AmiMappings = `"capabilitySets":[
+				image1AmiMappings = `"capabilityFlavors":[
 {"capabilities":{"architecture":["arm64"]},"regions":[{"name":"image-region-1","ami":"id-img-reg-1"}]},
 {"capabilities":{"architecture":["amd64"]},"regions":[{"name":"image-region-2","ami":"id-img-reg-2"}]}
 ]`
-				image1FallbackMappings = `"capabilitySets":[
+				image1FallbackMappings = `"capabilityFlavors":[
 {"capabilities":{"architecture":["amd64"]},"regions":[{"name":"image-region-2","ami":"id-img-reg-2"}]}
 ]`
-				cloudProfile.Spec.Capabilities[0].Values = []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64}
+				cloudProfile.Spec.MachineCapabilities[0].Values = []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64}
 			}
 			namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(fmt.Sprintf(`{
 "apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
@@ -251,16 +251,16 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 					Name: "image-1",
 					Versions: []core.MachineImageVersion{
 						{ExpirableVersion: core.ExpirableVersion{Version: "1.1-regions"}, Architectures: []string{"amd64", "arm64"},
-							CapabilitySets: []core.CapabilitySet{
+							CapabilityFlavors: []core.MachineImageFlavor{
 								{Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: []string{"amd64"}}},
 								{Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: []string{"arm64"}}},
 							}},
 						{ExpirableVersion: core.ExpirableVersion{Version: "1.1-fallback"}, Architectures: []string{"arm64"},
-							CapabilitySets: []core.CapabilitySet{
+							CapabilityFlavors: []core.MachineImageFlavor{
 								{Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: []string{"arm64"}}},
 							}},
 						{ExpirableVersion: core.ExpirableVersion{Version: "1.1-missing"}, Architectures: []string{"arm64"},
-							CapabilitySets: []core.CapabilitySet{
+							CapabilityFlavors: []core.MachineImageFlavor{
 								{Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: []string{"arm64"}}},
 							}},
 					},
@@ -275,19 +275,19 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeRequired),
 					"Field":  fieldMatcher,
-					"Detail": Equal("machine image version image-1@1.1-regions is missing region \"image-region-1\" in capabilitySet map[architecture:[amd64]] in the NamespacedCloudProfile providerConfig"),
+					"Detail": Equal("machine image version image-1@1.1-regions is missing region \"image-region-1\" in capabilityFlavor map[architecture:[amd64]] in the NamespacedCloudProfile providerConfig"),
 				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeRequired),
 					"Field":  fieldMatcher,
-					"Detail": Equal("machine image version image-1@1.1-regions is missing region \"image-region-2\" in capabilitySet map[architecture:[arm64]] in the NamespacedCloudProfile providerConfig"),
+					"Detail": Equal("machine image version image-1@1.1-regions is missing region \"image-region-2\" in capabilityFlavor map[architecture:[arm64]] in the NamespacedCloudProfile providerConfig"),
 				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeForbidden),
 					"Field":  fieldMatcher,
-					"Detail": Equal("machine image version image-1@1.1-fallback has an excess capabilitySet map[architecture:[amd64]], which is not defined in the machineImages spec"),
+					"Detail": Equal("machine image version image-1@1.1-fallback has an excess capabilityFlavor map[architecture:[amd64]], which is not defined in the machineImages spec"),
 				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeRequired),
 					"Field":  fieldMatcher,
-					"Detail": Equal("machine image version image-1@1.1-fallback has a capabilitySet map[architecture:[arm64]] not defined in the NamespacedCloudProfile providerConfig"),
+					"Detail": Equal("machine image version image-1@1.1-fallback has a capabilityFlavor map[architecture:[arm64]] not defined in the NamespacedCloudProfile providerConfig"),
 				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(field.ErrorTypeRequired),
 					"Field":  fieldMatcher,

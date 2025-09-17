@@ -306,7 +306,7 @@ var _ = Describe("Machines", func() {
 						Versions: []apiv1alpha1.MachineImageVersion{
 							{
 								Version: machineImageVersion,
-								CapabilitySets: []apiv1alpha1.CapabilitySet{
+								CapabilityFlavors: []apiv1alpha1.MachineImageFlavor{
 									{
 										Capabilities: capabilitiesAmd,
 										Regions: []apiv1alpha1.RegionAMIMapping{
@@ -379,7 +379,7 @@ var _ = Describe("Machines", func() {
 							Name: cloudProfileName,
 						},
 						Spec: gardencorev1beta1.CloudProfileSpec{
-							Capabilities: capabilityDefinitions,
+							MachineCapabilities: capabilityDefinitions,
 							MachineTypes: []gardencorev1beta1.MachineType{
 								{
 									Name:         machineType,
@@ -1494,7 +1494,7 @@ var _ = Describe("Machines", func() {
 
 		})
 	})
-	DescribeTable("EnsureUniformMachineImages", func(capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition, expectedImages []api.MachineImage) {
+	DescribeTable("EnsureUniformMachineImages", func(capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, expectedImages []api.MachineImage) {
 		machineImages := []api.MachineImage{
 			// images with capability sets
 			{
@@ -1533,7 +1533,7 @@ var _ = Describe("Machines", func() {
 				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
 			},
 		}
-		actualImages := EnsureUniformMachineImages(machineImages, capabilitiesDefinitions)
+		actualImages := EnsureUniformMachineImages(machineImages, capabilityDefinitions)
 		Expect(actualImages).To(ContainElements(expectedImages))
 
 	},

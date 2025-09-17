@@ -33,20 +33,25 @@ type MachineImages struct {
 type MachineImageVersion struct {
 	// Version is the version of the image.
 	Version string `json:"version"`
-	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilitySets
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use MachineImageFlavor
 
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	Regions []RegionAMIMapping `json:"regions"`
-	// CapabilitySets is grouping of region AMIs by capabilities.
-	CapabilitySets []CapabilitySet `json:"capabilitySets"`
+	// CapabilityFlavors is grouping of region AMIs by capabilities.
+	CapabilityFlavors []MachineImageFlavor `json:"capabilityFlavors"`
 }
 
-// CapabilitySet groups all RegionAMIMappings for a specific et of capabilities.
-type CapabilitySet struct {
+// MachineImageFlavor groups all RegionAMIMappings for a specific et of capabilities.
+type MachineImageFlavor struct {
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	Regions []RegionAMIMapping `json:"regions"`
 	// Capabilities that are supported by the AMIs in this set.
 	Capabilities gardencorev1beta1.Capabilities `json:"capabilities,omitempty"`
+}
+
+// GetCapabilities returns the Capabilities of a MachineImageFlavor
+func (cs *MachineImageFlavor) GetCapabilities() gardencorev1beta1.Capabilities {
+	return cs.Capabilities
 }
 
 // RegionAMIMapping is a mapping to the correct AMI for the machine image in the given region.
@@ -55,7 +60,7 @@ type RegionAMIMapping struct {
 	Name string `json:"name"`
 	// AMI is the AMI for the machine image.
 	AMI string `json:"ami"`
-	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilitySets
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilityFlavors
 
 	// Architecture is the CPU architecture of the machine image.
 	// +optional

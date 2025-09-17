@@ -20,11 +20,10 @@ import (
 	"k8s.io/utils/ptr"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
 // ValidateCloudProfileConfig validates a CloudProfileConfig object.
-func ValidateCloudProfileConfig(cpConfig *apisaws.CloudProfileConfig, machineImages []core.MachineImage, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition, fldPath *field.Path) field.ErrorList {
+func ValidateCloudProfileConfig(cpConfig *apisaws.CloudProfileConfig, machineImages []core.MachineImage, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	machineImagesPath := fldPath.Child("machineImages")
@@ -33,17 +32,17 @@ func ValidateCloudProfileConfig(cpConfig *apisaws.CloudProfileConfig, machineIma
 	}
 	for i, machineImage := range cpConfig.MachineImages {
 		idxPath := machineImagesPath.Index(i)
-		allErrs = append(allErrs, ValidateProviderMachineImage(idxPath, machineImage, capabilitiesDefinitions)...)
+		allErrs = append(allErrs, ValidateProviderMachineImage(idxPath, machineImage, capabilityDefinitions)...)
 	}
-	allErrs = append(allErrs, validateMachineImageMapping(machineImages, cpConfig, capabilitiesDefinitions, field.NewPath("spec").Child("machineImages"))...)
+	allErrs = append(allErrs, validateMachineImageMapping(machineImages, cpConfig, capabilityDefinitions, field.NewPath("spec").Child("machineImages"))...)
 
 	return allErrs
 }
 
 // ValidateProviderMachineImage validates a CloudProfileConfig MachineImages entry.
-func ValidateProviderMachineImage(validationPath *field.Path, providerImage apisaws.MachineImages, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) field.ErrorList {
+func ValidateProviderMachineImage(validationPath *field.Path, providerImage apisaws.MachineImages, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition) field.ErrorList {
 	allErrs := field.ErrorList{}
-	hasCloudProfileCapabilities := len(capabilitiesDefinitions) > 0
+	hasCloudProfileCapabilities := len(capabilityDefinitions) > 0
 
 	if len(providerImage.Name) == 0 {
 		allErrs = append(allErrs, field.Required(validationPath.Child("name"), "must provide a name"))
@@ -60,18 +59,18 @@ func ValidateProviderMachineImage(validationPath *field.Path, providerImage apis
 		}
 
 		if hasCloudProfileCapabilities {
-			for k, capabilitySet := range version.CapabilitySets {
-				kdxPath := jdxPath.Child("capabilitySets").Index(k)
-				allErrs = append(allErrs, helper.ValidateCapabilities(capabilitySet.Capabilities, capabilitiesDefinitions, kdxPath.Child("capabilities"))...)
+			for k, capabilitySet := range version.CapabilityFlavors {
+				kdxPath := jdxPath.Child("capabilityFlavors").Index(k)
+				allErrs = append(allErrs, gutil.ValidateCapabilities(capabilitySet.Capabilities, capabilityDefinitions, kdxPath.Child("capabilities"))...)
 				allErrs = append(allErrs, validateRegions(capabilitySet.Regions, providerImage.Name, version.Version, hasCloudProfileCapabilities, kdxPath)...)
 			}
 			if len(version.Regions) > 0 {
-				allErrs = append(allErrs, field.Forbidden(jdxPath.Child("regions"), "must not be set as CloudProfile defines capabilities. Use capabilitySets.regions instead."))
+				allErrs = append(allErrs, field.Forbidden(jdxPath.Child("regions"), "must not be set as CloudProfile defines capabilities. Use capabilityFlavors.regions instead."))
 			}
 		} else {
 			allErrs = append(allErrs, validateRegions(version.Regions, providerImage.Name, version.Version, hasCloudProfileCapabilities, jdxPath)...)
-			if len(version.CapabilitySets) > 0 {
-				allErrs = append(allErrs, field.Forbidden(jdxPath.Child("capabilitySets"), "must not be set as CloudProfile does not define capabilities. Use regions instead."))
+			if len(version.CapabilityFlavors) > 0 {
+				allErrs = append(allErrs, field.Forbidden(jdxPath.Child("capabilityFlavors"), "must not be set as CloudProfile does not define capabilities. Use regions instead."))
 			}
 		}
 	}
@@ -106,7 +105,7 @@ func validateRegions(regions []apisaws.RegionAMIMapping, version, name string, h
 			// If Capabilities are defined in the CloudProfile, the architecture gets defaulted to "ignore" during runtime if not set.
 			architecture := ptr.Deref(region.Architecture, "ignore")
 			if architecture != "ignore" {
-				allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in .capabilities.architecture"+architecture))
+				allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in .capabilities.architecture"))
 			}
 		}
 	}
@@ -124,7 +123,7 @@ func NewProviderImagesContext(providerImages []apisaws.MachineImages) *gutil.Ima
 }
 
 // validateMachineImageMapping validates that for each machine image there is a corresponding cpConfig image.
-func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *apisaws.CloudProfileConfig, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition, fldPath *field.Path) field.ErrorList {
+func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *apisaws.CloudProfileConfig, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	providerImages := NewProviderImagesContext(cpConfig.MachineImages)
 
@@ -144,8 +143,8 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 		for idxVersion, version := range machineImage.Versions {
 			machineImageVersionPath := machineImagePath.Child("versions").Index(idxVersion)
 
-			if len(capabilitiesDefinitions) > 0 {
-				// check that each CapabilitySet in version.CapabilitySets has a corresponding imageVersion.CapabilitySets
+			if len(capabilityDefinitions) > 0 {
+				// check that each MachineImageFlavor in version.CapabilityFlavors has a corresponding imageVersion.CapabilityFlavors
 				imageVersion, exists := providerImages.GetImageVersion(machineImage.Name, version.Version)
 				if !exists {
 					allErrs = append(allErrs, field.Required(machineImageVersionPath,
@@ -158,18 +157,18 @@ func validateMachineImageMapping(machineImages []core.MachineImage, cpConfig *ap
 				if err := gardencoreapi.Scheme.Convert(&version, &v1beta1Version, nil); err != nil {
 					return append(allErrs, field.InternalError(machineImageVersionPath, err))
 				}
-				defaultedCapabilitySets := gardencorev1beta1helper.GetCapabilitySetsWithAppliedDefaults(v1beta1Version.CapabilitySets, capabilitiesDefinitions)
-				for idxCapability, defaultedCapabilitySet := range defaultedCapabilitySets {
+				defaultedCapabilityFlavors := gardencorev1beta1helper.GetImageFlavorsWithAppliedDefaults(v1beta1Version.CapabilityFlavors, capabilityDefinitions)
+				for idxCapability, defaultedCapabilitySet := range defaultedCapabilityFlavors {
 					isFound := false
-					// search for the corresponding imageVersion.CapabilitySet
-					for _, providerCapabilitySet := range imageVersion.CapabilitySets {
-						providerDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilitiesDefinitions)
-						if helper.AreCapabilitiesEqual(defaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
+					// search for the corresponding imageVersion.MachineImageFlavor
+					for _, providerCapabilitySet := range imageVersion.CapabilityFlavors {
+						providerDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilityDefinitions)
+						if gardencorev1beta1helper.AreCapabilitiesEqual(defaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
 							isFound = true
 						}
 					}
 					if !isFound {
-						allErrs = append(allErrs, field.Required(machineImageVersionPath.Child("capabilitySets").Index(idxCapability),
+						allErrs = append(allErrs, field.Required(machineImageVersionPath.Child("capabilityFlavors").Index(idxCapability),
 							fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and capabilitySet %v", machineImage.Name, version.Version, defaultedCapabilitySet.Capabilities)))
 					}
 				}

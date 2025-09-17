@@ -7,9 +7,11 @@ package helper
 import (
 	"fmt"
 
+	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
@@ -85,14 +87,14 @@ func FindImageInCloudProfile(
 	name, version, region string,
 	arch *string,
 	machineCapabilities gardencorev1beta1.Capabilities,
-	capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition,
-) (*api.CapabilitySet, error) {
+	capabilityDefinitions []gardencorev1beta1.CapabilityDefinition,
+) (*api.MachineImageFlavor, error) {
 	if cloudProfileConfig == nil {
 		return nil, fmt.Errorf("cloud profile config is nil")
 	}
 	machineImages := cloudProfileConfig.MachineImages
 
-	capabilitySet, err := findCapabilitySetFromMachineImages(machineImages, name, version, region, arch, machineCapabilities, capabilitiesDefinitions)
+	capabilitySet, err := findCapabilitySetFromMachineImages(machineImages, name, version, region, arch, machineCapabilities, capabilityDefinitions)
 	if err != nil {
 		return nil, fmt.Errorf("could not find an AMI for region %q, image %q, version %q that supports %v: %w", region, name, version, machineCapabilities, err)
 	}
@@ -106,9 +108,9 @@ func FindImageInCloudProfile(
 // FindImageInWorkerStatus takes a list of machine images from the worker status and tries to find the first entry
 // whose name, version, architecture, capabilities and zone matches with the given ones. If no such entry is
 // found then an error will be returned.
-func FindImageInWorkerStatus(machineImages []api.MachineImage, name string, version string, architecture *string, machineCapabilities gardencorev1beta1.Capabilities, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) (*api.MachineImage, error) {
-	// If no capabilitiesDefinitions are specified, return the (legacy) architecture format field as no Capabilities are used.
-	if len(capabilitiesDefinitions) == 0 {
+func FindImageInWorkerStatus(machineImages []api.MachineImage, name string, version string, architecture *string, machineCapabilities gardencorev1beta1.Capabilities, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition) (*api.MachineImage, error) {
+	// If no capabilityDefinitions are specified, return the (legacy) architecture format field as no Capabilities are used.
+	if len(capabilityDefinitions) == 0 {
 		for _, statusMachineImage := range machineImages {
 			if statusMachineImage.Architecture == nil {
 				statusMachineImage.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
@@ -120,13 +122,13 @@ func FindImageInWorkerStatus(machineImages []api.MachineImage, name string, vers
 		return nil, fmt.Errorf("no machine image found for image %q with version %q and architecture %q", name, version, *architecture)
 	}
 
-	// If capabilitiesDefinitions are specified, we need to find the best matching capability set.
+	// If capabilityDefinitions are specified, we need to find the best matching capability set.
 	for _, statusMachineImage := range machineImages {
 		var statusMachineImageV1alpha1 v1alpha1.MachineImage
 		if err := v1alpha1.Convert_aws_MachineImage_To_v1alpha1_MachineImage(&statusMachineImage, &statusMachineImageV1alpha1, nil); err != nil {
 			return nil, fmt.Errorf("failed to convert machine image: %w", err)
 		}
-		if statusMachineImage.Name == name && statusMachineImage.Version == version && AreCapabilitiesCompatible(statusMachineImageV1alpha1.Capabilities, machineCapabilities, capabilitiesDefinitions) {
+		if statusMachineImage.Name == name && statusMachineImage.Version == version && gardencorev1beta1helper.AreCapabilitiesCompatible(statusMachineImageV1alpha1.Capabilities, machineCapabilities, capabilityDefinitions) {
 			return &statusMachineImage, nil
 		}
 	}
@@ -138,8 +140,8 @@ func findCapabilitySetFromMachineImages(
 	imageName, imageVersion, region string,
 	arch *string,
 	machineCapabilities gardencorev1beta1.Capabilities,
-	capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition,
-) (*api.CapabilitySet, error) {
+	capabilityDefinitions []gardencorev1beta1.CapabilityDefinition,
+) (*api.MachineImageFlavor, error) {
 	for _, machineImage := range machineImages {
 		if machineImage.Name != imageName {
 			continue
@@ -149,10 +151,10 @@ func findCapabilitySetFromMachineImages(
 				continue
 			}
 
-			if len(capabilitiesDefinitions) == 0 {
+			if len(capabilityDefinitions) == 0 {
 				for _, mapping := range version.Regions {
 					if region == mapping.Name && ptr.Equal(arch, mapping.Architecture) {
-						return &api.CapabilitySet{
+						return &api.MachineImageFlavor{
 							Regions:      []api.RegionAMIMapping{mapping},
 							Capabilities: gardencorev1beta1.Capabilities{},
 						}, nil
@@ -161,8 +163,8 @@ func findCapabilitySetFromMachineImages(
 				continue
 			}
 
-			filteredCapabilitySets := filterCapabilitySetsByRegion(version.CapabilitySets, region)
-			bestMatch, err := FindBestCapabilitySet(filteredCapabilitySets, machineCapabilities, capabilitiesDefinitions)
+			filteredCapabilityFlavors := filterCapabilityFlavorsByRegion(version.CapabilityFlavors, region)
+			bestMatch, err := worker.FindBestImageFlavor(filteredCapabilityFlavors, machineCapabilities, capabilityDefinitions)
 			if err != nil {
 				return nil, fmt.Errorf("could not determine best capabilitySet %w", err)
 			}
@@ -173,12 +175,12 @@ func findCapabilitySetFromMachineImages(
 	return nil, nil
 }
 
-// filterCapabilitySetsByRegion returns a new list with capabilitySets that only contain RegionAMIMappings
+// filterCapabilityFlavorsByRegion returns a new list with capabilityFlavors that only contain RegionAMIMappings
 // of the region to filter for.
-func filterCapabilitySetsByRegion(capabilitySets []api.CapabilitySet, regionName string) []*api.CapabilitySet {
-	var compatibleSets []*api.CapabilitySet
+func filterCapabilityFlavorsByRegion(capabilityFlavors []api.MachineImageFlavor, regionName string) []*api.MachineImageFlavor {
+	var compatibleSets []*api.MachineImageFlavor
 
-	for _, capabilitySet := range capabilitySets {
+	for _, capabilitySet := range capabilityFlavors {
 		var regionAMIMapping *api.RegionAMIMapping
 		for _, region := range capabilitySet.Regions {
 			if region.Name == regionName {
@@ -186,7 +188,7 @@ func filterCapabilitySetsByRegion(capabilitySets []api.CapabilitySet, regionName
 			}
 		}
 		if regionAMIMapping != nil {
-			compatibleSets = append(compatibleSets, &api.CapabilitySet{
+			compatibleSets = append(compatibleSets, &api.MachineImageFlavor{
 				Regions:      []api.RegionAMIMapping{*regionAMIMapping},
 				Capabilities: capabilitySet.Capabilities,
 			})
