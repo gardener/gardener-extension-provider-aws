@@ -39,6 +39,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/utils"
 )
 
 const (
@@ -174,7 +175,10 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 	}
 
 	allocateNodeCIDRs := true
-	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil && slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) {
+	// Check if IPv6 is configured in IPFamilies or if any node CIDR is IPv6
+	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil &&
+		(slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) ||
+			utils.HasIPv6NodeCIDR(cluster.Shoot.Status.Networking.Nodes)) {
 		allocateNodeCIDRs = false
 	}
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-controller-manager"); c != nil {
