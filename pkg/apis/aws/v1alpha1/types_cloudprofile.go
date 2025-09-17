@@ -33,7 +33,7 @@ type MachineImages struct {
 type MachineImageVersion struct {
 	// Version is the version of the image.
 	Version string `json:"version"`
-	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use MachineImageFlavor
+	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilityFlavors
 
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	Regions []RegionAMIMapping `json:"regions"`
