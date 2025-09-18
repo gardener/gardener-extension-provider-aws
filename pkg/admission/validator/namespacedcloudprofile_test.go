@@ -46,7 +46,7 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 	BeforeEach(func() {
 		if isCapabilitiesCloudProfile {
 			capabilityDefinitions = []v1beta1.CapabilityDefinition{
-				{Name: v1beta1constants.ArchitectureName, Values: []string{v1beta1constants.ArchitectureAMD64}},
+				{Name: v1beta1constants.ArchitectureName, Values: []string{"am64"}},
 			}
 		}
 		scheme := runtime.NewScheme()
@@ -235,7 +235,7 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 				image1FallbackMappings = `"capabilityFlavors":[
 {"capabilities":{"architecture":["amd64"]},"regions":[{"name":"image-region-2","ami":"id-img-reg-2"}]}
 ]`
-				cloudProfile.Spec.MachineCapabilities[0].Values = []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64}
+				cloudProfile.Spec.MachineCapabilities[0].Values = []string{"amd64", "arm64"}
 			}
 			namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(fmt.Sprintf(`{
 "apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",

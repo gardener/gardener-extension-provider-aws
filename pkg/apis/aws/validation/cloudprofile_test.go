@@ -40,16 +40,16 @@ var _ = Describe("CloudProfileConfig validation", func() {
 			if isCapabilitiesCloudProfile {
 				capabilityDefinitions = []v1beta1.CapabilityDefinition{{
 					Name:   v1beta1constants.ArchitectureName,
-					Values: []string{v1beta1constants.ArchitectureAMD64},
+					Values: []string{"amd64"},
 				}}
 				capabilityFlavors = []apisaws.MachineImageFlavor{{
 					Regions: regions,
 					Capabilities: v1beta1.Capabilities{
-						v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+						v1beta1constants.ArchitectureName: []string{"amd64"},
 					}}}
 				regions = nil
 			} else {
-				regions[0].Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
+				regions[0].Architecture = ptr.To("amd64")
 			}
 
 			machineImageName = "ubuntu"
@@ -74,7 +74,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 					Versions: []core.MachineImageVersion{
 						{
 							ExpirableVersion: core.ExpirableVersion{Version: machineImageVersion},
-							Architectures:    []string{v1beta1constants.ArchitectureAMD64},
+							Architectures:    []string{"amd64"},
 						},
 					},
 				},
@@ -159,7 +159,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 						Version: "1.2.3",
 						CapabilityFlavors: []apisaws.MachineImageFlavor{{
 							Regions:      []apisaws.RegionAMIMapping{{}},
-							Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: {v1beta1constants.ArchitectureAMD64}},
+							Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: {"amd64"}},
 						}},
 					}
 				} else {
@@ -222,11 +222,11 @@ var _ = Describe("CloudProfileConfig validation", func() {
 				var fieldMatcher types.GomegaMatcher
 				if isCapabilitiesCloudProfile {
 					machineImages[0].Versions[0].CapabilityFlavors = []core.MachineImageFlavor{
-						{Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64}}},
+						{Capabilities: core.Capabilities{v1beta1constants.ArchitectureName: []string{"arm64"}}},
 					}
 					fieldMatcher = Equal("spec.machineImages[0].versions[0].capabilityFlavors[0]")
 				} else {
-					machineImages[0].Versions[0].Architectures = []string{v1beta1constants.ArchitectureARM64}
+					machineImages[0].Versions[0].Architectures = []string{"arm64"}
 					fieldMatcher = Equal("spec.machineImages[0].versions[0]")
 				}
 				errorList := ValidateCloudProfileConfig(cloudProfileConfig, machineImages, capabilityDefinitions, fldPath)
@@ -253,7 +253,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 				cloudProfileConfig.MachineImages[0].Versions[0].Regions = append(cloudProfileConfig.MachineImages[0].Versions[0].Regions, apisaws.RegionAMIMapping{
 					Name:         "eu",
 					AMI:          "ami-1234",
-					Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+					Architecture: ptr.To("amd64"),
 				})
 				cloudProfileConfig.MachineImages[0].Versions[0].CapabilityFlavors = append(cloudProfileConfig.MachineImages[0].Versions[0].CapabilityFlavors, apisaws.MachineImageFlavor{
 					Regions: []apisaws.RegionAMIMapping{{Name: "eu", AMI: "ami-1234"}},

@@ -178,23 +178,23 @@ func findCapabilitySetFromMachineImages(
 // filterCapabilityFlavorsByRegion returns a new list with capabilityFlavors that only contain RegionAMIMappings
 // of the region to filter for.
 func filterCapabilityFlavorsByRegion(capabilityFlavors []api.MachineImageFlavor, regionName string) []*api.MachineImageFlavor {
-	var compatibleSets []*api.MachineImageFlavor
+	var compatibleFlavors []*api.MachineImageFlavor
 
-	for _, capabilitySet := range capabilityFlavors {
+	for _, capabilityFlavor := range capabilityFlavors {
 		var regionAMIMapping *api.RegionAMIMapping
-		for _, region := range capabilitySet.Regions {
+		for _, region := range capabilityFlavor.Regions {
 			if region.Name == regionName {
 				regionAMIMapping = &region
 			}
 		}
 		if regionAMIMapping != nil {
-			compatibleSets = append(compatibleSets, &api.MachineImageFlavor{
+			compatibleFlavors = append(compatibleFlavors, &api.MachineImageFlavor{
 				Regions:      []api.RegionAMIMapping{*regionAMIMapping},
-				Capabilities: capabilitySet.Capabilities,
+				Capabilities: capabilityFlavor.Capabilities,
 			})
 		}
 	}
-	return compatibleSets
+	return compatibleFlavors
 }
 
 // FindDataVolumeByName takes a list of data volumes and a data volume name. It tries to find the data volume entry for
