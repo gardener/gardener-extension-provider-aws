@@ -1,5 +1,6 @@
 name: Build
 on:
+  merge_group:
   pull_request:
     types:
       - opened
@@ -9,13 +10,12 @@ on:
   pull_request_target:
     types:
       - labeled
-  merge_group:
-  workflow_dispatch:
   push:
     branches:
     - 'master'
     - 'release-*'
 
+  workflow_dispatch:
 jobs:
   build:
     if: ${{ github.event_name != 'pull_request_target' || (github.event_name == 'pull_request_target' && github.event.label.name == 'reviewed/ok-to-test') }}
