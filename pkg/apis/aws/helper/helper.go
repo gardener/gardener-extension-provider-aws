@@ -94,7 +94,7 @@ func FindImageInCloudProfile(
 	}
 	machineImages := cloudProfileConfig.MachineImages
 
-	capabilitySet, err := findCapabilitySetFromMachineImages(machineImages, name, version, region, arch, machineCapabilities, capabilityDefinitions)
+	capabilitySet, err := findMachineImageFlavor(machineImages, name, version, region, arch, machineCapabilities, capabilityDefinitions)
 	if err != nil {
 		return nil, fmt.Errorf("could not find an AMI for region %q, image %q, version %q that supports %v: %w", region, name, version, machineCapabilities, err)
 	}
@@ -135,7 +135,7 @@ func FindImageInWorkerStatus(machineImages []api.MachineImage, name string, vers
 	return nil, fmt.Errorf("no machine image found for image %q with version %q and capabilities %v", name, version, machineCapabilities)
 }
 
-func findCapabilitySetFromMachineImages(
+func findMachineImageFlavor(
 	machineImages []api.MachineImages,
 	imageName, imageVersion, region string,
 	arch *string,
@@ -166,7 +166,7 @@ func findCapabilitySetFromMachineImages(
 			filteredCapabilityFlavors := filterCapabilityFlavorsByRegion(version.CapabilityFlavors, region)
 			bestMatch, err := worker.FindBestImageFlavor(filteredCapabilityFlavors, machineCapabilities, capabilityDefinitions)
 			if err != nil {
-				return nil, fmt.Errorf("could not determine best capabilitySet %w", err)
+				return nil, fmt.Errorf("could not determine best flavor %w", err)
 			}
 
 			return bestMatch, nil

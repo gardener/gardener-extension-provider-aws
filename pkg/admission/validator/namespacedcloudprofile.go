@@ -42,25 +42,25 @@ type namespacedCloudProfile struct {
 
 // Validate validates the given NamespacedCloudProfile objects.
 func (p *namespacedCloudProfile) Validate(ctx context.Context, newObj, _ client.Object) error {
-	profile, ok := newObj.(*core.NamespacedCloudProfile)
+	cloudProfile, ok := newObj.(*core.NamespacedCloudProfile)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", newObj)
 	}
 
-	if profile.DeletionTimestamp != nil {
+	if cloudProfile.DeletionTimestamp != nil {
 		return nil
 	}
 
-	cpConfig := &api.CloudProfileConfig{}
-	if profile.Spec.ProviderConfig != nil {
+	cloudProfileConfig := &api.CloudProfileConfig{}
+	if cloudProfile.Spec.ProviderConfig != nil {
 		var err error
-		cpConfig, err = decodeCloudProfileConfig(p.decoder, profile.Spec.ProviderConfig)
+		cloudProfileConfig, err = decodeCloudProfileConfig(p.decoder, cloudProfile.Spec.ProviderConfig)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not decode providerConfig of NamespacedCloudProfile for '%s': %w", cloudProfile.Name, err)
 		}
 	}
 
-	parentCloudProfile := profile.Spec.Parent
+	parentCloudProfile := cloudProfile.Spec.Parent
 	if parentCloudProfile.Kind != constants.CloudProfileReferenceKindCloudProfile {
 		return fmt.Errorf("parent reference must be of kind CloudProfile (unsupported kind: %s)", parentCloudProfile.Kind)
 	}
@@ -69,16 +69,7 @@ func (p *namespacedCloudProfile) Validate(ctx context.Context, newObj, _ client.
 		return err
 	}
 
-	return p.validateNamespacedCloudProfileProviderConfig(cpConfig, profile.Spec, parentProfile.Spec).ToAggregate()
-}
-
-// validateNamespacedCloudProfileProviderConfig validates the CloudProfileConfig passed with a NamespacedCloudProfile.
-func (p *namespacedCloudProfile) validateNamespacedCloudProfileProviderConfig(providerConfig *api.CloudProfileConfig, profileSpec core.NamespacedCloudProfileSpec, parentSpec gardencorev1beta1.CloudProfileSpec) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	allErrs = append(allErrs, p.validateMachineImages(providerConfig, profileSpec.MachineImages, parentSpec)...)
-
-	return allErrs
+	return p.validateMachineImages(cloudProfileConfig, cloudProfile.Spec.MachineImages, parentProfile.Spec).ToAggregate()
 }
 
 func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.CloudProfileConfig, machineImages []core.MachineImage, parentSpec gardencorev1beta1.CloudProfileSpec) field.ErrorList {
@@ -87,7 +78,7 @@ func (p *namespacedCloudProfile) validateMachineImages(providerConfig *api.Cloud
 	machineImagesPath := field.NewPath("spec.providerConfig.machineImages")
 	for i, machineImage := range providerConfig.MachineImages {
 		idxPath := machineImagesPath.Index(i)
-		allErrs = append(allErrs, validation.ValidateProviderMachineImage(idxPath, machineImage, parentSpec.MachineCapabilities)...)
+		allErrs = append(allErrs, validation.ValidateProviderMachineImage(machineImage, parentSpec.MachineCapabilities, idxPath)...)
 	}
 
 	profileImages := gutil.NewCoreImagesContext(machineImages)
