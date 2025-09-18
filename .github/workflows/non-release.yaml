@@ -11,6 +11,10 @@ on:
       - labeled
   merge_group:
   workflow_dispatch:
+  push:
+    branches:
+    - 'master'
+    - 'release-*'
 
 jobs:
   build:
