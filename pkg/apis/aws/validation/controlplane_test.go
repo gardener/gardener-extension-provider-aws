@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
@@ -45,6 +46,27 @@ var _ = Describe("ControlPlaneConfig validation", func() {
 					"Field": Equal("cloudControllerManager.featureGates.Foo"),
 				})),
 			))
+		})
+
+		Context("LoadBalancerController", func() {
+			It("should pass for valid ingress class name", func() {
+				controlPlane.LoadBalancerController = &apisaws.LoadBalancerControllerConfig{
+					IngressClassName: ptr.To("valid-ingress-class"),
+				}
+				Expect(ValidateControlPlaneConfig(controlPlane, "", fldPath)).To(BeEmpty())
+			})
+
+			It("should fail for invalid ingress class name", func() {
+				controlPlane.LoadBalancerController = &apisaws.LoadBalancerControllerConfig{
+					IngressClassName: ptr.To("NoUpperCaseAllowed"),
+				}
+				errorList := ValidateControlPlaneConfig(controlPlane, "", fldPath)
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("loadBalancerController.ingressClassName"),
+					"Detail": Equal("does not match expected regex ^[a-z0-9.-]+$"),
+				}))))
+			})
 		})
 	})
 })

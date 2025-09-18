@@ -5,6 +5,8 @@
 package validation_test
 
 import (
+	"fmt"
+
 	"github.com/gardener/gardener/pkg/apis/core"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -41,7 +43,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			nodeTemplate    *extensionsv1alpha1.NodeTemplate
 
 			iamInstanceProfileName = "name"
-			iamInstanceProfileARN  = "arn"
+			iamInstanceProfileARN  = "arn:aws:iam::123456789012:instance-profile/path/to/profile-name"
 
 			worker  *apisaws.WorkerConfig
 			fldPath = field.NewPath("config")
@@ -220,6 +222,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				})),
 			))
 		})
+
 		It("should enforce that the IOPS is positive", func() {
 			var negative int64 = -100
 			worker.Volume.IOPS = &negative
@@ -238,6 +241,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				})),
 			))
 		})
+
 		It("should prevent duplicate entries for data volumes in workerconfig", func() {
 			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{Name: dataVolume1Name})
 
@@ -248,6 +252,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				"Field": Equal("config.dataVolumes[1].name"),
 			}))))
 		})
+
 		It("should enforce that the throughput is positive", func() {
 			var negative int64 = -100
 			worker.Volume.Throughput = &negative
@@ -268,6 +273,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				})),
 			))
 		})
+
 		It("should prevent data volume entries in workerconfig for non-existing data volumes shoot", func() {
 			worker.DataVolumes = append(worker.DataVolumes, apisaws.DataVolume{Name: "broken"})
 
@@ -279,6 +285,18 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			}))))
 		})
 
+		It("should reject invalid snapshot ID", func() {
+			worker.DataVolumes[0].SnapshotID = ptr.To("must-start-with-snap")
+
+			errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("config.dataVolumes[0].snapshotID"),
+				"Detail": Equal(fmt.Sprintf("does not match expected regex %s", SnapshotIDRegex)),
+			}))))
+		})
+
 		Context("iamInstanceProfile", func() {
 			It("should prevent not specifying both IAM name and arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{}
@@ -286,8 +304,9 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("config.iamInstanceProfile"),
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.iamInstanceProfile"),
+					"Detail": Equal("exactly one of 'name' or 'arn' must be specified"),
 				}))))
 			})
 
@@ -300,34 +319,37 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("config.iamInstanceProfile"),
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.iamInstanceProfile"),
+					"Detail": Equal("exactly one of 'name' or 'arn' must be specified"),
 				}))))
 			})
 
 			It("should forbid specifying an invalid IAM name", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
-					Name: ptr.To(""),
+					Name: ptr.To("invalidChar{"),
 				}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("config.iamInstanceProfile.name"),
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.iamInstanceProfile.name"),
+					"Detail": Equal(fmt.Sprintf("does not match expected regex %s", IamInstanceProfileNameRegex)),
 				}))))
 			})
 
 			It("should forbid specifying an invalid IAM arn", func() {
 				worker.IAMInstanceProfile = &apisaws.IAMInstanceProfile{
-					ARN: ptr.To(""),
+					ARN: ptr.To("must-start-with-arn:aws:iam::"),
 				}
 
 				errorList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
 
 				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("config.iamInstanceProfile.arn"),
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.iamInstanceProfile.arn"),
+					"Detail": Equal(fmt.Sprintf("does not match expected regex %s", IamInstanceProfileArnRegex)),
 				}))))
 			})
 
