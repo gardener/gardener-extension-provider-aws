@@ -33,14 +33,14 @@ var (
 	// GatewayEndpointRegex matches one or more word characters, optionally followed by dot-separated word segments
 	GatewayEndpointRegex = `^\w+(\.\w+)*$`
 
-	validateK8sResourceName        = combineValidationFuncs(regex(k8sResourceNameRegex), minLength(1), maxLength(253))
-	validateVpcID                  = combineValidationFuncs(regex(VpcIDRegex), maxLength(255))
+	validateK8sResourceName        = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
+	validateVpcID                  = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))
 	validateEipAllocationID        = combineValidationFuncs(regex(EipAllocationIDRegex), maxLength(255))
 	validateSnapshotID             = combineValidationFuncs(regex(SnapshotIDRegex), maxLength(255))
-	validateIamInstanceProfileName = combineValidationFuncs(regex(IamInstanceProfileNameRegex), minLength(1), maxLength(128))
+	validateIamInstanceProfileName = combineValidationFuncs(regex(IamInstanceProfileNameRegex), notEmpty, maxLength(128))
 	validateIamInstanceProfileArn  = combineValidationFuncs(regex(IamInstanceProfileArnRegex), maxLength(255))
 	validateZoneName               = combineValidationFuncs(regex(ZoneNameRegex), maxLength(255))
-	validateTagKey                 = combineValidationFuncs(regex(TagKeyRegex), minLength(1), maxLength(128))
+	validateTagKey                 = combineValidationFuncs(regex(TagKeyRegex), notEmpty, maxLength(128))
 	validateGatewayEndpointName    = combineValidationFuncs(regex(GatewayEndpointRegex), maxLength(255))
 )
 
@@ -72,22 +72,18 @@ func regex(regex string) validateFunc[string] {
 	}
 }
 
-// nolint:unparam
-func minLength(min int) validateFunc[string] {
-	return func(name string, fld *field.Path) field.ErrorList {
-		var allErrs field.ErrorList
-		if utf8.RuneCountInString(name) < min {
-			return field.ErrorList{field.Invalid(fld, name, fmt.Sprintf("must not be fewer than %d characters, got %d", min, len(name)))}
-		}
-		return allErrs
+func notEmpty(name string, fld *field.Path) field.ErrorList {
+	if utf8.RuneCountInString(name) == 0 {
+		return field.ErrorList{field.Required(fld, "cannot be empty")}
 	}
+	return nil
 }
 
 func maxLength(max int) validateFunc[string] {
 	return func(name string, fld *field.Path) field.ErrorList {
 		var allErrs field.ErrorList
-		if utf8.RuneCountInString(name) > max {
-			return field.ErrorList{field.Invalid(fld, name, fmt.Sprintf("must not be more than %d characters, got %d", max, len(name)))}
+		if l := utf8.RuneCountInString(name); l > max {
+			return field.ErrorList{field.Invalid(fld, name, fmt.Sprintf("must not be more than %d characters, got %d", max, l))}
 		}
 		return allErrs
 	}

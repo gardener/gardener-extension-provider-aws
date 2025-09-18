@@ -180,6 +180,17 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					Expect(errorList).To(BeEmpty())
 				})
 
+				It("should reject empty ID string", func() {
+					infrastructureConfig.Networks.VPC.ID = ptr.To("")
+					infrastructureConfig.Networks.VPC.CIDR = nil
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).To(ConsistOfFields(Fields{
+						"Type":   Equal(field.ErrorTypeRequired),
+						"Field":  Equal("networks.vpc.id"),
+						"Detail": Equal("cannot be empty"),
+					}))
+				})
+
 				It("should reject setting both ID and CIDR", func() {
 					infrastructureConfig.Networks.VPC.ID = ptr.To("vpc-123456")
 					infrastructureConfig.Networks.VPC.CIDR = &vpcCIDR
@@ -771,11 +782,11 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			})
 			Expect(errorList).To(ConsistOf(
 				PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
+					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("ignoreTags.keys[1]"),
 				})),
 				PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
+					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("ignoreTags.keyPrefixes[1]"),
 				})),
 			))
