@@ -198,6 +198,11 @@ var _ = Describe("ValuesProvider", func() {
 						Version: "1.29.0",
 					},
 				},
+				Status: gardencorev1beta1.ShootStatus{
+					Networking: &gardencorev1beta1.NetworkingStatus{
+						Nodes: []string{"1.2.3.4/24"},
+					},
+				},
 			},
 		}
 
