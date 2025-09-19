@@ -120,8 +120,8 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			return err
 		}
 
-		machineImages = EnsureUniformMachineImages(machineImages, w.cluster.CloudProfile.Spec.Capabilities)
-		machineImages = appendMachineImage(machineImages, *machineImage, w.cluster.CloudProfile.Spec.Capabilities)
+		machineImages = EnsureUniformMachineImages(machineImages, w.cluster.CloudProfile.Spec.MachineCapabilities)
+		machineImages = appendMachineImage(machineImages, *machineImage, w.cluster.CloudProfile.Spec.MachineCapabilities)
 
 		blockDevices, err := w.computeBlockDevices(pool, workerConfig)
 		if err != nil {
@@ -533,7 +533,7 @@ func EnsureUniformMachineImages(images []awsapi.MachineImage, definitions []gard
 		return uniformMachineImages
 	}
 
-	// transform images that were added without Capabilities to contain a CapabilitySet with defaulted Architecture
+	// transform images that were added without Capabilities to contain a MachineImageFlavor with defaulted Architecture
 	for _, img := range images {
 		if len(img.Capabilities) > 0 {
 			// image is already in the new format with Capabilities

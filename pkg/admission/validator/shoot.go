@@ -166,7 +166,7 @@ func (s *shoot) validateShootUpdate(ctx context.Context, oldShoot, shoot *core.S
 	if shoot.DeletionTimestamp == nil {
 		// If the Shoot is being deleted, we do not validate the workers against the cloud
 		// profile, as the workers will be deleted anyway.
-		if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, cloudProfileSpec.MachineTypes, cloudProfileSpec.Capabilities, fldPath.Child("workers")); len(errList) != 0 {
+		if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnUpdate(oldShoot.Spec.Provider.Workers, shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, cloudProfileSpec.MachineTypes, cloudProfileSpec.MachineCapabilities, fldPath.Child("workers")); len(errList) != 0 {
 			return errList.ToAggregate()
 		}
 	}
@@ -184,7 +184,7 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot, cl
 		return err
 	}
 
-	if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnCreation(shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, cloudProfileSpec.MachineTypes, cloudProfileSpec.Capabilities, fldPath.Child("workers")); len(errList) != 0 {
+	if errList := awsvalidation.ValidateWorkersAgainstCloudProfileOnCreation(shoot.Spec.Provider.Workers, shoot.Spec.Region, awsCloudProfile, cloudProfileSpec.MachineTypes, cloudProfileSpec.MachineCapabilities, fldPath.Child("workers")); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 
