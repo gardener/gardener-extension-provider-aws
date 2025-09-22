@@ -29,7 +29,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.30.8"
+  tag: "v1.30.9"
   targetVersion: "1.30.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -43,7 +43,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.31.7"
+  tag: "v1.31.8"
   targetVersion: "1.31.x"
   labels:
   - name: 'gardener.cloud/cve-categorisation'
@@ -57,7 +57,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.32.3"
+  tag: "v1.32.5"
   targetVersion: "1.32.x"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
@@ -71,7 +71,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: "v1.33.0"
+  tag: "v1.33.2"
   targetVersion: ">= 1.33"
   labels:
     - name: 'gardener.cloud/cve-categorisation'
