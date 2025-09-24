@@ -1,0 +1,38 @@
+name: Cleanup Old Release Branches
+
+on:
+  schedule:
+    # Runs once a week on Sundays at 12:00 UTC
+    - cron: '0 12 * * 0'
+
+  workflow_dispatch: # Optional manual trigger
+
+jobs:
+  cleanup-branches:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed to list all branches, default is 1
+
+      - name: Delete old release branches
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Define threshold (6 months ago)
+          THRESHOLD_DATE=$(date -d "6 months ago" --utc +%Y-%m-%dT%H:%M:%SZ)
+
+          echo "Deleting branches starting with 'release-' older than $THRESHOLD_DATE"
+          
+          
+          # Delete release-* branches older than THRESHOLD_DATE
+          git for-each-ref --format='%(refname:short) %(committerdate:iso8601)' refs/heads/release-* | while read -r branch_name commit_date; do
+            if [[ "$commit_date" < "$THRESHOLD_DATE" ]]; then
+              echo "Deleting branch: $branch_name (last commit: $commit_date)"
+              git push origin --delete "$branch_name"
+            fi
+          done

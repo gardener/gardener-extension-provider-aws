@@ -47,3 +47,15 @@ jobs:
       contents: write
       packages: write
       id-token: write
+
+  create-release-branch:
+    if: ${{ inputs.next-version == 'bump-minor' && inputs.release-version == 'set-prerelease' }}
+    needs:
+      - build
+      - release-to-github-and-bump
+    uses: .github/workflows/create-branch.yaml@master
+    with:
+      version: ${{ needs.release-to-github-and-bump.outputs.component-descriptor.version }}
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
+
