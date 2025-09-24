@@ -47,6 +47,8 @@ func ValidateNetworking(networking *core.Networking, fldPath *field.Path) field.
 					allErrs = append(allErrs, field.Invalid(fldPath.Child("providerConfig").Child(overlayKey).Child(enabledKey), enabled, "overlay is not supported in conjunction with IPv6"))
 				}
 			}
+		} else {
+			allErrs = append(allErrs, field.NotFound(fldPath.Child("providerConfig").Child(overlayKey).Child(enabledKey), false))
 		}
 	}
 
