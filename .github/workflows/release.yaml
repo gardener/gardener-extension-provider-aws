@@ -22,6 +22,7 @@ jobs:
       contents: write
       packages: write
       id-token: write
+      pull-requests: write
     with:
       mode: release
       release-version: ${{ inputs.release-version }}
@@ -47,3 +48,4 @@ jobs:
       contents: write
       packages: write
       id-token: write
+      pull-requests: write
