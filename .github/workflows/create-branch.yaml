@@ -1,0 +1,51 @@
+name: Reusable - Create Branch
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+    secrets:
+      token:
+        required: true
+
+jobs:
+  create-branch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create new branch
+        run: |
+          # Validate input
+          if [ -z "${{ inputs.version }}" ]; then
+            echo "ERROR: version input is empty"
+            exit 1
+          fi
+          
+          VERSION="${{ inputs.version }}"
+          MINOR_VERSION="${VERSION::-2}"
+          BRANCH_NAME="release-${MINOR_VERSION}"
+          
+          git checkout -b "${BRANCH_NAME}"
+          
+          # Compute next development version
+          NEXT_VERSION="${MINOR_VERSION}.1"
+          DEV_VERSION="${NEXT_VERSION}-dev"
+          echo "${DEV_VERSION}" > VERSION
+          
+          # Generate artifacts
+          make generate
+          
+          # Commit and push changes
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "Prepare next Development Cycle $NEXT_VERSION"
+          git push origin $BRANCH_NAME
+        env:
+          GITHUB_TOKEN: ${{ secrets.token }}
