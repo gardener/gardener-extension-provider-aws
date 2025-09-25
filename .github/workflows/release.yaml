@@ -38,8 +38,7 @@ jobs:
     needs:
       - build
       - integration-tests
-    secrets:
-      github-app-secret-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
+    secrets: inherit
     with:
       release-commit-target: branch
       next-version: ${{ inputs.next-version }}
