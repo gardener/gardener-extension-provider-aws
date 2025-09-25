@@ -45,7 +45,7 @@ func (w *WorkerDelegate) selectMachineImageForWorkerPool(name, version string, r
 		Version: version,
 	}
 
-	if capabilitySet, err := helper.FindImageInCloudProfile(w.cloudProfileConfig, name, version, region, arch, machineCapabilities, w.cluster.CloudProfile.Spec.Capabilities); err == nil {
+	if capabilitySet, err := helper.FindImageInCloudProfile(w.cloudProfileConfig, name, version, region, arch, machineCapabilities, w.cluster.CloudProfile.Spec.MachineCapabilities); err == nil {
 		selectedMachineImage.Capabilities = capabilitySet.Capabilities
 		selectedMachineImage.AMI = capabilitySet.Regions[0].AMI
 		selectedMachineImage.Architecture = capabilitySet.Regions[0].Architecture
@@ -59,15 +59,15 @@ func (w *WorkerDelegate) selectMachineImageForWorkerPool(name, version string, r
 			return nil, fmt.Errorf("could not decode worker status of worker '%s': %w", k8sclient.ObjectKeyFromObject(w.worker), err)
 		}
 
-		return helper.FindImageInWorkerStatus(workerStatus.MachineImages, name, version, arch, machineCapabilities, w.cluster.CloudProfile.Spec.Capabilities)
+		return helper.FindImageInWorkerStatus(workerStatus.MachineImages, name, version, arch, machineCapabilities, w.cluster.CloudProfile.Spec.MachineCapabilities)
 	}
 
 	return nil, worker.ErrorMachineImageNotFound(name, version, *arch, region)
 }
 
-func appendMachineImage(machineImages []api.MachineImage, machineImage api.MachineImage, capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition) []api.MachineImage {
+func appendMachineImage(machineImages []api.MachineImage, machineImage api.MachineImage, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition) []api.MachineImage {
 	// support for cloudprofile machine images without capabilities
-	if len(capabilitiesDefinitions) == 0 {
+	if len(capabilityDefinitions) == 0 {
 		for _, image := range machineImages {
 			if image.Name == machineImage.Name && image.Version == machineImage.Version && machineImage.Architecture == image.Architecture {
 				// If the image already exists without capabilities, we can just return the existing list.
@@ -82,11 +82,11 @@ func appendMachineImage(machineImages []api.MachineImage, machineImage api.Machi
 		})
 	}
 
-	defaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(machineImage.Capabilities, capabilitiesDefinitions)
+	defaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(machineImage.Capabilities, capabilityDefinitions)
 
 	for _, existingMachineImage := range machineImages {
-		existingDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(existingMachineImage.Capabilities, capabilitiesDefinitions)
-		if existingMachineImage.Name == machineImage.Name && existingMachineImage.Version == machineImage.Version && helper.AreCapabilitiesEqual(defaultedCapabilities, existingDefaultedCapabilities) {
+		existingDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(existingMachineImage.Capabilities, capabilityDefinitions)
+		if existingMachineImage.Name == machineImage.Name && existingMachineImage.Version == machineImage.Version && gardencorev1beta1helper.AreCapabilitiesEqual(defaultedCapabilities, existingDefaultedCapabilities) {
 			// If the image already exists with the same capabilities return the existing list.
 			return machineImages
 		}

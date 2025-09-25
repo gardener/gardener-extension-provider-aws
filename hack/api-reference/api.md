@@ -518,49 +518,6 @@ string
 </tr>
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CapabilitySet">CapabilitySet
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion</a>)
-</p>
-<p>
-<p>CapabilitySet groups all RegionAMIMappings for a specific et of capabilities.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>regions</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.RegionAMIMapping">
-[]RegionAMIMapping
-</a>
-</em>
-</td>
-<td>
-<p>Regions is a mapping to the correct AMI for the machine image in the supported regions.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>capabilities</code></br>
-<em>
-github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
-</em>
-</td>
-<td>
-<p>Capabilities that are supported by the AMIs in this set.</p>
-</td>
-</tr>
-</tbody>
-</table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CloudControllerManagerConfig">CloudControllerManagerConfig
 </h3>
 <p>
@@ -1337,6 +1294,49 @@ github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageFlavor">MachineImageFlavor
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion</a>)
+</p>
+<p>
+<p>MachineImageFlavor groups all RegionAMIMappings for a specific et of capabilities.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>regions</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.RegionAMIMapping">
+[]RegionAMIMapping
+</a>
+</em>
+</td>
+<td>
+<p>Regions is a mapping to the correct AMI for the machine image in the supported regions.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>capabilities</code></br>
+<em>
+github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
+</em>
+</td>
+<td>
+<p>Capabilities that are supported by the AMIs in this set.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion
 </h3>
 <p>
@@ -1380,15 +1380,15 @@ string
 </tr>
 <tr>
 <td>
-<code>capabilitySets</code></br>
+<code>capabilityFlavors</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CapabilitySet">
-[]CapabilitySet
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageFlavor">
+[]MachineImageFlavor
 </a>
 </em>
 </td>
 <td>
-<p>CapabilitySets is grouping of region AMIs by capabilities.</p>
+<p>CapabilityFlavors is grouping of region AMIs by capabilities.</p>
 </td>
 </tr>
 </tbody>
@@ -1494,7 +1494,7 @@ VPC
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CapabilitySet">CapabilitySet</a>, 
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageFlavor">MachineImageFlavor</a>, 
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion</a>)
 </p>
 <p>
