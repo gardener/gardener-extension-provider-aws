@@ -1,0 +1,73 @@
+name: Cleanup Old Releases
+
+on:
+  schedule:
+    # Runs every Sunday at 12:00 AM UTC
+    - cron: '0 0 * * 0'
+
+  workflow_dispatch: # Optional manual trigger
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Cleanup old branches and milestones
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          #!/bin/bash
+          set -e
+
+          headers=(-H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json")
+
+          # Get latest release version
+          latest_tag=$(curl -s "${headers[@]}" "https://api.github.com/repos/$REPO/releases" | \
+                        jq -r '.[].tag_name | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))' | sort -Vr | head -n 1)
+
+          if [[ -z "$latest_tag" ]]; then
+            echo "No valid releases found."
+            exit 0
+          fi
+
+          echo "Latest release: $latest_tag"
+
+          # Parse major and minor
+          IFS='.' read -r major minor patch <<<"${latest_tag#v}"
+          old_minor=$((minor - 3))
+          
+          # Check if minor version is smaller than 3
+          if [[ $minor -lt 3 ]]; then
+            echo "Latest minor version ($minor) is smaller than 3. No branches or milestones to delete."
+            exit 0
+          fi
+          
+          target_prefix="v$major.$old_minor"
+          echo "Target version to clean: $target_prefix"
+
+          # Delete old release branches
+          branches=$(curl -s "${headers[@]}" "https://api.github.com/repos/$REPO/branches" | \
+                      jq -r '.[].name' | grep "^release-$target_prefix")
+
+          for branch in $branches; do
+            echo "Deleting branch: $branch"
+            curl -s -X DELETE "${headers[@]}" "https://api.github.com/repos/$REPO/git/refs/heads/$branch"
+          done
+
+          # Delete (close) old milestones
+          milestones=$(curl -s "${headers[@]}" "https://api.github.com/repos/$REPO/milestones?state=all" | \
+                        jq -r '.[] | select(.title | startswith("'"$target_prefix"'")) | .number')
+
+          for ms in $milestones; do
+            echo "Closing milestone: $ms"
+            curl -s -X PATCH "${headers[@]}" "https://api.github.com/repos/$REPO/milestones/$ms" \
+              -d '{"state":"closed"}'
+          done
+
+          echo "Cleanup completed."
