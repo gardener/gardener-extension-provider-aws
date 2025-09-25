@@ -346,6 +346,36 @@ var _ = Describe("Shoot validator", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
+			It("should deny with dual-stack networking and overlay explicitly enabled", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv4, core.IPFamilyIPv6}
+				shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{"overlay":{"enabled":true}}`),
+				}
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.networking.providerConfig.overlay.enabled"),
+				}))))
+			})
+
+			It("should deny with dual-stack networking and overlay implicitly enabled", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv4, core.IPFamilyIPv6}
+				shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
+					Raw: []byte(`{}`),
+				}
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.networking.ipFamilies"),
+				}))))
+			})
+
 			It("should return err when infrastructureConfig is invalid", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 
