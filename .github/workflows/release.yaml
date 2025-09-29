@@ -38,12 +38,12 @@ jobs:
     needs:
       - build
       - integration-tests
-    secrets:
-      github-app-secret-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
+    secrets: inherit
     with:
       release-commit-target: branch
       next-version: ${{ inputs.next-version }}
       next-version-callback-action-path: .github/actions/prepare-release
+      slack-channel-id: C9CEBQPGE # #sap-tech-gardener
     permissions:
       contents: write
       packages: write
