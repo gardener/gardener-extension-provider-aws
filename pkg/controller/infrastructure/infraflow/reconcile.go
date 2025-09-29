@@ -571,7 +571,13 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		},
 	}
 
+	processedZones := make(map[string]bool)
 	for index, zone := range c.config.Networks.Zones {
+		if processedZones[zone.Name] {
+			continue
+		}
+		processedZones[zone.Name] = true
+
 		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
 			FromPort: 30000,
@@ -692,7 +698,13 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	var desired []*awsclient.Subnet
 
+	processedZones := make(map[string]bool)
 	for index, zone := range c.config.Networks.Zones {
+		if processedZones[zone.Name] {
+			continue
+		}
+		processedZones[zone.Name] = true
+
 		ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
 		subnetPrefixLength := 64
 		var subnetCIDRs []string
@@ -769,6 +781,13 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		return item.AvailabilityZone + "-" + item.CidrBlock
 	})
 
+	log.Info("Tobe deleted", "subnetIDs", mmap(toBeDeleted, func(t *awsclient.Subnet) string {
+		return t.SubnetId
+	}))
+	log.Info("Tobe created", "subnetIDs", mmap(toBeCreated, func(t *awsclient.Subnet) string {
+		return t.SubnetId
+	}))
+
 	g := flow.NewGraph("AWS infrastructure reconciliation: zones")
 
 	if err := c.addZoneDeletionTasksBySubnets(g, toBeDeleted); err != nil {
@@ -790,7 +809,13 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		}
 		dependencies.Append(pair.desired.AvailabilityZone, taskID)
 	}
+	processedZones = make(map[string]bool)
 	for _, item := range c.config.Networks.Zones {
+		if processedZones[item.Name] {
+			continue
+		}
+		processedZones[item.Name] = true
+
 		zone := item
 		c.addZoneReconcileTasks(g, &zone, dependencies.Get(zone.Name))
 	}

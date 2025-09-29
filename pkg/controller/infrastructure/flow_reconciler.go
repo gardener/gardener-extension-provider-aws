@@ -333,7 +333,14 @@ func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones 
 
 	tfNamePrefixes := []string{"nodes_", "private_utility_", "public_utility_"}
 	flowNames := []string{infraflow.IdentifierZoneSubnetWorkers, infraflow.IdentifierZoneSubnetPrivate, infraflow.IdentifierZoneSubnetPublic}
+
+	processedZones := make(map[string]bool)
 	for i, zone := range zones {
+		if processedZones[zone.Name] {
+			continue
+		}
+		processedZones[zone.Name] = true
+
 		keyPrefix := infraflow.ChildIdZones + shared.Separator + zone.Name + shared.Separator
 		suffix := fmt.Sprintf("z%d", i)
 		setFlowStateData(flowState, keyPrefix+infraflow.IdentifierZoneSuffix, &suffix)
