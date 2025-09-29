@@ -46,7 +46,7 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 	BeforeEach(func() {
 		if isCapabilitiesCloudProfile {
 			capabilityDefinitions = []v1beta1.CapabilityDefinition{
-				{Name: v1beta1constants.ArchitectureName, Values: []string{"am64"}},
+				{Name: v1beta1constants.ArchitectureName, Values: []string{"amd64"}},
 			}
 		}
 		scheme := runtime.NewScheme()
