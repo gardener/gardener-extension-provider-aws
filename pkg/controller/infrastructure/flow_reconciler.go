@@ -334,6 +334,7 @@ func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones 
 	tfNamePrefixes := []string{"nodes_", "private_utility_", "public_utility_"}
 	flowNames := []string{infraflow.IdentifierZoneSubnetWorkers, infraflow.IdentifierZoneSubnetPrivate, infraflow.IdentifierZoneSubnetPublic}
 
+	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
 	processedZones := make(map[string]bool)
 	for i, zone := range zones {
 		if processedZones[zone.Name] {

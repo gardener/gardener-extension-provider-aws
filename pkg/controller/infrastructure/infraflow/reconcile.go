@@ -571,6 +571,7 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		},
 	}
 
+	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
 	processedZones := make(map[string]bool)
 	for index, zone := range c.config.Networks.Zones {
 		if processedZones[zone.Name] {
@@ -698,6 +699,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	var desired []*awsclient.Subnet
 
+	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
 	processedZones := make(map[string]bool)
 	for index, zone := range c.config.Networks.Zones {
 		if processedZones[zone.Name] {
@@ -802,6 +804,8 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		}
 		dependencies.Append(pair.desired.AvailabilityZone, taskID)
 	}
+
+	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
 	processedZones = make(map[string]bool)
 	for _, item := range c.config.Networks.Zones {
 		if processedZones[item.Name] {
