@@ -781,13 +781,6 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		return item.AvailabilityZone + "-" + item.CidrBlock
 	})
 
-	log.Info("Tobe deleted", "subnetIDs", mmap(toBeDeleted, func(t *awsclient.Subnet) string {
-		return t.SubnetId
-	}))
-	log.Info("Tobe created", "subnetIDs", mmap(toBeCreated, func(t *awsclient.Subnet) string {
-		return t.SubnetId
-	}))
-
 	g := flow.NewGraph("AWS infrastructure reconciliation: zones")
 
 	if err := c.addZoneDeletionTasksBySubnets(g, toBeDeleted); err != nil {
