@@ -13,6 +13,7 @@ import (
 	"github.com/gardener/gardener/pkg/utils/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -208,31 +209,56 @@ var _ = Describe("CloudProfile Mutator", func() {
   ]}
 ]}`, twoFlavors, oneFlavors, oneFlavors, twoFlavors))}
 				Expect(cloudProfileMutator.Mutate(ctx, cloudProfile, nil)).To(Succeed())
-				Expect(cloudProfile.Spec.MachineImages).To(HaveLen(2))
-				Expect(cloudProfile.Spec.MachineImages[0].Name).To(Equal("os-1"))
-				Expect(cloudProfile.Spec.MachineImages[0].Versions).To(HaveLen(2))
-				Expect(cloudProfile.Spec.MachineImages[0].Versions[0].Version).To(Equal("1.0.0"))
-				// the existing capabilityFlavors should be overwritten.
-				Expect(cloudProfile.Spec.MachineImages[0].Versions[0].CapabilityFlavors).To(ConsistOf([]v1beta1.MachineImageFlavor{
-					{Capabilities: v1beta1.Capabilities{"architecture": []string{"arm64"}}},
-					{Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}}},
-				}))
-				Expect(cloudProfile.Spec.MachineImages[0].Versions[1].Version).To(Equal("1.0.1"))
-				Expect(cloudProfile.Spec.MachineImages[0].Versions[1].CapabilityFlavors).To(ConsistOf([]v1beta1.MachineImageFlavor{
-					{Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}}},
-				}))
-				// The second machine image should be added completely.
-				Expect(cloudProfile.Spec.MachineImages[1].Versions).To(HaveLen(2))
-				Expect(cloudProfile.Spec.MachineImages[1].Versions[0].Version).To(Equal("1.0.0"))
-				Expect(cloudProfile.Spec.MachineImages[1].Versions[0].CapabilityFlavors).To(ConsistOf([]v1beta1.MachineImageFlavor{
-					{Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}}},
-				}))
-				Expect(cloudProfile.Spec.MachineImages[1].Versions[1].Version).To(Equal("1.0.1"))
-				Expect(cloudProfile.Spec.MachineImages[1].Versions[1].CapabilityFlavors).To(ConsistOf([]v1beta1.MachineImageFlavor{
-					{Capabilities: v1beta1.Capabilities{"architecture": []string{"arm64"}}},
-					{Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}}},
-				}))
-
+				Expect(cloudProfile.Spec.MachineImages).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("os-1"),
+						"Versions": ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"ExpirableVersion": MatchFields(IgnoreExtras, Fields{"Version": Equal("1.0.0")}),
+								"CapabilityFlavors": ConsistOf(
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"arm64"}}),
+									}),
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"amd64"}}),
+									}),
+								),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"ExpirableVersion": MatchFields(IgnoreExtras, Fields{"Version": Equal("1.0.1")}),
+								"CapabilityFlavors": ConsistOf(
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"amd64"}}),
+									}),
+								),
+							}),
+						),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("os-2"),
+						"Versions": ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"ExpirableVersion": MatchFields(IgnoreExtras, Fields{"Version": Equal("1.0.0")}),
+								"CapabilityFlavors": ConsistOf(
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"amd64"}}),
+									}),
+								),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"ExpirableVersion": MatchFields(IgnoreExtras, Fields{"Version": Equal("1.0.1")}),
+								"CapabilityFlavors": ConsistOf(
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"arm64"}}),
+									}),
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"amd64"}}),
+									}),
+								),
+							}),
+						),
+					}),
+				))
 			})
 		})
 
