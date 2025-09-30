@@ -55,8 +55,19 @@ jobs:
     needs:
       - build
       - release-to-github-and-bump
-    uses: .github/workflows/close-milestone.yaml@master
-    with:
-      name: ${{ replace(needs.release-to-github-and-bump.outputs.component-descriptor.version, '\.[0-9]+$', '') }}
-    secrets:
-      token: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Compute major.minor version
+      id: compute_version
+      run: |
+        VERSION="${{ needs.release-to-github-and-bump.outputs.component-descriptor.version }}"
+        MAJOR_MINOR="${VERSION%.*}"
+        echo "major_minor=$MAJOR_MINOR" >> $GITHUB_OUTPUT
+    - name: Close release milestone
+      uses: ./.github/workflows/close-milestone.yaml
+      with:
+        name: ${{ steps.compute_version.outputs.major_minor }}
+      secrets:
+        token: ${{ secrets.GITHUB_TOKEN }}
