@@ -7,11 +7,11 @@ on:
         description: "The milestone name to close"
         required: true
         type: string
-    strip_patch:
-      description: "Whether to strip the patch version (last .X) from the name"
-      required: false
-      type: boolean
-      default: false
+      strip_patch:
+        description: "Whether to strip the patch version (last .X) from the name"
+        required: false
+        type: boolean
+        default: false
     secrets:
       token:
         description: "GitHub token"
