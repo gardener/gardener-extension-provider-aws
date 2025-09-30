@@ -1301,7 +1301,7 @@ github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion</a>)
 </p>
 <p>
-<p>MachineImageFlavor groups all RegionAMIMappings for a specific et of capabilities.</p>
+<p>MachineImageFlavor groups all RegionAMIMappings for a specific set of capabilities.</p>
 </p>
 <table>
 <thead>

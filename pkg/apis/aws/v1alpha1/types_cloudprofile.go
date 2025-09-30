@@ -41,7 +41,7 @@ type MachineImageVersion struct {
 	CapabilityFlavors []MachineImageFlavor `json:"capabilityFlavors"`
 }
 
-// MachineImageFlavor groups all RegionAMIMappings for a specific et of capabilities.
+// MachineImageFlavor groups all RegionAMIMappings for a specific set of capabilities.
 type MachineImageFlavor struct {
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
 	Regions []RegionAMIMapping `json:"regions"`
