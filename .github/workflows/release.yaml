@@ -67,7 +67,7 @@ jobs:
     needs:
       - build
       - release-to-github-and-bump
-    uses: .github/workflows/create-branch.yaml@master
+    uses: ./.github/workflows/create-branch.yaml@master
     with:
       version: ${{ needs.release-to-github-and-bump.outputs.component-descriptor.version }}
     secrets:
