@@ -1,0 +1,40 @@
+name: Reusable - Close Milestone
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: "The milestone name to close"
+        required: true
+        type: string
+    secrets:
+      token:
+        description: "GitHub token"
+        required: true
+
+jobs:
+  close-milestone:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check milestone exists
+      id: check
+      env:
+        GH_TOKEN: ${{ secrets.token }}
+      run: |
+        set -e
+        milestone_id=$(gh api repos/${{ github.repository }}/milestones \
+          --jq '.[] | select(.title=="${{ inputs.name }}") | .number')
+        if [ -n "$milestone_id" ]; then
+          echo "id=$milestone_id" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Close milestone if found
+      if: steps.check.outputs.id != ''
+      env:
+        GH_TOKEN: ${{ secrets.token }}
+      run: |
+        gh api \
+          -X PATCH \
+          -F state=closed \
+          repos/${{ github.repository }}/milestones/${{ steps.check.outputs.id }}
+        echo "Closed milestone '${{ inputs.name }}'."
