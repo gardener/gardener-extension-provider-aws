@@ -36,20 +36,7 @@ func ValidateNetworking(networking *core.Networking, fldPath *field.Path) field.
 	}
 
 	if networking.IPFamilies != nil && slices.Contains(networking.IPFamilies, core.IPFamilyIPv6) {
-		networkConfig, err := decodeNetworkConfig(networking.ProviderConfig)
-		if err != nil {
-			return append(allErrs, field.Invalid(fldPath.Child("providerConfig"), networking.ProviderConfig, fmt.Sprintf("failed to decode networking provider config: %v", err)))
-		}
-
-		if _, ok := networkConfig[overlayKey]; ok {
-			if overlay, ok := networkConfig[overlayKey].(map[string]interface{}); ok {
-				if enabled, ok := overlay[enabledKey].(bool); ok && enabled {
-					allErrs = append(allErrs, field.Invalid(fldPath.Child("providerConfig").Child(overlayKey).Child(enabledKey), enabled, "overlay is not supported in conjunction with IPv6"))
-				}
-			}
-		} else {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("ipFamilies"), networking.IPFamilies, "overlay is not supported in conjunction with IPv6"))
-		}
+		allErrs = append(allErrs, validateIPv6(networking, fldPath)...)
 	}
 
 	return allErrs
@@ -171,4 +158,24 @@ func decodeNetworkConfig(network *runtime.RawExtension) (map[string]interface{},
 		return nil, err
 	}
 	return networkConfig, nil
+}
+
+func validateIPv6(networking *core.Networking, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	networkConfig, err := decodeNetworkConfig(networking.ProviderConfig)
+	if err != nil {
+		return append(allErrs, field.Invalid(fldPath.Child("providerConfig"), networking.ProviderConfig, fmt.Sprintf("failed to decode networking provider config: %v", err)))
+	}
+
+	if _, ok := networkConfig[overlayKey]; ok {
+		if overlay, ok := networkConfig[overlayKey].(map[string]interface{}); ok {
+			if enabled, ok := overlay[enabledKey].(bool); ok && enabled {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("providerConfig").Child(overlayKey).Child(enabledKey), enabled, "overlay must be set to false in conjunction with IPv6"))
+			}
+		}
+	} else {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("ipFamilies"), networking.IPFamilies, "overlay must be set to false in conjunction with IPv6"))
+	}
+
+	return allErrs
 }
