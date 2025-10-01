@@ -101,6 +101,38 @@ var _ = Describe("CloudProfileConfig validation", func() {
 				}))))
 			})
 
+			It("should forbid images with empty regions", func() {
+				var fieldMatcher string
+				if isCapabilitiesCloudProfile {
+					fieldMatcher = "machineImages[0].versions[0].capabilityFlavors[0].regions"
+					cloudProfileConfig.MachineImages[0].Versions[0].CapabilityFlavors[0].Regions = []apisaws.RegionAMIMapping{}
+				} else {
+					fieldMatcher = "machineImages[0].versions[0].regions"
+					cloudProfileConfig.MachineImages[0].Versions[0].Regions = []apisaws.RegionAMIMapping{}
+				}
+
+				errorList := ValidateCloudProfileConfig(cloudProfileConfig, machineImages, capabilityDefinitions, fldPath)
+				if isCapabilitiesCloudProfile {
+					Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeRequired),
+						"Detail": Equal("must provide at least one region for machine image \"ubuntu\" and version \"1.2.3\""),
+						"Field":  Equal(fieldMatcher),
+					}))))
+				} else {
+					Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeRequired),
+						"Detail": Equal("missing providerConfig mapping for machine image version ubuntu@1.2.3 and architecture: amd64"),
+						"Field":  Equal("spec.machineImages[0].versions[0]"),
+					})),
+						PointTo(MatchFields(IgnoreExtras, Fields{
+							"Type":   Equal(field.ErrorTypeRequired),
+							"Detail": Equal("must provide at least one region for machine image \"ubuntu\" and version \"1.2.3\""),
+							"Field":  Equal(fieldMatcher),
+						})),
+					))
+				}
+			})
+
 			It("should forbid unsupported machine image configuration", func() {
 				cloudProfileConfig.MachineImages = []apisaws.MachineImages{{}}
 
