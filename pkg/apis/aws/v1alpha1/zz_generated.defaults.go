@@ -32,9 +32,9 @@ func SetObjectDefaults_CloudProfileConfig(in *CloudProfileConfig) {
 				c := &b.Regions[k]
 				SetDefaults_RegionAMIMapping(c)
 			}
-			for k := range b.CapabilitySets {
-				c := &b.CapabilitySets[k]
-				SetDefaults_CapabilitySet(c)
+			for k := range b.CapabilityFlavors {
+				c := &b.CapabilityFlavors[k]
+				SetDefaults_MachineImageFlavor(c)
 				for l := range c.Regions {
 					d := &c.Regions[l]
 					SetDefaults_RegionAMIMapping(d)

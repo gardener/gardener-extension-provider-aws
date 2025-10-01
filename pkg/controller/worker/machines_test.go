@@ -119,7 +119,7 @@ var _ = Describe("Machines", func() {
 				namePool2           string
 				minPool2            int32
 				maxPool2            int32
-				priorityPool2       int32
+				priorityPool2       *int32
 				maxSurgePool2       intstr.IntOrString
 				maxUnavailablePool2 intstr.IntOrString
 
@@ -162,13 +162,13 @@ var _ = Describe("Machines", func() {
 				if isCapabilitiesCloudProfile {
 					capabilityDefinitions = []gardencorev1beta1.CapabilityDefinition{
 						{Name: "some-capability", Values: []string{"a", "b", "c"}},
-						{Name: v1beta1constants.ArchitectureName, Values: []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64}},
+						{Name: v1beta1constants.ArchitectureName, Values: []string{"amd64", "arm64"}},
 					}
 					capabilitiesAmd = gardencorev1beta1.Capabilities{
-						v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+						v1beta1constants.ArchitectureName: []string{"amd64"},
 					}
 					capabilitiesArm = gardencorev1beta1.Capabilities{
-						v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
+						v1beta1constants.ArchitectureName: []string{"arm64"},
 					}
 				}
 				namespace = "shoot--foobar--aws"
@@ -222,7 +222,7 @@ var _ = Describe("Machines", func() {
 				namePool2 = "pool-2"
 				minPool2 = 30
 				maxPool2 = 45
-				priorityPool2 = 100
+				priorityPool2 = ptr.To(int32(100))
 				maxSurgePool2 = intstr.FromInt(10)
 				maxUnavailablePool2 = intstr.FromInt(15)
 
@@ -306,7 +306,7 @@ var _ = Describe("Machines", func() {
 						Versions: []apiv1alpha1.MachineImageVersion{
 							{
 								Version: machineImageVersion,
-								CapabilitySets: []apiv1alpha1.CapabilitySet{
+								CapabilityFlavors: []apiv1alpha1.MachineImageFlavor{
 									{
 										Capabilities: capabilitiesAmd,
 										Regions: []apiv1alpha1.RegionAMIMapping{
@@ -379,7 +379,7 @@ var _ = Describe("Machines", func() {
 							Name: cloudProfileName,
 						},
 						Spec: gardencorev1beta1.CloudProfileSpec{
-							Capabilities: capabilityDefinitions,
+							MachineCapabilities: capabilityDefinitions,
 							MachineTypes: []gardencorev1beta1.MachineType{
 								{
 									Name:         machineType,
@@ -1494,7 +1494,7 @@ var _ = Describe("Machines", func() {
 
 		})
 	})
-	DescribeTable("EnsureUniformMachineImages", func(capabilitiesDefinitions []gardencorev1beta1.CapabilityDefinition, expectedImages []api.MachineImage) {
+	DescribeTable("EnsureUniformMachineImages", func(capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, expectedImages []api.MachineImage) {
 		machineImages := []api.MachineImage{
 			// images with capability sets
 			{
@@ -1502,7 +1502,7 @@ var _ = Describe("Machines", func() {
 				Version: "1.2.1",
 				AMI:     "ami-for-arm64",
 				Capabilities: gardencorev1beta1.Capabilities{
-					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
+					v1beta1constants.ArchitectureName: []string{"arm64"},
 				},
 			},
 			{
@@ -1510,7 +1510,7 @@ var _ = Describe("Machines", func() {
 				Version: "1.2.2",
 				AMI:     "ami-for-amd64",
 				Capabilities: gardencorev1beta1.Capabilities{
-					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+					v1beta1constants.ArchitectureName: []string{"amd64"},
 				},
 			},
 			// legacy image entry without capability sets
@@ -1518,22 +1518,22 @@ var _ = Describe("Machines", func() {
 				Name:         "some-image",
 				Version:      "1.2.3",
 				AMI:          "ami-for-amd64",
-				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+				Architecture: ptr.To("amd64"),
 			},
 			{
 				Name:         "some-image",
 				Version:      "1.2.2",
 				AMI:          "ami-for-amd64",
-				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+				Architecture: ptr.To("amd64"),
 			},
 			{
 				Name:         "some-image",
 				Version:      "1.2.1",
 				AMI:          "ami-for-amd64",
-				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+				Architecture: ptr.To("amd64"),
 			},
 		}
-		actualImages := EnsureUniformMachineImages(machineImages, capabilitiesDefinitions)
+		actualImages := EnsureUniformMachineImages(machineImages, capabilityDefinitions)
 		Expect(actualImages).To(ContainElements(expectedImages))
 
 	},
@@ -1543,31 +1543,31 @@ var _ = Describe("Machines", func() {
 				Name:         "some-image",
 				Version:      "1.2.1",
 				AMI:          "ami-for-arm64",
-				Architecture: ptr.To(v1beta1constants.ArchitectureARM64),
+				Architecture: ptr.To("arm64"),
 			},
 			{
 				Name:         "some-image",
 				Version:      "1.2.2",
 				AMI:          "ami-for-amd64",
-				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+				Architecture: ptr.To("amd64"),
 			},
 			// legacy image entry without capability sets
 			{
 				Name:         "some-image",
 				Version:      "1.2.3",
 				AMI:          "ami-for-amd64",
-				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+				Architecture: ptr.To("amd64"),
 			},
 			{
 				Name:         "some-image",
 				Version:      "1.2.1",
 				AMI:          "ami-for-amd64",
-				Architecture: ptr.To(v1beta1constants.ArchitectureAMD64),
+				Architecture: ptr.To("amd64"),
 			},
 		}),
 		Entry("should return images with Capabilities", []gardencorev1beta1.CapabilityDefinition{{
 			Name:   v1beta1constants.ArchitectureName,
-			Values: []string{v1beta1constants.ArchitectureAMD64, v1beta1constants.ArchitectureARM64},
+			Values: []string{"amd64", "arm64"},
 		}}, []api.MachineImage{
 			// images with capability sets
 			{
@@ -1575,7 +1575,7 @@ var _ = Describe("Machines", func() {
 				Version: "1.2.1",
 				AMI:     "ami-for-arm64",
 				Capabilities: gardencorev1beta1.Capabilities{
-					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureARM64},
+					v1beta1constants.ArchitectureName: []string{"arm64"},
 				},
 			},
 			{
@@ -1583,7 +1583,7 @@ var _ = Describe("Machines", func() {
 				Version: "1.2.2",
 				AMI:     "ami-for-amd64",
 				Capabilities: gardencorev1beta1.Capabilities{
-					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+					v1beta1constants.ArchitectureName: []string{"amd64"},
 				},
 			},
 			// legacy image entry without capability sets
@@ -1592,14 +1592,14 @@ var _ = Describe("Machines", func() {
 				Version: "1.2.3",
 				AMI:     "ami-for-amd64",
 				Capabilities: gardencorev1beta1.Capabilities{
-					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+					v1beta1constants.ArchitectureName: []string{"amd64"},
 				}},
 			{
 				Name:    "some-image",
 				Version: "1.2.1",
 				AMI:     "ami-for-amd64",
 				Capabilities: gardencorev1beta1.Capabilities{
-					v1beta1constants.ArchitectureName: []string{v1beta1constants.ArchitectureAMD64},
+					v1beta1constants.ArchitectureName: []string{"amd64"},
 				},
 			},
 		}),

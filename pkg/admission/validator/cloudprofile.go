@@ -10,29 +10,29 @@ import (
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
 // NewCloudProfileValidator returns a new instance of a cloud profile validator.
 func NewCloudProfileValidator(mgr manager.Manager) extensionswebhook.Validator {
-	return &cloudProfile{
+	return &cloudProfileValidator{
 		decoder: serializer.NewCodecFactory(mgr.GetScheme(), serializer.EnableStrict).UniversalDecoder(),
 	}
 }
 
-type cloudProfile struct {
+type cloudProfileValidator struct {
 	decoder runtime.Decoder
 }
 
 // Validate validates the given cloud profile objects.
-func (cp *cloudProfile) Validate(_ context.Context, newObj, _ client.Object) error {
+func (cp *cloudProfileValidator) Validate(_ context.Context, newObj, _ client.Object) error {
 	cloudProfile, ok := newObj.(*core.CloudProfile)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", newObj)
@@ -45,13 +45,13 @@ func (cp *cloudProfile) Validate(_ context.Context, newObj, _ client.Object) err
 
 	cpConfig, err := decodeCloudProfileConfig(cp.decoder, cloudProfile.Spec.ProviderConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not decode providerConfig of CloudProfile %q: %w", cloudProfile.Name, err)
 	}
 
-	capabilitiesDefinition, err := helper.ConvertV1beta1CapabilitiesDefinitions(cloudProfile.Spec.Capabilities)
+	capabilityDefinitions, err := gardencorev1beta1helper.ConvertV1beta1CapabilityDefinitions(cloudProfile.Spec.MachineCapabilities)
 	if err != nil {
-		return field.InternalError(field.NewPath("spec").Child("capabilities"), err)
+		return field.InternalError(field.NewPath("spec").Child("machineCapabilities"), err)
 	}
 
-	return awsvalidation.ValidateCloudProfileConfig(cpConfig, cloudProfile.Spec.MachineImages, capabilitiesDefinition, providerConfigPath).ToAggregate()
+	return awsvalidation.ValidateCloudProfileConfig(cpConfig, cloudProfile.Spec.MachineImages, capabilityDefinitions, providerConfigPath).ToAggregate()
 }

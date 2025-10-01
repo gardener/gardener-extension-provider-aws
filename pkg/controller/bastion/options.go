@@ -17,7 +17,6 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 
-	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 )
@@ -99,15 +98,13 @@ func NewOpts(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *
 		return Options{}, fmt.Errorf("failed to extract cloud provider config from cluster: %w", err)
 	}
 
-	machineImageVersion, err := getProviderSpecificImage(cloudProfileConfig.MachineImages, vmDetails)
+	var ami string
+	imageFlavor, err := helper.FindImageInCloudProfile(cloudProfileConfig, vmDetails.ImageBaseName, vmDetails.ImageVersion, region, &vmDetails.Architecture, vmDetails.MachineTypeCapabilities, cluster.CloudProfile.Spec.MachineCapabilities)
 	if err != nil {
-		return Options{}, fmt.Errorf("failed to extract image from provider config: %w", err)
+		return Options{}, fmt.Errorf("failed to find machine image in CloudProfileConfig: %w", err)
 	}
-
-	ami, err := findImageAMIByRegion(machineImageVersion, vmDetails, region)
-	if err != nil {
-		return Options{}, fmt.Errorf("failed to find image AMI by region: %w", err)
-	}
+	// We can safely assume that the AMI exists, because FindImageInCloudProfile would have errored otherwise.
+	ami = imageFlavor.Regions[0].AMI
 
 	ipV6 := cluster.Shoot.Spec.Networking != nil && slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, gardencorev1beta1.IPFamilyIPv6)
 
@@ -144,42 +141,4 @@ func resolveSubnetName(ctx context.Context, awsClient *awsclient.Client, subnetN
 	vpcID = *subnets.Subnets[0].VpcId
 
 	return
-}
-
-// getProviderSpecificImage returns the provider specific MachineImageVersion that matches with the given VmDetails
-func getProviderSpecificImage(images []api.MachineImages, vm extensionsbastion.MachineSpec) (api.MachineImageVersion, error) {
-	imageIndex := slices.IndexFunc(images, func(image api.MachineImages) bool {
-		return image.Name == vm.ImageBaseName
-	})
-
-	if imageIndex == -1 {
-		return api.MachineImageVersion{},
-			fmt.Errorf("machine image with name %s not found in cloudProfileConfig", vm.ImageBaseName)
-	}
-
-	versions := images[imageIndex].Versions
-	versionIndex := slices.IndexFunc(versions, func(version api.MachineImageVersion) bool {
-		return version.Version == vm.ImageVersion
-	})
-
-	if versionIndex == -1 {
-		return api.MachineImageVersion{},
-			fmt.Errorf("version %s for arch %s of image %s not found in cloudProfileConfig",
-				vm.ImageVersion, vm.Architecture, vm.ImageBaseName)
-	}
-
-	return versions[versionIndex], nil
-}
-
-func findImageAMIByRegion(image api.MachineImageVersion, vmDetails extensionsbastion.MachineSpec, region string) (string, error) {
-	regionIndex := slices.IndexFunc(image.Regions, func(RegionAMIMapping api.RegionAMIMapping) bool {
-		return RegionAMIMapping.Name == region && RegionAMIMapping.Architecture != nil && *RegionAMIMapping.Architecture == vmDetails.Architecture
-	})
-
-	if regionIndex == -1 {
-		return "", fmt.Errorf("image '%s' with version '%s' and architecture '%s' not found in region '%s'",
-			vmDetails.ImageBaseName, image.Version, vmDetails.Architecture, region)
-	}
-
-	return image.Regions[regionIndex].AMI, nil
 }
