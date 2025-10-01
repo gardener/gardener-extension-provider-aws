@@ -114,7 +114,7 @@ func validateCapabilityFlavors(providerImage apisaws.MachineImages, version apis
 }
 
 // validateRegions validates the regions of a machine image version or capability flavor.
-func validateRegions(regions []apisaws.RegionAMIMapping, version, name string, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, jdxPath *field.Path) field.ErrorList {
+func validateRegions(regions []apisaws.RegionAMIMapping, name, version string, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, jdxPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	if len(regions) == 0 {
 		return append(allErrs, field.Required(jdxPath.Child("regions"), fmt.Sprintf("must provide at least one region for machine image %q and version %q", name, version)))
