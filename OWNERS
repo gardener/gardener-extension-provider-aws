@@ -1,0 +1,6 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+reviewers:
+- gardener-extension-provider-aws-reviewers
+approvers:
+- gardener-extension-provider-aws-approvers
