@@ -19,7 +19,7 @@ region: eu-west-1
 vpa:
   enabled: true
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: "Recreate"
 
 resources:
   requests:
