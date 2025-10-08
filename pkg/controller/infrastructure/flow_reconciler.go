@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -335,12 +336,12 @@ func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones 
 	flowNames := []string{infraflow.IdentifierZoneSubnetWorkers, infraflow.IdentifierZoneSubnetPrivate, infraflow.IdentifierZoneSubnetPublic}
 
 	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
-	processedZones := make(map[string]bool)
+	processedZones := sets.New[string]()
 	for i, zone := range zones {
-		if processedZones[zone.Name] {
+		if processedZones.Has(zone.Name) {
 			continue
 		}
-		processedZones[zone.Name] = true
+		processedZones.Insert(zone.Name)
 
 		keyPrefix := infraflow.ChildIdZones + shared.Separator + zone.Name + shared.Separator
 		suffix := fmt.Sprintf("z%d", i)

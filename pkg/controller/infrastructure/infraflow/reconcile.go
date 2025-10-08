@@ -572,12 +572,12 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	}
 
 	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
-	processedZones := make(map[string]bool)
+	processedZones := sets.New[string]()
 	for index, zone := range c.config.Networks.Zones {
-		if processedZones[zone.Name] {
+		if processedZones.Has(zone.Name) {
 			continue
 		}
-		processedZones[zone.Name] = true
+		processedZones.Insert(zone.Name)
 
 		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
@@ -700,12 +700,12 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 	var desired []*awsclient.Subnet
 
 	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
-	processedZones := make(map[string]bool)
+	processedZones := sets.New[string]()
 	for index, zone := range c.config.Networks.Zones {
-		if processedZones[zone.Name] {
+		if processedZones.Has(zone.Name) {
 			continue
 		}
-		processedZones[zone.Name] = true
+		processedZones.Insert(zone.Name)
 
 		ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
 		subnetPrefixLength := 64
@@ -806,12 +806,12 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 	}
 
 	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
-	processedZones = make(map[string]bool)
+	processedZones = sets.New[string]()
 	for _, item := range c.config.Networks.Zones {
-		if processedZones[item.Name] {
+		if processedZones.Has(item.Name) {
 			continue
 		}
-		processedZones[item.Name] = true
+		processedZones.Insert(item.Name)
 
 		zone := item
 		c.addZoneReconcileTasks(g, &zone, dependencies.Get(zone.Name))
