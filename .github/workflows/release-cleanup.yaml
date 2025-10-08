@@ -17,7 +17,7 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Cleanup old branches and milestones
+      - name: Cleanup old branches
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -40,7 +40,6 @@ jobs:
 
           # Parse major and minor
           IFS='.' read -r major minor patch <<<"${latest_tag#v}"
-          old_minor=$((minor - 3))
           
           # Check if minor version is smaller than 3
           if [[ $minor -lt 3 ]]; then
@@ -48,26 +47,21 @@ jobs:
             exit 0
           fi
           
-          target_prefix="v$major.$old_minor"
-          echo "Target version to clean: $target_prefix"
+          cutoff_minor=$((minor - 3))
+          echo "Will delete all release branches <= v$major.$cutoff_minor"
 
-          # Delete old release branches
-          branches=$(curl -s "${headers[@]}" "https://api.github.com/repos/$REPO/branches" | \
-                      jq -r '.[].name' | grep "^release-$target_prefix")
+          # Fetch all branches
+          branches=$(curl -s "${headers[@]}" "https://api.github.com/repos/$REPO/branches?per_page=1000" | jq -r '.[].name')
 
           for branch in $branches; do
-            echo "Deleting branch: $branch"
-            curl -s -X DELETE "${headers[@]}" "https://api.github.com/repos/$REPO/git/refs/heads/$branch"
+            if [[ $branch =~ ^release-v([0-9]+)\.([0-9]+) ]]; then
+              b_major=${BASH_REMATCH[1]}
+              b_minor=${BASH_REMATCH[2]}
+
+              # Compare: same major, and minor <= cutoff
+              if [[ $b_major -eq $major && $b_minor -le $cutoff_minor ]]; then
+                echo "Deleting old branch: $branch"
+                curl -s -X DELETE "${headers[@]}" "https://api.github.com/repos/$REPO/git/refs/heads/$branch" || true
+              fi
+            fi
           done
-
-          # Delete (close) old milestones
-          milestones=$(curl -s "${headers[@]}" "https://api.github.com/repos/$REPO/milestones?state=all" | \
-                        jq -r '.[] | select(.title | startswith("'"$target_prefix"'")) | .number')
-
-          for ms in $milestones; do
-            echo "Closing milestone: $ms"
-            curl -s -X PATCH "${headers[@]}" "https://api.github.com/repos/$REPO/milestones/$ms" \
-              -d '{"state":"closed"}'
-          done
-
-          echo "Cleanup completed."

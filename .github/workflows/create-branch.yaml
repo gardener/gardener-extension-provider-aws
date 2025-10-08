@@ -28,15 +28,15 @@ jobs:
           fi
           
           VERSION="${{ inputs.version }}"
-          MINOR_VERSION="${VERSION::-2}"
+          # Remove last .X (patch) from the version
+          MINOR_VERSION="${VERSION%.*}"
           BRANCH_NAME="release-${MINOR_VERSION}"
           
           git checkout -b "${BRANCH_NAME}"
           
           # Compute next development version
           NEXT_VERSION="${MINOR_VERSION}.1"
-          DEV_VERSION="${NEXT_VERSION}-dev"
-          echo "${DEV_VERSION}" > VERSION
+          echo "${NEXT_VERSION}-dev" > VERSION
           
           # Generate artifacts
           make generate
