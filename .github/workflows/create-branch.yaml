@@ -17,7 +17,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Setup Git identity # Configure git with a user name and email
+        uses: gardener/cc-utils/.github/actions/setup-git-identity@master
 
       - name: Create new branch
         run: |
@@ -32,6 +35,11 @@ jobs:
           MINOR_VERSION="${VERSION%.*}"
           BRANCH_NAME="release-${MINOR_VERSION}"
           
+          # Abort if branch already exists
+          if git ls-remote --exit-code --heads origin "${BRANCH_NAME}" >/dev/null 2>&1; then
+            echo "Branch ${BRANCH_NAME} already exists on origin. Exiting."
+            exit 0
+          fi
           git checkout -b "${BRANCH_NAME}"
           
           # Compute next development version
@@ -42,10 +50,8 @@ jobs:
           make generate
           
           # Commit and push changes
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add --all
-          git commit -m "Prepare next Development Cycle $NEXT_VERSION"
+          git commit -m "Prepare next Development Cycle $NEXT_VERSION [bot]"
           git push origin $BRANCH_NAME
         env:
           GITHUB_TOKEN: ${{ secrets.token }}

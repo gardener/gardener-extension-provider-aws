@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: gardener/cc-utils/.github/actions/setup-git-identity@master
         with:
           remove-trusted-label: false

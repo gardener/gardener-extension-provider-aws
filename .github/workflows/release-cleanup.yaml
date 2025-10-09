@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -26,15 +26,13 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           #!/bin/bash
-          set -e
+          set -euo pipefail
 
-          headers=(-H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json")
+          # Get latest semver-style release (vX.Y.Z)
+          latest_tag=$(gh api repos/$REPO/releases \
+            --jq '[.[] | .tag_name | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(.) | reverse | .[0]')
 
-          # Get latest release version
-          latest_tag=$(curl -s "${headers[@]}" "https://api.github.com/repos/$REPO/releases" | \
-                        jq -r '.[].tag_name | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))' | sort -Vr | head -n 1)
-
-          if [[ -z "$latest_tag" ]]; then
+          if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
             echo "No valid releases found."
             exit 0
           fi
@@ -53,18 +51,15 @@ jobs:
           cutoff_minor=$((minor - 3))
           echo "Will delete all release branches <= v$major.$cutoff_minor"
 
-          # Fetch all branches
-          branches=$(curl -s "${headers[@]}" "https://api.github.com/repos/$REPO/branches?per_page=1000" | jq -r '.[].name')
-
-          for branch in $branches; do
+          # List all branches and filter ones that match release-vX.Y
+          for branch in $(gh api repos/$REPO/branches --paginate --jq '.[].name'); do
             if [[ $branch =~ ^release-v([0-9]+)\.([0-9]+) ]]; then
               b_major=${BASH_REMATCH[1]}
               b_minor=${BASH_REMATCH[2]}
 
-              # Compare: same major, and minor <= cutoff
               if [[ $b_major -eq $major && $b_minor -le $cutoff_minor ]]; then
                 echo "Deleting old branch: $branch"
-                curl -s -X DELETE "${headers[@]}" "https://api.github.com/repos/$REPO/git/refs/heads/$branch" || true
+                gh api -X DELETE "repos/$REPO/git/refs/heads/$branch" || true
               fi
             fi
           done
