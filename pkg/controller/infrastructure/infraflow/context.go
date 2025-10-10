@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -238,97 +237,7 @@ func PatchProviderStatusAndState(
 }
 
 func (c *FlowContext) computeInfrastructureStatus() *awsv1alpha1.InfrastructureStatus {
-	status := &awsv1alpha1.InfrastructureStatus{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
-			Kind:       "InfrastructureStatus",
-		},
-	}
-
-	vpcID := ptr.Deref(c.state.Get(IdentifierVPC), "")
-	groupID := ptr.Deref(c.state.Get(IdentifierNodesSecurityGroup), "")
-	ec2KeyName := ptr.Deref(c.state.Get(NameKeyPair), "")
-	iamInstanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
-	arnIAMRole := ptr.Deref(c.state.Get(ARNIAMRole), "")
-	efsID := ptr.Deref(c.state.Get(IdentifierManagedEfsID), "")
-	// check if user provided a custom EFS ID
-	if c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.ID != nil {
-		efsID = *c.config.ElasticFileSystem.ID
-	}
-
-	if c.config.Networks.VPC.ID != nil {
-		vpcID = *c.config.Networks.VPC.ID
-	}
-
-	if vpcID != "" {
-		var subnets []awsv1alpha1.Subnet
-		prefix := ChildIdZones + shared.Separator
-		for k, v := range c.state.ExportAsFlatMap() {
-			if !shared.IsValidValue(v) {
-				continue
-			}
-			if strings.HasPrefix(k, prefix) {
-				parts := strings.Split(k, shared.Separator)
-				if len(parts) != 3 {
-					continue
-				}
-				var purpose string
-				switch parts[2] {
-				case IdentifierZoneSubnetPublic:
-					purpose = awsapi.PurposePublic
-				case IdentifierZoneSubnetWorkers:
-					purpose = awsapi.PurposeNodes
-				default:
-					continue
-				}
-				subnets = append(subnets, awsv1alpha1.Subnet{
-					ID:      v,
-					Purpose: purpose,
-					Zone:    parts[1],
-				})
-			}
-		}
-
-		status.VPC = awsv1alpha1.VPCStatus{
-			ID:      vpcID,
-			Subnets: subnets,
-		}
-		if groupID != "" {
-			status.VPC.SecurityGroups = []awsv1alpha1.SecurityGroup{
-				{
-					Purpose: awsapi.PurposeNodes,
-					ID:      groupID,
-				},
-			}
-		}
-	}
-
-	if ec2KeyName != "" {
-		status.EC2.KeyName = ec2KeyName
-	}
-
-	if iamInstanceProfileName != "" {
-		status.IAM.InstanceProfiles = []awsv1alpha1.InstanceProfile{
-			{
-				Purpose: awsapi.PurposeNodes,
-				Name:    iamInstanceProfileName,
-			},
-		}
-	}
-	if arnIAMRole != "" {
-		status.IAM.Roles = []awsv1alpha1.Role{
-			{
-				Purpose: awsapi.PurposeNodes,
-				ARN:     arnIAMRole,
-			},
-		}
-	}
-
-	if efsID != "" {
-		status.ElasticFileSystem.ID = efsID
-	}
-
-	return status
+	return BuildInfrastructureStatus(c.state, c.config)
 }
 
 func (c *FlowContext) computeInfrastructureState() *runtime.RawExtension {

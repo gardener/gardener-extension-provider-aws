@@ -11,7 +11,6 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
@@ -20,7 +19,6 @@ import (
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
@@ -185,102 +183,17 @@ func (f *FlowReconciler) migrateFromTerraform(ctx context.Context, infra *extens
 		return nil, fmt.Errorf("migration from terraform state failed: %w", err)
 	}
 
-	// TODO duplication of computeProviderStatusFromFlowState and fctx.computeInfrastructureStatus
-	infrastructureStatus := computeProviderStatusFromFlowState(infrastructureConfig, state)
+	whiteboard := shared.NewWhiteboard()
+	if state != nil {
+		whiteboard.ImportFromFlatMap(state.Data)
+	}
+	infrastructureStatus := infraflow.BuildInfrastructureStatus(whiteboard, infrastructureConfig)
 
 	if err := infraflow.PatchProviderStatusAndState(ctx, f.client, infra, networking, infrastructureStatus, &runtime.RawExtension{Object: state}, nil, nil, nil); err != nil {
 		return nil, fmt.Errorf("updating status state failed: %w", err)
 	}
 
 	return state, nil
-}
-
-func computeProviderStatusFromFlowState(config *awsapi.InfrastructureConfig, state *awsapi.InfrastructureState) *awsv1alpha1.InfrastructureStatus {
-	if len(state.Data) == 0 {
-		return nil
-	}
-	status := &awsv1alpha1.InfrastructureStatus{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
-			Kind:       "InfrastructureStatus",
-		},
-	}
-
-	vpcID := ""
-	if config.Networks.VPC.ID != nil {
-		vpcID = *config.Networks.VPC.ID
-	} else {
-		vpcID = state.Data[infraflow.IdentifierVPC]
-		if !shared.IsValidValue(vpcID) {
-			vpcID = ""
-		}
-	}
-
-	if vpcID != "" {
-		var subnets []awsv1alpha1.Subnet
-		prefix := infraflow.ChildIdZones + shared.Separator
-		for k, v := range state.Data {
-			if !shared.IsValidValue(v) {
-				continue
-			}
-			if strings.HasPrefix(k, prefix) {
-				parts := strings.Split(k, shared.Separator)
-				if len(parts) != 3 {
-					continue
-				}
-				var purpose string
-				switch parts[2] {
-				case infraflow.IdentifierZoneSubnetPublic:
-					purpose = awsapi.PurposePublic
-				case infraflow.IdentifierZoneSubnetWorkers:
-					purpose = awsapi.PurposeNodes
-				default:
-					continue
-				}
-				subnets = append(subnets, awsv1alpha1.Subnet{
-					ID:      v,
-					Purpose: purpose,
-					Zone:    parts[1],
-				})
-			}
-		}
-
-		status.VPC = awsv1alpha1.VPCStatus{
-			ID:      vpcID,
-			Subnets: subnets,
-		}
-		if groupID := state.Data[infraflow.IdentifierNodesSecurityGroup]; shared.IsValidValue(groupID) {
-			status.VPC.SecurityGroups = []awsv1alpha1.SecurityGroup{
-				{
-					Purpose: awsapi.PurposeNodes,
-					ID:      groupID,
-				},
-			}
-		}
-	}
-
-	if keyName := state.Data[infraflow.NameKeyPair]; shared.IsValidValue(keyName) {
-		status.EC2.KeyName = keyName
-	}
-
-	if name := state.Data[infraflow.NameIAMInstanceProfile]; shared.IsValidValue(name) {
-		status.IAM.InstanceProfiles = []awsv1alpha1.InstanceProfile{
-			{
-				Purpose: awsapi.PurposeNodes,
-				Name:    name,
-			},
-		}
-	}
-	if arn := state.Data[infraflow.ARNIAMRole]; shared.IsValidValue(arn) {
-		status.IAM.Roles = []awsv1alpha1.Role{
-			{
-				Purpose: awsapi.PurposeNodes,
-				ARN:     arn,
-			},
-		}
-	}
-
-	return status
 }
 
 func migrateTerraformStateToFlowState(rawExtension *runtime.RawExtension, zones []awsapi.Zone) (*awsapi.InfrastructureState, error) {
