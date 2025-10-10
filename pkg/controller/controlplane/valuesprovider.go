@@ -387,11 +387,6 @@ func (vp *valuesProvider) GetControlPlaneChartValues(
 		return nil, err
 	}
 
-	// TODO(AndreasBurger): rm in future release.
-	if err := cleanupSeedLegacyCSISnapshotValidation(ctx, vp.client, cp.Namespace); err != nil {
-		return nil, err
-	}
-
 	useWorkloadIdentity, err := shouldUseWorkloadIdentity(ctx, vp.client, cp.Spec.SecretRef.Name, cp.Spec.SecretRef.Namespace)
 	if err != nil {
 		return nil, err
@@ -894,23 +889,6 @@ func getControlPlaneShootChartValues(
 		aws.CSINodeName:                   csiDriverNodeValues,
 		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
 	}, nil
-}
-
-func cleanupSeedLegacyCSISnapshotValidation(
-	ctx context.Context,
-	client k8sclient.Client,
-	namespace string,
-) error {
-	if err := kutil.DeleteObjects(ctx, client,
-		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}},
-		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}},
-		&vpaautoscalingv1.VerticalPodAutoscaler{ObjectMeta: metav1.ObjectMeta{Name: "csi-snapshot-webhook-vpa", Namespace: namespace}},
-		&policyv1.PodDisruptionBudget{ObjectMeta: metav1.ObjectMeta{Name: aws.CSISnapshotValidationName, Namespace: namespace}},
-	); err != nil {
-		return fmt.Errorf("failed to delete legacy csi-snapshot-validation resources: %w", err)
-	}
-
-	return nil
 }
 
 func shouldUseWorkloadIdentity(ctx context.Context, c k8sclient.Client, secretName, secretNamespace string) (bool, error) {
