@@ -59,5 +59,14 @@ jobs:
     with:
       name: ${{ needs.release-to-github-and-bump.outputs.component-descriptor.version }}
       strip_patch: true
-    secrets:
-      token: ${{ secrets.GITHUB_TOKEN }}
+    secrets: inherit
+
+  create-release-branch:
+    if: ${{ inputs.next-version == 'bump-minor' && inputs.release-version == 'set-prerelease' }}
+    needs:
+      - build
+      - release-to-github-and-bump
+    uses: ./.github/workflows/create-branch.yaml
+    with:
+      version: ${{ needs.release-to-github-and-bump.outputs.component-descriptor.version }}
+    secrets: inherit
