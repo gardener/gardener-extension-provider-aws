@@ -48,14 +48,14 @@ jobs:
           echo "Will delete all release branches <= v$major.$cutoff_minor"
 
           # List all branches and filter ones that match release-vX.Y
-          for branch in $(gh api repos/$REPO/branches --paginate --jq '.[].name'); do
+          for branch in $(gh api repos/$GH_REPO/branches --paginate --jq '.[].name'); do
             if [[ $branch =~ ^release-v([0-9]+)\.([0-9]+) ]]; then
               b_major=${BASH_REMATCH[1]}
               b_minor=${BASH_REMATCH[2]}
 
               if [[ $b_major -eq $major && $b_minor -le $cutoff_minor ]]; then
                 echo "Deleting old branch: $branch"
-                gh api -X DELETE "repos/$REPO/git/refs/heads/$branch" || true
+                gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$branch" || true
               fi
             fi
           done
