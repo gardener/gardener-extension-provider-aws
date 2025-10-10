@@ -18,8 +18,13 @@ import (
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"github.com/go-logr/logr"
 	"go.uber.org/atomic"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
+	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
 
 // ErrorMultipleMatches is returned when multiple matches are found
@@ -207,4 +212,104 @@ func mountTargetsContainSubnet(mountTargets []efstypes.MountTargetDescription, s
 		}
 	}
 	return false, ""
+}
+
+// BuildInfrastructureStatus constructs an InfrastructureStatus from flow state and config.
+func BuildInfrastructureStatus(
+	state shared.Whiteboard,
+	cfg *awsapi.InfrastructureConfig,
+) *awsv1alpha1.InfrastructureStatus {
+	status := &awsv1alpha1.InfrastructureStatus{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "InfrastructureStatus",
+		},
+	}
+
+	vpcID := ptr.Deref(state.Get(IdentifierVPC), "")
+	groupID := ptr.Deref(state.Get(IdentifierNodesSecurityGroup), "")
+	ec2KeyName := ptr.Deref(state.Get(NameKeyPair), "")
+	iamInstanceProfileName := ptr.Deref(state.Get(NameIAMInstanceProfile), "")
+	arnIAMRole := ptr.Deref(state.Get(ARNIAMRole), "")
+	efsID := ptr.Deref(state.Get(IdentifierManagedEfsID), "")
+
+	// config overrides
+	if cfg != nil {
+		if cfg.ElasticFileSystem != nil && cfg.ElasticFileSystem.ID != nil {
+			efsID = *cfg.ElasticFileSystem.ID
+		}
+		if cfg.Networks.VPC.ID != nil {
+			vpcID = *cfg.Networks.VPC.ID
+		}
+	}
+
+	if vpcID != "" {
+		var subnets []awsv1alpha1.Subnet
+		prefix := ChildIdZones + shared.Separator
+		for k, v := range state.ExportAsFlatMap() {
+			if !shared.IsValidValue(v) {
+				continue
+			}
+			if strings.HasPrefix(k, prefix) {
+				parts := strings.Split(k, shared.Separator)
+				if len(parts) != 3 {
+					continue
+				}
+				var purpose string
+				switch parts[2] {
+				case IdentifierZoneSubnetPublic:
+					purpose = awsapi.PurposePublic
+				case IdentifierZoneSubnetWorkers:
+					purpose = awsapi.PurposeNodes
+				default:
+					continue
+				}
+				subnets = append(subnets, awsv1alpha1.Subnet{
+					ID:      v,
+					Purpose: purpose,
+					Zone:    parts[1],
+				})
+			}
+		}
+
+		status.VPC = awsv1alpha1.VPCStatus{
+			ID:      vpcID,
+			Subnets: subnets,
+		}
+		if groupID != "" {
+			status.VPC.SecurityGroups = []awsv1alpha1.SecurityGroup{
+				{
+					Purpose: awsapi.PurposeNodes,
+					ID:      groupID,
+				},
+			}
+		}
+	}
+
+	if ec2KeyName != "" {
+		status.EC2.KeyName = ec2KeyName
+	}
+
+	if iamInstanceProfileName != "" {
+		status.IAM.InstanceProfiles = []awsv1alpha1.InstanceProfile{
+			{
+				Purpose: awsapi.PurposeNodes,
+				Name:    iamInstanceProfileName,
+			},
+		}
+	}
+	if arnIAMRole != "" {
+		status.IAM.Roles = []awsv1alpha1.Role{
+			{
+				Purpose: awsapi.PurposeNodes,
+				ARN:     arnIAMRole,
+			},
+		}
+	}
+
+	if efsID != "" {
+		status.ElasticFileSystem.ID = efsID
+	}
+
+	return status
 }
