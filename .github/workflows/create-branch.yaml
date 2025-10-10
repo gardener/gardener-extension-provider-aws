@@ -51,7 +51,7 @@ jobs:
           
           # Commit and push changes
           git add --all
-          git commit -m "Prepare next Development Cycle $NEXT_VERSION [bot]"
+          git commit -m "[bot] Prepare next Development Cycle $NEXT_VERSION"
           git push origin $BRANCH_NAME
         env:
           GITHUB_TOKEN: ${{ secrets.token }}

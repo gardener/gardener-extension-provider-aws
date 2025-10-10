@@ -14,30 +14,26 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Cleanup old branches
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
+          GH_REPO: ${{ github.repository }}
         run: |
           #!/bin/bash
           set -euo pipefail
 
-          # Get latest semver-style release (vX.Y.Z)
-          latest_tag=$(gh api repos/$REPO/releases \
-            --jq '[.[] | .tag_name | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(.) | reverse | .[0]')
+          # Fetch the latest release tag
+          latest_tag=$(gh release list --exclude-pre-releases --limit 1 | awk '{print $1}')
 
-          if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
-            echo "No valid releases found."
+          if [[ $latest_tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Latest release: $latest_tag"
+          else
+            echo "Latest release tag '$latest_tag' is NOT a valid semver (vX.Y.Z)"
             exit 0
           fi
-
-          echo "Latest release: $latest_tag"
 
           # Parse major and minor
           IFS='.' read -r major minor patch <<<"${latest_tag#v}"
