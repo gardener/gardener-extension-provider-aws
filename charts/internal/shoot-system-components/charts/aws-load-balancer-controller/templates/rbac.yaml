@@ -7,22 +7,13 @@ metadata:
   labels:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - create
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    resourceNames:
-      - aws-load-balancer-controller-leader
-    verbs:
-      - get
-      - update
-      - patch
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [aws-load-balancer-controller-leader]
+    verbs: [get, patch, update]
   - apiGroups:
       - "coordination.k8s.io"
     resources:

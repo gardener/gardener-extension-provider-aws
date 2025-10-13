@@ -157,6 +157,12 @@ spec:
         {{- if kindIs "bool" .Values.disableIngressGroupNameAnnotation }}
         - --disable-ingress-group-name-annotation={{ .Values.disableIngressGroupNameAnnotation }}
         {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendService }}
+        - --tolerate-non-existent-backend-service={{ .Values.tolerateNonExistentBackendService }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendAction }}
+        - --tolerate-non-existent-backend-action={{ .Values.tolerateNonExistentBackendAction }}
+        {{- end }}
         {{- if .Values.defaultSSLPolicy }}
         - --default-ssl-policy={{ .Values.defaultSSLPolicy }}
         {{- end }}
@@ -172,6 +178,9 @@ spec:
         {{- if kindIs "bool" .Values.enableBackendSecurityGroup }}
         - --enable-backend-security-group={{ .Values.enableBackendSecurityGroup }}
         {{- end }}
+        {{- if kindIs "bool" .Values.enableManageBackendSecurityGroupRules }}
+        - --enable-manage-backend-security-group-rules={{ .Values.enableManageBackendSecurityGroupRules }}
+        {{- end }}
         {{- if .Values.backendSecurityGroup }}
         - --backend-security-group={{ .Values.backendSecurityGroup }}
         {{- end }}
@@ -180,6 +189,15 @@ spec:
         {{- end }}
         {{- if .Values.controllerConfig.featureGates }}
         - --feature-gates={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.controllerConfig.featureGates | trimSuffix "," }}
+        {{- end }}
+        {{- if .Values.serviceTargetENISGTags }}
+        - --service-target-eni-security-group-tags={{ .Values.serviceTargetENISGTags }}
+        {{- end }}
+        {{- if .Values.loadBalancerClass }}
+        - --load-balancer-class={{ .Values.loadBalancerClass }}
+        {{- end }}
+        {{- if .Values.vpcTags }}
+        - --aws-vpc-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.vpcTags | trimSuffix "," }}
         {{- end }}
         # start provider-aws-specific
         - --kubeconfig=/var/run/secrets/gardener.cloud/shoot/generic-kubeconfig/kubeconfig
