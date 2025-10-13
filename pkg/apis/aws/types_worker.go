@@ -28,7 +28,7 @@ type WorkerConfig struct {
 	// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
 	InstanceMetadataOptions *InstanceMetadataOptions
 	// CpuOptions contains detailed configuration for the number of cores and threads for the instance.
-	CpuOptions *CpuOptions `json:"cpuOptions,omitempty"`
+	CpuOptions *CpuOptions
 	// CapacityReservation contains configuration about the Capacity Reservation to use for the instance.
 	CapacityReservation *CapacityReservation
 }
