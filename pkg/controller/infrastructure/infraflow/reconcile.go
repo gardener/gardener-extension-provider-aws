@@ -1265,6 +1265,12 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 			if _, err := c.updater.UpdateEC2Tags(ctx, current.NATGatewayId, desired.Tags, current.Tags); err != nil {
 				return err
 			}
+			waiter := informOnWaiting(log, 10*time.Second, "waiting for NATGateway to become available...")
+			err = c.client.WaitForNATGatewayAvailable(ctx, current.NATGatewayId)
+			waiter.Done(err)
+			if err != nil {
+				return err
+			}
 		} else {
 			child.Set(IdentifierZoneNATGateway, "")
 			log.Info("creating...")
