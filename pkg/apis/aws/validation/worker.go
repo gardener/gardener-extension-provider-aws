@@ -95,6 +95,39 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		}
 	}
 
+	if workerConfig.CapacityReservationOptions != nil {
+		// This validation follows the CLI examples outlined in https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/capacity-reservations-launch.html
+		childPath := fldPath.Child("capacityReservationOptions")
+		capacityOpts := *workerConfig.CapacityReservationOptions
+
+		if capacityOpts.CapacityReservationID != nil && capacityOpts.CapacityReservationResourceGroupArn != nil {
+			allErrs = append(
+				allErrs,
+				field.Forbidden(
+					childPath.Child("capacityReservationID"),
+					"only one of 'capacityReservationId' and 'capacityReservationResourceGroupArn' may be given",
+				),
+			)
+		}
+
+		if capacityOpts.CapacityReservationPreference != nil {
+			preference := *capacityOpts.CapacityReservationPreference
+			if preference == "open" || preference == "none" {
+				if capacityOpts.CapacityReservationID != nil || capacityOpts.CapacityReservationResourceGroupArn != nil {
+					allErrs = append(
+						allErrs,
+						field.Forbidden(
+							childPath.Child("capacityReservationPreference"),
+							"'capacityReservationId' or 'capacityReservationResourceGroupArn' may only be given if 'capacityReservationPreference' is 'capacity-reservations-only' or absent",
+						),
+					)
+				}
+			} else if preference != "capacity-reservations-only" {
+				allErrs = append(allErrs, field.NotSupported(childPath.Child("capacityReservationPreference"), preference, []string{"capacity-reservations-only", "open", "none"}))
+			}
+		}
+	}
+
 	allErrs = append(allErrs, validateInstanceMetadata(workerConfig.InstanceMetadataOptions, fldPath.Child("instanceMetadataOptions"))...)
 	allErrs = append(allErrs, validateCpuOptions(workerConfig.CpuOptions, fldPath.Child("cpuOptions"))...)
 

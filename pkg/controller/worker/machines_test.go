@@ -110,6 +110,9 @@ var _ = Describe("Machines", func() {
 				dataVolume2Encrypted  bool
 				dataVolume2SnapshotID string
 
+				capacityReservationPreference       string
+				capacityReservationResourceGroupARN string
+
 				namePool1           string
 				minPool1            int32
 				maxPool1            int32
@@ -212,6 +215,9 @@ var _ = Describe("Machines", func() {
 				dataVolume2Size = 43
 				dataVolume2Encrypted = false
 				dataVolume2SnapshotID = "snap-shot"
+
+				capacityReservationPreference = "capacity-reservations-only"
+				capacityReservationResourceGroupARN = "arn:aws:resource-groups:us-west-2:123456789012:group/my-cr-group"
 
 				namePool1 = "pool-1"
 				minPool1 = 5
@@ -482,6 +488,10 @@ var _ = Describe("Machines", func() {
 												Name:       dataVolume2Name,
 												SnapshotID: &dataVolume2SnapshotID,
 											},
+										},
+										CapacityReservation: &api.CapacityReservation{
+											CapacityReservationPreference:       ptr.To(capacityReservationPreference),
+											CapacityReservationResourceGroupARN: ptr.To(capacityReservationResourceGroupARN),
 										},
 									}),
 								},
