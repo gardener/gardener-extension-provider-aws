@@ -244,12 +244,18 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 
 func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
 	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || isIPv6(c.getIpFamilies()) {
-		current, err := FindExisting(ctx, c.state.Get(IdentifierVPC), c.commonTags,
-			c.client.GetVpc, c.client.FindVpcsByTags)
-		if err != nil {
-			return err
+		vpcID := ptr.Deref(c.state.Get(IdentifierVPC), "")
+		if vpcID == "" {
+			current, err := FindExisting(ctx, nil, c.commonTags, c.client.GetVpc, c.client.FindVpcsByTags)
+			if err != nil {
+				return err
+			}
+			if current == nil || current.VpcId == "" {
+				return fmt.Errorf("cannot find VPC id")
+			}
+			vpcID = current.VpcId
 		}
-		ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, current.VpcId)
+		ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, vpcID)
 		if err != nil {
 			return err
 		}
