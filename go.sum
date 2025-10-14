@@ -958,8 +958,6 @@ github.com/gardener/cert-management v0.18.0 h1:s2YhkN8z7lXe9En52GCeqQ9be10uEbLtH
 github.com/gardener/cert-management v0.18.0/go.mod h1:9+JT+EBJB2OIX65EG+P1p/DZ/UJ3W8WR0h40ZjKbw+Q=
 github.com/gardener/etcd-druid/api v0.32.0 h1:B3MEBe9q3+Q0jjFb/BhMigde05mYkVjWzVHgFd0/WuA=
 github.com/gardener/etcd-druid/api v0.32.0/go.mod h1:Qpl1PDJ+bKa6OPWk4o7WBzvjPqZc/CxIXbiTkdRhCrg=
-github.com/gardener/external-dns-management v0.27.0 h1:S1j0vbFxiB5qUyX7OwFIOajsViloEYynu07Ia2WCzP4=
-github.com/gardener/external-dns-management v0.27.0/go.mod h1:tvnfgbra3qq0UaLBUsuny2TdXw5mev0I/f0rHAF/Uds=
 github.com/gardener/external-dns-management v0.28.0 h1:zAU5wW7aGkg2Syb/QqN56v/uUWL1BOMvUIE8XPFo87w=
 github.com/gardener/external-dns-management v0.28.0/go.mod h1:ruNKzI+peCHaTJHr14aq9iogiMfwxyOziMv6QFNyx6Y=
 github.com/gardener/gardener v1.129.1 h1:w1WLmEo/1IqLV5vyWI+X+ZbfgX7vkloJf3Rv5Vud8QU=
