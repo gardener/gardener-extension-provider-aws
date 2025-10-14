@@ -74,7 +74,7 @@ var _ = Describe("Helper", func() {
 
 	DescribeTableSubtree("Select Worker Images", func(hasCapabilities bool) {
 		var capabilityDefinitions []v1beta1.CapabilityDefinition
-		var machineCapabilities v1beta1.Capabilities
+		var machineTypeCapabilities v1beta1.Capabilities
 		var imageCapabilities v1beta1.Capabilities
 		region := "europe"
 
@@ -83,7 +83,7 @@ var _ = Describe("Helper", func() {
 				{Name: "architecture", Values: []string{"amd64", "arm64"}},
 				{Name: "capability1", Values: []string{"value1", "value2", "value3"}},
 			}
-			machineCapabilities = v1beta1.Capabilities{
+			machineTypeCapabilities = v1beta1.Capabilities{
 				"architecture": []string{"amd64"},
 				"capability1":  []string{"value2"},
 			}
@@ -96,13 +96,13 @@ var _ = Describe("Helper", func() {
 		DescribeTable("#FindImageInWorkerStatus",
 			func(machineImages []api.MachineImage, name, version string, arch *string, expectedMachineImage *api.MachineImage, expectErr bool) {
 				if hasCapabilities {
-					machineCapabilities["architecture"] = []string{*arch}
+					machineTypeCapabilities["architecture"] = []string{*arch}
 					if expectedMachineImage != nil {
 						expectedMachineImage.Capabilities = imageCapabilities
 						expectedMachineImage.Architecture = nil
 					}
 				}
-				machineImage, err := FindImageInWorkerStatus(machineImages, name, version, arch, machineCapabilities, capabilityDefinitions)
+				machineImage, err := FindImageInWorkerStatus(machineImages, name, version, arch, machineTypeCapabilities, capabilityDefinitions)
 				expectResults(machineImage, expectedMachineImage, err, expectErr)
 			},
 
@@ -118,16 +118,16 @@ var _ = Describe("Helper", func() {
 		DescribeTable("#FindImageInCloudProfile",
 			func(profileImages []api.MachineImages, imageName, version, regionName string, arch *string, expectedAMI string) {
 				if hasCapabilities {
-					machineCapabilities["architecture"] = []string{*arch}
+					machineTypeCapabilities["architecture"] = []string{*arch}
 				}
 				cfg := &api.CloudProfileConfig{}
 				cfg.MachineImages = profileImages
 
-				capabilitySet, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineCapabilities, capabilityDefinitions)
+				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineTypeCapabilities, capabilityDefinitions)
 
 				if expectedAMI != "" {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(capabilitySet.Regions[0].AMI).To(Equal(expectedAMI))
+					Expect(imageFlavor.Regions[0].AMI).To(Equal(expectedAMI))
 				} else {
 					Expect(err).To(HaveOccurred())
 				}
