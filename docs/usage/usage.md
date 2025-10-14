@@ -422,7 +422,7 @@ The `storage.managedDefaultClass` controls if the `default` storage / volume sna
 
 If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/) should be deployed, set `loadBalancerController.enabled` to `true`.
 In this case,  it is assumed that an `IngressClass` named `alb` is created **by the user**.
-You can overwrite the name by setting `loadBalancerController.ingressClassName`.  
+You can overwrite the name by setting `loadBalancerController.ingressClassName`.
 **Please note**: currently only the "instance" mode (`alb.ingress.kubernetes.io/target-type: instance`) is supported.
 Also, For internet-facing ALBs, AWS requires at least 2 subnets in different Availability Zones in the same VPC.
 
