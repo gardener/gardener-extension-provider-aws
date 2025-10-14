@@ -643,6 +643,10 @@ func verifyCreation(
 	instances, err := awsClient.EC2.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
 		Filters: []ec2types.Filter{
 			{
+				Name:   awssdk.String(awsclient.FilterVpcID),
+				Values: []string{options.VpcID},
+			},
+			{
 				Name:   awssdk.String("tag:Name"),
 				Values: []string{options.InstanceName},
 			},
@@ -687,6 +691,10 @@ func verifyDeletion(
 	// instance should be terminated
 	instances, err := awsClient.EC2.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
 		Filters: []ec2types.Filter{
+			{
+				Name:   awssdk.String(awsclient.FilterVpcID),
+				Values: []string{options.VpcID},
+			},
 			{
 				Name:   awssdk.String("tag:Name"),
 				Values: []string{options.InstanceName},
