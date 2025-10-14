@@ -191,7 +191,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 						Version: "1.2.3",
 						CapabilityFlavors: []apisaws.MachineImageFlavor{{
 							Regions:      []apisaws.RegionAMIMapping{{}},
-							Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: {"amd64"}},
+							Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"amd64"}},
 						}},
 					}
 				} else {
@@ -228,7 +228,9 @@ var _ = Describe("CloudProfileConfig validation", func() {
 			It("should forbid unsupported machine image architecture configuration", func() {
 				var notSupportedField, requiredField types.GomegaMatcher
 				if isCapabilitiesCloudProfile {
-					cloudProfileConfig.MachineImages[0].Versions[0].CapabilityFlavors[0].Capabilities[v1beta1constants.ArchitectureName] = []string{"foo"}
+					cloudProfileConfig.MachineImages[0].Versions[0].CapabilityFlavors[0].Capabilities = v1beta1.Capabilities{
+						v1beta1constants.ArchitectureName: []string{"foo"},
+					}
 					notSupportedField = Equal("machineImages[0].versions[0].capabilityFlavors[0].capabilities.architecture[0]")
 					requiredField = Equal("spec.machineImages[0].versions[0].capabilityFlavors[0]")
 				} else {
@@ -302,4 +304,65 @@ var _ = Describe("CloudProfileConfig validation", func() {
 	},
 		Entry("CloudProfile uses regions only", false),
 		Entry("CloudProfile uses capabilities", true))
+
+	Describe("#RestrictToArchitectureCapability", func() {
+		var (
+			fldPath *field.Path
+		)
+
+		BeforeEach(func() {
+			fldPath = field.NewPath("capabilityDefinitions")
+		})
+
+		It("should pass with only architecture capability", func() {
+			capabilityDefinitions := []v1beta1.CapabilityDefinition{
+				{
+					Name:   v1beta1constants.ArchitectureName,
+					Values: []string{"amd64", "arm64"},
+				},
+			}
+
+			err := RestrictToArchitectureCapability(capabilityDefinitions, fldPath)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should pass with empty capability definitions", func() {
+			var capabilityDefinitions []v1beta1.CapabilityDefinition
+
+			err := RestrictToArchitectureCapability(capabilityDefinitions, fldPath)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should fail with valid and invalid capabilities", func() {
+			capabilityDefinitions := []v1beta1.CapabilityDefinition{
+				{
+					Name:   v1beta1constants.ArchitectureName,
+					Values: []string{"amd64"},
+				},
+				{
+					Name:   "gpu",
+					Values: []string{"nvidia"},
+				},
+				{
+					Name:   v1beta1constants.ArchitectureName,
+					Values: []string{"arm64"},
+				},
+				{
+					Name:   "storage",
+					Values: []string{"ssd"},
+				},
+			}
+
+			err := RestrictToArchitectureCapability(capabilityDefinitions, fldPath)
+			Expect(err).To(HaveOccurred())
+			// Should only contain errors for the invalid capabilities (indices 1 and 3)
+			Expect(err.Error()).To(ContainSubstring("capabilityDefinitions[1].name"))
+			Expect(err.Error()).To(ContainSubstring("capabilityDefinitions[3].name"))
+			Expect(err.Error()).To(ContainSubstring("gpu"))
+			Expect(err.Error()).To(ContainSubstring("storage"))
+			// Should not contain errors for the valid architecture capabilities
+			Expect(err.Error()).NotTo(ContainSubstring("capabilityDefinitions[0].name"))
+			Expect(err.Error()).NotTo(ContainSubstring("capabilityDefinitions[2].name"))
+		})
+	})
 })
