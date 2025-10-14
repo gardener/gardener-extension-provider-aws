@@ -27,6 +27,9 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
+# We cannot use the upstream repository here as it is not reachable using IPv6.
+# NOTE: Please make sure to copy new image versions when updating the version by adding them to
+#       https://github.com/gardener/ci-infra/blob/master/config/images/images.yaml.
 - name: aws-load-balancer-controller
   sourceRepository: github.com/kubernetes-sigs/aws-load-balancer-controller
   repository: europe-docker.pkg.dev/gardener-project/releases/3rd/eks/aws-load-balancer-controller
@@ -242,6 +245,11 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
+# We cannot use the upstream repository here as it is not reachable using IPv6.
+# NOTE: Please make sure to copy new image versions when updating the version by adding them to
+#       https://github.com/gardener/ci-infra/blob/master/config/images/images.yaml.
+# NOTE: volume-modifier-for-k8s has been deprecated in favor of the native Kubernetes VolumeAttributesClass API.
+#       we can get rid of this image once we remove K8s v1.31 support (VolumeAttributesClass graduated to beta).
 - name: csi-volume-modifier
   sourceRepository: github.com/awslabs/volume-modifier-for-k8s
   repository: europe-docker.pkg.dev/gardener-project/releases/3rd/ebs-csi-driver/volume-modifier-for-k8s
