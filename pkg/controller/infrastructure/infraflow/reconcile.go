@@ -1966,58 +1966,52 @@ func (c *FlowContext) getSubnetZoneChild(zoneName string) Whiteboard {
 	return c.state.GetChild(ChildIdZones).GetChild(zoneName)
 }
 
-func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (zoneName, subnetKey string, err error) {
+func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (string, string, error) {
 	zone := c.getZone(item)
 	// With IPv6 we don't have configuration for zone.Workers and zone.Internal.
 	// In that case, we get the subnetKey comparing the name tag.
 	if zone == nil || !isIPv4(c.getIpFamilies()) {
 		// zone may have been deleted from spec, need to find subnetKey on other ways
-		zoneName = item.AvailabilityZone
+		zoneName := item.AvailabilityZone
 		if item.SubnetId != "" {
 			zoneChild := c.getSubnetZoneChild(zoneName)
 			for _, key := range []string{IdentifierZoneSubnetWorkers, IdentifierZoneSubnetPublic, IdentifierZoneSubnetPrivate} {
 				if s := zoneChild.Get(key); s != nil && *s == item.SubnetId {
-					subnetKey = key
-					return
+					return zoneName, key, nil
 				}
 			}
 		}
 		if item.Tags != nil && item.Tags[TagKeyName] != "" {
 			value := item.Tags[TagKeyName]
-			helper := c.zoneSuffixHelpers(zone.Name)
+			helper := c.zoneSuffixHelpers(zoneName)
 			for _, key := range []string{IdentifierZoneSubnetWorkers, IdentifierZoneSubnetPublic, IdentifierZoneSubnetPrivate} {
 				switch key {
 				case IdentifierZoneSubnetWorkers:
 					if value == fmt.Sprintf("%s-%s", c.namespace, helper.GetSuffixSubnetWorkers()) {
-						subnetKey = key
-						return
+						return zoneName, key, nil
 					}
 				case IdentifierZoneSubnetPublic:
 					if value == fmt.Sprintf("%s-%s", c.namespace, helper.GetSuffixSubnetPublic()) {
-						subnetKey = key
-						return
+						return zoneName, key, nil
 					}
 				case IdentifierZoneSubnetPrivate:
 					if value == fmt.Sprintf("%s-%s", c.namespace, helper.GetSuffixSubnetPrivate()) {
-						subnetKey = key
-						return
+						return zoneName, key, nil
 					}
 				}
 			}
 		}
-		err = fmt.Errorf("subnetKey could not calculated from subnet item")
-		return
+		return "", "", fmt.Errorf("could not determine subnet key for subnet %s", item.SubnetId)
 	}
-	zoneName = zone.Name
 	switch item.CidrBlock {
 	case zone.Workers:
-		subnetKey = IdentifierZoneSubnetWorkers
+		return zone.Name, IdentifierZoneSubnetWorkers, nil
 	case zone.Public:
-		subnetKey = IdentifierZoneSubnetPublic
+		return zone.Name, IdentifierZoneSubnetPublic, nil
 	case zone.Internal:
-		subnetKey = IdentifierZoneSubnetPrivate
+		return zone.Name, IdentifierZoneSubnetPrivate, nil
 	}
-	return
+	return "", "", fmt.Errorf("could not determine subnet key for subnet %s", item.SubnetId)
 }
 
 func (c *FlowContext) getZone(item *awsclient.Subnet) *aws.Zone {
