@@ -811,6 +811,34 @@ spec:
       enabled: false
 ```
 
+## Use EC2 Capacity Reservations
+
+To have your workers launch into an existing Capacity Reservations, you need to add configuration about the Capacity Reservation into the workers provider-config:
+
+```yaml
+spec:
+  provider:
+    workers:
+    - name: worker-name
+      ...
+      providerConfig:
+        apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+        kind: WorkerConfig
+      capacityReservation:
+        capacityReservationPreference: open # <open | none | capacity-reservations-only>
+        capacityReservationId: cr-1234abcd56EXAMPLE # mutually exclusive with 'capacityReservationResourceGroupArn'
+        capacityReservationResourceGroupArn: arn:aws:resource-groups:eu-west-2:123456789012:group/example-cr-group # mutually exclusive with 'capacityReservationId'
+      ...
+```
+
+The behaviour of the nodes depends on the subset of configuration that is specified here, see [the official documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cr-concepts.html#cr-instance-eligibility) for guidance. Some pointers:
+
+- Launching an instance into a Capacity Reservation is done either 'open' or 'targeted'. To launch it 'open', specify `capacityReservationPreference: open` and omit any target information. This will launch the node in any matching (w.r.t. instance type, platform, Availability Zone, tenancy and capacity) active Capacity Reservation in your account.
+- To launch it 'targeted', specify either `capacityReservationPreference: capacity-reservations-only` or omit the preference alltogether and also provide **one** of `capacityReservationId` or `capacityReservationResourceGroupArn`. The preference determines the fallback behaviour if the targeted reservation can not be used for any reason, with `capacity-reservations-only` resulting in a failed launch whereas an omitted preference results in the launch of an On-Demand instance.
+
+`capacityReservationPreference: none` prevents an instance from using Capacity Reservations.
+
+
 ## CSI volume provisioners
 
 Every AWS shoot cluster will be deployed with the AWS EBS CSI driver.
