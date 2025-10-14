@@ -323,14 +323,14 @@ var _ = Describe("CloudProfileConfig validation", func() {
 			}
 
 			err := RestrictToArchitectureCapability(capabilityDefinitions, fldPath)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should pass with empty capability definitions", func() {
 			var capabilityDefinitions []v1beta1.CapabilityDefinition
 
 			err := RestrictToArchitectureCapability(capabilityDefinitions, fldPath)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should fail with valid and invalid capabilities", func() {
@@ -354,7 +354,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 			}
 
 			err := RestrictToArchitectureCapability(capabilityDefinitions, fldPath)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			// Should only contain errors for the invalid capabilities (indices 1 and 3)
 			Expect(err.Error()).To(ContainSubstring("capabilityDefinitions[1].name"))
 			Expect(err.Error()).To(ContainSubstring("capabilityDefinitions[3].name"))
