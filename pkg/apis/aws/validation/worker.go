@@ -95,12 +95,12 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		}
 	}
 
-	if workerConfig.CapacityReservationOptions != nil {
+	if workerConfig.CapacityReservation != nil {
 		// This validation follows the CLI examples outlined in https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/capacity-reservations-launch.html
 		childPath := fldPath.Child("capacityReservationOptions")
-		capacityOpts := *workerConfig.CapacityReservationOptions
+		capacityOpts := *workerConfig.CapacityReservation
 
-		if capacityOpts.CapacityReservationID != nil && capacityOpts.CapacityReservationResourceGroupArn != nil {
+		if capacityOpts.CapacityReservationID != nil && capacityOpts.CapacityReservationResourceGroupARN != nil {
 			allErrs = append(
 				allErrs,
 				field.Forbidden(
@@ -113,7 +113,7 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		if capacityOpts.CapacityReservationPreference != nil {
 			preference := *capacityOpts.CapacityReservationPreference
 			if preference == "open" || preference == "none" {
-				if capacityOpts.CapacityReservationID != nil || capacityOpts.CapacityReservationResourceGroupArn != nil {
+				if capacityOpts.CapacityReservationID != nil || capacityOpts.CapacityReservationResourceGroupARN != nil {
 					allErrs = append(
 						allErrs,
 						field.Forbidden(
