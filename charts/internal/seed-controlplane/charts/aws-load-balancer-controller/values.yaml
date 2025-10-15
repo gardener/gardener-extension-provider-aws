@@ -198,6 +198,12 @@ disableIngressClassAnnotation: true
 # disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
 disableIngressGroupNameAnnotation:
 
+# tolerateNonExistentBackendService is a “graceful tolerance mode” for broken or in-flight changes, false by default
+tolerateNonExistentBackendService:
+
+# tolerateNonExistentBackendAction gives the option for a “graceful degradation” behavior, false by default
+tolerateNonExistentBackendAction:
+
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
 defaultSSLPolicy:
 
@@ -268,6 +274,9 @@ enableEndpointSlices:
 # enableBackendSecurityGroup enables shared security group for backend traffic (default true)
 enableBackendSecurityGroup:
 
+# enableManageBackendSecurityGroupRules enables managing rules of the backend security group (default false)
+enableManageBackendSecurityGroupRules:
+
 # backendSecurityGroup specifies backend security group id (default controller auto create backend security group)
 backendSecurityGroup:
 
@@ -280,6 +289,15 @@ controllerConfig:
   featureGates: {}
   #  ServiceTypeLoadBalancerOnly: true
   #  EndpointsFailOpen: true
+
+# serviceTargetENISGTags extra tags used by the controller when finding the target ENI security group to which it should add inbound rules.
+serviceTargetENISGTags:
+
+# loadBalancerClass specifies the load balancer class to watch for
+loadBalancerClass:
+
+# Instead of (or in addition to) explicitly setting --aws-vpc-id, you can provide tags used to filter the correct VPC(s)
+vpcTags:
 
 # objectSelector for webhook
 objectSelector:
