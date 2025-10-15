@@ -77,13 +77,13 @@ providerSpec:
 {{- if $machineClass.capacityReservation }}
   capacityReservation:
     {{- if $machineClass.capacityReservation.capacityReservationPreference }}
-    capacityReservationPreference: {{ $machineClass.capacityReservationPreference }}
+    capacityReservationPreference: {{ $machineClass.capacityReservation.capacityReservationPreference }}
     {{- end }}
     {{- if $machineClass.capacityReservation.capacityReservationId }}
-    capacityReservationId: {{ $machineClass.capacityReservationId }}
+    capacityReservationId: {{ $machineClass.capacityReservation.capacityReservationId }}
     {{- end }}
     {{- if $machineClass.capacityReservation.capacityReservationResourceGroupArn }}
-    capacityReservationResourceGroupArn: {{ $machineClass.capacityReservationResourceGroupArn }}
+    capacityReservationResourceGroupArn: {{ $machineClass.capacityReservation.capacityReservationResourceGroupArn }}
     {{- end }}
 {{- end }}
 secretRef:
