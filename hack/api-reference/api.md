@@ -423,6 +423,19 @@ CpuOptions
 <p>CpuOptions contains detailed configuration for the number of cores and threads for the instance.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>capacityReservation</code></br>
+<em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CapacityReservation">
+CapacityReservation
+</a>
+</em>
+</td>
+<td>
+<p>CapacityReservation contains configuration about the Capacity Reservation to use for the instance.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus
@@ -514,6 +527,57 @@ string
 </td>
 <td>
 <p>RoleARN is the identifier of the role that the workload identity will assume.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CapacityReservation">CapacityReservation
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>capacityReservationPreference</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CapacityReservationPreference defines the instance&rsquo;s reservation preferences.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>capacityReservationId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CapacityReservationID is the ID of the Capacity Reservation in which to run the instance. Mutually exclusive with CapacityReservationResourceGroupArn.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>capacityReservationResourceGroupArn</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CapacityReservationResourceGroupARN is the ARN of the Capacity Reservation Group in which to look for a Capacity Reservation. Mutually exclusive with CapacityReservationID.</p>
 </td>
 </tr>
 </tbody>
