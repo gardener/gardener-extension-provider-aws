@@ -74,6 +74,18 @@ providerSpec:
     coreCount: {{ $machineClass.cpuOptions.coreCount }}
     threadsPerCore: {{ $machineClass.cpuOptions.threadsPerCore }}
 {{- end }}
+{{- if $machineClass.capacityReservation }}
+  capacityReservation:
+    {{- if $machineClass.capacityReservation.capacityReservationPreference }}
+    capacityReservationPreference: {{ $machineClass.capacityReservation.capacityReservationPreference }}
+    {{- end }}
+    {{- if $machineClass.capacityReservation.capacityReservationId }}
+    capacityReservationId: {{ $machineClass.capacityReservation.capacityReservationId }}
+    {{- end }}
+    {{- if $machineClass.capacityReservation.capacityReservationResourceGroupArn }}
+    capacityReservationResourceGroupArn: {{ $machineClass.capacityReservation.capacityReservationResourceGroupArn }}
+    {{- end }}
+{{- end }}
 secretRef:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}

@@ -221,6 +221,22 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				}
 			}
 
+			if workerConfig.CapacityReservation != nil {
+				capacityReservationOpts := *workerConfig.CapacityReservation
+				capacityReserverationCfg := map[string]string{}
+
+				if capacityReservationOpts.CapacityReservationPreference != nil {
+					capacityReserverationCfg["capacityReservationPreference"] = *capacityReservationOpts.CapacityReservationPreference
+				}
+				if capacityReservationOpts.CapacityReservationID != nil {
+					capacityReserverationCfg["capacityReservationId"] = *capacityReservationOpts.CapacityReservationID
+				}
+				if capacityReservationOpts.CapacityReservationResourceGroupARN != nil {
+					capacityReserverationCfg["capacityReservationResourceGroupArn"] = *capacityReservationOpts.CapacityReservationResourceGroupARN
+				}
+				machineClassSpec["capacityReservation"] = capacityReserverationCfg
+			}
+
 			var (
 				deploymentName = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
 				className      = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
