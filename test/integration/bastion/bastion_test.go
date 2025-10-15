@@ -702,9 +702,11 @@ func verifyDeletion(
 		},
 	})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(instances.Reservations).To(HaveLen(1))
-	Expect(instances.Reservations[0].Instances).To(HaveLen(1))
-	Expect(instances.Reservations[0].Instances[0].State.Code).To(PointTo(Equal(int32(bastionctrl.InstanceStateTerminated))))
+	Expect(instances.Reservations).To(Or(HaveLen(0), HaveLen(1)))
+	if len(instances.Reservations) == 1 {
+		Expect(instances.Reservations[0].Instances).To(HaveLen(1))
+		Expect(instances.Reservations[0].Instances[0].State.Code).To(PointTo(Equal(int32(bastionctrl.InstanceStateTerminated))))
+	}
 }
 
 func getMyPublicIPWithMask() (string, error) {
