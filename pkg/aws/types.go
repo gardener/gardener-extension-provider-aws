@@ -126,6 +126,8 @@ const (
 	CSILivenessProbeName = "csi-liveness-probe"
 	// CSIVolumeModifierName is the constant for the name of the csi-volume-modifier.
 	CSIVolumeModifierName = "csi-volume-modifier"
+	// CSINetworkPolicyIMDSName is the constant for the name of the csi network policy allowing access to the IMDS.
+	CSINetworkPolicyIMDSName = "aws.extensions.gardener.cloud--allow-metadata-access"
 
 	// AnnotationEnableVolumeAttributesClass is the annotation to use on shoots to enable VolumeAttributesClasses
 	AnnotationEnableVolumeAttributesClass = "aws.provider.extensions.gardener.cloud/enable-volume-attributes-class"
