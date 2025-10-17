@@ -19,10 +19,11 @@ spec:
         app: csi
         role: disk-driver
         node.gardener.cloud/critical-component: "true"
+        aws.extension.gardener.cloud/allow-metadata-access: "true"
       annotations:
         node.gardener.cloud/wait-for-csi-node-aws: {{ include "csi-driver-node.provisioner" . }}
     spec:
-      hostNetwork: true
+      hostNetwork: false
       priorityClassName: system-node-critical
       serviceAccountName: csi-driver-node
       tolerations:

@@ -19,7 +19,7 @@ spec:
         app: csi
         role: driver-efs-node
         node.gardener.cloud/critical-component: "true"
-        network-policy.aws-metadata-access: "true"
+        aws.extension.gardener.cloud/allow-metadata-access: "true"
     spec:
       priorityClassName: system-node-critical
       hostNetwork: false

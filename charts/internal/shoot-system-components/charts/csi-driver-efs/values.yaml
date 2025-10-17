@@ -39,9 +39,6 @@ sidecars:
 
 ## Node daemonset variables
 
-# allowMetadataAccess defines whether to create a NetworkPolicy that allows access to the AWS metadata service.
-allowMetadataAccess: false
-
 node:
   # Number for the log level verbosity
   logLevel: 5

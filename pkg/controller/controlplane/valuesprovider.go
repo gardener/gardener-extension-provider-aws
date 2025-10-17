@@ -275,6 +275,8 @@ var (
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
 					{Type: &rbacv1.Role{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
 					{Type: &rbacv1.RoleBinding{}, Name: aws.UsernamePrefix + aws.CSIVolumeModifierName},
+					// network-policy
+					{Type: &networkingv1.NetworkPolicy{}, Name: aws.CSINetworkPolicyIMDSName},
 				},
 			},
 			{
@@ -292,7 +294,6 @@ var (
 					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-node-sa"},
 					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-node-role"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-node-binding"},
-					{Type: &networkingv1.NetworkPolicy{}, Name: "allow-metadata-access"},
 					// csi-driver-efs-controller
 					{Type: &appsv1.Deployment{}, Name: "efs-csi-controller"},
 					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-controller-sa"},
@@ -883,18 +884,13 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
-	efsValues, err := getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus, cluster)
-	if err != nil {
-		return nil, err
-	}
-
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
 		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
 		aws.AWSIPAMControllerImageName:    map[string]interface{}{"enabled": ipamControllerEnabled},
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
-		aws.CSIEfsNodeName:                efsValues,
+		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
 	}, nil
 }
 
@@ -914,8 +910,7 @@ func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
 func getControlPlaneShootChartCSIEfsValues(
 	infraConfig *apisaws.InfrastructureConfig,
 	infraStatus *apisaws.InfrastructureStatus,
-	cluster *extensionscontroller.Cluster,
-) (map[string]interface{}, error) {
+) map[string]interface{} {
 	csiEfsEnabled := isCSIEfsEnabled(infraConfig)
 	values := map[string]interface{}{
 		"enabled": csiEfsEnabled,
@@ -925,14 +920,5 @@ func getControlPlaneShootChartCSIEfsValues(
 		values["fileSystemID"] = infraStatus.ElasticFileSystem.ID
 	}
 
-	k8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
-	if err != nil {
-		return nil, err
-	}
-	// with kubernetes >= 1.33 a deny all rule for the kube-system namespace is applied by default
-	if versionutils.ConstraintK8sGreaterEqual133.Check(k8sVersion) {
-		values["allowMetadataAccess"] = true
-	}
-
-	return values, nil
+	return values
 }
