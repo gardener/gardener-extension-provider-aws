@@ -1,0 +1,21 @@
+# with kubernetes >= 1.33 a deny all rule for the kube-system namespace is applied by default
+{{- if .Values.allowMetadataAccess }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-metadata-access
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      network-policy.aws-metadata-access: "true"
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - protocol: TCP
+          port: 80
+{{- end }}

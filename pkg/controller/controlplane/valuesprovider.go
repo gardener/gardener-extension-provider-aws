@@ -30,6 +30,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -291,6 +292,7 @@ var (
 					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-node-sa"},
 					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-node-role"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-node-binding"},
+					{Type: &networkingv1.NetworkPolicy{}, Name: "allow-metadata-access"},
 					// csi-driver-efs-controller
 					{Type: &appsv1.Deployment{}, Name: "efs-csi-controller"},
 					{Type: &corev1.ServiceAccount{}, Name: "efs-csi-controller-sa"},
@@ -881,13 +883,18 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
+	efsValues, err := getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus, cluster)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
 		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
 		aws.AWSIPAMControllerImageName:    map[string]interface{}{"enabled": ipamControllerEnabled},
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
-		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
+		aws.CSIEfsNodeName:                efsValues,
 	}, nil
 }
 
@@ -907,7 +914,8 @@ func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
 func getControlPlaneShootChartCSIEfsValues(
 	infraConfig *apisaws.InfrastructureConfig,
 	infraStatus *apisaws.InfrastructureStatus,
-) map[string]interface{} {
+	cluster *extensionscontroller.Cluster,
+) (map[string]interface{}, error) {
 	csiEfsEnabled := isCSIEfsEnabled(infraConfig)
 	values := map[string]interface{}{
 		"enabled": csiEfsEnabled,
@@ -917,5 +925,14 @@ func getControlPlaneShootChartCSIEfsValues(
 		values["fileSystemID"] = infraStatus.ElasticFileSystem.ID
 	}
 
-	return values
+	k8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
+	if err != nil {
+		return nil, err
+	}
+	// with kubernetes >= 1.33 a deny all rule for the kube-system namespace is applied by default
+	if versionutils.ConstraintK8sGreaterEqual133.Check(k8sVersion) {
+		values["allowMetadataAccess"] = true
+	}
+
+	return values, nil
 }
