@@ -53,7 +53,6 @@ jobs:
   close-release-milestone:
     if: ${{ inputs.next-version == 'bump-minor' && inputs.release-version == 'set-prerelease' }}
     needs:
-      - build
       - release-to-github-and-bump
     uses: ./.github/workflows/close-milestone.yaml
     with:
@@ -64,7 +63,6 @@ jobs:
   create-release-branch:
     if: ${{ inputs.next-version == 'bump-minor' && inputs.release-version == 'set-prerelease' }}
     needs:
-      - build
       - release-to-github-and-bump
     uses: ./.github/workflows/create-branch.yaml
     with:
