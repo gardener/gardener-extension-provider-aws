@@ -21,7 +21,7 @@ spec:
         node.gardener.cloud/critical-component: "true"
     spec:
       priorityClassName: system-node-critical
-      hostNetwork: false
+      hostNetwork: true
       dnsPolicy: {{ .Values.node.dnsPolicy }}
       serviceAccountName: {{ .Values.node.serviceAccount.name }}
       tolerations:
