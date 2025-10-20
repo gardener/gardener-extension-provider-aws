@@ -37,6 +37,11 @@ func SetDefaults_RegionAMIMapping(obj *RegionAMIMapping) {
 	if obj.Architecture == nil {
 		obj.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
 	}
+	if ptr.Deref(obj.Architecture, "") == "ignore" {
+		// Remove the "ignore" value set in MachineImageFlavor
+		// this ensures no architecture is set on RegionAMIMapping when using capability flavors
+		obj.Architecture = nil
+	}
 }
 
 // SetDefaults_MachineImage set the architecture of machine image.
@@ -52,6 +57,8 @@ func SetDefaults_MachineImageFlavor(obj *MachineImageFlavor) {
 	for l := range obj.Regions {
 		d := &obj.Regions[l]
 		if d.Architecture == nil {
+			// Set to "ignore" so that SetDefaults_RegionAMIMapping does not set it to AMD64
+			// as the region.architecture field is forbidden when using capability flavors.
 			d.Architecture = ptr.To("ignore")
 		}
 	}

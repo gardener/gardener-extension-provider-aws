@@ -147,13 +147,13 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 							api.MachineImageVersion{Version: "1.0",
 								CapabilityFlavors: []api.MachineImageFlavor{{
 									Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}},
-									Regions:      []api.RegionAMIMapping{{Name: "eu1", AMI: "ami-123", Architecture: ptr.To("ignore")}},
+									Regions:      []api.RegionAMIMapping{{Name: "eu1", AMI: "ami-123"}},
 								}},
 							},
 							api.MachineImageVersion{Version: "1.1",
 								CapabilityFlavors: []api.MachineImageFlavor{{
 									Capabilities: v1beta1.Capabilities{"architecture": []string{"arm64"}},
-									Regions:      []api.RegionAMIMapping{{Name: "eu2", AMI: "ami-124", Architecture: ptr.To("ignore")}},
+									Regions:      []api.RegionAMIMapping{{Name: "eu2", AMI: "ami-124"}},
 								}},
 							},
 						),
@@ -164,7 +164,7 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 							api.MachineImageVersion{Version: "2.0",
 								CapabilityFlavors: []api.MachineImageFlavor{{
 									Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}},
-									Regions:      []api.RegionAMIMapping{{Name: "eu3", AMI: "ami-125", Architecture: ptr.To("ignore")}},
+									Regions:      []api.RegionAMIMapping{{Name: "eu3", AMI: "ami-125"}},
 								}},
 							}),
 					}),
