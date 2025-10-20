@@ -70,3 +70,5 @@ jobs:
     with:
       version: ${{ needs.release-to-github-and-bump.outputs.component-descriptor.version }}
     secrets: inherit
+    permissions:
+      contents: write
