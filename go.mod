@@ -20,7 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.6
 	github.com/aws/smithy-go v1.23.0
 	github.com/coreos/go-systemd/v22 v22.6.0
-	github.com/gardener/etcd-druid/api v0.32.0
+	github.com/gardener/etcd-druid/api v0.33.0
 	github.com/gardener/external-dns-management v0.28.0
 	github.com/gardener/gardener v1.129.1
 	github.com/gardener/machine-controller-manager v0.60.0

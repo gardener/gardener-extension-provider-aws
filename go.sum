@@ -956,8 +956,8 @@ github.com/fxamacker/cbor/v2 v2.8.0 h1:fFtUGXUzXPHTIUdne5+zzMPTfffl3RD5qYnkY40vt
 github.com/fxamacker/cbor/v2 v2.8.0/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
 github.com/gardener/cert-management v0.18.0 h1:s2YhkN8z7lXe9En52GCeqQ9be10uEbLtH/FFAh6BVgQ=
 github.com/gardener/cert-management v0.18.0/go.mod h1:9+JT+EBJB2OIX65EG+P1p/DZ/UJ3W8WR0h40ZjKbw+Q=
-github.com/gardener/etcd-druid/api v0.32.0 h1:B3MEBe9q3+Q0jjFb/BhMigde05mYkVjWzVHgFd0/WuA=
-github.com/gardener/etcd-druid/api v0.32.0/go.mod h1:Qpl1PDJ+bKa6OPWk4o7WBzvjPqZc/CxIXbiTkdRhCrg=
+github.com/gardener/etcd-druid/api v0.33.0 h1:YwgsYYldaLig2laJMAAMX/dg9/XsQx/LPz8+iL52V6w=
+github.com/gardener/etcd-druid/api v0.33.0/go.mod h1:Qpl1PDJ+bKa6OPWk4o7WBzvjPqZc/CxIXbiTkdRhCrg=
 github.com/gardener/external-dns-management v0.28.0 h1:zAU5wW7aGkg2Syb/QqN56v/uUWL1BOMvUIE8XPFo87w=
 github.com/gardener/external-dns-management v0.28.0/go.mod h1:ruNKzI+peCHaTJHr14aq9iogiMfwxyOziMv6QFNyx6Y=
 github.com/gardener/gardener v1.129.1 h1:w1WLmEo/1IqLV5vyWI+X+ZbfgX7vkloJf3Rv5Vud8QU=
