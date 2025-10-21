@@ -104,7 +104,7 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 			preference := ec2types.CapacityReservationPreference(*capacityOpts.CapacityReservationPreference)
 			knownValues := preference.Values()
 
-			if !slices.Contains(knownValues, ec2types.CapacityReservationPreference(preference)) {
+			if !slices.Contains(knownValues, preference) {
 				allErrs = append(
 					allErrs,
 					field.NotSupported(
