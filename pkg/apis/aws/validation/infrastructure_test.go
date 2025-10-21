@@ -221,12 +221,12 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should reject non-alphanumeric endpoints", func() {
-					infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"s3", "my-endpoint"}
+					infrastructureConfig.Networks.VPC.GatewayEndpoints = []string{"s3", "my_endpoint", "guardduty-data"}
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 					Expect(errorList).To(ConsistOfFields(Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("networks.vpc.gatewayEndpoints[1]"),
-						"BadValue": Equal("my-endpoint"),
+						"BadValue": Equal("my_endpoint"),
 						"Detail":   Equal(fmt.Sprintf("does not match expected regex %s", GatewayEndpointRegex)),
 					}))
 				})

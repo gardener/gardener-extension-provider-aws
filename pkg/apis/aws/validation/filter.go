@@ -31,7 +31,7 @@ var (
 	// TagKeyRegex matches Letters (a–z, A–Z), numbers (0–9), spaces, and the following symbols: + - = . _ : / @
 	TagKeyRegex = `^[\w +\-=\.:/@]+$`
 	// GatewayEndpointRegex matches one or more word characters, optionally followed by dot-separated word segments
-	GatewayEndpointRegex = `^\w+(\.\w+)*$`
+	GatewayEndpointRegex = `^[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*$`
 
 	validateK8sResourceName        = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                  = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))
