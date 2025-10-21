@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
@@ -96,35 +97,53 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	}
 
 	if workerConfig.CapacityReservation != nil {
-		// This validation follows the CLI examples outlined in https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/capacity-reservations-launch.html
 		childPath := fldPath.Child("capacityReservationOptions")
 		capacityOpts := *workerConfig.CapacityReservation
 
-		if capacityOpts.CapacityReservationID != nil && capacityOpts.CapacityReservationResourceGroupARN != nil {
-			allErrs = append(
-				allErrs,
-				field.Forbidden(
-					childPath.Child("capacityReservationID"),
-					"only one of 'capacityReservationId' and 'capacityReservationResourceGroupArn' may be given",
-				),
-			)
-		}
-
 		if capacityOpts.CapacityReservationPreference != nil {
-			preference := *capacityOpts.CapacityReservationPreference
-			if preference == "open" || preference == "none" {
+			preference := ec2types.CapacityReservationPreference(*capacityOpts.CapacityReservationPreference)
+			knownValues := preference.Values()
+
+			if !slices.Contains(knownValues, ec2types.CapacityReservationPreference(preference)) {
+				allErrs = append(
+					allErrs,
+					field.NotSupported(
+						childPath.Child("capacityReservationPreference"),
+						preference,
+						knownValues))
+			}
+
+			if preference != ec2types.CapacityReservationPreferenceCapacityReservationsOnly {
 				if capacityOpts.CapacityReservationID != nil || capacityOpts.CapacityReservationResourceGroupARN != nil {
 					allErrs = append(
 						allErrs,
 						field.Forbidden(
 							childPath.Child("capacityReservationPreference"),
-							"'capacityReservationId' or 'capacityReservationResourceGroupArn' may only be given if 'capacityReservationPreference' is 'capacity-reservations-only' or absent",
+							fmt.Sprintf(
+								"'capacityReservationId' or 'capacityReservationResourceGroupArn' may only be given if 'capacityReservationPreference' is '%s' (or absent)",
+								ec2types.CapacityReservationPreferenceCapacityReservationsOnly,
+							),
 						),
 					)
 				}
-			} else if preference != "capacity-reservations-only" {
-				allErrs = append(allErrs, field.NotSupported(childPath.Child("capacityReservationPreference"), preference, []string{"capacity-reservations-only", "open", "none"}))
 			}
+		}
+
+		if capacityOpts.CapacityReservationID != nil {
+			allErrs = append(allErrs, validateCapacityReservationID(*capacityOpts.CapacityReservationID, childPath.Child("capacityReservationId"))...)
+		}
+		if capacityOpts.CapacityReservationResourceGroupARN != nil {
+			allErrs = append(allErrs, validateCapacityReservationGroup(*capacityOpts.CapacityReservationResourceGroupARN, childPath.Child("capacityReservationResourceGroupArn"))...)
+		}
+
+		if capacityOpts.CapacityReservationID != nil && capacityOpts.CapacityReservationResourceGroupARN != nil {
+			allErrs = append(
+				allErrs,
+				field.Forbidden(
+					childPath.Child("capacityReservationId"),
+					"only one of 'capacityReservationId' and 'capacityReservationResourceGroupArn' may be given",
+				),
+			)
 		}
 	}
 

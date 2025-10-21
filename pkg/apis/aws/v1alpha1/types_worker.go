@@ -158,6 +158,7 @@ type CpuOptions struct {
 	ThreadsPerCore *int64 `json:"threadsPerCore"`
 }
 
+// CapacityReservation contains configuration about the Capacity Reservation to use for the instance.
 type CapacityReservation struct {
 	// CapacityReservationPreference defines the instance's reservation preferences.
 	CapacityReservationPreference *string `json:"capacityReservationPreference,omitempty"`
