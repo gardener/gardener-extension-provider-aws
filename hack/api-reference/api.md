@@ -538,6 +538,7 @@ string
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
 </p>
 <p>
+<p>CapacityReservation contains configuration about the Capacity Reservation to use for the instance.</p>
 </p>
 <table>
 <thead>
