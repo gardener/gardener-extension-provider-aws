@@ -110,7 +110,9 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 					field.NotSupported(
 						childPath.Child("capacityReservationPreference"),
 						preference,
-						knownValues))
+						knownValues,
+					),
+				)
 			}
 
 			if preference != ec2types.CapacityReservationPreferenceCapacityReservationsOnly {
