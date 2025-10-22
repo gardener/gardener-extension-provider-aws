@@ -734,6 +734,15 @@ var _ = Describe("Machines", func() {
 					machineClassPool1Zone1["blockDevices"] = machineClassPool1BlockDevices
 					machineClassPool1Zone2["blockDevices"] = machineClassPool1BlockDevices
 
+					machineClassPool1Zone1["capacityReservation"] = map[string]string{
+						"capacityReservationPreference":       capacityReservationPreference,
+						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
+					}
+					machineClassPool1Zone2["capacityReservation"] = map[string]string{
+						"capacityReservationPreference":       capacityReservationPreference,
+						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
+					}
+
 					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
 					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "machineType", machineType)
 
