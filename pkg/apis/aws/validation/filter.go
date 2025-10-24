@@ -30,8 +30,6 @@ var (
 	ZoneNameRegex = `^[a-z0-9-]+$`
 	// TagKeyRegex matches Letters (a–z, A–Z), numbers (0–9), spaces, and the following symbols: + - = . _ : / @
 	TagKeyRegex = `^[\w +\-=\.:/@]+$`
-	// GatewayEndpointRegex matches one or more word characters, optionally followed by dot-separated word segments
-	GatewayEndpointRegex = `^\w+(\.\w+)*$`
 
 	validateK8sResourceName        = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                  = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))
@@ -41,7 +39,6 @@ var (
 	validateIamInstanceProfileArn  = combineValidationFuncs(regex(IamInstanceProfileArnRegex), maxLength(255))
 	validateZoneName               = combineValidationFuncs(regex(ZoneNameRegex), maxLength(255))
 	validateTagKey                 = combineValidationFuncs(regex(TagKeyRegex), notEmpty, maxLength(128))
-	validateGatewayEndpointName    = combineValidationFuncs(regex(GatewayEndpointRegex), maxLength(255))
 )
 
 type validateFunc[T any] func(T, *field.Path) field.ErrorList
