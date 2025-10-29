@@ -439,6 +439,7 @@ func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfi
 	return additionalData
 }
 
+// ComputeWorkerConfigHashData computes hash data strings for the given AWS WorkerConfig aka ProviderConfig
 func ComputeWorkerConfigHashData(workerConfig *awsapi.WorkerConfig) []string {
 	var hashData []string
 	if workerConfig.NodeTemplate != nil && workerConfig.NodeTemplate.Capacity != nil {
