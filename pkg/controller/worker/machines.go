@@ -104,7 +104,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 		}
 
-		workerPoolHash, err := w.generateWorkerPoolHash(pool)
+		workerPoolHash, err := w.generateWorkerPoolHash(pool, workerConfig)
 		if err != nil {
 			return err
 		}
@@ -194,16 +194,21 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			var nodeTemplate machinev1alpha1.NodeTemplate
 			if pool.NodeTemplate != nil {
 				nodeTemplate = machinev1alpha1.NodeTemplate{
-					Capacity:     pool.NodeTemplate.Capacity,
-					InstanceType: pool.MachineType,
-					Region:       w.worker.Spec.Region,
-					Zone:         zone,
-					Architecture: &arch,
+					Capacity:        pool.NodeTemplate.Capacity,
+					VirtualCapacity: pool.NodeTemplate.VirtualCapacity,
+					InstanceType:    pool.MachineType,
+					Region:          w.worker.Spec.Region,
+					Zone:            zone,
+					Architecture:    &arch,
 				}
 			}
 			if workerConfig.NodeTemplate != nil {
-				// Support providerConfig extended resources by copying into node template capacity
+				// Support providerConfig extended resources by copying into node template capacity and virtualCapacity
 				maps.Copy(nodeTemplate.Capacity, workerConfig.NodeTemplate.Capacity)
+				if nodeTemplate.VirtualCapacity == nil {
+					nodeTemplate.VirtualCapacity = corev1.ResourceList{}
+				}
+				maps.Copy(nodeTemplate.VirtualCapacity, workerConfig.NodeTemplate.VirtualCapacity)
 			}
 			machineClassSpec["nodeTemplate"] = nodeTemplate
 
@@ -344,8 +349,8 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	return blockDevices, nil
 }
 
-func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool) (string, error) {
-	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool), ComputeAdditionalHashDataInPlace(pool))
+func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) (string, error) {
+	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool, workerConfig), ComputeAdditionalHashDataInPlace(pool))
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -419,16 +424,76 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 
 // ComputeAdditionalHashDataV2 computes additional hash data for the worker pool. It returns a slice of strings containing the
 // additional data used for hashing.
-func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool) []string {
+func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) []string {
 	var additionalData = ComputeAdditionalHashDataV1(pool)
-
-	// in the future, we may not calculate a hash for the whole ProviderConfig
-	// for example volume IOPS changes could be done in place
-	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
-		additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
+	if workerConfig != nil {
+		additionalData = append(additionalData, ComputeWorkerConfigHashData(workerConfig)...)
 	}
 
+	//// in the future, we may not calculate a hash for the whole ProviderConfig
+	//// for example volume IOPS changes could be done in place
+	//if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
+	//	additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
+	//}
+
 	return additionalData
+}
+
+func ComputeWorkerConfigHashData(workerConfig *awsapi.WorkerConfig) []string {
+	var hashData []string
+	if workerConfig.NodeTemplate != nil && workerConfig.NodeTemplate.Capacity != nil {
+		for n, q := range workerConfig.NodeTemplate.Capacity {
+			// Capacity is part of the hash data, VirtualCapacity is not
+			hashData = append(hashData, fmt.Sprintf("%s:%d", n, q.Value()))
+		}
+	}
+	if workerConfig.Volume != nil && workerConfig.Volume.IOPS != nil {
+		// In the future, volume IOPS changes need not be part of hash
+		hashData = append(hashData, strconv.FormatInt(*workerConfig.Volume.IOPS, 10))
+	}
+	for _, dv := range workerConfig.DataVolumes {
+		hashData = append(hashData, dv.Name)
+
+		if dv.IOPS != nil {
+			// In the future, volume IOPS changes need not be part of hash
+			hashData = append(hashData, strconv.FormatInt(*dv.IOPS, 10))
+		}
+
+		if dv.Throughput != nil {
+			hashData = append(hashData, strconv.FormatInt(*dv.Throughput, 10))
+		}
+		if dv.SnapshotID != nil {
+			hashData = append(hashData, *dv.SnapshotID)
+		}
+	}
+	if workerConfig.IAMInstanceProfile != nil {
+		if workerConfig.IAMInstanceProfile.Name != nil {
+			hashData = append(hashData, *workerConfig.IAMInstanceProfile.Name)
+		}
+		if workerConfig.IAMInstanceProfile.ARN != nil {
+			hashData = append(hashData, *workerConfig.IAMInstanceProfile.ARN)
+		}
+	}
+
+	if workerConfig.InstanceMetadataOptions != nil {
+		if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
+			hashData = append(hashData, string(*workerConfig.InstanceMetadataOptions.HTTPTokens))
+		}
+		if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit, 10))
+		}
+	}
+
+	if workerConfig.CpuOptions != nil {
+		if workerConfig.CpuOptions.CoreCount != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.CpuOptions.CoreCount, 10))
+		}
+		if workerConfig.CpuOptions.ThreadsPerCore != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.CpuOptions.ThreadsPerCore, 10))
+		}
+	}
+
+	return hashData
 }
 
 // ComputeAdditionalHashDataInPlace computes additional hash data for a worker pool with in-place update strategy.

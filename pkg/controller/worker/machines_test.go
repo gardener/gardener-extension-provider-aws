@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"maps"
 	"path/filepath"
 	"strconv"
@@ -1130,18 +1131,24 @@ var _ = Describe("Machines", func() {
 					Expect(err).To(HaveOccurred())
 				})
 
-				It("should return generate machine classes with core and extended resources in the nodeTemplate", func() {
+				It("should generate machine classes with core, extended and virtual resources in the nodeTemplate", func() {
 					ephemeralStorageQuant := resource.MustParse("30Gi")
 					dongleName := corev1.ResourceName("resources.com/dongle")
 					dongleQuant := resource.MustParse("4")
+					virtalResourceName := corev1.ResourceName("subdomain.domain.com/virtual-resource-name")
+					virtualResourceQuant := resource.MustParse("1024")
 					customResources := corev1.ResourceList{
 						corev1.ResourceEphemeralStorage: ephemeralStorageQuant,
 						dongleName:                      dongleQuant,
 					}
+					customVirtualResources := corev1.ResourceList{
+						virtalResourceName: virtualResourceQuant,
+					}
 					w.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
 						Raw: encode(&api.WorkerConfig{
 							NodeTemplate: &extensionsv1alpha1.NodeTemplate{
-								Capacity: customResources,
+								Capacity:        customResources,
+								VirtualCapacity: customVirtualResources,
 							},
 						}),
 					}
@@ -1161,8 +1168,75 @@ var _ = Describe("Machines", func() {
 						if strings.Contains(className, namePool1) {
 							nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
 							Expect(nt.Capacity).To(Equal(expectedCapacity))
+							Expect(nt.VirtualCapacity).To(Equal(customVirtualResources))
 						}
 					}
+				})
+
+				It("should generate machine classes with same name even when virtualCapacity changes", Label("machineClass", "virtualCapacity"), func() {
+					virtualResourceName := corev1.ResourceName("subdomain.domain.com/virtual-resource-name")
+					virtualResourceQuant1 := resource.MustParse("1024")
+					customVirtualResources1 := corev1.ResourceList{
+						virtualResourceName: virtualResourceQuant1,
+					}
+					w1 := w.DeepCopy()
+					w1.Spec.Pools[0].NodeAgentSecretName = ptr.To("dummy") // To Ensure that WorkerPoolHashV2 is used
+					w1.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
+						Raw: encode(&api.WorkerConfig{
+							NodeTemplate: &extensionsv1alpha1.NodeTemplate{
+								VirtualCapacity: customVirtualResources1,
+							},
+						}),
+					}
+
+					wd1, err := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w1, cluster)
+					Expect(err).NotTo(HaveOccurred())
+					expectedUserDataSecretRefRead()
+					_, err = wd1.GenerateMachineDeployments(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					workerDelegate1 := wd1.(*WorkerDelegate)
+					mClasses1 := workerDelegate1.GetMachineClasses()
+					classNames1 := sets.New[string]()
+					for _, mClz := range mClasses1 {
+						className := mClz["name"].(string)
+						if strings.Contains(className, namePool1) {
+							nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
+							GinkgoWriter.Printf("className:%q,virtualCapacity:%v\n", className, nt.VirtualCapacity)
+							Expect(nt.VirtualCapacity).To(Equal(customVirtualResources1))
+							classNames1.Insert(className)
+						}
+					}
+
+					virtualResourceQuant2 := resource.MustParse("2048")
+					customVirtualResources2 := corev1.ResourceList{
+						virtualResourceName: virtualResourceQuant2,
+					}
+					w2 := w1.DeepCopy()
+					w2.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
+						Raw: encode(&api.WorkerConfig{
+							NodeTemplate: &extensionsv1alpha1.NodeTemplate{
+								VirtualCapacity: customVirtualResources2,
+							},
+						}),
+					}
+					wd2, err := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w2, cluster)
+					Expect(err).NotTo(HaveOccurred())
+					//expectedUserDataSecretRefRead()
+					_, err = wd2.GenerateMachineDeployments(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					workerDelegate2 := wd2.(*WorkerDelegate)
+					mClasses2 := workerDelegate2.GetMachineClasses()
+					classNames2 := sets.New[string]()
+					for _, mClz := range mClasses2 {
+						className := mClz["name"].(string)
+						if strings.Contains(className, namePool1) {
+							nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
+							GinkgoWriter.Printf("className:%q,virtualCapacity:%v\n", className, nt.VirtualCapacity)
+							Expect(nt.VirtualCapacity).To(Equal(customVirtualResources2))
+							classNames2.Insert(className)
+						}
+					}
+					Expect(classNames1).To(Equal(classNames2))
 				})
 			})
 
@@ -1422,7 +1496,7 @@ var _ = Describe("Machines", func() {
 					})
 
 					It("should return the expected hash data for Rolling update strategy", func() {
-						Expect(ComputeAdditionalHashDataV2(pool)).To(Equal([]string{
+						Expect(ComputeAdditionalHashDataV2(pool, &workerConfig)).To(Equal([]string{
 							"true",
 							"10Gi",
 							"type1",
@@ -1430,7 +1504,12 @@ var _ = Describe("Machines", func() {
 							"20Gi",
 							"type2",
 							"false",
-							string(workerConfigData),
+							*workerConfig.IAMInstanceProfile.Name,
+							*workerConfig.IAMInstanceProfile.ARN,
+							string(*workerConfig.InstanceMetadataOptions.HTTPTokens),
+							strconv.FormatInt(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit, 10),
+							strconv.FormatInt(*workerConfig.CpuOptions.CoreCount, 10),
+							strconv.FormatInt(*workerConfig.CpuOptions.ThreadsPerCore, 10),
 						}))
 					})
 				})
