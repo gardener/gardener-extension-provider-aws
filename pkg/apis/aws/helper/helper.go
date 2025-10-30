@@ -73,6 +73,7 @@ func FindSubnetForPurpose(subnets []api.Subnet, purpose string) (*api.Subnet, er
 // an error will be returned.
 func FindSubnetForPurposeAndZone(subnets []api.Subnet, purpose, zone string) (*api.Subnet, error) {
 	// sort subnets to guarantee returning the same subnet for the edge case of duplicated zones
+	// TODO @hebelsan: remove after duplicated zones are fixed
 	subnetsCopy := append([]api.Subnet(nil), subnets...)
 	sort.Slice(subnetsCopy, func(i, j int) bool {
 		return subnetsCopy[i].ID < subnetsCopy[j].ID
