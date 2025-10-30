@@ -1180,6 +1180,7 @@ var _ = Describe("Machines", func() {
 						virtualResourceName: virtualResourceQuant1,
 					}
 					w1 := w.DeepCopy()
+					w1.Spec.Pools[0].KubernetesVersion = ptr.To("1.33.6")
 					w1.Spec.Pools[0].NodeAgentSecretName = ptr.To("dummy") // To Ensure that WorkerPoolHashV2 is used
 					w1.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
 						Raw: encode(&api.WorkerConfig{
@@ -1212,6 +1213,7 @@ var _ = Describe("Machines", func() {
 						virtualResourceName: virtualResourceQuant2,
 					}
 					w2 := w1.DeepCopy()
+					w2.Spec.Pools[0].KubernetesVersion = ptr.To("1.34.0")
 					w2.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
 						Raw: encode(&api.WorkerConfig{
 							NodeTemplate: &extensionsv1alpha1.NodeTemplate{
@@ -1496,6 +1498,19 @@ var _ = Describe("Machines", func() {
 					})
 
 					It("should return the expected hash data for Rolling update strategy", func() {
+						Expect(ComputeAdditionalHashDataV2(pool, &workerConfig)).To(Equal([]string{
+							"true",
+							"10Gi",
+							"type1",
+							"true",
+							"20Gi",
+							"type2",
+							"false",
+							string(workerConfigData),
+						}))
+					})
+					It("should return the expected hash data for Rolling update strategy for newer clusters", func() {
+						pool.KubernetesVersion = ptr.To("1.33.5")
 						Expect(ComputeAdditionalHashDataV2(pool, &workerConfig)).To(Equal([]string{
 							"true",
 							"10Gi",

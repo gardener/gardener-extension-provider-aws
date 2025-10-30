@@ -28,6 +28,7 @@ import (
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -350,7 +351,11 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 }
 
 func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) (string, error) {
-	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool, workerConfig), ComputeAdditionalHashDataInPlace(pool))
+	v2HashData, err := ComputeAdditionalHashDataV2(pool, workerConfig)
+	if err != nil {
+		return "", err
+	}
+	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), v2HashData, ComputeAdditionalHashDataInPlace(pool))
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -424,19 +429,24 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 
 // ComputeAdditionalHashDataV2 computes additional hash data for the worker pool. It returns a slice of strings containing the
 // additional data used for hashing.
-func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) []string {
+func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]string, error) {
 	var additionalData = ComputeAdditionalHashDataV1(pool)
-	if workerConfig != nil {
-		additionalData = append(additionalData, ComputeWorkerConfigHashData(workerConfig)...)
+	if pool.KubernetesVersion != nil && *pool.KubernetesVersion != "" {
+		poolVersion, err := version.Parse(*pool.KubernetesVersion)
+		if err != nil {
+			return nil, err
+		}
+		if poolVersion.AtLeast(version.MustParse("1.33.4")) && workerConfig != nil {
+			// new hash data only for newer clusters.
+			additionalData = append(additionalData, ComputeWorkerConfigHashData(workerConfig)...)
+			return additionalData, nil
+		}
 	}
-
-	//// in the future, we may not calculate a hash for the whole ProviderConfig
-	//// for example volume IOPS changes could be done in place
-	//if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
-	//	additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
-	//}
-
-	return additionalData
+	// keep old hash for existing clusters to avoid triggering rollout
+	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
+		additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
+	}
+	return additionalData, nil
 }
 
 // ComputeWorkerConfigHashData computes hash data strings for the given AWS WorkerConfig aka ProviderConfig
