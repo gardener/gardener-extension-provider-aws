@@ -6,6 +6,7 @@ package helper
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	"github.com/gardener/gardener/extensions/pkg/util"
@@ -71,7 +72,13 @@ func FindSubnetForPurpose(subnets []api.Subnet, purpose string) (*api.Subnet, er
 // whose purpose and zone matches with the given purpose and zone. If no such entry is found then
 // an error will be returned.
 func FindSubnetForPurposeAndZone(subnets []api.Subnet, purpose, zone string) (*api.Subnet, error) {
-	for _, subnet := range subnets {
+	// sort subnets to guarantee returning the same subnet for the edge case of duplicated zones
+	subnetsCopy := append([]api.Subnet(nil), subnets...)
+	sort.Slice(subnetsCopy, func(i, j int) bool {
+		return subnetsCopy[i].ID < subnetsCopy[j].ID
+	})
+
+	for _, subnet := range subnetsCopy {
 		if subnet.Purpose == purpose && subnet.Zone == zone {
 			return &subnet, nil
 		}
