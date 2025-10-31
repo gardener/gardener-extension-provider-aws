@@ -342,6 +342,46 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 				"Detail": Equal("machine image image-3 is not defined in the NamespacedCloudProfile providerConfig"),
 			}))))
 		})
+
+		It("should succeed if parent and NamespacedCloudProfile use different format regarding architecture and capabilities", func() {
+			// parent cloudprofile uses regions only & namespaced cloudprofile uses capabilities
+			amiMappings := `"regions":[{"name":"eu1","ami":"ami-123"}]`
+			namespacedAmiMappings := `{"name":"image-1","versions":[{"version":"1.1","capabilityFlavors":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]}]},
+  {"name":"image-2","versions":[{"version":"2.0","capabilityFlavors":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]}]}`
+			if isCapabilitiesCloudProfile {
+				// parent cloudprofile uses capabilities & namespaced cloudprofile uses regions only
+				amiMappings = `"capabilityFlavors":[{"regions":[{"name":"eu1","ami":"ami-123"}]}]`
+				namespacedAmiMappings = `{"name":"image-1","versions":[{"version":"1.1","regions":[{"name":"eu1","ami":"ami-123"}]}]},
+  {"name":"image-2","versions":[{"version":"2.0","regions":[{"name":"eu1","ami":"ami-123"}]}]}`
+			}
+
+			cloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(fmt.Sprintf(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[{"name":"image-1","versions":[{"version":"1.0",%s}]}]
+}`, amiMappings))}
+			namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(fmt.Sprintf(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[%s]
+}`, namespacedAmiMappings))}
+			namespacedCloudProfile.Spec.MachineImages = []core.MachineImage{
+				{
+					Name:     "image-1",
+					Versions: []core.MachineImageVersion{{ExpirableVersion: core.ExpirableVersion{Version: "1.1"}, Architectures: []string{"amd64"}}},
+				},
+				{
+					Name:     "image-2",
+					Versions: []core.MachineImageVersion{{ExpirableVersion: core.ExpirableVersion{Version: "2.0"}, Architectures: []string{"amd64"}}},
+				},
+			}
+			namespacedCloudProfile.Spec.MachineTypes = []core.MachineType{
+				{Name: "type-2"},
+			}
+			Expect(fakeClient.Create(ctx, cloudProfile)).To(Succeed())
+
+			Expect(namespacedCloudProfileValidator.Validate(ctx, namespacedCloudProfile, nil)).To(Succeed())
+		})
 	})
 },
 	Entry("CloudProfile uses regions only", false),

@@ -242,7 +242,7 @@ func validateImageFlavorMapping(machineImage core.MachineImage, version core.Mac
 		isFound := false
 		// search for the corresponding imageVersion.MachineImageFlavor
 		for _, providerCapabilitySet := range imageVersion.CapabilityFlavors {
-			providerDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilityDefinitions)
+			providerDefaultedCapabilities := gardencorev1beta1.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilityDefinitions)
 			if gardencorev1beta1helper.AreCapabilitiesEqual(defaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
 				isFound = true
 				break
@@ -254,17 +254,4 @@ func validateImageFlavorMapping(machineImage core.MachineImage, version core.Mac
 		}
 	}
 	return allErrs
-}
-
-// RestrictToArchitectureCapability ensures that for the transition period from the deprecated architecture fields to the capabilities format only the `architecture` capability is used to support automatic transformation and migration.
-// TODO(Roncossek): Delete this function once the dedicated architecture fields on MachineType and MachineImageVersion have been removed.
-func RestrictToArchitectureCapability(capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, child *field.Path) error {
-	allErrs := field.ErrorList{}
-	for i, def := range capabilityDefinitions {
-		idxPath := child.Index(i)
-		if def.Name != v1beta1constants.ArchitectureName {
-			allErrs = append(allErrs, field.NotSupported(idxPath.Child("name"), def.Name, []string{v1beta1constants.ArchitectureName}))
-		}
-	}
-	return allErrs.ToAggregate()
 }
