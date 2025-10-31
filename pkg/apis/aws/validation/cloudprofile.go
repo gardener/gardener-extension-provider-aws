@@ -255,16 +255,3 @@ func validateImageFlavorMapping(machineImage core.MachineImage, version core.Mac
 	}
 	return allErrs
 }
-
-// RestrictToArchitectureCapability ensures that for the transition period from the deprecated architecture fields to the capabilities format only the `architecture` capability is used to support automatic transformation and migration.
-// TODO(Roncossek): Delete this function once the dedicated architecture fields on MachineType and MachineImageVersion have been removed.
-func RestrictToArchitectureCapability(capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, child *field.Path) error {
-	allErrs := field.ErrorList{}
-	for i, def := range capabilityDefinitions {
-		idxPath := child.Index(i)
-		if def.Name != v1beta1constants.ArchitectureName {
-			allErrs = append(allErrs, field.NotSupported(idxPath.Child("name"), def.Name, []string{v1beta1constants.ArchitectureName}))
-		}
-	}
-	return allErrs.ToAggregate()
-}
