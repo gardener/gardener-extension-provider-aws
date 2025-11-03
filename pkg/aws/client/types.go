@@ -337,8 +337,8 @@ const (
 // SecurityGroupRule contains the relevant fields of a EC2 security group rule resource.
 type SecurityGroupRule struct {
 	Type         SecurityGroupRuleType
-	FromPort     int32
-	ToPort       int32
+	FromPort     *int32
+	ToPort       *int32
 	Protocol     string
 	CidrBlocks   []string
 	CidrBlocksv6 []string
@@ -390,17 +390,21 @@ func (sgr *SecurityGroupRule) LessThan(other *SecurityGroupRule) bool {
 	if sgr.Protocol > other.Protocol {
 		return false
 	}
-	if sgr.FromPort < other.FromPort {
-		return true
+	if sgr.FromPort != nil && other.FromPort != nil {
+		if *sgr.FromPort < *other.FromPort {
+			return true
+		}
+		if *sgr.FromPort > *other.FromPort {
+			return false
+		}
 	}
-	if sgr.FromPort > other.FromPort {
-		return false
-	}
-	if sgr.ToPort < other.ToPort {
-		return true
-	}
-	if sgr.ToPort > other.ToPort {
-		return false
+	if sgr.ToPort != nil && other.ToPort != nil {
+		if *sgr.ToPort < *other.ToPort {
+			return true
+		}
+		if *sgr.ToPort > *other.ToPort {
+			return false
+		}
 	}
 	if sgr.Self != other.Self {
 		return other.Self
