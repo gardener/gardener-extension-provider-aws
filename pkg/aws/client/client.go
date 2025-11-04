@@ -1680,12 +1680,6 @@ func (c *Client) GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error
 	return c.describeSubnets(ctx, input)
 }
 
-// FindSubnetsByTags finds subnet resources matching the given tag map.
-func (c *Client) FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, error) {
-	input := &ec2.DescribeSubnetsInput{Filters: tags.ToFilters()}
-	return c.describeSubnets(ctx, input)
-}
-
 // FindSubnets finds subnets matching the given filters.
 func (c *Client) FindSubnets(ctx context.Context, filters []ec2types.Filter) ([]*Subnet, error) {
 	input := &ec2.DescribeSubnetsInput{Filters: filters}
@@ -2020,12 +2014,6 @@ func (c *Client) GetKeyPair(ctx context.Context, keyName string) (*KeyPairInfo, 
 	input := &ec2.DescribeKeyPairsInput{KeyNames: []string{keyName}}
 	output, err := c.describeKeyPairs(ctx, input)
 	return single(output, err)
-}
-
-// FindKeyPairsByTags finds EC key pair resources matching the given tag map.
-func (c *Client) FindKeyPairsByTags(ctx context.Context, tags Tags) ([]*KeyPairInfo, error) {
-	input := &ec2.DescribeKeyPairsInput{Filters: tags.ToFilters()}
-	return c.describeKeyPairs(ctx, input)
 }
 
 func (c *Client) describeKeyPairs(ctx context.Context, input *ec2.DescribeKeyPairsInput) ([]*KeyPairInfo, error) {

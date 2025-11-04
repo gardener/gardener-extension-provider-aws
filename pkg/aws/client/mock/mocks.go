@@ -912,21 +912,6 @@ func (mr *MockInterfaceMockRecorder) FindInternetGatewaysByTags(ctx, tags any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindInternetGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindInternetGatewaysByTags), ctx, tags)
 }
 
-// FindKeyPairsByTags mocks base method.
-func (m *MockInterface) FindKeyPairsByTags(ctx context.Context, tags client.Tags) ([]*client.KeyPairInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindKeyPairsByTags", ctx, tags)
-	ret0, _ := ret[0].([]*client.KeyPairInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindKeyPairsByTags indicates an expected call of FindKeyPairsByTags.
-func (mr *MockInterfaceMockRecorder) FindKeyPairsByTags(ctx, tags any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindKeyPairsByTags", reflect.TypeOf((*MockInterface)(nil).FindKeyPairsByTags), ctx, tags)
-}
-
 // FindNATGateways mocks base method.
 func (m *MockInterface) FindNATGateways(ctx context.Context, filters []types.Filter) ([]*client.NATGateway, error) {
 	m.ctrl.T.Helper()
@@ -1000,21 +985,6 @@ func (m *MockInterface) FindSubnets(ctx context.Context, filters []types.Filter)
 func (mr *MockInterfaceMockRecorder) FindSubnets(ctx, filters any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnets", reflect.TypeOf((*MockInterface)(nil).FindSubnets), ctx, filters)
-}
-
-// FindSubnetsByTags mocks base method.
-func (m *MockInterface) FindSubnetsByTags(ctx context.Context, tags client.Tags) ([]*client.Subnet, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindSubnetsByTags", ctx, tags)
-	ret0, _ := ret[0].([]*client.Subnet)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindSubnetsByTags indicates an expected call of FindSubnetsByTags.
-func (mr *MockInterfaceMockRecorder) FindSubnetsByTags(ctx, tags any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnetsByTags", reflect.TypeOf((*MockInterface)(nil).FindSubnetsByTags), ctx, tags)
 }
 
 // FindVpcDhcpOptionsByTags mocks base method.

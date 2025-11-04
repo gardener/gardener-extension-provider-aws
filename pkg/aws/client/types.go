@@ -134,7 +134,6 @@ type Interface interface {
 	// Subnets
 	CreateSubnet(ctx context.Context, subnet *Subnet, maxWaitDur time.Duration) (*Subnet, error)
 	GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error)
-	FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, error)
 	FindSubnets(ctx context.Context, filters []ec2types.Filter) ([]*Subnet, error)
 	UpdateSubnetAttributes(ctx context.Context, desired, current *Subnet) (modified bool, err error)
 	DeleteSubnet(ctx context.Context, id string) error
@@ -171,7 +170,6 @@ type Interface interface {
 	// Key pairs
 	ImportKeyPair(ctx context.Context, keyName string, publicKey []byte, tags Tags) (*KeyPairInfo, error)
 	GetKeyPair(ctx context.Context, keyName string) (*KeyPairInfo, error)
-	FindKeyPairsByTags(ctx context.Context, tags Tags) ([]*KeyPairInfo, error)
 	DeleteKeyPair(ctx context.Context, keyName string) error
 
 	// IAM Role
