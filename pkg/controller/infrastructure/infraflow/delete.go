@@ -150,7 +150,10 @@ func (c *FlowContext) deleteInternetGateway(ctx context.Context) error {
 	}
 	log := LogFromContext(ctx)
 	current, err := FindExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
-		c.client.GetInternetGateway, c.client.FindInternetGatewaysByTags)
+		c.client.GetInternetGateway, c.client.FindInternetGatewaysByTags,
+		func(item *awsclient.InternetGateway) bool {
+			return item.VpcId == c.state.Get(IdentifierVPC)
+		})
 	if err != nil {
 		return err
 	}
@@ -174,7 +177,10 @@ func (c *FlowContext) deleteEgressOnlyInternetGateway(ctx context.Context) error
 	}
 	log := LogFromContext(ctx)
 	current, err := FindExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
-		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags)
+		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags,
+		func(item *awsclient.EgressOnlyInternetGateway) bool {
+			return item.VpcId == c.state.Get(IdentifierVPC)
+		})
 	if err != nil {
 		return err
 	}
@@ -258,7 +264,10 @@ func (c *FlowContext) deleteMainRouteTable(ctx context.Context) error {
 
 	log := LogFromContext(ctx)
 	current, err := FindExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
-		c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+		c.client.GetRouteTable, c.client.FindRouteTablesByTags,
+		func(item *awsclient.RouteTable) bool {
+			return item.VpcId == c.state.Get(IdentifierVPC)
+		})
 	if err != nil {
 		return err
 	}
@@ -280,7 +289,9 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
-		func(item *awsclient.SecurityGroup) bool { return item.GroupName == groupName })
+		func(item *awsclient.SecurityGroup) bool {
+			return item.GroupName == groupName && item.VpcId == c.state.Get(IdentifierVPC)
+		})
 	if err != nil {
 		return err
 	}

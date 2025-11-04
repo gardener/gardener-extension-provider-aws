@@ -2552,6 +2552,7 @@ func fromNatGateway(item *ec2types.NatGateway) *NATGateway {
 		PublicIP:        publicIP,
 		SubnetId:        aws.ToString(item.SubnetId),
 		State:           string(item.State),
+		VpcId:           item.VpcId,
 	}
 }
 

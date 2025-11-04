@@ -549,6 +549,7 @@ type NATGateway struct {
 	PublicIP        string
 	SubnetId        string
 	State           string
+	VpcId           *string
 }
 
 // KeyPairInfo contains the relevant fields for an EC2 key pair.
