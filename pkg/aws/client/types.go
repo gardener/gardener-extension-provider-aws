@@ -116,7 +116,7 @@ type Interface interface {
 	// VPC Endpoints
 	CreateVpcEndpoint(ctx context.Context, endpoint *VpcEndpoint) (*VpcEndpoint, error)
 	GetVpcEndpoints(ctx context.Context, ids []string) ([]*VpcEndpoint, error)
-	FindVpcEndpointsByTags(ctx context.Context, tags Tags) ([]*VpcEndpoint, error)
+	FindVpcEndpoints(ctx context.Context, filters []ec2types.Filter) ([]*VpcEndpoint, error)
 	DeleteVpcEndpoint(ctx context.Context, id string) error
 
 	// VPC Endpoints Route table associations
@@ -158,6 +158,7 @@ type Interface interface {
 	WaitForNATGatewayAvailable(ctx context.Context, id string) error
 	GetNATGateway(ctx context.Context, id string) (*NATGateway, error)
 	FindNATGatewaysByTags(ctx context.Context, tags Tags) ([]*NATGateway, error)
+	FindNATGateways(ctx context.Context, filters []ec2types.Filter) ([]*NATGateway, error)
 	DeleteNATGateway(ctx context.Context, id string) error
 
 	// Egress only internet gateway

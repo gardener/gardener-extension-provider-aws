@@ -1421,9 +1421,9 @@ func (c *Client) GetVpcEndpoints(ctx context.Context, ids []string) ([]*VpcEndpo
 	return c.describeVpcEndpoints(ctx, input)
 }
 
-// FindVpcEndpointsByTags finds VPC endpoint resources matching the given tag map.
-func (c *Client) FindVpcEndpointsByTags(ctx context.Context, tags Tags) ([]*VpcEndpoint, error) {
-	input := &ec2.DescribeVpcEndpointsInput{Filters: tags.ToFilters()}
+// FindVpcEndpoints finds VPC endpoint resources matching the given filters.
+func (c *Client) FindVpcEndpoints(ctx context.Context, filters []ec2types.Filter) ([]*VpcEndpoint, error) {
+	input := &ec2.DescribeVpcEndpointsInput{Filters: filters}
 	return c.describeVpcEndpoints(ctx, input)
 }
 
@@ -1953,6 +1953,12 @@ func (c *Client) GetNATGateway(ctx context.Context, id string) (*NATGateway, err
 // FindNATGatewaysByTags finds NAT gateway resources matching the given tag map.
 func (c *Client) FindNATGatewaysByTags(ctx context.Context, tags Tags) ([]*NATGateway, error) {
 	input := &ec2.DescribeNatGatewaysInput{Filter: tags.ToFilters()}
+	return c.describeNATGateways(ctx, input)
+}
+
+// FindNATGateways finds NAT gateway resources matching the given filters.
+func (c *Client) FindNATGateways(ctx context.Context, filters []ec2types.Filter) ([]*NATGateway, error) {
+	input := &ec2.DescribeNatGatewaysInput{Filter: filters}
 	return c.describeNATGateways(ctx, input)
 }
 

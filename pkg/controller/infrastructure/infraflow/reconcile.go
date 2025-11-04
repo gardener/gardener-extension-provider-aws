@@ -436,7 +436,8 @@ func (c *FlowContext) collectExistingVPCEndpoints(ctx context.Context) ([]*awscl
 		}
 		current = found
 	}
-	foundByTags, err := c.client.FindVpcEndpointsByTags(ctx, c.clusterTags())
+	filters := awsclient.WithFilters().WithVpcId(*c.state.Get(IdentifierVPC)).WithTags(c.clusterTags()).Build()
+	foundByTags, err := c.client.FindVpcEndpoints(ctx, filters)
 	if err != nil {
 		return nil, err
 	}
@@ -685,7 +686,8 @@ func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 	tags := awsclient.Tags{
 		c.tagKeyCluster(): TagValueCluster,
 	}
-	nats, err := c.client.FindNATGatewaysByTags(ctx, tags)
+	filters := awsclient.WithFilters().WithTags(tags).WithVpcId(*c.state.Get(IdentifierVPC)).Build()
+	nats, err := c.client.FindNATGateways(ctx, filters)
 	if err != nil {
 		return err
 	}
