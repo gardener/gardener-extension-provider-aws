@@ -927,6 +927,21 @@ func (mr *MockInterfaceMockRecorder) FindKeyPairsByTags(ctx, tags any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindKeyPairsByTags", reflect.TypeOf((*MockInterface)(nil).FindKeyPairsByTags), ctx, tags)
 }
 
+// FindNATGateways mocks base method.
+func (m *MockInterface) FindNATGateways(ctx context.Context, filters []types.Filter) ([]*client.NATGateway, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindNATGateways", ctx, filters)
+	ret0, _ := ret[0].([]*client.NATGateway)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindNATGateways indicates an expected call of FindNATGateways.
+func (mr *MockInterfaceMockRecorder) FindNATGateways(ctx, filters any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindNATGateways", reflect.TypeOf((*MockInterface)(nil).FindNATGateways), ctx, filters)
+}
+
 // FindNATGatewaysByTags mocks base method.
 func (m *MockInterface) FindNATGatewaysByTags(ctx context.Context, tags client.Tags) ([]*client.NATGateway, error) {
 	m.ctrl.T.Helper()
@@ -1017,19 +1032,19 @@ func (mr *MockInterfaceMockRecorder) FindVpcDhcpOptionsByTags(ctx, tags any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcDhcpOptionsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcDhcpOptionsByTags), ctx, tags)
 }
 
-// FindVpcEndpointsByTags mocks base method.
-func (m *MockInterface) FindVpcEndpointsByTags(ctx context.Context, tags client.Tags) ([]*client.VpcEndpoint, error) {
+// FindVpcEndpoints mocks base method.
+func (m *MockInterface) FindVpcEndpoints(ctx context.Context, filters []types.Filter) ([]*client.VpcEndpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindVpcEndpointsByTags", ctx, tags)
+	ret := m.ctrl.Call(m, "FindVpcEndpoints", ctx, filters)
 	ret0, _ := ret[0].([]*client.VpcEndpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FindVpcEndpointsByTags indicates an expected call of FindVpcEndpointsByTags.
-func (mr *MockInterfaceMockRecorder) FindVpcEndpointsByTags(ctx, tags any) *gomock.Call {
+// FindVpcEndpoints indicates an expected call of FindVpcEndpoints.
+func (mr *MockInterfaceMockRecorder) FindVpcEndpoints(ctx, filters any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcEndpointsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcEndpointsByTags), ctx, tags)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcEndpoints", reflect.TypeOf((*MockInterface)(nil).FindVpcEndpoints), ctx, filters)
 }
 
 // FindVpcsByTags mocks base method.
