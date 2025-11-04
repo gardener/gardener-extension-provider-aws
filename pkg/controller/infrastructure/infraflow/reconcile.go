@@ -2067,6 +2067,7 @@ func calcNextIPv6CidrBlock(currentSubnetCIDR string) (string, error) {
 
 	nextIP := make(net.IP, 16)
 	copy(nextIP, ip)
+	// #nosec G602 -- IPv6 addresses are always 16 bytes, index 7 is safe
 	nextIP[7] = byte(nextIndex)
 
 	nextCIDR := fmt.Sprintf("%s/64", nextIP.String())
