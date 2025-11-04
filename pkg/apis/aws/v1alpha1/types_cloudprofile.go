@@ -36,15 +36,15 @@ type MachineImageVersion struct {
 	// TODO @Roncossek add "// deprecated" once aws cloudprofiles are migrated to use CapabilityFlavors
 
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
-	Regions []RegionAMIMapping `json:"regions"`
+	Regions []RegionAMIMapping `json:"regions,omitempty"`
 	// CapabilityFlavors is grouping of region AMIs by capabilities.
-	CapabilityFlavors []MachineImageFlavor `json:"capabilityFlavors"`
+	CapabilityFlavors []MachineImageFlavor `json:"capabilityFlavors,omitempty"`
 }
 
 // MachineImageFlavor groups all RegionAMIMappings for a specific set of capabilities.
 type MachineImageFlavor struct {
 	// Regions is a mapping to the correct AMI for the machine image in the supported regions.
-	Regions []RegionAMIMapping `json:"regions"`
+	Regions []RegionAMIMapping `json:"regions,omitempty"`
 	// Capabilities that are supported by the AMIs in this set.
 	Capabilities gardencorev1beta1.Capabilities `json:"capabilities,omitempty"`
 }
