@@ -578,11 +578,26 @@ func computeProviderStatusSubnets(infrastructure *api.InfrastructureConfig, valu
 		if err != nil {
 			return nil, err
 		}
-		subnetsToReturn = append(subnetsToReturn, v1alpha1.Subnet{
-			ID:      value,
-			Purpose: purpose,
-			Zone:    infrastructure.Networks.Zones[zoneID].Name,
-		})
+
+		if zoneID < 0 || zoneID >= len(infrastructure.Networks.Zones) {
+			return nil, fmt.Errorf("zone index %d out of range", zoneID)
+		}
+		zone := infrastructure.Networks.Zones[zoneID].Name
+
+		exists := false
+		for _, subnet := range subnetsToReturn {
+			if subnet.Zone == zone && subnet.Purpose == purpose {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			subnetsToReturn = append(subnetsToReturn, v1alpha1.Subnet{
+				ID:      value,
+				Purpose: purpose,
+				Zone:    zone,
+			})
+		}
 	}
 
 	return subnetsToReturn, nil
