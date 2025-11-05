@@ -6,9 +6,6 @@ on:
       version:
         required: true
         type: string
-    secrets:
-      token:
-        required: true
 
 jobs:
   create-branch:
@@ -23,6 +20,8 @@ jobs:
         uses: gardener/cc-utils/.github/actions/setup-git-identity@master
 
       - name: Create new branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Validate input
           if [ -z "${{ inputs.version }}" ]; then
@@ -53,5 +52,3 @@ jobs:
           git add --all
           git commit -m "[bot] Prepare next Development Cycle $NEXT_VERSION"
           git push origin $BRANCH_NAME
-        env:
-          GITHUB_TOKEN: ${{ secrets.token }}
