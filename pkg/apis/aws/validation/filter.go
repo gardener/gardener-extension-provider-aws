@@ -33,8 +33,8 @@ var (
 	// CapacityReservationIDRegex matches IDs of Capacity Reservations. Example: // cr-1234abcd56example
 	CapacityReservationIDRegex = `^cr-[a-z0-9]+$`
 	// CapacityReservationGroupRegex matches resource-group ARNs, e.g.: arn:aws:resource-groups:eu-west-2:123456789012:group/example-cr-group
+	CapacityReservationGroupRegex = `^arn:[\w-]+:resource-groups:[\w +=,.@\-\/:]+$`
 
-	CapacityReservationGroupRegex    = `^arn:[\w-]+:resource-groups:[\w +=,.@\-\/:]+$`
 	validateK8sResourceName          = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                    = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))
 	validateEipAllocationID          = combineValidationFuncs(regex(EipAllocationIDRegex), maxLength(255))
