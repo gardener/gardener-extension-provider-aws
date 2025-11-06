@@ -14,7 +14,6 @@ In this section we are describing how the configuration for `CloudProfile`s look
 
 The cloud profile configuration contains information about the real machine image IDs in the AWS environment (AMIs).
 With the introduction of `spec.machineCapabilities` in Gardener *v1.131.0* you have to map every `capabilityFlavor` in `.spec.machineImages[].versions` here such that the AWS extension knows the AMI for every flavor you want to offer.
-Currently, the only supported Capability is `architecture` with possible values `amd64` and `arm64`. But as soon as the legacy `architectures` field in `.spec.machineImages[].versions` is removed, any capabilities can be mapped here.
 
 If the `spec.machineCapabilities` field is not used in the `CloudProfile`, the legacy `architectures` field in `.spec.machineImages[].versions` is used.
 You have to map every version that you specify in `.spec.machineImages[].versions` here such that the AWS extension knows the AMI for every version you want to offer.
