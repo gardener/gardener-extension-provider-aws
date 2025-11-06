@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -559,14 +560,7 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 func computeProviderStatusSubnets(logger logr.Logger, infrastructure *api.InfrastructureConfig, values map[string]string) ([]v1alpha1.Subnet, error) {
 	var subnetsToReturn []v1alpha1.Subnet
 
-	// iterate over keys in lexicographic order for deterministic ordering
-	keys := make([]string, 0, len(values))
-	for k := range values {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-
-	for _, key := range keys {
+	for _, key := range slices.Sorted(maps.Keys(values)) {
 		value := values[key]
 		var prefix, purpose string
 		switch {
