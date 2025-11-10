@@ -587,7 +587,7 @@ func computeProviderStatusSubnets(logger logr.Logger, infrastructure *api.Infras
 			return s.Zone == zone && s.Purpose == purpose
 		})
 		if zoneExists {
-			logger.Info("Skipping subnet addition to status as zones is already present", "zone", zone, "purpose", purpose)
+			logger.Info("Skipping subnet addition to status as zone is already present", "zone", zone, "purpose", purpose)
 			continue
 		}
 
