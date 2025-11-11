@@ -2039,8 +2039,9 @@ func (c *FlowContext) isVpcMatchingState(vpcID *string) bool {
 	if c.state.Get(IdentifierVPC) == nil {
 		panic("VPC ID not set in state")
 	}
+	// we do not adopt resources that have no VPC ID specified
 	if vpcID == nil {
-		return true
+		return false
 	}
 	return *c.state.Get(IdentifierVPC) == *vpcID
 }
