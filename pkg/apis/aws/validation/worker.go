@@ -97,7 +97,7 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	}
 
 	if workerConfig.CapacityReservation != nil {
-		childPath := fldPath.Child("capacityReservationOptions")
+		childPath := fldPath.Child("capacityReservation")
 		capacityOpts := *workerConfig.CapacityReservation
 
 		if capacityOpts.CapacityReservationPreference != nil {

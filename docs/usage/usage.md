@@ -813,7 +813,7 @@ spec:
 
 ## Use EC2 Capacity Reservations
 
-To have your workers launch into an existing Capacity Reservations, you need to add configuration about the Capacity Reservation into the workers provider-config:
+To have your workers launch into existing Capacity Reservations, you need to add configuration about the Capacity Reservation into the workers provider-config:
 
 ```yaml
 spec:
@@ -833,18 +833,20 @@ spec:
 
 Whether an instance is launched into a Capacity Reservation depends on the subset of configuration that is specified here, and also the Capacity Reservation's instance matching criteria. Some pointers:
 
-- 'capacityReservationPreference' governs the behaviour of the instance to be launched. 'open' allows the instance to run in both Capacity Reservations and as On-Demand. 'capacity-reservations-only' ensures the instance will run _only_ in Capacity Reservations (and fail otherwise) whereas 'none' makes the instance run as On-Demand _only_.
+- `capacityReservationPreference` governs the behaviour of the instance to be launched. `open` allows the instance to run in both Capacity Reservations and as On-Demand. `capacity-reservations-only` ensures the instance will run _only_ in Capacity Reservations (and fail otherwise) whereas `none` makes the instance run as On-Demand _only_.
 - In addition, you can target existing Capacity Reservations either explicitly by their Id, **or** by giving the ARN of the Capacity Reservation Resource Group they belong to. If no target is given, all open Capacity Reservations are considered.
+
+For more information see the AWS EC2 documentation [here](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html).
 
 The exact behaviour depends on the combination of the targeting and the reservation preferences, e.g.:
 
-- `capacityReservationPreference: open` will try to launch the intance into any matching (w.r.t. instance type, platform, Availability Zone, tenancy and capacity) active Capacity Reservation in your account. This will consider only Capacity Reservations with their 'instance eligibility' set to 'open'. If there are no matches, the instance is launched as On-Demand instance.
+- `capacityReservationPreference: open` will try to launch the intance into any matching (w.r.t. instance type, platform, Availability Zone, tenancy and capacity) active Capacity Reservation in your account. This will consider only Capacity Reservations with their '[instance eligibility](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cr-concepts.html#cr-instance-eligibility)' set to `open`. If there are no matches, the instance is launched as On-Demand instance.
 - `capacityReservationPreference: capacity-reservations-only` without a target config will try to launch the instance into any matching active _open_ Capacity Reservation in your account. If there are no matches, the launch fails.
-- `capacityReservationPreference: capacity-reservations-only` with a `capacityReservationResourceGroupArn` will try to launch the instance into an active Capacity Reservation that is part of the group and that matches the instance parameters. This will consider Capacity Reservations with their 'instance eligibility' set to 'open' or 'targeted'. If no fitting match is found in the group, the launch fails. Similarly, with a `capacityReservationId` the launch will fail if the given Capacity Reservation does not match.
+- `capacityReservationPreference: capacity-reservations-only` with a `capacityReservationResourceGroupArn` will try to launch the instance into an active Capacity Reservation that is part of the group and that matches the instance parameters. This will consider Capacity Reservations with their 'instance eligibility' set to `open` or `targeted`. If no fitting match is found in the group, the launch fails. Similarly, with a `capacityReservationId` the launch will fail if the given Capacity Reservation does not match.
 - Setting only a target configuration implies `capacityReservationPreference: capacity-reservations-only`
 
 > [!Note]
-> Instances without any Capacity Reservation config will launch using 'open' targeting. They will automatically fill up any matching Capacity Reservations with 'open' instance eligibility as they appear.
+> Instances without any Capacity Reservation config will launch using `open` targeting. They will automatically fill up any matching Capacity Reservations with `open` instance eligibility as they appear.
 
 
 ## CSI volume provisioners
