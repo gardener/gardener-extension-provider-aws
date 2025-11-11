@@ -152,7 +152,7 @@ func (c *FlowContext) deleteInternetGateway(ctx context.Context) error {
 	current, err := FindExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
 		c.client.GetInternetGateway, c.client.FindInternetGatewaysByTags,
 		func(item *awsclient.InternetGateway) bool {
-			return item.VpcId == c.state.Get(IdentifierVPC)
+			return c.isVpcMatchingState(item.VpcId)
 		})
 	if err != nil {
 		return err
@@ -179,7 +179,7 @@ func (c *FlowContext) deleteEgressOnlyInternetGateway(ctx context.Context) error
 	current, err := FindExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
 		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags,
 		func(item *awsclient.EgressOnlyInternetGateway) bool {
-			return item.VpcId == c.state.Get(IdentifierVPC)
+			return c.isVpcMatchingState(item.VpcId)
 		})
 	if err != nil {
 		return err
@@ -266,7 +266,7 @@ func (c *FlowContext) deleteMainRouteTable(ctx context.Context) error {
 	current, err := FindExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
 		c.client.GetRouteTable, c.client.FindRouteTablesByTags,
 		func(item *awsclient.RouteTable) bool {
-			return item.VpcId == c.state.Get(IdentifierVPC)
+			return c.isVpcMatchingState(item.VpcId)
 		})
 	if err != nil {
 		return err
@@ -290,7 +290,7 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
 		func(item *awsclient.SecurityGroup) bool {
-			return item.GroupName == groupName && item.VpcId == c.state.Get(IdentifierVPC)
+			return item.GroupName == groupName && c.isVpcMatchingState(item.VpcId)
 		})
 	if err != nil {
 		return err
