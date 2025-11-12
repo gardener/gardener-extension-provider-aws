@@ -28,7 +28,9 @@ type WorkerConfig struct {
 	// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
 	InstanceMetadataOptions *InstanceMetadataOptions
 	// CpuOptions contains detailed configuration for the number of cores and threads for the instance.
-	CpuOptions *CpuOptions `json:"cpuOptions,omitempty"`
+	CpuOptions *CpuOptions
+	// CapacityReservation contains configuration about the Capacity Reservation to use for the instance.
+	CapacityReservation *CapacityReservation
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -142,4 +144,14 @@ type CpuOptions struct {
 	CoreCount *int64
 	// ThreadsPerCore sets the number of threads per core. Must be either '1' (disable multi-threading) or '2'.
 	ThreadsPerCore *int64
+}
+
+// CapacityReservation contains configuration about the Capacity Reservation to use for the instance.
+type CapacityReservation struct {
+	// CapacityReservationPreference defines the instance's reservation preferences.
+	CapacityReservationPreference *string
+	// CapacityReservationID is the ID of the Capacity Reservation in which to run the instance. Mutually exclusive with CapacityReservationResourceGroupArn.
+	CapacityReservationID *string
+	// CapacityReservationResourceGroupARN is the ARN of the Capacity Reservation Group in which to look for a Capacity Reservation. Mutually exclusive with CapacityReservationID.
+	CapacityReservationResourceGroupARN *string
 }

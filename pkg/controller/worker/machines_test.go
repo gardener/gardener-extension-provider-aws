@@ -110,6 +110,9 @@ var _ = Describe("Machines", func() {
 				dataVolume2Encrypted  bool
 				dataVolume2SnapshotID string
 
+				capacityReservationPreference       string
+				capacityReservationResourceGroupARN string
+
 				namePool1           string
 				minPool1            int32
 				maxPool1            int32
@@ -212,6 +215,9 @@ var _ = Describe("Machines", func() {
 				dataVolume2Size = 43
 				dataVolume2Encrypted = false
 				dataVolume2SnapshotID = "snap-shot"
+
+				capacityReservationPreference = "capacity-reservations-only"
+				capacityReservationResourceGroupARN = "arn:aws:resource-groups:us-west-2:123456789012:group/my-cr-group"
 
 				namePool1 = "pool-1"
 				minPool1 = 5
@@ -483,6 +489,10 @@ var _ = Describe("Machines", func() {
 												SnapshotID: &dataVolume2SnapshotID,
 											},
 										},
+										CapacityReservation: &api.CapacityReservation{
+											CapacityReservationPreference:       ptr.To(capacityReservationPreference),
+											CapacityReservationResourceGroupARN: ptr.To(capacityReservationResourceGroupARN),
+										},
 									}),
 								},
 								UserDataSecretRef: corev1.SecretKeySelector{
@@ -723,6 +733,15 @@ var _ = Describe("Machines", func() {
 
 					machineClassPool1Zone1["blockDevices"] = machineClassPool1BlockDevices
 					machineClassPool1Zone2["blockDevices"] = machineClassPool1BlockDevices
+
+					machineClassPool1Zone1["capacityReservation"] = map[string]string{
+						"capacityReservationPreference":       capacityReservationPreference,
+						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
+					}
+					machineClassPool1Zone2["capacityReservation"] = map[string]string{
+						"capacityReservationPreference":       capacityReservationPreference,
+						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
+					}
 
 					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
 					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "machineType", machineType)
