@@ -1929,11 +1929,17 @@ func (c *Client) CreateNATGateway(ctx context.Context, gateway *NATGateway) (*NA
 
 // WaitForNATGatewayAvailable waits until the NAT gateway has state "available" or the context is cancelled.
 func (c *Client) WaitForNATGatewayAvailable(ctx context.Context, id string) error {
+	isNATGatewayReady := func(item *NATGateway) bool {
+		return item != nil &&
+			strings.EqualFold(item.State, string(ec2types.NatGatewayStateAvailable)) &&
+			item.PublicIP != ""
+	}
+
 	return c.PollImmediateUntil(ctx, func(ctx context.Context) (done bool, err error) {
 		if item, err := c.GetNATGateway(ctx, id); err != nil {
 			return false, err
 		} else {
-			return strings.EqualFold(item.State, string(ec2types.NatGatewayStateAvailable)), nil
+			return isNATGatewayReady(item), nil
 		}
 	})
 }
