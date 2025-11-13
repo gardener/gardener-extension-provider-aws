@@ -1839,6 +1839,18 @@ string
 <p>GatewayEndpoints service names to configure as gateway endpoints in the VPC.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>ipv6IpamPoolID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IpamPoolID is the ID of an IPAM pool.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.VPCStatus">VPCStatus

@@ -115,6 +115,8 @@ type VPC struct {
 	CIDR *string
 	// GatewayEndpoints service names to configure as gateway endpoints in the VPC.
 	GatewayEndpoints []string
+	// Ipv6IpamPoolID is the ID of an IPAM pool.
+	Ipv6IpamPoolID *string
 }
 
 // VPCStatus contains information about a generated VPC or resources inside an existing VPC.
