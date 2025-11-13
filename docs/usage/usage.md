@@ -571,6 +571,8 @@ spec:
                 memory: 50Gi # inherited from pool's machine type if un-specified
                 ephemeral-storage: 10Gi # override to specify explicit ephemeral-storage for scale fro zero
                 resource.com/dongle: 4 # Example of a custom, extended resource.
+              virtualCapacity:
+                subdomain.domain.com/resource-name: 1234567 # should hot update node capacity without rollout
 ```
 
 The `.volume.iops` is the number of I/O operations per second (IOPS) that the volume supports.
