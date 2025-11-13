@@ -6,6 +6,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"path/filepath"
@@ -104,7 +105,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 		}
 
-		workerPoolHash, err := w.generateWorkerPoolHash(pool)
+		workerPoolHash, err := w.generateWorkerPoolHash(pool, workerConfig)
 		if err != nil {
 			return err
 		}
@@ -194,16 +195,21 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			var nodeTemplate machinev1alpha1.NodeTemplate
 			if pool.NodeTemplate != nil {
 				nodeTemplate = machinev1alpha1.NodeTemplate{
-					Capacity:     pool.NodeTemplate.Capacity,
-					InstanceType: pool.MachineType,
-					Region:       w.worker.Spec.Region,
-					Zone:         zone,
-					Architecture: &arch,
+					Capacity:        pool.NodeTemplate.Capacity,
+					VirtualCapacity: pool.NodeTemplate.VirtualCapacity,
+					InstanceType:    pool.MachineType,
+					Region:          w.worker.Spec.Region,
+					Zone:            zone,
+					Architecture:    &arch,
 				}
 			}
 			if workerConfig.NodeTemplate != nil {
-				// Support providerConfig extended resources by copying into node template capacity
+				// Support providerConfig extended resources by copying into node template capacity and virtualCapacity
 				maps.Copy(nodeTemplate.Capacity, workerConfig.NodeTemplate.Capacity)
+				if nodeTemplate.VirtualCapacity == nil {
+					nodeTemplate.VirtualCapacity = corev1.ResourceList{}
+				}
+				maps.Copy(nodeTemplate.VirtualCapacity, workerConfig.NodeTemplate.VirtualCapacity)
 			}
 			machineClassSpec["nodeTemplate"] = nodeTemplate
 
@@ -360,8 +366,12 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	return blockDevices, nil
 }
 
-func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool) (string, error) {
-	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), ComputeAdditionalHashDataV2(pool), ComputeAdditionalHashDataInPlace(pool))
+func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) (string, error) {
+	v2HashData, err := ComputeAdditionalHashDataV2(pool, workerConfig)
+	if err != nil {
+		return "", err
+	}
+	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), v2HashData, ComputeAdditionalHashDataInPlace(pool))
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
@@ -435,8 +445,21 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 
 // ComputeAdditionalHashDataV2 computes additional hash data for the worker pool. It returns a slice of strings containing the
 // additional data used for hashing.
-func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool) []string {
+func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]string, error) {
 	var additionalData = ComputeAdditionalHashDataV1(pool)
+
+	if workerConfig != nil && workerConfig.NodeTemplate != nil && workerConfig.NodeTemplate.VirtualCapacity != nil {
+		// Addition or Change in VirtualCapacity should NOT cause existing hash to change to prevent trigger of rollout.
+		// TODO: once the MCM supports Machine Hot-Update from the WorkerConfig, this hash data logic can be made smarter
+		workerConfigCopy := workerConfig.DeepCopy()
+		workerConfigCopy.NodeTemplate.VirtualCapacity = nil
+		data, err := json.Marshal(workerConfigCopy)
+		if err != nil {
+			return nil, err
+		}
+		additionalData = append(additionalData, string(data))
+		return additionalData, nil
+	}
 
 	// in the future, we may not calculate a hash for the whole ProviderConfig
 	// for example volume IOPS changes could be done in place
@@ -444,7 +467,7 @@ func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool) []string {
 		additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
 	}
 
-	return additionalData
+	return additionalData, nil
 }
 
 // ComputeAdditionalHashDataInPlace computes additional hash data for a worker pool with in-place update strategy.
