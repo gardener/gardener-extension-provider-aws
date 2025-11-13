@@ -116,7 +116,7 @@ type Interface interface {
 	// VPC Endpoints
 	CreateVpcEndpoint(ctx context.Context, endpoint *VpcEndpoint) (*VpcEndpoint, error)
 	GetVpcEndpoints(ctx context.Context, ids []string) ([]*VpcEndpoint, error)
-	FindVpcEndpointsByTags(ctx context.Context, tags Tags) ([]*VpcEndpoint, error)
+	FindVpcEndpoints(ctx context.Context, filters []ec2types.Filter) ([]*VpcEndpoint, error)
 	DeleteVpcEndpoint(ctx context.Context, id string) error
 
 	// VPC Endpoints Route table associations
@@ -134,7 +134,6 @@ type Interface interface {
 	// Subnets
 	CreateSubnet(ctx context.Context, subnet *Subnet, maxWaitDur time.Duration) (*Subnet, error)
 	GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error)
-	FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, error)
 	FindSubnets(ctx context.Context, filters []ec2types.Filter) ([]*Subnet, error)
 	UpdateSubnetAttributes(ctx context.Context, desired, current *Subnet) (modified bool, err error)
 	DeleteSubnet(ctx context.Context, id string) error
@@ -158,6 +157,7 @@ type Interface interface {
 	WaitForNATGatewayAvailable(ctx context.Context, id string) error
 	GetNATGateway(ctx context.Context, id string) (*NATGateway, error)
 	FindNATGatewaysByTags(ctx context.Context, tags Tags) ([]*NATGateway, error)
+	FindNATGateways(ctx context.Context, filters []ec2types.Filter) ([]*NATGateway, error)
 	DeleteNATGateway(ctx context.Context, id string) error
 
 	// Egress only internet gateway
@@ -170,7 +170,6 @@ type Interface interface {
 	// Key pairs
 	ImportKeyPair(ctx context.Context, keyName string, publicKey []byte, tags Tags) (*KeyPairInfo, error)
 	GetKeyPair(ctx context.Context, keyName string) (*KeyPairInfo, error)
-	FindKeyPairsByTags(ctx context.Context, tags Tags) ([]*KeyPairInfo, error)
 	DeleteKeyPair(ctx context.Context, keyName string) error
 
 	// IAM Role
@@ -549,6 +548,7 @@ type NATGateway struct {
 	PublicIP        string
 	SubnetId        string
 	State           string
+	VpcId           *string
 }
 
 // KeyPairInfo contains the relevant fields for an EC2 key pair.

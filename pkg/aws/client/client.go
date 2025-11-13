@@ -1421,9 +1421,9 @@ func (c *Client) GetVpcEndpoints(ctx context.Context, ids []string) ([]*VpcEndpo
 	return c.describeVpcEndpoints(ctx, input)
 }
 
-// FindVpcEndpointsByTags finds VPC endpoint resources matching the given tag map.
-func (c *Client) FindVpcEndpointsByTags(ctx context.Context, tags Tags) ([]*VpcEndpoint, error) {
-	input := &ec2.DescribeVpcEndpointsInput{Filters: tags.ToFilters()}
+// FindVpcEndpoints finds VPC endpoint resources matching the given filters.
+func (c *Client) FindVpcEndpoints(ctx context.Context, filters []ec2types.Filter) ([]*VpcEndpoint, error) {
+	input := &ec2.DescribeVpcEndpointsInput{Filters: filters}
 	return c.describeVpcEndpoints(ctx, input)
 }
 
@@ -1677,12 +1677,6 @@ func (c *Client) GetIPv6CIDRReservations(ctx context.Context, subnet *Subnet) ([
 // Non-existing identifiers are ignored silently.
 func (c *Client) GetSubnets(ctx context.Context, ids []string) ([]*Subnet, error) {
 	input := &ec2.DescribeSubnetsInput{SubnetIds: ids}
-	return c.describeSubnets(ctx, input)
-}
-
-// FindSubnetsByTags finds subnet resources matching the given tag map.
-func (c *Client) FindSubnetsByTags(ctx context.Context, tags Tags) ([]*Subnet, error) {
-	input := &ec2.DescribeSubnetsInput{Filters: tags.ToFilters()}
 	return c.describeSubnets(ctx, input)
 }
 
@@ -1962,6 +1956,12 @@ func (c *Client) FindNATGatewaysByTags(ctx context.Context, tags Tags) ([]*NATGa
 	return c.describeNATGateways(ctx, input)
 }
 
+// FindNATGateways finds NAT gateway resources matching the given filters.
+func (c *Client) FindNATGateways(ctx context.Context, filters []ec2types.Filter) ([]*NATGateway, error) {
+	input := &ec2.DescribeNatGatewaysInput{Filter: filters}
+	return c.describeNATGateways(ctx, input)
+}
+
 func (c *Client) describeNATGateways(ctx context.Context, input *ec2.DescribeNatGatewaysInput) ([]*NATGateway, error) {
 	output, err := c.EC2.DescribeNatGateways(ctx, input)
 	if err != nil {
@@ -2020,12 +2020,6 @@ func (c *Client) GetKeyPair(ctx context.Context, keyName string) (*KeyPairInfo, 
 	input := &ec2.DescribeKeyPairsInput{KeyNames: []string{keyName}}
 	output, err := c.describeKeyPairs(ctx, input)
 	return single(output, err)
-}
-
-// FindKeyPairsByTags finds EC key pair resources matching the given tag map.
-func (c *Client) FindKeyPairsByTags(ctx context.Context, tags Tags) ([]*KeyPairInfo, error) {
-	input := &ec2.DescribeKeyPairsInput{Filters: tags.ToFilters()}
-	return c.describeKeyPairs(ctx, input)
 }
 
 func (c *Client) describeKeyPairs(ctx context.Context, input *ec2.DescribeKeyPairsInput) ([]*KeyPairInfo, error) {
@@ -2558,6 +2552,7 @@ func fromNatGateway(item *ec2types.NatGateway) *NATGateway {
 		PublicIP:        publicIP,
 		SubnetId:        aws.ToString(item.SubnetId),
 		State:           string(item.State),
+		VpcId:           item.VpcId,
 	}
 }
 

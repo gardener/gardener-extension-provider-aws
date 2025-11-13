@@ -244,17 +244,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 
 func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
 	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || isIPv6(c.getIpFamilies()) {
-		vpcID := ptr.Deref(c.state.Get(IdentifierVPC), "")
-		if vpcID == "" {
-			current, err := FindExisting(ctx, nil, c.commonTags, c.client.GetVpc, c.client.FindVpcsByTags)
-			if err != nil {
-				return err
-			}
-			if current == nil || current.VpcId == "" {
-				return fmt.Errorf("cannot find VPC id")
-			}
-			vpcID = current.VpcId
-		}
+		vpcID := *c.state.Get(IdentifierVPC) // guaranteed to be set because of ensureVPC dependency
 		ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, vpcID)
 		if err != nil {
 			return err
@@ -350,7 +340,10 @@ func (c *FlowContext) ensureInternetGateway(ctx context.Context) error {
 		VpcId: c.state.Get(IdentifierVPC),
 	}
 	current, err := FindExisting(ctx, c.state.Get(IdentifierInternetGateway), c.commonTags,
-		c.client.GetInternetGateway, c.client.FindInternetGatewaysByTags)
+		c.client.GetInternetGateway, c.client.FindInternetGatewaysByTags,
+		func(item *awsclient.InternetGateway) bool {
+			return c.isVpcMatchingState(item.VpcId)
+		})
 	if err != nil {
 		return err
 	}
@@ -443,7 +436,8 @@ func (c *FlowContext) collectExistingVPCEndpoints(ctx context.Context) ([]*awscl
 		}
 		current = found
 	}
-	foundByTags, err := c.client.FindVpcEndpointsByTags(ctx, c.clusterTags())
+	filters := awsclient.WithFilters().WithVpcId(*c.state.Get(IdentifierVPC)).WithTags(c.clusterTags()).Build()
+	foundByTags, err := c.client.FindVpcEndpoints(ctx, filters)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +473,10 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 		})
 	}
 	current, err := FindExisting(ctx, c.state.Get(IdentifierMainRouteTable), c.commonTags,
-		c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+		c.client.GetRouteTable, c.client.FindRouteTablesByTags,
+		func(item *awsclient.RouteTable) bool {
+			return c.isVpcMatchingState(item.VpcId)
+		})
 	if err != nil {
 		return err
 	}
@@ -654,7 +651,9 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	}
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
 		c.client.GetSecurityGroup, c.client.FindSecurityGroupsByTags,
-		func(item *awsclient.SecurityGroup) bool { return item.GroupName == groupName })
+		func(item *awsclient.SecurityGroup) bool {
+			return item.GroupName == groupName && c.isVpcMatchingState(item.VpcId)
+		})
 	if err != nil {
 		return err
 	}
@@ -687,7 +686,8 @@ func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 	tags := awsclient.Tags{
 		c.tagKeyCluster(): TagValueCluster,
 	}
-	nats, err := c.client.FindNATGatewaysByTags(ctx, tags)
+	filters := awsclient.WithFilters().WithTags(tags).WithVpcId(*c.state.Get(IdentifierVPC)).Build()
+	nats, err := c.client.FindNATGateways(ctx, filters)
 	if err != nil {
 		return err
 	}
@@ -1226,7 +1226,7 @@ func (c *FlowContext) ensureRecreateNATGateway(zone *aws.Zone) flow.TaskFn {
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
 				// a failed NAT will automatically be deleted by AWS
-				return !isNATGatewayDeletingOrFailed(item)
+				return !isNATGatewayDeletingOrFailed(item) && c.isVpcMatchingState(item.VpcId)
 			})
 		if err != nil {
 			return err
@@ -1260,7 +1260,7 @@ func (c *FlowContext) ensureNATGateway(zone *aws.Zone) flow.TaskFn {
 		}
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), desired.Tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
-				return !isNATGatewayDeletingOrFailed(item)
+				return !isNATGatewayDeletingOrFailed(item) && c.isVpcMatchingState(item.VpcId)
 			})
 		if err != nil {
 			return err
@@ -1311,7 +1311,7 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 		current, err := FindExisting(ctx, child.Get(IdentifierZoneNATGateway), tags, c.client.GetNATGateway, c.client.FindNATGatewaysByTags,
 			func(item *awsclient.NATGateway) bool {
 				// a failed NAT will automatically be deleted by AWS
-				return !isNATGatewayDeletingOrFailed(item)
+				return !isNATGatewayDeletingOrFailed(item) && c.isVpcMatchingState(item.VpcId)
 			})
 		if err != nil {
 			return err
@@ -1341,7 +1341,10 @@ func (c *FlowContext) ensureEgressOnlyInternetGateway(ctx context.Context) error
 		VpcId: c.state.Get(IdentifierVPC),
 	}
 	current, err := FindExisting(ctx, c.state.Get(IdentifierEgressOnlyInternetGateway), c.commonTags,
-		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags)
+		c.client.GetEgressOnlyInternetGateway, c.client.FindEgressOnlyInternetGatewaysByTags,
+		func(item *awsclient.EgressOnlyInternetGateway) bool {
+			return c.isVpcMatchingState(item.VpcId)
+		})
 	if err != nil {
 		return err
 	}
@@ -1392,7 +1395,10 @@ func (c *FlowContext) ensurePrivateRoutingTable(zoneName string) flow.TaskFn {
 			Routes: routes,
 		}
 
-		current, err := FindExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+		current, err := FindExisting(ctx, id, desired.Tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags,
+			func(item *awsclient.RouteTable) bool {
+				return c.isVpcMatchingState(item.VpcId)
+			})
 		if err != nil {
 			return err
 		}
@@ -1428,7 +1434,10 @@ func (c *FlowContext) deletePrivateRoutingTable(zoneName string) flow.TaskFn {
 			return nil
 		}
 		tags := c.commonTagsWithSuffix(fmt.Sprintf("private-%s", zoneName))
-		current, err := FindExisting(ctx, child.Get(IdentifierZoneRouteTable), tags, c.client.GetRouteTable, c.client.FindRouteTablesByTags)
+		current, err := FindExisting(ctx, child.Get(IdentifierZoneRouteTable), tags, c.client.GetRouteTable,
+			c.client.FindRouteTablesByTags, func(item *awsclient.RouteTable) bool {
+				return c.isVpcMatchingState(item.VpcId)
+			})
 		if err != nil {
 			return err
 		}
@@ -2022,6 +2031,19 @@ func (c *FlowContext) getZone(item *awsclient.Subnet) *aws.Zone {
 		}
 	}
 	return nil
+}
+
+// isVpcMatchingState checks if the vpcID in the state matches the provided vpcID.
+func (c *FlowContext) isVpcMatchingState(vpcID *string) bool {
+	// panic if VPC ID is not set in state - all panics in reconcile are recovered and returned as an error
+	if c.state.Get(IdentifierVPC) == nil {
+		panic("VPC ID not set in state")
+	}
+	// we do not adopt resources that have no VPC ID specified
+	if vpcID == nil {
+		return false
+	}
+	return *c.state.Get(IdentifierVPC) == *vpcID
 }
 
 func getZoneName(item *awsclient.Subnet) string {

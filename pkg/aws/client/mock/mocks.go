@@ -912,19 +912,19 @@ func (mr *MockInterfaceMockRecorder) FindInternetGatewaysByTags(ctx, tags any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindInternetGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindInternetGatewaysByTags), ctx, tags)
 }
 
-// FindKeyPairsByTags mocks base method.
-func (m *MockInterface) FindKeyPairsByTags(ctx context.Context, tags client.Tags) ([]*client.KeyPairInfo, error) {
+// FindNATGateways mocks base method.
+func (m *MockInterface) FindNATGateways(ctx context.Context, filters []types.Filter) ([]*client.NATGateway, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindKeyPairsByTags", ctx, tags)
-	ret0, _ := ret[0].([]*client.KeyPairInfo)
+	ret := m.ctrl.Call(m, "FindNATGateways", ctx, filters)
+	ret0, _ := ret[0].([]*client.NATGateway)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FindKeyPairsByTags indicates an expected call of FindKeyPairsByTags.
-func (mr *MockInterfaceMockRecorder) FindKeyPairsByTags(ctx, tags any) *gomock.Call {
+// FindNATGateways indicates an expected call of FindNATGateways.
+func (mr *MockInterfaceMockRecorder) FindNATGateways(ctx, filters any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindKeyPairsByTags", reflect.TypeOf((*MockInterface)(nil).FindKeyPairsByTags), ctx, tags)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindNATGateways", reflect.TypeOf((*MockInterface)(nil).FindNATGateways), ctx, filters)
 }
 
 // FindNATGatewaysByTags mocks base method.
@@ -987,21 +987,6 @@ func (mr *MockInterfaceMockRecorder) FindSubnets(ctx, filters any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnets", reflect.TypeOf((*MockInterface)(nil).FindSubnets), ctx, filters)
 }
 
-// FindSubnetsByTags mocks base method.
-func (m *MockInterface) FindSubnetsByTags(ctx context.Context, tags client.Tags) ([]*client.Subnet, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindSubnetsByTags", ctx, tags)
-	ret0, _ := ret[0].([]*client.Subnet)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindSubnetsByTags indicates an expected call of FindSubnetsByTags.
-func (mr *MockInterfaceMockRecorder) FindSubnetsByTags(ctx, tags any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnetsByTags", reflect.TypeOf((*MockInterface)(nil).FindSubnetsByTags), ctx, tags)
-}
-
 // FindVpcDhcpOptionsByTags mocks base method.
 func (m *MockInterface) FindVpcDhcpOptionsByTags(ctx context.Context, tags client.Tags) ([]*client.DhcpOptions, error) {
 	m.ctrl.T.Helper()
@@ -1017,19 +1002,19 @@ func (mr *MockInterfaceMockRecorder) FindVpcDhcpOptionsByTags(ctx, tags any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcDhcpOptionsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcDhcpOptionsByTags), ctx, tags)
 }
 
-// FindVpcEndpointsByTags mocks base method.
-func (m *MockInterface) FindVpcEndpointsByTags(ctx context.Context, tags client.Tags) ([]*client.VpcEndpoint, error) {
+// FindVpcEndpoints mocks base method.
+func (m *MockInterface) FindVpcEndpoints(ctx context.Context, filters []types.Filter) ([]*client.VpcEndpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindVpcEndpointsByTags", ctx, tags)
+	ret := m.ctrl.Call(m, "FindVpcEndpoints", ctx, filters)
 	ret0, _ := ret[0].([]*client.VpcEndpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FindVpcEndpointsByTags indicates an expected call of FindVpcEndpointsByTags.
-func (mr *MockInterfaceMockRecorder) FindVpcEndpointsByTags(ctx, tags any) *gomock.Call {
+// FindVpcEndpoints indicates an expected call of FindVpcEndpoints.
+func (mr *MockInterfaceMockRecorder) FindVpcEndpoints(ctx, filters any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcEndpointsByTags", reflect.TypeOf((*MockInterface)(nil).FindVpcEndpointsByTags), ctx, tags)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcEndpoints", reflect.TypeOf((*MockInterface)(nil).FindVpcEndpoints), ctx, filters)
 }
 
 // FindVpcsByTags mocks base method.
