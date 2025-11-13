@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -322,7 +323,7 @@ func (t *TerraformReconciler) computeTerraformStatusState(ctx context.Context, t
 		return nil, nil, err
 	}
 
-	subnets, err := computeProviderStatusSubnets(infrastructureConfig, output)
+	subnets, err := computeProviderStatusSubnets(t.log, infrastructureConfig, output)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -556,21 +557,20 @@ func generateTerraformInfraConfig(ctx context.Context, infrastructure *extension
 	return terraformInfraConfig, nil
 }
 
-func computeProviderStatusSubnets(infrastructure *api.InfrastructureConfig, values map[string]string) ([]v1alpha1.Subnet, error) {
+func computeProviderStatusSubnets(logger logr.Logger, infrastructure *api.InfrastructureConfig, values map[string]string) ([]v1alpha1.Subnet, error) {
 	var subnetsToReturn []v1alpha1.Subnet
 
-	for key, value := range values {
+	for _, key := range slices.Sorted(maps.Keys(values)) {
+		value := values[key]
 		var prefix, purpose string
-		if strings.HasPrefix(key, aws.SubnetPublicPrefix) {
+		switch {
+		case strings.HasPrefix(key, aws.SubnetPublicPrefix):
 			prefix = aws.SubnetPublicPrefix
 			purpose = api.PurposePublic
-		}
-		if strings.HasPrefix(key, aws.SubnetNodesPrefix) {
+		case strings.HasPrefix(key, aws.SubnetNodesPrefix):
 			prefix = aws.SubnetNodesPrefix
 			purpose = v1alpha1.PurposeNodes
-		}
-
-		if len(prefix) == 0 {
+		default:
 			continue
 		}
 
@@ -578,10 +578,23 @@ func computeProviderStatusSubnets(infrastructure *api.InfrastructureConfig, valu
 		if err != nil {
 			return nil, err
 		}
+		if zoneID < 0 || zoneID >= len(infrastructure.Networks.Zones) {
+			return nil, fmt.Errorf("zone index %d out of range", zoneID)
+		}
+		zone := infrastructure.Networks.Zones[zoneID].Name
+
+		zoneExists := slices.ContainsFunc(subnetsToReturn, func(s v1alpha1.Subnet) bool {
+			return s.Zone == zone && s.Purpose == purpose
+		})
+		if zoneExists {
+			logger.Info("Skipping subnet addition to status as zone is already present", "zone", zone, "purpose", purpose)
+			continue
+		}
+
 		subnetsToReturn = append(subnetsToReturn, v1alpha1.Subnet{
 			ID:      value,
 			Purpose: purpose,
-			Zone:    infrastructure.Networks.Zones[zoneID].Name,
+			Zone:    zone,
 		})
 	}
 

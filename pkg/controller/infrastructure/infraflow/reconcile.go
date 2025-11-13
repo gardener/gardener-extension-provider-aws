@@ -524,8 +524,8 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 			},
 			{
 				Type:     awsclient.SecurityGroupRuleTypeIngress,
-				FromPort: 30000,
-				ToPort:   32767,
+				FromPort: ptr.To[int32](30000),
+				ToPort:   ptr.To[int32](32767),
 				Protocol: "tcp",
 				CidrBlocks: func() []string {
 					if isIPv4(c.getIpFamilies()) {
@@ -542,8 +542,8 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 			},
 			{
 				Type:     awsclient.SecurityGroupRuleTypeIngress,
-				FromPort: 30000,
-				ToPort:   32767,
+				FromPort: ptr.To[int32](30000),
+				ToPort:   ptr.To[int32](32767),
 				Protocol: "udp",
 				CidrBlocks: func() []string {
 					if isIPv4(c.getIpFamilies()) {
@@ -587,36 +587,36 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 
 		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: 30000,
-			ToPort:   32767,
+			FromPort: ptr.To[int32](30000),
+			ToPort:   ptr.To[int32](32767),
 			Protocol: "tcp",
 		}
 
 		ruleNodesInternalUDP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: 30000,
-			ToPort:   32767,
+			FromPort: ptr.To[int32](30000),
+			ToPort:   ptr.To[int32](32767),
 			Protocol: "udp",
 		}
 
 		ruleNodesPublicTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: 30000,
-			ToPort:   32767,
+			FromPort: ptr.To[int32](30000),
+			ToPort:   ptr.To[int32](32767),
 			Protocol: "tcp",
 		}
 
 		ruleNodesPublicUDP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: 30000,
-			ToPort:   32767,
+			FromPort: ptr.To[int32](30000),
+			ToPort:   ptr.To[int32](32767),
 			Protocol: "udp",
 		}
 
 		ruleEfsInboundNFS := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: 2049,
-			ToPort:   2049,
+			FromPort: ptr.To[int32](2049),
+			ToPort:   ptr.To[int32](2049),
 			Protocol: "tcp",
 		}
 
@@ -2067,6 +2067,7 @@ func calcNextIPv6CidrBlock(currentSubnetCIDR string) (string, error) {
 
 	nextIP := make(net.IP, 16)
 	copy(nextIP, ip)
+	// #nosec G602 -- IPv6 addresses are always 16 bytes, index 7 is safe
 	nextIP[7] = byte(nextIndex)
 
 	nextCIDR := fmt.Sprintf("%s/64", nextIP.String())

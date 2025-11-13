@@ -14,6 +14,6 @@ jobs:
       - uses: SAP/ai-assisted-github-actions/pr-review@v3
         with:
           aicore-service-key: ${{ secrets.AICORE_SERVICE_KEY }}
-          model: gpt-4o
+          model: anthropic--claude-4-sonnet
           exclude-files: package-lock.json
           display-mode: review-comment-delta

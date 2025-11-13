@@ -1130,12 +1130,8 @@ func (c *Client) prepareRules(groupId string, rules []*SecurityGroupRule) (ingre
 				Ipv6Ranges:       nil,
 				PrefixListIds:    nil,
 				UserIdGroupPairs: nil,
-			}
-			if rule.FromPort != 0 {
-				ipPerm.FromPort = aws.Int32(rule.FromPort)
-			}
-			if rule.ToPort != 0 {
-				ipPerm.ToPort = aws.Int32(rule.ToPort)
+				FromPort:         rule.FromPort,
+				ToPort:           rule.ToPort,
 			}
 			for _, block := range rule.CidrBlocks {
 				ipPerm.IpRanges = append(ipPerm.IpRanges, ec2types.IpRange{CidrIp: aws.String(block)})
@@ -1933,11 +1929,17 @@ func (c *Client) CreateNATGateway(ctx context.Context, gateway *NATGateway) (*NA
 
 // WaitForNATGatewayAvailable waits until the NAT gateway has state "available" or the context is cancelled.
 func (c *Client) WaitForNATGatewayAvailable(ctx context.Context, id string) error {
+	isNATGatewayReady := func(item *NATGateway) bool {
+		return item != nil &&
+			strings.EqualFold(item.State, string(ec2types.NatGatewayStateAvailable)) &&
+			item.PublicIP != ""
+	}
+
 	return c.PollImmediateUntil(ctx, func(ctx context.Context) (done bool, err error) {
 		if item, err := c.GetNATGateway(ctx, id); err != nil {
 			return false, err
 		} else {
-			return strings.EqualFold(item.State, string(ec2types.NatGatewayStateAvailable)), nil
+			return isNATGatewayReady(item), nil
 		}
 	})
 }
@@ -2478,12 +2480,8 @@ func fromIpPermission(groupId string, ipPerm ec2types.IpPermission, ruleType Sec
 		Type:       ruleType,
 		Protocol:   aws.ToString(ipPerm.IpProtocol),
 		CidrBlocks: blocks,
-	}
-	if ipPerm.FromPort != nil {
-		rule.FromPort = *ipPerm.FromPort
-	}
-	if ipPerm.ToPort != nil {
-		rule.ToPort = *ipPerm.ToPort
+		FromPort:   ipPerm.FromPort,
+		ToPort:     ipPerm.ToPort,
 	}
 	if len(ipPerm.UserIdGroupPairs) == 1 && ipPerm.UserIdGroupPairs[0].GroupId != nil && *ipPerm.UserIdGroupPairs[0].GroupId == groupId {
 		rule.Self = true

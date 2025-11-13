@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
@@ -92,6 +93,59 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 		for capacityAttribute, value := range nodeTemplate.VirtualCapacity {
 			// extended resources are required to be whole numbers https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#consuming-extended-resources
 			allErrs = append(allErrs, validateResourceQuantityWholeNumber(capacityAttribute, value, fldPath.Child("nodeTemplate").Child("virtualCapacity").Child(string(capacityAttribute)))...)
+		}
+	}
+
+	if workerConfig.CapacityReservation != nil {
+		childPath := fldPath.Child("capacityReservation")
+		capacityOpts := *workerConfig.CapacityReservation
+
+		if capacityOpts.CapacityReservationPreference != nil {
+			preference := ec2types.CapacityReservationPreference(*capacityOpts.CapacityReservationPreference)
+			knownValues := preference.Values()
+
+			if !slices.Contains(knownValues, preference) {
+				allErrs = append(
+					allErrs,
+					field.NotSupported(
+						childPath.Child("capacityReservationPreference"),
+						preference,
+						knownValues,
+					),
+				)
+			}
+
+			if preference != ec2types.CapacityReservationPreferenceCapacityReservationsOnly {
+				if capacityOpts.CapacityReservationID != nil || capacityOpts.CapacityReservationResourceGroupARN != nil {
+					allErrs = append(
+						allErrs,
+						field.Forbidden(
+							childPath.Child("capacityReservationPreference"),
+							fmt.Sprintf(
+								"'capacityReservationId' or 'capacityReservationResourceGroupArn' may only be given if 'capacityReservationPreference' is '%s' (or absent)",
+								ec2types.CapacityReservationPreferenceCapacityReservationsOnly,
+							),
+						),
+					)
+				}
+			}
+		}
+
+		if capacityOpts.CapacityReservationID != nil {
+			allErrs = append(allErrs, validateCapacityReservationID(*capacityOpts.CapacityReservationID, childPath.Child("capacityReservationId"))...)
+		}
+		if capacityOpts.CapacityReservationResourceGroupARN != nil {
+			allErrs = append(allErrs, validateCapacityReservationGroup(*capacityOpts.CapacityReservationResourceGroupARN, childPath.Child("capacityReservationResourceGroupArn"))...)
+		}
+
+		if capacityOpts.CapacityReservationID != nil && capacityOpts.CapacityReservationResourceGroupARN != nil {
+			allErrs = append(
+				allErrs,
+				field.Forbidden(
+					childPath.Child("capacityReservationId"),
+					"only one of 'capacityReservationId' and 'capacityReservationResourceGroupArn' may be given",
+				),
+			)
 		}
 	}
 

@@ -25,15 +25,15 @@ var _ = Describe("SecurityGroup", func() {
 			},
 			{
 				Type:       SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
+				FromPort:   ptr.To[int32](30000),
+				ToPort:     ptr.To[int32](32767),
 				Protocol:   "tcp",
 				CidrBlocks: []string{"0.0.0.0/0"},
 			},
 			{
 				Type:       SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
+				FromPort:   ptr.To[int32](30000),
+				ToPort:     ptr.To[int32](32767),
 				Protocol:   "udp",
 				CidrBlocks: []string{"0.0.0.0/0"},
 			},
@@ -46,8 +46,8 @@ var _ = Describe("SecurityGroup", func() {
 		rules2 = []*SecurityGroupRule{
 			{
 				Type:       SecurityGroupRuleTypeIngress,
-				FromPort:   30000,
-				ToPort:     32767,
+				FromPort:   ptr.To[int32](30000),
+				ToPort:     ptr.To[int32](32767),
 				Protocol:   "udp",
 				CidrBlocks: []string{"10.0.0.0/8"},
 			},
