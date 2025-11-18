@@ -314,6 +314,23 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should successfully create and delete with IPv6 with IPAM pool", func() {
+			ipamPoolID, err := integration.GetIntegrationTestIPAMPoolID(ctx, awsClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ipamPoolID).NotTo(BeEmpty())
+
+			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
+				CIDR:             ptr.To(vpcCIDR),
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			}, false)
+			providerConfig.Networks.VPC.Ipv6IpamPoolID = ptr.To(ipamPoolID)
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("should successfully create and delete with dualstack (IPv6 and IPv4)", func() {
 			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
 				CIDR:             ptr.To(vpcCIDR),

@@ -7,6 +7,7 @@ package integration
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -275,4 +276,21 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 
 		return false, nil
 	})
+}
+
+// GetIntegrationTestIPAMPoolID queries IPAM pools for the tag key 'purpose' with value 'integration-test'.
+func GetIntegrationTestIPAMPoolID(ctx context.Context, awsClient *awsclient.Client) (string, error) {
+	resp, err := awsClient.EC2.DescribeIpamPools(ctx, &ec2.DescribeIpamPoolsInput{
+		Filters: []ec2types.Filter{{
+			Name:   aws.String("tag:purpose"),
+			Values: []string{"integration-test"},
+		}},
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(resp.IpamPools) == 0 {
+		return "", fmt.Errorf("no IPAM pool found with tag 'purpose=integration-test'")	
+	}
+	return aws.ToString(resp.IpamPools[0].IpamPoolId), nil
 }
