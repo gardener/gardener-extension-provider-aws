@@ -116,7 +116,12 @@ type VPC struct {
 	// GatewayEndpoints service names to configure as gateway endpoints in the VPC.
 	GatewayEndpoints []string
 	// Ipv6IpamPoolID is the ID of an IPAM pool.
-	Ipv6IpamPoolID *string
+	Ipv6IpamPool IPAMPool
+}
+
+type IPAMPool struct {
+	// ID is the IPAM pool id.
+	ID *string
 }
 
 // VPCStatus contains information about a generated VPC or resources inside an existing VPC.

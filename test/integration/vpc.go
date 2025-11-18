@@ -290,7 +290,7 @@ func GetIntegrationTestIPAMPoolID(ctx context.Context, awsClient *awsclient.Clie
 		return "", err
 	}
 	if len(resp.IpamPools) == 0 {
-		return "", fmt.Errorf("no IPAM pool found with tag 'purpose=integration-test'")	
+		return "", fmt.Errorf("no IPAM pool found with tag 'purpose=integration-test'")
 	}
 	return aws.ToString(resp.IpamPools[0].IpamPoolId), nil
 }

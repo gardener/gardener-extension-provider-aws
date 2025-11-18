@@ -959,6 +959,35 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IPAMPool">IPAMPool
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.VPC">VPC</a>)
+</p>
+<p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>id</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ID is the IPAM pool id.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IgnoreTags">IgnoreTags
 </h3>
 <p>
@@ -1841,9 +1870,11 @@ string
 </tr>
 <tr>
 <td>
-<code>ipv6IpamPoolID</code></br>
+<code>ipv6IpamPool</code></br>
 <em>
-string
+<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IPAMPool">
+IPAMPool
+</a>
 </em>
 </td>
 <td>

@@ -129,7 +129,16 @@ type VPC struct {
 	GatewayEndpoints []string `json:"gatewayEndpoints,omitempty"`
 	// IpamPoolID is the ID of an IPAM pool.
 	// +optional
-	Ipv6IpamPoolID *string `json:"ipv6IpamPoolID,omitempty"`
+	Ipv6IpamPool IPAMPool `json:"ipv6IpamPool,omitempty"`
+}
+
+// IPAMPool represents an AWS IPAM pool referenced for IPv6 address allocation of the VPC.
+// If specified, the extension will request the VPC's IPv6 CIDR from this pool instead of
+// letting AWS auto-assign one. The pool must already exist in the target account/region.
+// Currently only the ID is required; future fields may extend configuration.
+type IPAMPool struct {
+	// ID is the IPAM pool id.
+	ID *string `json:"id"`
 }
 
 // VPCStatus contains information about a generated VPC or resources inside an existing VPC.
