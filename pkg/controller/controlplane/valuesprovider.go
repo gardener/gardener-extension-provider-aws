@@ -10,6 +10,7 @@ import (
 	"net"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -45,6 +46,7 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/utils"
 )
 
@@ -800,36 +802,47 @@ func getCSIControllerChartValues(
 	scaledDown bool,
 	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
+	replicas := extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1)
+
 	values := map[string]interface{}{
 		"enabled":  true,
-		"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
+		"replicas": replicas,
 		"region":   cp.Spec.Region,
 		"podAnnotations": map[string]interface{}{
 			"checksum/secret-" + v1beta1constants.SecretNameCloudProvider: checksums[v1beta1constants.SecretNameCloudProvider],
 		},
 		"csiSnapshotController": map[string]interface{}{
-			"replicas": extensionscontroller.GetControlPlaneReplicas(cluster, scaledDown, 1),
+			"replicas": replicas,
 		},
 		"useWorkloadIdentity": useWorkloadIdentity,
 	}
+
+	csiResizerFeatureGates := map[string]string{}
 
 	k8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
 	if err != nil {
 		return nil, err
 	}
+
 	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) {
-		if _, ok := cluster.Shoot.Annotations[aws.AnnotationEnableVolumeAttributesClass]; ok {
-			values["csiResizer"] = map[string]interface{}{
-				"featureGates": map[string]string{
-					"VolumeAttributesClass": "true",
-				},
-			}
+		if metav1.HasAnnotation(cluster.Shoot.ObjectMeta, aws.AnnotationEnableVolumeAttributesClass) {
 			values["csiProvisioner"] = map[string]interface{}{
 				"featureGates": map[string]string{
-					"VolumeAttributesClass": "true",
+					features.VolumeAttributesClass: strconv.FormatBool(true),
 				},
 			}
+			csiResizerFeatureGates[features.VolumeAttributesClass] = strconv.FormatBool(true)
 		}
+	}
+
+	if versionutils.ConstraintK8sGreaterEqual132.Check(k8sVersion) {
+		if anyWorkerBelow(cluster, versionutils.ConstraintK8sGreaterEqual132) {
+			csiResizerFeatureGates[features.RecoverVolumeExpansionFailure] = strconv.FormatBool(false)
+		}
+	}
+
+	if len(csiResizerFeatureGates) > 0 {
+		values["csiResizer"] = map[string]interface{}{"featureGates": csiResizerFeatureGates}
 	}
 
 	return values, nil
@@ -918,4 +931,23 @@ func getControlPlaneShootChartCSIEfsValues(
 	}
 
 	return values
+}
+
+func anyWorkerBelow(cluster *extensionscontroller.Cluster, constraint *semver.Constraints) bool {
+	if cluster.Shoot == nil {
+		return false
+	}
+	for _, w := range cluster.Shoot.Spec.Provider.Workers {
+		if w.Kubernetes.Version == nil {
+			continue
+		}
+		v, err := semver.NewVersion(*w.Kubernetes.Version)
+		if err != nil {
+			continue
+		}
+		if !constraint.Check(v) {
+			return true
+		}
+	}
+	return false
 }
