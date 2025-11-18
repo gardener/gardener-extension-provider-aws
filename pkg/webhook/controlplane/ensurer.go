@@ -421,7 +421,7 @@ func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, gctx gcontext.
 
 		if versionutils.ConstraintK8sGreaterEqual132.Check(shootK8sVersion) &&
 			versionutils.ConstraintK8sLess132.Check(kubeletVersion) {
-			setKubeletConfigurationFeatureGate(newObj, "RecoverVolumeExpansionFailure", false)
+			setKubeletConfigurationFeatureGate(newObj, "RecoverVolumeExpansionFailure", true)
 		}
 	}
 
