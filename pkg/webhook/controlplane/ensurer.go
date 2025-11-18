@@ -409,19 +409,20 @@ func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, gctx gcontext.
 	}
 
 	// TODO: remove the following block once we stop supporting Kubernetes versions < 1.32
-	cluster, err := gctx.GetCluster(ctx)
-	if err != nil {
-		return err
-	}
-	if cluster.Shoot != nil {
-		shootK8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
+	if gctx != nil && versionutils.ConstraintK8sLess132.Check(kubeletVersion) {
+		cluster, err := gctx.GetCluster(ctx)
 		if err != nil {
 			return err
 		}
-
-		if versionutils.ConstraintK8sGreaterEqual132.Check(shootK8sVersion) &&
-			versionutils.ConstraintK8sLess132.Check(kubeletVersion) {
-			setKubeletConfigurationFeatureGate(newObj, "RecoverVolumeExpansionFailure", true)
+		if cluster != nil && cluster.Shoot != nil {
+			shootVersionStr := cluster.Shoot.Spec.Kubernetes.Version
+			shootK8sVersion, err := semver.NewVersion(shootVersionStr)
+			if err != nil {
+				return err
+			}
+			if versionutils.ConstraintK8sGreaterEqual132.Check(shootK8sVersion) {
+				setKubeletConfigurationFeatureGate(newObj, "RecoverVolumeExpansionFailure", true)
+			}
 		}
 	}
 
