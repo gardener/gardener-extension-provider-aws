@@ -966,6 +966,8 @@ string
 <a href="#aws.provider.extensions.gardener.cloud/v1alpha1.VPC">VPC</a>)
 </p>
 <p>
+<p>IPAMPool represents an AWS IPAM pool referenced for IPv6 address allocation of the VPC.
+Currently only the ID is required; future fields may extend configuration.</p>
 </p>
 <table>
 <thead>
@@ -1879,7 +1881,9 @@ IPAMPool
 </td>
 <td>
 <em>(Optional)</em>
-<p>IpamPoolID is the ID of an IPAM pool.</p>
+<p>Ipv6IpamPool references an AWS IPv6 IPAM pool used to allocate the VPC&rsquo;s IPv6 CIDR block.
+If specified, the extension will request the VPC&rsquo;s IPv6 CIDR from this pool instead of
+letting AWS auto-assign one. The pool must already exist in the target account/region.</p>
 </td>
 </tr>
 </tbody>
