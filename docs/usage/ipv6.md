@@ -153,6 +153,31 @@ To create an IPv6 shoot cluster or a dual-stack shoot within your own Virtual Pr
 ![bring your own vpc](./images/bring-your-own-vpc.png)
 An egress-only internet gateway is required for outbound internet traffic (IPv6) from the instances within your VPC. Please create one egress-only internet gateway and attach it to the VPC. Please also make sure that the VPC has an attached internet gateway and the following attributes set: `enableDnsHostnames` and `enableDnsSupport` as described under [usage](usage.md#infrastructureConfig).
 
+### Configuring a Custom IPv6 IPAM Pool
+
+By default, AWS will assign an Amazon-provided IPv6 CIDR block to a newly created VPC for IPv6 / dual-stack shoot clusters. If you want to control from which pool the VPC IPv6 CIDR is allocated (for example to ensure consistent addressing across multiple clusters or accounts), you can reference an existing AWS IPAM pool via the `infrastructureConfig.networks.vpc.ipv6IpamPool` field.
+
+```yaml
+provider:
+  type: aws
+  infrastructureConfig:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: InfrastructureConfig
+    networks:
+      vpc:
+        ipv6IpamPool:
+          id: ipam-pool-0123456789abcdef0
+...
+```
+
+Requirements & notes:
+* The referenced pool must exist in the same AWS account & region as the shoot infrastructure.
+* The pool must be IPv6 and have available capacity for a /56 CIDR; otherwise VPC creation will fail.
+* Only the pool ID is used; the extension currently always requests an IPv6 netmask length of /56 (not configurable yet).
+* Changing the pool after creation is not supported (VPC IPv6 CIDRs are immutable once associated).
+
+Use this option when you operate centralized IP address management and need deterministic allocation ranges across shoots.
+
 ### Migration of IPv4-only Shoot Clusters to Dual-Stack
 
 To migrate an IPv4-only shoot cluster to Dual-Stack simply change the `.spec.networking.ipFamilies` field in the `Shoot` resource from `IPv4` to `IPv4, IPv6` as shown below.
