@@ -488,6 +488,9 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 		Spec: gardencorev1beta1.ShootSpec{
 			Region: *region,
 		},
+		Status: gardencorev1beta1.ShootStatus{
+			TechnicalID: name,
+		},
 	}
 
 	cloudProfileJSON, err := json.Marshal(cloudProfile)
