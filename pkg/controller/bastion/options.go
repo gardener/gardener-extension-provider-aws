@@ -47,7 +47,7 @@ type Options struct {
 
 // NewBaseOpts determines base opts that are required for creating and deleting a Bastion on AWS.
 func NewBaseOpts(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *controller.Cluster, awsClient *awsclient.Client) (BaseOptions, error) {
-	name := cluster.ObjectMeta.Name
+	name := cluster.Shoot.Status.TechnicalID
 	subnetName := name + "-public-utility-z0"
 	instanceName := fmt.Sprintf("%s-%s-bastion", name, bastion.Name)
 
