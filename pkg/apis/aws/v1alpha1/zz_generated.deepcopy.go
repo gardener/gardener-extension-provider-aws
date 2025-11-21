@@ -843,7 +843,11 @@ func (in *VPC) DeepCopyInto(out *VPC) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	in.Ipv6IpamPool.DeepCopyInto(&out.Ipv6IpamPool)
+	if in.Ipv6IpamPool != nil {
+		in, out := &in.Ipv6IpamPool, &out.Ipv6IpamPool
+		*out = new(IPAMPool)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

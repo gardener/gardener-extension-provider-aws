@@ -131,7 +131,7 @@ type VPC struct {
 	// If specified, the extension will request the VPC's IPv6 CIDR from this pool instead of
 	// letting AWS auto-assign one. The pool must already exist in the target account/region.
 	// +optional
-	Ipv6IpamPool IPAMPool `json:"ipv6IpamPool,omitempty"`
+	Ipv6IpamPool *IPAMPool `json:"ipv6IpamPool,omitempty"`
 }
 
 // IPAMPool represents an AWS IPAM pool referenced for IPv6 address allocation of the VPC.

@@ -801,11 +801,8 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 		AmazonProvidedIpv6CidrBlock: aws.Bool(desired.AssignGeneratedIPv6CidrBlock),
 		TagSpecifications:           desired.ToTagSpecifications(ec2types.ResourceTypeVpc),
 		InstanceTenancy:             desired.InstanceTenancy,
-	}
-
-	if !desired.AssignGeneratedIPv6CidrBlock {
-		input.Ipv6IpamPoolId = desired.Ipv6IpamPoolId
-		input.Ipv6NetmaskLength = desired.Ipv6NetmaskLength
+		Ipv6IpamPoolId:              desired.Ipv6IpamPoolId,
+		Ipv6NetmaskLength:           desired.Ipv6NetmaskLength,
 	}
 	output, err := c.EC2.CreateVpc(ctx, input)
 	if err != nil {
@@ -931,8 +928,7 @@ func (c *Client) CheckVpcIPv6Cidr(vpcID string) (bool, error) {
 // UpdateAmazonProvidedIPv6CidrBlock sets/updates the amazon provided IPv6 blocks.
 func (c *Client) UpdateAmazonProvidedIPv6CidrBlock(ctx context.Context, desired *VPC, current *VPC) (bool, error) {
 	modified := false
-	if current.VpcId != "" && desired.AssignGeneratedIPv6CidrBlock != current.AssignGeneratedIPv6CidrBlock ||
-		(desired.Ipv6IpamPoolId != nil && current.Ipv6IpamPoolId == nil) {
+	if current.VpcId != "" && desired.AssignGeneratedIPv6CidrBlock != current.AssignGeneratedIPv6CidrBlock {
 		ipv6CidrBlockAssociated, err := c.CheckVpcIPv6Cidr(current.VpcId)
 		if err != nil {
 			return modified, err

@@ -1171,9 +1171,7 @@ func autoConvert_v1alpha1_VPC_To_aws_VPC(in *VPC, out *aws.VPC, s conversion.Sco
 	out.ID = (*string)(unsafe.Pointer(in.ID))
 	out.CIDR = (*string)(unsafe.Pointer(in.CIDR))
 	out.GatewayEndpoints = *(*[]string)(unsafe.Pointer(&in.GatewayEndpoints))
-	if err := Convert_v1alpha1_IPAMPool_To_aws_IPAMPool(&in.Ipv6IpamPool, &out.Ipv6IpamPool, s); err != nil {
-		return err
-	}
+	out.Ipv6IpamPool = (*aws.IPAMPool)(unsafe.Pointer(in.Ipv6IpamPool))
 	return nil
 }
 
@@ -1186,9 +1184,7 @@ func autoConvert_aws_VPC_To_v1alpha1_VPC(in *aws.VPC, out *VPC, s conversion.Sco
 	out.ID = (*string)(unsafe.Pointer(in.ID))
 	out.CIDR = (*string)(unsafe.Pointer(in.CIDR))
 	out.GatewayEndpoints = *(*[]string)(unsafe.Pointer(&in.GatewayEndpoints))
-	if err := Convert_aws_IPAMPool_To_v1alpha1_IPAMPool(&in.Ipv6IpamPool, &out.Ipv6IpamPool, s); err != nil {
-		return err
-	}
+	out.Ipv6IpamPool = (*IPAMPool)(unsafe.Pointer(in.Ipv6IpamPool))
 	return nil
 }
 

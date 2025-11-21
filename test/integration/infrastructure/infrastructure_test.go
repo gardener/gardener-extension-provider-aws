@@ -314,7 +314,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		FIt("should successfully create and delete with IPv6 with IPAM pool", func() {
+		It("should successfully create and delete with IPv6 with IPAM pool", func() {
 			ipamPoolID, err := integration.GetIntegrationTestIPAMPoolID(ctx, awsClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ipamPoolID).NotTo(BeEmpty())
@@ -323,7 +323,9 @@ var _ = Describe("Infrastructure tests", func() {
 				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
 			}, false)
-			providerConfig.Networks.VPC.Ipv6IpamPool.ID = ptr.To(ipamPoolID)
+			providerConfig.Networks.VPC.Ipv6IpamPool = &awsv1alpha1.IPAMPool{
+				ID: ptr.To(ipamPoolID),
+			}
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
