@@ -402,9 +402,28 @@ func ensureKubeletECRProviderCommandLineArgs(command []string) []string {
 }
 
 // EnsureKubeletConfiguration ensures that the kubelet configuration conforms to the provider requirements.
-func (e *ensurer) EnsureKubeletConfiguration(_ context.Context, _ gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ *kubeletconfigv1beta1.KubeletConfiguration) error {
+func (e *ensurer) EnsureKubeletConfiguration(ctx context.Context, gctx gcontext.GardenContext, kubeletVersion *semver.Version, newObj, _ *kubeletconfigv1beta1.KubeletConfiguration) error {
+	// TODO: remove the following block once we stop supporting Kubernetes versions < 1.31
 	if versionutils.ConstraintK8sLess131.Check(kubeletVersion) {
 		setKubeletConfigurationFeatureGate(newObj, "InTreePluginAWSUnregister", true)
+	}
+
+	// TODO: remove the following block once we stop supporting Kubernetes versions < 1.32
+	if gctx != nil && versionutils.ConstraintK8sLess132.Check(kubeletVersion) {
+		cluster, err := gctx.GetCluster(ctx)
+		if err != nil {
+			return err
+		}
+		if cluster != nil && cluster.Shoot != nil {
+			shootVersionStr := cluster.Shoot.Spec.Kubernetes.Version
+			shootK8sVersion, err := semver.NewVersion(shootVersionStr)
+			if err != nil {
+				return err
+			}
+			if versionutils.ConstraintK8sGreaterEqual132.Check(shootK8sVersion) {
+				setKubeletConfigurationFeatureGate(newObj, "RecoverVolumeExpansionFailure", true)
+			}
+		}
 	}
 
 	newObj.EnableControllerAttachDetach = ptr.To(true)
