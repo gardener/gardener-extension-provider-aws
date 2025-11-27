@@ -166,8 +166,8 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				},
 				"tags": utils.MergeStringMaps(
 					map[string]string{
-						fmt.Sprintf("kubernetes.io/cluster/%s", w.worker.Namespace): "1",
-						"kubernetes.io/role/node":                                   "1",
+						fmt.Sprintf("kubernetes.io/cluster/%s", w.cluster.Shoot.Status.TechnicalID): "1",
+						"kubernetes.io/role/node": "1",
 					},
 					pool.Labels,
 				),
@@ -244,7 +244,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 
 			var (
-				deploymentName = fmt.Sprintf("%s-%s-z%d", w.worker.Namespace, pool.Name, zoneIndex+1)
+				deploymentName = fmt.Sprintf("%s-%s-z%d", w.cluster.Shoot.Status.TechnicalID, pool.Name, zoneIndex+1)
 				className      = fmt.Sprintf("%s-%s", deploymentName, workerPoolHash)
 			)
 
