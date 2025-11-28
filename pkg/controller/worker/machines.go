@@ -6,7 +6,6 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"path/filepath"
@@ -64,7 +63,6 @@ func (w *WorkerDelegate) DeployMachineClasses(ctx context.Context) error {
 			return err
 		}
 	}
-
 	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join(charts.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 
@@ -104,6 +102,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 		}
 
 		workerPoolHash, err := w.generateWorkerPoolHash(pool, workerConfig)
+		fmt.Println("Bingo: WorkerPoolHash for pool", pool.Name, "is", workerPoolHash)
 		if err != nil {
 			return err
 		}
@@ -189,7 +188,6 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
 				machineClassSpec["keyName"] = infrastructureStatus.EC2.KeyName
 			}
-
 			var nodeTemplate machinev1alpha1.NodeTemplate
 			if pool.NodeTemplate != nil {
 				nodeTemplate = machinev1alpha1.NodeTemplate{
@@ -208,8 +206,10 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 					nodeTemplate.VirtualCapacity = corev1.ResourceList{}
 				}
 				maps.Copy(nodeTemplate.VirtualCapacity, workerConfig.NodeTemplate.VirtualCapacity)
+				fmt.Println("Bingo: NodeTemplate.VirtualCapacity for pool", pool.Name, "zone", zone, "is", nodeTemplate.VirtualCapacity)
 			}
 			machineClassSpec["nodeTemplate"] = nodeTemplate
+			fmt.Printf("Bingo: NodeTemplate for pool %q, zone %q is %+v\n", pool.Name, zone, nodeTemplate)
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
 				machineClassSpec["cpuOptions"] = map[string]int64{
@@ -293,6 +293,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			})
 
 			machineClassSpec["name"] = className
+			fmt.Printf("Bingo: MachineClass for pool %q, zone %q is name: %q, value: %+v\n", pool.Name, zone, className, machineClassSpec)
 			machineClassSpec["labels"] = map[string]string{corev1.LabelZoneFailureDomain: zone}
 			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
 
@@ -369,6 +370,7 @@ func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPo
 	if err != nil {
 		return "", err
 	}
+	fmt.Println("Bingo: v2HashData for pool", pool.Name, "is", v2HashData)
 	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), v2HashData, ComputeAdditionalHashDataInPlace(pool))
 }
 
@@ -448,14 +450,11 @@ func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfi
 
 	if workerConfig != nil && workerConfig.NodeTemplate != nil && workerConfig.NodeTemplate.VirtualCapacity != nil {
 		// Addition or Change in VirtualCapacity should NOT cause existing hash to change to prevent trigger of rollout.
-		// TODO: once the MCM supports Machine Hot-Update from the WorkerConfig, this hash data logic can be made smarter
-		workerConfigCopy := workerConfig.DeepCopy()
-		workerConfigCopy.NodeTemplate.VirtualCapacity = nil
-		data, err := json.Marshal(workerConfigCopy)
+		modifiedWorkerConfigJson, err := rewriteWorkerConfigForBackwardCompatibleHash(workerConfig)
 		if err != nil {
 			return nil, err
 		}
-		additionalData = append(additionalData, string(data))
+		additionalData = append(additionalData, string(modifiedWorkerConfigJson))
 		return additionalData, nil
 	}
 
