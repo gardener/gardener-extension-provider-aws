@@ -59,7 +59,7 @@ func rewriteWorkerConfigForBackwardCompatibleHash(workerConfig *awsapi.WorkerCon
 	}
 
 	// Step 2: wrap and inject apiVersion & kind
-	// needs an explict set of APIVersion and Kind in exact order so we don't to differ from the previous `string(pool.ProviderConfig.Raw)`
+	// needs an explicit set of APIVersion and Kind in exact order so we don't to differ from the previous `string(pool.ProviderConfig.Raw)`
 	// In https://github.com/gardener/gardener-extension-provider-aws/blob/master/docs/usage/usage.md, we mention apiVersion and then kind,
 	// which is what customers copy-paste to the shoot spec and then use.
 	// cannot use either std json nor api machinery json to directly serialize WorkerConfig since they serialize to kind first followed by apiVersion which
