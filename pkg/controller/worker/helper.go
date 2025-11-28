@@ -14,7 +14,6 @@ import (
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
@@ -51,7 +50,7 @@ func (w *WorkerDelegate) updateWorkerProviderStatus(ctx context.Context, workerS
 
 // rewriteWorkerConfigForBackwardCompatibleHash ensures that addition or change in providerConfig.nodeTemplate.virtualCapacity should NOT
 // cause existing hash to change to prevent trigger of rollout.
-func rewriteWorkerConfigForBackwardCompatibleHash(workerConfig *awsapi.WorkerConfig) ([]byte, error) {
+func rewriteWorkerConfigForBackwardCompatibleHash(workerConfig *api.WorkerConfig) ([]byte, error) {
 	// Step 1: get copy of workerConfig and set NodeTemplate.VirtualCapacity set to nil
 	workerConfigCopy := workerConfig.DeepCopy()
 	if workerConfigCopy.NodeTemplate != nil {
@@ -75,7 +74,7 @@ func rewriteWorkerConfigForBackwardCompatibleHash(workerConfig *awsapi.WorkerCon
 
 // workerConfigWrapper is used by rewriteWorkerConfigForBackwardCompatibleHash so that APIVersion comes before Kind
 type workerConfigWrapper struct {
-	APIVersion           string `json:"apiVersion"`
-	Kind                 string `json:"kind"`
-	*awsapi.WorkerConfig `json:",inline"`
+	APIVersion        string `json:"apiVersion"`
+	Kind              string `json:"kind"`
+	*api.WorkerConfig `json:",inline"`
 }
