@@ -6,6 +6,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +14,7 @@ import (
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
@@ -45,4 +47,35 @@ func (w *WorkerDelegate) updateWorkerProviderStatus(ctx context.Context, workerS
 	patch := k8sclient.MergeFrom(w.worker.DeepCopy())
 	w.worker.Status.ProviderStatus = &runtime.RawExtension{Object: workerStatusV1alpha1}
 	return w.client.Status().Patch(ctx, w.worker, patch)
+}
+
+// rewriteWorkerConfigForBackwardCompatibleHash ensures that addition or change in providerConfig.nodeTemplate.virtualCapacity should NOT
+// cause existing hash to change to prevent trigger of rollout.
+func rewriteWorkerConfigForBackwardCompatibleHash(workerConfig *awsapi.WorkerConfig) ([]byte, error) {
+	// Step 1: get copy of workerConfig and set NodeTemplate.VirtualCapacity set to nil
+	workerConfigCopy := workerConfig.DeepCopy()
+	if workerConfigCopy.NodeTemplate != nil {
+		workerConfigCopy.NodeTemplate.VirtualCapacity = nil
+	}
+
+	// Step 2: wrap and inject apiVersion & kind
+	// needs an explict set of APIVersion and Kind in exact order so we don't to differ from the previous `string(pool.ProviderConfig.Raw)`
+	// In https://github.com/gardener/gardener-extension-provider-aws/blob/master/docs/usage/usage.md, we mention apiVersion and then kind,
+	// which is what customers copy-paste to the shoot spec and then use.
+	// cannot use either std json nor api machinery json to directly serialize WorkerConfig since they serialize to kind first followed by apiVersion which
+	// would be different from previous `string(pool.ProviderConfig.Raw)` used as hash for the machine class suffix.
+	wrapper := workerConfigWrapper{
+		APIVersion:   "aws.provider.extensions.gardener.cloud/v1alpha1",
+		Kind:         "WorkerConfig",
+		WorkerConfig: workerConfigCopy,
+	}
+	// Step 3: marshal back to JSON
+	return json.Marshal(wrapper)
+}
+
+// workerConfigWrapper is used by rewriteWorkerConfigForBackwardCompatibleHash so that APIVersion comes before Kind
+type workerConfigWrapper struct {
+	APIVersion           string `json:"apiVersion"`
+	Kind                 string `json:"kind"`
+	*awsapi.WorkerConfig `json:",inline"`
 }
