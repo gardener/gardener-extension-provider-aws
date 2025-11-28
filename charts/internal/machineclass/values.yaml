@@ -47,3 +47,4 @@ machineClasses:
 #  cpuOptions:
 #    coreCount: 2 # default for m4.xlarge
 #    threadsPerCore: 2 # default for m4.xlarge
+#    amdSevSnp: enabled

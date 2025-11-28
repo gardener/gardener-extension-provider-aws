@@ -73,10 +73,15 @@ providerSpec:
     httpTokens: {{ $machineClass.instanceMetadataOptions.httpTokens }}
     {{- end }}
 {{- end }}
-{{- if $machineClass.cpuOptions }}
+{{- with $machineClass.cpuOptions }}
   cpuOptions:
-    coreCount: {{ $machineClass.cpuOptions.coreCount }}
-    threadsPerCore: {{ $machineClass.cpuOptions.threadsPerCore }}
+  {{- if .amdSevSnp }}
+    amdSevSnp: {{ .amdSevSnp }}
+  {{- end }}
+  {{- if (and .coreCount .threadsPerCore) }}
+    coreCount: {{ .coreCount }}
+    threadsPerCore: {{ .threadsPerCore }}
+  {{- end }}
 {{- end }}
 {{- if $machineClass.capacityReservation }}
   capacityReservation:
