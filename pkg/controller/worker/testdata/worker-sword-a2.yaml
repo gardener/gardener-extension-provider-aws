@@ -44,7 +44,6 @@ spec:
       nodeTemplate:
         virtualCapacity:
           security.com/bangle: 10
-          security.com/dangle: 20
           subdomain.domain.com/cpu: "3"
           subdomain.domain.com/memory: 2048Mi
     updateStrategy: AutoRollingUpdate
