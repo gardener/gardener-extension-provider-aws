@@ -2218,13 +2218,14 @@ func (c *Client) DeleteIAMRolePolicy(ctx context.Context, policyName, roleName s
 	return ignoreNotFound(err)
 }
 
-// GetFileSystems retrieve information about an efs file system by its ID
-func (c *Client) GetFileSystems(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error) {
+// GetFileSystem retrieve information about an efs file system by its ID
+// Returns nil if the file system is not found
+func (c *Client) GetFileSystem(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error) {
 	output, err := c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{
 		FileSystemId: &fileSystemID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, ignoreNotFound(err)
 	}
 	if len(output.FileSystems) != 1 {
 		return nil, fmt.Errorf("expected 1 file system, got %d", len(output.FileSystems))
@@ -2267,12 +2268,18 @@ func (c *Client) CreateFileSystem(ctx context.Context, input *efs.CreateFileSyst
 	if output == nil || output.FileSystemId == nil {
 		return nil, fmt.Errorf("efs file system creation failed, no FileSystemId returned")
 	}
+	fID := *output.FileSystemId
 
 	var fsDescription *efstypes.FileSystemDescription
 	err = c.PollImmediateUntil(ctx, func(ctx context.Context) (bool, error) {
-		fsDescription, err = c.GetFileSystems(ctx, *output.FileSystemId)
+		fsDescription, err = c.GetFileSystem(ctx, fID)
 		if err != nil {
+			// Real errors should stop the polling.
 			return true, err
+		}
+		if fsDescription == nil {
+			// Not found yet, keep waiting.
+			return false, nil
 		}
 		if fsDescription.LifeCycleState == efstypes.LifeCycleStateAvailable {
 			return true, nil
