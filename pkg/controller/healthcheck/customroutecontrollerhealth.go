@@ -85,14 +85,6 @@ func (hc *customRouteControllerHealthCheck) SetLoggerSuffix(provider, extension 
 	hc.deploymentCheck.SetLoggerSuffix(provider, extension)
 }
 
-// DeepCopy clones the healthCheck
-func (hc *customRouteControllerHealthCheck) DeepCopy() healthcheck.HealthCheck {
-	return &customRouteControllerHealthCheck{
-		deploymentCheck: hc.deploymentCheck.DeepCopy(),
-		shootClient:     hc.shootClient,
-	}
-}
-
 // InjectSeedClient injects the seed client
 func (hc *customRouteControllerHealthCheck) InjectSeedClient(seedClient client.Client) {
 	if itf, ok := hc.deploymentCheck.(healthcheck.SeedClient); ok {
