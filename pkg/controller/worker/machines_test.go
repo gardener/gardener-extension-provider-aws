@@ -72,6 +72,7 @@ var _ = Describe("Machines", func() {
 		DescribeTableSubtree("#GenerateMachineDeployments, #DeployMachineClasses", func(isCapabilitiesCloudProfile bool) {
 			var (
 				namespace        string
+				technicalID      string
 				cloudProfileName string
 				region           string
 
@@ -175,7 +176,8 @@ var _ = Describe("Machines", func() {
 						v1beta1constants.ArchitectureName: []string{"arm64"},
 					}
 				}
-				namespace = "shoot--foobar--aws"
+				namespace = "control-plane-namespace"
+				technicalID = "shoot--foobar--aws"
 				cloudProfileName = "aws"
 
 				region = "eu-west-1"
@@ -303,6 +305,9 @@ var _ = Describe("Machines", func() {
 							Kubernetes: gardencorev1beta1.Kubernetes{
 								Version: shootVersion,
 							},
+						},
+						Status: gardencorev1beta1.ShootStatus{
+							TechnicalID: technicalID,
 						},
 					},
 				}
@@ -625,8 +630,8 @@ var _ = Describe("Machines", func() {
 				BeforeEach(func() {
 					ec2InstanceTags := utils.MergeStringMaps(
 						map[string]string{
-							fmt.Sprintf("kubernetes.io/cluster/%s", namespace): "1",
-							"kubernetes.io/role/node":                          "1",
+							fmt.Sprintf("kubernetes.io/cluster/%s", technicalID): "1",
+							"kubernetes.io/role/node":                            "1",
 						},
 						labels,
 					)
@@ -763,12 +768,12 @@ var _ = Describe("Machines", func() {
 					machineClassPool3Zone2 = addKeyValueToMap(machineClassPool3Zone2, "machineType", machineTypeArm)
 
 					var (
-						machineClassNamePool1Zone1 = fmt.Sprintf("%s-%s-z1", namespace, namePool1)
-						machineClassNamePool1Zone2 = fmt.Sprintf("%s-%s-z2", namespace, namePool1)
-						machineClassNamePool2Zone1 = fmt.Sprintf("%s-%s-z1", namespace, namePool2)
-						machineClassNamePool2Zone2 = fmt.Sprintf("%s-%s-z2", namespace, namePool2)
-						machineClassNamePool3Zone1 = fmt.Sprintf("%s-%s-z1", namespace, namePool3)
-						machineClassNamePool3Zone2 = fmt.Sprintf("%s-%s-z2", namespace, namePool3)
+						machineClassNamePool1Zone1 = fmt.Sprintf("%s-%s-z1", technicalID, namePool1)
+						machineClassNamePool1Zone2 = fmt.Sprintf("%s-%s-z2", technicalID, namePool1)
+						machineClassNamePool2Zone1 = fmt.Sprintf("%s-%s-z1", technicalID, namePool2)
+						machineClassNamePool2Zone2 = fmt.Sprintf("%s-%s-z2", technicalID, namePool2)
+						machineClassNamePool3Zone1 = fmt.Sprintf("%s-%s-z1", technicalID, namePool3)
+						machineClassNamePool3Zone2 = fmt.Sprintf("%s-%s-z2", technicalID, namePool3)
 
 						machineClassWithHashPool1Zone1 = fmt.Sprintf("%s-%s", machineClassNamePool1Zone1, workerPoolHash1)
 						machineClassWithHashPool1Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool1Zone2, workerPoolHash1)
@@ -1079,8 +1084,8 @@ var _ = Describe("Machines", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						var (
-							machineClassNamePool2Zone1     = fmt.Sprintf("%s-%s-z1", namespace, namePool2)
-							machineClassNamePool2Zone2     = fmt.Sprintf("%s-%s-z2", namespace, namePool2)
+							machineClassNamePool2Zone1     = fmt.Sprintf("%s-%s-z1", technicalID, namePool2)
+							machineClassNamePool2Zone2     = fmt.Sprintf("%s-%s-z2", technicalID, namePool2)
 							machineClassWithHashPool2Zone1 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone1, newHash)
 							machineClassWithHashPool2Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, newHash)
 						)
