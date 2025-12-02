@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
@@ -26,7 +25,6 @@ import (
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/utils"
-	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
@@ -134,7 +132,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			return err
 		}
 
-		instanceMetadataOptions, err := ComputeInstanceMetadata(workerConfig, w.cluster)
+		instanceMetadataOptions, err := ComputeInstanceMetadataOptions(workerConfig)
 		if err != nil {
 			return err
 		}
@@ -502,21 +500,13 @@ func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructure
 	return nil, fmt.Errorf("unable to compute IAM instance profile configuration")
 }
 
-// ComputeInstanceMetadata calculates the InstanceMetadata options for a particular worker pool.
-func ComputeInstanceMetadata(workerConfig *awsapi.WorkerConfig, cluster *controller.Cluster) (map[string]interface{}, error) {
+// ComputeInstanceMetadataOptions calculates the InstanceMetadata options for a particular worker pool.
+func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig) (map[string]interface{}, error) {
 	res := make(map[string]interface{})
 
-	// apply new defaults for k8s >= v1.30 to require the use of IMDSv2, unless explicitly opted out.
 	if workerConfig == nil || workerConfig.InstanceMetadataOptions == nil {
-		k8sVersion, err := semver.NewVersion(cluster.Shoot.Spec.Kubernetes.Version)
-		if err != nil {
-			return nil, err
-		}
-
-		if versionutils.ConstraintK8sGreaterEqual130.Check(k8sVersion) {
-			res["httpPutResponseHopLimit"] = int64(2)
-			res["httpTokens"] = string(awsapi.HTTPTokensRequired)
-		}
+		res["httpPutResponseHopLimit"] = int64(2)
+		res["httpTokens"] = string(awsapi.HTTPTokensRequired)
 
 		return res, nil
 	}
