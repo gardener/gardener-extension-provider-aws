@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gardener/gardener/extensions/pkg/controller"
@@ -42,11 +41,6 @@ const (
 	// we need to support it because old PVs use it as node affinity
 	// see also: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/729#issuecomment-1942026577
 	CSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
-)
-
-// RecCount is used as an indicator to track # worker delegate reconcile counts FIXME: Remove after debugging
-var (
-	RecCount atomic.Uint32
 )
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
@@ -85,7 +79,6 @@ func (w *WorkerDelegate) GenerateMachineDeployments(ctx context.Context) (worker
 }
 
 func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
-	RecCount.Add(1)
 	var (
 		machineDeployments = worker.MachineDeployments{}
 		machineClasses     []map[string]interface{}
@@ -111,7 +104,6 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 		}
 
 		workerPoolHash, err := w.generateWorkerPoolHash(pool, workerConfig)
-		fmt.Printf("%d|Bingo: WorkerPoolHash for pool %q is %q\n", RecCount.Load(), pool.Name, workerPoolHash)
 		if err != nil {
 			return err
 		}
@@ -215,10 +207,8 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 					nodeTemplate.VirtualCapacity = corev1.ResourceList{}
 				}
 				maps.Copy(nodeTemplate.VirtualCapacity, workerConfig.NodeTemplate.VirtualCapacity)
-				fmt.Printf("%d|Bingo: NodeTemplate.VirtualCapacity for pool %q and zone %q is %v\n", RecCount.Load(), pool.Name, zone, nodeTemplate.VirtualCapacity)
 			}
 			machineClassSpec["nodeTemplate"] = nodeTemplate
-			fmt.Printf("%d|Bingo: NodeTemplate for pool %q, zone %q is %+v\n", RecCount.Load(), pool.Name, zone, nodeTemplate)
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
 				machineClassSpec["cpuOptions"] = map[string]int64{
@@ -302,7 +292,6 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			})
 
 			machineClassSpec["name"] = className
-			fmt.Printf("%d|Bingo: MachineClass for pool %q, zone %q is name: %q, value: %+v\n", RecCount.Load(), pool.Name, zone, className, machineClassSpec)
 			machineClassSpec["labels"] = map[string]string{corev1.LabelZoneFailureDomain: zone}
 			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
 
@@ -379,7 +368,6 @@ func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPo
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("%d Bingo: v2HashData for pool %q is %s", RecCount.Load(), pool.Name, v2HashData)
 	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), v2HashData, ComputeAdditionalHashDataInPlace(pool))
 }
 
