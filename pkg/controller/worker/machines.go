@@ -6,7 +6,6 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"path/filepath"
@@ -66,7 +65,6 @@ func (w *WorkerDelegate) DeployMachineClasses(ctx context.Context) error {
 			return err
 		}
 	}
-
 	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join(charts.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 
@@ -191,7 +189,6 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
 				machineClassSpec["keyName"] = infrastructureStatus.EC2.KeyName
 			}
-
 			var nodeTemplate machinev1alpha1.NodeTemplate
 			if pool.NodeTemplate != nil {
 				nodeTemplate = machinev1alpha1.NodeTemplate{
@@ -450,14 +447,11 @@ func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfi
 
 	if workerConfig != nil && workerConfig.NodeTemplate != nil && workerConfig.NodeTemplate.VirtualCapacity != nil {
 		// Addition or Change in VirtualCapacity should NOT cause existing hash to change to prevent trigger of rollout.
-		// TODO: once the MCM supports Machine Hot-Update from the WorkerConfig, this hash data logic can be made smarter
-		workerConfigCopy := workerConfig.DeepCopy()
-		workerConfigCopy.NodeTemplate.VirtualCapacity = nil
-		data, err := json.Marshal(workerConfigCopy)
+		modifiedWorkerConfigJson, err := rewriteWorkerConfigForBackwardCompatibleHash(workerConfig)
 		if err != nil {
 			return nil, err
 		}
-		additionalData = append(additionalData, string(data))
+		additionalData = append(additionalData, string(modifiedWorkerConfigJson))
 		return additionalData, nil
 	}
 
