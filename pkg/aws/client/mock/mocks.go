@@ -1137,19 +1137,19 @@ func (mr *MockInterfaceMockRecorder) GetElasticIPsAssociationIDForAllocationIDs(
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetElasticIPsAssociationIDForAllocationIDs", reflect.TypeOf((*MockInterface)(nil).GetElasticIPsAssociationIDForAllocationIDs), ctx, allocationIDs)
 }
 
-// GetFileSystems mocks base method.
-func (m *MockInterface) GetFileSystems(ctx context.Context, fileSystemID string) (*types0.FileSystemDescription, error) {
+// GetFileSystem mocks base method.
+func (m *MockInterface) GetFileSystem(ctx context.Context, fileSystemID string) (*types0.FileSystemDescription, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFileSystems", ctx, fileSystemID)
+	ret := m.ctrl.Call(m, "GetFileSystem", ctx, fileSystemID)
 	ret0, _ := ret[0].(*types0.FileSystemDescription)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetFileSystems indicates an expected call of GetFileSystems.
-func (mr *MockInterfaceMockRecorder) GetFileSystems(ctx, fileSystemID any) *gomock.Call {
+// GetFileSystem indicates an expected call of GetFileSystem.
+func (mr *MockInterfaceMockRecorder) GetFileSystem(ctx, fileSystemID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileSystems", reflect.TypeOf((*MockInterface)(nil).GetFileSystems), ctx, fileSystemID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileSystem", reflect.TypeOf((*MockInterface)(nil).GetFileSystem), ctx, fileSystemID)
 }
 
 // GetIAMInstanceProfile mocks base method.
