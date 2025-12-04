@@ -801,6 +801,8 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 		AmazonProvidedIpv6CidrBlock: aws.Bool(desired.AssignGeneratedIPv6CidrBlock),
 		TagSpecifications:           desired.ToTagSpecifications(ec2types.ResourceTypeVpc),
 		InstanceTenancy:             desired.InstanceTenancy,
+		Ipv6IpamPoolId:              desired.Ipv6IpamPoolId,
+		Ipv6NetmaskLength:           desired.Ipv6NetmaskLength,
 	}
 	output, err := c.EC2.CreateVpc(ctx, input)
 	if err != nil {

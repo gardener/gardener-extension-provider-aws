@@ -115,6 +115,14 @@ type VPC struct {
 	CIDR *string
 	// GatewayEndpoints service names to configure as gateway endpoints in the VPC.
 	GatewayEndpoints []string
+	// Ipv6IpamPool references an AWS IPv6 IPAM pool used to allocate the VPC's IPv6 CIDR block.
+	Ipv6IpamPool *IPAMPool
+}
+
+// IPAMPool references an AWS IPAM pool that should be used to allocate the VPC's CIDR.
+type IPAMPool struct {
+	// ID is the IPAM pool id.
+	ID *string
 }
 
 // VPCStatus contains information about a generated VPC or resources inside an existing VPC.
