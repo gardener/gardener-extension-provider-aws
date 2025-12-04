@@ -296,7 +296,7 @@ var _ = Describe("Machines", func() {
 
 				machineConfiguration = &machinev1alpha1.MachineConfiguration{}
 
-				shootVersionMajorMinor = "1.29"
+				shootVersionMajorMinor = "1.33"
 				shootVersion = shootVersionMajorMinor + ".3"
 
 				clusterWithoutImages = &extensionscontroller.Cluster{
@@ -656,7 +656,10 @@ var _ = Describe("Machines", func() {
 								},
 							},
 						},
-						"instanceMetadataOptions": map[string]interface{}{},
+						"instanceMetadataOptions": map[string]interface{}{
+							"httpPutResponseHopLimit": int64(2),
+							"httpTokens":              "required",
+						},
 						"operatingSystem": map[string]interface{}{
 							"operatingSystemName":    machineImageName,
 							"operatingSystemVersion": strings.ReplaceAll(machineImageVersion, "+", "_"),
@@ -1308,15 +1311,6 @@ var _ = Describe("Machines", func() {
 				Expect(classNames3).To(Equal(classNames1))
 			})
 
-			It("should fail because the version is invalid", func() {
-				clusterWithoutImages.Shoot.Spec.Kubernetes.Version = "invalid"
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
-
-				result, err := workerDelegate.GenerateMachineDeployments(ctx)
-				Expect(err).To(HaveOccurred())
-				Expect(result).To(BeNil())
-			})
-
 			It("should fail because the infrastructure status cannot be decoded", func() {
 				w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
 
@@ -1600,7 +1594,7 @@ var _ = Describe("Machines", func() {
 					Shoot: &gardencorev1beta1.Shoot{
 						Spec: gardencorev1beta1.ShootSpec{
 							Kubernetes: gardencorev1beta1.Kubernetes{
-								Version: "1.29.0",
+								Version: "1.34.0",
 							},
 						},
 					},
@@ -1609,15 +1603,10 @@ var _ = Describe("Machines", func() {
 					InstanceMetadataOptions: nil,
 				}
 			})
-			It("should calculate correct IMDS for k8s <1.30", func() {
-				res, err := ComputeInstanceMetadata(workerConfig, cluster)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(res).To(BeEmpty())
-			})
 			It("should calculate correct IMDS for k8s >=1.30", func() {
 				cluster.Shoot.Spec.Kubernetes.Version = "1.30.0"
 
-				res, err := ComputeInstanceMetadata(workerConfig, cluster)
+				res, err := ComputeInstanceMetadataOptions(workerConfig)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(2)))
 				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
@@ -1628,7 +1617,7 @@ var _ = Describe("Machines", func() {
 					HTTPPutResponseHopLimit: ptr.To(int64(5)),
 				}
 
-				res, err := ComputeInstanceMetadata(workerConfig, cluster)
+				res, err := ComputeInstanceMetadataOptions(workerConfig)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(5)))
 				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))

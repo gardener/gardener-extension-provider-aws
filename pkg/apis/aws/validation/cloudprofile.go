@@ -244,7 +244,7 @@ func validateImageFlavorMapping(machineImage core.MachineImage, version core.Mac
 		isFound := false
 		// search for the corresponding imageVersion.MachineImageFlavor
 		for _, providerCapabilitySet := range imageVersion.CapabilityFlavors {
-			providerDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilityDefinitions)
+			providerDefaultedCapabilities := gardencorev1beta1.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilityDefinitions)
 			if gardencorev1beta1helper.AreCapabilitiesEqual(defaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
 				isFound = true
 				break

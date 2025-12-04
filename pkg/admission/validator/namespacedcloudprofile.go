@@ -161,7 +161,7 @@ func validateMachineImageCapabilities(machineImage core.MachineImage, version ga
 	for _, capabilityFlavor := range providerImageVersion.CapabilityFlavors {
 		isFound := false
 		for _, coreDefaultedCapabilitySet := range defaultedCapabilityFlavors {
-			defaultedProviderCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilityFlavor.Capabilities, capabilityDefinitions)
+			defaultedProviderCapabilities := gardencorev1beta1.GetCapabilitiesWithAppliedDefaults(capabilityFlavor.Capabilities, capabilityDefinitions)
 			if gardencorev1beta1helper.AreCapabilitiesEqual(coreDefaultedCapabilitySet.Capabilities, defaultedProviderCapabilities) {
 				isFound = true
 			}
@@ -181,7 +181,7 @@ func validateMachineImageCapabilities(machineImage core.MachineImage, version ga
 	for _, coreDefaultedCapabilityFlavor := range defaultedCapabilityFlavors {
 		isFound := false
 		for _, capabilityFlavor := range providerImageVersion.CapabilityFlavors {
-			defaultedProviderCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilityFlavor.Capabilities, capabilityDefinitions)
+			defaultedProviderCapabilities := gardencorev1beta1.GetCapabilitiesWithAppliedDefaults(capabilityFlavor.Capabilities, capabilityDefinitions)
 			if gardencorev1beta1helper.AreCapabilitiesEqual(coreDefaultedCapabilityFlavor.Capabilities, defaultedProviderCapabilities) {
 				isFound = true
 			}
@@ -198,7 +198,7 @@ func validateMachineImageCapabilities(machineImage core.MachineImage, version ga
 		for region, regionCapabilities := range regionsCapabilitiesMap {
 			isFound := false
 			for _, capabilities := range regionCapabilities {
-				regionDefaultedCapabilities := gardencorev1beta1helper.GetCapabilitiesWithAppliedDefaults(capabilities, capabilityDefinitions)
+				regionDefaultedCapabilities := gardencorev1beta1.GetCapabilitiesWithAppliedDefaults(capabilities, capabilityDefinitions)
 				if gardencorev1beta1helper.AreCapabilitiesEqual(regionDefaultedCapabilities, coreDefaultedCapabilityFlavor.Capabilities) {
 					isFound = true
 				}

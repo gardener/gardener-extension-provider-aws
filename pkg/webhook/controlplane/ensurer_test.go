@@ -55,7 +55,7 @@ var _ = Describe("Ensurer", func() {
 		ctx  = context.TODO()
 
 		dummyContext   = gcontext.NewGardenContext(nil, nil)
-		eContextK8s129 gcontext.GardenContext
+		eContextK8s130 gcontext.GardenContext
 		eContextK8s131 gcontext.GardenContext
 
 		shoot131 *gardencorev1beta1.Shoot
@@ -76,7 +76,7 @@ var _ = Describe("Ensurer", func() {
 	})
 
 	JustBeforeEach(func() {
-		eContextK8s129 = gcontext.NewInternalGardenContext(
+		eContextK8s130 = gcontext.NewInternalGardenContext(
 			&extensionscontroller.Cluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "shoot--project--foo",
@@ -87,7 +87,7 @@ var _ = Describe("Ensurer", func() {
 					},
 					Spec: gardencorev1beta1.ShootSpec{
 						Kubernetes: gardencorev1beta1.Kubernetes{
-							Version: "1.29.0",
+							Version: "1.30.0",
 						},
 						Provider: gardencorev1beta1.Provider{
 							InfrastructureConfig: &runtime.RawExtension{
@@ -152,10 +152,10 @@ var _ = Describe("Ensurer", func() {
 		})
 
 		It("should add missing elements to kube-apiserver deployment (< 1.31)", func() {
-			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s129, dep, nil)
+			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s130, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeAPIServerDeployment(dep, "1.29.0")
+			checkKubeAPIServerDeployment(dep, "1.30.0")
 		})
 
 		It("should add missing elements to kube-apiserver deployment (k8s >= 1.31)", func() {
@@ -197,10 +197,10 @@ var _ = Describe("Ensurer", func() {
 				},
 			}
 
-			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s129, dep, nil)
+			err := ensurer.EnsureKubeAPIServerDeployment(ctx, eContextK8s130, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeAPIServerDeployment(dep, "1.29.0")
+			checkKubeAPIServerDeployment(dep, "1.30.0")
 		})
 	})
 
@@ -235,10 +235,10 @@ var _ = Describe("Ensurer", func() {
 		})
 
 		It("should add missing elements to kube-controller-manager deployment (< 1.31)", func() {
-			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s129, dep, nil)
+			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s130, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeControllerManagerDeployment(dep, "1.29.0")
+			checkKubeControllerManagerDeployment(dep, "1.30.0")
 		})
 
 		It("should add missing elements to kube-controller-manager deployment (k8s >= 1.31)", func() {
@@ -280,10 +280,10 @@ var _ = Describe("Ensurer", func() {
 				}
 			)
 
-			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s129, dep, nil)
+			err := ensurer.EnsureKubeControllerManagerDeployment(ctx, eContextK8s130, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeControllerManagerDeployment(dep, "1.29.0")
+			checkKubeControllerManagerDeployment(dep, "1.30.0")
 		})
 	})
 
@@ -313,10 +313,10 @@ var _ = Describe("Ensurer", func() {
 		})
 
 		It("should add missing elements to kube-scheduler deployment (< 1.31)", func() {
-			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s129, dep, nil)
+			err := ensurer.EnsureKubeSchedulerDeployment(ctx, eContextK8s130, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkKubeSchedulerDeployment(dep, "1.29.0")
+			checkKubeSchedulerDeployment(dep, "1.30.0")
 		})
 
 		It("should add missing elements to kube-scheduler deployment (k8s >= 1.31)", func() {
@@ -353,10 +353,10 @@ var _ = Describe("Ensurer", func() {
 		})
 
 		It("should add missing elements to cluster-autoscaler deployment (< 1.31)", func() {
-			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s129, dep, nil)
+			err := ensurer.EnsureClusterAutoscalerDeployment(ctx, eContextK8s130, dep, nil)
 			Expect(err).To(Not(HaveOccurred()))
 
-			checkClusterAutoscalerDeployment(dep, "1.29.0")
+			checkClusterAutoscalerDeployment(dep, "1.30.0")
 		})
 
 		It("should add missing elements to cluster-autoscaler deployment (>= 1.31)", func() {
@@ -394,7 +394,7 @@ ExecStart=/opt/bin/mtu-customizer.sh
 			ensurer := NewEnsurer(logger, c)
 
 			// Call EnsureAdditionalUnits method and check the result
-			err := ensurer.EnsureAdditionalUnits(ctx, eContextK8s129, &units, nil)
+			err := ensurer.EnsureAdditionalUnits(ctx, eContextK8s130, &units, nil)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(units).To(ConsistOf(oldUnit, additionalUnit))
 		})
@@ -471,7 +471,7 @@ done
 				ensurer := NewEnsurer(logger, c)
 
 				// Call EnsureAdditionalFiles method and check the result
-				err = ensurer.EnsureAdditionalFiles(ctx, eContextK8s129, &files, nil)
+				err = ensurer.EnsureAdditionalFiles(ctx, eContextK8s130, &files, nil)
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(files).To(ConsistOf(oldFile, additionalFile, ecrConfig, ecrBin))
 			})
@@ -503,7 +503,7 @@ done
 				ensurer := NewEnsurer(logger, c)
 
 				// Call EnsureAdditionalFiles method and check the result
-				err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s129, &files, nil)
+				err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s130, &files, nil)
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(files).To(ConsistOf(oldFile, additionalFile))
 			})
@@ -579,7 +579,7 @@ done
 				})
 
 				It("without ECR access", func() {
-					opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s129, semver.MustParse("1.29.0"), oldUnitOptions, nil)
+					opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s130, semver.MustParse("1.30.0"), oldUnitOptions, nil)
 					Expect(err).To(Not(HaveOccurred()))
 					Expect(opts).To(Equal(newUnitOptions))
 				})
@@ -589,7 +589,7 @@ done
 				newUnitOptions[0].Value += addCmdOption("--image-credential-provider-config=/opt/gardener/ecr-credential-provider-config.json")
 				newUnitOptions[0].Value += addCmdOption("--image-credential-provider-bin-dir=/opt/bin/")
 
-				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s129, semver.MustParse("1.29.0"), oldUnitOptions, nil)
+				opts, err := ensurer.EnsureKubeletServiceUnitOptions(ctx, eContextK8s130, semver.MustParse("1.30.0"), oldUnitOptions, nil)
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(opts).To(Equal(newUnitOptions))
 			})
@@ -630,7 +630,7 @@ done
 				Expect(&kubeletConfig).To(Equal(newKubeletConfig))
 			},
 
-			Entry("kubelet < 1.31", semver.MustParse("1.29.0"), map[string]bool{"InTreePluginAWSUnregister": true}),
+			Entry("kubelet < 1.31", semver.MustParse("1.30.0"), map[string]bool{"InTreePluginAWSUnregister": true}),
 			Entry("kubelet >= 1.31", semver.MustParse("1.31.1"), map[string]bool{}),
 		)
 	})

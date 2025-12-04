@@ -192,7 +192,7 @@ var _ = Describe("ValuesProvider", func() {
 						Pods: &cidr,
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: "1.29.0",
+						Version: "1.34.0",
 					},
 				},
 				Status: gardencorev1beta1.ShootStatus{
@@ -525,7 +525,7 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.29.0",
+						"kubernetesVersion": "1.34.0",
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
 						},
@@ -546,7 +546,7 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.29.0",
+						"kubernetesVersion": "1.34.0",
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
 						},
@@ -567,7 +567,7 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSCustomRouteControllerName:  enabledTrue,
 					aws.AWSLoadBalancerControllerName: enabledFalse,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.29.0",
+						"kubernetesVersion": "1.34.0",
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
 						},
@@ -604,7 +604,7 @@ var _ = Describe("ValuesProvider", func() {
 					aws.AWSCustomRouteControllerName:  enabledFalse,
 					aws.AWSLoadBalancerControllerName: albChartValues,
 					aws.CSINodeName: utils.MergeMaps(enabledTrue, map[string]interface{}{
-						"kubernetesVersion": "1.29.0",
+						"kubernetesVersion": "1.34.0",
 						"driver": map[string]interface{}{
 							"volumeAttachLimit": "42",
 						},
