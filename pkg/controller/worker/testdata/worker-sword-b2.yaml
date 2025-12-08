@@ -43,9 +43,9 @@ spec:
       kind: WorkerConfig
       nodeTemplate:
         capacity:
-          cpu: 2
-          gpu: 0
-          memory: 8Gi
+          cpu: "2"
+          gpu: "0"
+          memory: "8Gi"
         virtualCapacity:
           security.com/bangle: 10
           subdomain.domain.com/cpu: "3"

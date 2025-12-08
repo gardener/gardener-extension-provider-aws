@@ -1201,44 +1201,39 @@ var _ = Describe("Machines", func() {
 					}
 				})
 			})
-			It("should generate same worker pool hash even when virtualCapacity is newly added or changed", Label("virtualCapacity"), func() {
-				var (
-					// Represent worker old-new versions by number suffix and variations by suffix letter
-					// ie wa1->wa2 represents update of variation `a` version 1 to version 2
-					// ie wb1->wb2 represents update of variation `b` version 1 to version 2
-					wa1, wa2, wb1, wb2 extensionsv1alpha1.Worker
-				)
-				err := loadDecodeWorker(decoder, "testdata/worker-sword-a1.yaml", &wa1)
-				Expect(err).ToNot(HaveOccurred())
+			DescribeTable("should generate same worker pool hash even when virtualCapacity is newly added or changed", Label("virtualCapacity"),
+				func(w1Def string, w2Def string) {
+					var w1, w2 extensionsv1alpha1.Worker
+					var w1Config, w2Config *api.WorkerConfig
+					err := loadDecodeWorker(decoder, w1Def, &w1)
+					Expect(err).ToNot(HaveOccurred())
 
-				err = loadDecodeWorker(decoder, "testdata/worker-sword-a2.yaml", &wa2)
-				Expect(err).ToNot(HaveOccurred())
+					err = loadDecodeWorker(decoder, w2Def, &w2)
+					Expect(err).ToNot(HaveOccurred())
 
-				err = loadDecodeWorker(decoder, "testdata/worker-sword-b1.yaml", &wb1)
-				Expect(err).ToNot(HaveOccurred())
+					w1Config, err = decodePoolProviderConfig(decoder, w1.Spec.Pools[0])
+					Expect(err).ToNot(HaveOccurred())
 
-				err = loadDecodeWorker(decoder, "testdata/worker-sword-b2.yaml", &wb2)
-				Expect(err).ToNot(HaveOccurred())
+					w2Config, err = decodePoolProviderConfig(decoder, w2.Spec.Pools[0])
+					Expect(err).ToNot(HaveOccurred())
 
-				wa1Hash, err := worker.WorkerPoolHash(wa1.Spec.Pools[0], cluster, nil, nil, nil)
-				Expect(err).ToNot(HaveOccurred())
+					w1PoolHashDataV2, err := ComputeAdditionalHashDataV2(w1.Spec.Pools[0], w1Config)
+					Expect(err).ToNot(HaveOccurred())
 
-				wa2Hash, err := worker.WorkerPoolHash(wa2.Spec.Pools[0], cluster, nil, nil, nil)
-				Expect(err).ToNot(HaveOccurred())
+					w2PoolHashDataV2, err := ComputeAdditionalHashDataV2(w2.Spec.Pools[0], w2Config)
+					Expect(err).ToNot(HaveOccurred())
 
-				wb1Hash, err := worker.WorkerPoolHash(wb1.Spec.Pools[0], cluster, nil, nil, nil)
-				Expect(err).ToNot(HaveOccurred())
+					w1Hash, err := worker.WorkerPoolHash(w1.Spec.Pools[0], cluster, nil, w1PoolHashDataV2, ComputeAdditionalHashDataInPlace(w1.Spec.Pools[0]))
+					Expect(err).ToNot(HaveOccurred())
 
-				wb2Hash, err := worker.WorkerPoolHash(wb2.Spec.Pools[0], cluster, nil, nil, nil)
-				Expect(err).ToNot(HaveOccurred())
+					w2Hash, err := worker.WorkerPoolHash(w2.Spec.Pools[0], cluster, nil, w2PoolHashDataV2, ComputeAdditionalHashDataInPlace(w2.Spec.Pools[0]))
+					Expect(err).ToNot(HaveOccurred())
 
-				GinkgoWriter.Printf("wa1Hash: %q, wa2Hash: %q\n", wa1Hash, wa2Hash)
-				Expect(wa1Hash).To(Equal(wa2Hash))
-
-				GinkgoWriter.Printf("wb1Hash: %q, w2bHash: %q\n", wb1Hash, wb2Hash)
-				Expect(wb1Hash).To(Equal(wb2Hash))
-
-			})
+					GinkgoWriter.Printf("w1Def: %q, w2Def:%q, w1Hash: %q, w2Hash: %q\n", w1Def, w2Def, w1Hash, w2Hash)
+					Expect(w1Hash).To(Equal(w2Hash))
+				},
+				Entry("with existing providerConfig but no existing nodeTemplate", "testdata/worker-sword-a1.yaml", "testdata/worker-sword-a2.yaml"),
+				Entry("with existing providerConfig and nodeTemplate", "testdata/worker-sword-b1.yaml", "testdata/worker-sword-b2.yaml"))
 
 			It("should fail because the infrastructure status cannot be decoded", func() {
 				w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
@@ -1706,4 +1701,15 @@ func loadDecodeWorker(decoder runtime.Decoder, filePath string, w *extensionsv1a
 		return err
 	}
 	return nil
+}
+
+func decodePoolProviderConfig(decoder runtime.Decoder, pool extensionsv1alpha1.WorkerPool) (workerConfig *api.WorkerConfig, err error) {
+	workerConfig = &api.WorkerConfig{}
+	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
+		if _, _, err = decoder.Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
+			err = fmt.Errorf("could not decode provider config: %+v", err)
+			return
+		}
+	}
+	return
 }

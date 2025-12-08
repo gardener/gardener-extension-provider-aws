@@ -38,6 +38,9 @@ spec:
         cpu: "2"
         gpu: "0"
         memory: 8Gi
+    providerConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: WorkerConfig
     updateStrategy: AutoRollingUpdate
     userDataSecretRef:
       key: cloud_config

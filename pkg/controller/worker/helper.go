@@ -57,6 +57,11 @@ func rewriteWorkerConfigForBackwardCompatibleHash(workerConfig *api.WorkerConfig
 		workerConfigCopy.NodeTemplate.VirtualCapacity = nil
 	}
 
+	if workerConfigCopy.NodeTemplate != nil && workerConfigCopy.NodeTemplate.Capacity == nil {
+		// Need the same hash if WorkerConfig was present, but nodeTemplate was NOT set and subsequently nodeTemplate.virtualCapacity was just added.
+		workerConfigCopy.NodeTemplate = nil
+	}
+
 	// Step 2: wrap and inject apiVersion & kind
 	// needs an explicit set of APIVersion and Kind in exact order so we don't to differ from the previous `string(pool.ProviderConfig.Raw)`
 	// In https://github.com/gardener/gardener-extension-provider-aws/blob/master/docs/usage/usage.md, we mention apiVersion and then kind,
