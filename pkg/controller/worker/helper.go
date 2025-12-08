@@ -5,9 +5,10 @@
 package worker
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"regexp"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,38 +49,53 @@ func (w *WorkerDelegate) updateWorkerProviderStatus(ctx context.Context, workerS
 	return w.client.Status().Patch(ctx, w.worker, patch)
 }
 
-// rewriteWorkerConfigForBackwardCompatibleHash ensures that addition or change in providerConfig.nodeTemplate.virtualCapacity should NOT
-// cause existing hash to change to prevent trigger of rollout.
-func rewriteWorkerConfigForBackwardCompatibleHash(workerConfig *api.WorkerConfig) ([]byte, error) {
-	// Step 1: get copy of workerConfig and set NodeTemplate.VirtualCapacity set to nil
-	workerConfigCopy := workerConfig.DeepCopy()
-	if workerConfigCopy.NodeTemplate != nil {
-		workerConfigCopy.NodeTemplate.VirtualCapacity = nil
-	}
+// Precompiled regexes used by stripVirtualCapacity for efficiency
+var (
+	// reOnlyVirtualCapacity matches the entire providerConfig.nodeTemplate object when it contains
+	// ONLY the virtualCapacity field. The match is done regardless of whitespace and newlines.
+	// Example of Matched structure:
+	//     "nodeTemplate": {
+	//         "virtualCapacity" : { ...simple map contents... }
+	//     }
+	reOnlyVirtualCapacity = regexp.MustCompile(
+		`(?s)"nodeTemplate"\s*:\s*\{\s*"virtualCapacity"\s*:\s*\{[^{}]*\}\s*\}\s*,?`,
+	)
 
-	if workerConfigCopy.NodeTemplate != nil && workerConfigCopy.NodeTemplate.Capacity == nil {
-		// Need the same hash if WorkerConfig was present, but nodeTemplate was NOT set and subsequently nodeTemplate.virtualCapacity was just added.
-		workerConfigCopy.NodeTemplate = nil
-	}
+	// reTrailingVirtualCapacity matches only the virtualCapacity field when it is the last field inside providerConfig.nodeTemplate and and "capacity" appears before it.
+	// Example of matched structure:
+	//      ,"virtualCapacity": { ... simple map contents ... }
+	reTrailingVirtualCapacity = regexp.MustCompile(
+		`(?s),\s*"virtualCapacity"\s*:\s*\{[^{}]*\}\s*`,
+	)
 
-	// Step 2: wrap and inject apiVersion & kind
-	// needs an explicit set of APIVersion and Kind in exact order so we don't to differ from the previous `string(pool.ProviderConfig.Raw)`
-	// In https://github.com/gardener/gardener-extension-provider-aws/blob/master/docs/usage/usage.md, we mention apiVersion and then kind,
-	// which is what customers copy-paste to the shoot spec and then use.
-	// cannot use either std json nor api machinery json to directly serialize WorkerConfig since they serialize to kind first followed by apiVersion which
-	// would be different from previous `string(pool.ProviderConfig.Raw)` used as hash for the machine class suffix.
-	wrapper := workerConfigWrapper{
-		APIVersion:   "aws.provider.extensions.gardener.cloud/v1alpha1",
-		Kind:         "WorkerConfig",
-		WorkerConfig: workerConfigCopy,
-	}
-	// Step 3: marshal back to JSON
-	return json.Marshal(wrapper)
-}
+	// reDanglingComma removes any comma followed by optional whitespace followed by closing brace
+	reDanglingComma = regexp.MustCompile(`,\s*}`)
+)
 
-// workerConfigWrapper is used by rewriteWorkerConfigForBackwardCompatibleHash so that APIVersion comes before Kind
-type workerConfigWrapper struct {
-	APIVersion        string `json:"apiVersion"`
-	Kind              string `json:"kind"`
-	*api.WorkerConfig `json:",inline"`
+// stripVirtualCapacity removes virtualCapacity (and optionally nodeTemplate)
+// from the given inProviderConfig using regex logic under strict structural assumptions.
+//
+// Assumptions:
+//   - nodeTemplate contains only "capacity" and/or "virtualCapacity"
+//   - Both fields are simple maps { key: int/string }
+//   - virtualCapacity is either:
+//     B) the last field
+//     C) the only field
+//   - No nested objects inside these maps.
+//
+// It preserves all whitespace, indentation, newlines, and key ordering. A final cleanup step removes any illegal trailing ",}" created when removing the
+// last field inside an object.
+func stripVirtualCapacity(inProviderConfig []byte) (outProviderConfig []byte) {
+	outProviderConfig = inProviderConfig
+
+	// Case A: virtualCapacity is the only field -> remove entire nodeTemplate
+	outProviderConfig = reOnlyVirtualCapacity.ReplaceAll(outProviderConfig, []byte(""))
+
+	// Case B: virtualCapacity is the last field -> remove only the virtualCapacity field
+	outProviderConfig = reTrailingVirtualCapacity.ReplaceAll(outProviderConfig, []byte(""))
+
+	// fix any dangling commas after nodeTemplate removal
+	outProviderConfig = reDanglingComma.ReplaceAll(outProviderConfig, []byte("}"))
+
+	return bytes.TrimSpace(outProviderConfig)
 }

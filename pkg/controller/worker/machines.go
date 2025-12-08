@@ -445,10 +445,7 @@ func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfi
 
 	if workerConfig != nil && workerConfig.NodeTemplate != nil && workerConfig.NodeTemplate.VirtualCapacity != nil {
 		// Addition or Change in VirtualCapacity should NOT cause existing hash to change to prevent trigger of rollout.
-		modifiedWorkerConfigJson, err := rewriteWorkerConfigForBackwardCompatibleHash(workerConfig)
-		if err != nil {
-			return nil, err
-		}
+		modifiedWorkerConfigJson := stripVirtualCapacity(pool.ProviderConfig.Raw)
 		additionalData = append(additionalData, string(modifiedWorkerConfigJson))
 		return additionalData, nil
 	}

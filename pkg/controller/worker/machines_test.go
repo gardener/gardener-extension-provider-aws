@@ -1232,8 +1232,17 @@ var _ = Describe("Machines", func() {
 					GinkgoWriter.Printf("w1Def: %q, w2Def:%q, w1Hash: %q, w2Hash: %q\n", w1Def, w2Def, w1Hash, w2Hash)
 					Expect(w1Hash).To(Equal(w2Hash))
 				},
-				Entry("with existing providerConfig but no existing nodeTemplate", "testdata/worker-sword-a1.yaml", "testdata/worker-sword-a2.yaml"),
-				Entry("with existing providerConfig and nodeTemplate", "testdata/worker-sword-b1.yaml", "testdata/worker-sword-b2.yaml"))
+				Entry("with existing providerConfig but no existing nodeTemplate", "testdata/worker-a1.yaml", "testdata/worker-a2.yaml"),
+				Entry("with existing providerConfig and nodeTemplate", "testdata/worker-b1.yaml", "testdata/worker-b2.yaml"),
+				Entry("with existing providerConfig.volume,dataVolumes but no existing nodeTemplate", "testdata/worker-c1.yaml", "testdata/worker-c2.yaml"))
+			It("should fail because the version is invalid", func() {
+				clusterWithoutImages.Shoot.Spec.Kubernetes.Version = "invalid"
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+
+				result, err := workerDelegate.GenerateMachineDeployments(ctx)
+				Expect(err).To(HaveOccurred())
+				Expect(result).To(BeNil())
+			})
 
 			It("should fail because the infrastructure status cannot be decoded", func() {
 				w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}

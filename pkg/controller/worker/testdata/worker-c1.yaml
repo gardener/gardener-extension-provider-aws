@@ -1,0 +1,66 @@
+apiVersion: extensions.gardener.cloud/v1alpha1
+kind: Worker
+metadata:
+  annotations:
+    gardener.cloud/timestamp: "2025-11-28T07:31:10.855040687Z"
+  creationTimestamp: "2025-10-30T08:17:33Z"
+  finalizers:
+  - extensions.gardener.cloud/worker
+  name: sword
+  namespace: shoot--i034796--basic-aws
+  resourceVersion: "1"
+  uid: e7dff52f-866c-4337-ac8c-3ff29b81f0b2
+spec:
+  pools:
+  - architecture: amd64
+    kubernetesVersion: 1.33.5
+    labels:
+      kubernetes.io/arch: amd64
+      networking.gardener.cloud/node-local-dns-enabled: "true"
+      node.kubernetes.io/role: node
+      worker.garden.sapcloud.io/group: p
+      worker.gardener.cloud/cri-name: containerd
+      worker.gardener.cloud/gardener-node-agent-secret-name: sword
+      worker.gardener.cloud/pool: p
+      worker.gardener.cloud/system-components: "true"
+    machineImage:
+      name: gardenlinux
+      version: 1877.7.0
+    machineType: m5.large
+    maxSurge: 1
+    maxUnavailable: 0
+    maximum: 2
+    minimum: 1
+    name: p
+    nodeAgentSecretName: sword
+    nodeTemplate:
+      capacity:
+        cpu: "2"
+        gpu: "0"
+        memory: 8Gi
+    providerConfig:
+      kind: WorkerConfig
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      volume:
+        iops: 3000
+        throughput: 125
+      dataVolumes:
+        - name: kubelet-dir
+          iops: 12345
+          throughput: 150
+          snapshotID: snap-1234
+    updateStrategy: AutoRollingUpdate
+    userDataSecretRef:
+      key: cloud_config
+      name: sword
+    volume:
+      size: 50Gi
+      type: gp2
+    zones:
+    - eu-west-1a
+  region: eu-west-1
+  secretRef:
+    name: cloudprovider
+    namespace: weapon
+  sshPublicKey: c3dvcmQK
+  type: aws
