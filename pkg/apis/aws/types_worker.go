@@ -17,20 +17,20 @@ import (
 type WorkerConfig struct {
 	metav1.TypeMeta
 	// NodeTemplate contains resource information of the machine which is used by Cluster Autoscaler to generate nodeTemplate during scaling a nodeGroup from zero.
-	NodeTemplate *extensionsv1alpha1.NodeTemplate `json:"nodeTemplate,omitempty"`
+	NodeTemplate *extensionsv1alpha1.NodeTemplate
 	// Volume contains configuration for the root disks attached to VMs.
-	Volume *Volume `json:"volume,omitempty"`
+	Volume *Volume
 	// DataVolumes contains configuration for the additional disks attached to VMs.
-	DataVolumes []DataVolume `json:"dataVolumes,omitempty"`
+	DataVolumes []DataVolume
 	// IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
 	// worker pool.
-	IAMInstanceProfile *IAMInstanceProfile `json:"iamInstanceProfile,omitempty"`
+	IAMInstanceProfile *IAMInstanceProfile
 	// InstanceMetadataOptions contains configuration for controlling access to the metadata API.
-	InstanceMetadataOptions *InstanceMetadataOptions `json:"instanceMetadataOptions,omitempty"`
+	InstanceMetadataOptions *InstanceMetadataOptions
 	// CpuOptions contains detailed configuration for the number of cores and threads for the instance.
-	CpuOptions *CpuOptions `json:"cpuOptions,omitempty"`
+	CpuOptions *CpuOptions
 	// CapacityReservation contains configuration about the Capacity Reservation to use for the instance.
-	CapacityReservation *CapacityReservation `json:"capacityReservation,omitempty"`
+	CapacityReservation *CapacityReservation
 }
 
 // Volume contains configuration for the root disks attached to VMs.
