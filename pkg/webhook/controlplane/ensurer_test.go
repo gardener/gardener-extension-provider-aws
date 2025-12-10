@@ -419,7 +419,7 @@ do
 	ip link set dev ${interface} mtu 1460
 done
 `
-			ecrConfig = `{"kind":"CredentialProviderConfig","apiVersion":"kubelet.config.k8s.io/v1","providers":[{"name":"ecr-credential-provider","matchImages":["*.dkr.ecr.*.amazonaws.com","*.dkr.ecr.*.amazonaws.com.cn","*.dkr.ecr-fips.*.amazonaws.com","*.dkr-ecr.*.on.aws","defaultCacheDuration":"1h0m0s","apiVersion":"credentialprovider.kubelet.k8s.io/v1"}]}`
+			ecrConfig = `{"kind":"CredentialProviderConfig","apiVersion":"kubelet.config.k8s.io/v1","providers":[{"name":"ecr-credential-provider","matchImages":["*.dkr.ecr.*.amazonaws.com","*.dkr.ecr.*.amazonaws.com.cn","*.dkr.ecr-fips.*.amazonaws.com","*.dkr-ecr.*.on.aws"],"defaultCacheDuration":"1h0m0s","apiVersion":"credentialprovider.kubelet.k8s.io/v1"}]}`
 			filePath  = "/opt/bin/mtu-customizer.sh"
 		)
 
