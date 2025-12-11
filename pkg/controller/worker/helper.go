@@ -61,7 +61,7 @@ var (
 		`(?s)"nodeTemplate"\s*:\s*\{\s*"virtualCapacity"\s*:\s*\{[^{}]*\}\s*\}\s*,?`,
 	)
 
-	// reTrailingVirtualCapacity matches only the virtualCapacity field when it is the last field inside providerConfig.nodeTemplate and and "capacity" appears before it.
+	// reTrailingVirtualCapacity matches only the virtualCapacity field when it is the last field inside providerConfig.nodeTemplate and "capacity" appears before it.
 	// Example of matched structure:
 	//      ,"virtualCapacity": { ... simple map contents ... }
 	reTrailingVirtualCapacity = regexp.MustCompile(
