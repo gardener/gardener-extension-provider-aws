@@ -183,12 +183,28 @@ func deref[T any](ts []*T) []T {
 	return res
 }
 
-func isIPv6(ipfamilies []gardencorev1beta1.IPFamily) bool {
-	return slices.Contains(ipfamilies, gardencorev1beta1.IPFamilyIPv6)
+func containsIPv6(ipFamilies []gardencorev1beta1.IPFamily) bool {
+	return slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6)
 }
 
-func isIPv4(ipfamilies []gardencorev1beta1.IPFamily) bool {
-	return slices.Contains(ipfamilies, gardencorev1beta1.IPFamilyIPv4)
+func containsIPv4(ipFamilies []gardencorev1beta1.IPFamily) bool {
+	return slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv4)
+}
+
+func toEc2IpAddressType(ipFamilies []gardencorev1beta1.IPFamily) ec2types.IpAddressType {
+	if gardencorev1beta1.IsIPv4SingleStack(ipFamilies) {
+		return ec2types.IpAddressTypeIpv4
+	}
+	if gardencorev1beta1.IsIPv6SingleStack(ipFamilies) {
+		return ec2types.IpAddressTypeIpv6
+	}
+	// TODO: make use of helper function from g/g once they support dual-stack
+	if slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv4) && slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6) {
+		return ec2types.IpAddressTypeDualstack
+	}
+
+	// fallback to IPv4
+	return ec2types.IpAddressTypeIpv4
 }
 
 // a failed NAT will automatically be deleted by AWS

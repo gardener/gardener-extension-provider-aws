@@ -1400,19 +1400,21 @@ func (c *Client) DeleteEgressOnlyInternetGateway(ctx context.Context, id string)
 // CreateVpcEndpoint creates an EC2 VPC endpoint resource.
 func (c *Client) CreateVpcEndpoint(ctx context.Context, endpoint *VpcEndpoint) (*VpcEndpoint, error) {
 	input := &ec2.CreateVpcEndpointInput{
-		ServiceName: aws.String(endpoint.ServiceName),
-		// TagSpecifications: endpoint.ToTagSpecifications(ec2.ResourceTypeClientVpnEndpoint),
-		VpcId: endpoint.VpcId,
+		ServiceName:       aws.String(endpoint.ServiceName),
+		TagSpecifications: endpoint.ToTagSpecifications(ec2types.ResourceTypeVpcEndpoint),
+		VpcId:             endpoint.VpcId,
+		IpAddressType:     ec2types.IpAddressType(endpoint.IpAddressType),
 	}
 	output, err := c.EC2.CreateVpcEndpoint(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	return &VpcEndpoint{
-		// Tags:          FromTags(output.VpcEndpoint.Tags),
+		Tags:          FromTags(output.VpcEndpoint.Tags),
 		VpcEndpointId: aws.ToString(output.VpcEndpoint.VpcEndpointId),
 		VpcId:         output.VpcEndpoint.VpcId,
 		ServiceName:   aws.ToString(output.VpcEndpoint.ServiceName),
+		IpAddressType: string(output.VpcEndpoint.IpAddressType),
 	}, nil
 }
 
@@ -1441,6 +1443,7 @@ func (c *Client) describeVpcEndpoints(ctx context.Context, input *ec2.DescribeVp
 			VpcEndpointId: aws.ToString(item.VpcEndpointId),
 			VpcId:         item.VpcId,
 			ServiceName:   aws.ToString(item.ServiceName),
+			IpAddressType: string(item.IpAddressType),
 		}
 		endpoints = append(endpoints, endpoint)
 	}

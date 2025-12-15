@@ -463,6 +463,7 @@ type VpcEndpoint struct {
 	VpcEndpointId string
 	VpcId         *string
 	ServiceName   string
+	IpAddressType string
 }
 
 // RouteTable contains the relevant fields for an EC2 route table resource.
