@@ -1229,8 +1229,7 @@ var _ = Describe("Machines", func() {
 					w2Hash, err := worker.WorkerPoolHash(w2.Spec.Pools[0], cluster, nil, w2PoolHashDataV2, ComputeAdditionalHashDataInPlace(w2.Spec.Pools[0]))
 					Expect(err).ToNot(HaveOccurred())
 
-					GinkgoWriter.Printf("w1Def: %q, w2Def:%q, w1Hash: %q, w2Hash: %q\n", w1Def, w2Def, w1Hash, w2Hash)
-					Expect(w1Hash).To(Equal(w2Hash))
+					Expect(w1Hash).To(Equal(w2Hash), fmt.Sprintf("w1Def: %q, w2Def:%q, w1Hash: %q, w2Hash: %q", w1Def, w2Def, w1Hash, w2Hash))
 				},
 				Entry("with existing providerConfig but no existing nodeTemplate", "testdata/worker-a1.yaml", "testdata/worker-a2.yaml"),
 				Entry("with existing providerConfig and nodeTemplate", "testdata/worker-b1.yaml", "testdata/worker-b2.yaml"),
