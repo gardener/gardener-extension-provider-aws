@@ -1494,6 +1494,46 @@ var _ = Describe("Machines", func() {
 							string(workerConfigData),
 						}))
 					})
+
+					It("should return the expected hash data when k8s version >= 1.34 ", func() {
+						pool.KubernetesVersion = ptr.To("1.34.0") // new hash data strategy for ProviderConfig beginning from 1.34.0 onwards
+						workerConfig.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+							Capacity: w.Spec.Pools[0].NodeTemplate.Capacity.DeepCopy(),
+						}
+						got, err := ComputeAdditionalHashDataV2(pool, &workerConfig)
+						Expect(err).NotTo(HaveOccurred())
+						want := []string{
+							"true",
+							"10Gi",
+							"type1",
+							"true",
+							"20Gi",
+							"type2",
+							"false",
+							"cpu=8",
+							"gpu=1",
+							"memory=137438953472",
+							"arn",
+							"required",
+							"1",
+							"4",
+							"2",
+						}
+						Expect(got).To(Equal(want))
+
+						// Now add some virtual resources to workerConfig.NodeTemplate.VirtualCapacity
+						// This should not change the hash data.
+						virtualResourceName := corev1.ResourceName("subdomain.domain.com/virtual-resource-name")
+						virtualResourceQuant := resource.MustParse("1024")
+						customVirtualResources := corev1.ResourceList{
+							virtualResourceName: virtualResourceQuant,
+						}
+						workerConfig.NodeTemplate.VirtualCapacity = customVirtualResources.DeepCopy()
+
+						got, err = ComputeAdditionalHashDataV2(pool, &workerConfig)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(got).To(Equal(want))
+					})
 				})
 
 				Describe("ComputeAdditionalHashDataInPlace", func() {
