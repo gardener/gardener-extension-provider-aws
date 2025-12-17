@@ -136,6 +136,7 @@ spec:
         - --kube-api-burst=200
         - --worker-threads=100
         - --retry-interval-max=10m
+        - --strict-topology
         - --v=5
         {{- if ((.Values.csiProvisioner).featureGates) }}
         - --feature-gates={{ range $feature, $enabled := .Values.csiProvisioner.featureGates }}{{ $feature }}={{ $enabled }},{{ end }}
