@@ -1512,6 +1512,7 @@ var _ = Describe("Machines", func() {
 							"cpu=8",
 							"gpu=1",
 							"memory=137438953472",
+							"name1",
 							"arn",
 							"required",
 							"1",
