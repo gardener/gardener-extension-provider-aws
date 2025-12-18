@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
@@ -24,9 +25,9 @@ import (
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/utils"
+	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -443,14 +444,15 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 // additional data used for hashing.
 func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]string, error) {
 	var (
-		additionalData                           = ComputeAdditionalHashDataV1(pool)
-		useNewHashData                           bool
-		poolK8sVersion, minVersionForNewHashData *version.Version
+		additionalData = ComputeAdditionalHashDataV1(pool)
+		useNewHashData bool
 	)
-	minVersionForNewHashData = version.MustParseGeneric("v1.34.0")
 	if pool.KubernetesVersion != nil {
-		poolK8sVersion = version.MustParse(*pool.KubernetesVersion)
-		useNewHashData = poolK8sVersion.AtLeast(minVersionForNewHashData)
+		poolK8sVersion, err := semver.NewVersion(*pool.KubernetesVersion)
+		if err != nil {
+			return nil, err
+		}
+		useNewHashData = versionutils.ConstraintK8sGreaterEqual134.Check(poolK8sVersion)
 	}
 	if useNewHashData && workerConfig != nil {
 		additionalData = appendHashDataForWorkerConfig(additionalData, workerConfig)
