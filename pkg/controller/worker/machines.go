@@ -616,7 +616,7 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 		}
 	}
 	if workerConfig.IAMInstanceProfile != nil {
-		if workerConfig.IAMInstanceProfile.Name == nil {
+		if workerConfig.IAMInstanceProfile.Name != nil {
 			hashData = append(hashData, *workerConfig.IAMInstanceProfile.Name)
 		}
 		if workerConfig.IAMInstanceProfile.ARN != nil {
