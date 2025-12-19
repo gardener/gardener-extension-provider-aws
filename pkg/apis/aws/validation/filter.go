@@ -39,6 +39,7 @@ var (
 	AccessKeyIDRegex = `^[A-Z0-9]+$`
 	// SecretAccessKeyRegex matches AWS Secret Access Keys, e.g. wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 	// see https://aws.amazon.com/blogs/security/a-safer-way-to-distribute-aws-credentials-to-ec2/
+	// #nosec G101 -- This is a validation regex pattern, not a hardcoded credential
 	SecretAccessKeyRegex = `^[A-Za-z0-9/+=]+$`
 
 	validateK8sResourceName          = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
