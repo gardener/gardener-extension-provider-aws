@@ -19,8 +19,10 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,6 +30,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apisawsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 var _ = Describe("Shoot validator", func() {
@@ -40,6 +43,7 @@ var _ = Describe("Shoot validator", func() {
 			ctrl                   *gomock.Controller
 			mgr                    *mockmanager.MockManager
 			c                      *mockclient.MockClient
+			reader                 *mockclient.MockReader
 			cloudProfile           *gardencorev1beta1.CloudProfile
 			namespacedCloudProfile *gardencorev1beta1.NamespacedCloudProfile
 			oldShoot               *core.Shoot
@@ -66,10 +70,12 @@ var _ = Describe("Shoot validator", func() {
 			Expect(gardencorev1beta1.AddToScheme(scheme)).To(Succeed())
 
 			c = mockclient.NewMockClient(ctrl)
+			reader = mockclient.NewMockReader(ctrl)
 			mgr = mockmanager.NewMockManager(ctrl)
 
 			mgr.EXPECT().GetScheme().Return(scheme).Times(2)
 			mgr.EXPECT().GetClient().Return(c)
+			mgr.EXPECT().GetAPIReader().Return(reader)
 
 			shootValidator = validator.NewShootValidator(mgr)
 
@@ -385,15 +391,21 @@ var _ = Describe("Shoot validator", func() {
 							APIVersion: apisawsv1alpha1.SchemeGroupVersion.String(),
 							Kind:       "InfrastructureConfig",
 						},
-						Networks: apisawsv1alpha1.Networks{},
+						Networks: apisawsv1alpha1.Networks{
+							Zones: []apisawsv1alpha1.Zone{
+								{
+									Name:     "zone1",
+									Internal: "10.250.112.0/26",
+									Public:   "10.250.96.0/26",
+									Workers:  "10.250.0.0/26",
+								},
+							},
+						},
 					}),
 				}
 
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeRequired),
-					"Field": Equal("networks.zones"),
-				})), PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("networks.vpc"),
 				}))))
@@ -597,6 +609,89 @@ var _ = Describe("Shoot validator", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 
 				err := shootValidator.Validate(ctx, shoot, oldShoot)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("Shoot with custom DNS provider", func() {
+			It("should return error when aws-dns provider has no secretName", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType)}, // secretName missing
+					},
+				}
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("spec.dns.providers[0].secretName"),
+				}))))
+			})
+
+			It("should return error when aws-dns provider secret not found", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret")},
+					},
+				}
+				reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-secret"},
+					&corev1.Secret{}).
+					Return(apierrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, "dns-secret"))
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.dns.providers[0].secretName"),
+				}))))
+			})
+
+			It("should return error when aws-dns secret is invalid (missing secretAccessKey)", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret")},
+					},
+				}
+				invalidSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "dns-secret", Namespace: namespace},
+					Data: map[string][]byte{
+						aws.DNSAccessKeyID: []byte("AKIAIOSFODNN7EXAMPLE"),
+					},
+				}
+				reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-secret"},
+					&corev1.Secret{}).
+					SetArg(2, *invalidSecret).
+					Return(nil)
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("spec.dns.providers[0].data[secretAccessKey]"),
+				}))))
+			})
+
+			It("should succeed with valid aws-dns provider secret", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret")},
+					},
+				}
+				validSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "dns-secret", Namespace: namespace},
+					Data: map[string][]byte{
+						aws.DNSAccessKeyID:     []byte("AKIAIOSFODNN7EXAMPLE"),
+						aws.DNSSecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"),
+					},
+				}
+				reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-secret"},
+					&corev1.Secret{}).
+					SetArg(2, *validSecret).
+					Return(nil)
+
+				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

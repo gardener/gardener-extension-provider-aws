@@ -34,6 +34,12 @@ var (
 	CapacityReservationIDRegex = `^cr-[a-z0-9]+$`
 	// CapacityReservationGroupRegex matches resource-group ARNs, e.g. arn:aws:resource-groups:eu-west-2:123456789012:group/example-cr-group
 	CapacityReservationGroupRegex = `^arn:[\w-]+:resource-groups:[\w+=,.@\-\/:]+$`
+	// AccessKeyIDRegex matches AWS Access Key IDs, e.g. AKIAIOSFODNN7EXAMPLE
+	// see https://aws.amazon.com/blogs/security/a-safer-way-to-distribute-aws-credentials-to-ec2/
+	AccessKeyIDRegex = `^[A-Z0-9]+$`
+	// SecretAccessKeyRegex matches AWS Secret Access Keys, e.g. wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+	// see https://aws.amazon.com/blogs/security/a-safer-way-to-distribute-aws-credentials-to-ec2/
+	SecretAccessKeyRegex = `^[A-Za-z0-9/+=]+$`
 
 	validateK8sResourceName          = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                    = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))
@@ -45,6 +51,8 @@ var (
 	validateTagKey                   = combineValidationFuncs(regex(TagKeyRegex), notEmpty, maxLength(128))
 	validateCapacityReservationID    = combineValidationFuncs(regex(CapacityReservationIDRegex), notEmpty, maxLength(255))
 	validateCapacityReservationGroup = combineValidationFuncs(regex(CapacityReservationGroupRegex), notEmpty, maxLength(255))
+	validateAccessKeyID              = combineValidationFuncs(regex(AccessKeyIDRegex), minLength(20), maxLength(20))
+	validateSecretAccessKey          = combineValidationFuncs(regex(SecretAccessKeyRegex), minLength(40), maxLength(40))
 )
 
 type validateFunc[T any] func(T, *field.Path) field.ErrorList
@@ -80,6 +88,16 @@ func notEmpty(name string, fld *field.Path) field.ErrorList {
 		return field.ErrorList{field.Required(fld, "cannot be empty")}
 	}
 	return nil
+}
+
+func minLength(min int) validateFunc[string] {
+	return func(name string, fld *field.Path) field.ErrorList {
+		var allErrs field.ErrorList
+		if l := utf8.RuneCountInString(name); l < min {
+			return field.ErrorList{field.Invalid(fld, name, fmt.Sprintf("must not be fewer than %d characters, got %d", min, l))}
+		}
+		return allErrs
+	}
 }
 
 func maxLength(max int) validateFunc[string] {
