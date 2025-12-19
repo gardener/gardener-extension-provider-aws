@@ -188,7 +188,6 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot, cl
 }
 
 func (s *shoot) baseShootValidation(ctx context.Context, shoot *core.Shoot, cloudProfileSpec *gardencorev1beta1.CloudProfileSpec, oldInfraConfig *api.InfrastructureConfig) (*api.CloudProfileConfig, *api.InfrastructureConfig, error) {
-
 	if shoot.Spec.Provider.InfrastructureConfig == nil {
 		return nil, nil, field.Required(infraConfigPath, "InfrastructureConfig must be set for AWS shoots")
 	}
