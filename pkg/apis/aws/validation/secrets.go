@@ -14,7 +14,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
-// SecretKind determins whether the secret is of type infrastructure or dns
+// SecretKind determines whether the secret is of type infrastructure or dns
 type SecretKind string
 
 const (
