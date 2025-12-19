@@ -433,7 +433,13 @@ func (c *FlowContext) ensureGatewayEndpoints(ctx context.Context) error {
 		if _, err := c.updater.UpdateEC2Tags(ctx, pair.current.VpcEndpointId, pair.desired.Tags, pair.current.Tags); err != nil {
 			return err
 		}
-		// TODO check if other params need to be updated
+		if pair.current.IpAddressType != pair.desired.IpAddressType {
+			log.Info("updating ip address type...", "serviceName", pair.current.ServiceName)
+			err = c.client.UpdateVpcEndpointIpAddressType(ctx, pair.current.VpcEndpointId, pair.desired.IpAddressType)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

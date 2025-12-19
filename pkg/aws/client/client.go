@@ -1404,6 +1404,7 @@ func (c *Client) CreateVpcEndpoint(ctx context.Context, endpoint *VpcEndpoint) (
 		TagSpecifications: endpoint.ToTagSpecifications(ec2types.ResourceTypeVpcEndpoint),
 		VpcId:             endpoint.VpcId,
 		IpAddressType:     ec2types.IpAddressType(endpoint.IpAddressType),
+		// default VpcEndpointType is Gateway
 	}
 	output, err := c.EC2.CreateVpcEndpoint(ctx, input)
 	if err != nil {
@@ -1457,6 +1458,17 @@ func (c *Client) DeleteVpcEndpoint(ctx context.Context, id string) error {
 		VpcEndpointIds: []string{id},
 	}
 	_, err := c.EC2.DeleteVpcEndpoints(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// UpdateVpcEndpointIpAddressType updates the IPAddressType of a VPC endpoint.
+// Returns nil if resource is not found.
+func (c *Client) UpdateVpcEndpointIpAddressType(ctx context.Context, id string, ipAddressType string) error {
+	input := &ec2.ModifyVpcEndpointInput{
+		VpcEndpointId: ptr.To(id),
+		IpAddressType: ec2types.IpAddressType(ipAddressType),
+	}
+	_, err := c.EC2.ModifyVpcEndpoint(ctx, input)
 	return ignoreNotFound(err)
 }
 
