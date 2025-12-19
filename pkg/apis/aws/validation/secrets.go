@@ -14,11 +14,14 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
+// SecretKind determins whether the secret is of type infrastructure or dns
 type SecretKind string
 
 const (
+	// SecretKindInfrastructure denotes an infrastructure secret referenced e.g. in a credentialsBinding
 	SecretKindInfrastructure SecretKind = "infrastructure"
-	SecretKindDns            SecretKind = "dns"
+	// SecretKindDns denotes a dns secret referenced in the dns section of a shoot spec
+	SecretKindDns SecretKind = "dns"
 )
 
 // ValidateCloudProviderSecret checks whether the given secret contains valid AWS access keys.
