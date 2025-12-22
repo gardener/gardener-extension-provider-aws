@@ -118,6 +118,7 @@ type Interface interface {
 	GetVpcEndpoints(ctx context.Context, ids []string) ([]*VpcEndpoint, error)
 	FindVpcEndpoints(ctx context.Context, filters []ec2types.Filter) ([]*VpcEndpoint, error)
 	DeleteVpcEndpoint(ctx context.Context, id string) error
+	UpdateVpcEndpointIpAddressType(ctx context.Context, id string, ipAddressType string) error
 
 	// VPC Endpoints Route table associations
 	CreateVpcEndpointRouteTableAssociation(ctx context.Context, routeTableId, vpcEndpointId string) error
@@ -463,6 +464,7 @@ type VpcEndpoint struct {
 	VpcEndpointId string
 	VpcId         *string
 	ServiceName   string
+	IpAddressType string
 }
 
 // RouteTable contains the relevant fields for an EC2 route table resource.

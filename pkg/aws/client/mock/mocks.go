@@ -1610,6 +1610,20 @@ func (mr *MockInterfaceMockRecorder) UpdateVpcAttribute(ctx, vpcId, attributeNam
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVpcAttribute", reflect.TypeOf((*MockInterface)(nil).UpdateVpcAttribute), ctx, vpcId, attributeName, value)
 }
 
+// UpdateVpcEndpointIpAddressType mocks base method.
+func (m *MockInterface) UpdateVpcEndpointIpAddressType(ctx context.Context, id, ipAddressType string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateVpcEndpointIpAddressType", ctx, id, ipAddressType)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateVpcEndpointIpAddressType indicates an expected call of UpdateVpcEndpointIpAddressType.
+func (mr *MockInterfaceMockRecorder) UpdateVpcEndpointIpAddressType(ctx, id, ipAddressType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVpcEndpointIpAddressType", reflect.TypeOf((*MockInterface)(nil).UpdateVpcEndpointIpAddressType), ctx, id, ipAddressType)
+}
+
 // WaitForIPv6Cidr mocks base method.
 func (m *MockInterface) WaitForIPv6Cidr(ctx context.Context, vpcID string) (string, error) {
 	m.ctrl.T.Helper()
