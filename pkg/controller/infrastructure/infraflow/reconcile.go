@@ -31,11 +31,12 @@ import (
 )
 
 const (
-	defaultTimeout     = 90 * time.Second
-	defaultLongTimeout = 3 * time.Minute
-	allIPv4            = "0.0.0.0/0"
-	allIPv6            = "::/0"
-	nat64Prefix        = "64:ff9b::/96"
+	defaultTimeout         = 90 * time.Second
+	defaultLongTimeout     = 3 * time.Minute
+	allIPv4                = "0.0.0.0/0"
+	allIPv6                = "::/0"
+	nat64Prefix            = "64:ff9b::/96"
+	defaultIPv6NetmaskSize = 56
 )
 
 // Reconcile creates and runs the flow to reconcile the AWS infrastructure.
@@ -198,12 +199,21 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		instanceTenancy = ec2types.TenancyDedicated
 	}
 	desired := &awsclient.VPC{
-		Tags:                         c.commonTags,
-		EnableDnsSupport:             true,
-		EnableDnsHostnames:           true,
-		AssignGeneratedIPv6CidrBlock: (c.config.DualStack != nil && c.config.DualStack.Enabled) || isIPv6(c.getIpFamilies()),
-		DhcpOptionsId:                c.state.Get(IdentifierDHCPOptions),
-		InstanceTenancy:              instanceTenancy,
+		Tags:               c.commonTags,
+		EnableDnsSupport:   true,
+		EnableDnsHostnames: true,
+		DhcpOptionsId:      c.state.Get(IdentifierDHCPOptions),
+		InstanceTenancy:    instanceTenancy,
+	}
+
+	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || isIPv6(c.getIpFamilies()) {
+		if c.config.Networks.VPC.Ipv6IpamPool != nil && c.config.Networks.VPC.Ipv6IpamPool.ID != nil {
+			desired.AssignGeneratedIPv6CidrBlock = false
+			desired.Ipv6IpamPoolId = c.config.Networks.VPC.Ipv6IpamPool.ID
+			desired.Ipv6NetmaskLength = ptr.To(int32(defaultIPv6NetmaskSize))
+		} else {
+			desired.AssignGeneratedIPv6CidrBlock = true
+		}
 	}
 
 	if c.config.Networks.VPC.CIDR == nil {
