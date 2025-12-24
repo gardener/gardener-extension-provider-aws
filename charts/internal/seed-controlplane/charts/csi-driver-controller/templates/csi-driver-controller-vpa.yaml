@@ -9,18 +9,25 @@ spec:
     containerPolicies:
     - containerName: aws-csi-driver
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
     - containerName: aws-csi-provisioner
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
     - containerName: aws-csi-attacher
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
     - containerName: aws-csi-snapshotter
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
     - containerName: aws-csi-resizer
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
     - containerName: aws-csi-liveness-probe
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
     - containerName: aws-csi-volume-modifier
       controlledValues: RequestsOnly
+      controlledResources: ["memory"]
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
