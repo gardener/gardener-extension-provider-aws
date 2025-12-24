@@ -338,6 +338,9 @@ You can freely choose a private CIDR range.
 * `networks.vpc.gatewayEndpoints` is optional. If specified then each item is used as service name in a corresponding Gateway VPC Endpoint.
 
 The `networks.zones` section contains configuration for resources you want to create or use in availability zones.
+If you want to use multiple availability zones then add a second,
+third, ... entry to the `networks.zones[]` list and properly specify the AZ name in `networks.zones[].name`.
+Once an availability zone was added it cannot be removed later on.
 For every zone, the AWS extension creates three subnets:
 
 * The `internal` subnet is used for [internal AWS load balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-internal-load-balancers.html).
@@ -374,8 +377,6 @@ spec:
 ```
 
 The service name of the S3 Gateway VPC Endpoint in this example is `com.amazonaws.eu-central-1.s3`.
-
-If you want to use multiple availability zones then add a second, third, ... entry to the `networks.zones[]` list and properly specify the AZ name in `networks.zones[].name`.
 
 Apart from the VPC and the subnets the AWS extension will also create DHCP options and an internet gateway (only if a new VPC is created), routing tables, security groups, elastic IPs, NAT gateways, EC2 key pairs, IAM roles, and IAM instance profiles.
 
