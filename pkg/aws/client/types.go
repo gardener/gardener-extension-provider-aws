@@ -196,7 +196,7 @@ type Interface interface {
 	DeleteEC2Tags(ctx context.Context, resources []string, tags Tags) error
 
 	// Efs
-	GetFileSystems(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error)
+	GetFileSystem(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error)
 	FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efstypes.FileSystemDescription, error)
 	CreateFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efstypes.FileSystemDescription, error)
 	DeleteFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error

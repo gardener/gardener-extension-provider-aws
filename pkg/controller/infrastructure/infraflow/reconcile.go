@@ -1853,7 +1853,7 @@ func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
 	log := LogFromContext(ctx)
 
 	current, err := FindExisting(ctx, c.state.Get(IdentifierManagedEfsID), c.commonTags.AddManagedTag(),
-		c.client.GetFileSystems, c.client.FindFileSystemsByTags)
+		c.client.GetFileSystem, c.client.FindFileSystemsByTags)
 	if err != nil {
 		return fmt.Errorf("failed to find managed EFS file system: %w", err)
 	}
