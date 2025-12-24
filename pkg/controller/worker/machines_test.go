@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -34,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -1201,115 +1201,39 @@ var _ = Describe("Machines", func() {
 					}
 				})
 			})
-			It("should generate machine classes with same name even when virtualCapacity is newly added or changed", Label("machineClass", "virtualCapacity"), func() {
-				capacityResources := corev1.ResourceList{
-					corev1.ResourceCPU:              resource.MustParse("1"),
-					corev1.ResourceMemory:           resource.MustParse("1Gi"),
-					corev1.ResourceEphemeralStorage: resource.MustParse("10Gi"),
-				}
-				w1 := w.DeepCopy()
-				w1.Spec.Pools[0].NodeAgentSecretName = ptr.To("dummy") // To Ensure that WorkerPoolHashV2 is used
+			DescribeTable("should generate same worker pool hash even when virtualCapacity is newly added or changed", Label("virtualCapacity"),
+				func(w1Def string, w2Def string) {
+					var w1, w2 extensionsv1alpha1.Worker
+					var w1Config, w2Config *api.WorkerConfig
+					err := loadDecodeWorker(decoder, w1Def, &w1)
+					Expect(err).ToNot(HaveOccurred())
 
-				// First, we specify a ProviderConfig with Capacity and no VirtualCapacity.
-				w1.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
-					Raw: encode(&api.WorkerConfig{
-						NodeTemplate: &extensionsv1alpha1.NodeTemplate{
-							Capacity: capacityResources,
-						},
-					}),
-				}
-				expectedNodeTemplateCapacity := w.Spec.Pools[0].NodeTemplate.Capacity.DeepCopy()
-				maps.Copy(expectedNodeTemplateCapacity, capacityResources)
+					err = loadDecodeWorker(decoder, w2Def, &w2)
+					Expect(err).ToNot(HaveOccurred())
 
-				wd1, err := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w1, cluster)
-				Expect(err).NotTo(HaveOccurred())
-				expectedUserDataSecretRefRead()
-				_, err = wd1.GenerateMachineDeployments(ctx)
-				Expect(err).NotTo(HaveOccurred())
-				workerDelegate1 := wd1.(*WorkerDelegate)
-				mClasses1 := workerDelegate1.GetMachineClasses()
-				classNames1 := sets.New[string]() // holds machine classes names generated with Capacity and no VirtualCapacity
-				for _, mClz := range mClasses1 {
-					className := mClz["name"].(string)
-					if strings.Contains(className, namePool1) {
-						nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
-						GinkgoWriter.Printf("WithOnlyCapacity: MachineClassName:%q,Capacity:%v\n", className, nt.Capacity)
-						classNames1.Insert(className)
-						Expect(nt.Capacity).To(Equal(expectedNodeTemplateCapacity))
-					}
-				}
+					w1Config, err = decodePoolProviderConfig(decoder, w1.Spec.Pools[0])
+					Expect(err).ToNot(HaveOccurred())
 
-				GinkgoWriter.Println("Regenerate MachineClasses with new VirtualCapacity")
-				virtualResourceName := corev1.ResourceName("subdomain.domain.com/virtual-resource-name")
-				virtualResourceQuant1 := resource.MustParse("1024")
-				virtualCapacityResources1 := corev1.ResourceList{
-					virtualResourceName: virtualResourceQuant1,
-				}
-				w2 := w.DeepCopy()
-				w2.Spec.Pools[0].NodeAgentSecretName = ptr.To("dummy") // To Ensure that WorkerPoolHashV2 is used
-				w2.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
-					Raw: encode(&api.WorkerConfig{
-						NodeTemplate: &extensionsv1alpha1.NodeTemplate{
-							Capacity:        capacityResources,
-							VirtualCapacity: virtualCapacityResources1, // We now additionally set the VirtualCapacity
-						},
-					}),
-				}
-				wd2, err := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w2, cluster)
-				Expect(err).NotTo(HaveOccurred())
-				_, err = wd2.GenerateMachineDeployments(ctx)
-				Expect(err).NotTo(HaveOccurred())
-				workerDelegate2 := wd2.(*WorkerDelegate)
-				mClasses2 := workerDelegate2.GetMachineClasses()
-				classNames2 := sets.New[string]() // holds machine classes names generated with both Capacity and new VirtualCapacity.
-				for _, mClz := range mClasses2 {
-					className := mClz["name"].(string)
-					if strings.Contains(className, namePool1) {
-						nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
-						GinkgoWriter.Printf("WithAdditionOfVirtualCapacity: MachineClassName:%q,Capacity:%v,VirtualCapacity:%v\n", className, nt.Capacity, nt.VirtualCapacity)
-						Expect(nt.Capacity).To(Equal(expectedNodeTemplateCapacity))
-						Expect(nt.VirtualCapacity).To(Equal(virtualCapacityResources1))
-						classNames2.Insert(className)
-					}
-				}
-				Expect(classNames1).To(Equal(classNames2))
+					w2Config, err = decodePoolProviderConfig(decoder, w2.Spec.Pools[0])
+					Expect(err).ToNot(HaveOccurred())
 
-				GinkgoWriter.Println("Regenerate MachineClasses with change in VirtualCapacity")
-				virtualResourceQuant2 := resource.MustParse("2048")
-				virtualCapacityResources2 := corev1.ResourceList{
-					virtualResourceName: virtualResourceQuant2,
-				}
-				w3 := w.DeepCopy()
-				w3.Spec.Pools[0].NodeAgentSecretName = ptr.To("dummy") // To Ensure that WorkerPoolHashV2 is used
-				w3.Spec.Pools[0].ProviderConfig = &runtime.RawExtension{
-					Raw: encode(&api.WorkerConfig{
-						NodeTemplate: &extensionsv1alpha1.NodeTemplate{
-							Capacity:        capacityResources,
-							VirtualCapacity: virtualCapacityResources2, // We now change the VirtualCapacity
-						},
-					}),
-				}
-				wd3, err := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w3, cluster)
-				Expect(err).NotTo(HaveOccurred())
-				_, err = wd3.GenerateMachineDeployments(ctx)
-				Expect(err).NotTo(HaveOccurred())
-				workerDelegate3 := wd3.(*WorkerDelegate)
-				mClasses3 := workerDelegate3.GetMachineClasses()
-				classNames3 := sets.New[string]() // holds machine classes names generated with both Capacity and VirtualCapacity changed
-				for _, mClz := range mClasses3 {
-					className := mClz["name"].(string)
-					if strings.Contains(className, namePool1) {
-						nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
-						GinkgoWriter.Printf("WithChangeOfVirtualCapacity: MachineClassName:%q,Capacity:%v,VirtualCapacity:%v\n", className, nt.Capacity, nt.VirtualCapacity)
-						Expect(nt.Capacity).To(Equal(expectedNodeTemplateCapacity))
-						Expect(nt.VirtualCapacity).To(Equal(virtualCapacityResources2))
-						classNames3.Insert(className)
-					}
-				}
-				// classNames with change in VirtualCapacity should be unchanged
-				Expect(classNames3).To(Equal(classNames2))
-				Expect(classNames3).To(Equal(classNames1))
-			})
+					w1PoolHashDataV2, err := ComputeAdditionalHashDataV2(w1.Spec.Pools[0], w1Config)
+					Expect(err).ToNot(HaveOccurred())
+
+					w2PoolHashDataV2, err := ComputeAdditionalHashDataV2(w2.Spec.Pools[0], w2Config)
+					Expect(err).ToNot(HaveOccurred())
+
+					w1Hash, err := worker.WorkerPoolHash(w1.Spec.Pools[0], cluster, nil, w1PoolHashDataV2, ComputeAdditionalHashDataInPlace(w1.Spec.Pools[0]))
+					Expect(err).ToNot(HaveOccurred())
+
+					w2Hash, err := worker.WorkerPoolHash(w2.Spec.Pools[0], cluster, nil, w2PoolHashDataV2, ComputeAdditionalHashDataInPlace(w2.Spec.Pools[0]))
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(w1Hash).To(Equal(w2Hash), fmt.Sprintf("w1Def: %q, w2Def:%q, w1Hash: %q, w2Hash: %q", w1Def, w2Def, w1Hash, w2Hash))
+				},
+				Entry("with existing providerConfig but no existing nodeTemplate", "testdata/worker-a1.yaml", "testdata/worker-a2.yaml"),
+				Entry("with existing providerConfig and nodeTemplate", "testdata/worker-b1.yaml", "testdata/worker-b2.yaml"),
+				Entry("with existing providerConfig.volume,dataVolumes but no existing nodeTemplate", "testdata/worker-c1.yaml", "testdata/worker-c2.yaml"))
 
 			It("should fail because the infrastructure status cannot be decoded", func() {
 				w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
@@ -1569,6 +1493,47 @@ var _ = Describe("Machines", func() {
 							string(workerConfigData),
 						}))
 					})
+
+					It("should return the expected hash data when k8s version >= 1.34 ", func() {
+						pool.KubernetesVersion = ptr.To("1.34.0") // new hash data strategy for ProviderConfig beginning from 1.34.0 onwards
+						workerConfig.NodeTemplate = &extensionsv1alpha1.NodeTemplate{
+							Capacity: w.Spec.Pools[0].NodeTemplate.Capacity.DeepCopy(),
+						}
+						got, err := ComputeAdditionalHashDataV2(pool, &workerConfig)
+						Expect(err).NotTo(HaveOccurred())
+						want := []string{
+							"true",
+							"10Gi",
+							"type1",
+							"true",
+							"20Gi",
+							"type2",
+							"false",
+							"cpu=8",
+							"gpu=1",
+							"memory=137438953472",
+							"name1",
+							"arn",
+							"required",
+							"1",
+							"4",
+							"2",
+						}
+						Expect(got).To(Equal(want))
+
+						// Now add some virtual resources to workerConfig.NodeTemplate.VirtualCapacity
+						// This should not change the hash data.
+						virtualResourceName := corev1.ResourceName("subdomain.domain.com/virtual-resource-name")
+						virtualResourceQuant := resource.MustParse("1024")
+						customVirtualResources := corev1.ResourceList{
+							virtualResourceName: virtualResourceQuant,
+						}
+						workerConfig.NodeTemplate.VirtualCapacity = customVirtualResources.DeepCopy()
+
+						got, err = ComputeAdditionalHashDataV2(pool, &workerConfig)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(got).To(Equal(want))
+					})
 				})
 
 				Describe("ComputeAdditionalHashDataInPlace", func() {
@@ -1624,6 +1589,7 @@ var _ = Describe("Machines", func() {
 			})
 
 		})
+
 	})
 	DescribeTable("EnsureUniformMachineImages", func(capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, expectedImages []api.MachineImage) {
 		machineImages := []api.MachineImage{
@@ -1764,4 +1730,27 @@ func addNameAndSecretToMachineClass(class map[string]interface{}, name string, c
 		"namespace": credentialsSecretRef.Namespace,
 	}
 	class["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
+}
+
+func loadDecodeWorker(decoder runtime.Decoder, filePath string, w *extensionsv1alpha1.Worker) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+	_, _, err = decoder.Decode(data, nil, w)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func decodePoolProviderConfig(decoder runtime.Decoder, pool extensionsv1alpha1.WorkerPool) (workerConfig *api.WorkerConfig, err error) {
+	workerConfig = &api.WorkerConfig{}
+	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
+		if _, _, err = decoder.Decode(pool.ProviderConfig.Raw, nil, workerConfig); err != nil {
+			err = fmt.Errorf("could not decode provider config: %+v", err)
+			return
+		}
+	}
+	return
 }

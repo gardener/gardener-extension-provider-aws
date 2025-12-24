@@ -6,7 +6,6 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
@@ -25,6 +25,7 @@ import (
 	extensionsv1alpha1helper "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/utils"
+	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
@@ -64,7 +65,6 @@ func (w *WorkerDelegate) DeployMachineClasses(ctx context.Context) error {
 			return err
 		}
 	}
-
 	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join(charts.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
 }
 
@@ -189,7 +189,6 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
 				machineClassSpec["keyName"] = infrastructureStatus.EC2.KeyName
 			}
-
 			var nodeTemplate machinev1alpha1.NodeTemplate
 			if pool.NodeTemplate != nil {
 				nodeTemplate = machinev1alpha1.NodeTemplate{
@@ -444,23 +443,30 @@ func ComputeAdditionalHashDataV1(pool extensionsv1alpha1.WorkerPool) []string {
 // ComputeAdditionalHashDataV2 computes additional hash data for the worker pool. It returns a slice of strings containing the
 // additional data used for hashing.
 func ComputeAdditionalHashDataV2(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]string, error) {
-	var additionalData = ComputeAdditionalHashDataV1(pool)
-
-	if workerConfig != nil && workerConfig.NodeTemplate != nil && workerConfig.NodeTemplate.VirtualCapacity != nil {
-		// Addition or Change in VirtualCapacity should NOT cause existing hash to change to prevent trigger of rollout.
-		// TODO: once the MCM supports Machine Hot-Update from the WorkerConfig, this hash data logic can be made smarter
-		workerConfigCopy := workerConfig.DeepCopy()
-		workerConfigCopy.NodeTemplate.VirtualCapacity = nil
-		data, err := json.Marshal(workerConfigCopy)
+	var (
+		additionalData = ComputeAdditionalHashDataV1(pool)
+		useNewHashData bool
+	)
+	if pool.KubernetesVersion != nil {
+		poolK8sVersion, err := semver.NewVersion(*pool.KubernetesVersion)
 		if err != nil {
 			return nil, err
 		}
-		additionalData = append(additionalData, string(data))
+		useNewHashData = versionutils.ConstraintK8sGreaterEqual134.Check(poolK8sVersion)
+	}
+	if useNewHashData && workerConfig != nil {
+		additionalData = appendHashDataForWorkerConfig(additionalData, workerConfig)
 		return additionalData, nil
 	}
 
-	// in the future, we may not calculate a hash for the whole ProviderConfig
-	// for example volume IOPS changes could be done in place
+	// Addition or Change in VirtualCapacity should NOT cause existing hash to change to prevent trigger of rollout.
+	if workerConfig != nil && workerConfig.NodeTemplate != nil && workerConfig.NodeTemplate.VirtualCapacity != nil {
+		modifiedWorkerConfigJson := stripVirtualCapacity(pool.ProviderConfig.Raw)
+		additionalData = append(additionalData, string(modifiedWorkerConfigJson))
+		return additionalData, nil
+	}
+
+	// preserve legacy behaviour
 	if pool.ProviderConfig != nil && pool.ProviderConfig.Raw != nil {
 		additionalData = append(additionalData, string(pool.ProviderConfig.Raw))
 	}
@@ -579,4 +585,75 @@ func EnsureUniformMachineImages(images []awsapi.MachineImage, definitions []gard
 		}
 	}
 	return uniformMachineImages
+}
+
+func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.WorkerConfig) []string {
+	if workerConfig.NodeTemplate != nil {
+		keys := slices.Sorted(maps.Keys(workerConfig.NodeTemplate.Capacity)) // ensure order
+		for _, k := range keys {
+			q := workerConfig.NodeTemplate.Capacity[k]
+			hashData = append(hashData, fmt.Sprintf("%s=%d", k, q.Value()))
+		}
+	}
+	if workerConfig.Volume != nil {
+		if workerConfig.Volume.IOPS != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.Volume.IOPS, 10))
+		}
+		if workerConfig.Volume.Throughput != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.Volume.Throughput, 10))
+		}
+	}
+	if workerConfig.DataVolumes != nil {
+		for _, dv := range workerConfig.DataVolumes {
+			hashData = append(hashData, dv.Name)
+			if dv.IOPS != nil {
+				hashData = append(hashData, strconv.FormatInt(*dv.IOPS, 10))
+			}
+			if dv.Throughput != nil {
+				hashData = append(hashData, strconv.FormatInt(*dv.Throughput, 10))
+			}
+			if dv.SnapshotID != nil {
+				hashData = append(hashData, *dv.SnapshotID)
+			}
+		}
+	}
+	if workerConfig.IAMInstanceProfile != nil {
+		if workerConfig.IAMInstanceProfile.Name != nil {
+			hashData = append(hashData, *workerConfig.IAMInstanceProfile.Name)
+		}
+		if workerConfig.IAMInstanceProfile.ARN != nil {
+			hashData = append(hashData, *workerConfig.IAMInstanceProfile.ARN)
+		}
+	}
+
+	if workerConfig.InstanceMetadataOptions != nil {
+		if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
+			hashData = append(hashData, string(*workerConfig.InstanceMetadataOptions.HTTPTokens))
+		}
+		if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit, 10))
+		}
+	}
+
+	if workerConfig.CpuOptions != nil {
+		if workerConfig.CpuOptions.CoreCount != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.CpuOptions.CoreCount, 10))
+		}
+		if workerConfig.CpuOptions.ThreadsPerCore != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.CpuOptions.ThreadsPerCore, 10))
+		}
+	}
+
+	if workerConfig.CapacityReservation != nil {
+		if workerConfig.CapacityReservation.CapacityReservationPreference != nil {
+			hashData = append(hashData, *workerConfig.CapacityReservation.CapacityReservationPreference)
+		}
+		if workerConfig.CapacityReservation.CapacityReservationID != nil {
+			hashData = append(hashData, *workerConfig.CapacityReservation.CapacityReservationID)
+		}
+		if workerConfig.CapacityReservation.CapacityReservationResourceGroupARN != nil {
+			hashData = append(hashData, *workerConfig.CapacityReservation.CapacityReservationResourceGroupARN)
+		}
+	}
+	return hashData
 }

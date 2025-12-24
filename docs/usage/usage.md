@@ -610,6 +610,10 @@ You can find more information regarding the options in the [AWS documentation](h
 
 Note that if you decide to configure `cpuOptions` _both_ these values need to be provided. For a list of valid combinations of these values refer to the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cpu-options-supported-instances-values.html).
 
+The `nodeTemplate.virtualCapacity` can be used to specify [node extended resources](https://kubernetes.io/docs/tasks/administer-cluster/extended-resource-node/) that are _hot-updated_ on nodes belonging to the pool. There are currently some caveats wrt rollouts
+ - If the `providerConfig` section has not yet been defined for the pool, then a rollout is un-avoidable.
+ - If the `providerConfig` is already present for the pool, then `nodeTemplate.virtualCapacity` can be added without triggering a rollout as long as the `virtualCapacity` is either the only element of the `nodeTemplate` or the last element.
+ - If the `providerConfig` is already present for the pool along with a previously defined `nodeTemplate.virtualCapacity`, then further extended resource attributes may be freely added/modified within `virtualCapacity` without triggering a rollout.
 
 ## Example `Shoot` manifest (one availability zone)
 
