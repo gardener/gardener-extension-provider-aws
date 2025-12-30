@@ -315,8 +315,35 @@ var _ = Describe("Infrastructure tests", func() {
 		})
 
 		It("should successfully create and delete with IPv6 with IPAM pool", func() {
-			ipamPoolID, err := integration.GetIntegrationTestIPAMPoolID(ctx, awsClient)
+			namespace, err := generateNamespaceName()
+
+			By("retrieve IPAM")
+			ipamID, scopeID, err := integration.GetIPAM(ctx, awsClient)
 			Expect(err).NotTo(HaveOccurred())
+			if ipamID == "" {
+				By("creating IPAM")
+				ipamID, scopeID, err = integration.CreateIPAM(ctx, awsClient, *region, namespace)
+				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(func() {
+					if ipamID != "" {
+						if cleanupErr := integration.DeleteIPAM(ctx, awsClient, ipamID); cleanupErr != nil {
+							Fail(fmt.Sprintf("failed to delete IPAM %s: %v", ipamID, cleanupErr))
+						}
+					}
+				})
+			}
+			Expect(scopeID).NotTo(BeEmpty(), "IPAM private default scope must be set")
+
+			By("creating IPAM pool")
+			ipamPoolID, err := integration.CreateIPv6IPAMPool(ctx, awsClient, *region, scopeID, namespace)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				if ipamPoolID != "" {
+					if cleanupErr := integration.DeleteIPAMPool(ctx, awsClient, ipamPoolID); cleanupErr != nil {
+						Fail(fmt.Sprintf("failed to delete IPAM pool %s: %v", ipamPoolID, cleanupErr))
+					}
+				}
+			})
 			Expect(ipamPoolID).NotTo(BeEmpty())
 
 			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
@@ -326,7 +353,6 @@ var _ = Describe("Infrastructure tests", func() {
 			providerConfig.Networks.VPC.Ipv6IpamPool = &awsv1alpha1.IPAMPool{
 				ID: ptr.To(ipamPoolID),
 			}
-			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
 			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
@@ -1716,8 +1742,6 @@ func verifyDeletion(
 		Expect(awsErr.ErrorCode()).To(Equal("InvalidKeyPair.NotFound"))
 		if describeKeyPairsOutput != nil {
 			Expect(describeKeyPairsOutput.KeyPairs).To(BeEmpty())
-		} else {
-			println("describeKeyPairsOutput nil")
 		}
 	}
 

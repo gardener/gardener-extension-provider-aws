@@ -278,19 +278,179 @@ func DestroyVPC(ctx context.Context, log logr.Logger, awsClient *awsclient.Clien
 	})
 }
 
-// GetIntegrationTestIPAMPoolID queries IPAM pools for the tag key 'purpose' with value 'integration-test'.
-func GetIntegrationTestIPAMPoolID(ctx context.Context, awsClient *awsclient.Client) (string, error) {
-	resp, err := awsClient.EC2.DescribeIpamPools(ctx, &ec2.DescribeIpamPoolsInput{
-		Filters: []ec2types.Filter{{
-			Name:   aws.String("tag:purpose"),
-			Values: []string{"integration-test"},
-		}},
+// GetIPAM retrieves the existing IPAM and its private scope ID.
+func GetIPAM(ctx context.Context, awsClient *awsclient.Client) (ipamID, privateScopeID string, err error) {
+	// Get all IPAMs, since there can be only one per account per region
+	ipamsOut, err := awsClient.EC2.DescribeIpams(ctx, nil)
+	if err != nil {
+		return "", "", err
+	}
+
+	if len(ipamsOut.Ipams) == 0 {
+		return "", "", nil
+	}
+
+	privateScopeID = aws.ToString(ipamsOut.Ipams[0].PrivateDefaultScopeId)
+	ipamID = aws.ToString(ipamsOut.Ipams[0].IpamId)
+	return ipamID, privateScopeID, nil
+}
+
+// CreateIPAM creates an IPAM with tag 'purpose' and value 'integration-test'.
+func CreateIPAM(ctx context.Context, awsClient *awsclient.Client, region, namespace string) (ipamID, privateScopeID string, err error) {
+	createIpamOut, err := awsClient.EC2.CreateIpam(ctx, &ec2.CreateIpamInput{
+		Description: aws.String("aws-infrastructure-it-ipam"),
+		OperatingRegions: []ec2types.AddIpamOperatingRegion{
+			{
+				RegionName: aws.String(region),
+			},
+		},
+		TagSpecifications: []ec2types.TagSpecification{
+			{
+				ResourceType: ec2types.ResourceTypeIpam,
+				Tags: []ec2types.Tag{
+					{
+						Key:   aws.String("Name"),
+						Value: aws.String("aws-infrastructure-it-ipam"),
+					},
+					{
+						Key:   aws.String("purpose"),
+						Value: aws.String("integration-test"),
+					},
+					{
+						Key:   aws.String("namespace"),
+						Value: aws.String(namespace),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create IPAM: %w", err)
+	}
+
+	ipamID = aws.ToString(createIpamOut.Ipam.IpamId)
+
+	var ipamsOut = &ec2.DescribeIpamsOutput{}
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute*10)
+	defer cancel()
+	// Wait until the IPAM is available
+	err = wait.PollUntilContextCancel(ctxTimeout, 5*time.Second, false, func(_ context.Context) (bool, error) {
+		ipamsOut, err = awsClient.EC2.DescribeIpams(ctx, &ec2.DescribeIpamsInput{
+			IpamIds: []string{ipamID},
+		})
+		if err != nil {
+			return false, err
+		}
+		if len(ipamsOut.Ipams) == 0 {
+			return false, nil
+		}
+		if ipamsOut.Ipams[0].State == ec2types.IpamStateCreateComplete {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to wait for IPAM to become available: %w", err)
+	}
+
+	privateScopeID = aws.ToString(ipamsOut.Ipams[0].PrivateDefaultScopeId)
+	return ipamID, privateScopeID, nil
+}
+
+// DeleteIPAM deletes an IPAM with the given id.
+func DeleteIPAM(ctx context.Context, awsClient *awsclient.Client, id string) error {
+	_, err := awsClient.EC2.DeleteIpam(ctx, &ec2.DeleteIpamInput{
+		IpamId:  aws.String(id),
+		Cascade: aws.Bool(true),
+	})
+	return err
+}
+
+// CreateIPv6IPAMPool creates an IPv6 IPAM pool with tag 'purpose' and value 'integration-test'.
+func CreateIPv6IPAMPool(ctx context.Context, awsClient *awsclient.Client, region, privateScopeID, namespace string) (string, error) {
+	// Create new IPAM pool for integration tests
+	createResp, err := awsClient.EC2.CreateIpamPool(ctx, &ec2.CreateIpamPoolInput{
+		Description:   aws.String("aws-infrastructure-it-ipam-pool"),
+		Locale:        aws.String(region),
+		AddressFamily: ec2types.AddressFamilyIpv6,
+		IpamScopeId:   aws.String(privateScopeID),
+		TagSpecifications: awsclient.Tags{
+			"Name":      "aws-infrastructure-it-ipam-pool",
+			"purpose":   "integration-test",
+			"namespace": namespace,
+		}.ToTagSpecifications(ec2types.ResourceTypeIpamPool),
 	})
 	if err != nil {
 		return "", err
 	}
-	if len(resp.IpamPools) == 0 {
-		return "", fmt.Errorf("no IPAM pool found with tag 'purpose=integration-test'")
+
+	ipamPoolID := aws.ToString(createResp.IpamPool.IpamPoolId)
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
+	// Wait until the IPAM pool is available
+	err = wait.PollUntilContextCancel(ctxTimeout, 5*time.Second, false, func(_ context.Context) (bool, error) {
+		describeResp, err := awsClient.EC2.DescribeIpamPools(ctx, &ec2.DescribeIpamPoolsInput{
+			IpamPoolIds: []string{ipamPoolID},
+		})
+		if err != nil {
+			return false, err
+		}
+		if len(describeResp.IpamPools) == 0 {
+			return false, nil
+		}
+		if describeResp.IpamPools[0].State == ec2types.IpamPoolStateCreateComplete {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return "", err
 	}
-	return aws.ToString(resp.IpamPools[0].IpamPoolId), nil
+
+	// Provision a CIDR to the IPAM pool
+	err = ipamProvisionIPv6CIDR(ctx, awsClient, ipamPoolID)
+	return ipamPoolID, err
+}
+
+// DeleteIPAMPool deletes an IPv6 IPAM pool with given id.
+func DeleteIPAMPool(ctx context.Context, awsClient *awsclient.Client, id string) error {
+	_, err := awsClient.EC2.DeleteIpamPool(ctx, &ec2.DeleteIpamPoolInput{
+		IpamPoolId: aws.String(id),
+		Cascade:    aws.Bool(true),
+	})
+	return err
+}
+
+func ipamProvisionIPv6CIDR(ctx context.Context, awsClient *awsclient.Client, ipamPoolID string) error {
+	_, err := awsClient.EC2.ProvisionIpamPoolCidr(ctx, &ec2.ProvisionIpamPoolCidrInput{
+		IpamPoolId:    aws.String(ipamPoolID),
+		NetmaskLength: aws.Int32(56),
+	})
+	if err != nil {
+		return err
+	}
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	err = wait.PollUntilContextCancel(ctxTimeout, 5*time.Second, false, func(_ context.Context) (bool, error) {
+		out, err := awsClient.EC2.GetIpamPoolCidrs(ctx, &ec2.GetIpamPoolCidrsInput{
+			IpamPoolId: aws.String(ipamPoolID),
+		})
+		if err != nil {
+			return false, err
+		}
+		if len(out.IpamPoolCidrs) == 0 {
+			return false, nil
+		}
+		switch out.IpamPoolCidrs[0].State {
+		case ec2types.IpamPoolCidrStateProvisioned:
+			return true, nil
+		case ec2types.IpamPoolCidrStateFailedProvision:
+			return false, fmt.Errorf("IPAM pool CIDR provisioning failed for %s", *out.IpamPoolCidrs[0].Cidr)
+		default:
+			return false, nil
+		}
+	})
+	return err
 }
