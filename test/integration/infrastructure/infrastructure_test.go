@@ -316,6 +316,7 @@ var _ = Describe("Infrastructure tests", func() {
 
 		It("should successfully create and delete with IPv6 with IPAM pool", func() {
 			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
 
 			By("retrieve IPAM")
 			ipamID, scopeID, err := integration.GetIPAM(ctx, awsClient)
