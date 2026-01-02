@@ -8,14 +8,13 @@ metadata:
     resources.gardener.cloud/ignore: "true"
 {{- end }}
   labels:
-{{ include "labels" . | indent 4 }}
+    {{- include "labels" . | nindent 4 }} {{/* indented for legibility */}}
     high-availability-config.resources.gardener.cloud/type: server
 spec:
   revisionHistoryLimit: 5
   replicas: {{ .Values.replicaCount }}
   selector:
-    matchLabels:
-{{ include "labels" . | indent 6 }}
+    matchLabels: {{- include "labels" . | nindent 6 }}
   strategy:
     rollingUpdate:
       maxUnavailable: {{ .Values.maxUnavailable }}
@@ -23,29 +22,29 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if .Values.imageVectorOverwrite }}
+{{- if .Values.imageVectorOverwrite }}
         checksum/configmap-aws-imagevector-overwrite: {{ include (print $.Template.BasePath "/configmap-imagevector-overwrite.yaml") . | sha256sum }}
-        {{- end }}
+{{- end }}
         checksum/configmap-{{ include "name" . }}-config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- if and .Values.metrics.enableScraping }}
+{{- if and .Values.metrics.enableScraping }}
         prometheus.io/name: "{{ .Release.Name }}"
         prometheus.io/scrape: "true"
         # default metrics endpoint in controller-runtime
         prometheus.io/port: "{{ tpl .Values.metricsPort . }}"
-        {{- end }}
+{{- end }}
       labels:
         networking.gardener.cloud/to-runtime-apiserver: allowed
         networking.gardener.cloud/to-dns: allowed
         networking.gardener.cloud/to-public-networks: allowed
         networking.gardener.cloud/to-private-networks: allowed
         networking.resources.gardener.cloud/to-all-shoots-kube-apiserver-tcp-443: allowed
-{{ include "labels" . | indent 8 }}
+        {{- include "labels" . | nindent 8 }} {{/* indented for legibility */}}
     spec:
-      {{- if (include "runtimeCluster.enabled" .) }}
+{{- if (include "runtimeCluster.enabled" .) }}
       priorityClassName: {{ .Values.gardener.runtimeCluster.priorityClassName }}
-      {{- else }}
+{{- else }}
       priorityClassName: gardener-system-900
-      {{- end }}
+{{- end }}
       serviceAccountName: {{ include "name" . }}
       containers:
       - name: {{ include "name" . }}
@@ -63,37 +62,37 @@ spec:
         - --dnsrecord-provider-client-burst={{ .Values.controllers.dnsrecord.providerClientBurst }}
         - --dnsrecord-provider-client-wait-timeout={{ .Values.controllers.dnsrecord.providerClientWaitTimeout }}
         - --healthcheck-max-concurrent-reconciles={{ .Values.controllers.healthcheck.concurrentSyncs }}
-        - --heartbeat-namespace={{ .Release.Namespace }} 
-        - --heartbeat-renew-interval-seconds={{ .Values.controllers.heartbeat.renewIntervalSeconds }} 
+        - --heartbeat-namespace={{ .Release.Namespace }}
+        - --heartbeat-renew-interval-seconds={{ .Values.controllers.heartbeat.renewIntervalSeconds }}
         - --infrastructure-max-concurrent-reconciles={{ .Values.controllers.infrastructure.concurrentSyncs }}
         - --ignore-operation-annotation={{ .Values.controllers.ignoreOperationAnnotation }}
         - --worker-max-concurrent-reconciles={{ .Values.controllers.worker.concurrentSyncs }}
         - --webhook-config-namespace={{ .Release.Namespace }}
         - --webhook-config-service-port={{ .Values.webhookConfig.servicePort }}
         - --webhook-config-server-port={{ tpl .Values.webhookConfig.serverPort . }}
-        {{- if (include "runtimeCluster.enabled" .) }}
+{{- if (include "runtimeCluster.enabled" .) }}
         - --controllers=backupbucket,dnsrecord
         - --disable-webhooks="*"
         - --extension-class=garden
-        {{- else }}
+{{- else }}
         - --disable-controllers={{ .Values.disableControllers | join "," }}
         - --disable-webhooks={{ .Values.disableWebhooks | join "," }}
-        {{- end }}
+{{- end }}
         - --metrics-bind-address=:{{ tpl .Values.metricsPort . }}
         - --health-bind-address=:{{ tpl .Values.healthPort . }}
         - --gardener-version={{ .Values.gardener.version }}
-        {{- if .Values.gardener.selfHostedShootCluster }}
+{{- if .Values.gardener.selfHostedShootCluster }}
         - --self-hosted-shoot-cluster={{ .Values.gardener.selfHostedShootCluster }}
-        {{- end }}
+{{- end }}
         env:
         - name: LEADER_ELECTION_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        {{- if .Values.imageVectorOverwrite }}
+{{- if .Values.imageVectorOverwrite }}
         - name: IMAGEVECTOR_OVERWRITE
           value: /charts_overwrite/images_overwrite.yaml
-        {{- end }}
+{{- end }}
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
@@ -113,25 +112,24 @@ spec:
           containerPort: {{ tpl .Values.webhookConfig.serverPort . }}
           protocol: TCP
 {{- if .Values.resources }}
-        resources:
-{{ toYaml .Values.resources | nindent 10 }}
+        resources: {{- toYaml .Values.resources | nindent 10 }}
 {{- end }}
         volumeMounts:
         - name: config
           mountPath: /etc/{{ include "name" . }}/config
-        {{- if .Values.imageVectorOverwrite }}
+{{- if .Values.imageVectorOverwrite }}
         - name: imagevector-overwrite
           mountPath: /charts_overwrite/
           readOnly: true
-        {{- end }}
+{{- end }}
       volumes:
       - name: config
         configMap:
           name: {{ include "name" . }}-configmap
           defaultMode: 420
-      {{- if .Values.imageVectorOverwrite }}
+{{- if .Values.imageVectorOverwrite }}
       - name: imagevector-overwrite
         configMap:
           name: {{ include "name" . }}-imagevector-overwrite
           defaultMode: 420
-      {{- end }}
+{{- end }}
