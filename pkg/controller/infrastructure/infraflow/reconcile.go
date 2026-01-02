@@ -436,8 +436,8 @@ func (c *FlowContext) ensureGatewayEndpoints(ctx context.Context) error {
 		// Ensure IpAddressType on existing endpoints
 		// Modifying the IpAddressType to or from IPv6 is not supported by AWS
 		if pair.current.IpAddressType != pair.desired.IpAddressType &&
-			pair.current.IpAddressType != "IPv6" &&
-			pair.desired.IpAddressType != "IPv6" {
+			ec2types.IpAddressType(pair.current.IpAddressType) != ec2types.IpAddressTypeIpv6 &&
+			ec2types.IpAddressType(pair.desired.IpAddressType) != ec2types.IpAddressTypeIpv6 {
 			log.Info("updating ip address type...", "serviceName", pair.current.ServiceName)
 			err = c.client.UpdateVpcEndpointIpAddressType(ctx, pair.current.VpcEndpointId, pair.desired.IpAddressType)
 			if err != nil {
