@@ -1466,13 +1466,6 @@ func verifyCreation(
 						"SubnetId": PointTo(Equal(internalSubnetID)),
 					}),
 				))
-				var prefixListId *string
-				for _, r := range routeTable.Routes {
-					if r.DestinationPrefixListId != nil {
-						prefixListId = r.DestinationPrefixListId
-						break
-					}
-				}
 				expectedRoutes := []ec2types.Route{
 					{
 						DestinationCidrBlock: cidr,
@@ -1486,12 +1479,16 @@ func verifyCreation(
 						Origin:               ec2types.RouteOriginCreateRoute,
 						State:                ec2types.RouteStateActive,
 					},
-					{
-						DestinationPrefixListId: prefixListId,
-						GatewayId:               describeVpcEndpointsOutput.VpcEndpoints[0].VpcEndpointId,
-						Origin:                  ec2types.RouteOriginCreateRoute,
-						State:                   ec2types.RouteStateActive,
-					},
+				}
+				for _, r := range routeTable.Routes {
+					if r.DestinationPrefixListId != nil {
+						expectedRoutes = append(expectedRoutes, ec2types.Route{
+							DestinationPrefixListId: r.DestinationPrefixListId,
+							GatewayId:               describeVpcEndpointsOutput.VpcEndpoints[0].VpcEndpointId,
+							Origin:                  ec2types.RouteOriginCreateRoute,
+							State:                   ec2types.RouteStateActive,
+						})
+					}
 				}
 				if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 					expectedRoutes = append(expectedRoutes, ec2types.Route{
