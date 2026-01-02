@@ -1,7 +1,5 @@
 machineClasses:
 - name: class-1
-# labels:
-#   foo: bar
   ami: ami-123456
   region: eu-west-1
   machineType: m4.xlarge
