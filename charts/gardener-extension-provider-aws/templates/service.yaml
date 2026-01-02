@@ -9,25 +9,24 @@ metadata:
     networking.resources.gardener.cloud/from-all-webhook-targets-allowed-ports: '[{"protocol":"TCP","port":{{ tpl .Values.webhookConfig.serverPort . }}}]'
     networking.resources.gardener.cloud/namespace-selectors: '[{"matchLabels":{"kubernetes.io/metadata.name":"garden"}},{"matchLabels":{"gardener.cloud/role":"shoot"}}]'
     networking.resources.gardener.cloud/pod-label-selector-namespace-alias: extensions
-    {{- if .Values.ignoreResources }}
+{{- if .Values.ignoreResources }}
     resources.gardener.cloud/ignore: "true"
-    {{- end }}
-    {{- if and (include "topologyAwareRouting.enabled" .) (semverCompare "< 1.31-0" .Capabilities.KubeVersion.Version) }}
+{{- end }}
+{{- if and (include "topologyAwareRouting.enabled" .) (semverCompare "< 1.31-0" .Capabilities.KubeVersion.Version) }}
     service.kubernetes.io/topology-mode: "auto"
-    {{- end }}
+{{- end }}
   labels:
-{{ include "labels" . | indent 4 }}
-    {{- if and (include "topologyAwareRouting.enabled" .) (semverCompare "< 1.32-0" .Capabilities.KubeVersion.Version) }}
+    {{- include "labels" . | nindent 4 }} {{/* indented for legibility */}}
+{{- if and (include "topologyAwareRouting.enabled" .) (semverCompare "< 1.32-0" .Capabilities.KubeVersion.Version) }}
     endpoint-slice-hints.resources.gardener.cloud/consider: "true"
-    {{- end }}
+{{- end }}
 spec:
   type: ClusterIP
-  selector:
-{{ include "labels" . | indent 4 }}
+  selector: {{- include "labels" . | nindent 4 }}
   ports:
   - port: {{ .Values.webhookConfig.servicePort }}
     protocol: TCP
     targetPort: {{ tpl .Values.webhookConfig.serverPort . }}
-  {{- if and (include "topologyAwareRouting.enabled" .) (semverCompare ">= 1.31-0" .Capabilities.KubeVersion.Version) }}
+{{- if and (include "topologyAwareRouting.enabled" .) (semverCompare ">= 1.31-0" .Capabilities.KubeVersion.Version) }}
   trafficDistribution: PreferClose
-  {{- end }}
+{{- end }}

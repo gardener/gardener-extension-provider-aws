@@ -3,8 +3,7 @@ kind: ConfigMap
 metadata:
   name: custom-mtu-configmap
   namespace: {{ .Release.Namespace }}
-  labels:
-{{ include "labels" . | indent 4 }}
+  labels: {{ include "labels" . | nindent 4 }}
 data:
   mtu-customizer.sh: |
     #!/bin/sh
