@@ -53,26 +53,34 @@ func (f *route53Factory) NewClient(authConfig AuthConfig) (Interface, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.Route53RateLimiter = f.getRateLimiter(authConfig.AccessKey.ID)
+
+	var rateLimiterKey string
+	if authConfig.AccessKey != nil {
+		rateLimiterKey = authConfig.AccessKey.ID
+	} else {
+		rateLimiterKey = authConfig.WorkloadIdentity.RoleARN
+	}
+
+	c.Route53RateLimiter = f.getRateLimiter(rateLimiterKey)
 	c.Route53RateLimiterWaitTimeout = f.waitTimeout
 	return c, nil
 }
 
-func (f *route53Factory) getRateLimiter(accessKeyID string) *rate.Limiter {
+func (f *route53Factory) getRateLimiter(rateLimiterKey string) *rate.Limiter {
 	// cache.Expiring Get and Set methods are concurrency-safe
 	// However, if f rate limiter is not present in the cache, it may happen that multiple rate limiters are created
-	// at the same time for the same access key id, and the desired QPS is exceeded, so use f mutex to guard against this
+	// at the same time for the same rate limiter key, and the desired QPS is exceeded, so use f mutex to guard against this
 	f.rateLimitersMutex.Lock()
 	defer f.rateLimitersMutex.Unlock()
 
 	// Get f rate limiter from the cache, or create f new one if not present
 	var rateLimiter *rate.Limiter
-	if v, ok := f.rateLimiters.Get(accessKeyID); ok {
+	if v, ok := f.rateLimiters.Get(rateLimiterKey); ok {
 		rateLimiter = v.(*rate.Limiter)
 	} else {
 		rateLimiter = rate.NewLimiter(f.limit, f.burst)
 	}
 	// Set should be called on every Get with cache.Expiring to refresh the TTL
-	f.rateLimiters.Set(accessKeyID, rateLimiter, route53RateLimiterCacheTTL)
+	f.rateLimiters.Set(rateLimiterKey, rateLimiter, route53RateLimiterCacheTTL)
 	return rateLimiter
 }
