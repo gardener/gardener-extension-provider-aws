@@ -78,6 +78,10 @@ Network interfaces with prefixes are supported with [Nitro-based instances](http
 > [!WARNING]
 > Please make sure that your specified instance type for IPv6 is nitro-based. The same is valid for dual-stack.
 
+> [!WARNING]
+> Migration of existing dual-stack Shoot clusters to IPv6-only Shoot clusters,
+as well as the reverse migration, is currently not supported.
+
 ### Load Balancer Configuration
 
 The AWS Load Balancer Controller is automatically deployed when using an IPv6-only shoot cluster.
