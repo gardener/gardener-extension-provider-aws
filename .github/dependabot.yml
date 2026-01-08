@@ -22,6 +22,7 @@ updates:
   - dependency-name: "k8s.io/*"
   - dependency-name: "sigs.k8s.io/*"
   - dependency-name: "github.com/gardener/etcd-druid/*"
+  - dependency-name: "github.com/prometheus-operator/*"
 - package-ecosystem: "docker"
   directory: "/"
   schedule:
