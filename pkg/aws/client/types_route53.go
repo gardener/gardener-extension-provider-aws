@@ -58,7 +58,7 @@ func (f *route53Factory) NewClient(authConfig AuthConfig) (Interface, error) {
 	if authConfig.AccessKey != nil {
 		rateLimiterKey = authConfig.AccessKey.ID
 	} else {
-		// In practice singel AWS Role (the same roleARN) can be assumed by multiple Workload Identities.
+		// In practice single AWS Role (the same roleARN) can be assumed by multiple Workload Identities.
 		// A side effect of rate limiter using the roleARN as key is that all Workload Identities assuming the same
 		// RoleARN will be throttled at the same time.
 		// However, most probably on the server side(AWS STS) they would be throttled also on the roleARN
