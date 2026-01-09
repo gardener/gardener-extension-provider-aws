@@ -315,8 +315,36 @@ var _ = Describe("Infrastructure tests", func() {
 		})
 
 		It("should successfully create and delete with IPv6 with IPAM pool", func() {
-			ipamPoolID, err := integration.GetIntegrationTestIPAMPoolID(ctx, awsClient)
+			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
+
+			By("retrieve IPAM")
+			ipamID, scopeID, err := integration.GetIPAM(ctx, awsClient)
+			Expect(err).NotTo(HaveOccurred())
+			if ipamID == "" {
+				By("creating IPAM")
+				ipamID, scopeID, err = integration.CreateIPAM(ctx, awsClient, *region, namespace)
+				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(func() {
+					if ipamID != "" {
+						if cleanupErr := integration.DeleteIPAM(ctx, awsClient, ipamID); cleanupErr != nil {
+							Fail(fmt.Sprintf("failed to delete IPAM %s: %v", ipamID, cleanupErr))
+						}
+					}
+				})
+			}
+			Expect(scopeID).NotTo(BeEmpty(), "IPAM private default scope must be set")
+
+			By("creating IPAM pool")
+			ipamPoolID, err := integration.CreateIPv6IPAMPool(ctx, awsClient, *region, scopeID, namespace)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				if ipamPoolID != "" {
+					if cleanupErr := integration.DeleteIPAMPool(ctx, awsClient, ipamPoolID); cleanupErr != nil {
+						Fail(fmt.Sprintf("failed to delete IPAM pool %s: %v", ipamPoolID, cleanupErr))
+					}
+				}
+			})
 			Expect(ipamPoolID).NotTo(BeEmpty())
 
 			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
@@ -326,7 +354,6 @@ var _ = Describe("Infrastructure tests", func() {
 			providerConfig.Networks.VPC.Ipv6IpamPool = &awsv1alpha1.IPAMPool{
 				ID: ptr.To(ipamPoolID),
 			}
-			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
 			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
@@ -1439,13 +1466,6 @@ func verifyCreation(
 						"SubnetId": PointTo(Equal(internalSubnetID)),
 					}),
 				))
-				var prefixListId *string
-				for _, r := range routeTable.Routes {
-					if r.DestinationPrefixListId != nil {
-						prefixListId = r.DestinationPrefixListId
-						break
-					}
-				}
 				expectedRoutes := []ec2types.Route{
 					{
 						DestinationCidrBlock: cidr,
@@ -1459,12 +1479,16 @@ func verifyCreation(
 						Origin:               ec2types.RouteOriginCreateRoute,
 						State:                ec2types.RouteStateActive,
 					},
-					{
-						DestinationPrefixListId: prefixListId,
-						GatewayId:               describeVpcEndpointsOutput.VpcEndpoints[0].VpcEndpointId,
-						Origin:                  ec2types.RouteOriginCreateRoute,
-						State:                   ec2types.RouteStateActive,
-					},
+				}
+				for _, r := range routeTable.Routes {
+					if r.DestinationPrefixListId != nil {
+						expectedRoutes = append(expectedRoutes, ec2types.Route{
+							DestinationPrefixListId: r.DestinationPrefixListId,
+							GatewayId:               describeVpcEndpointsOutput.VpcEndpoints[0].VpcEndpointId,
+							Origin:                  ec2types.RouteOriginCreateRoute,
+							State:                   ec2types.RouteStateActive,
+						})
+					}
 				}
 				if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 					expectedRoutes = append(expectedRoutes, ec2types.Route{
@@ -1716,8 +1740,6 @@ func verifyDeletion(
 		Expect(awsErr.ErrorCode()).To(Equal("InvalidKeyPair.NotFound"))
 		if describeKeyPairsOutput != nil {
 			Expect(describeKeyPairsOutput.KeyPairs).To(BeEmpty())
-		} else {
-			println("describeKeyPairsOutput nil")
 		}
 	}
 
