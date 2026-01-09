@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/security"
@@ -103,31 +102,27 @@ var _ = Describe("CredentialsBinding validator", func() {
 		})
 
 		It("should return err when the corresponding Secret is not valid", func() {
+			secret := &corev1.Secret{Data: map[string][]byte{
+				aws.AccessKeyID:     []byte("AKIAIOSFODNN7EXAMPL_"),                     // 20 chars but has underscore
+				aws.SecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"), // exactly 40 chars, base64
+			}}
 			apiReader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).
-				DoAndReturn(func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					secret := &corev1.Secret{Data: map[string][]byte{
-						"foo": []byte("bar"),
-					}}
-					*obj = *secret
-					return nil
-				})
+				SetArg(2, *secret)
 
 			err := credentialsBindingValidator.Validate(ctx, credentialsBindingSecret, nil)
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should succeed when the Secret is valid", func() {
+		It("should return nil when the corresponding Secret is valid", func() {
+			secret := &corev1.Secret{Data: map[string][]byte{
+				aws.AccessKeyID:     []byte("AKIAIOSFODNN7EXAMPLE"),                     // exactly 20 chars, uppercase alphanumeric
+				aws.SecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"), // exactly 40 chars, base64
+			}}
 			apiReader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).
-				DoAndReturn(func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					secret := &corev1.Secret{Data: map[string][]byte{
-						aws.AccessKeyID:     []byte(strings.Repeat("a", 16)),
-						aws.SecretAccessKey: []byte(strings.Repeat("b", 40)),
-					}}
-					*obj = *secret
-					return nil
-				})
+				SetArg(2, *secret)
 
-			Expect(credentialsBindingValidator.Validate(ctx, credentialsBindingSecret, nil)).To(Succeed())
+			err := credentialsBindingValidator.Validate(ctx, credentialsBindingSecret, nil)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should return nil when the CredentialsBinding did not change", func() {
