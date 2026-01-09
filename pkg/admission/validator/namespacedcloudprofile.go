@@ -13,7 +13,7 @@ import (
 	gardencoreapi "github.com/gardener/gardener/pkg/api"
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	"github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	gutil "github.com/gardener/gardener/pkg/utils/gardener"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 )
 
@@ -61,11 +62,16 @@ func (p *namespacedCloudProfile) Validate(ctx context.Context, newObj, _ client.
 	}
 
 	parentCloudProfile := cloudProfile.Spec.Parent
-	if parentCloudProfile.Kind != constants.CloudProfileReferenceKindCloudProfile {
+	if parentCloudProfile.Kind != v1beta1constants.CloudProfileReferenceKindCloudProfile {
 		return fmt.Errorf("parent reference must be of kind CloudProfile (unsupported kind: %s)", parentCloudProfile.Kind)
 	}
 	parentProfile := &gardencorev1beta1.CloudProfile{}
 	if err := p.client.Get(ctx, client.ObjectKey{Name: parentCloudProfile.Name}, parentProfile); err != nil {
+		return err
+	}
+
+	// TODO(Roncossek): Remove TransformSpecToParentFormat once all CloudProfiles have been migrated to use CapabilityFlavors and the Architecture fields are effectively forbidden or have been removed.
+	if err := helper.SimulateTransformToParentFormat(cloudProfileConfig, cloudProfile, parentProfile.Spec.MachineCapabilities); err != nil {
 		return err
 	}
 
@@ -219,7 +225,7 @@ func validateMachineImageArchitectures(machineImage core.MachineImage, version c
 	regionsArchitectureMap := map[string][]string{}
 
 	for _, regionMapping := range providerImageVersion.Regions {
-		providerConfigArchitecture := ptr.Deref(regionMapping.Architecture, constants.ArchitectureAMD64)
+		providerConfigArchitecture := ptr.Deref(regionMapping.Architecture, v1beta1constants.ArchitectureAMD64)
 		if !slices.Contains(version.Architectures, providerConfigArchitecture) {
 			allErrs = append(allErrs, field.Forbidden(
 				field.NewPath("spec.providerConfig.machineImages"),
