@@ -64,7 +64,10 @@ func (b *backupBucketValidator) validateCreate(backupBucket *core.BackupBucket) 
 		providerConfigPath = field.NewPath("spec", "providerConfig")
 	)
 
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigCreate(b.lenientDecoder, backupBucket.Spec.ProviderConfig, providerConfigPath)...)
+	if backupBucket.Spec.ProviderConfig != nil {
+		allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigCreate(b.lenientDecoder, backupBucket.Spec.ProviderConfig, providerConfigPath)...)
+	}
+
 	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(backupBucket.Spec.CredentialsRef, credentialsRefPath)...)
 	return allErrs
 }
@@ -79,7 +82,10 @@ func (b *backupBucketValidator) validateUpdate(oldBackupBucket, backupBucket *co
 		providerConfigPath = field.NewPath("spec", "providerConfig")
 	)
 
-	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigUpdate(b.decoder, b.lenientDecoder, oldBackupBucket.Spec.ProviderConfig, backupBucket.Spec.ProviderConfig, providerConfigPath)...)
+	if backupBucket.Spec.ProviderConfig != nil {
+		allErrs = append(allErrs, awsvalidation.ValidateBackupBucketProviderConfigUpdate(b.decoder, b.lenientDecoder, oldBackupBucket.Spec.ProviderConfig, backupBucket.Spec.ProviderConfig, providerConfigPath)...)
+	}
+
 	allErrs = append(allErrs, awsvalidation.ValidateBackupBucketCredentialsRef(backupBucket.Spec.CredentialsRef, credentialsRefPath)...)
 	return allErrs
 }
