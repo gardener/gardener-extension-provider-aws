@@ -43,12 +43,18 @@ func ValidateBackupBucketProviderConfigCreate(lenientDecoder runtime.Decoder, co
 
 // ValidateBackupBucketProviderConfigUpdate validates the BackupBucket provider config on update.
 func ValidateBackupBucketProviderConfigUpdate(decoder, lenientDecoder runtime.Decoder, oldConfig, newConfig *runtime.RawExtension, fldPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
+	var (
+		allErrs               = field.ErrorList{}
+		oldBackupBucketConfig *apisaws.BackupBucketConfig
+		err                   error
+	)
 
-	oldBackupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(lenientDecoder, oldConfig)
-	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, rawExtensionToString(oldConfig), fmt.Sprintf("failed to decode old provider config: %s", err.Error())))
-		return allErrs
+	if oldConfig != nil {
+		oldBackupBucketConfig, err = apisawshelper.DecodeBackupBucketConfig(lenientDecoder, oldConfig)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(fldPath, rawExtensionToString(oldConfig), fmt.Sprintf("failed to decode old provider config: %s", err.Error())))
+			return allErrs
+		}
 	}
 
 	newBackupBucketConfig, err := apisawshelper.DecodeBackupBucketConfig(decoder, newConfig)
@@ -58,7 +64,9 @@ func ValidateBackupBucketProviderConfigUpdate(decoder, lenientDecoder runtime.De
 	}
 
 	allErrs = append(allErrs, ValidateBackupBucketConfig(newBackupBucketConfig, fldPath)...)
-	allErrs = append(allErrs, validateBackupBucketImmutabilityUpdate(oldBackupBucketConfig, newBackupBucketConfig, fldPath)...)
+	if oldConfig != nil {
+		allErrs = append(allErrs, validateBackupBucketImmutabilityUpdate(oldBackupBucketConfig, newBackupBucketConfig, fldPath)...)
+	}
 
 	return allErrs
 }
