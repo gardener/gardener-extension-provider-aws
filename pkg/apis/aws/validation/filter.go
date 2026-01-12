@@ -52,11 +52,25 @@ var (
 	validateTagKey                   = combineValidationFuncs(regex(TagKeyRegex), notEmpty, maxLength(128))
 	validateCapacityReservationID    = combineValidationFuncs(regex(CapacityReservationIDRegex), notEmpty, maxLength(255))
 	validateCapacityReservationGroup = combineValidationFuncs(regex(CapacityReservationGroupRegex), notEmpty, maxLength(255))
-	validateAccessKeyID              = combineValidationFuncs(regex(AccessKeyIDRegex), minLength(20), maxLength(20))
-	validateSecretAccessKey          = combineValidationFuncs(regex(SecretAccessKeyRegex), minLength(40), maxLength(40))
+	validateAccessKeyID              = hideSensitiveValue(combineValidationFuncs(regex(AccessKeyIDRegex), minLength(20), maxLength(20)))
+	validateSecretAccessKey          = hideSensitiveValue(combineValidationFuncs(regex(SecretAccessKeyRegex), minLength(40), maxLength(40)))
 )
 
 type validateFunc[T any] func(T, *field.Path) field.ErrorList
+
+// hideSensitiveValue wraps a validation function to hide the actual value in error messages
+func hideSensitiveValue(fn validateFunc[string]) validateFunc[string] {
+	return func(value string, fld *field.Path) field.ErrorList {
+		errs := fn(value, fld)
+		// Replace the actual value with "(hidden)" in all error messages
+		for i := range errs {
+			if errs[i].Type == field.ErrorTypeInvalid || errs[i].Type == field.ErrorTypeRequired {
+				errs[i].BadValue = "(hidden)"
+			}
+		}
+		return errs
+	}
+}
 
 // combineValidationFuncs validates a value against a list of filters.
 func combineValidationFuncs[T any](filters ...validateFunc[T]) validateFunc[T] {
