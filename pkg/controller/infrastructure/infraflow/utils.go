@@ -329,3 +329,10 @@ func BuildInfrastructureStatus(
 
 	return status
 }
+
+// routeTableAssociationSpec contains the specification to associate a route table with a subnet.
+type routeTableAssociationSpec struct {
+	subnetKey      string
+	assocKey       string
+	zoneRouteTable bool
+}

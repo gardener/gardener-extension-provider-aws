@@ -1317,6 +1317,21 @@ func (mr *MockInterfaceMockRecorder) GetRouteTable(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRouteTable", reflect.TypeOf((*MockInterface)(nil).GetRouteTable), ctx, id)
 }
 
+// GetRouteTableAssociationIDs mocks base method.
+func (m *MockInterface) GetRouteTableAssociationIDs(ctx context.Context, vpc string, subnetIDs []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRouteTableAssociationIDs", ctx, vpc, subnetIDs)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRouteTableAssociationIDs indicates an expected call of GetRouteTableAssociationIDs.
+func (mr *MockInterfaceMockRecorder) GetRouteTableAssociationIDs(ctx, vpc, subnetIDs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRouteTableAssociationIDs", reflect.TypeOf((*MockInterface)(nil).GetRouteTableAssociationIDs), ctx, vpc, subnetIDs)
+}
+
 // GetSecurityGroup mocks base method.
 func (m *MockInterface) GetSecurityGroup(ctx context.Context, id string) (*client.SecurityGroup, error) {
 	m.ctrl.T.Helper()
