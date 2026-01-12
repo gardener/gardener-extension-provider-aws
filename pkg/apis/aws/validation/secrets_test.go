@@ -87,7 +87,7 @@ var _ = Describe("Secret validation", func() {
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("secret.data[accessKeyID]"),
-					"BadValue": Equal("AKIAIOSFODNN7EXAMPL"),
+					"BadValue": Equal("(hidden)"),
 				}))))
 			})
 
@@ -101,7 +101,7 @@ var _ = Describe("Secret validation", func() {
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("secret.data[accessKeyID]"),
-					"BadValue": Equal("AKIAIOSFODNN7EXAMPLE1"),
+					"BadValue": Equal("(hidden)"),
 				}))))
 			})
 
@@ -115,7 +115,7 @@ var _ = Describe("Secret validation", func() {
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("secret.data[accessKeyID]"),
-					"BadValue": Equal("AKIAIOSFODNn7EXAMPLE"),
+					"BadValue": Equal("(hidden)"),
 				}))))
 			})
 
@@ -129,7 +129,7 @@ var _ = Describe("Secret validation", func() {
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("secret.data[accessKeyID]"),
-					"BadValue": Equal("AKIAIOSFODNN7EXAMPL_"),
+					"BadValue": Equal("(hidden)"),
 				}))))
 			})
 
@@ -168,7 +168,7 @@ var _ = Describe("Secret validation", func() {
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("secret.data[secretAccessKey]"),
-					"BadValue": Equal("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKE"),
+					"BadValue": Equal("(hidden)"),
 				}))))
 			})
 
@@ -182,7 +182,7 @@ var _ = Describe("Secret validation", func() {
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("secret.data[secretAccessKey]"),
-					"BadValue": Equal("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY1"),
+					"BadValue": Equal("(hidden)"),
 				}))))
 			})
 
@@ -196,7 +196,7 @@ var _ = Describe("Secret validation", func() {
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":     Equal(field.ErrorTypeInvalid),
 					"Field":    Equal("secret.data[secretAccessKey]"),
-					"BadValue": Equal("wJalrXUtnFEMI/K7MDEN+/=PxRfi!#EXAMPLEKEY"),
+					"BadValue": Equal("(hidden)"),
 				}))))
 			})
 
@@ -278,7 +278,7 @@ var _ = Describe("Secret validation", func() {
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("secret.data[AWS_ACCESS_KEY_ID]"),
-						"BadValue": Equal("AKIAIOSFODNN7EXAMPL"),
+						"BadValue": Equal("(hidden)"),
 					}))))
 				})
 
@@ -292,7 +292,7 @@ var _ = Describe("Secret validation", func() {
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("secret.data[AWS_ACCESS_KEY_ID]"),
-						"BadValue": Equal("AKIAIOSFODNN7EXAMPL_"),
+						"BadValue": Equal("(hidden)"),
 					}))))
 				})
 
@@ -331,7 +331,7 @@ var _ = Describe("Secret validation", func() {
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("secret.data[AWS_SECRET_ACCESS_KEY]"),
-						"BadValue": Equal("wJalrXUtnFEMI/K7MDEN+/=PxRfi!#EXAMPLEKE"),
+						"BadValue": Equal("(hidden)"),
 					}))))
 				})
 
@@ -345,7 +345,7 @@ var _ = Describe("Secret validation", func() {
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("secret.data[AWS_SECRET_ACCESS_KEY]"),
-						"BadValue": Equal("wJalrXUtnFEMI!K7MDENG#bPxRfiCYEXAMPLEKEY"),
+						"BadValue": Equal("(hidden)"),
 					}))))
 				})
 
@@ -397,7 +397,7 @@ var _ = Describe("Secret validation", func() {
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("secret.data[accessKeyID]"),
-						"BadValue": Equal("AKIAIOSFODNN7EXAMPL"),
+						"BadValue": Equal("(hidden)"),
 					}))))
 				})
 
@@ -411,7 +411,7 @@ var _ = Describe("Secret validation", func() {
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("secret.data[accessKeyID]"),
-						"BadValue": Equal("AKIAIOSFODNN7EXAMPL_"),
+						"BadValue": Equal("(hidden)"),
 					}))))
 				})
 
@@ -437,7 +437,7 @@ var _ = Describe("Secret validation", func() {
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("secret.data[secretAccessKey]"),
-						"BadValue": Equal("wJalrXUtnFEMI/K7MDEN+/=PxRfi!#EXAMPLEKE"),
+						"BadValue": Equal("(hidden)"),
 					}))))
 				})
 
@@ -451,7 +451,7 @@ var _ = Describe("Secret validation", func() {
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":     Equal(field.ErrorTypeInvalid),
 						"Field":    Equal("secret.data[secretAccessKey]"),
-						"BadValue": Equal("wJalrXUtnFEMI!K7MDENG#bPxRfiCYEXAMPLEKEY"),
+						"BadValue": Equal("(hidden)"),
 					}))))
 				})
 
