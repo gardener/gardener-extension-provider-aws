@@ -86,6 +86,8 @@ config:
       provisioner: kubernetes.io/aws-ebs
       volumeBindingMode: WaitForFirstConsumer
       encrypted: true
+#     backup:
+#       schedule: "0 */1 * * *"
 
 gardener:
   version: ""
