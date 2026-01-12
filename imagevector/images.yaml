@@ -30,7 +30,7 @@ images:
 - name: aws-load-balancer-controller
   sourceRepository: github.com/kubernetes-sigs/aws-load-balancer-controller
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.13.4
+  tag: v2.17.1
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -44,7 +44,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: v1.30.9
+  tag: v1.30.10
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -59,7 +59,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: v1.31.8
+  tag: v1.31.9
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -106,15 +106,15 @@ images:
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
   tag: v1.34.0
   labels:
-    - name: gardener.cloud/cve-categorisation
-      value:
-        network_exposure: protected
-        authentication_enforced: false
-        user_interaction: gardener-operator
-        confidentiality_requirement: high
-        integrity_requirement: high
-        availability_requirement: low
-      signing: false
+  - name: gardener.cloud/cve-categorisation
+    value:
+      network_exposure: protected
+      authentication_enforced: false
+      user_interaction: gardener-operator
+      confidentiality_requirement: high
+      integrity_requirement: high
+      availability_requirement: low
+    signing: false
   targetVersion: '>= 1.34'
 - name: csi-attacher
   sourceRepository: github.com/kubernetes-csi/external-attacher
@@ -133,7 +133,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: registry.k8s.io/provider-aws/aws-ebs-csi-driver
-  tag: v1.52.1
+  tag: v1.54.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -147,7 +147,7 @@ images:
 - name: csi-driver-efs
   sourceRepository: github.com/kubernetes-sigs/aws-efs-csi-driver
   repository: public.ecr.aws/efs-csi-driver/amazon/aws-efs-csi-driver
-  tag: v2.1.14
+  tag: v2.2.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -272,12 +272,10 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-# NOTE: volume-modifier-for-k8s has been deprecated in favor of the native Kubernetes VolumeAttributesClass API.
-#       we can get rid of this image once we remove K8s v1.31 support (VolumeAttributesClass graduated to beta).
 - name: csi-volume-modifier
   sourceRepository: github.com/awslabs/volume-modifier-for-k8s
   repository: public.ecr.aws/ebs-csi-driver/volume-modifier-for-k8s
-  tag: v0.7.0
+  tag: v0.9.1
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -353,20 +351,20 @@ images:
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
   tag: v1.34.0
   labels:
-    - name: gardener.cloud/cve-categorisation
-      value:
-        network_exposure: protected
-        authentication_enforced: false
-        user_interaction: end-user
-        confidentiality_requirement: high
-        integrity_requirement: high
-        availability_requirement: low
-      signing: false
+  - name: gardener.cloud/cve-categorisation
+    value:
+      network_exposure: protected
+      authentication_enforced: false
+      user_interaction: end-user
+      confidentiality_requirement: high
+      integrity_requirement: high
+      availability_requirement: low
+    signing: false
   targetVersion: '>= 1.34'
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/machine-controller-manager-provider-aws
-  tag: v0.26.0
+  tag: v0.27.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
