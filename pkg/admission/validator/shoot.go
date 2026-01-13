@@ -28,12 +28,13 @@ import (
 )
 
 var (
-	specPath        = field.NewPath("spec")
-	nwPath          = specPath.Child("networking")
-	providerPath    = specPath.Child("provider")
-	infraConfigPath = providerPath.Child("infrastructureConfig")
-	cpConfigPath    = providerPath.Child("controlPlaneConfig")
-	workersPath     = providerPath.Child("workers")
+	specPath         = field.NewPath("spec")
+	nwPath           = specPath.Child("networking")
+	providerPath     = specPath.Child("provider")
+	infraConfigPath  = providerPath.Child("infrastructureConfig")
+	cpConfigPath     = providerPath.Child("controlPlaneConfig")
+	workersPath      = providerPath.Child("workers")
+	dnsProvidersPath = specPath.Child("dns").Child("providers")
 )
 
 // NewShootValidator returns a new instance of a shoot validator.
@@ -228,14 +229,12 @@ func (s *shoot) validateDNS(ctx context.Context, shoot *core.Shoot) field.ErrorL
 		return allErrs
 	}
 
-	providersPath := specPath.Child("dns").Child("providers")
-
 	for i, p := range shoot.Spec.DNS.Providers {
 		if p.Type == nil || *p.Type != aws.DNSType {
 			continue
 		}
 
-		providerFldPath := providersPath.Index(i)
+		providerFldPath := dnsProvidersPath.Index(i)
 
 		if p.SecretName == nil || *p.SecretName == "" {
 			allErrs = append(allErrs, field.Required(providerFldPath.Child("secretName"),

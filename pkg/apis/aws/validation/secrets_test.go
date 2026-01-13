@@ -72,7 +72,7 @@ var _ = Describe("Secret validation", func() {
 
 				errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindInfrastructure)
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
+					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("secret.data[accessKeyID]"),
 				}))))
 			})
@@ -153,7 +153,7 @@ var _ = Describe("Secret validation", func() {
 
 				errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindInfrastructure)
 				Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
+					"Type":  Equal(field.ErrorTypeRequired),
 					"Field": Equal("secret.data[secretAccessKey]"),
 				}))))
 			})
@@ -263,7 +263,7 @@ var _ = Describe("Secret validation", func() {
 
 					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeInvalid),
+						"Type":  Equal(field.ErrorTypeRequired),
 						"Field": Equal("secret.data[AWS_ACCESS_KEY_ID]"),
 					}))))
 				})
@@ -316,7 +316,7 @@ var _ = Describe("Secret validation", func() {
 
 					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeInvalid),
+						"Type":  Equal(field.ErrorTypeRequired),
 						"Field": Equal("secret.data[AWS_SECRET_ACCESS_KEY]"),
 					}))))
 				})
@@ -540,7 +540,7 @@ var _ = Describe("Secret validation", func() {
 
 				Expect(errs).To(ConsistOf(
 					PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeInvalid),
+						"Type":  Equal(field.ErrorTypeNotSupported),
 						"Field": Equal("secret"),
 					})),
 				))

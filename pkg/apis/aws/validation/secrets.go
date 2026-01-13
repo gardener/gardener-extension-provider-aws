@@ -24,6 +24,11 @@ const (
 	SecretKindDns SecretKind = "dns"
 )
 
+var supportedSecretKinds = []string{
+	string(SecretKindInfrastructure),
+	string(SecretKindDns),
+}
+
 // ValidateCloudProviderSecret checks whether the given secret contains valid AWS access keys.
 func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kind SecretKind) field.ErrorList {
 	allErrs := field.ErrorList{}
@@ -80,9 +85,7 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 
 	default:
 		return field.ErrorList{
-			field.Invalid(fldPath, kind,
-				fmt.Sprintf("unsupported secret kind for secret %s, allowed values are %q and %q",
-					secretRef, SecretKindInfrastructure, SecretKindDns)),
+			field.NotSupported(fldPath, kind, supportedSecretKinds),
 		}
 	}
 
@@ -91,7 +94,7 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 		allErrs = append(allErrs, field.Required(dataPath.Key(accessKeyIDKey),
 			fmt.Sprintf("missing required field %q in secret %s", accessKeyIDKey, secretRef)))
 	} else if len(accessKeyID) == 0 {
-		allErrs = append(allErrs, field.Invalid(dataPath.Key(accessKeyIDKey), "",
+		allErrs = append(allErrs, field.Required(dataPath.Key(accessKeyIDKey),
 			fmt.Sprintf("field %q cannot be empty in secret %s", accessKeyIDKey, secretRef)))
 	} else {
 		allErrs = append(allErrs, validateAccessKeyID(string(accessKeyID), dataPath.Key(accessKeyIDKey))...)
@@ -102,7 +105,7 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 		allErrs = append(allErrs, field.Required(dataPath.Key(secretAccessKeyKey),
 			fmt.Sprintf("missing required field %q in secret %s", secretAccessKeyKey, secretRef)))
 	} else if len(secretAccessKey) == 0 {
-		allErrs = append(allErrs, field.Invalid(dataPath.Key(secretAccessKeyKey), "",
+		allErrs = append(allErrs, field.Required(dataPath.Key(secretAccessKeyKey),
 			fmt.Sprintf("field %q cannot be empty in secret %s", secretAccessKeyKey, secretRef)))
 	} else {
 		allErrs = append(allErrs, validateSecretAccessKey(string(secretAccessKey), dataPath.Key(secretAccessKeyKey))...)
