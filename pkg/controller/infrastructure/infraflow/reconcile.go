@@ -1489,15 +1489,8 @@ func (c *FlowContext) routingAssocSpecs() []routeTableAssociationSpec {
 func (c *FlowContext) validateAndPruneRoutingTableAssocState(ctx context.Context, zoneName string, specs []routeTableAssociationSpec) error {
 	child := c.getSubnetZoneChild(zoneName)
 
-	// should validate only if at least one association ID is present
-	shouldValidatePresence := false
-	for _, spec := range specs {
-		if assocID := child.Get(spec.assocKey); assocID != nil {
-			shouldValidatePresence = true
-			break
-		}
-	}
-	if !shouldValidatePresence {
+	// should validate only if at least one association ID is present in state
+	if !hasRouteTableAssociationInState(func(assocKey string) *string { return child.Get(assocKey) }, specs) {
 		return nil
 	}
 

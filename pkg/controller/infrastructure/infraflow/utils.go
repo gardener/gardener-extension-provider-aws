@@ -336,3 +336,13 @@ type routeTableAssociationSpec struct {
 	assocKey       string
 	zoneRouteTable bool
 }
+
+// hasRouteTableAssociationInState checks if any of the route table associations specified in specs exist in the state.
+func hasRouteTableAssociationInState(getAssociationID func(string) *string, specs []routeTableAssociationSpec) bool {
+	for _, spec := range specs {
+		if assocID := getAssociationID(spec.assocKey); assocID != nil {
+			return true
+		}
+	}
+	return false
+}
