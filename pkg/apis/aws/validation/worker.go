@@ -308,16 +308,20 @@ func validateCpuOptions(cpuOptions *apisaws.CpuOptions, fldPath *field.Path) fie
 
 	if cpuOptions.AmdSevSnp != nil {
 		amdSevSnp := ec2types.AmdSevSnpSpecification(*cpuOptions.AmdSevSnp)
-		if !slices.Contains(amdSevSnp.Values(), amdSevSnp) {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("amdSevSnp"), amdSevSnp,
-				fmt.Sprintf("AmdSevSnp must be one of %v", amdSevSnp.Values())))
+		allowed := amdSevSnp.Values()
+		if !slices.Contains(allowed, amdSevSnp) {
+			allErrs = append(allErrs, field.NotSupported(
+				fldPath.Child("amdSevSnp"),
+				amdSevSnp,
+				allowed,
+			))
 		}
 	}
 
 	coreSet := cpuOptions.CoreCount != nil
 	threadsSet := cpuOptions.ThreadsPerCore != nil
 
-	// Either both must be set or neither (neither already handled above).
+	// either both must be set or neither
 	if coreSet != threadsSet {
 		if !coreSet {
 			allErrs = append(allErrs, field.Required(fldPath.Child("coreCount"),
