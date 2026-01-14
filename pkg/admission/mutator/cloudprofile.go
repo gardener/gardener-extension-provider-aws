@@ -74,7 +74,14 @@ func overwriteMachineImageCapabilityFlavors(profile *gardencorev1beta1.CloudProf
 				continue
 			}
 
-			profile.Spec.MachineImages[imageIdx].Versions[versionIdx].CapabilityFlavors = convertCapabilityFlavors(providerVersion.CapabilityFlavors)
+			// Support both new format (capabilityFlavors) and old format (regions with architecture)
+			if len(providerVersion.CapabilityFlavors) > 0 {
+				// New format: use capabilityFlavors directly
+				profile.Spec.MachineImages[imageIdx].Versions[versionIdx].CapabilityFlavors = convertCapabilityFlavors(providerVersion.CapabilityFlavors)
+			} else if len(providerVersion.Regions) > 0 {
+				// Old format: convert regions with architecture to capability flavors
+				profile.Spec.MachineImages[imageIdx].Versions[versionIdx].CapabilityFlavors = convertRegionsToCapabilityFlavors(providerVersion.Regions)
+			}
 		}
 	}
 }
@@ -87,5 +94,49 @@ func convertCapabilityFlavors(providerFlavors []v1alpha1.MachineImageFlavor) []g
 			Capabilities: providerFlavor.GetCapabilities(),
 		})
 	}
+	return capabilityFlavors
+}
+
+// convertRegionsToCapabilityFlavors converts old format (regions with architecture) to capability flavors
+func convertRegionsToCapabilityFlavors(regions []v1alpha1.RegionAMIMapping) []gardencorev1beta1.MachineImageFlavor {
+	// Group regions by architecture to create capability flavors
+	architectureSet := make(map[string]struct{})
+	for _, region := range regions {
+		arch := "amd64" // default architecture
+		if region.Architecture != nil {
+			arch = *region.Architecture
+		}
+		architectureSet[arch] = struct{}{}
+	}
+
+	// Create a capability flavor for each unique architecture
+	capabilityFlavors := make([]gardencorev1beta1.MachineImageFlavor, 0, len(architectureSet))
+	for arch := range architectureSet {
+		capabilityFlavors = append(capabilityFlavors, gardencorev1beta1.MachineImageFlavor{
+			Capabilities: gardencorev1beta1.Capabilities{
+				"architecture": []string{arch},
+			},
+		})
+	}
+
+	// Sort for deterministic output
+	slices.SortFunc(capabilityFlavors, func(a, b gardencorev1beta1.MachineImageFlavor) int {
+		aArch := ""
+		bArch := ""
+		if archList, ok := a.Capabilities["architecture"]; ok && len(archList) > 0 {
+			aArch = archList[0]
+		}
+		if archList, ok := b.Capabilities["architecture"]; ok && len(archList) > 0 {
+			bArch = archList[0]
+		}
+		if aArch < bArch {
+			return -1
+		}
+		if aArch > bArch {
+			return 1
+		}
+		return 0
+	})
+
 	return capabilityFlavors
 }
