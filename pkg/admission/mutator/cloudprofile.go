@@ -5,14 +5,17 @@
 package mutator
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -97,15 +100,14 @@ func convertCapabilityFlavors(providerFlavors []v1alpha1.MachineImageFlavor) []g
 	return capabilityFlavors
 }
 
-// convertRegionsToCapabilityFlavors converts old format (regions with architecture) to capability flavors
+// convertRegionsToCapabilityFlavors converts old format (regions with architecture) to capability flavors.
+// Note: A similar function exists in helper.go for internal API types that also preserves region mappings.
+// This version only extracts unique architectures for CloudProfile spec mutation.
 func convertRegionsToCapabilityFlavors(regions []v1alpha1.RegionAMIMapping) []gardencorev1beta1.MachineImageFlavor {
-	// Group regions by architecture to create capability flavors
+	// Collect unique architectures from regions
 	architectureSet := make(map[string]struct{})
 	for _, region := range regions {
-		arch := "amd64" // default architecture
-		if region.Architecture != nil {
-			arch = *region.Architecture
-		}
+		arch := ptr.Deref(region.Architecture, v1beta1constants.ArchitectureAMD64)
 		architectureSet[arch] = struct{}{}
 	}
 
@@ -114,28 +116,20 @@ func convertRegionsToCapabilityFlavors(regions []v1alpha1.RegionAMIMapping) []ga
 	for arch := range architectureSet {
 		capabilityFlavors = append(capabilityFlavors, gardencorev1beta1.MachineImageFlavor{
 			Capabilities: gardencorev1beta1.Capabilities{
-				"architecture": []string{arch},
+				v1beta1constants.ArchitectureName: []string{arch},
 			},
 		})
 	}
 
 	// Sort for deterministic output
 	slices.SortFunc(capabilityFlavors, func(a, b gardencorev1beta1.MachineImageFlavor) int {
-		aArch := ""
-		bArch := ""
-		if archList, ok := a.Capabilities["architecture"]; ok && len(archList) > 0 {
-			aArch = archList[0]
+		getArch := func(f gardencorev1beta1.MachineImageFlavor) string {
+			if archList := f.Capabilities[v1beta1constants.ArchitectureName]; len(archList) > 0 {
+				return archList[0]
+			}
+			return ""
 		}
-		if archList, ok := b.Capabilities["architecture"]; ok && len(archList) > 0 {
-			bArch = archList[0]
-		}
-		if aArch < bArch {
-			return -1
-		}
-		if aArch > bArch {
-			return 1
-		}
-		return 0
+		return cmp.Compare(getArch(a), getArch(b))
 	})
 
 	return capabilityFlavors

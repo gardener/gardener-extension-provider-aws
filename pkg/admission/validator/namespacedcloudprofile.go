@@ -251,13 +251,6 @@ func validateRegionsFormatWithCapabilities(machineImage core.MachineImage, versi
 	})
 	availableArchitectures := slices.Collect(maps.Keys(architecturesMap))
 
-	// Collect regions per architecture
-	regionsPerArchitecture := make(map[string][]string)
-	for _, region := range providerImageVersion.Regions {
-		arch := ptr.Deref(region.Architecture, v1beta1constants.ArchitectureAMD64)
-		regionsPerArchitecture[arch] = append(regionsPerArchitecture[arch], region.Name)
-	}
-
 	// 1. Check for excess architectures in provider that are not in spec
 	for _, arch := range availableArchitectures {
 		isFound := false

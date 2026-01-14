@@ -186,8 +186,8 @@ var _ = Describe("Helper", func() {
 				"ubuntu", "22.04", region, ptr.To("amd64"), "ami-ubuntu-amd64"),
 
 			Entry("finds arm64 image using old format with capabilities defined",
-				makeProfileMachineImagesOldFormat("ubuntu", "22.04", region, "ami-ubuntu-arm64", ptr.To("arm64")),
-				"ubuntu", "22.04", region, ptr.To("arm64"), "ami-ubuntu-arm64"),
+				makeProfileMachineImagesOldFormat("gardenlinux", "1877.9.0", region, "ami-1877.9.0-arm64", ptr.To("arm64")),
+				"gardenlinux", "1877.9.0", region, ptr.To("arm64"), "ami-1877.9.0-arm64"),
 
 			Entry("does not find image when architecture mismatch (old format)",
 				makeProfileMachineImagesOldFormat("ubuntu", "22.04", region, "ami-ubuntu-amd64", ptr.To("amd64")),
