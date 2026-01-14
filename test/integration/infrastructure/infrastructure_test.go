@@ -606,10 +606,10 @@ var _ = Describe("Infrastructure tests", func() {
 func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceName string,
 	providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client, ipfamilies []gardencorev1beta1.IPFamily) error {
 	var (
-		namespace                 *corev1.Namespace
-		cluster                   *extensionsv1alpha1.Cluster
-		infra                     *extensionsv1alpha1.Infrastructure
-		infrastructureIdentifiers infrastructureIdentifiers
+		namespace *corev1.Namespace
+		cluster   *extensionsv1alpha1.Cluster
+		infra     *extensionsv1alpha1.Infrastructure
+		infraID   infrastructureIdentifiers
 	)
 
 	cleanupFunc := sync.OnceFunc(func() {
@@ -629,7 +629,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		Expect(err).NotTo(HaveOccurred())
 
 		By("verify infrastructure deletion")
-		verifyDeletion(ctx, awsClient, infrastructureIdentifiers)
+		verifyDeletion(ctx, awsClient, infraID)
 
 		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
 		Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
@@ -724,11 +724,11 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	}
 
 	By("verify infrastructure creation")
-	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
+	infraID = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
 
 	By("add tags to subnet")
 	// add some ignored and not ignored tags to subnet and verify that ignored tags are not removed in the next reconciliation
-	taggedSubnetID := infrastructureIdentifiers.subnetIDs[0]
+	taggedSubnetID := infraID.subnetIDs[0]
 	Expect(createTagsSubnet(ctx, awsClient, taggedSubnetID)).To(Succeed())
 
 	// test 2nd reconciliation
@@ -752,8 +752,8 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		return err
 	}
 
-	By("verify infrastructure creation")
-	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
+	By("verify infrastructure second reconciliation")
+	infraID = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
 
 	By("verify tags on subnet")
 	verifyTagsSubnet(ctx, awsClient, taggedSubnetID)
@@ -765,15 +765,29 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	infra.Status.ProviderStatus = nil
 	infra.Status.State = nil
 	Expect(c.Status().Patch(ctx, infra, patch)).To(Succeed())
+	Expect(c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra)).To(Succeed())
 
 	// reconcile infrastructure to test state recovery
-	Expect(c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra)).To(Succeed())
+	patch = client.MergeFrom(infra.DeepCopy())
 	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
 	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
-	patch = client.MergeFrom(infra.DeepCopy())
 	err = c.Patch(ctx, infra, patch)
 	Expect(err).To(Succeed())
 
+	By("wait until infrastructure is reconciled")
+	if err := extensions.WaitUntilExtensionObjectReady(
+		ctx,
+		c,
+		log,
+		infra,
+		extensionsv1alpha1.InfrastructureResource,
+		10*time.Second,
+		30*time.Second,
+		16*time.Minute,
+		nil,
+	); err != nil {
+		return err
+	}
 	By("check state recovery")
 	if err := c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra); err != nil {
 		return err
@@ -1628,7 +1642,6 @@ func verifyDeletion(
 	infrastructureIdentifier infrastructureIdentifiers,
 ) {
 	// vpc
-
 	if infrastructureIdentifier.vpcID != nil {
 		describeVpcsOutput, err := awsClient.EC2.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{VpcIds: []string{*infrastructureIdentifier.vpcID}})
 		Expect(err).To(HaveOccurred())

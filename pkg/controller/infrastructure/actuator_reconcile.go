@@ -56,7 +56,6 @@ func (a *actuator) reconcile(ctx context.Context, log logr.Logger, infra *extens
 			return err
 		}
 	}
-
 	awsClient, err := aws.NewClientFromSecretRef(ctx, a.client, infra.Spec.SecretRef, infra.Spec.Region)
 	if err != nil {
 		return fmt.Errorf("failed to create new AWS client: %w", err)

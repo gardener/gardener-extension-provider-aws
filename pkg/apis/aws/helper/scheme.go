@@ -37,8 +37,8 @@ func init() {
 	Scheme = runtime.NewScheme()
 	utilruntime.Must(install.AddToScheme(Scheme))
 
-	decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
-	lenientDecoder = serializer.NewCodecFactory(scheme).UniversalDecoder()
+	decoder = serializer.NewCodecFactory(Scheme, serializer.EnableStrict).UniversalDecoder()
+	lenientDecoder = serializer.NewCodecFactory(Scheme).UniversalDecoder()
 }
 
 // CloudProfileConfigFromCluster decodes the provider specific cloud profile configuration for a cluster
@@ -141,7 +141,7 @@ func WorkloadIdentityConfigFromBytes(config []byte) (*api.WorkloadIdentityConfig
 }
 
 // HasFlowState returns true if the group version of the State field in the provided
-// `extensionsv1alpha1.InfrastructureStatus` is openstack.provider.extensions.gardener.cloud/v1alpha1.
+// `extensionsv1alpha1.InfrastructureStatus` is aws.provider.extensions.gardener.cloud/v1alpha1.
 func HasFlowState(status extensionsv1alpha1.InfrastructureStatus) (bool, error) {
 	if status.State == nil {
 		return true, nil

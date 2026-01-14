@@ -181,7 +181,6 @@ integration-test-infra:
 		--access-key-id='$(shell cat $(ACCESS_KEY_ID_FILE))' \
 		--secret-access-key='$(shell cat $(SECRET_ACCESS_KEY_FILE))' \
 		--region=$(REGION) \
-		--reconciler=$(RECONCILER)
 
 .PHONY: integration-test-bastion
 integration-test-bastion:
