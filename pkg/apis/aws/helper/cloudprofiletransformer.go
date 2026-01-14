@@ -142,7 +142,7 @@ func transformToCapabilityFormat(version v1alpha1.MachineImageVersion, capabilit
 		imageFlavors = append(imageFlavors, flavor)
 	}
 
-	// Sort flavors for consistent output (alphabetically by architecture)\
+	// Sort flavors for consistent output (alphabetically by architecture)
 	slices.SortFunc(imageFlavors, func(a, b v1alpha1.MachineImageFlavor) int {
 		archA := getFirstArchitecture(a.Capabilities, capabilityDefinitions)
 		archB := getFirstArchitecture(b.Capabilities, capabilityDefinitions)
