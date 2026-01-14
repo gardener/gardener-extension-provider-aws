@@ -167,24 +167,21 @@ func findMachineImageFlavor(
 			// When capabilities are defined, support both formats per version:
 			// - New format: capabilityFlavors
 			// - Old format: regions with architecture (converted to capability flavors)
+			var capabilityFlavors []api.MachineImageFlavor
 			if len(version.CapabilityFlavors) > 0 {
-				// New format: use capabilityFlavors
-				filteredCapabilityFlavors := filterCapabilityFlavorsByRegion(version.CapabilityFlavors, region)
-				bestMatch, err := worker.FindBestImageFlavor(filteredCapabilityFlavors, machineCapabilities, capabilityDefinitions)
-				if err != nil {
-					return nil, fmt.Errorf("could not determine best flavor %w", err)
-				}
-				return bestMatch, nil
+				capabilityFlavors = version.CapabilityFlavors
 			} else if len(version.Regions) > 0 {
-				// Old format: convert regions with architecture to capability flavors
-				capabilityFlavors := convertRegionsToCapabilityFlavors(version.Regions)
-				filteredCapabilityFlavors := filterCapabilityFlavorsByRegion(capabilityFlavors, region)
-				bestMatch, err := worker.FindBestImageFlavor(filteredCapabilityFlavors, machineCapabilities, capabilityDefinitions)
-				if err != nil {
-					return nil, fmt.Errorf("could not determine best flavor %w", err)
-				}
-				return bestMatch, nil
+				capabilityFlavors = convertRegionsToCapabilityFlavors(version.Regions)
+			} else {
+				continue
 			}
+
+			filteredCapabilityFlavors := filterCapabilityFlavorsByRegion(capabilityFlavors, region)
+			bestMatch, err := worker.FindBestImageFlavor(filteredCapabilityFlavors, machineCapabilities, capabilityDefinitions)
+			if err != nil {
+				return nil, fmt.Errorf("could not determine best flavor: %w", err)
+			}
+			return bestMatch, nil
 		}
 	}
 	return nil, nil
