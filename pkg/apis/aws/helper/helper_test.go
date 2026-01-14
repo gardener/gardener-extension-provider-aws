@@ -149,6 +149,106 @@ var _ = Describe("Helper", func() {
 		Entry("with capabilities", true),
 	)
 
+	Describe("Mixed format with capabilities", func() {
+		var (
+			capabilityDefinitions   []v1beta1.CapabilityDefinition
+			machineTypeCapabilities v1beta1.Capabilities
+			region                  = "eu-west-1"
+		)
+
+		BeforeEach(func() {
+			capabilityDefinitions = []v1beta1.CapabilityDefinition{
+				{Name: "architecture", Values: []string{"amd64", "arm64"}},
+			}
+			machineTypeCapabilities = v1beta1.Capabilities{
+				"architecture": []string{"amd64"},
+			}
+		})
+
+		DescribeTable("#FindImageInCloudProfile with old format (regions with architecture)",
+			func(profileImages []api.MachineImages, imageName, version, regionName string, arch *string, expectedAMI string) {
+				machineTypeCapabilities["architecture"] = []string{*arch}
+				cfg := &api.CloudProfileConfig{}
+				cfg.MachineImages = profileImages
+
+				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineTypeCapabilities, capabilityDefinitions)
+
+				if expectedAMI != "" {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(imageFlavor.Regions[0].AMI).To(Equal(expectedAMI))
+				} else {
+					Expect(err).To(HaveOccurred())
+				}
+			},
+
+			Entry("finds amd64 image using old format with capabilities defined",
+				makeProfileMachineImagesOldFormat("ubuntu", "22.04", region, "ami-ubuntu-amd64", ptr.To("amd64")),
+				"ubuntu", "22.04", region, ptr.To("amd64"), "ami-ubuntu-amd64"),
+
+			Entry("finds arm64 image using old format with capabilities defined",
+				makeProfileMachineImagesOldFormat("ubuntu", "22.04", region, "ami-ubuntu-arm64", ptr.To("arm64")),
+				"ubuntu", "22.04", region, ptr.To("arm64"), "ami-ubuntu-arm64"),
+
+			Entry("does not find image when architecture mismatch (old format)",
+				makeProfileMachineImagesOldFormat("ubuntu", "22.04", region, "ami-ubuntu-amd64", ptr.To("amd64")),
+				"ubuntu", "22.04", region, ptr.To("arm64"), ""),
+
+			Entry("does not find image when region mismatch (old format)",
+				makeProfileMachineImagesOldFormat("ubuntu", "22.04", region, "ami-ubuntu-amd64", ptr.To("amd64")),
+				"ubuntu", "22.04", "us-east-1", ptr.To("amd64"), ""),
+		)
+
+		DescribeTable("#FindImageInCloudProfile with mixed format (some versions old, some new)",
+			func(imageName, version, regionName string, arch *string, expectedAMI string) {
+				machineTypeCapabilities["architecture"] = []string{*arch}
+				cfg := &api.CloudProfileConfig{}
+				cfg.MachineImages = makeProfileMachineImagesMixedFormat()
+
+				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineTypeCapabilities, capabilityDefinitions)
+
+				if expectedAMI != "" {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(imageFlavor.Regions[0].AMI).To(Equal(expectedAMI))
+				} else {
+					Expect(err).To(HaveOccurred())
+				}
+			},
+
+			// Version 22.04 uses old format (regions with architecture)
+			Entry("finds amd64 image from old format version",
+				"ubuntu", "22.04", "eu-west-1", ptr.To("amd64"), "ami-ubuntu-2204-amd64-eu"),
+			Entry("finds arm64 image from old format version",
+				"ubuntu", "22.04", "eu-west-1", ptr.To("arm64"), "ami-ubuntu-2204-arm64-eu"),
+			Entry("finds amd64 image from old format version in different region",
+				"ubuntu", "22.04", "us-east-1", ptr.To("amd64"), "ami-ubuntu-2204-amd64-us"),
+
+			// Version 23.10 uses new format (capabilityFlavors)
+			Entry("finds amd64 image from new format version",
+				"ubuntu", "23.10", "eu-west-1", ptr.To("amd64"), "ami-ubuntu-2310-amd64-eu"),
+			Entry("finds amd64 image from new format version in different region",
+				"ubuntu", "23.10", "us-east-1", ptr.To("amd64"), "ami-ubuntu-2310-amd64-us"),
+			Entry("does not find arm64 image from new format version (not defined)",
+				"ubuntu", "23.10", "eu-west-1", ptr.To("arm64"), ""),
+		)
+
+		It("should find image with multiple architectures in old format", func() {
+			cfg := &api.CloudProfileConfig{}
+			cfg.MachineImages = makeProfileMachineImagesOldFormatMultiArch("ubuntu", "22.04", region)
+
+			// Find amd64
+			machineTypeCapabilities["architecture"] = []string{"amd64"}
+			imageFlavor, err := FindImageInCloudProfile(cfg, "ubuntu", "22.04", region, ptr.To("amd64"), machineTypeCapabilities, capabilityDefinitions)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(imageFlavor.Regions[0].AMI).To(Equal("ami-ubuntu-amd64"))
+
+			// Find arm64
+			machineTypeCapabilities["architecture"] = []string{"arm64"}
+			imageFlavor, err = FindImageInCloudProfile(cfg, "ubuntu", "22.04", region, ptr.To("arm64"), machineTypeCapabilities, capabilityDefinitions)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(imageFlavor.Regions[0].AMI).To(Equal("ami-ubuntu-arm64"))
+		})
+	})
+
 	DescribeTable("#FindDataVolumeByName",
 		func(dataVolumes []api.DataVolume, name string, expectedDataVolume *api.DataVolume) {
 			Expect(FindDataVolumeByName(dataVolumes, name)).To(Equal(expectedDataVolume))
@@ -284,5 +384,107 @@ func expectResults(result, expected interface{}, err error, expectErr bool) {
 	} else {
 		Expect(result).To(BeNil())
 		Expect(err).To(HaveOccurred())
+	}
+}
+
+// makeProfileMachineImagesOldFormat creates machine images using the old format (regions with architecture)
+// for use in tests with capabilities defined
+func makeProfileMachineImagesOldFormat(name, version, region, ami string, arch *string) []api.MachineImages {
+	return []api.MachineImages{
+		{
+			Name: name,
+			Versions: []api.MachineImageVersion{{
+				Version: version,
+				Regions: []api.RegionAMIMapping{{
+					Name:         region,
+					AMI:          ami,
+					Architecture: arch,
+				}},
+			}},
+		},
+	}
+}
+
+// makeProfileMachineImagesOldFormatMultiArch creates machine images using old format with multiple architectures
+func makeProfileMachineImagesOldFormatMultiArch(name, version, region string) []api.MachineImages {
+	return []api.MachineImages{
+		{
+			Name: name,
+			Versions: []api.MachineImageVersion{{
+				Version: version,
+				Regions: []api.RegionAMIMapping{
+					{
+						Name:         region,
+						AMI:          "ami-ubuntu-amd64",
+						Architecture: ptr.To("amd64"),
+					},
+					{
+						Name:         region,
+						AMI:          "ami-ubuntu-arm64",
+						Architecture: ptr.To("arm64"),
+					},
+				},
+			}},
+		},
+	}
+}
+
+// makeProfileMachineImagesMixedFormat creates machine images with mixed format:
+// - Version 22.04 uses old format (regions with architecture)
+// - Version 23.10 uses new format (capabilityFlavors)
+func makeProfileMachineImagesMixedFormat() []api.MachineImages {
+	return []api.MachineImages{
+		{
+			Name: "ubuntu",
+			Versions: []api.MachineImageVersion{
+				{
+					// Old format: regions with architecture
+					Version: "22.04",
+					Regions: []api.RegionAMIMapping{
+						{
+							Name:         "eu-west-1",
+							AMI:          "ami-ubuntu-2204-amd64-eu",
+							Architecture: ptr.To("amd64"),
+						},
+						{
+							Name:         "eu-west-1",
+							AMI:          "ami-ubuntu-2204-arm64-eu",
+							Architecture: ptr.To("arm64"),
+						},
+						{
+							Name:         "us-east-1",
+							AMI:          "ami-ubuntu-2204-amd64-us",
+							Architecture: ptr.To("amd64"),
+						},
+						{
+							Name:         "us-east-1",
+							AMI:          "ami-ubuntu-2204-arm64-us",
+							Architecture: ptr.To("arm64"),
+						},
+					},
+				},
+				{
+					// New format: capabilityFlavors
+					Version: "23.10",
+					CapabilityFlavors: []api.MachineImageFlavor{
+						{
+							Capabilities: v1beta1.Capabilities{
+								"architecture": []string{"amd64"},
+							},
+							Regions: []api.RegionAMIMapping{
+								{
+									Name: "eu-west-1",
+									AMI:  "ami-ubuntu-2310-amd64-eu",
+								},
+								{
+									Name: "us-east-1",
+									AMI:  "ami-ubuntu-2310-amd64-us",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }

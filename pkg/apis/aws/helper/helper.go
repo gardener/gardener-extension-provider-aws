@@ -151,6 +151,7 @@ func findMachineImageFlavor(
 				continue
 			}
 
+			// When no capabilities are defined, only use the old format (regions with architecture)
 			if len(capabilityDefinitions) == 0 {
 				for _, mapping := range version.Regions {
 					if region == mapping.Name && *arch == ptr.Deref(mapping.Architecture, v1beta1constants.ArchitectureAMD64) {
@@ -163,16 +164,53 @@ func findMachineImageFlavor(
 				continue
 			}
 
-			filteredCapabilityFlavors := filterCapabilityFlavorsByRegion(version.CapabilityFlavors, region)
-			bestMatch, err := worker.FindBestImageFlavor(filteredCapabilityFlavors, machineCapabilities, capabilityDefinitions)
-			if err != nil {
-				return nil, fmt.Errorf("could not determine best flavor %w", err)
+			// When capabilities are defined, support both formats per version:
+			// - New format: capabilityFlavors
+			// - Old format: regions with architecture (converted to capability flavors)
+			if len(version.CapabilityFlavors) > 0 {
+				// New format: use capabilityFlavors
+				filteredCapabilityFlavors := filterCapabilityFlavorsByRegion(version.CapabilityFlavors, region)
+				bestMatch, err := worker.FindBestImageFlavor(filteredCapabilityFlavors, machineCapabilities, capabilityDefinitions)
+				if err != nil {
+					return nil, fmt.Errorf("could not determine best flavor %w", err)
+				}
+				return bestMatch, nil
+			} else if len(version.Regions) > 0 {
+				// Old format: convert regions with architecture to capability flavors
+				capabilityFlavors := convertRegionsToCapabilityFlavors(version.Regions)
+				filteredCapabilityFlavors := filterCapabilityFlavorsByRegion(capabilityFlavors, region)
+				bestMatch, err := worker.FindBestImageFlavor(filteredCapabilityFlavors, machineCapabilities, capabilityDefinitions)
+				if err != nil {
+					return nil, fmt.Errorf("could not determine best flavor %w", err)
+				}
+				return bestMatch, nil
 			}
-
-			return bestMatch, nil
 		}
 	}
 	return nil, nil
+}
+
+// convertRegionsToCapabilityFlavors converts old format (regions with architecture) to capability flavors
+func convertRegionsToCapabilityFlavors(regions []api.RegionAMIMapping) []api.MachineImageFlavor {
+	// Group regions by architecture
+	architectureRegions := make(map[string][]api.RegionAMIMapping)
+	for _, region := range regions {
+		arch := ptr.Deref(region.Architecture, v1beta1constants.ArchitectureAMD64)
+		architectureRegions[arch] = append(architectureRegions[arch], region)
+	}
+
+	// Create a capability flavor for each architecture
+	var capabilityFlavors []api.MachineImageFlavor
+	for arch, regionMappings := range architectureRegions {
+		capabilityFlavors = append(capabilityFlavors, api.MachineImageFlavor{
+			Capabilities: gardencorev1beta1.Capabilities{
+				v1beta1constants.ArchitectureName: []string{arch},
+			},
+			Regions: regionMappings,
+		})
+	}
+
+	return capabilityFlavors
 }
 
 // filterCapabilityFlavorsByRegion returns a new list with capabilityFlavors that only contain RegionAMIMappings
