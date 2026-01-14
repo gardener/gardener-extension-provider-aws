@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
 
@@ -2096,6 +2095,10 @@ func (c *Client) GetRouteTableAssociationIDs(ctx context.Context, vpc string, su
 				Name:   aws.String("vpc-id"),
 				Values: []string{vpc},
 			},
+			{
+				Name:   aws.String("association.subnet-id"),
+				Values: subnetIDs,
+			},
 		},
 	}
 
@@ -2106,9 +2109,7 @@ func (c *Client) GetRouteTableAssociationIDs(ctx context.Context, vpc string, su
 
 	for _, routeTable := range routeTablesOutput.RouteTables {
 		for _, assoc := range routeTable.Associations {
-			if len(subnetIDs) == 0 {
-				associationIDs = append(associationIDs, aws.ToString(assoc.RouteTableAssociationId))
-			} else if assoc.SubnetId != nil && slices.Contains(subnetIDs, *assoc.SubnetId) {
+			if assoc.RouteTableAssociationId != nil {
 				associationIDs = append(associationIDs, aws.ToString(assoc.RouteTableAssociationId))
 			}
 		}

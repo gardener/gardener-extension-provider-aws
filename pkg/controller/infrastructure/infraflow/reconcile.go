@@ -1488,9 +1488,10 @@ func (c *FlowContext) routingAssocSpecs() []routeTableAssociationSpec {
 // still exist in AWS. If not, it removes them from the state.
 func (c *FlowContext) validateAndPruneRoutingTableAssocState(ctx context.Context, zoneName string, specs []routeTableAssociationSpec) error {
 	child := c.getSubnetZoneChild(zoneName)
+	log := LogFromContext(ctx)
 
 	// should validate only if at least one association ID is present in state
-	if !hasRouteTableAssociationInState(func(assocKey string) *string { return child.Get(assocKey) }, specs) {
+	if !hasRouteTableAssociationInState(child.Get, specs) {
 		return nil
 	}
 
@@ -1515,6 +1516,8 @@ func (c *FlowContext) validateAndPruneRoutingTableAssocState(ctx context.Context
 
 	for _, spec := range specs {
 		if assocID := child.Get(spec.assocKey); assocID != nil && !slices.Contains(routeTableAssociations, *assocID) {
+			log.Info("route table association not found in AWS, removing from state",
+				"AssociationID", *assocID)
 			child.Delete(spec.assocKey)
 		}
 	}
