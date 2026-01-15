@@ -6,6 +6,7 @@ package validation_test
 
 import (
 	"fmt"
+	"strings"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core"
@@ -510,11 +511,16 @@ var _ = Describe("ValidateWorkerConfig", func() {
 					},
 				}
 				errs := validate(wc)
+
+				allowed := ec2types.AmdSevSnpSpecificationEnabled.Values()
+				quoted := make([]string, len(allowed))
+				for i, v := range allowed {
+					quoted[i] = fmt.Sprintf("%q", v)
+				}
 				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("config.cpuOptions.amdSevSnp"),
-					"Detail": Equal(fmt.Sprintf("AmdSevSnp must be one of %v",
-						ec2types.AmdSevSnpSpecification(v).Values())),
+					"Type":   Equal(field.ErrorTypeNotSupported),
+					"Field":  Equal("config.cpuOptions.amdSevSnp"),
+					"Detail": Equal(fmt.Sprintf("supported values: %s", strings.Join(quoted, ", "))),
 				}))))
 			})
 
