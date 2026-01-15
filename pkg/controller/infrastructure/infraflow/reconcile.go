@@ -1476,7 +1476,7 @@ func (c *FlowContext) deletePrivateRoutingTable(zoneName string) flow.TaskFn {
 	}
 }
 
-func (c *FlowContext) routingAssocSpecs() []routeTableAssociationSpec {
+func (c *FlowContext) routingAssociationSpecs() []routeTableAssociationSpec {
 	return []routeTableAssociationSpec{
 		{IdentifierZoneSubnetPublic, IdentifierZoneSubnetPublicRouteTableAssoc, false},
 		{IdentifierZoneSubnetPrivate, IdentifierZoneSubnetPrivateRouteTableAssoc, true},
@@ -1526,7 +1526,7 @@ func (c *FlowContext) validateAndPruneRoutingTableAssocState(ctx context.Context
 
 func (c *FlowContext) ensureRoutingTableAssociations(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
-		specs := c.routingAssocSpecs()
+		specs := c.routingAssociationSpecs()
 
 		err := c.validateAndPruneRoutingTableAssocState(ctx, zoneName, specs)
 		if err != nil {
@@ -1619,7 +1619,7 @@ func (c *FlowContext) ensureVPCEndpointZoneRoutingTableAssociation(ctx context.C
 
 func (c *FlowContext) deleteRoutingTableAssociations(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
-		specs := c.routingAssocSpecs()
+		specs := c.routingAssociationSpecs()
 
 		for _, spec := range specs {
 			err := c.deleteZoneRoutingTableAssociation(ctx, zoneName, spec.zoneRouteTable, spec.subnetKey, spec.assocKey)
