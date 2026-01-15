@@ -137,10 +137,6 @@ const (
 	// RoleARN is a constant for the key in a cloud provider secret that points to the role which should be assumed.
 	RoleARN = "roleARN"
 
-	// CSISnapshotValidationName is the constant for the name of the csi-snapshot-validation-webhook component.
-	// TODO(AndreasBurger): Clean up once SnapshotValidation is removed everywhere
-	CSISnapshotValidationName = "csi-snapshot-validation"
-
 	// CSIEfsNodeName is the constant for the name of the efs csi node deployment.
 	CSIEfsNodeName = "csi-driver-efs-node"
 	// CSIEfsControllerName is the constant for the name of the efs csi controller deployment.
