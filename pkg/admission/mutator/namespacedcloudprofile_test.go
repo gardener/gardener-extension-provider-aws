@@ -88,7 +88,7 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 "apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
 "kind":"CloudProfileConfig",
 "machineImages":[
-  {"name":"image-1","versions":[{"version":"1.1","regions":[{"name":"eu2","ami":"ami-124","architecture":"armhf"}]}]},
+  {"name":"image-1","versions":[{"version":"1.1","regions":[{"name":"eu2","ami":"ami-124","architecture":"arm64"}]}]},
   {"name":"image-2","versions":[{"version":"2.0","regions":[{"name":"eu3","ami":"ami-125"}]}]}
 ]}`)}
 
@@ -101,7 +101,7 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 						"Name": Equal("image-1"),
 						"Versions": ContainElements(
 							api.MachineImageVersion{Version: "1.0", Regions: []api.RegionAMIMapping{{Name: "eu1", AMI: "ami-123", Architecture: ptr.To("amd64")}}},
-							api.MachineImageVersion{Version: "1.1", Regions: []api.RegionAMIMapping{{Name: "eu2", AMI: "ami-124", Architecture: ptr.To("armhf")}}},
+							api.MachineImageVersion{Version: "1.1", Regions: []api.RegionAMIMapping{{Name: "eu2", AMI: "ami-124", Architecture: ptr.To("arm64")}}},
 						),
 					}),
 					MatchFields(IgnoreExtras, Fields{
@@ -113,7 +113,7 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 			It("should correctly merge extended machineImages using capabilities ", func() {
 				namespacedCloudProfile.Status.CloudProfileSpec.MachineCapabilities = []v1beta1.CapabilityDefinition{{
 					Name:   "architecture",
-					Values: []string{"amd64", "armhf"},
+					Values: []string{"amd64", "arm64"},
 				}}
 				namespacedCloudProfile.Status.CloudProfileSpec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
 "apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
@@ -128,7 +128,7 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 "kind":"CloudProfileConfig",
 "machineImages":[
   {"name":"image-1","versions":[{"version":"1.1","capabilityFlavors":[
-{"capabilities":{"architecture":["armhf"]},"regions":[{"name":"eu2","ami":"ami-124"}]}
+{"capabilities":{"architecture":["arm64"]},"regions":[{"name":"eu2","ami":"ami-124"}]}
 ]}]},
   {"name":"image-2","versions":[{"version":"2.0","capabilityFlavors":[
 {"capabilities":{"architecture":["amd64"]},"regions":[{"name":"eu3","ami":"ami-125"}]}
@@ -146,13 +146,13 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 							api.MachineImageVersion{Version: "1.0",
 								CapabilityFlavors: []api.MachineImageFlavor{{
 									Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}},
-									Regions:      []api.RegionAMIMapping{{Name: "eu1", AMI: "ami-123", Architecture: ptr.To("ignore")}},
+									Regions:      []api.RegionAMIMapping{{Name: "eu1", AMI: "ami-123"}},
 								}},
 							},
 							api.MachineImageVersion{Version: "1.1",
 								CapabilityFlavors: []api.MachineImageFlavor{{
-									Capabilities: v1beta1.Capabilities{"architecture": []string{"armhf"}},
-									Regions:      []api.RegionAMIMapping{{Name: "eu2", AMI: "ami-124", Architecture: ptr.To("ignore")}},
+									Capabilities: v1beta1.Capabilities{"architecture": []string{"arm64"}},
+									Regions:      []api.RegionAMIMapping{{Name: "eu2", AMI: "ami-124"}},
 								}},
 							},
 						),
@@ -163,7 +163,7 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 							api.MachineImageVersion{Version: "2.0",
 								CapabilityFlavors: []api.MachineImageFlavor{{
 									Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}},
-									Regions:      []api.RegionAMIMapping{{Name: "eu3", AMI: "ami-125", Architecture: ptr.To("ignore")}},
+									Regions:      []api.RegionAMIMapping{{Name: "eu3", AMI: "ami-125"}},
 								}},
 							}),
 					}),

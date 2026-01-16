@@ -138,9 +138,7 @@ func validateRegions(regions []apisaws.RegionAMIMapping, name, version string, c
 		// This should be commented in once the defaulting of the architecture field is implemented via mutating webhook
 		// currently there is no way to distinguish between a user set architecture and the default one
 		if len(capabilityDefinitions) > 0 {
-			// If Capabilities are defined in the CloudProfile, the architecture gets defaulted to "ignore" during runtime if not set.
-			architecture := ptr.Deref(region.Architecture, "ignore")
-			if architecture != "ignore" {
+			if region.Architecture != nil {
 				allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in .capabilities.architecture"))
 			}
 		}

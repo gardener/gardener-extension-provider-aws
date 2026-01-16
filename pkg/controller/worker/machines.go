@@ -108,12 +108,12 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			return err
 		}
 
-		arch := ptr.Deref(pool.Architecture, v1beta1constants.ArchitectureAMD64)
 		machineTypeFromCloudProfile := gardencorev1beta1helper.FindMachineTypeByName(w.cluster.CloudProfile.Spec.MachineTypes, pool.MachineType)
 		if machineTypeFromCloudProfile == nil {
 			return fmt.Errorf("machine type %q not found in cloud profile %q", pool.MachineType, w.cluster.CloudProfile.Name)
 		}
 
+		arch := ptr.Deref(pool.Architecture, v1beta1constants.ArchitectureAMD64)
 		machineImage, err := w.selectMachineImageForWorkerPool(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, &arch, machineTypeFromCloudProfile.Capabilities)
 		if err != nil {
 			return err

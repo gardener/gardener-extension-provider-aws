@@ -13,22 +13,48 @@ In this section we are describing how the configuration for `CloudProfile`s look
 ### `CloudProfileConfig`
 
 The cloud profile configuration contains information about the real machine image IDs in the AWS environment (AMIs).
+With the introduction of `spec.machineCapabilities` in Gardener *v1.131.0* you have to map every `capabilityFlavor` in `.spec.machineImages[].versions` here such that the AWS extension knows the AMI for every flavor you want to offer.
+
+If the `spec.machineCapabilities` field is not used in the `CloudProfile`, the legacy `architectures` field in `.spec.machineImages[].versions` is used.
 You have to map every version that you specify in `.spec.machineImages[].versions` here such that the AWS extension knows the AMI for every version you want to offer.
 For each AMI an `architecture` field can be specified which specifies the CPU architecture of the machine on which given machine image can be used.
 
 An example `CloudProfileConfig` for the AWS extension looks as follows:
 
 ```yaml
+## With `spec.machineCapabilities` in `CloudProfile`
 apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: CloudProfileConfig
 machineImages:
-- name: coreos
-  versions:
-  - version: 2135.6.0
-    regions:
-    - name: eu-central-1
-      ami: ami-034fd8c3f4026eb39
-      # architecture: amd64 # optional
+  - name: coreos
+    versions:
+      - version: 2135.6.0
+        capabilityFlavors:
+          - capabilities:
+              architecture: [amd64]
+            # otherCapability: [otherValue, ...] # optional
+            regions:
+              - name: eu-central-1
+                ami: ami-034fd8c3f4026eb39
+          - capabilities:
+              architecture: [arm64]
+            # otherCapability: [otherValue, ...] # optional
+            regions:
+              - name: eu-central-1
+                ami: ami-034fd8c3f4026eb38
+
+---
+## Without `spec.machineCapabilities` in `CloudProfile`
+apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: CloudProfileConfig
+machineImages:
+  - name: coreos
+    versions:
+      - version: 2135.6.0
+        regions:
+          - name: eu-central-1
+            ami: ami-034fd8c3f4026eb39
+            # architecture: amd64 # optional
 ```
 
 ### Example `CloudProfile` manifest
@@ -36,6 +62,79 @@ machineImages:
 Please find below an example `CloudProfile` manifest:
 
 ```yaml
+# With `spec.machineCapabilities`in ``CloudProfile`
+apiVersion: core.gardener.cloud/v1beta1
+kind: CloudProfile
+metadata:
+  name: aws
+spec:
+  machineCapabilities:
+  - name: architecture
+    values: [ amd64, arm64 ]
+#  - name: otherCapability
+#    values:
+#    - otherValue
+#    - anotherValue
+#    - yetAnotherValue
+  type: aws
+  kubernetes:
+    versions:
+    - version: 1.32.1
+    - version: 1.31.4
+      expirationDate: "2022-10-31T23:59:59Z"
+  machineImages:
+  - name: coreos
+    versions:
+    - version: 2135.6.0
+      capabilityFlavors:
+      - architecture: [amd64]
+      # otherCapability: [otherValue, ...] 
+      - architecture: [arm64]
+      # otherCapability: [otherValue, ...]
+  machineTypes:
+  - name: m5.large
+    cpu: "2"
+    gpu: "0"
+    memory: 8Gi
+    usable: true
+    capabilities:
+      architecture: [amd64]
+      # otherCapability: [otherValue, ...]
+  volumeTypes:
+  - name: gp2
+    class: standard
+    usable: true
+  - name: io1
+    class: premium
+    usable: true
+  regions:
+  - name: eu-central-1
+    zones:
+    - name: eu-central-1a
+    - name: eu-central-1b
+    - name: eu-central-1c
+  providerConfig:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: CloudProfileConfig
+    machineImages:
+    - name: coreos
+      versions:
+      - version: 2135.6.0
+        capabilityFlavors:
+        - capabilities:
+            architecture: [amd64]
+          # otherCapability: [otherValue, ...] # optional
+          regions:
+          - name: eu-central-1
+            ami: ami-034fd8c3f4026eb39
+        - capabilities:
+            architecture: [arm64]
+          # otherCapability: [otherValue, ...] # optional
+          regions:
+          - name: eu-central-1
+            ami: ami-034fd8c3f4026eb38
+
+# Without `spec.machineCapabilities` in `CloudProfile`
 apiVersion: core.gardener.cloud/v1beta1
 kind: CloudProfile
 metadata:
@@ -81,6 +180,7 @@ spec:
         - name: eu-central-1
           ami: ami-034fd8c3f4026eb39
           # architecture: amd64 # optional
+
 ```
 
 ## `Seed` resource
@@ -201,16 +301,16 @@ Please make sure that the provided credentials have the correct privileges. You 
   <summary>Click to expand the AWS IAM policy document!</summary>
 
   ```json
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Effect": "Allow",
-        "Action": "s3:*",
-        "Resource": "*"
-      }
-    ]
-  }
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "*"
+    }
+  ]
+}
   ```
 
 </details>

@@ -21,17 +21,17 @@ import (
 )
 
 var (
-	// scheme is a scheme with the types relevant for AWS actuators.
-	scheme *runtime.Scheme
+	// Scheme is a Scheme with the types relevant for AWS actuators.
+	Scheme *runtime.Scheme
 
 	decoder runtime.Decoder
 )
 
 func init() {
-	scheme = runtime.NewScheme()
-	utilruntime.Must(install.AddToScheme(scheme))
+	Scheme = runtime.NewScheme()
+	utilruntime.Must(install.AddToScheme(Scheme))
 
-	decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
+	decoder = serializer.NewCodecFactory(Scheme, serializer.EnableStrict).UniversalDecoder()
 }
 
 // CloudProfileConfigFromCluster decodes the provider specific cloud profile configuration for a cluster

@@ -191,7 +191,7 @@ var _ = Describe("CloudProfileConfig validation", func() {
 						Version: "1.2.3",
 						CapabilityFlavors: []apisaws.MachineImageFlavor{{
 							Regions:      []apisaws.RegionAMIMapping{{}},
-							Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: {"amd64"}},
+							Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"amd64"}},
 						}},
 					}
 				} else {
@@ -228,7 +228,9 @@ var _ = Describe("CloudProfileConfig validation", func() {
 			It("should forbid unsupported machine image architecture configuration", func() {
 				var notSupportedField, requiredField types.GomegaMatcher
 				if isCapabilitiesCloudProfile {
-					cloudProfileConfig.MachineImages[0].Versions[0].CapabilityFlavors[0].Capabilities[v1beta1constants.ArchitectureName] = []string{"foo"}
+					cloudProfileConfig.MachineImages[0].Versions[0].CapabilityFlavors[0].Capabilities = v1beta1.Capabilities{
+						v1beta1constants.ArchitectureName: []string{"foo"},
+					}
 					notSupportedField = Equal("machineImages[0].versions[0].capabilityFlavors[0].capabilities.architecture[0]")
 					requiredField = Equal("spec.machineImages[0].versions[0].capabilityFlavors[0]")
 				} else {
