@@ -6,7 +6,9 @@ package validation_test
 
 import (
 	"fmt"
+	"strings"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -411,6 +413,159 @@ var _ = Describe("ValidateWorkerConfig", func() {
 					"Field":  Equal("config.instanceMetadataOptions.httpPutResponseHopLimit"),
 					"Detail": Equal("only values between 1 and 64 are allowed"),
 				}))))
+			})
+		})
+
+		Context("cpuOptions", func() {
+			var (
+				rootVolume  *core.Volume      // nil or minimal volume, not relevant for cpuOptions tests
+				dataVolumes []core.DataVolume // empty
+				fldPath     = field.NewPath("config")
+			)
+
+			// helper to run validation
+			validate := func(wc *apisaws.WorkerConfig) field.ErrorList {
+				return ValidateWorkerConfig(wc, rootVolume, dataVolumes, fldPath)
+			}
+
+			It("should return no errors when cpuOptions is nil", func() {
+				wc := &apisaws.WorkerConfig{}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
+			It("should return no errors when neither CoreCount nor ThreadsPerCore are set", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{},
+				}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
+			It("should require ThreadsPerCore when CoreCount is set", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						CoreCount: ptr.To[int64](4),
+					},
+				}
+				errs := validate(wc)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeRequired),
+					"Field":  Equal("config.cpuOptions.threadsPerCore"),
+					"Detail": Equal("ThreadsPerCore is required when CoreCount is set"),
+				}))))
+			})
+
+			It("should require CoreCount when ThreadsPerCore is set", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						ThreadsPerCore: ptr.To[int64](2),
+					},
+				}
+				errs := validate(wc)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeRequired),
+					"Field":  Equal("config.cpuOptions.coreCount"),
+					"Detail": Equal("CoreCount is required when ThreadsPerCore is set"),
+				}))))
+			})
+
+			It("should reject ThreadsPerCore values other than 1 or 2", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						CoreCount:      ptr.To[int64](8),
+						ThreadsPerCore: ptr.To[int64](3),
+					},
+				}
+				errs := validate(wc)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.cpuOptions.threadsPerCore"),
+					"Detail": Equal("ThreadsPerCore must be 1 or 2"),
+				}))))
+			})
+
+			It("should accept ThreadsPerCore == 1", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						CoreCount:      ptr.To[int64](4),
+						ThreadsPerCore: ptr.To[int64](1),
+					},
+				}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
+			It("should accept ThreadsPerCore == 2", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						CoreCount:      ptr.To[int64](4),
+						ThreadsPerCore: ptr.To[int64](2),
+					},
+				}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
+			It("should reject invalid AmdSevSnp value", func() {
+				v := "invalid"
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						AmdSevSnp: ptr.To(v),
+					},
+				}
+				errs := validate(wc)
+
+				allowed := ec2types.AmdSevSnpSpecificationEnabled.Values()
+				quoted := make([]string, len(allowed))
+				for i, v := range allowed {
+					quoted[i] = fmt.Sprintf("%q", v)
+				}
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeNotSupported),
+					"Field":  Equal("config.cpuOptions.amdSevSnp"),
+					"Detail": Equal(fmt.Sprintf("supported values: %s", strings.Join(quoted, ", "))),
+				}))))
+			})
+
+			It("should accept valid AmdSevSnp value 'enabled'", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						AmdSevSnp: ptr.To("enabled"),
+					},
+				}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
+			It("should accept valid AmdSevSnp value 'disabled'", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						AmdSevSnp: ptr.To("disabled"),
+					},
+				}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
+			It("should report only the invalid ThreadsPerCore error when both counts are set but ThreadsPerCore invalid", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						CoreCount:      ptr.To[int64](16),
+						ThreadsPerCore: ptr.To[int64](5),
+					},
+				}
+				errs := validate(wc)
+				Expect(errs).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("config.cpuOptions.threadsPerCore"),
+					"Detail": Equal("ThreadsPerCore must be 1 or 2"),
+				}))))
+			})
+
+			It("should return no errors for a fully valid configuration", func() {
+				wc := &apisaws.WorkerConfig{
+					CpuOptions: &apisaws.CpuOptions{
+						CoreCount:      ptr.To[int64](8),
+						ThreadsPerCore: ptr.To[int64](2),
+						AmdSevSnp:      ptr.To("enabled"),
+					},
+				}
+				Expect(validate(wc)).To(BeEmpty())
 			})
 		})
 	})

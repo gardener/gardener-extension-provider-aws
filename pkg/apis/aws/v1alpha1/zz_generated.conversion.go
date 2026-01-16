@@ -532,6 +532,7 @@ func Convert_aws_ControlPlaneConfig_To_v1alpha1_ControlPlaneConfig(in *aws.Contr
 func autoConvert_v1alpha1_CpuOptions_To_aws_CpuOptions(in *CpuOptions, out *aws.CpuOptions, s conversion.Scope) error {
 	out.CoreCount = (*int64)(unsafe.Pointer(in.CoreCount))
 	out.ThreadsPerCore = (*int64)(unsafe.Pointer(in.ThreadsPerCore))
+	out.AmdSevSnp = (*string)(unsafe.Pointer(in.AmdSevSnp))
 	return nil
 }
 
@@ -543,6 +544,7 @@ func Convert_v1alpha1_CpuOptions_To_aws_CpuOptions(in *CpuOptions, out *aws.CpuO
 func autoConvert_aws_CpuOptions_To_v1alpha1_CpuOptions(in *aws.CpuOptions, out *CpuOptions, s conversion.Scope) error {
 	out.CoreCount = (*int64)(unsafe.Pointer(in.CoreCount))
 	out.ThreadsPerCore = (*int64)(unsafe.Pointer(in.ThreadsPerCore))
+	out.AmdSevSnp = (*string)(unsafe.Pointer(in.AmdSevSnp))
 	return nil
 }
 

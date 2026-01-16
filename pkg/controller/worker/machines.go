@@ -211,10 +211,15 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			machineClassSpec["nodeTemplate"] = nodeTemplate
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
-				machineClassSpec["cpuOptions"] = map[string]int64{
-					"coreCount":      *cpuOptions.CoreCount,
-					"threadsPerCore": *cpuOptions.ThreadsPerCore,
+				cpuOpts := map[string]interface{}{}
+				if cpuOptions.AmdSevSnp != nil {
+					cpuOpts["amdSevSnp"] = *cpuOptions.AmdSevSnp
 				}
+				if cpuOptions.CoreCount != nil && cpuOptions.ThreadsPerCore != nil {
+					cpuOpts["coreCount"] = *cpuOptions.CoreCount
+					cpuOpts["threadsPerCore"] = *cpuOptions.ThreadsPerCore
+				}
+				machineClassSpec["cpuOptions"] = cpuOpts
 			}
 
 			if pool.MachineImage.Name != "" && pool.MachineImage.Version != "" {
