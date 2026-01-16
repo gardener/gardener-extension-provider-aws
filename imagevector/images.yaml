@@ -349,7 +349,7 @@ images:
 - name: ecr-credential-provider
   sourceRepository: github.com/gardener/ecr-credential-provider
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
-  tag: v1.34.0
+  tag: v1.34.1
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
