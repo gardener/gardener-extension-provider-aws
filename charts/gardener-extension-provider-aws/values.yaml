@@ -40,8 +40,8 @@ controllers:
     concurrentSyncs: 5
   healthcheck:
     concurrentSyncs: 5
-  heartbeat: 
-    renewIntervalSeconds: 30 
+  heartbeat:
+    renewIntervalSeconds: 30
   ignoreOperationAnnotation: false
 
 disableControllers: []
@@ -86,6 +86,8 @@ config:
       provisioner: kubernetes.io/aws-ebs
       volumeBindingMode: WaitForFirstConsumer
       encrypted: true
+#     backup:
+#       schedule: "0 */1 * * *"
 
 gardener:
   version: ""
@@ -101,6 +103,10 @@ gardener:
 #   enabled: true
 #   priorityClassName: gardener-garden-system-200
 # selfHostedShootCluster: false
+
+# logging:
+#   level: info # info | debug | error - omitting defaults to "info"
+#   format: json # text | json - omitting defaults to "json"
 
 usablePorts:
 - 8080  # metrics

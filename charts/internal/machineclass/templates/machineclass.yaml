@@ -6,8 +6,7 @@ metadata:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}
 {{- if $machineClass.secret.labels }}
-  labels:
-{{ toYaml $machineClass.secret.labels | indent 4 }}
+  labels: {{- toYaml $machineClass.secret.labels | nindent 4 }}
 {{- end }}
 type: Opaque
 data:
@@ -18,21 +17,19 @@ kind: MachineClass
 metadata:
   name: {{ $machineClass.name }}
   namespace: {{ $.Release.Namespace }}
-  labels:
-    {{- if $machineClass.operatingSystem }}
-{{ toYaml $machineClass.operatingSystem | indent 4 }}
-    {{- end }}
-    {{- if $machineClass.labels }}
-{{ toYaml $machineClass.labels | indent 4 }}
-    {{- end }}
+{{- if and $machineClass.operatingSystem $machineClass.labels }}
+  labels: {{- merge $machineClass.operatingSystem $machineClass.labels | toYaml | nindent 4 }}
+{{- else if $machineClass.operatingSystem }}
+  labels: {{- toYaml $machineClass.operatingSystem | nindent 4 }}
+{{- else if $machineClass.labels }}
+  labels: {{- toYaml $machineClass.labels | nindent 4 }}
+{{- end }}
 {{- if $machineClass.nodeTemplate }}
 nodeTemplate:
   architecture: {{ $machineClass.nodeTemplate.architecture }}
-  capacity:
-{{ toYaml $machineClass.nodeTemplate.capacity | indent 4 }}
+  capacity: {{- toYaml $machineClass.nodeTemplate.capacity | nindent 4 }}
   {{- if $machineClass.nodeTemplate.virtualCapacity }}
-  virtualCapacity:
-{{ toYaml $machineClass.nodeTemplate.virtualCapacity | indent 4 }}
+  virtualCapacity: {{- toYaml $machineClass.nodeTemplate.virtualCapacity | nindent 4 }}
   {{- end }}
   instanceType: {{ $machineClass.nodeTemplate.instanceType }}
   region: {{ $machineClass.nodeTemplate.region }}
@@ -53,25 +50,22 @@ providerSpec:
 {{- if $machineClass.keyName }}
   keyName: {{ $machineClass.keyName }}
 {{- end }}
-  networkInterfaces:
-{{ toYaml $machineClass.networkInterfaces | indent 2 }}
+  networkInterfaces: {{- toYaml $machineClass.networkInterfaces | nindent 2 }}
 {{- if $machineClass.tags }}
-  tags:
-{{ toYaml $machineClass.tags | indent 4 }}
+  tags: {{- toYaml $machineClass.tags | nindent 4 }}
 {{- end }}
-  blockDevices:
-{{ toYaml $machineClass.blockDevices | indent 2 }}
+  blockDevices: {{- toYaml $machineClass.blockDevices | nindent 2 }}
 {{- if $machineClass.instanceMetadataOptions }}
   instanceMetadataOptions:
-    {{- if $machineClass.instanceMetadataOptions.httpEndpoint }}
+  {{- if $machineClass.instanceMetadataOptions.httpEndpoint }}
     httpEndpoint: {{ $machineClass.instanceMetadataOptions.httpEndpoint }}
-    {{- end }}
-    {{- if $machineClass.instanceMetadataOptions.httpPutResponseHopLimit }}
+  {{- end }}
+  {{- if $machineClass.instanceMetadataOptions.httpPutResponseHopLimit }}
     httpPutResponseHopLimit: {{ $machineClass.instanceMetadataOptions.httpPutResponseHopLimit }}
-    {{- end }}
-    {{- if $machineClass.instanceMetadataOptions.httpTokens }}
+  {{- end }}
+  {{- if $machineClass.instanceMetadataOptions.httpTokens }}
     httpTokens: {{ $machineClass.instanceMetadataOptions.httpTokens }}
-    {{- end }}
+  {{- end }}
 {{- end }}
 {{- if $machineClass.cpuOptions }}
   cpuOptions:
@@ -80,15 +74,15 @@ providerSpec:
 {{- end }}
 {{- if $machineClass.capacityReservation }}
   capacityReservation:
-    {{- if $machineClass.capacityReservation.capacityReservationPreference }}
+  {{- if $machineClass.capacityReservation.capacityReservationPreference }}
     capacityReservationPreference: {{ $machineClass.capacityReservation.capacityReservationPreference }}
-    {{- end }}
-    {{- if $machineClass.capacityReservation.capacityReservationId }}
+  {{- end }}
+  {{- if $machineClass.capacityReservation.capacityReservationId }}
     capacityReservationId: {{ $machineClass.capacityReservation.capacityReservationId }}
-    {{- end }}
-    {{- if $machineClass.capacityReservation.capacityReservationResourceGroupArn }}
+  {{- end }}
+  {{- if $machineClass.capacityReservation.capacityReservationResourceGroupArn }}
     capacityReservationResourceGroupArn: {{ $machineClass.capacityReservation.capacityReservationResourceGroupArn }}
-    {{- end }}
+  {{- end }}
 {{- end }}
 secretRef:
   name: {{ $machineClass.name }}
