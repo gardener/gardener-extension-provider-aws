@@ -146,6 +146,7 @@ type Interface interface {
 	// Route table associations
 	CreateRouteTableAssociation(ctx context.Context, routeTableId, subnetId string) (associationId *string, err error)
 	DeleteRouteTableAssociation(ctx context.Context, associationId string) error
+	GetRouteTableAssociationIDs(ctx context.Context, vpc string, subnetIDs []string) ([]string, error)
 
 	// Elastic IP
 	CreateElasticIP(ctx context.Context, eip *ElasticIP) (*ElasticIP, error)

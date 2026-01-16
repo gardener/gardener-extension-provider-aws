@@ -1479,18 +1479,70 @@ func (c *FlowContext) deletePrivateRoutingTable(zoneName string) flow.TaskFn {
 	}
 }
 
+func (c *FlowContext) routingAssociationSpecs() []routeTableAssociationSpec {
+	return []routeTableAssociationSpec{
+		{IdentifierZoneSubnetPublic, IdentifierZoneSubnetPublicRouteTableAssoc, false},
+		{IdentifierZoneSubnetPrivate, IdentifierZoneSubnetPrivateRouteTableAssoc, true},
+		{IdentifierZoneSubnetWorkers, IdentifierZoneSubnetWorkersRouteTableAssoc, true},
+	}
+}
+
+// validateAndPruneRoutingTableAssocState checks whether the routing table associations stored in the state
+// still exist in AWS. If not, it removes them from the state.
+func (c *FlowContext) validateAndPruneRoutingTableAssocState(ctx context.Context, zoneName string, specs []routeTableAssociationSpec) error {
+	child := c.getSubnetZoneChild(zoneName)
+	log := LogFromContext(ctx)
+
+	// should validate only if at least one association ID is present in state
+	if !hasRouteTableAssociationInState(child.Get, specs) {
+		return nil
+	}
+
+	subnetIDs := make([]string, 0, len(specs))
+	for _, spec := range specs {
+		id := child.Get(spec.subnetKey)
+		if id == nil {
+			return fmt.Errorf("missing subnet id for key %s", spec.subnetKey)
+		}
+		subnetIDs = append(subnetIDs, *id)
+	}
+
+	vpc := c.state.Get(IdentifierVPC)
+	if vpc == nil {
+		return fmt.Errorf("VPC ID not found in state")
+	}
+
+	routeTableAssociations, err := c.client.GetRouteTableAssociationIDs(ctx, *vpc, subnetIDs)
+	if err != nil {
+		return err
+	}
+
+	for _, spec := range specs {
+		if assocID := child.Get(spec.assocKey); assocID != nil && !slices.Contains(routeTableAssociations, *assocID) {
+			log.Info("route table association not found in AWS, removing from state",
+				"AssociationID", *assocID)
+			child.Delete(spec.assocKey)
+		}
+	}
+	return nil
+}
+
 func (c *FlowContext) ensureRoutingTableAssociations(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
-		if err := c.ensureZoneRoutingTableAssociation(ctx, zoneName, false,
-			IdentifierZoneSubnetPublic, IdentifierZoneSubnetPublicRouteTableAssoc); err != nil {
+		specs := c.routingAssociationSpecs()
+
+		err := c.validateAndPruneRoutingTableAssocState(ctx, zoneName, specs)
+		if err != nil {
 			return err
 		}
-		if err := c.ensureZoneRoutingTableAssociation(ctx, zoneName, true,
-			IdentifierZoneSubnetPrivate, IdentifierZoneSubnetPrivateRouteTableAssoc); err != nil {
-			return err
+
+		for _, spec := range specs {
+			err := c.ensureZoneRoutingTableAssociation(ctx, zoneName, spec.zoneRouteTable, spec.subnetKey, spec.assocKey)
+			if err != nil {
+				return err
+			}
 		}
-		return c.ensureZoneRoutingTableAssociation(ctx, zoneName, true,
-			IdentifierZoneSubnetWorkers, IdentifierZoneSubnetWorkersRouteTableAssoc)
+		return nil
 	}
 }
 
@@ -1570,16 +1622,16 @@ func (c *FlowContext) ensureVPCEndpointZoneRoutingTableAssociation(ctx context.C
 
 func (c *FlowContext) deleteRoutingTableAssociations(zoneName string) flow.TaskFn {
 	return func(ctx context.Context) error {
-		if err := c.deleteZoneRoutingTableAssociation(ctx, zoneName, false,
-			IdentifierZoneSubnetPublic, IdentifierZoneSubnetPublicRouteTableAssoc); err != nil {
-			return err
+		specs := c.routingAssociationSpecs()
+
+		for _, spec := range specs {
+			err := c.deleteZoneRoutingTableAssociation(ctx, zoneName, spec.zoneRouteTable, spec.subnetKey, spec.assocKey)
+			if err != nil {
+				return err
+			}
 		}
-		if err := c.deleteZoneRoutingTableAssociation(ctx, zoneName, true,
-			IdentifierZoneSubnetPrivate, IdentifierZoneSubnetPrivateRouteTableAssoc); err != nil {
-			return err
-		}
-		return c.deleteZoneRoutingTableAssociation(ctx, zoneName, true,
-			IdentifierZoneSubnetWorkers, IdentifierZoneSubnetWorkersRouteTableAssoc)
+
+		return nil
 	}
 }
 

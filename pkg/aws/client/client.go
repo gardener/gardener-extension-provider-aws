@@ -2085,6 +2085,38 @@ func (c *Client) DeleteRouteTableAssociation(ctx context.Context, associationId 
 	return ignoreNotFound(err)
 }
 
+// GetRouteTableAssociationIDs gets all route table associations for the given vpc and subnet IDs.
+// If no subnet IDs are given, all association IDs for the VPC are returned.
+func (c *Client) GetRouteTableAssociationIDs(ctx context.Context, vpc string, subnetIDs []string) ([]string, error) {
+	var associationIDs []string
+	input := &ec2.DescribeRouteTablesInput{
+		Filters: []ec2types.Filter{
+			{
+				Name:   aws.String("vpc-id"),
+				Values: []string{vpc},
+			},
+			{
+				Name:   aws.String("association.subnet-id"),
+				Values: subnetIDs,
+			},
+		},
+	}
+
+	routeTablesOutput, err := c.EC2.DescribeRouteTables(ctx, input)
+	if ignoreNotFound(err) != nil {
+		return nil, err
+	}
+
+	for _, routeTable := range routeTablesOutput.RouteTables {
+		for _, assoc := range routeTable.Associations {
+			if assoc.RouteTableAssociationId != nil {
+				associationIDs = append(associationIDs, aws.ToString(assoc.RouteTableAssociationId))
+			}
+		}
+	}
+	return associationIDs, nil
+}
+
 // CreateIAMRole creates an IAM role resource.
 func (c *Client) CreateIAMRole(ctx context.Context, role *IAMRole) (*IAMRole, error) {
 	input := &iam.CreateRoleInput{
