@@ -34,7 +34,6 @@ import (
 	workercontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
 	cloudproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/webhook/infrastructure"
 	seedproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/seedprovider"
 	configmapwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootconfigmap"
 	servicewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootservice"
@@ -74,7 +73,6 @@ func WebhookSwitchOptions() *webhookcmd.SwitchOptions {
 		webhookcmd.Switch(servicewebhook.NginxIngressWebhookName, servicewebhook.AddNginxIngressWebhookToManager),
 		webhookcmd.Switch(configmapwebhook.WebhookName, configmapwebhook.AddToManager),
 		webhookcmd.Switch(extensionscloudproviderwebhook.WebhookName, cloudproviderwebhook.AddToManager),
-		webhookcmd.Switch(infrastructure.WebhookName, infrastructure.AddToManager),
 		webhookcmd.Switch(terraformerwebhook.WebhookName, terraformerwebhook.AddToManager),
 	)
 }
