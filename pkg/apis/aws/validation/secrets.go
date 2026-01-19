@@ -7,6 +7,7 @@ package validation
 import (
 	"fmt"
 
+	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -48,7 +49,9 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 
 		// Validate no unexpected keys exist
 		allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-			aws.AccessKeyID, aws.SecretAccessKey)...)
+			aws.AccessKeyID, aws.SecretAccessKey, aws.Region,
+			aws.SharedCredentialsFile, securityv1alpha1constants.DataKeyConfig,
+			aws.RoleARN, aws.WorkloadIdentityTokenFileKey)...)
 
 	case SecretKindDns:
 		// For DNS secrets, check for DNS-specific key aliases first, then fall back to
@@ -77,10 +80,10 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 
 		if hasStandardAccessKey || hasStandardSecretKey {
 			allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-				aws.AccessKeyID, aws.SecretAccessKey)...)
+				aws.AccessKeyID, aws.SecretAccessKey, aws.Region)...)
 		} else {
 			allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-				aws.DNSAccessKeyID, aws.DNSSecretAccessKey)...)
+				aws.DNSAccessKeyID, aws.DNSSecretAccessKey, aws.DNSRegion)...)
 		}
 
 	default:
