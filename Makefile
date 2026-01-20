@@ -24,7 +24,6 @@ EXTENSION_NAMESPACE	:= garden
 GARDEN_KUBECONFIG 	?=
 
 PLATFORM := linux/amd64
-RECONCILER := flow
 
 WEBHOOK_PARAM := --webhook-config-url=$(WEBHOOK_CONFIG_URL)
 ifeq ($(WEBHOOK_CONFIG_MODE), service)

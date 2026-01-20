@@ -613,6 +613,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	)
 
 	cleanupFunc := sync.OnceFunc(func() {
+		defer GinkgoRecover()
 		By("delete infrastructure")
 		Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
 
@@ -1736,8 +1737,6 @@ func verifyDeletion(
 		Expect(awsErr.ErrorCode()).To(Equal("InvalidSubnetID.NotFound"))
 		if describeSubnetsOutput != nil {
 			Expect(describeSubnetsOutput.Subnets).To(BeEmpty())
-		} else {
-			println("describeSubnetsOutput nil")
 		}
 	}
 

@@ -58,6 +58,5 @@ func (a *actuator) delete(ctx context.Context, log logr.Logger, infra *extension
 	if err != nil {
 		return err
 	}
-	// TODO optimisation: check if cleanup is necessary
 	return CleanupTerraformerResources(ctx, tf)
 }
