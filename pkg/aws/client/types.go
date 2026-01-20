@@ -14,7 +14,6 @@ import (
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
-	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -197,13 +196,13 @@ type Interface interface {
 	DeleteEC2Tags(ctx context.Context, resources []string, tags Tags) error
 
 	// Efs
-	GetFileSystem(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error)
-	FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efstypes.FileSystemDescription, error)
-	CreateFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efstypes.FileSystemDescription, error)
-	DeleteFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error
-	DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error)
-	CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.CreateMountTargetOutput, error)
-	DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error
+	GetFileSystem(ctx context.Context, fileSystemID string) (*ElasticFileSystem, error)
+	FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*ElasticFileSystem, error)
+	CreateFileSystem(ctx context.Context, input ElasticFileSystem, creationToken string) (string, error)
+	DeleteFileSystem(ctx context.Context, id string) error
+	GetMountTargetsEfs(ctx context.Context, fileSystemID string) (*efs.DescribeMountTargetsOutput, error)
+	CreateMountTargetEfs(ctx context.Context, input MountTargetEFS) (string, error)
+	DeleteMountTargetEfs(ctx context.Context, mountTargetID string) error
 }
 
 // Factory creates instances of Interface.
@@ -585,6 +584,22 @@ type IAMRolePolicy struct {
 	PolicyName     string
 	RoleName       string
 	PolicyDocument string
+}
+
+// ElasticFileSystem contains the relevant fields for an EFS file system resource.
+type ElasticFileSystem struct {
+	FileSystemId string
+	Tags         Tags
+	Encrypted    bool
+}
+
+// MountTargetEFS contains the relevant fields for an EFS mount target resource.
+type MountTargetEFS struct {
+	ID               string
+	SubnetID         string
+	SecurityGroupIDs []string
+	FileSystemID     string
+	IpAddressType    string
 }
 
 // GetAWSAPIErrorCode return error code of AWS api error.

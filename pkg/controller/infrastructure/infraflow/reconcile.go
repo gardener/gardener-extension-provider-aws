@@ -19,7 +19,6 @@ import (
 	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -1926,40 +1925,34 @@ func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
 
 	// check if we already created an EFS file system
 	if current != nil {
-		c.state.Set(IdentifierManagedEfsID, *current.FileSystemId)
+		c.state.Set(IdentifierManagedEfsID, current.FileSystemId)
 		return nil
 	}
 
-	inputCreate := &efs.CreateFileSystemInput{
-		Tags:          c.commonTags.AddManagedTag().ToEfsTags(),
-		CreationToken: ptr.To(c.shootUUID),
-		Encrypted:     ptr.To(true),
+	desired := awsclient.ElasticFileSystem{
+		Tags:      c.commonTags.AddManagedTag(),
+		Encrypted: true,
 	}
-	efsCreate, err := c.client.CreateFileSystem(ctx, inputCreate)
+
+	fileSystemID, err := c.client.CreateFileSystem(ctx, desired, c.shootUUID)
 	if err != nil {
 		return err
 	}
 
-	if efsCreate == nil || efsCreate.FileSystemId == nil {
-		return fmt.Errorf("the created file system id is <nil>")
-	}
-
-	c.state.Set(IdentifierManagedEfsID, *efsCreate.FileSystemId)
-
-	log.Info("created file system", "id", *efsCreate.FileSystemId)
-
+	c.state.Set(IdentifierManagedEfsID, fileSystemID)
+	log.Info("created file system", "id", fileSystemID)
 	return nil
 }
 
 func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 	log := LogFromContext(ctx)
 
-	var efsID *string
+	var efsID string
 	switch {
 	case c.config.ElasticFileSystem.ID != nil:
-		efsID = c.config.ElasticFileSystem.ID
+		efsID = *c.config.ElasticFileSystem.ID
 	case c.state.Get(IdentifierManagedEfsID) != nil:
-		efsID = c.state.Get(IdentifierManagedEfsID)
+		efsID = *c.state.Get(IdentifierManagedEfsID)
 	default:
 		return fmt.Errorf("trying to ensure efs mount targets, but efs id is not set")
 	}
@@ -1969,7 +1962,7 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 		return fmt.Errorf("security group not found in state")
 	}
 
-	mountTargetsToCreate := make(map[string]*efs.CreateMountTargetInput)
+	mountTargetsToCreate := make(map[string]awsclient.MountTargetEFS)
 	childMountTargets := c.state.GetChild(ChildEfsMountTargets)
 	existingMountTargetKeys := childMountTargets.Keys()
 	childZones := c.state.GetChild(ChildIdZones)
@@ -1982,12 +1975,13 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 			return fmt.Errorf("subnet not found in state")
 		}
 
-		mountKey := fmt.Sprintf("%s_%s_%s", *efsID, *subnetID, *securityGroupID)
-		mountInput := &efs.CreateMountTargetInput{
-			FileSystemId:   efsID,
-			SubnetId:       subnetID,
-			SecurityGroups: []string{*securityGroupID},
+		mountInput := awsclient.MountTargetEFS{
+			FileSystemID:     efsID,
+			SubnetID:         *subnetID,
+			SecurityGroupIDs: []string{*securityGroupID},
+			IpAddressType:    string(toEfsIpAddressType(c.getIpFamilies())),
 		}
+		mountKey := fmt.Sprintf("%s_%s_%s", efsID, *subnetID, *securityGroupID)
 		mountTargetsToCreate[mountKey] = mountInput
 
 		if slices.Contains(existingMountTargetKeys, mountKey) {
@@ -1995,11 +1989,9 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 		}
 
 		// check if mount target already exists but was not in state
-		mountTargetOutput, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
-			FileSystemId: efsID,
-		})
+		mountTargetOutput, err := c.client.GetMountTargetsEfs(ctx, efsID)
 		if err != nil {
-			return fmt.Errorf("failed to describe mount targets for EFS %s: %w", *efsID, err)
+			return fmt.Errorf("failed to describe mount targets for EFS %s: %w", efsID, err)
 		}
 		if mountTargetOutput != nil && len(mountTargetOutput.MountTargets) > 0 {
 			containsSubnet, mountTargetID := mountTargetsContainSubnet(mountTargetOutput.MountTargets, *subnetID)
@@ -2010,17 +2002,14 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 			}
 		}
 
-		log.Info("creating EFS mount target", "SubnetId", *mountInput.SubnetId)
-		output, err := c.client.CreateMountTargetEfs(ctx, mountInput)
+		log.Info("creating EFS mount target", "SubnetId", mountInput.SubnetID)
+		mountTargetID, err := c.client.CreateMountTargetEfs(ctx, mountInput)
 		if err != nil {
 			return err
 		}
-		if output.MountTargetId == nil {
-			return fmt.Errorf("got empty mount target id in response")
-		}
-		log.Info("created EFS mount target", "SubnetId", *mountInput.SubnetId)
 
-		childMountTargets.Set(mountKey, *output.MountTargetId)
+		log.Info("created EFS mount target ID", "mountTargetID", mountTargetID)
+		childMountTargets.Set(mountKey, mountTargetID)
 	}
 
 	// delete unused mount targets
@@ -2034,9 +2023,7 @@ func (c *FlowContext) ensureEfsMountTargets(ctx context.Context) error {
 		if mountTargetID == nil {
 			return fmt.Errorf("mount target id not found in state for key %s", existingMountTargetKey)
 		}
-		err := c.client.DeleteMountTargetEfs(ctx, &efs.DeleteMountTargetInput{
-			MountTargetId: mountTargetID,
-		})
+		err := c.client.DeleteMountTargetEfs(ctx, *mountTargetID)
 		if err != nil {
 			return fmt.Errorf("failed to delete mount target id %s: %w", *mountTargetID, err)
 		}

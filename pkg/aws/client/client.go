@@ -2269,7 +2269,7 @@ func (c *Client) DeleteIAMRolePolicy(ctx context.Context, policyName, roleName s
 
 // GetFileSystem retrieve information about an efs file system by its ID
 // Returns nil if the file system is not found
-func (c *Client) GetFileSystem(ctx context.Context, fileSystemID string) (*efstypes.FileSystemDescription, error) {
+func (c *Client) GetFileSystem(ctx context.Context, fileSystemID string) (*ElasticFileSystem, error) {
 	output, err := c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{
 		FileSystemId: &fileSystemID,
 	})
@@ -2279,12 +2279,13 @@ func (c *Client) GetFileSystem(ctx context.Context, fileSystemID string) (*efsty
 	if len(output.FileSystems) != 1 {
 		return nil, fmt.Errorf("expected 1 file system, got %d", len(output.FileSystems))
 	}
-	return &output.FileSystems[0], nil
+
+	return fromElasticFileSystem(output.FileSystems[0]), nil
 }
 
 // FindFileSystemsByTags retrieve information about an efs file system by its ID
-func (c *Client) FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efstypes.FileSystemDescription, error) {
-	var result []*efstypes.FileSystemDescription
+func (c *Client) FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*ElasticFileSystem, error) {
+	var result []*ElasticFileSystem
 
 	output, err := c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{})
 	if err != nil {
@@ -2296,12 +2297,12 @@ func (c *Client) FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efsty
 			ResourceId: fs.FileSystemId,
 		})
 		if err != nil {
-			c.Logger.Info("could not get tags for fs %s: %v", *fs.FileSystemId, err)
+			c.Logger.Info("could not get tags for fs %s: %v", ptr.Deref(fs.FileSystemId, ""), err)
 			continue
 		}
 
 		if tags.ContainEfsTags(tagsResp.Tags) {
-			result = append(result, &fs)
+			result = append(result, fromElasticFileSystem(fs))
 		}
 	}
 
@@ -2309,44 +2310,54 @@ func (c *Client) FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*efsty
 }
 
 // CreateFileSystem creates an efs file system
-func (c *Client) CreateFileSystem(ctx context.Context, input *efs.CreateFileSystemInput) (*efstypes.FileSystemDescription, error) {
-	output, err := c.EFS.CreateFileSystem(ctx, input)
+func (c *Client) CreateFileSystem(ctx context.Context, input ElasticFileSystem, creationToken string) (string, error) {
+	output, err := c.EFS.CreateFileSystem(ctx, &efs.CreateFileSystemInput{
+		Tags:          input.Tags.ToEfsTags(),
+		CreationToken: aws.String(creationToken),
+		Encrypted:     aws.Bool(input.Encrypted),
+	})
 	if ignoreAlreadyExists(err) != nil {
-		return nil, err
+		return "", err
 	}
 	if output == nil || output.FileSystemId == nil {
-		return nil, fmt.Errorf("efs file system creation failed, no FileSystemId returned")
+		return "", fmt.Errorf("efs file system creation failed, no FileSystemId returned")
 	}
 	fID := *output.FileSystemId
 
-	var fsDescription *efstypes.FileSystemDescription
+	var fsDescription *efs.DescribeFileSystemsOutput
 	err = c.PollImmediateUntil(ctx, func(ctx context.Context) (bool, error) {
-		fsDescription, err = c.GetFileSystem(ctx, fID)
-		if err != nil {
+		fsDescription, err = c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{
+			FileSystemId: aws.String(fID),
+		})
+		if ignoreNotFound(err) != nil {
 			// Real errors should stop the polling.
 			return true, err
 		}
-		if fsDescription == nil {
+		if fsDescription == nil || len(fsDescription.FileSystems) == 0 {
 			// Not found yet, keep waiting.
 			return false, nil
 		}
-		if fsDescription.LifeCycleState == efstypes.LifeCycleStateAvailable {
+		if fsDescription.FileSystems[0].LifeCycleState == efstypes.LifeCycleStateAvailable {
 			return true, nil
 		}
 		return false, nil
 	})
-	return fsDescription, err
+	return fID, nil
 }
 
 // DeleteFileSystem deletes an efs file system
-func (c *Client) DeleteFileSystem(ctx context.Context, input *efs.DeleteFileSystemInput) error {
-	_, err := c.EFS.DeleteFileSystem(ctx, input)
+func (c *Client) DeleteFileSystem(ctx context.Context, id string) error {
+	_, err := c.EFS.DeleteFileSystem(ctx, &efs.DeleteFileSystemInput{
+		FileSystemId: aws.String(id),
+	})
 	return ignoreNotFound(err)
 }
 
-// DescribeMountTargetsEfs describes an efs mount target
-func (c *Client) DescribeMountTargetsEfs(ctx context.Context, input *efs.DescribeMountTargetsInput) (*efs.DescribeMountTargetsOutput, error) {
-	output, err := c.EFS.DescribeMountTargets(ctx, input)
+// GetMountTargetsEfs describes an efs mount target
+func (c *Client) GetMountTargetsEfs(ctx context.Context, fileSystemID string) (*efs.DescribeMountTargetsOutput, error) {
+	output, err := c.EFS.DescribeMountTargets(ctx, &efs.DescribeMountTargetsInput{
+		FileSystemId: aws.String(fileSystemID),
+	})
 	if err != nil {
 		return nil, ignoreNotFound(err)
 	}
@@ -2359,13 +2370,27 @@ func (c *Client) DescribeMountTargetsEfs(ctx context.Context, input *efs.Describ
 // for a given file system. If you have multiple subnets in an Availability Zone,
 // you create a mount target in one of the subnets. EC2 instances do not need to be
 // in the same subnet as the mount target in order to access their file system.
-func (c *Client) CreateMountTargetEfs(ctx context.Context, input *efs.CreateMountTargetInput) (*efs.CreateMountTargetOutput, error) {
-	return c.EFS.CreateMountTarget(ctx, input)
+func (c *Client) CreateMountTargetEfs(ctx context.Context, input MountTargetEFS) (string, error) {
+	output, err := c.EFS.CreateMountTarget(ctx, &efs.CreateMountTargetInput{
+		FileSystemId:   aws.String(input.FileSystemID),
+		SubnetId:       aws.String(input.SubnetID),
+		SecurityGroups: input.SecurityGroupIDs,
+		IpAddressType:  efstypes.IpAddressType(input.IpAddressType),
+	})
+	if ignoreAlreadyExists(err) != nil {
+		return "", err
+	}
+	if output == nil || output.MountTargetId == nil {
+		return "", fmt.Errorf("efs mount target creation failed, no MountTargetId returned")
+	}
+	return *output.MountTargetId, nil
 }
 
 // DeleteMountTargetEfs deletes an efs mount target
-func (c *Client) DeleteMountTargetEfs(ctx context.Context, input *efs.DeleteMountTargetInput) error {
-	_, err := c.EFS.DeleteMountTarget(ctx, input)
+func (c *Client) DeleteMountTargetEfs(ctx context.Context, mountTargetID string) error {
+	_, err := c.EFS.DeleteMountTarget(ctx, &efs.DeleteMountTargetInput{
+		MountTargetId: aws.String(mountTargetID),
+	})
 	return ignoreNotFound(err)
 }
 
@@ -2649,6 +2674,13 @@ func fromIAMInstanceProfile(item *iamtypes.InstanceProfile) *IAMInstanceProfile 
 		InstanceProfileName: aws.ToString(item.InstanceProfileName),
 		Path:                aws.ToString(item.Path),
 		RoleName:            roleName,
+	}
+}
+
+func fromElasticFileSystem(item efstypes.FileSystemDescription) *ElasticFileSystem {
+	return &ElasticFileSystem{
+		FileSystemId: aws.ToString(item.FileSystemId),
+		Tags:         FromEfsTags(item.Tags),
 	}
 }
 
