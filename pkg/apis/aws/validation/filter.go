@@ -41,9 +41,10 @@ var (
 	// see https://aws.amazon.com/blogs/security/a-safer-way-to-distribute-aws-credentials-to-ec2/
 	// #nosec G101 -- This is a validation regex pattern, not a hardcoded credential
 	SecretAccessKeyRegex = `^[A-Za-z0-9/+=]+$`
-	// RegionRegex matches AWS region names, e.g. us-east-1, eu-west-2
+	// RegionRegex matches AWS region names, e.g. us-east-1, eu-west-2, eusc-de-east-1
 	// see https://docs.aws.amazon.com/general/latest/gr/rande.html
-	RegionRegex = `^[a-z]{2}-[a-z-]+-\d+$`
+	// and https://aws.amazon.com/de/blogs/aws/opening-the-aws-european-sovereign-cloud/ (section "Some technical details")
+	RegionRegex = `^[a-z-]+-\d+$`
 
 	validateK8sResourceName          = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                    = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))
