@@ -8,9 +8,14 @@ on:
       - master
   workflow_dispatch:
   workflow_call:
-
+    inputs:
+      skip-integration-tests:
+        type: boolean
+        default: false
+        description: 'Skip running integration tests.'
 jobs:
   run-tests:
+    if: ${{ !inputs.skip-integration-tests }}
     uses: gardener/cc-utils/.github/workflows/run-testmachinery-tests.yaml@master
     permissions:
       id-token: write
