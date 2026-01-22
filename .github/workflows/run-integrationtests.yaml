@@ -28,3 +28,10 @@ jobs:
             --timeout=7200 \
             --testruns-chart-path=.ci/testruns/default \
             --set revision="$(git rev-parse @)"
+
+  skip-tests:
+    if: ${{ inputs.skip-integration-tests }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip Integration Tests
+        run: echo "Skipping Integration Tests as per input parameter."
