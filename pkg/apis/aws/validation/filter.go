@@ -41,6 +41,10 @@ var (
 	// see https://aws.amazon.com/blogs/security/a-safer-way-to-distribute-aws-credentials-to-ec2/
 	// #nosec G101 -- This is a validation regex pattern, not a hardcoded credential
 	SecretAccessKeyRegex = `^[A-Za-z0-9/+=]+$`
+	// RegionRegex matches AWS region names, e.g. us-east-1, eu-west-2, eusc-de-east-1
+	// see https://docs.aws.amazon.com/general/latest/gr/rande.html
+	// and https://aws.amazon.com/de/blogs/aws/opening-the-aws-european-sovereign-cloud/ (section "Some technical details")
+	RegionRegex = `^[a-z-]+-\d+$`
 
 	validateK8sResourceName          = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                    = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))
@@ -54,6 +58,7 @@ var (
 	validateCapacityReservationGroup = combineValidationFuncs(regex(CapacityReservationGroupRegex), notEmpty, maxLength(255))
 	validateAccessKeyID              = hideSensitiveValue(combineValidationFuncs(regex(AccessKeyIDRegex), minLength(20), maxLength(20)))
 	validateSecretAccessKey          = hideSensitiveValue(combineValidationFuncs(regex(SecretAccessKeyRegex), minLength(40), maxLength(40)))
+	validateRegion                   = combineValidationFuncs(regex(RegionRegex), maxLength(32))
 )
 
 type validateFunc[T any] func(T, *field.Path) field.ErrorList

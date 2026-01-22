@@ -7,7 +7,6 @@ package validation
 import (
 	"fmt"
 
-	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -36,9 +35,9 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 	dataPath := fldPath.Child("data")
 	secretRef := fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)
 
-	var accessKeyIDKey, secretAccessKeyKey string
-	var accessKeyID, secretAccessKey []byte
-	var accessKeyIDExists, secretAccessKeyExists bool
+	var accessKeyIDKey, secretAccessKeyKey, regionKey string
+	var accessKeyID, secretAccessKey, region []byte
+	var accessKeyIDExists, secretAccessKeyExists, regionExists bool
 
 	switch kind {
 	case SecretKindInfrastructure:
@@ -49,9 +48,7 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 
 		// Validate no unexpected keys exist
 		allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-			aws.AccessKeyID, aws.SecretAccessKey, aws.Region,
-			aws.SharedCredentialsFile, securityv1alpha1constants.DataKeyConfig,
-			aws.RoleARN, aws.WorkloadIdentityTokenFileKey)...)
+			aws.AccessKeyID, aws.SecretAccessKey)...)
 
 	case SecretKindDns:
 		// For DNS secrets, check for DNS-specific key aliases first, then fall back to
@@ -72,13 +69,22 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 			secretAccessKeyKey = aws.SecretAccessKey
 		}
 
+		region, regionExists = secret.Data[aws.DNSRegion]
+		if regionExists {
+			regionKey = aws.DNSRegion
+		} else {
+			region, regionExists = secret.Data[aws.Region]
+			regionKey = aws.Region
+		}
+
 		// Validate no unexpected keys exist
 		// For DNS, we allow either the standard infrastructure keys or the DNS-specific alias keys, but not a mix
 		// Prefer standard keys if any are present
 		_, hasStandardAccessKey := secret.Data[aws.AccessKeyID]
 		_, hasStandardSecretKey := secret.Data[aws.SecretAccessKey]
+		_, hasStandardRegionKey := secret.Data[aws.Region]
 
-		if hasStandardAccessKey || hasStandardSecretKey {
+		if hasStandardAccessKey || hasStandardSecretKey || hasStandardRegionKey {
 			allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
 				aws.AccessKeyID, aws.SecretAccessKey, aws.Region)...)
 		} else {
@@ -112,6 +118,11 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kin
 			fmt.Sprintf("field %q cannot be empty in secret %s", secretAccessKeyKey, secretRef)))
 	} else {
 		allErrs = append(allErrs, validateSecretAccessKey(string(secretAccessKey), dataPath.Key(secretAccessKeyKey))...)
+	}
+
+	// Validate region
+	if regionExists && len(region) > 0 {
+		allErrs = append(allErrs, validateRegion(string(region), dataPath.Key(regionKey))...)
 	}
 
 	return allErrs
