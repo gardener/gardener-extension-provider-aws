@@ -14,7 +14,10 @@ on:
           - bump-minor
           - bump-patch
         description: 'Select the type of version bump for the next release.'
-
+      skip-integration-tests:
+        type: boolean
+        default: false
+        description: 'Skip running integration tests.'
 jobs:
   build:
     uses: ./.github/workflows/build.yaml
@@ -28,6 +31,7 @@ jobs:
       release-version: ${{ inputs.release-version }}
 
   integration-tests:
+    if: ${{ !inputs.skip-integration-tests }}
     permissions:
       contents: read
       id-token: write
