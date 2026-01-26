@@ -11,12 +11,14 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	cidrvalidation "github.com/gardener/gardener/pkg/utils/validation/cidr"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	apiaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -67,7 +69,8 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	// Validate infrastructure config
 	if config.Networks.VPC.ID != nil {
 		logger.Info("Validating infrastructure networks.vpc.id")
-		allErrs = append(allErrs, c.validateVPC(ctx, awsClient, *config.Networks.VPC.ID, infra.Spec.Region, field.NewPath("networks", "vpc", "id"), config.DualStack != nil && config.DualStack.Enabled)...)
+		allErrs = append(allErrs, c.validateVPC(ctx, field.NewPath("networks", "vpc", "id"),
+			awsClient, *config, *config.Networks.VPC.ID, infra.Spec.Region)...)
 	}
 
 	var (
@@ -89,7 +92,8 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	return allErrs
 }
 
-func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.Interface, vpcID, region string, fldPath *field.Path, dualStack bool) field.ErrorList {
+func (c *configValidator) validateVPC(ctx context.Context, fldPath *field.Path, awsClient awsclient.Interface,
+	infraConfig apiaws.InfrastructureConfig, vpcID, region string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Verify that the VPC exists and the enableDnsSupport and enableDnsHostnames VPC attributes are both true
@@ -108,6 +112,7 @@ func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.I
 		}
 	}
 
+	dualStack := infraConfig.DualStack != nil && infraConfig.DualStack.Enabled
 	if dualStack {
 		_, err := awsClient.GetIPv6Cidr(ctx, vpcID)
 		if err != nil {
@@ -137,6 +142,23 @@ func (c *configValidator) validateVPC(ctx context.Context, awsClient awsclient.I
 		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, "missing domain-name value in DHCP options used by the VPC"))
 	} else if (region == "us-east-1" && domainName != "ec2.internal") || (region != "us-east-1" && domainName != region+".compute.internal") {
 		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("invalid domain-name specified in DHCP options used by VPC: %s", domainName)))
+	}
+
+	// crosscheck subnet CIDRs are subset of VPC CIDR
+	vpc, err := awsClient.GetVpc(ctx, vpcID)
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get CIDR block for VPC %s: %w", vpcID, err)))
+		return allErrs
+	}
+	networkingPath := field.NewPath("networking")
+	vpcCIDR := cidrvalidation.NewCIDR(vpc.CidrBlock, fldPath)
+	for _, zones := range infraConfig.Networks.Zones {
+		zoneSubnetCIDRs := []cidrvalidation.CIDR{
+			cidrvalidation.NewCIDR(zones.Workers, networkingPath.Child("nodes")),
+			cidrvalidation.NewCIDR(zones.Public, networkingPath.Child("public")),
+			cidrvalidation.NewCIDR(zones.Internal, networkingPath.Child("internal")),
+		}
+		allErrs = append(allErrs, vpcCIDR.ValidateSubset(zoneSubnetCIDRs...)...)
 	}
 
 	return allErrs
