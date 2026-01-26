@@ -18,7 +18,7 @@ import (
 
 // Migrate deletes only the ConfigMaps and Secrets of the Terraformer.
 func (a *actuator) Migrate(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	tf, err := newTerraformer(log, a.restConfig, aws.TerraformerPurposeInfra, infrastructure, a.disableProjectedTokenMount)
+	tf, err := newTerraformer(log, a.restConfig, aws.TerraformerPurposeInfra, infrastructure)
 	if err != nil {
 		return err
 	}

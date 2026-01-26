@@ -12,16 +12,14 @@ import (
 )
 
 type actuator struct {
-	client                     client.Client
-	restConfig                 *rest.Config
-	disableProjectedTokenMount bool
+	client     client.Client
+	restConfig *rest.Config
 }
 
 // NewActuator creates a new Actuator that updates the status of the handled Infrastructure resources.
-func NewActuator(mgr manager.Manager, disableProjectedTokenMount bool) infrastructure.Actuator {
+func NewActuator(mgr manager.Manager) infrastructure.Actuator {
 	return &actuator{
-		client:                     mgr.GetClient(),
-		restConfig:                 mgr.GetConfig(),
-		disableProjectedTokenMount: disableProjectedTokenMount,
+		client:     mgr.GetClient(),
+		restConfig: mgr.GetConfig(),
 	}
 }

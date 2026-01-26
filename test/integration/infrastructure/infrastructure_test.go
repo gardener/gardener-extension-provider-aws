@@ -61,7 +61,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -69,13 +68,6 @@ import (
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws/matchers"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	"github.com/gardener/gardener-extension-provider-aws/test/integration"
-)
-
-const (
-	reconcilerUseTF        string = "tf"
-	reconcilerMigrateTF    string = "migrate"
-	reconcilerUseFlow      string = "flow"
-	reconcilerRecoverState string = "recover"
 )
 
 const (
@@ -95,7 +87,6 @@ var (
 	accessKeyID     = flag.String("access-key-id", "", "AWS access key id")
 	secretAccessKey = flag.String("secret-access-key", "", "AWS secret access key")
 	region          = flag.String("region", "", "AWS region")
-	reconciler      = flag.String("reconciler", reconcilerUseFlow, "Set annotation to use flow for reconciliation")
 	testId          = string(uuid.NewUUID())
 	logLevel        = flag.String("logLevel", "", "Log level (debug, info, error)")
 )
@@ -201,7 +192,6 @@ var _ = BeforeSuite(func() {
 	Expect(infrastructure.AddToManagerWithOptions(ctx, mgr, infrastructure.AddOptions{
 		// During testing in testmachinery cluster, there is no gardener-resource-manager to inject the volume mount.
 		// Hence, we need to run without projected token mount.
-		DisableProjectedTokenMount: true,
 		Controller: controller.Options{
 			MaxConcurrentReconciles: 5,
 		},
@@ -216,7 +206,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 	}()
 
-	// test client should be uncached and independent from the tested manager
+	// test client should be uncached and independent of the tested manager
 	c, err = client.New(restConfig, client.Options{
 		Scheme: mgr.GetScheme(),
 		Mapper: mgr.GetRESTMapper(),
@@ -269,10 +259,6 @@ var _ = Describe("Infrastructure tests", func() {
 		})
 
 		It("should successfully create and delete with EFS CSI enabled", func() {
-			if ptr.Deref(reconciler, "") != reconcilerUseFlow {
-				Skip("EFS CSI is only supported with flow reconciler")
-			}
-
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
 				CIDR:             ptr.To(vpcCIDR),
 				GatewayEndpoints: []string{s3GatewayEndpoint},
@@ -620,13 +606,14 @@ var _ = Describe("Infrastructure tests", func() {
 func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceName string,
 	providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client, ipfamilies []gardencorev1beta1.IPFamily) error {
 	var (
-		namespace                 *corev1.Namespace
-		cluster                   *extensionsv1alpha1.Cluster
-		infra                     *extensionsv1alpha1.Infrastructure
-		infrastructureIdentifiers infrastructureIdentifiers
+		namespace *corev1.Namespace
+		cluster   *extensionsv1alpha1.Cluster
+		infra     *extensionsv1alpha1.Infrastructure
+		infraID   infrastructureIdentifiers
 	)
 
 	cleanupFunc := sync.OnceFunc(func() {
+		defer GinkgoRecover()
 		By("delete infrastructure")
 		Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
 
@@ -643,7 +630,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		Expect(err).NotTo(HaveOccurred())
 
 		By("verify infrastructure deletion")
-		verifyDeletion(ctx, awsClient, infrastructureIdentifiers)
+		verifyDeletion(ctx, awsClient, infraID)
 
 		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
 		Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
@@ -738,45 +725,18 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	}
 
 	By("verify infrastructure creation")
-	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
+	infraID = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
 
 	By("add tags to subnet")
 	// add some ignored and not ignored tags to subnet and verify that ignored tags are not removed in the next reconciliation
-	taggedSubnetID := infrastructureIdentifiers.subnetIDs[0]
+	taggedSubnetID := infraID.subnetIDs[0]
 	Expect(createTagsSubnet(ctx, awsClient, taggedSubnetID)).To(Succeed())
 
-	oldState := infra.Status.State.DeepCopy()
-	// Update the infra resource to trigger a migration.
-	switch *reconciler {
-	case reconcilerMigrateTF:
-		By("verifying terraform migration")
-		patch := client.MergeFrom(infra.DeepCopy())
-		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
-		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, awsapi.AnnotationKeyUseFlow, "true")
-		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
-		Expect(c.Patch(ctx, infra, patch)).To(Succeed())
-	case reconcilerRecoverState:
-		By("drop state for testing recovery")
-
-		patch := client.MergeFrom(infra.DeepCopy())
-		infra.Status.LastOperation = nil
-		infra.Status.ProviderStatus = nil
-		infra.Status.State = nil
-		Expect(c.Status().Patch(ctx, infra, patch)).To(Succeed())
-
-		Expect(c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra)).To(Succeed())
-
-		patch = client.MergeFrom(infra.DeepCopy())
-		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
-		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
-		err = c.Patch(ctx, infra, patch)
-		Expect(err).To(Succeed())
-	default:
-		patch := client.MergeFrom(infra.DeepCopy())
-		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
-		metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
-		Expect(c.Patch(ctx, infra, patch)).To(Succeed())
-	}
+	// test 2nd reconciliation
+	patch := client.MergeFrom(infra.DeepCopy())
+	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
+	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
+	Expect(c.Patch(ctx, infra, patch)).To(Succeed())
 
 	By("wait until infrastructure is reconciled")
 	if err := extensions.WaitUntilExtensionObjectReady(
@@ -793,24 +753,52 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		return err
 	}
 
-	By("verify infrastructure creation")
-	infrastructureIdentifiers = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
+	By("verify infrastructure second reconciliation")
+	infraID = verifyCreation(ctx, awsClient, infra, providerStatus, providerConfig, ptr.To(vpcCIDR), s3GatewayEndpoint, ipfamilies)
 
 	By("verify tags on subnet")
 	verifyTagsSubnet(ctx, awsClient, taggedSubnetID)
 
-	if *reconciler == reconcilerRecoverState {
-		By("check state recovery")
-		if err := c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra); err != nil {
-			return err
-		}
-		Expect(infra.Status.State).To(Equal(oldState))
-		newProviderStatus := awsv1alpha1.InfrastructureStatus{}
-		if _, _, err := decoder.Decode(infra.Status.ProviderStatus.Raw, nil, &newProviderStatus); err != nil {
-			return err
-		}
-		Expect(&newProviderStatus).To(integration.EqualInfrastructureStatus(providerStatus))
+	By("drop state for testing recovery")
+	oldState := infra.Status.State.DeepCopy()
+	patch = client.MergeFrom(infra.DeepCopy())
+	infra.Status.LastOperation = nil
+	infra.Status.ProviderStatus = nil
+	infra.Status.State = nil
+	Expect(c.Status().Patch(ctx, infra, patch)).To(Succeed())
+	Expect(c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra)).To(Succeed())
+
+	// reconcile infrastructure to test state recovery
+	patch = client.MergeFrom(infra.DeepCopy())
+	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerOperation, v1beta1constants.GardenerOperationReconcile)
+	metav1.SetMetaDataAnnotation(&infra.ObjectMeta, v1beta1constants.GardenerTimestamp, time.Now().UTC().Format(time.RFC3339Nano))
+	err = c.Patch(ctx, infra, patch)
+	Expect(err).To(Succeed())
+
+	By("wait until infrastructure is reconciled")
+	if err := extensions.WaitUntilExtensionObjectReady(
+		ctx,
+		c,
+		log,
+		infra,
+		extensionsv1alpha1.InfrastructureResource,
+		10*time.Second,
+		30*time.Second,
+		16*time.Minute,
+		nil,
+	); err != nil {
+		return err
 	}
+	By("check state recovery")
+	if err := c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra); err != nil {
+		return err
+	}
+	Expect(infra.Status.State).To(Equal(oldState))
+	newProviderStatus := awsv1alpha1.InfrastructureStatus{}
+	if _, _, err := decoder.Decode(infra.Status.ProviderStatus.Raw, nil, &newProviderStatus); err != nil {
+		return err
+	}
+	Expect(&newProviderStatus).To(integration.EqualInfrastructureStatus(providerStatus))
 
 	cleanupFunc()
 	return nil
@@ -883,9 +871,6 @@ func newInfrastructure(namespace string, providerConfig *awsv1alpha1.Infrastruct
 			Region:       *region,
 			SSHPublicKey: []byte(sshPublicKey),
 		},
-	}
-	if usesFlow(reconciler) {
-		infra.Annotations = map[string]string{awsapi.AnnotationKeyUseFlow: "true"}
 	}
 	return infra, nil
 }
@@ -1658,7 +1643,6 @@ func verifyDeletion(
 	infrastructureIdentifier infrastructureIdentifiers,
 ) {
 	// vpc
-
 	if infrastructureIdentifier.vpcID != nil {
 		describeVpcsOutput, err := awsClient.EC2.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{VpcIds: []string{*infrastructureIdentifier.vpcID}})
 		Expect(err).To(HaveOccurred())
@@ -1753,8 +1737,6 @@ func verifyDeletion(
 		Expect(awsErr.ErrorCode()).To(Equal("InvalidSubnetID.NotFound"))
 		if describeSubnetsOutput != nil {
 			Expect(describeSubnetsOutput.Subnets).To(BeEmpty())
-		} else {
-			println("describeSubnetsOutput nil")
 		}
 	}
 
@@ -1836,14 +1818,6 @@ func verifyDeletion(
 			Expect(getRolePolicyOutputNodes.PolicyDocument).To(BeEmpty())
 		}
 	}
-}
-
-func usesFlow(reconciler *string) bool {
-	if rec := ptr.Deref(reconciler, reconcilerUseTF); rec == reconcilerUseTF || rec == reconcilerMigrateTF {
-		return false
-	}
-
-	return true
 }
 
 func isIPv6(ipfamilies []gardencorev1beta1.IPFamily) bool {

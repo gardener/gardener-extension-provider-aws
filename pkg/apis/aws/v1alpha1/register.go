@@ -38,15 +38,15 @@ func init() {
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
+		&BackupBucketConfig{},
 		&CloudProfileConfig{},
-		&InfrastructureConfig{},
-		&InfrastructureStatus{},
-		&InfrastructureState{},
 		&ControlPlaneConfig{},
+		&InfrastructureConfig{},
+		&InfrastructureState{},
+		&InfrastructureStatus{},
 		&WorkerConfig{},
 		&WorkerStatus{},
 		&WorkloadIdentityConfig{},
-		&BackupBucketConfig{},
 	)
 	return nil
 }
