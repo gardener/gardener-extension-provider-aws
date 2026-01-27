@@ -21,7 +21,6 @@ rules:
     - get
     - patch
     - update
-  
   # Event permissions - required for creating events for monitoring and debugging
   - apiGroups:
     - ""
