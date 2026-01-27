@@ -817,8 +817,8 @@ func getCSIControllerChartValues(
 	if err != nil {
 		return nil, err
 	}
-	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) {
-		if _, ok := cluster.Shoot.Annotations[aws.AnnotationEnableVolumeAttributesClass]; ok {
+	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) && versionutils.ConstraintK8sLess134.Check(k8sVersion) {
+		if aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
 			values["csiResizer"] = map[string]interface{}{
 				"featureGates": map[string]string{
 					"VolumeAttributesClass": "true",
