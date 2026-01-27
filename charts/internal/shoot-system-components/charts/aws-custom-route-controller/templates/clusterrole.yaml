@@ -4,11 +4,38 @@ kind: ClusterRole
 metadata:
   name: extensions.gardener.cloud:provider-aws:aws-custom-route-controller
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - get
-  - list
-  - watch
+  # Node permissions - required for watching nodes and updating node conditions
+  - apiGroups:
+    - ""
+    resources:
+    - nodes
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - ""
+    resources:
+    - nodes/status
+    verbs:
+    - get
+    - patch
+    - update
+  
+  # Event permissions - required for creating events for monitoring and debugging
+  - apiGroups:
+    - ""
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+  - apiGroups:
+    - events.k8s.io
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
