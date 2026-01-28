@@ -666,6 +666,20 @@ int64
 <p>ThreadsPerCore sets the number of threads per core. Must be either &lsquo;1&rsquo; (disable multi-threading) or &lsquo;2&rsquo;.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>amdSevSnp</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AmdSevSnp indicates whether AMD SEV-SNP is enabled.
+Currently, this option is only supported on M6a, R6a, and C6a instance types.
+Valid options are &ldquo;enabled&rdquo; and &ldquo;disabled&rdquo;.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.DataVolume">DataVolume
