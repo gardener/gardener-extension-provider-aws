@@ -471,7 +471,27 @@ var _ = Describe("Secret validation", func() {
 			})
 
 			Context("with mixed keys", func() {
-				It("should fail when both standard and DNS alias keys are present for accessKeyID", func() {
+				It("should pass when mixing standard accessKeyID with DNS secretAccessKey", func() {
+					secret.Data = map[string][]byte{
+						aws.AccessKeyID:        []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should pass when mixing DNS accessKeyID with standard secretAccessKey", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:  []byte(validAccessKeyID),
+						aws.SecretAccessKey: []byte(validSecretAccessKey),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should fail when both standard and DNS accessKeyID are present", func() {
 					secret.Data = map[string][]byte{
 						aws.AccessKeyID:     []byte(validAccessKeyID),
 						aws.DNSAccessKeyID:  []byte(validAccessKeyID),
@@ -480,12 +500,11 @@ var _ = Describe("Secret validation", func() {
 
 					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeForbidden),
-						"Field": Equal("secret.data[AWS_ACCESS_KEY_ID]"),
+						"Type": Equal(field.ErrorTypeInvalid),
 					}))))
 				})
 
-				It("should fail when both standard and DNS alias keys are present for secretAccessKey", func() {
+				It("should fail when both standard and DNS secretAccessKey are present", func() {
 					secret.Data = map[string][]byte{
 						aws.AccessKeyID:        []byte(validAccessKeyID),
 						aws.SecretAccessKey:    []byte(validSecretAccessKey),
@@ -494,25 +513,11 @@ var _ = Describe("Secret validation", func() {
 
 					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeForbidden),
-						"Field": Equal("secret.data[AWS_SECRET_ACCESS_KEY]"),
+						"Type": Equal(field.ErrorTypeInvalid),
 					}))))
 				})
 
-				It("should fail when mixing one standard key with one DNS alias key", func() {
-					secret.Data = map[string][]byte{
-						aws.AccessKeyID:        []byte(validAccessKeyID),
-						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
-					}
-
-					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
-					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeForbidden),
-						"Field": Equal("secret.data[AWS_SECRET_ACCESS_KEY]"),
-					}))))
-				})
-
-				It("should fail when all four keys are present", func() {
+				It("should fail when all four credential keys are present", func() {
 					secret.Data = map[string][]byte{
 						aws.AccessKeyID:        []byte(validAccessKeyID),
 						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
@@ -522,13 +527,168 @@ var _ = Describe("Secret validation", func() {
 
 					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
 					Expect(errs).To(Not(BeEmpty()))
+					Expect(errs).To(HaveLen(2)) // Two duplicate errors
+				})
+			})
+
+			Context("with region field", func() {
+				It("should pass with valid AWS_REGION", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte("us-east-1"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should pass with valid region using camelCase key", func() {
+					secret.Data = map[string][]byte{
+						aws.AccessKeyID:     []byte(validAccessKeyID),
+						aws.SecretAccessKey: []byte(validSecretAccessKey),
+						aws.Region:          []byte("eu-west-2"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should pass with valid GovCloud region", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte("us-gov-west-1"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should pass with valid multi-zone region", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte("ap-southeast-3"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should pass with valid EU sovereign cloud region", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte("eusc-de-east-1"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should pass when region field is empty", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte(""),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should pass when region field is missing", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(BeEmpty())
+				})
+
+				It("should fail when region format is invalid", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte("invalid-region"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeForbidden),
-						"Field": Equal("secret.data[AWS_ACCESS_KEY_ID]"),
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("secret.data[AWS_REGION]"),
 					}))))
+				})
+
+				It("should fail when region has uppercase characters", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte("US-EAST-1"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
 					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeForbidden),
-						"Field": Equal("secret.data[AWS_SECRET_ACCESS_KEY]"),
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("secret.data[AWS_REGION]"),
+					}))))
+				})
+
+				It("should fail when region is too long", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte("us-extremely-long-region-name-that-exceeds-limit-1"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("secret.data[AWS_REGION]"),
+					}))))
+				})
+
+				It("should fail when region contains invalid characters", func() {
+					secret.Data = map[string][]byte{
+						aws.DNSAccessKeyID:     []byte(validAccessKeyID),
+						aws.DNSSecretAccessKey: []byte(validSecretAccessKey),
+						aws.DNSRegion:          []byte("us_east_1"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("secret.data[AWS_REGION]"),
+					}))))
+				})
+
+				It("should fail when region using camelCase key is invalid", func() {
+					secret.Data = map[string][]byte{
+						aws.AccessKeyID:     []byte(validAccessKeyID),
+						aws.SecretAccessKey: []byte(validSecretAccessKey),
+						aws.Region:          []byte("invalid_region"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":  Equal(field.ErrorTypeInvalid),
+						"Field": Equal("secret.data[region]"),
+					}))))
+				})
+
+				It("should fail when both region keys are present", func() {
+					secret.Data = map[string][]byte{
+						aws.AccessKeyID:     []byte(validAccessKeyID),
+						aws.SecretAccessKey: []byte(validSecretAccessKey),
+						aws.Region:          []byte("us-east-1"),
+						aws.DNSRegion:       []byte("us-west-2"),
+					}
+
+					errs := ValidateCloudProviderSecret(secret, fldPath, SecretKindDns)
+					Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type": Equal(field.ErrorTypeInvalid),
 					}))))
 				})
 			})

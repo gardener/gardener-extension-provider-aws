@@ -7,7 +7,6 @@ package validation
 import (
 	"fmt"
 
-	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -30,60 +29,81 @@ var supportedSecretKinds = []string{
 	string(SecretKindDns),
 }
 
-// ValidateCloudProviderSecret checks whether the given secret contains valid AWS access keys.
+// ValidateCloudProviderSecret checks whether the given secret contains valid AWS credentials
 func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kind SecretKind) field.ErrorList {
 	allErrs := field.ErrorList{}
 	dataPath := fldPath.Child("data")
 	secretRef := fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)
 
-	var accessKeyIDKey, secretAccessKeyKey string
-	var accessKeyID, secretAccessKey []byte
-	var accessKeyIDExists, secretAccessKeyExists bool
+	var accessKeyIDKey, secretAccessKeyKey, regionKey string
+	var accessKeyID, secretAccessKey, region []byte
+	var accessKeyIDExists, secretAccessKeyExists, regionExists bool
+
+	// Check for duplicate keys (both standard and DNS-specific for the same field)
+	_, hasStandardAccessKey := secret.Data[aws.AccessKeyID]
+	_, hasDNSAccessKey := secret.Data[aws.DNSAccessKeyID]
+	_, hasStandardSecretKey := secret.Data[aws.SecretAccessKey]
+	_, hasDNSSecretKey := secret.Data[aws.DNSSecretAccessKey]
+
+	if hasStandardAccessKey && hasDNSAccessKey {
+		allErrs = append(allErrs, field.Invalid(dataPath, "(multiple keys)",
+			fmt.Sprintf("cannot have both %q and %q in secret %s", aws.AccessKeyID, aws.DNSAccessKeyID, secretRef)))
+	}
+
+	if hasStandardSecretKey && hasDNSSecretKey {
+		allErrs = append(allErrs, field.Invalid(dataPath, "(multiple keys)",
+			fmt.Sprintf("cannot have both %q and %q in secret %s", aws.SecretAccessKey, aws.DNSSecretAccessKey, secretRef)))
+	}
+
+	// Check for DNS-specific keys first, then fall back to standard keys
+	accessKeyID, accessKeyIDExists = secret.Data[aws.DNSAccessKeyID]
+	if accessKeyIDExists {
+		accessKeyIDKey = aws.DNSAccessKeyID
+	} else {
+		accessKeyID, accessKeyIDExists = secret.Data[aws.AccessKeyID]
+		accessKeyIDKey = aws.AccessKeyID
+	}
+
+	secretAccessKey, secretAccessKeyExists = secret.Data[aws.DNSSecretAccessKey]
+	if secretAccessKeyExists {
+		secretAccessKeyKey = aws.DNSSecretAccessKey
+	} else {
+		secretAccessKey, secretAccessKeyExists = secret.Data[aws.SecretAccessKey]
+		secretAccessKeyKey = aws.SecretAccessKey
+	}
 
 	switch kind {
 	case SecretKindInfrastructure:
-		accessKeyIDKey = aws.AccessKeyID
-		secretAccessKeyKey = aws.SecretAccessKey
-		accessKeyID, accessKeyIDExists = secret.Data[accessKeyIDKey]
-		secretAccessKey, secretAccessKeyExists = secret.Data[secretAccessKeyKey]
-
-		// Validate no unexpected keys exist
+		// Allow both standard and DNS-specific keys
 		allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-			aws.AccessKeyID, aws.SecretAccessKey, aws.Region,
-			aws.SharedCredentialsFile, securityv1alpha1constants.DataKeyConfig,
-			aws.RoleARN, aws.WorkloadIdentityTokenFileKey)...)
+			aws.AccessKeyID, aws.SecretAccessKey,
+			aws.DNSAccessKeyID, aws.DNSSecretAccessKey)...)
 
 	case SecretKindDns:
-		// For DNS secrets, check for DNS-specific key aliases first, then fall back to
-		// standard infrastructure keys
-		accessKeyID, accessKeyIDExists = secret.Data[aws.DNSAccessKeyID]
-		if accessKeyIDExists {
-			accessKeyIDKey = aws.DNSAccessKeyID
-		} else {
-			accessKeyID, accessKeyIDExists = secret.Data[aws.AccessKeyID]
-			accessKeyIDKey = aws.AccessKeyID
+		// Check for duplicate region keys
+		_, hasStandardRegion := secret.Data[aws.Region]
+		_, hasDNSRegion := secret.Data[aws.DNSRegion]
+
+		if hasStandardRegion && hasDNSRegion {
+			allErrs = append(allErrs, field.Invalid(dataPath, "(multiple keys)",
+				fmt.Sprintf("cannot have both %q and %q in secret %s", aws.Region, aws.DNSRegion, secretRef)))
 		}
 
-		secretAccessKey, secretAccessKeyExists = secret.Data[aws.DNSSecretAccessKey]
-		if secretAccessKeyExists {
-			secretAccessKeyKey = aws.DNSSecretAccessKey
+		// Allow both standard and DNS-specific keys
+		allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
+			aws.AccessKeyID, aws.SecretAccessKey, aws.Region,
+			aws.DNSAccessKeyID, aws.DNSSecretAccessKey, aws.DNSRegion)...)
+
+		region, regionExists = secret.Data[aws.DNSRegion]
+		if regionExists {
+			regionKey = aws.DNSRegion
 		} else {
-			secretAccessKey, secretAccessKeyExists = secret.Data[aws.SecretAccessKey]
-			secretAccessKeyKey = aws.SecretAccessKey
+			region, regionExists = secret.Data[aws.Region]
+			regionKey = aws.Region
 		}
 
-		// Validate no unexpected keys exist
-		// For DNS, we allow either the standard infrastructure keys or the DNS-specific alias keys, but not a mix
-		// Prefer standard keys if any are present
-		_, hasStandardAccessKey := secret.Data[aws.AccessKeyID]
-		_, hasStandardSecretKey := secret.Data[aws.SecretAccessKey]
-
-		if hasStandardAccessKey || hasStandardSecretKey {
-			allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-				aws.AccessKeyID, aws.SecretAccessKey, aws.Region)...)
-		} else {
-			allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-				aws.DNSAccessKeyID, aws.DNSSecretAccessKey, aws.DNSRegion)...)
+		if regionExists && len(region) > 0 {
+			allErrs = append(allErrs, validateRegion(string(region), dataPath.Key(regionKey))...)
 		}
 
 	default:
