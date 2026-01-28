@@ -417,11 +417,14 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, object
 	// Handle bucket policy IAM ARN for different partitions (AWS region groups)
 	// Different available partitions in AWS are defined at
 	// https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
+	// https://github.com/aws/aws-sdk-go-v2/blob/main/internal/endpoints/awsrulesfn/partitions.json
 	arnPartition := "aws"
 	if strings.HasPrefix(region, "cn-") {
 		arnPartition = "aws-cn" // China regions
 	} else if strings.HasPrefix(region, "us-gov-") {
 		arnPartition = "aws-us-gov" // AWS GovCloud (US) regions
+	} else if strings.HasPrefix(region, "eusc-") { // e.g. "eusc-de-east-1"
+		arnPartition = "aws-eusc" // AWS EUSC region
 	}
 
 	// Set bucket policy to deny non-HTTPS requests
