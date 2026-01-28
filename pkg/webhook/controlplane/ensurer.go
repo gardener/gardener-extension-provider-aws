@@ -16,6 +16,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/coreos/go-systemd/v22/unit"
+	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gcontext "github.com/gardener/gardener/extensions/pkg/webhook/context"
 	"github.com/gardener/gardener/extensions/pkg/webhook/controlplane/genericmutator"
@@ -152,7 +153,7 @@ func (e *ensurer) EnsureKubeAPIServerDeployment(ctx context.Context, gctx gconte
 	}
 
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-apiserver"); c != nil {
-		ensureKubeAPIServerCommandLineArgs(c, k8sVersion)
+		ensureKubeAPIServerCommandLineArgs(c, k8sVersion, cluster)
 		ensureEnvVars(c)
 	}
 
@@ -182,7 +183,7 @@ func (e *ensurer) EnsureKubeControllerManagerDeployment(ctx context.Context, gct
 		allocateNodeCIDRs = false
 	}
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-controller-manager"); c != nil {
-		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion, allocateNodeCIDRs)
+		ensureKubeControllerManagerCommandLineArgs(c, k8sVersion, allocateNodeCIDRs, cluster)
 		ensureEnvVars(c)
 		ensureKubeControllerManagerVolumeMounts(c)
 	}
@@ -208,7 +209,7 @@ func (e *ensurer) EnsureKubeSchedulerDeployment(ctx context.Context, gctx gconte
 	}
 
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "kube-scheduler"); c != nil {
-		ensureKubeSchedulerCommandLineArgs(c, k8sVersion)
+		ensureKubeSchedulerCommandLineArgs(c, k8sVersion, cluster)
 	}
 	return nil
 }
@@ -229,12 +230,12 @@ func (e *ensurer) EnsureClusterAutoscalerDeployment(ctx context.Context, gctx gc
 	}
 
 	if c := extensionswebhook.ContainerWithName(ps.Containers, "cluster-autoscaler"); c != nil {
-		ensureClusterAutoscalerCommandLineArgs(c, k8sVersion)
+		ensureClusterAutoscalerCommandLineArgs(c, k8sVersion, cluster)
 	}
 	return nil
 }
 
-func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
+func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version, cluster *extensionscontroller.Cluster) {
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
@@ -248,9 +249,18 @@ func ensureKubeAPIServerCommandLineArgs(c *corev1.Container, k8sVersion *semver.
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--disable-admission-plugins=",
 			"PersistentVolumeLabel", ",")
 	}
+
+	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) &&
+		versionutils.ConstraintK8sLess134.Check(k8sVersion) &&
+		aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
+		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
+			"VolumeAttributesClass=true", ",")
+		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--runtime-config=",
+			"storage.k8s.io/v1beta1=true", ",")
+	}
 }
 
-func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version, allocateNodeCIDRs bool) {
+func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version, allocateNodeCIDRs bool, cluster *extensionscontroller.Cluster) {
 	c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--cloud-provider=", "external")
 
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
@@ -264,19 +274,40 @@ func ensureKubeControllerManagerCommandLineArgs(c *corev1.Container, k8sVersion 
 	// allocate-node-cidrs is a boolean flag and could be enabled by name without an explicit value passed. Therefore, we delete all prefixes (without including "=" in the prefix)
 	c.Command = extensionswebhook.EnsureNoStringWithPrefix(c.Command, "--allocate-node-cidrs")
 	c.Command = extensionswebhook.EnsureStringWithPrefix(c.Command, "--allocate-node-cidrs=", strconv.FormatBool(allocateNodeCIDRs))
+
+	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) &&
+		versionutils.ConstraintK8sLess134.Check(k8sVersion) &&
+		aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
+		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
+			"VolumeAttributesClass=true", ",")
+	}
 }
 
-func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
+func ensureKubeSchedulerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version, cluster *extensionscontroller.Cluster) {
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
 	}
+
+	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) &&
+		versionutils.ConstraintK8sLess134.Check(k8sVersion) &&
+		aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
+		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
+			"VolumeAttributesClass=true", ",")
+	}
 }
 
-func ensureClusterAutoscalerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version) {
+func ensureClusterAutoscalerCommandLineArgs(c *corev1.Container, k8sVersion *semver.Version, cluster *extensionscontroller.Cluster) {
 	if versionutils.ConstraintK8sLess131.Check(k8sVersion) {
 		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
 			"InTreePluginAWSUnregister=true", ",")
+	}
+
+	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) &&
+		versionutils.ConstraintK8sLess134.Check(k8sVersion) &&
+		aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
+		c.Command = extensionswebhook.EnsureStringWithPrefixContains(c.Command, "--feature-gates=",
+			"VolumeAttributesClass=true", ",")
 	}
 }
 

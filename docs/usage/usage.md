@@ -898,7 +898,7 @@ You can enable this option for your shoot by annotating it with `aws.provider.ex
 
 ### Support for VolumeAttributesClasses (Beta in k8s 1.31)
 
-To have the CSI-driver configured to support the necessary features for [VolumeAttributesClasses](https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/) on AWS for shoots with a k8s-version of at least 1.31, use the `aws.provider.extensions.gardener.cloud/enable-volume-attributes-class` annotation on the shoot. Keep in mind to also enable the required feature flags and runtime-config on the common kubernetes controllers (as outlined in the link above) in the shoot-spec.
+To have the CSI-driver configured to support the necessary features for [VolumeAttributesClasses](https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/) on AWS for shoots with a k8s-version of at least 1.31, use the `aws.provider.extensions.gardener.cloud/enable-volume-attributes-class=true` annotation on the shoot.
 
 For more information and examples, see [this markdown](https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/modify-volume.md#volume-modification) in the aws-ebs-csi-driver repository. Please take special note of the considerations mentioned.
 
