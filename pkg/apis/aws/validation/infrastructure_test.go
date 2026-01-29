@@ -41,6 +41,8 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			Workers:  "10.250.6.0/24",
 		}
 		familyIPv4 = []core.IPFamily{core.IPFamilyIPv4}
+		familyIPv6 = []core.IPFamily{core.IPFamilyIPv6}
+		familyDual = []core.IPFamily{core.IPFamilyIPv4, core.IPFamilyIPv6}
 	)
 
 	BeforeEach(func() {
@@ -486,6 +488,29 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				}
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).NotTo(BeEmpty())
+			})
+		})
+
+		// TODO: @hebelsan remove once provider aws supports EFS for IPv6 only clusters
+		Context("elasticFileSystem", func() {
+			It("should allow enabling elasticFileSystem in IPv6 and dualstack clusters", func() {
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{Enabled: true}
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{Enabled: true}
+				errorList = ValidateInfrastructureConfig(infrastructureConfig, familyDual, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should forbid enabling elasticFileSystem in IPv6 only cluster", func() {
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{Enabled: true}
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv6, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("elasticFileSystem"),
+					"Detail": Equal("elasticFileSystem cannot be enabled for IPv6 only clusters"),
+				}))
 			})
 		})
 	})

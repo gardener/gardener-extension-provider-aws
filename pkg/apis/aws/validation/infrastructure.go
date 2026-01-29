@@ -172,6 +172,12 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 
 	allErrs = append(allErrs, ValidateIgnoreTags(field.NewPath("ignoreTags"), infra.IgnoreTags)...)
 
+	// TODO: @hebelsan remove once provider aws supports EFS for IPv6 only clusters
+	if core.IsIPv6SingleStack(ipFamilies) && infra.ElasticFileSystem != nil && infra.ElasticFileSystem.Enabled {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("elasticFileSystem"),
+			infra.ElasticFileSystem, "elasticFileSystem cannot be enabled for IPv6 only clusters"))
+	}
+
 	return allErrs
 }
 
