@@ -851,8 +851,9 @@ func getControlPlaneShootChartValues(
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
+	networkingConfig := cluster.Shoot.Spec.Networking
 	ipamControllerEnabled := false
-	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil &&
+	if networkingConfig != nil &&
 		(slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) ||
 			utils.HasIPv6NodeCIDR(cluster)) {
 		ipamControllerEnabled = true
@@ -881,13 +882,15 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
+	isIPv6SingleStack := networkingConfig != nil && v1beta1.IsIPv6SingleStack(networkingConfig.IPFamilies)
+
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
 		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
 		aws.AWSIPAMControllerImageName:    map[string]interface{}{"enabled": ipamControllerEnabled},
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
-		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
+		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus, isIPv6SingleStack),
 	}, nil
 }
 
@@ -907,6 +910,7 @@ func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
 func getControlPlaneShootChartCSIEfsValues(
 	infraConfig *apisaws.InfrastructureConfig,
 	infraStatus *apisaws.InfrastructureStatus,
+	isIPv6SingleStack bool,
 ) map[string]interface{} {
 	csiEfsEnabled := isCSIEfsEnabled(infraConfig)
 	values := map[string]interface{}{
@@ -915,6 +919,13 @@ func getControlPlaneShootChartCSIEfsValues(
 
 	if csiEfsEnabled {
 		values["fileSystemID"] = infraStatus.ElasticFileSystem.ID
+		imdsEndpointMode := "ipv4"
+		if isIPv6SingleStack {
+			imdsEndpointMode = "ipv6"
+		}
+		values["controller"] = map[string]interface{}{
+			"imdsEndpointMode": imdsEndpointMode,
+		}
 	}
 
 	return values
