@@ -56,6 +56,8 @@ spec:
             - --v={{ .Values.controller.logLevel }}
             - --delete-access-point-root-dir={{ .Values.controller.deleteAccessPointRootDir }}
           env:
+            - name: AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE
+              value: {{ .Values.controller.imdsEndpointMode }}
             - name: CSI_ENDPOINT
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
             - name: CSI_NODE_NAME
