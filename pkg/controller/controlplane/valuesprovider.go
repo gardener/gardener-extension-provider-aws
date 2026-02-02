@@ -45,6 +45,7 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/utils"
 )
 
@@ -852,12 +853,8 @@ func getControlPlaneShootChartValues(
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
 	networkingConfig := cluster.Shoot.Spec.Networking
-	ipamControllerEnabled := false
-	if networkingConfig != nil &&
-		(slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) ||
-			utils.HasIPv6NodeCIDR(cluster)) {
-		ipamControllerEnabled = true
-	}
+	ipamControllerEnabled := networkingConfig != nil &&
+		(infraflow.ContainsIPv6(networkingConfig.IPFamilies) || utils.HasIPv6NodeCIDR(cluster))
 
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           true,
