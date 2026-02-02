@@ -183,7 +183,8 @@ func deref[T any](ts []*T) []T {
 	return res
 }
 
-func containsIPv6(ipFamilies []gardencorev1beta1.IPFamily) bool {
+// ContainsIPv6 returns true if the given ipFamilies contains IPv6.
+func ContainsIPv6(ipFamilies []gardencorev1beta1.IPFamily) bool {
 	return slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6)
 }
 

@@ -42,6 +42,7 @@ machineClasses:
 #    httpEndpoint: "disabled"
 #    httpTokens: "required"
 #    httpPutResponseHopLimit: 2
+#    httpProtocolIpv6: "enabled"
 #  cpuOptions:
 #    coreCount: 2 # default for m4.xlarge
 #    threadsPerCore: 2 # default for m4.xlarge
