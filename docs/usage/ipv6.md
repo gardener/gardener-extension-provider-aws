@@ -194,3 +194,9 @@ A mutating webhook will automatically add the required annotations. To disable t
 > When accessing external Network Load Balancers (NLB) from within the same cluster via IPv6 or internal NLBs via IPv4, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
 > Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical.
 > This situation, known as the hair-pinning effect, will prevent the request from being processed.
+
+### Dual-Stack Service Health Checks
+
+For services where the `.spec.ipFamilies` field contains `IPv6`, the AWS Load Balancer Controller will create IPv6 target groups, and the target groups will perform health checks via IPv6.
+
+Therefore, workload pods backing such a service must be capable of handling health check requests via IPv6. Ensure that your application is properly configured to listen on and respond to health check traffic over IPv6 addresses.
