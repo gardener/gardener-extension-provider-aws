@@ -232,7 +232,9 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 
 	if current != nil {
 		c.state.Set(IdentifierVPC, current.VpcId)
-		c.state.Set(IdentifierVpcIPv6CidrBlock, current.IPv6CidrBlock)
+		if current.IPv6CidrBlock != "" {
+			c.state.Set(IdentifierVpcIPv6CidrBlock, current.IPv6CidrBlock)
+		}
 		_, err := c.updater.UpdateVpc(ctx, desired, current)
 		if err != nil {
 			return err
