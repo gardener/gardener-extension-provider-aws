@@ -234,6 +234,11 @@ func (s *shoot) validateDNS(ctx context.Context, shoot *core.Shoot) field.ErrorL
 			continue
 		}
 
+		// Check if this is the primary provider
+		if p.Primary == nil || !*p.Primary {
+			continue // Skip non-primary providers
+		}
+
 		providerFldPath := dnsProvidersPath.Index(i)
 
 		if p.SecretName == nil || *p.SecretName == "" {
