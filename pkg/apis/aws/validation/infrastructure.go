@@ -204,10 +204,10 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 
 	for i, oldZone := range oldZones {
 		idxPath := field.NewPath("networks.zones").Index(i)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Name, newConfig.Networks.Zones[i].Name, idxPath.Child("name"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Public, newConfig.Networks.Zones[i].Public, idxPath.Child("public"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Internal, newConfig.Networks.Zones[i].Internal, idxPath.Child("internal"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldZone.Workers, newConfig.Networks.Zones[i].Workers, idxPath.Child("workers"))...)
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Name, oldZone.Name, idxPath.Child("name"))...)
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Public, oldZone.Public, idxPath.Child("public"))...)
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Internal, oldZone.Internal, idxPath.Child("internal"))...)
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Workers, oldZone.Workers, idxPath.Child("workers"))...)
 	}
 	if oldConfig.DualStack != nil && oldConfig.DualStack.Enabled && (newConfig.DualStack == nil || !newConfig.DualStack.Enabled) {
 		dualStackPath := field.NewPath("dualStack.enabled")
