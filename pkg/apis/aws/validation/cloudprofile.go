@@ -84,11 +84,23 @@ func validateMachineImageVersion(providerImage apisaws.MachineImages, capability
 		allErrs = append(allErrs, field.Required(jdxPath.Child("version"), "must provide a version"))
 	}
 
+	hasRegions := len(version.Regions) > 0
+	hasCapabilityFlavors := len(version.CapabilityFlavors) > 0
+
 	if len(capabilityDefinitions) > 0 {
-		allErrs = append(allErrs, validateCapabilityFlavors(providerImage, version, capabilityDefinitions, jdxPath)...)
+		// When CloudProfile defines capabilities, allow either old format (regions) or new format (capabilityFlavors) per version
+		if hasRegions && hasCapabilityFlavors {
+			allErrs = append(allErrs, field.Forbidden(jdxPath.Child("regions"), "must not be set together with capabilityFlavors. Use one format per version."))
+		} else if hasCapabilityFlavors {
+			allErrs = append(allErrs, validateCapabilityFlavors(providerImage, version, capabilityDefinitions, jdxPath)...)
+		} else {
+			// Using old format with regions - validate regions without architecture restriction (architecture is validated separately)
+			allErrs = append(allErrs, validateRegionsWithCapabilities(version.Regions, providerImage.Name, version.Version, jdxPath)...)
+		}
 	} else {
+		// Without capabilities, only old format with regions is supported
 		allErrs = append(allErrs, validateRegions(version.Regions, providerImage.Name, version.Version, capabilityDefinitions, jdxPath)...)
-		if len(version.CapabilityFlavors) > 0 {
+		if hasCapabilityFlavors {
 			allErrs = append(allErrs, field.Forbidden(jdxPath.Child("capabilityFlavors"), "must not be set as CloudProfile does not define capabilities. Use regions instead."))
 		}
 	}
@@ -99,16 +111,37 @@ func validateMachineImageVersion(providerImage apisaws.MachineImages, capability
 func validateCapabilityFlavors(providerImage apisaws.MachineImages, version apisaws.MachineImageVersion, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, jdxPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	// When using capabilities, regions must not be set
-	if len(version.Regions) > 0 {
-		allErrs = append(allErrs, field.Forbidden(jdxPath.Child("regions"), "must not be set as CloudProfile defines capabilities. Use capabilityFlavors.regions instead."))
-	}
-
 	// Validate each flavor's capabilities and regions
 	for k, capabilitySet := range version.CapabilityFlavors {
 		kdxPath := jdxPath.Child("capabilityFlavors").Index(k)
 		allErrs = append(allErrs, gutil.ValidateCapabilities(capabilitySet.Capabilities, capabilityDefinitions, kdxPath.Child("capabilities"))...)
 		allErrs = append(allErrs, validateRegions(capabilitySet.Regions, providerImage.Name, version.Version, capabilityDefinitions, kdxPath)...)
+	}
+	return allErrs
+}
+
+// validateRegionsWithCapabilities validates regions when using old format with capabilities CloudProfile.
+// This allows architecture field in regions since it will be converted to capability flavors.
+func validateRegionsWithCapabilities(regions []apisaws.RegionAMIMapping, name, version string, jdxPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if len(regions) == 0 {
+		return append(allErrs, field.Required(jdxPath.Child("regions"), fmt.Sprintf("must provide at least one region for machine image %q and version %q", name, version)))
+	}
+
+	for k, region := range regions {
+		kdxPath := jdxPath.Child("regions").Index(k)
+		arch := ptr.Deref(region.Architecture, v1beta1constants.ArchitectureAMD64)
+
+		if len(region.Name) == 0 {
+			allErrs = append(allErrs, field.Required(kdxPath.Child("name"), "must provide a name"))
+		}
+		if len(region.AMI) == 0 {
+			allErrs = append(allErrs, field.Required(kdxPath.Child("ami"), "must provide an ami"))
+		}
+		// Validate architecture is valid since it will be used for capability mapping
+		if !slices.Contains(v1beta1constants.ValidArchitectures, arch) {
+			allErrs = append(allErrs, field.NotSupported(kdxPath.Child("architecture"), arch, v1beta1constants.ValidArchitectures))
+		}
 	}
 	return allErrs
 }
@@ -229,6 +262,7 @@ func validateMachineImageVersionMapping(machineImage core.MachineImage, machineI
 }
 
 // validateImageFlavorMapping validates that each flavor in a version has a corresponding mapping
+// This function handles both the new format (capabilityFlavors) and old format (regions with architecture)
 func validateImageFlavorMapping(machineImage core.MachineImage, version core.MachineImageVersion, machineImageVersionPath *field.Path, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, imageVersion apisaws.MachineImageVersion) field.ErrorList {
 	allErrs := field.ErrorList{}
 
@@ -238,17 +272,46 @@ func validateImageFlavorMapping(machineImage core.MachineImage, version core.Mac
 	}
 
 	defaultedCapabilityFlavors := gardencorev1beta1helper.GetImageFlavorsWithAppliedDefaults(v1beta1Version.CapabilityFlavors, capabilityDefinitions)
-	for idxCapability, defaultedCapabilitySet := range defaultedCapabilityFlavors {
-		isFound := false
-		// search for the corresponding imageVersion.MachineImageFlavor
-		for _, providerCapabilitySet := range imageVersion.CapabilityFlavors {
-			providerDefaultedCapabilities := gardencorev1beta1.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilityDefinitions)
-			if gardencorev1beta1helper.AreCapabilitiesEqual(defaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
-				isFound = true
-				break
+
+	// Check if provider uses old format (regions with architecture) or new format (capabilityFlavors)
+	if len(imageVersion.CapabilityFlavors) > 0 {
+		// New format: validate against capabilityFlavors
+		for idxCapability, defaultedCapabilitySet := range defaultedCapabilityFlavors {
+			isFound := false
+			// search for the corresponding imageVersion.MachineImageFlavor
+			for _, providerCapabilitySet := range imageVersion.CapabilityFlavors {
+				providerDefaultedCapabilities := gardencorev1beta1.GetCapabilitiesWithAppliedDefaults(providerCapabilitySet.Capabilities, capabilityDefinitions)
+				if gardencorev1beta1helper.AreCapabilitiesEqual(defaultedCapabilitySet.Capabilities, providerDefaultedCapabilities) {
+					isFound = true
+					break
+				}
+			}
+			if !isFound {
+				allErrs = append(allErrs, field.Required(machineImageVersionPath.Child("capabilityFlavors").Index(idxCapability),
+					fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and capabilitySet %v", machineImage.Name, version.Version, defaultedCapabilitySet.Capabilities)))
 			}
 		}
-		if !isFound {
+	} else if len(imageVersion.Regions) > 0 {
+		// Old format: validate against regions with architecture
+		// Collect architectures from regions
+		architecturesMap := utils.CreateMapFromSlice(imageVersion.Regions, func(re apisaws.RegionAMIMapping) string {
+			return ptr.Deref(re.Architecture, v1beta1constants.ArchitectureAMD64)
+		})
+		availableArchitectures := slices.Collect(maps.Keys(architecturesMap))
+
+		// For each expected capability flavor, check if the architecture capability is available in regions
+		for idxCapability, defaultedCapabilitySet := range defaultedCapabilityFlavors {
+			expectedArchitectures := defaultedCapabilitySet.Capabilities[v1beta1constants.ArchitectureName]
+			for _, expectedArch := range expectedArchitectures {
+				if !slices.Contains(availableArchitectures, expectedArch) {
+					allErrs = append(allErrs, field.Required(machineImageVersionPath.Child("capabilityFlavors").Index(idxCapability),
+						fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and architecture: %s", machineImage.Name, version.Version, expectedArch)))
+				}
+			}
+		}
+	} else {
+		// No regions or capabilityFlavors - this is already validated elsewhere
+		for idxCapability, defaultedCapabilitySet := range defaultedCapabilityFlavors {
 			allErrs = append(allErrs, field.Required(machineImageVersionPath.Child("capabilityFlavors").Index(idxCapability),
 				fmt.Sprintf("missing providerConfig mapping for machine image version %s@%s and capabilitySet %v", machineImage.Name, version.Version, defaultedCapabilitySet.Capabilities)))
 		}
