@@ -618,7 +618,7 @@ var _ = Describe("Shoot validator", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.DNS = &core.DNS{
 					Providers: []core.DNSProvider{
-						{Type: ptr.To(aws.DNSType)}, // secretName missing
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(true)}, // secretName missing
 					},
 				}
 
@@ -633,7 +633,7 @@ var _ = Describe("Shoot validator", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.DNS = &core.DNS{
 					Providers: []core.DNSProvider{
-						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret")},
+						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret"), Primary: ptr.To(true)},
 					},
 				}
 				reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-secret"},
@@ -651,7 +651,7 @@ var _ = Describe("Shoot validator", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.DNS = &core.DNS{
 					Providers: []core.DNSProvider{
-						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret")},
+						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret"), Primary: ptr.To(true)},
 					},
 				}
 				invalidSecret := &corev1.Secret{
@@ -676,7 +676,7 @@ var _ = Describe("Shoot validator", func() {
 				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.DNS = &core.DNS{
 					Providers: []core.DNSProvider{
-						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret")},
+						{Type: ptr.To(aws.DNSType), SecretName: ptr.To("dns-secret"), Primary: ptr.To(true)},
 					},
 				}
 				validSecret := &corev1.Secret{
@@ -690,6 +690,124 @@ var _ = Describe("Shoot validator", func() {
 					&corev1.Secret{}).
 					SetArg(2, *validSecret).
 					Return(nil)
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should skip validation for non-primary aws-dns provider", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(false), SecretName: ptr.To("dns-secret")},
+					},
+				}
+				// No reader.EXPECT() call - secret should not be fetched for non-primary provider
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should skip validation for aws-dns provider with Primary=nil", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType), Primary: nil, SecretName: ptr.To("dns-secret")},
+					},
+				}
+				// No reader.EXPECT() call - secret should not be fetched when Primary is nil
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should validate only primary provider when multiple aws-dns providers exist", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(false), SecretName: ptr.To("non-primary-secret")},
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(true), SecretName: ptr.To("primary-secret")},
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(false), SecretName: ptr.To("another-non-primary")},
+					},
+				}
+				// Only the primary secret should be validated
+				validSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "primary-secret", Namespace: namespace},
+					Data: map[string][]byte{
+						aws.DNSAccessKeyID:     []byte("AKIAIOSFODNN7EXAMPLE"),
+						aws.DNSSecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"),
+					},
+				}
+				reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "primary-secret"},
+					&corev1.Secret{}).
+					SetArg(2, *validSecret).
+					Return(nil)
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should validate primary provider even when mixed with other provider types", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To("cloudflare"), Primary: ptr.To(false), SecretName: ptr.To("cloudflare-secret")},
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(true), SecretName: ptr.To("aws-secret")},
+						{Type: ptr.To("google-clouddns"), Primary: ptr.To(false), SecretName: ptr.To("gcp-secret")},
+					},
+				}
+				validSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "aws-secret", Namespace: namespace},
+					Data: map[string][]byte{
+						aws.DNSAccessKeyID:     []byte("AKIAIOSFODNN7EXAMPLE"),
+						aws.DNSSecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"),
+					},
+				}
+				reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "aws-secret"},
+					&corev1.Secret{}).
+					SetArg(2, *validSecret).
+					Return(nil)
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should return error for invalid primary provider secret among multiple providers", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(false), SecretName: ptr.To("non-primary-secret")},
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(true), SecretName: ptr.To("primary-secret")},
+					},
+				}
+				invalidSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "primary-secret", Namespace: namespace},
+					Data: map[string][]byte{
+						aws.DNSAccessKeyID: []byte("AKIAIOSFODNN7EXAMPLE"),
+						// Missing secretAccessKey
+					},
+				}
+				reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "primary-secret"},
+					&corev1.Secret{}).
+					SetArg(2, *invalidSecret).
+					Return(nil)
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("spec.dns.providers[1].data[secretAccessKey]"),
+				}))))
+			})
+
+			It("should succeed when no aws-dns providers have Primary=true", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+				shoot.Spec.DNS = &core.DNS{
+					Providers: []core.DNSProvider{
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(false), SecretName: ptr.To("secret1")},
+						{Type: ptr.To(aws.DNSType), Primary: ptr.To(false), SecretName: ptr.To("secret2")},
+					},
+				}
+				// No reader.EXPECT() calls - no secrets should be validated
 
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())
