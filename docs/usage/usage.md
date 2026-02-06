@@ -607,6 +607,10 @@ You can find more information regarding the options in the [AWS documentation](h
 `cpuOptions` grants more finegrained control over the worker's CPU configuration. It has two attributes:
 - `coreCount`: Specify a custom amount of cores the instance should be configured with.
 - `threadsPerCore`: How many threads should there be on each core. Set to `1` to disable multi-threading.
+- `amdSevSnp`: Possible values are `enabled` or `disabled`. 
+If set to `enabled`, the instance will be launched with AMD SEV-SNP enabled. 
+Only certain instance types support this feature. 
+For more information, please refer to the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/amd-sev-snp.html).
 
 Note that if you decide to configure `cpuOptions` _both_ these values need to be provided. For a list of valid combinations of these values refer to the [AWS documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cpu-options-supported-instances-values.html).
 

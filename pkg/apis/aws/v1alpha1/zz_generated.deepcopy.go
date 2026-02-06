@@ -189,6 +189,11 @@ func (in *CpuOptions) DeepCopyInto(out *CpuOptions) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.AmdSevSnp != nil {
+		in, out := &in.AmdSevSnp, &out.AmdSevSnp
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
