@@ -21,12 +21,10 @@ type fakeHealthCheck struct {
 	result *healthcheck.SingleCheckResult
 }
 
-// Check implements healthcheck.HealthCheck.
 func (f fakeHealthCheck) Check(context.Context, types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
 	return f.result, nil
 }
 
-// SetLoggerSuffix implements healthcheck.HealthCheck.
 func (f fakeHealthCheck) SetLoggerSuffix(string, string) {
 }
 
