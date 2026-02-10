@@ -42,5 +42,5 @@ func (s *secret) Validate(_ context.Context, newObj, oldObj client.Object) error
 		}
 	}
 
-	return awsvalidation.ValidateCloudProviderSecret(secret, field.NewPath("secret"), awsvalidation.SecretKindInfrastructure).ToAggregate()
+	return awsvalidation.ValidateCloudProviderSecret(secret, field.NewPath("secret")).ToAggregate()
 }
