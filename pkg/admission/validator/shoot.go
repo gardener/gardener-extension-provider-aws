@@ -254,7 +254,7 @@ func (s *shoot) validateDNS(ctx context.Context, shoot *core.Shoot) field.ErrorL
 			continue
 		}
 
-		allErrs = append(allErrs, awsvalidation.ValidateCloudProviderSecret(secret, providerFldPath, awsvalidation.SecretKindDns)...)
+		allErrs = append(allErrs, awsvalidation.ValidateCloudProviderSecret(secret, providerFldPath)...)
 	}
 
 	return allErrs

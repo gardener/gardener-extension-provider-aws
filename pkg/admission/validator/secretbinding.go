@@ -59,5 +59,5 @@ func (sb *secretBinding) Validate(ctx context.Context, newObj, oldObj client.Obj
 		return err
 	}
 
-	return awsvalidation.ValidateCloudProviderSecret(secret, field.NewPath("secret"), awsvalidation.SecretKindInfrastructure).ToAggregate()
+	return awsvalidation.ValidateCloudProviderSecret(secret, field.NewPath("secret")).ToAggregate()
 }
