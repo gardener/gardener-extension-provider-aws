@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -26,6 +27,8 @@ type customRouteControllerHealthCheck struct {
 	logger          logr.Logger
 	deploymentCheck healthcheck.HealthCheck
 }
+
+const maxWarningEventAge = 5 * time.Minute
 
 var _ healthcheck.HealthCheck = &customRouteControllerHealthCheck{}
 
@@ -58,7 +61,7 @@ func (hc *customRouteControllerHealthCheck) checkEvents(ctx context.Context, req
 			newestEvent = event
 		}
 	}
-	if newestEvent != nil && newestEvent.Type == corev1.EventTypeWarning {
+	if newestEvent != nil && newestEvent.Type == corev1.EventTypeWarning && time.Since(newestEvent.LastTimestamp.Time) <= maxWarningEventAge {
 		var codes []gardencorev1beta1.ErrorCode
 		if strings.Contains(newestEvent.Message, "RouteLimitExceeded") {
 			codes = append(codes, gardencorev1beta1.ErrorInfraQuotaExceeded)
