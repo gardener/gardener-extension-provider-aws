@@ -8,7 +8,6 @@ import (
 	"context"
 	"time"
 
-	chealthcheck "github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/go-logr/logr"
@@ -20,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	chealthcheck "github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 )
 
 type fakeHealthCheck struct {
