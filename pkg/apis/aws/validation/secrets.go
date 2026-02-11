@@ -14,127 +14,72 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
-// SecretKind determines whether the secret is of type infrastructure or dns
-type SecretKind string
-
-const (
-	// SecretKindInfrastructure denotes an infrastructure secret referenced e.g. in a credentialsBinding
-	SecretKindInfrastructure SecretKind = "infrastructure"
-	// SecretKindDns denotes a dns secret referenced in the dns section of a shoot spec
-	SecretKindDns SecretKind = "dns"
-)
-
-var supportedSecretKinds = []string{
-	string(SecretKindInfrastructure),
-	string(SecretKindDns),
-}
-
 // ValidateCloudProviderSecret checks whether the given secret contains valid AWS credentials
-func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path, kind SecretKind) field.ErrorList {
+func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	dataPath := fldPath.Child("data")
 	secretRef := fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)
 
-	var accessKeyIDKey, secretAccessKeyKey, regionKey string
-	var accessKeyID, secretAccessKey, region []byte
-	var accessKeyIDExists, secretAccessKeyExists, regionExists bool
+	// Check for duplicate keys
+	allErrs = append(allErrs, validateNoDuplicateKey(secret.Data, dataPath, secretRef, aws.AccessKeyID, aws.DNSAccessKeyID)...)
+	allErrs = append(allErrs, validateNoDuplicateKey(secret.Data, dataPath, secretRef, aws.SecretAccessKey, aws.DNSSecretAccessKey)...)
+	allErrs = append(allErrs, validateNoDuplicateKey(secret.Data, dataPath, secretRef, aws.Region, aws.DNSRegion)...)
 
-	// Check for duplicate keys (both standard and DNS-specific for the same field)
-	_, hasStandardAccessKey := secret.Data[aws.AccessKeyID]
-	_, hasDNSAccessKey := secret.Data[aws.DNSAccessKeyID]
-	_, hasStandardSecretKey := secret.Data[aws.SecretAccessKey]
-	_, hasDNSSecretKey := secret.Data[aws.DNSSecretAccessKey]
+	// Allow all possible keys
+	allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
+		aws.AccessKeyID, aws.SecretAccessKey, aws.Region,
+		aws.DNSAccessKeyID, aws.DNSSecretAccessKey, aws.DNSRegion)...)
 
-	if hasStandardAccessKey && hasDNSAccessKey {
-		allErrs = append(allErrs, field.Invalid(dataPath, "(multiple keys)",
-			fmt.Sprintf("cannot have both %q and %q in secret %s", aws.AccessKeyID, aws.DNSAccessKeyID, secretRef)))
-	}
+	// Validate required credentials
+	accessKeyID, accessKeyIDKey, accessKeyIDExists := getCredential(secret.Data, aws.DNSAccessKeyID, aws.AccessKeyID)
+	allErrs = append(allErrs, validateRequiredCredential(accessKeyIDExists, accessKeyID, accessKeyIDKey, dataPath, secretRef, validateAccessKeyID)...)
 
-	if hasStandardSecretKey && hasDNSSecretKey {
-		allErrs = append(allErrs, field.Invalid(dataPath, "(multiple keys)",
-			fmt.Sprintf("cannot have both %q and %q in secret %s", aws.SecretAccessKey, aws.DNSSecretAccessKey, secretRef)))
-	}
+	secretAccessKey, secretAccessKeyKey, secretAccessKeyExists := getCredential(secret.Data, aws.DNSSecretAccessKey, aws.SecretAccessKey)
+	allErrs = append(allErrs, validateRequiredCredential(secretAccessKeyExists, secretAccessKey, secretAccessKeyKey, dataPath, secretRef, validateSecretAccessKey)...)
 
-	// Check for DNS-specific keys first, then fall back to standard keys
-	accessKeyID, accessKeyIDExists = secret.Data[aws.DNSAccessKeyID]
-	if accessKeyIDExists {
-		accessKeyIDKey = aws.DNSAccessKeyID
-	} else {
-		accessKeyID, accessKeyIDExists = secret.Data[aws.AccessKeyID]
-		accessKeyIDKey = aws.AccessKeyID
-	}
-
-	secretAccessKey, secretAccessKeyExists = secret.Data[aws.DNSSecretAccessKey]
-	if secretAccessKeyExists {
-		secretAccessKeyKey = aws.DNSSecretAccessKey
-	} else {
-		secretAccessKey, secretAccessKeyExists = secret.Data[aws.SecretAccessKey]
-		secretAccessKeyKey = aws.SecretAccessKey
-	}
-
-	switch kind {
-	case SecretKindInfrastructure:
-		// Allow both standard and DNS-specific keys
-		allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-			aws.AccessKeyID, aws.SecretAccessKey,
-			aws.DNSAccessKeyID, aws.DNSSecretAccessKey)...)
-
-	case SecretKindDns:
-		// Check for duplicate region keys
-		_, hasStandardRegion := secret.Data[aws.Region]
-		_, hasDNSRegion := secret.Data[aws.DNSRegion]
-
-		if hasStandardRegion && hasDNSRegion {
-			allErrs = append(allErrs, field.Invalid(dataPath, "(multiple keys)",
-				fmt.Sprintf("cannot have both %q and %q in secret %s", aws.Region, aws.DNSRegion, secretRef)))
-		}
-
-		// Allow both standard and DNS-specific keys
-		allErrs = append(allErrs, validateNoUnexpectedKeys(secret.Data, dataPath, secretRef,
-			aws.AccessKeyID, aws.SecretAccessKey, aws.Region,
-			aws.DNSAccessKeyID, aws.DNSSecretAccessKey, aws.DNSRegion)...)
-
-		region, regionExists = secret.Data[aws.DNSRegion]
-		if regionExists {
-			regionKey = aws.DNSRegion
-		} else {
-			region, regionExists = secret.Data[aws.Region]
-			regionKey = aws.Region
-		}
-
-		if regionExists && len(region) > 0 {
-			allErrs = append(allErrs, validateRegion(string(region), dataPath.Key(regionKey))...)
-		}
-
-	default:
-		return field.ErrorList{
-			field.NotSupported(fldPath, kind, supportedSecretKinds),
-		}
-	}
-
-	// Validate accessKeyID
-	if !accessKeyIDExists {
-		allErrs = append(allErrs, field.Required(dataPath.Key(accessKeyIDKey),
-			fmt.Sprintf("missing required field %q in secret %s", accessKeyIDKey, secretRef)))
-	} else if len(accessKeyID) == 0 {
-		allErrs = append(allErrs, field.Required(dataPath.Key(accessKeyIDKey),
-			fmt.Sprintf("field %q cannot be empty in secret %s", accessKeyIDKey, secretRef)))
-	} else {
-		allErrs = append(allErrs, validateAccessKeyID(string(accessKeyID), dataPath.Key(accessKeyIDKey))...)
-	}
-
-	// Validate secretAccessKey
-	if !secretAccessKeyExists {
-		allErrs = append(allErrs, field.Required(dataPath.Key(secretAccessKeyKey),
-			fmt.Sprintf("missing required field %q in secret %s", secretAccessKeyKey, secretRef)))
-	} else if len(secretAccessKey) == 0 {
-		allErrs = append(allErrs, field.Required(dataPath.Key(secretAccessKeyKey),
-			fmt.Sprintf("field %q cannot be empty in secret %s", secretAccessKeyKey, secretRef)))
-	} else {
-		allErrs = append(allErrs, validateSecretAccessKey(string(secretAccessKey), dataPath.Key(secretAccessKeyKey))...)
+	// Validate optional region
+	region, regionKey, regionExists := getCredential(secret.Data, aws.DNSRegion, aws.Region)
+	if regionExists && len(region) > 0 {
+		allErrs = append(allErrs, validateRegion(string(region), dataPath.Key(regionKey))...)
 	}
 
 	return allErrs
+}
+
+// validateNoDuplicateKey checks if both standard and DNS-specific keys exist
+func validateNoDuplicateKey(data map[string][]byte, dataPath *field.Path, secretRef, standardKey, dnsKey string) field.ErrorList {
+	_, hasStandard := data[standardKey]
+	_, hasDNS := data[dnsKey]
+
+	if hasStandard && hasDNS {
+		return field.ErrorList{field.Invalid(dataPath, "(multiple keys)",
+			fmt.Sprintf("cannot have both %q and %q in secret %s", standardKey, dnsKey, secretRef))}
+	}
+	return nil
+}
+
+// getCredential returns the credential value, key name, and existence flag, preferring DNS-specific keys
+func getCredential(data map[string][]byte, dnsKey, standardKey string) ([]byte, string, bool) {
+	if val, exists := data[dnsKey]; exists {
+		return val, dnsKey, true
+	}
+	if val, exists := data[standardKey]; exists {
+		return val, standardKey, true
+	}
+	return nil, standardKey, false
+}
+
+// validateRequiredCredential validates a required credential field
+func validateRequiredCredential(exists bool, value []byte, key string, dataPath *field.Path, secretRef string, validatorFn validateFunc[string]) field.ErrorList {
+	if !exists {
+		return field.ErrorList{field.Required(dataPath.Key(key),
+			fmt.Sprintf("missing required field %q in secret %s", key, secretRef))}
+	}
+	if len(value) == 0 {
+		return field.ErrorList{field.Required(dataPath.Key(key),
+			fmt.Sprintf("field %q cannot be empty in secret %s", key, secretRef))}
+	}
+	return validatorFn(string(value), dataPath.Key(key))
 }
 
 // validateNoUnexpectedKeys checks that the secret data contains only the expected keys
