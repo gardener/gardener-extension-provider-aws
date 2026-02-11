@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// CustomRouteControllerHealthCheck is a health check that combines the deployment health check with an event-based check for the aws-custom-route-controller.
 type CustomRouteControllerHealthCheck struct {
 	ShootClient     client.Client
 	Logger          logr.Logger
@@ -32,10 +33,12 @@ const maxWarningEventAge = 5 * time.Minute
 
 var _ healthcheck.HealthCheck = &CustomRouteControllerHealthCheck{}
 
+// NewCustomRouteControllerHealthCheck creates a new instance of CustomRouteControllerHealthCheck with the provided deployment health check.
 func NewCustomRouteControllerHealthCheck(deploymentCheck healthcheck.HealthCheck) *CustomRouteControllerHealthCheck {
 	return &CustomRouteControllerHealthCheck{deploymentCheck: deploymentCheck}
 }
 
+// Check performs the health check by first checking the deployment and then checking for recent warning events related to the aws-custom-route-controller.
 func (hc *CustomRouteControllerHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
 	result, err := hc.deploymentCheck.Check(ctx, request)
 	if err != nil || result.Status != gardencorev1beta1.ConditionTrue {
@@ -83,6 +86,7 @@ func (hc *CustomRouteControllerHealthCheck) checkEvents(ctx context.Context, req
 	}, nil
 }
 
+// SetLoggerSuffix sets the logger suffix for the health check and also updates the logger suffix of the underlying deployment health check if it implements the same interface.
 func (hc *CustomRouteControllerHealthCheck) SetLoggerSuffix(provider, extension string) {
 	hc.Logger = log.Log.WithName(fmt.Sprintf("%s-healthcheck-custom-route-controller", provider))
 	hc.deploymentCheck.SetLoggerSuffix(provider, extension)
