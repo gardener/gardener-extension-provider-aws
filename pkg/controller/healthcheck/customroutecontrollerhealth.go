@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/healthcheck"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -21,19 +22,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type customRouteControllerHealthCheck struct {
-	shootClient     client.Client
-	logger          logr.Logger
+// CustomRouteControllerHealthCheck is a health check that combines the deployment health check with an event-based check for the aws-custom-route-controller.
+type CustomRouteControllerHealthCheck struct {
+	ShootClient     client.Client
+	Logger          logr.Logger
 	deploymentCheck healthcheck.HealthCheck
 }
 
-var _ healthcheck.HealthCheck = &customRouteControllerHealthCheck{}
+const maxWarningEventAge = 5 * time.Minute
 
-func newCustomRouteControllerHealthCheck(deploymentCheck healthcheck.HealthCheck) *customRouteControllerHealthCheck {
-	return &customRouteControllerHealthCheck{deploymentCheck: deploymentCheck}
+var _ healthcheck.HealthCheck = &CustomRouteControllerHealthCheck{}
+
+// NewCustomRouteControllerHealthCheck creates a new instance of CustomRouteControllerHealthCheck with the provided deployment health check.
+func NewCustomRouteControllerHealthCheck(deploymentCheck healthcheck.HealthCheck) *CustomRouteControllerHealthCheck {
+	return &CustomRouteControllerHealthCheck{deploymentCheck: deploymentCheck}
 }
 
-func (hc *customRouteControllerHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
+// Check performs the health check by first checking the deployment and then checking for recent warning events related to the aws-custom-route-controller.
+func (hc *CustomRouteControllerHealthCheck) Check(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
 	result, err := hc.deploymentCheck.Check(ctx, request)
 	if err != nil || result.Status != gardencorev1beta1.ConditionTrue {
 		return result, err
@@ -41,13 +47,13 @@ func (hc *customRouteControllerHealthCheck) Check(ctx context.Context, request t
 	return hc.checkEvents(ctx, request)
 }
 
-func (hc *customRouteControllerHealthCheck) checkEvents(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
+func (hc *CustomRouteControllerHealthCheck) checkEvents(ctx context.Context, request types.NamespacedName) (*healthcheck.SingleCheckResult, error) {
 	list := &corev1.EventList{}
 	selector := fields.AndSelectors(fields.OneTermEqualSelector("involvedObject.kind", "ServiceAccount"), fields.OneTermEqualSelector("involvedObject.name", "aws-custom-route-controller"))
-	err := hc.shootClient.List(ctx, list, client.InNamespace(metav1.NamespaceSystem), client.MatchingFieldsSelector{Selector: selector})
+	err := hc.ShootClient.List(ctx, list, client.InNamespace(metav1.NamespaceSystem), client.MatchingFieldsSelector{Selector: selector})
 	if err != nil {
 		err := fmt.Errorf("failed to retrieve events for aws-custom-route-controller in namespace %q: %w", request.Namespace, err)
-		hc.logger.Error(err, "Health check failed")
+		hc.Logger.Error(err, "Health check failed")
 		return nil, err
 	}
 
@@ -58,7 +64,7 @@ func (hc *customRouteControllerHealthCheck) checkEvents(ctx context.Context, req
 			newestEvent = event
 		}
 	}
-	if newestEvent != nil && newestEvent.Type == corev1.EventTypeWarning {
+	if newestEvent != nil && newestEvent.Type == corev1.EventTypeWarning && time.Since(newestEvent.LastTimestamp.Time) <= maxWarningEventAge {
 		var codes []gardencorev1beta1.ErrorCode
 		if strings.Contains(newestEvent.Message, "RouteLimitExceeded") {
 			codes = append(codes, gardencorev1beta1.ErrorInfraQuotaExceeded)
@@ -67,7 +73,7 @@ func (hc *customRouteControllerHealthCheck) checkEvents(ctx context.Context, req
 		}
 
 		details := fmt.Sprintf("[aws-custom-route-controller] %s: %s", newestEvent.Reason, newestEvent.Message)
-		hc.logger.Error(errors.New(details), "Health check failed")
+		hc.Logger.Error(errors.New(details), "Health check failed")
 		return &healthcheck.SingleCheckResult{
 			Status: gardencorev1beta1.ConditionFalse,
 			Detail: details,
@@ -80,22 +86,23 @@ func (hc *customRouteControllerHealthCheck) checkEvents(ctx context.Context, req
 	}, nil
 }
 
-func (hc *customRouteControllerHealthCheck) SetLoggerSuffix(provider, extension string) {
-	hc.logger = log.Log.WithName(fmt.Sprintf("%s-healthcheck-custom-route-controller", provider))
+// SetLoggerSuffix sets the logger suffix for the health check and also updates the logger suffix of the underlying deployment health check if it implements the same interface.
+func (hc *CustomRouteControllerHealthCheck) SetLoggerSuffix(provider, extension string) {
+	hc.Logger = log.Log.WithName(fmt.Sprintf("%s-healthcheck-custom-route-controller", provider))
 	hc.deploymentCheck.SetLoggerSuffix(provider, extension)
 }
 
 // InjectSeedClient injects the seed client
-func (hc *customRouteControllerHealthCheck) InjectSeedClient(seedClient client.Client) {
+func (hc *CustomRouteControllerHealthCheck) InjectSeedClient(seedClient client.Client) {
 	if itf, ok := hc.deploymentCheck.(healthcheck.SeedClient); ok {
 		itf.InjectSeedClient(seedClient)
 	}
 }
 
 // InjectShootClient injects the shoot client
-func (hc *customRouteControllerHealthCheck) InjectShootClient(shootClient client.Client) {
+func (hc *CustomRouteControllerHealthCheck) InjectShootClient(shootClient client.Client) {
 	if itf, ok := hc.deploymentCheck.(healthcheck.ShootClient); ok {
 		itf.InjectShootClient(shootClient)
 	}
-	hc.shootClient = shootClient
+	hc.ShootClient = shootClient
 }
