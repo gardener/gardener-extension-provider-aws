@@ -23,7 +23,7 @@ WEBHOOK_CONFIG_URL	:= host.docker.internal:$(WEBHOOK_CONFIG_PORT)
 EXTENSION_NAMESPACE	:= garden
 GARDEN_KUBECONFIG 	?=
 
-PLATFORM := linux/amd64
+TARGET_PLATFORMS    ?= linux/$(shell go env GOARCH)
 
 WEBHOOK_PARAM := --webhook-config-url=$(WEBHOOK_CONFIG_URL)
 ifeq ($(WEBHOOK_CONFIG_MODE), service)
@@ -97,17 +97,25 @@ install:
 	@LD_FLAGS=$(LD_FLAGS) EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) \
 	bash $(GARDENER_HACK_DIR)/install.sh ./...
 
+BUILD_OUTPUT_FILE ?= .
+BUILD_PACKAGES ?= ./...
+
+.PHONY: build
+build:
+	@LD_FLAGS=$(LD_FLAGS) EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) \
+	bash $(GARDENER_HACK_DIR)/build.sh -o $(BUILD_OUTPUT_FILE) $(BUILD_PACKAGES)
+
 .PHONY: docker-login
 docker-login:
 	@gcloud auth activate-service-account --key-file .kube-secrets/gcr/gcr-readwrite.json
 
 .PHONY: docker-image-provider
 docker-image-provider:
-	@docker buildx build --load --platform=$(PLATFORM) --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(NAME):$(VERSION)           -t $(IMAGE_PREFIX)/$(NAME):latest           -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME)           .
+	@docker buildx build --load --platform=$(TARGET_PLATFORMS) --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(NAME) .
 
 .PHONY: docker-image-admission
 docker-image-admission:
-	@docker buildx build --load --platform=$(PLATFORM) --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
+	@docker buildx build --load --platform=$(TARGET_PLATFORMS) --build-arg EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(VERSION) -t $(IMAGE_PREFIX)/$(ADMISSION_NAME):latest -f Dockerfile -m 6g --target $(EXTENSION_PREFIX)-$(ADMISSION_NAME) .
 
 .PHONY: docker-images
 docker-images: docker-image-provider docker-image-admission
