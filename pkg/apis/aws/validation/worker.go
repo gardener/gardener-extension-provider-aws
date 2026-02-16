@@ -306,16 +306,40 @@ func validateCpuOptions(cpuOptions *apisaws.CpuOptions, fldPath *field.Path) fie
 		return allErrs
 	}
 
-	if cpuOptions.CoreCount == nil {
-		allErrs = append(allErrs, field.Required(fldPath.Child("coreCount"), "CoreCount is required"))
+	if cpuOptions.AmdSevSnp != nil {
+		amdSevSnp := ec2types.AmdSevSnpSpecification(*cpuOptions.AmdSevSnp)
+		allowed := amdSevSnp.Values()
+		if !slices.Contains(allowed, amdSevSnp) {
+			allErrs = append(allErrs, field.NotSupported(
+				fldPath.Child("amdSevSnp"),
+				amdSevSnp,
+				allowed,
+			))
+		}
 	}
 
-	if cpuOptions.ThreadsPerCore == nil {
-		allErrs = append(allErrs, field.Required(fldPath.Child("threadsPerCore"), "ThreadsPerCore is required"))
+	coreSet := cpuOptions.CoreCount != nil
+	threadsSet := cpuOptions.ThreadsPerCore != nil
+
+	// either both must be set or neither
+	if coreSet != threadsSet {
+		if !coreSet {
+			allErrs = append(allErrs, field.Required(fldPath.Child("coreCount"),
+				"CoreCount is required when ThreadsPerCore is set"))
+		}
+		if !threadsSet {
+			allErrs = append(allErrs, field.Required(fldPath.Child("threadsPerCore"),
+				"ThreadsPerCore is required when CoreCount is set"))
+		}
+		return allErrs
 	}
 
-	if threadsPerCore := *cpuOptions.ThreadsPerCore; threadsPerCore > 2 || threadsPerCore < 1 {
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("threadsPerCore"), threadsPerCore, "ThreadsPerCore must be either '1' or '2'"))
+	if threadsSet {
+		tpc := *cpuOptions.ThreadsPerCore
+		if tpc != 1 && tpc != 2 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("threadsPerCore"), tpc,
+				"ThreadsPerCore must be 1 or 2"))
+		}
 	}
 
 	return allErrs
