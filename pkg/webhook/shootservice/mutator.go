@@ -25,7 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
+
+// Annotation and value constants moved to pkg/apis/aws/const.go
 
 type mutator struct {
 	logger           logr.Logger
@@ -84,18 +88,18 @@ func (m *mutator) Mutate(ctx context.Context, newObj, oldObj client.Object) erro
 			return fmt.Errorf("oldObj is not of type corev1.Service")
 		}
 
-		hasIgnoreAnnotation := metav1.HasAnnotation(service.ObjectMeta, "extensions.gardener.cloud/ignore-load-balancer") &&
-			service.Annotations["extensions.gardener.cloud/ignore-load-balancer"] == "true"
-		hadIgnoreAnnotation := metav1.HasAnnotation(oldService.ObjectMeta, "extensions.gardener.cloud/ignore-load-balancer") &&
-			oldService.Annotations["extensions.gardener.cloud/ignore-load-balancer"] == "true"
-		hasDualStackAnnotation := metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-ip-address-type") &&
-			service.Annotations["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] == "dualstack"
+		hasIgnoreAnnotation := metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationIgnoreLoadBalancer) &&
+			service.Annotations[aws.AnnotationIgnoreLoadBalancer] == aws.ValueTrue
+		hadIgnoreAnnotation := metav1.HasAnnotation(oldService.ObjectMeta, aws.AnnotationIgnoreLoadBalancer) &&
+			oldService.Annotations[aws.AnnotationIgnoreLoadBalancer] == aws.ValueTrue
+		hasDualStackAnnotation := metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationAWSLBIPType) &&
+			service.Annotations[aws.AnnotationAWSLBIPType] == aws.ValueDualStack
 
 		if !hasIgnoreAnnotation && !hasDualStackAnnotation {
 			// If old version didn't have it either, add it (preserve existing services)
 			if !hadIgnoreAnnotation {
 				log.Info("Adding ignore annotation to existing service to preserve current behavior")
-				metav1.SetMetaDataAnnotation(&service.ObjectMeta, "extensions.gardener.cloud/ignore-load-balancer", "true")
+				metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationIgnoreLoadBalancer, aws.ValueTrue)
 				return nil
 			}
 			// If old version had it but new doesn't, user explicitly removed it -> proceed with mutation
@@ -104,20 +108,20 @@ func (m *mutator) Mutate(ctx context.Context, newObj, oldObj client.Object) erro
 	}
 
 	// Check if mutation should be skipped based on annotations
-	if metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme") &&
-		service.Annotations["service.beta.kubernetes.io/aws-load-balancer-scheme"] == "internal" ||
-		metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-internal") &&
-			service.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] == "true" ||
-		metav1.HasAnnotation(service.ObjectMeta, "extensions.gardener.cloud/ignore-load-balancer") &&
-			service.Annotations["extensions.gardener.cloud/ignore-load-balancer"] == "true" {
+	if metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationAWSLBScheme) &&
+		service.Annotations[aws.AnnotationAWSLBScheme] == aws.ValueInternal ||
+		metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationAWSLBInternal) &&
+			service.Annotations[aws.AnnotationAWSLBInternal] == aws.ValueTrue ||
+		metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationIgnoreLoadBalancer) &&
+			service.Annotations[aws.AnnotationIgnoreLoadBalancer] == aws.ValueTrue {
 		return nil
 	}
 
 	log.Info("Setting dualstack annotations for IPv6-enabled cluster")
-	metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-ip-address-type", "dualstack")
-	metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme", "internet-facing")
-	metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type", "instance")
-	metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-type", "external")
+	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBIPType, aws.ValueDualStack)
+	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBScheme, aws.ValueInternetFacing)
+	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBNLBTargetType, aws.ValueInstance)
+	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBType, aws.ValueExternal)
 
 	return nil
 }
