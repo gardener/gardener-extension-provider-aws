@@ -92,6 +92,10 @@ You can find an example [here](dual-stack-ingress.md#creating-an-ipv4ipv6-dual-s
 A mutating webhook will automatically add the required annotations for new LoadBalancer services. For existing services, the annotation `extensions.gardener.cloud/ignore-load-balancer: "true"` is automatically added to preserve current behavior. To enable dual-stack for an existing service, simply remove this annotation.
 
 > [!WARNING]
+> **Elastic IPs and Load Balancer Recreation:**
+> If you have attached Elastic IPs (EIPs) to a LoadBalancer service using the annotation `service.beta.kubernetes.io/aws-load-balancer-eip-allocations`, you must manually detach the EIPs or delete the old load balancer before a new load balancer can be created. Otherwise, the new load balancer creation will fail due to EIP allocation conflicts.
+
+> [!WARNING]
 > When accessing Network Load Balancers (NLB) from within the same IPv6-only cluster, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
 > Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical.
 > This situation, known as the hair-pinning effect, will prevent the request from being processed.
@@ -218,6 +222,10 @@ When creating a load balancer, the corresponding annotations need to be configur
 The AWS Load Balancer Controller allows dual-stack ingress so that a dual-stack shoot cluster can serve IPv4 and IPv6 clients.
 You can find an example [here](dual-stack-ingress.md#creating-an-ipv4ipv6-dual-stack-ingress).
 A mutating webhook will automatically add the required annotations for new LoadBalancer services. For existing services, the annotation `extensions.gardener.cloud/ignore-load-balancer: "true"` is automatically added to preserve current behavior. To enable dual-stack for an existing service, simply remove this annotation.
+
+> [!WARNING]
+> **Elastic IPs and Load Balancer Recreation:**
+> If you have attached Elastic IPs (EIPs) to a LoadBalancer service using the annotation `service.beta.kubernetes.io/aws-load-balancer-eip-allocations`, you must manually detach the EIPs or delete the old load balancer before a new load balancer can be created. Otherwise, the new load balancer creation will fail due to EIP allocation conflicts.
 
 > [!WARNING]
 > When accessing external Network Load Balancers (NLB) from within the same cluster via IPv6 or internal NLBs via IPv4, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
