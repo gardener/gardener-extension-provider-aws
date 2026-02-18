@@ -193,6 +193,9 @@ func ValidateWorkersAgainstCloudProfileOnUpdate(
 	fldPath *field.Path,
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
+	// Normalize capability definitions once at the entry point.
+	// This ensures all downstream code can assume capabilities are always present.
+	normalizedCapabilityDefinitions := apisawshelper.NormalizeCapabilityDefinitions(capabilityDefinitions)
 
 	// Validate the existence of the images the new/updated workers are to use. Validating the images used by old workers is not possible at this point, as they might
 	// have been removed from the CloudProfile already.
@@ -211,8 +214,10 @@ func ValidateWorkersAgainstCloudProfileOnUpdate(
 				allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("machine", "type"), w.Machine.Type, " not found in cloud profile"))
 				continue
 			}
+			// Normalize machine type capabilities to include architecture
+			machineTypeCapabilities := apisawshelper.NormalizeMachineTypeCapabilities(machineType.Capabilities, w.Machine.Architecture, normalizedCapabilityDefinitions)
 
-			allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(newWorker, region, awsCloudProfile, machineType.Capabilities, capabilityDefinitions, fldPath.Index(i))...)
+			allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(newWorker, region, awsCloudProfile, machineTypeCapabilities, normalizedCapabilityDefinitions, fldPath.Index(i))...)
 		}
 	}
 
@@ -223,7 +228,7 @@ func validateWorkerConfigAgainstCloudProfile(
 	worker core.Worker,
 	region string,
 	awsCloudProfile *apisaws.CloudProfileConfig,
-	machineCapabilities v1beta1.Capabilities,
+	machineTypeCapabilities v1beta1.Capabilities,
 	capabilityDefinitions []v1beta1.CapabilityDefinition,
 	fldPath *field.Path,
 ) field.ErrorList {
@@ -236,7 +241,7 @@ func validateWorkerConfigAgainstCloudProfile(
 		return allErrs
 	}
 
-	if _, err := apisawshelper.FindImageInCloudProfile(awsCloudProfile, image.Name, image.Version, region, machineCapabilities, capabilityDefinitions); err != nil {
+	if _, err := apisawshelper.FindImageInCloudProfile(awsCloudProfile, image.Name, image.Version, region, machineTypeCapabilities, capabilityDefinitions); err != nil {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("machine", "image"), image, fmt.Sprint(err)))
 	}
 	return allErrs
