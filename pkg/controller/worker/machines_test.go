@@ -358,10 +358,6 @@ var _ = Describe("Machines", func() {
 										},
 									},
 								},
-							},
-						}, {
-							Name: machineImageName,
-							Versions: []apiv1alpha1.MachineImageVersion{
 								{
 									Version: machineImageVersion,
 									Regions: []apiv1alpha1.RegionAMIMapping{

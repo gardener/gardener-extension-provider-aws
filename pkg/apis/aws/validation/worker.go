@@ -165,6 +165,9 @@ func ValidateWorkersAgainstCloudProfileOnCreation(
 	fldPath *field.Path,
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
+	// Normalize capability definitions once at the entry point.
+	// This ensures all downstream code can assume capabilities are always present.
+	normalizedCapabilityDefinitions := apisawshelper.NormalizeCapabilityDefinitions(capabilityDefinitions)
 
 	for i, w := range workers {
 		machineType := gardencorev1beta1helper.FindMachineTypeByName(machineTypes, w.Machine.Type)
@@ -172,8 +175,10 @@ func ValidateWorkersAgainstCloudProfileOnCreation(
 			allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("machine", "type"), w.Machine.Type, " not found in cloud profile"))
 			continue
 		}
+		// Normalize machine type capabilities to include architecture
+		machineTypeCapabilities := apisawshelper.NormalizeMachineTypeCapabilities(machineType.Capabilities, w.Machine.Architecture, normalizedCapabilityDefinitions)
 
-		allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(w, region, awsCloudProfile, machineType.Capabilities, capabilityDefinitions, fldPath.Index(i))...)
+		allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(w, region, awsCloudProfile, machineTypeCapabilities, normalizedCapabilityDefinitions, fldPath.Index(i))...)
 	}
 	return allErrs
 }
@@ -223,16 +228,15 @@ func validateWorkerConfigAgainstCloudProfile(
 	fldPath *field.Path,
 ) field.ErrorList {
 	var (
-		allErrs      = field.ErrorList{}
-		image        = worker.Machine.Image
-		architecture = worker.Machine.Architecture
+		allErrs = field.ErrorList{}
+		image   = worker.Machine.Image
 	)
 	// if image is nil a default image is selected from the cloudProfile which therefore trivially exists.
 	if image == nil {
 		return allErrs
 	}
 
-	if _, err := apisawshelper.FindImageInCloudProfile(awsCloudProfile, image.Name, image.Version, region, architecture, machineCapabilities, capabilityDefinitions); err != nil {
+	if _, err := apisawshelper.FindImageInCloudProfile(awsCloudProfile, image.Name, image.Version, region, machineCapabilities, capabilityDefinitions); err != nil {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("machine", "image"), image, fmt.Sprint(err)))
 	}
 	return allErrs
