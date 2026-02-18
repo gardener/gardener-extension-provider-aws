@@ -94,12 +94,12 @@ func validateMachineImageVersion(providerImage apisaws.MachineImages, capability
 		} else if hasCapabilityFlavors {
 			allErrs = append(allErrs, validateCapabilityFlavors(providerImage, version, capabilityDefinitions, jdxPath)...)
 		} else {
-			// Using old format with regions - validate regions without architecture restriction (architecture is validated separately)
-			allErrs = append(allErrs, validateRegionsWithCapabilities(version.Regions, providerImage.Name, version.Version, jdxPath)...)
+			// Using old format with regions
+			allErrs = append(allErrs, validateRegions(version.Regions, providerImage.Name, version.Version, false, jdxPath)...)
 		}
 	} else {
 		// Without capabilities, only old format with regions is supported
-		allErrs = append(allErrs, validateRegions(version.Regions, providerImage.Name, version.Version, capabilityDefinitions, jdxPath)...)
+		allErrs = append(allErrs, validateRegions(version.Regions, providerImage.Name, version.Version, false, jdxPath)...)
 		if hasCapabilityFlavors {
 			allErrs = append(allErrs, field.Forbidden(jdxPath.Child("capabilityFlavors"), "must not be set as CloudProfile does not define capabilities. Use regions instead."))
 		}
@@ -115,39 +115,13 @@ func validateCapabilityFlavors(providerImage apisaws.MachineImages, version apis
 	for k, capabilitySet := range version.CapabilityFlavors {
 		kdxPath := jdxPath.Child("capabilityFlavors").Index(k)
 		allErrs = append(allErrs, gutil.ValidateCapabilities(capabilitySet.Capabilities, capabilityDefinitions, kdxPath.Child("capabilities"))...)
-		allErrs = append(allErrs, validateRegions(capabilitySet.Regions, providerImage.Name, version.Version, capabilityDefinitions, kdxPath)...)
-	}
-	return allErrs
-}
-
-// validateRegionsWithCapabilities validates regions when using old format with capabilities CloudProfile.
-// This allows architecture field in regions since it will be converted to capability flavors.
-func validateRegionsWithCapabilities(regions []apisaws.RegionAMIMapping, name, version string, jdxPath *field.Path) field.ErrorList {
-	allErrs := field.ErrorList{}
-	if len(regions) == 0 {
-		return append(allErrs, field.Required(jdxPath.Child("regions"), fmt.Sprintf("must provide at least one region for machine image %q and version %q", name, version)))
-	}
-
-	for k, region := range regions {
-		kdxPath := jdxPath.Child("regions").Index(k)
-		arch := ptr.Deref(region.Architecture, v1beta1constants.ArchitectureAMD64)
-
-		if len(region.Name) == 0 {
-			allErrs = append(allErrs, field.Required(kdxPath.Child("name"), "must provide a name"))
-		}
-		if len(region.AMI) == 0 {
-			allErrs = append(allErrs, field.Required(kdxPath.Child("ami"), "must provide an ami"))
-		}
-		// Validate architecture is valid since it will be used for capability mapping
-		if !slices.Contains(v1beta1constants.ValidArchitectures, arch) {
-			allErrs = append(allErrs, field.NotSupported(kdxPath.Child("architecture"), arch, v1beta1constants.ValidArchitectures))
-		}
+		allErrs = append(allErrs, validateRegions(capabilitySet.Regions, providerImage.Name, version.Version, true, kdxPath)...)
 	}
 	return allErrs
 }
 
 // validateRegions validates the regions of a machine image version or capability flavor.
-func validateRegions(regions []apisaws.RegionAMIMapping, name, version string, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, jdxPath *field.Path) field.ErrorList {
+func validateRegions(regions []apisaws.RegionAMIMapping, name, version string, isCapabilityFlavor bool, jdxPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	if len(regions) == 0 {
 		return append(allErrs, field.Required(jdxPath.Child("regions"), fmt.Sprintf("must provide at least one region for machine image %q and version %q", name, version)))
@@ -155,7 +129,6 @@ func validateRegions(regions []apisaws.RegionAMIMapping, name, version string, c
 
 	for k, region := range regions {
 		kdxPath := jdxPath.Child("regions").Index(k)
-		arch := ptr.Deref(region.Architecture, v1beta1constants.ArchitectureAMD64)
 
 		if len(region.Name) == 0 {
 			allErrs = append(allErrs, field.Required(kdxPath.Child("name"), "must provide a name"))
@@ -163,16 +136,14 @@ func validateRegions(regions []apisaws.RegionAMIMapping, name, version string, c
 		if len(region.AMI) == 0 {
 			allErrs = append(allErrs, field.Required(kdxPath.Child("ami"), "must provide an ami"))
 		}
-		if len(capabilityDefinitions) == 0 {
+		if isCapabilityFlavor {
+			if region.Architecture != nil {
+				allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must not be set in capability flavor regions as architecture is defined via capabilities"))
+			}
+		} else {
+			arch := ptr.Deref(region.Architecture, v1beta1constants.ArchitectureAMD64)
 			if !slices.Contains(v1beta1constants.ValidArchitectures, arch) {
 				allErrs = append(allErrs, field.NotSupported(kdxPath.Child("architecture"), arch, v1beta1constants.ValidArchitectures))
-			}
-		}
-		// This should be commented in once the defaulting of the architecture field is implemented via mutating webhook
-		// currently there is no way to distinguish between a user set architecture and the default one
-		if len(capabilityDefinitions) > 0 {
-			if region.Architecture != nil {
-				allErrs = append(allErrs, field.Forbidden(kdxPath.Child("architecture"), "must be defined in .capabilities.architecture"))
 			}
 		}
 	}
