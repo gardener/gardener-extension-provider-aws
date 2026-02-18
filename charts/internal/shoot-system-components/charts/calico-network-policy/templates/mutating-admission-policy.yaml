@@ -1,0 +1,73 @@
+{{- if .Values.enabled }}
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicyBinding
+metadata:
+  name: block-calico-network-unavailable-binding
+spec:
+  policyName: block-calico-network-unavailable
+---
+# MutatingAdmissionPolicy to block Calico from setting the NetworkUnavailable condition on nodes.
+# This policy intercepts node/status updates from the calico-node service account and removes
+# any changes to the NetworkUnavailable condition, effectively preserving the existing condition.
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: block-calico-network-unavailable
+spec:
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["UPDATE"]
+      resources: ["nodes/status"]
+  matchConditions:
+  # Only apply to requests from the calico-node service account
+  - name: is-calico-node
+    expression: >-
+      request.userInfo.username == "system:serviceaccount:kube-system:calico-node"
+  # Only apply if calico is trying to set/modify NetworkUnavailable condition
+  - name: has-network-unavailable-in-request
+    expression: >-
+      object.status.conditions.exists(c, c.type == 'NetworkUnavailable')
+  variables:
+  # Extract the current NetworkUnavailable condition from the old object (may be empty for new nodes)
+  - name: oldNetworkUnavailableCondition
+    expression: >-
+      has(oldObject.status) && has(oldObject.status.conditions) ? 
+      oldObject.status.conditions.filter(c, c.type == 'NetworkUnavailable') : []
+  # Extract the new NetworkUnavailable condition from the request object
+  - name: newNetworkUnavailableCondition
+    expression: >-
+      object.status.conditions.filter(c, c.type == 'NetworkUnavailable')
+  # Find the index of the NetworkUnavailable condition in the new object
+  - name: networkUnavailableIndex
+    expression: >-
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].filter(i, i < object.status.conditions.size() && object.status.conditions[i].type == 'NetworkUnavailable')
+  mutations:
+  # If there's an old condition, restore it (prevents modification)
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        variables.oldNetworkUnavailableCondition.size() > 0 && variables.networkUnavailableIndex.size() > 0 ?
+        [
+          JSONPatch{
+            op: "replace",
+            path: "/status/conditions/" + string(variables.networkUnavailableIndex[0]),
+            value: variables.oldNetworkUnavailableCondition[0]
+          }
+        ] : []
+  # If there's no old condition (new node), remove the NetworkUnavailable condition entirely
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: |
+        variables.oldNetworkUnavailableCondition.size() == 0 && variables.networkUnavailableIndex.size() > 0 ?
+        [
+          JSONPatch{
+            op: "remove",
+            path: "/status/conditions/" + string(variables.networkUnavailableIndex[0])
+          }
+        ] : []
+{{- end }}

@@ -6,6 +6,7 @@ package controlplane
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -28,6 +29,7 @@ import (
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -298,6 +300,13 @@ var (
 					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role-describe-secrets"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-provisioner-binding"},
 					{Type: &rbacv1.RoleBinding{}, Name: "efs-csi-provisioner-binding"},
+				},
+			},
+			{
+				Name: "calico-network-policy",
+				Objects: []*chart.Object{
+					{Type: &admissionregistrationv1alpha1.MutatingAdmissionPolicy{}, Name: "block-calico-network-unavailable"},
+					{Type: &admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding{}, Name: "block-calico-network-unavailable-binding"},
 				},
 			},
 		},
@@ -881,6 +890,14 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
+	overlayEnabled, err := isOverlayEnabled(cluster.Shoot.Spec.Networking)
+	if err != nil {
+		return nil, fmt.Errorf("could not determine if overlay is enabled: %w", err)
+	}
+
+	// Only enable MutatingAdmissionPolicy if overlay is disabled AND all other conditions are met
+	mapEnabled := !overlayEnabled && isMutatingAdmissionPolicyEnabled(cluster)
+
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
 		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
@@ -888,6 +905,7 @@ func getControlPlaneShootChartValues(
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
 		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
+		"calico-network-policy":           map[string]interface{}{"enabled": mapEnabled},
 	}, nil
 }
 
@@ -918,4 +936,61 @@ func getControlPlaneShootChartCSIEfsValues(
 	}
 
 	return values
+}
+
+func isOverlayEnabled(network *v1beta1.Networking) (bool, error) {
+	if network == nil || network.ProviderConfig == nil {
+		return true, nil
+	}
+
+	// should not happen in practice because we will receive a RawExtension with Raw populated in production.
+	networkProviderConfig, err := network.ProviderConfig.MarshalJSON()
+	if err != nil {
+		return false, err
+	}
+
+	if string(networkProviderConfig) == "null" {
+		return true, nil
+	}
+
+	var networkConfig map[string]interface{}
+	if err := json.Unmarshal(networkProviderConfig, &networkConfig); err != nil {
+		return false, err
+	}
+
+	if overlay, ok := networkConfig["overlay"].(map[string]interface{}); ok {
+		return overlay["enabled"].(bool), nil
+	}
+
+	return true, nil
+}
+
+func isMutatingAdmissionPolicyEnabled(cluster *extensionscontroller.Cluster) bool {
+	if cluster.Shoot.Spec.Networking == nil ||
+		cluster.Shoot.Spec.Networking.Type == nil ||
+		*cluster.Shoot.Spec.Networking.Type != "calico" {
+		return false
+	}
+
+	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer == nil {
+		return false
+	}
+
+	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates == nil {
+		return false
+	}
+
+	if enabled, ok := cluster.Shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates["MutatingAdmissionPolicy"]; !ok || !enabled {
+		return false
+	}
+
+	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer.RuntimeConfig == nil {
+		return false
+	}
+
+	if enabled, ok := cluster.Shoot.Spec.Kubernetes.KubeAPIServer.RuntimeConfig["admissionregistration.k8s.io/v1alpha1"]; !ok || !enabled {
+		return false
+	}
+
+	return true
 }
