@@ -120,10 +120,12 @@ var _ = Describe("Helper", func() {
 				if hasCapabilities {
 					machineTypeCapabilities["architecture"] = []string{*arch}
 				}
+				normalizedCapabilityDefinitions := NormalizeCapabilityDefinitions(capabilityDefinitions)
+				normalizedMachineTypeCapabilities := NormalizeMachineTypeCapabilities(machineTypeCapabilities, arch, normalizedCapabilityDefinitions)
 				cfg := &api.CloudProfileConfig{}
 				cfg.MachineImages = profileImages
 
-				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineTypeCapabilities, capabilityDefinitions)
+				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, normalizedMachineTypeCapabilities, normalizedCapabilityDefinitions)
 
 				if expectedAMI != "" {
 					Expect(err).NotTo(HaveOccurred())
@@ -171,7 +173,10 @@ var _ = Describe("Helper", func() {
 				cfg := &api.CloudProfileConfig{}
 				cfg.MachineImages = profileImages
 
-				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineTypeCapabilities, capabilityDefinitions)
+				normalizedCapabilityDefinitions := NormalizeCapabilityDefinitions(capabilityDefinitions)
+				normalizedMachineTypeCapabilities := NormalizeMachineTypeCapabilities(machineTypeCapabilities, arch, normalizedCapabilityDefinitions)
+
+				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, normalizedMachineTypeCapabilities, normalizedCapabilityDefinitions)
 
 				if expectedAMI != "" {
 					Expect(err).NotTo(HaveOccurred())
@@ -204,7 +209,7 @@ var _ = Describe("Helper", func() {
 				cfg := &api.CloudProfileConfig{}
 				cfg.MachineImages = makeProfileMachineImagesMixedFormat()
 
-				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, arch, machineTypeCapabilities, capabilityDefinitions)
+				imageFlavor, err := FindImageInCloudProfile(cfg, imageName, version, regionName, machineTypeCapabilities, capabilityDefinitions)
 
 				if expectedAMI != "" {
 					Expect(err).NotTo(HaveOccurred())
@@ -237,13 +242,13 @@ var _ = Describe("Helper", func() {
 
 			// Find amd64
 			machineTypeCapabilities["architecture"] = []string{"amd64"}
-			imageFlavor, err := FindImageInCloudProfile(cfg, "ubuntu", "22.04", region, ptr.To("amd64"), machineTypeCapabilities, capabilityDefinitions)
+			imageFlavor, err := FindImageInCloudProfile(cfg, "ubuntu", "22.04", region, machineTypeCapabilities, capabilityDefinitions)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(imageFlavor.Regions[0].AMI).To(Equal("ami-ubuntu-amd64"))
 
 			// Find arm64
 			machineTypeCapabilities["architecture"] = []string{"arm64"}
-			imageFlavor, err = FindImageInCloudProfile(cfg, "ubuntu", "22.04", region, ptr.To("arm64"), machineTypeCapabilities, capabilityDefinitions)
+			imageFlavor, err = FindImageInCloudProfile(cfg, "ubuntu", "22.04", region, machineTypeCapabilities, capabilityDefinitions)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(imageFlavor.Regions[0].AMI).To(Equal("ami-ubuntu-arm64"))
 		})

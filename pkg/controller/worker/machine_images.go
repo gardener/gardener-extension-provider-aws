@@ -10,7 +10,9 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
+	"k8s.io/utils/ptr"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -39,16 +41,20 @@ func (w *WorkerDelegate) UpdateMachineImagesStatus(ctx context.Context) error {
 	return nil
 }
 
-func (w *WorkerDelegate) selectMachineImageForWorkerPool(name, version string, region string, arch *string, machineCapabilities gardencorev1beta1.Capabilities) (*api.MachineImage, error) {
+func (w *WorkerDelegate) selectMachineImageForWorkerPool(name, version string, region string, arch *string, machineCapabilities gardencorev1beta1.Capabilities, capabilityDefinitions []gardencorev1beta1.CapabilityDefinition) (*api.MachineImage, error) {
 	selectedMachineImage := &api.MachineImage{
 		Name:    name,
 		Version: version,
 	}
 
-	if capabilitySet, err := helper.FindImageInCloudProfile(w.cloudProfileConfig, name, version, region, arch, machineCapabilities, w.cluster.CloudProfile.Spec.MachineCapabilities); err == nil {
+	if capabilitySet, err := helper.FindImageInCloudProfile(w.cloudProfileConfig, name, version, region, machineCapabilities, capabilityDefinitions); err == nil {
 		selectedMachineImage.Capabilities = capabilitySet.Capabilities
 		selectedMachineImage.AMI = capabilitySet.Regions[0].AMI
-		selectedMachineImage.Architecture = capabilitySet.Regions[0].Architecture
+		if len(capabilitySet.Capabilities) == 0 || len(capabilitySet.Capabilities[v1beta1constants.ArchitectureName]) == 0 {
+			// This indicates capabilityDefinitions was not normalized before calling FindImageInCloudProfile
+			return nil, fmt.Errorf("could not find architecture capability for machine image '%s' with version '%s' in cloud profile for region '%s'", name, version, region)
+		}
+		selectedMachineImage.Architecture = &capabilitySet.Capabilities[v1beta1constants.ArchitectureName][0]
 		return selectedMachineImage, nil
 	}
 
@@ -69,7 +75,8 @@ func appendMachineImage(machineImages []api.MachineImage, machineImage api.Machi
 	// support for cloudprofile machine images without capabilities
 	if len(capabilityDefinitions) == 0 {
 		for _, image := range machineImages {
-			if image.Name == machineImage.Name && image.Version == machineImage.Version && machineImage.Architecture == image.Architecture {
+			isArchEqual := ptr.Deref(image.Architecture, v1beta1constants.ArchitectureAMD64) == ptr.Deref(machineImage.Architecture, v1beta1constants.ArchitectureAMD64)
+			if image.Name == machineImage.Name && image.Version == machineImage.Version && isArchEqual {
 				// If the image already exists without capabilities, we can just return the existing list.
 				return machineImages
 			}

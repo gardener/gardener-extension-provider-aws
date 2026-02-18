@@ -85,6 +85,10 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 		machineImages      []awsapi.MachineImage
 	)
 
+	// Normalize capability definitions once at the entry point.
+	// This ensures all downstream code can assume capabilities are always present.
+	capabilityDefinitions := awsapihelper.NormalizeCapabilityDefinitions(w.cluster.CloudProfile.Spec.MachineCapabilities)
+
 	infrastructureStatus := &awsapi.InfrastructureStatus{}
 	if _, _, err := w.decoder.Decode(w.worker.Spec.InfrastructureProviderStatus.Raw, nil, infrastructureStatus); err != nil {
 		return err
@@ -113,12 +117,15 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			return fmt.Errorf("machine type %q not found in cloud profile %q", pool.MachineType, w.cluster.CloudProfile.Name)
 		}
 
-		arch := ptr.Deref(pool.Architecture, v1beta1constants.ArchitectureAMD64)
-		machineImage, err := w.selectMachineImageForWorkerPool(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, &arch, machineTypeFromCloudProfile.Capabilities)
+		workerArchitecture := ptr.Deref(pool.Architecture, v1beta1constants.ArchitectureAMD64)
+		// Normalize machine type capabilities to include architecture
+		machineTypeCapabilities := awsapihelper.NormalizeMachineTypeCapabilities(machineTypeFromCloudProfile.Capabilities, &workerArchitecture, capabilityDefinitions)
+		machineImage, err := w.selectMachineImageForWorkerPool(pool.MachineImage.Name, pool.MachineImage.Version, w.worker.Spec.Region, &workerArchitecture, machineTypeCapabilities, capabilityDefinitions)
 		if err != nil {
 			return err
 		}
 
+		// use original MachineCapabilities as worker status must conform to different formats
 		machineImages = EnsureUniformMachineImages(machineImages, w.cluster.CloudProfile.Spec.MachineCapabilities)
 		machineImages = appendMachineImage(machineImages, *machineImage, w.cluster.CloudProfile.Spec.MachineCapabilities)
 
@@ -197,7 +204,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 					InstanceType:    pool.MachineType,
 					Region:          w.worker.Spec.Region,
 					Zone:            zone,
-					Architecture:    &arch,
+					Architecture:    &workerArchitecture,
 				}
 			}
 			if workerConfig.NodeTemplate != nil {
