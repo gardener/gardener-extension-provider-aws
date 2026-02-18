@@ -530,8 +530,8 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 					}),
-					aws.CSIEfsNodeName:      enabledFalse,
-					"calico-network-policy": enabledFalse,
+					aws.CSIEfsNodeName:                 enabledFalse,
+					"calico-mutating-admission-policy": enabledFalse,
 				}))
 			})
 		})
@@ -552,8 +552,8 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 					}),
-					aws.CSIEfsNodeName:      enabledFalse,
-					"calico-network-policy": enabledFalse,
+					aws.CSIEfsNodeName:                 enabledFalse,
+					"calico-mutating-admission-policy": enabledFalse,
 				}))
 			})
 		})
@@ -574,8 +574,8 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 					}),
-					aws.CSIEfsNodeName:      enabledFalse,
-					"calico-network-policy": enabledFalse,
+					aws.CSIEfsNodeName:                 enabledFalse,
+					"calico-mutating-admission-policy": enabledFalse,
 				}))
 			})
 		})
@@ -612,8 +612,8 @@ var _ = Describe("ValuesProvider", func() {
 							"volumeAttachLimit": "42",
 						},
 					}),
-					aws.CSIEfsNodeName:      enabledFalse,
-					"calico-network-policy": enabledFalse,
+					aws.CSIEfsNodeName:                 enabledFalse,
+					"calico-mutating-admission-policy": enabledFalse,
 				}))
 			})
 		})

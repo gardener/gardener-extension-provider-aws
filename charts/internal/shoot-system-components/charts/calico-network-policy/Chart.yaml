@@ -1,4 +1,0 @@
-apiVersion: v1
-description: Calico network policy admission controls
-name: calico-network-policy
-version: 0.1.0

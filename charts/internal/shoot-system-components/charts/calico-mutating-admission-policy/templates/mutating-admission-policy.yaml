@@ -38,36 +38,26 @@ spec:
     expression: >-
       has(oldObject.status) && has(oldObject.status.conditions) ? 
       oldObject.status.conditions.filter(c, c.type == 'NetworkUnavailable') : []
-  # Extract the new NetworkUnavailable condition from the request object
-  - name: newNetworkUnavailableCondition
+  # Remove NetworkUnavailable from the new conditions and preserve all other conditions
+  - name: conditionsWithoutNetworkUnavailable
     expression: >-
-      object.status.conditions.filter(c, c.type == 'NetworkUnavailable')
-  # Find the index of the NetworkUnavailable condition in the new object
-  - name: networkUnavailableIndex
+      object.status.conditions.filter(c, c.type != 'NetworkUnavailable')
+  # Reconstruct the final conditions: all non-NetworkUnavailable conditions + old NetworkUnavailable (if it existed)
+  - name: finalConditions
     expression: >-
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].filter(i, i < object.status.conditions.size() && object.status.conditions[i].type == 'NetworkUnavailable')
+      variables.oldNetworkUnavailableCondition.size() > 0 ?
+      variables.conditionsWithoutNetworkUnavailable + variables.oldNetworkUnavailableCondition :
+      variables.conditionsWithoutNetworkUnavailable
   mutations:
-  # If there's an old condition, restore it (prevents modification)
+  # Replace the entire conditions array with the reconstructed version
   - patchType: JSONPatch
     jsonPatch:
       expression: |
-        variables.oldNetworkUnavailableCondition.size() > 0 && variables.networkUnavailableIndex.size() > 0 ?
         [
           JSONPatch{
             op: "replace",
-            path: "/status/conditions/" + string(variables.networkUnavailableIndex[0]),
-            value: variables.oldNetworkUnavailableCondition[0]
+            path: "/status/conditions",
+            value: variables.finalConditions
           }
-        ] : []
-  # If there's no old condition (new node), remove the NetworkUnavailable condition entirely
-  - patchType: JSONPatch
-    jsonPatch:
-      expression: |
-        variables.oldNetworkUnavailableCondition.size() == 0 && variables.networkUnavailableIndex.size() > 0 ?
-        [
-          JSONPatch{
-            op: "remove",
-            path: "/status/conditions/" + string(variables.networkUnavailableIndex[0])
-          }
-        ] : []
+        ]
 {{- end }}

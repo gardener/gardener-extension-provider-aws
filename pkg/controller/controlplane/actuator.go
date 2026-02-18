@@ -6,36 +6,30 @@ package controlplane
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	extensionsconfigv1alpha1 "github.com/gardener/gardener/extensions/pkg/apis/config/v1alpha1"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/controlplane"
 	"github.com/gardener/gardener/extensions/pkg/util"
-	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	networking "github.com/gardener/gardener-extension-provider-aws/pkg/utils/networking"
 )
 
 const (
-	// NetworkUnavailableConditionType is the type of the NetworkUnavailable condition
+	// NetworkUnavailableConditionType is the type of the NetworkUnavailable condition.
 	NetworkUnavailableConditionType = "NetworkUnavailable"
-	// CalicoIsUpReason is the reason set by Calico when it sets the NetworkUnavailable condition to indicate Calico is up
+	// CalicoIsUpReason is the reason set by Calico when it sets the NetworkUnavailable condition to indicate Calico is up.
 	CalicoIsUpReason = "CalicoIsUp"
-	// CalicoIsDownReason is the reason set by Calico when it sets the NetworkUnavailable condition to indicate Calico is down
+	// CalicoIsDownReason is the reason set by Calico when it sets the NetworkUnavailable condition to indicate Calico is down.
 	CalicoIsDownReason = "CalicoIsDown"
-	// MutatingAdmissionPolicyName is the name of the MutatingAdmissionPolicy
-	MutatingAdmissionPolicyName = "block-calico-network-unavailable"
-	// MutatingAdmissionPolicyBindingName is the name of the MutatingAdmissionPolicyBinding
-	MutatingAdmissionPolicyBindingName = "block-calico-network-unavailable-binding"
-	// AnnotationCalicoCleanupCompleted indicates that Calico condition cleanup has been completed
+	// AnnotationCalicoCleanupCompleted indicates that Calico condition cleanup has been completed.
 	AnnotationCalicoCleanupCompleted = "aws.provider.extensions.gardener.cloud/calico-cleanup-completed"
 )
 
@@ -66,22 +60,10 @@ func (a *actuator) Reconcile(
 	}
 
 	// Only clean up NetworkUnavailable conditions if overlay is disabled
-	overlayEnabled, err := a.isOverlayEnabled(cluster.Shoot.Spec.Networking)
+	overlayEnabled, err := networking.IsOverlayEnabled(cluster.Shoot.Spec.Networking)
 	if err != nil {
 		log.Error(err, "Failed to determine if overlay is enabled")
-		return ok, nil
-	}
-
-	// Check if MutatingAdmissionPolicy should be enabled
-	mapEnabled := isMutatingAdmissionPolicyEnabled(cluster)
-
-	// Clean up MutatingAdmissionPolicy resources if overlay is enabled OR if they should not be deployed
-	// When overlay is enabled, the policy is no longer needed regardless of other conditions
-	if overlayEnabled || !mapEnabled {
-		if err := a.cleanupMutatingAdmissionPolicy(ctx, log, cp.Namespace, cluster); err != nil {
-			log.Error(err, "Failed to cleanup MutatingAdmissionPolicy resources")
-			// Don't fail the reconciliation if cleanup fails
-		}
+		return ok, err
 	}
 
 	// Clean up NetworkUnavailable conditions set by Calico only when overlay is disabled
@@ -89,11 +71,12 @@ func (a *actuator) Reconcile(
 	if !overlayEnabled && cp.Annotations[AnnotationCalicoCleanupCompleted] != "true" {
 		if err := a.cleanupCalicoNetworkUnavailableConditions(ctx, log, cp.Namespace, cluster); err != nil {
 			log.Error(err, "Failed to cleanup Calico NetworkUnavailable conditions")
-			// Don't fail the reconciliation if cleanup fails
+			return ok, err
 		} else {
 			// Mark cleanup as completed
 			if err := a.markCleanupCompleted(ctx, cp); err != nil {
 				log.Error(err, "Failed to mark cleanup as completed")
+				return ok, err
 			}
 		}
 	}
@@ -102,6 +85,7 @@ func (a *actuator) Reconcile(
 	if overlayEnabled && cp.Annotations[AnnotationCalicoCleanupCompleted] == "true" {
 		if err := a.removeCleanupAnnotation(ctx, cp); err != nil {
 			log.Error(err, "Failed to remove cleanup annotation")
+			return ok, err
 		}
 	}
 
@@ -109,7 +93,7 @@ func (a *actuator) Reconcile(
 }
 
 // cleanupCalicoNetworkUnavailableConditions removes NetworkUnavailable conditions from nodes
-// that were set by Calico (identified by reason "CalicoIsUp").
+// that were set by Calico for example "CalicoIsUp" or "CalicoIsDown".
 func (a *actuator) cleanupCalicoNetworkUnavailableConditions(
 	ctx context.Context,
 	log logr.Logger,
@@ -133,7 +117,7 @@ func (a *actuator) cleanupCalicoNetworkUnavailableConditions(
 	for _, node := range nodes.Items {
 		if err := a.cleanupNodeNetworkUnavailableCondition(ctx, log, shootClient, &node); err != nil {
 			log.Error(err, "Failed to cleanup NetworkUnavailable condition from node", "node", node.Name)
-			// Continue with other nodes even if one fails
+			return err
 		}
 	}
 
@@ -191,74 +175,6 @@ func (a *actuator) cleanupNodeNetworkUnavailableCondition(
 		currentNode.Status.Conditions = newConditions
 		return shootClient.Status().Update(ctx, currentNode)
 	})
-}
-
-// isOverlayEnabled checks if overlay networking is enabled in the cluster's network configuration.
-func (a *actuator) isOverlayEnabled(network *gardencorev1beta1.Networking) (bool, error) {
-	if network == nil || network.ProviderConfig == nil {
-		return true, nil
-	}
-
-	// should not happen in practice because we will receive a RawExtension with Raw populated in production.
-	networkProviderConfig, err := network.ProviderConfig.MarshalJSON()
-	if err != nil {
-		return false, err
-	}
-
-	if string(networkProviderConfig) == "null" {
-		return true, nil
-	}
-
-	var networkConfig map[string]interface{}
-	if err := json.Unmarshal(networkProviderConfig, &networkConfig); err != nil {
-		return false, err
-	}
-
-	if overlay, ok := networkConfig["overlay"].(map[string]interface{}); ok {
-		return overlay["enabled"].(bool), nil
-	}
-
-	return true, nil
-}
-
-// cleanupMutatingAdmissionPolicy removes MutatingAdmissionPolicy resources from the shoot cluster
-// when they are no longer needed (e.g., when overlay is enabled or feature is disabled).
-func (a *actuator) cleanupMutatingAdmissionPolicy(
-	ctx context.Context,
-	log logr.Logger,
-	namespace string,
-	cluster *extensionscontroller.Cluster,
-) error {
-	if extensionscontroller.IsHibernated(cluster) {
-		return nil
-	}
-
-	_, shootClient, err := util.NewClientForShoot(ctx, a.client, namespace, client.Options{}, extensionsconfigv1alpha1.RESTOptions{})
-	if err != nil {
-		return fmt.Errorf("could not create shoot client: %w", err)
-	}
-
-	policy := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{}
-	policy.Name = MutatingAdmissionPolicyName
-	if err := shootClient.Delete(ctx, policy); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("could not delete MutatingAdmissionPolicy: %w", err)
-		}
-	} else {
-		log.Info("Successfully deleted MutatingAdmissionPolicy", "name", MutatingAdmissionPolicyName)
-	}
-
-	binding := &admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding{}
-	binding.Name = MutatingAdmissionPolicyBindingName
-	if err := shootClient.Delete(ctx, binding); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("could not delete MutatingAdmissionPolicyBinding: %w", err)
-		}
-	} else {
-		log.Info("Successfully deleted MutatingAdmissionPolicyBinding", "name", MutatingAdmissionPolicyBindingName)
-	}
-
-	return nil
 }
 
 // markCleanupCompleted marks the cleanup as completed by adding an annotation to the ControlPlane resource.
