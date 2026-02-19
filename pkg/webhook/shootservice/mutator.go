@@ -108,12 +108,12 @@ func (m *mutator) Mutate(ctx context.Context, newObj, oldObj client.Object) erro
 	}
 
 	// Check if mutation should be skipped based on annotations
-	if metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationAWSLBScheme) &&
-		service.Annotations[aws.AnnotationAWSLBScheme] == aws.ValueInternal ||
-		metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationAWSLBInternal) &&
-			service.Annotations[aws.AnnotationAWSLBInternal] == aws.ValueTrue ||
-		metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationIgnoreLoadBalancer) &&
-			service.Annotations[aws.AnnotationIgnoreLoadBalancer] == aws.ValueTrue {
+	scheme, hasScheme := service.Annotations[aws.AnnotationAWSLBScheme]
+	internal, hasInternal := service.Annotations[aws.AnnotationAWSLBInternal]
+	ignore, hasIgnore := service.Annotations[aws.AnnotationIgnoreLoadBalancer]
+	if (hasScheme && scheme == aws.ValueInternal) ||
+		(hasInternal && internal == aws.ValueTrue) ||
+		(hasIgnore && ignore == aws.ValueTrue) {
 		return nil
 	}
 
