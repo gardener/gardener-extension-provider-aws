@@ -18,7 +18,7 @@ webhooks:
     # start provider-aws-specific
     url: {{ $.Values.webhookURL}}/mutate-v1-pod
     # end provider-aws-specific
-  failurePolicy: Fail
+  failurePolicy: Fail # provier-aws-specific: upstream uses config
   name: mpod.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
@@ -89,6 +89,34 @@ metadata:
   labels:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 webhooks:
+- clientConfig:
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
+    # start provider-aws-specific
+    url: {{ $.Values.webhookURL}}/validate-elbv2-k8s-aws-v1beta1-ingressclassparams
+    # end provider-aws-specific
+  failurePolicy: Fail
+  name: vingressclassparams.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingressclassparams
+  sideEffects: None
 - clientConfig:
     {{ if not $.Values.enableCertManager -}}
     caBundle: {{ $tls.caCert }}

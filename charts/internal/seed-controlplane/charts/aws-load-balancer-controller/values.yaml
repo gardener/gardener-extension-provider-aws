@@ -135,6 +135,7 @@ awsMaxRetries:
 # Calico with encapsulation disabled, or Cilium with masquerading disabled.
 # The value "instance" should be used for overlay-based CNIs, such as Calico in VXLAN or IPIP mode or
 # Cilium with masquerading enabled.
+# NOTE: In Gardener, only "instance" mode is currently supported.
 defaultTargetType: instance
 
 # If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods (default true)
@@ -215,6 +216,17 @@ livenessProbe:
     port: 61779
     scheme: HTTP
   initialDelaySeconds: 30
+  timeoutSeconds: 10
+
+# readiness probe configuration for the controller
+readinessProbe:
+  failureThreshold: 2
+  httpGet:
+    path: /readyz
+    port: 61779
+    scheme: HTTP
+  successThreshold: 1
+  initialDelaySeconds: 10
   timeoutSeconds: 10
 
 # Environment variables to set for aws-load-balancer-controller pod.
