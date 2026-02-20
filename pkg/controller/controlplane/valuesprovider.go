@@ -28,6 +28,7 @@ import (
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -46,6 +47,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/utils"
+	networking "github.com/gardener/gardener-extension-provider-aws/pkg/utils/networking"
 )
 
 const (
@@ -298,6 +300,13 @@ var (
 					{Type: &rbacv1.ClusterRole{}, Name: "efs-csi-external-provisioner-role-describe-secrets"},
 					{Type: &rbacv1.ClusterRoleBinding{}, Name: "efs-csi-provisioner-binding"},
 					{Type: &rbacv1.RoleBinding{}, Name: "efs-csi-provisioner-binding"},
+				},
+			},
+			{
+				Name: "calico-mutating-admission-policy",
+				Objects: []*chart.Object{
+					{Type: &admissionregistrationv1alpha1.MutatingAdmissionPolicy{}, Name: "calico-mutating-admission-policy"},
+					{Type: &admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding{}, Name: "block-calico-network-unavailable-binding"},
 				},
 			},
 		},
@@ -881,13 +890,22 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
+	overlayEnabled, err := networking.IsOverlayEnabled(cluster.Shoot.Spec.Networking)
+	if err != nil {
+		return nil, fmt.Errorf("could not determine if overlay is enabled: %w", err)
+	}
+
+	// Only enable MutatingAdmissionPolicy if overlay is disabled AND all other conditions are met
+	mutatingAdmissionPolicyEnabled := !overlayEnabled && isUsingCalico(cluster) && isMutatingAdmissionPolicyEnabled(cluster)
+
 	return map[string]interface{}{
-		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
-		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
-		aws.AWSIPAMControllerImageName:    map[string]interface{}{"enabled": ipamControllerEnabled},
-		aws.AWSLoadBalancerControllerName: albValues,
-		aws.CSINodeName:                   csiDriverNodeValues,
-		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
+		aws.CloudControllerManagerName:     map[string]interface{}{"enabled": true},
+		aws.AWSCustomRouteControllerName:   map[string]interface{}{"enabled": customRouteControllerEnabled},
+		aws.AWSIPAMControllerImageName:     map[string]interface{}{"enabled": ipamControllerEnabled},
+		aws.AWSLoadBalancerControllerName:  albValues,
+		aws.CSINodeName:                    csiDriverNodeValues,
+		aws.CSIEfsNodeName:                 getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
+		"calico-mutating-admission-policy": map[string]interface{}{"enabled": mutatingAdmissionPolicyEnabled},
 	}, nil
 }
 
@@ -918,4 +936,34 @@ func getControlPlaneShootChartCSIEfsValues(
 	}
 
 	return values
+}
+
+func isUsingCalico(cluster *extensionscontroller.Cluster) bool {
+	return cluster.Shoot.Spec.Networking != nil &&
+		cluster.Shoot.Spec.Networking.Type != nil &&
+		*cluster.Shoot.Spec.Networking.Type == "calico"
+}
+
+func isMutatingAdmissionPolicyEnabled(cluster *extensionscontroller.Cluster) bool {
+	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer == nil {
+		return false
+	}
+
+	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates == nil {
+		return false
+	}
+
+	if enabled, ok := cluster.Shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates["MutatingAdmissionPolicy"]; !ok || !enabled {
+		return false
+	}
+
+	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer.RuntimeConfig == nil {
+		return false
+	}
+
+	if enabled, ok := cluster.Shoot.Spec.Kubernetes.KubeAPIServer.RuntimeConfig["admissionregistration.k8s.io/v1alpha1"]; !ok || !enabled {
+		return false
+	}
+
+	return true
 }

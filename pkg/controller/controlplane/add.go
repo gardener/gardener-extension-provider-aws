@@ -42,7 +42,7 @@ type AddOptions struct {
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
 // The opts.Reconciler is being set with a newly instantiated actuator.
 func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddOptions) error {
-	actuator, err := genericactuator.NewActuator(mgr, aws.Name,
+	genericActuator, err := genericactuator.NewActuator(mgr, aws.Name,
 		secretConfigsFunc, shootAccessSecretsFunc,
 		configChart, controlPlaneChart, controlPlaneShootChart, controlPlaneShootCRDsChart, storageClassChart,
 		NewValuesProvider(mgr), extensionscontroller.ChartRendererFactoryFunc(util.NewChartRendererForShoot),
@@ -51,8 +51,11 @@ func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddO
 		return err
 	}
 
+	// Wrap the generic actuator with our custom actuator for cleanup logic
+	wrappedActuator := NewActuator(mgr, genericActuator)
+
 	return controlplane.Add(mgr, controlplane.AddArgs{
-		Actuator:          actuator,
+		Actuator:          wrappedActuator,
 		ControllerOptions: opts.Controller,
 		Predicates:        controlplane.DefaultPredicates(ctx, mgr, opts.IgnoreOperationAnnotation),
 		Type:              aws.Type,
