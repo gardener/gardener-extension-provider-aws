@@ -22,10 +22,9 @@ jobs:
   build:
     uses: ./.github/workflows/build.yaml
     permissions:
-      contents: write
+      contents: read
       packages: write
       id-token: write
-      pull-requests: write
     with:
       mode: release
       release-version: ${{ inputs.release-version }}
@@ -55,7 +54,6 @@ jobs:
       contents: write
       packages: write
       id-token: write
-      pull-requests: write
 
   close-release-milestone:
     if: ${{ inputs.next-version == 'bump-minor' && inputs.release-version == 'set-prerelease' }}
