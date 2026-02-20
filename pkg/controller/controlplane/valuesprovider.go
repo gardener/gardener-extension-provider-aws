@@ -45,6 +45,7 @@ import (
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/utils"
 )
 
@@ -851,12 +852,9 @@ func getControlPlaneShootChartValues(
 		cpConfig.CloudControllerManager.UseCustomRouteController != nil &&
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
-	ipamControllerEnabled := false
-	if networkingConfig := cluster.Shoot.Spec.Networking; networkingConfig != nil &&
-		(slices.Contains(networkingConfig.IPFamilies, v1beta1.IPFamilyIPv6) ||
-			utils.HasIPv6NodeCIDR(cluster)) {
-		ipamControllerEnabled = true
-	}
+	networkingConfig := cluster.Shoot.Spec.Networking
+	ipamControllerEnabled := networkingConfig != nil &&
+		(infraflow.ContainsIPv6(networkingConfig.IPFamilies) || utils.HasIPv6NodeCIDR(cluster))
 
 	csiDriverNodeValues := map[string]interface{}{
 		"enabled":           true,
@@ -881,13 +879,15 @@ func getControlPlaneShootChartValues(
 		return nil, err
 	}
 
+	isIPv6SingleStack := networkingConfig != nil && v1beta1.IsIPv6SingleStack(networkingConfig.IPFamilies)
+
 	return map[string]interface{}{
 		aws.CloudControllerManagerName:    map[string]interface{}{"enabled": true},
 		aws.AWSCustomRouteControllerName:  map[string]interface{}{"enabled": customRouteControllerEnabled},
 		aws.AWSIPAMControllerImageName:    map[string]interface{}{"enabled": ipamControllerEnabled},
 		aws.AWSLoadBalancerControllerName: albValues,
 		aws.CSINodeName:                   csiDriverNodeValues,
-		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus),
+		aws.CSIEfsNodeName:                getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus, isIPv6SingleStack),
 	}, nil
 }
 
@@ -907,6 +907,7 @@ func isCSIEfsEnabled(infraConfig *apisaws.InfrastructureConfig) bool {
 func getControlPlaneShootChartCSIEfsValues(
 	infraConfig *apisaws.InfrastructureConfig,
 	infraStatus *apisaws.InfrastructureStatus,
+	isIPv6SingleStack bool,
 ) map[string]interface{} {
 	csiEfsEnabled := isCSIEfsEnabled(infraConfig)
 	values := map[string]interface{}{
@@ -915,6 +916,13 @@ func getControlPlaneShootChartCSIEfsValues(
 
 	if csiEfsEnabled {
 		values["fileSystemID"] = infraStatus.ElasticFileSystem.ID
+		imdsEndpointMode := "ipv4"
+		if isIPv6SingleStack {
+			imdsEndpointMode = "ipv6"
+		}
+		values["controller"] = map[string]interface{}{
+			"imdsEndpointMode": imdsEndpointMode,
+		}
 	}
 
 	return values

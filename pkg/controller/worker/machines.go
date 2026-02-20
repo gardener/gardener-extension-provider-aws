@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/gardener/gardener/extensions/pkg/controller"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	genericworkeractuator "github.com/gardener/gardener/extensions/pkg/controller/worker/genericactuator"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -34,6 +34,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 )
 
 const (
@@ -132,7 +133,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			return err
 		}
 
-		instanceMetadataOptions, err := ComputeInstanceMetadataOptions(workerConfig)
+		instanceMetadataOptions, err := ComputeInstanceMetadataOptions(workerConfig, w.cluster.Shoot.Spec.Networking)
 		if err != nil {
 			return err
 		}
@@ -180,7 +181,8 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				"instanceMetadataOptions": instanceMetadataOptions,
 			}
 
-			if isIPv6(w.cluster) {
+			networking := w.cluster.Shoot.Spec.Networking
+			if networking != nil && infraflow.ContainsIPv6(networking.IPFamilies) {
 				networkInterfaces, _ := machineClassSpec["networkInterfaces"].([]map[string]interface{})
 				networkInterfaces[0]["ipv6AddressCount"] = 1
 				networkInterfaces[0]["ipv6PrefixCount"] = 1
@@ -512,8 +514,13 @@ func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructure
 }
 
 // ComputeInstanceMetadataOptions calculates the InstanceMetadata options for a particular worker pool.
-func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig) (map[string]interface{}, error) {
+func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig,
+	networking *gardencorev1beta1.Networking) (map[string]interface{}, error) {
 	res := make(map[string]interface{})
+
+	if networking != nil && gardencorev1beta1.IsIPv6SingleStack(networking.IPFamilies) {
+		res["httpProtocolIpv6"] = string(ec2types.InstanceMetadataProtocolStateEnabled)
+	}
 
 	if workerConfig == nil || workerConfig.InstanceMetadataOptions == nil {
 		res["httpPutResponseHopLimit"] = int64(2)
@@ -531,19 +538,6 @@ func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig) (map[stri
 	}
 
 	return res, nil
-}
-
-func isIPv6(c *controller.Cluster) bool {
-	networking := c.Shoot.Spec.Networking
-	if networking != nil {
-		ipFamilies := networking.IPFamilies
-		if ipFamilies != nil {
-			if slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // EnsureUniformMachineImages ensures that all machine images are in the same format, either with or without Capabilities.

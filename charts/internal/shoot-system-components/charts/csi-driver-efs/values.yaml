@@ -111,3 +111,4 @@ controller:
     privileged: true
   leaderElectionRenewDeadline: 10s
   leaderElectionLeaseDuration: 15s
+  imdsEndpointMode: ipv4

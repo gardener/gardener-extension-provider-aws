@@ -673,4 +673,49 @@ var _ = Describe("ValuesProvider", func() {
 			}))
 		})
 	})
+
+	Describe("#getControlPlaneShootChartCSIEfsValues", func() {
+		It("sets imdsEndpointMode to ipv4 when not IPv6 single-stack", func() {
+			infraConfig := &apisaws.InfrastructureConfig{
+				ElasticFileSystem: &apisaws.ElasticFileSystemConfig{Enabled: true},
+			}
+			infraStatus := &apisaws.InfrastructureStatus{
+				ElasticFileSystem: apisaws.ElasticFileSystemStatus{ID: "fs-1234"},
+			}
+
+			values := getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus, false)
+
+			Expect(values).To(HaveKeyWithValue("enabled", true))
+			Expect(values).To(HaveKey("controller"))
+			controller := values["controller"].(map[string]interface{})
+			Expect(controller).To(HaveKeyWithValue("imdsEndpointMode", "ipv4"))
+		})
+
+		It("sets imdsEndpointMode to ipv6 when IPv6 single-stack", func() {
+			infraConfig := &apisaws.InfrastructureConfig{
+				ElasticFileSystem: &apisaws.ElasticFileSystemConfig{Enabled: true},
+			}
+			infraStatus := &apisaws.InfrastructureStatus{
+				ElasticFileSystem: apisaws.ElasticFileSystemStatus{ID: "fs-5678"},
+			}
+
+			values := getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus, true)
+
+			Expect(values).To(HaveKeyWithValue("enabled", true))
+			Expect(values).To(HaveKey("controller"))
+			controller := values["controller"].(map[string]interface{})
+			Expect(controller).To(HaveKeyWithValue("imdsEndpointMode", "ipv6"))
+		})
+
+		It("is disabled when EFS is not enabled", func() {
+			infraConfig := &apisaws.InfrastructureConfig{
+				ElasticFileSystem: &apisaws.ElasticFileSystemConfig{Enabled: false},
+			}
+			infraStatus := &apisaws.InfrastructureStatus{}
+
+			values := getControlPlaneShootChartCSIEfsValues(infraConfig, infraStatus, false)
+			Expect(values).To(HaveKeyWithValue("enabled", false))
+			Expect(values).NotTo(HaveKey("controller"))
+		})
+	})
 })

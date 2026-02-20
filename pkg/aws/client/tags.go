@@ -24,6 +24,15 @@ func FromTags(ec2Tags []ec2types.Tag) Tags {
 	return tags
 }
 
+// FromEfsTags creates a Tags map from the given EFS tag array.
+func FromEfsTags(efsTags []efstypes.Tag) Tags {
+	tags := Tags{}
+	for _, et := range efsTags {
+		tags[aws.ToString(et.Key)] = aws.ToString(et.Value)
+	}
+	return tags
+}
+
 // ToTagSpecification exports the tags map as a EC2 TagSpecification for the given resource type.
 func (tags Tags) ToTagSpecification(resourceType ec2types.ResourceType) ec2types.TagSpecification {
 	tagspec := ec2types.TagSpecification{

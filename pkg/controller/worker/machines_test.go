@@ -1552,6 +1552,7 @@ var _ = Describe("Machines", func() {
 		Describe("InstanceMetadata", func() {
 			var (
 				workerConfig *api.WorkerConfig
+				networking   *gardencorev1beta1.Networking
 				cluster      *extensionscontroller.Cluster
 			)
 			BeforeEach(func() {
@@ -1567,11 +1568,12 @@ var _ = Describe("Machines", func() {
 				workerConfig = &api.WorkerConfig{
 					InstanceMetadataOptions: nil,
 				}
+				networking = &gardencorev1beta1.Networking{}
 			})
 			It("should calculate correct IMDS for k8s >=1.30", func() {
 				cluster.Shoot.Spec.Kubernetes.Version = "1.30.0"
 
-				res, err := ComputeInstanceMetadataOptions(workerConfig)
+				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(2)))
 				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
@@ -1582,12 +1584,19 @@ var _ = Describe("Machines", func() {
 					HTTPPutResponseHopLimit: ptr.To(int64(5)),
 				}
 
-				res, err := ComputeInstanceMetadataOptions(workerConfig)
+				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(5)))
 				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
 			})
 
+			It("should calculate correct IMDS in an IPv6 only cluster", func() {
+				networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6}
+
+				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(HaveKeyWithValue("httpProtocolIpv6", "enabled"))
+			})
 		})
 
 	})
