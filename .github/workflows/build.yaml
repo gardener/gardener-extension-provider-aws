@@ -19,6 +19,7 @@ jobs:
     uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
     permissions:
       id-token: write
+      pull-requests: write # required until https://github.com/gardener/cc-utils/pull/1529 is merged
     with:
       mode: ${{ inputs.mode }}
       version-operation: ${{ inputs.release-version }}
