@@ -30,7 +30,7 @@ images:
 - name: aws-load-balancer-controller
   sourceRepository: github.com/kubernetes-sigs/aws-load-balancer-controller
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v3.0.0
+  tag: v2.17.1
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -215,7 +215,6 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: 5.3.x
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: registry.k8s.io/sig-storage/csi-provisioner
@@ -230,7 +229,7 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: '>= 6.1'
+  targetVersion: '>= 1.34'
 - name: csi-resizer
   sourceRepository: github.com/kubernetes-csi/external-resizer
   repository: registry.k8s.io/sig-storage/csi-resizer
@@ -245,24 +244,8 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: 1.14.x
 - name: csi-resizer
-  sourceRepository: github.com/kubernetes-csi/external-resizer
-  repository: registry.k8s.io/sig-storage/csi-resizer
-  tag: v2.0.0
-  labels:
-  - name: gardener.cloud/cve-categorisation
-    value:
-      network_exposure: private
-      authentication_enforced: false
-      user_interaction: gardener-operator
-      confidentiality_requirement: low
-      integrity_requirement: high
-      availability_requirement: low
-    signing: false
-  targetVersion: 2.0.x
-- name: csi-resizer
-  sourceRepository: github.com/kubernetes-csi/external-resizer
+  sourceRepository: github.com/kubernetes-csi/external-resizer/v2
   repository: registry.k8s.io/sig-storage/csi-resizer
   tag: v2.1.0
   labels:
@@ -275,7 +258,7 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: '>= 2.1'
+  targetVersion: '>= 1.34'
 - name: csi-snapshot-controller
   sourceRepository: github.com/kubernetes-csi/external-snapshotter
   repository: registry.k8s.io/sig-storage/snapshot-controller
