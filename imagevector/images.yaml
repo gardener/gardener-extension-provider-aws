@@ -245,7 +245,7 @@ images:
       availability_requirement: low
     signing: false
 - name: csi-resizer
-  sourceRepository: github.com/kubernetes-csi/external-resizer/v2
+  sourceRepository: github.com/kubernetes-csi/external-resizer
   repository: registry.k8s.io/sig-storage/csi-resizer
   tag: v2.1.0
   labels:
