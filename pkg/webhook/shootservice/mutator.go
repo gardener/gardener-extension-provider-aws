@@ -117,6 +117,11 @@ func (m *mutator) Mutate(ctx context.Context, newObj, oldObj client.Object) erro
 		return nil
 	}
 
+	// Preserve the old load balancer hostname for manual cleanup
+	if len(service.Status.LoadBalancer.Ingress) > 0 && service.Status.LoadBalancer.Ingress[0].Hostname != "" {
+		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "gardener.cloud/old-load-balancer-name", service.Status.LoadBalancer.Ingress[0].Hostname)
+	}
+
 	log.Info("Setting dualstack annotations for IPv6-enabled cluster")
 	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBIPType, aws.ValueDualStack)
 	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBScheme, aws.ValueInternetFacing)
