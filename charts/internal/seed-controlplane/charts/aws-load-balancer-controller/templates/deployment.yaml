@@ -190,6 +190,9 @@ spec:
         {{- if .Values.controllerConfig.featureGates }}
         - --feature-gates={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.controllerConfig.featureGates | trimSuffix "," }}
         {{- end }}
+        {{- if ne .Values.defaultTargetType "instance" }}
+        - --default-target-type={{ .Values.defaultTargetType }}
+        {{- end }}
         {{- if .Values.serviceTargetENISGTags }}
         - --service-target-eni-security-group-tags={{ .Values.serviceTargetENISGTags }}
         {{- end }}
@@ -272,6 +275,10 @@ spec:
           {{- toYaml .Values.resources | nindent 10 }}
         {{- with .Values.livenessProbe }}
         livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.readinessProbe }}
+        readinessProbe:
           {{- toYaml . | nindent 10 }}
         {{- end }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}

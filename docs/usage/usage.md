@@ -391,8 +391,7 @@ subnets, security groups, keypair, etc.), while tags on machines, volumes, etc. 
 
 ## `ControlPlaneConfig`
 
-The control plane configuration mainly contains values for the AWS-specific control plane components.
-Today, the only component deployed by the AWS extension is the `cloud-controller-manager`.
+The control plane configuration contains values for AWS-specific control plane components deployed by this extension.
 
 An example `ControlPlaneConfig` for the AWS extension looks as follows:
 
