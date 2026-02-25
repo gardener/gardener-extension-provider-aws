@@ -92,15 +92,15 @@ func (hc *CustomRouteControllerHealthCheck) SetLoggerSuffix(provider, extension 
 	hc.deploymentCheck.SetLoggerSuffix(provider, extension)
 }
 
-// InjectSeedClient injects the seed client
-func (hc *CustomRouteControllerHealthCheck) InjectSeedClient(seedClient client.Client) {
+// InjectSourceClient injects the seed client into the health check and also into the underlying deployment health check.
+func (hc *CustomRouteControllerHealthCheck) InjectSourceClient(seedClient client.Client) {
 	if itf, ok := hc.deploymentCheck.(healthcheck.SourceClient); ok {
 		itf.InjectSourceClient(seedClient)
 	}
 }
 
-// InjectShootClient injects the shoot client
-func (hc *CustomRouteControllerHealthCheck) InjectShootClient(shootClient client.Client) {
+// InjectTargetClient injects the shoot client into the health check and also into the underlying deployment health check.
+func (hc *CustomRouteControllerHealthCheck) InjectTargetClient(shootClient client.Client) {
 	if itf, ok := hc.deploymentCheck.(healthcheck.TargetClient); ok {
 		itf.InjectTargetClient(shootClient)
 	}
