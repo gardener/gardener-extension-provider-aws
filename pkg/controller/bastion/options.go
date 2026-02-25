@@ -98,8 +98,13 @@ func NewOpts(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *
 		return Options{}, fmt.Errorf("failed to extract cloud provider config from cluster: %w", err)
 	}
 
+	// Normalize capability definitions and machine type capabilities to ensure
+	// capability-based selection is always used
+	capabilityDefinitions := helper.NormalizeCapabilityDefinitions(cluster.CloudProfile.Spec.MachineCapabilities)
+	machineTypeCapabilities := helper.NormalizeMachineTypeCapabilities(vmDetails.MachineTypeCapabilities, &vmDetails.Architecture, capabilityDefinitions)
+
 	var ami string
-	imageFlavor, err := helper.FindImageInCloudProfile(cloudProfileConfig, vmDetails.ImageBaseName, vmDetails.ImageVersion, region, &vmDetails.Architecture, vmDetails.MachineTypeCapabilities, cluster.CloudProfile.Spec.MachineCapabilities)
+	imageFlavor, err := helper.FindImageInCloudProfile(cloudProfileConfig, vmDetails.ImageBaseName, vmDetails.ImageVersion, region, machineTypeCapabilities, cluster.CloudProfile.Spec.MachineCapabilities)
 	if err != nil {
 		return Options{}, fmt.Errorf("failed to find machine image in CloudProfileConfig: %w", err)
 	}

@@ -77,7 +77,7 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 		})
 
 		Describe("merge the provider configurations from a NamespacedCloudProfile and the parent CloudProfile", func() {
-			It("should correctly merge extended machineImages", func() {
+			It("should correctly merge extended machineImages without format transformation", func() {
 				namespacedCloudProfile.Status.CloudProfileSpec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
 "apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
 "kind":"CloudProfileConfig",
@@ -96,6 +96,7 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 
 				mergedConfig, err := decodeCloudProfileConfig(decoder, namespacedCloudProfile.Status.CloudProfileSpec.ProviderConfig)
 				Expect(err).ToNot(HaveOccurred())
+				// No format transformation - regions are kept as-is without adding default architecture
 				Expect(mergedConfig.MachineImages).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal("image-1"),
@@ -154,6 +155,64 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 									Capabilities: v1beta1.Capabilities{"architecture": []string{"arm64"}},
 									Regions:      []api.RegionAMIMapping{{Name: "eu2", AMI: "ami-124"}},
 								}},
+							},
+						),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("image-2"),
+						"Versions": ContainElements(
+							api.MachineImageVersion{Version: "2.0",
+								CapabilityFlavors: []api.MachineImageFlavor{{
+									Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}},
+									Regions:      []api.RegionAMIMapping{{Name: "eu3", AMI: "ami-125"}},
+								}},
+							}),
+					}),
+				))
+			})
+
+			It("should correctly merge mixed format - old format (regions) and new format (capabilityFlavors) per version", func() {
+				namespacedCloudProfile.Status.CloudProfileSpec.MachineCapabilities = []v1beta1.CapabilityDefinition{{
+					Name:   "architecture",
+					Values: []string{"amd64", "arm64"},
+				}}
+				namespacedCloudProfile.Status.CloudProfileSpec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[
+  {"name":"image-1","versions":[{"version":"1.0","capabilityFlavors":[
+{"capabilities":{"architecture":["amd64"]},"regions":[{"name":"eu1","ami":"ami-123"}]}
+]}]}
+]}`)}
+				// Mixed format: version 1.1 uses old format (regions), version 2.0 uses new format (capabilityFlavors)
+				namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[
+  {"name":"image-1","versions":[{"version":"1.1","regions":[{"name":"eu2","ami":"ami-124","architecture":"arm64"}]}]},
+  {"name":"image-2","versions":[{"version":"2.0","capabilityFlavors":[
+{"capabilities":{"architecture":["amd64"]},"regions":[{"name":"eu3","ami":"ami-125"}]}
+]}]}
+]}`)}
+
+				Expect(namespacedCloudProfileMutator.Mutate(ctx, namespacedCloudProfile, nil)).To(Succeed())
+
+				mergedConfig, err := decodeCloudProfileConfig(decoder, namespacedCloudProfile.Status.CloudProfileSpec.ProviderConfig)
+				Expect(err).ToNot(HaveOccurred())
+				// Both formats are preserved as-is without transformation
+				Expect(mergedConfig.MachineImages).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("image-1"),
+						"Versions": ContainElements(
+							api.MachineImageVersion{Version: "1.0",
+								CapabilityFlavors: []api.MachineImageFlavor{{
+									Capabilities: v1beta1.Capabilities{"architecture": []string{"amd64"}},
+									Regions:      []api.RegionAMIMapping{{Name: "eu1", AMI: "ami-123"}},
+								}},
+							},
+							// Old format preserved without transformation
+							api.MachineImageVersion{Version: "1.1",
+								Regions: []api.RegionAMIMapping{{Name: "eu2", AMI: "ami-124", Architecture: ptr.To("arm64")}},
 							},
 						),
 					}),

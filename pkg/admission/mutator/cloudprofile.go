@@ -5,14 +5,17 @@
 package mutator
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -74,7 +77,14 @@ func overwriteMachineImageCapabilityFlavors(profile *gardencorev1beta1.CloudProf
 				continue
 			}
 
-			profile.Spec.MachineImages[imageIdx].Versions[versionIdx].CapabilityFlavors = convertCapabilityFlavors(providerVersion.CapabilityFlavors)
+			// Support both new format (capabilityFlavors) and old format (regions with architecture)
+			if len(providerVersion.CapabilityFlavors) > 0 {
+				// New format: use capabilityFlavors directly
+				profile.Spec.MachineImages[imageIdx].Versions[versionIdx].CapabilityFlavors = convertCapabilityFlavors(providerVersion.CapabilityFlavors)
+			} else if len(providerVersion.Regions) > 0 {
+				// Old format: convert regions with architecture to capability flavors
+				profile.Spec.MachineImages[imageIdx].Versions[versionIdx].CapabilityFlavors = convertRegionsToCapabilityFlavors(providerVersion.Regions)
+			}
 		}
 	}
 }
@@ -87,5 +97,40 @@ func convertCapabilityFlavors(providerFlavors []v1alpha1.MachineImageFlavor) []g
 			Capabilities: providerFlavor.GetCapabilities(),
 		})
 	}
+	return capabilityFlavors
+}
+
+// convertRegionsToCapabilityFlavors converts old format (regions with architecture) to capability flavors.
+// Note: A similar function exists in helper.go for internal API types that also preserves region mappings.
+// This version only extracts unique architectures for CloudProfile spec mutation.
+func convertRegionsToCapabilityFlavors(regions []v1alpha1.RegionAMIMapping) []gardencorev1beta1.MachineImageFlavor {
+	// Collect unique architectures from regions
+	architectureSet := make(map[string]struct{})
+	for _, region := range regions {
+		arch := ptr.Deref(region.Architecture, v1beta1constants.ArchitectureAMD64)
+		architectureSet[arch] = struct{}{}
+	}
+
+	// Create a capability flavor for each unique architecture
+	capabilityFlavors := make([]gardencorev1beta1.MachineImageFlavor, 0, len(architectureSet))
+	for arch := range architectureSet {
+		capabilityFlavors = append(capabilityFlavors, gardencorev1beta1.MachineImageFlavor{
+			Capabilities: gardencorev1beta1.Capabilities{
+				v1beta1constants.ArchitectureName: []string{arch},
+			},
+		})
+	}
+
+	// Sort for deterministic output
+	slices.SortFunc(capabilityFlavors, func(a, b gardencorev1beta1.MachineImageFlavor) int {
+		getArch := func(f gardencorev1beta1.MachineImageFlavor) string {
+			if archList := f.Capabilities[v1beta1constants.ArchitectureName]; len(archList) > 0 {
+				return archList[0]
+			}
+			return ""
+		}
+		return cmp.Compare(getArch(a), getArch(b))
+	})
+
 	return capabilityFlavors
 }
