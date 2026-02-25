@@ -143,7 +143,7 @@ func runHealthCheckWithEvent(event *corev1.Event, scheme *runtime.Scheme) (*heal
 	}
 
 	hc := chealthcheck.NewCustomRouteControllerHealthCheck(deploymentCheck)
-	hc.InjectShootClient(shootClient)
+	hc.InjectTargetClient(shootClient)
 	hc.Logger = logr.Discard()
 
 	return hc.Check(context.Background(), types.NamespacedName{
