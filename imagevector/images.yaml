@@ -134,7 +134,7 @@ images:
 - name: csi-attacher
   sourceRepository: github.com/kubernetes-csi/external-attacher
   repository: registry.k8s.io/sig-storage/csi-attacher
-  tag: v4.10.0
+  tag: v4.11.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -148,7 +148,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: registry.k8s.io/provider-aws/aws-ebs-csi-driver
-  tag: v1.55.0
+  tag: v1.56.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -176,7 +176,7 @@ images:
 - name: csi-liveness-probe
   sourceRepository: github.com/kubernetes-csi/livenessprobe
   repository: registry.k8s.io/sig-storage/livenessprobe
-  tag: v2.17.0
+  tag: v2.18.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -190,7 +190,7 @@ images:
 - name: csi-node-driver-registrar
   sourceRepository: github.com/kubernetes-csi/node-driver-registrar
   repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-  tag: v2.15.0
+  tag: v2.16.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -218,7 +218,7 @@ images:
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: registry.k8s.io/sig-storage/csi-provisioner
-  tag: v6.1.0
+  tag: v6.1.1
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -247,7 +247,7 @@ images:
 - name: csi-resizer
   sourceRepository: github.com/kubernetes-csi/external-resizer
   repository: registry.k8s.io/sig-storage/csi-resizer
-  tag: v2.0.0
+  tag: v2.1.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -262,7 +262,7 @@ images:
 - name: csi-snapshot-controller
   sourceRepository: github.com/kubernetes-csi/external-snapshotter
   repository: registry.k8s.io/sig-storage/snapshot-controller
-  tag: v8.4.0
+  tag: v8.5.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -276,7 +276,7 @@ images:
 - name: csi-snapshotter
   sourceRepository: github.com/kubernetes-csi/external-snapshotter
   repository: registry.k8s.io/sig-storage/csi-snapshotter
-  tag: v8.4.0
+  tag: v8.5.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
