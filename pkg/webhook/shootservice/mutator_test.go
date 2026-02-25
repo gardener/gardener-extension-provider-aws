@@ -136,4 +136,86 @@ var _ = Describe("Mutator", func() {
 		err := mutator.Mutate(ctxWithClient, service, nil)
 		Expect(err).To(Not(HaveOccurred()))
 	})
+
+	Context("Service updates", func() {
+		BeforeEach(func() {
+			Expect(fakeShootClient.Patch(context.TODO(), &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "kube-dns", Namespace: "kube-system"},
+				Spec: corev1.ServiceSpec{
+					IPFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+				},
+			}, client.MergeFrom(&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "kube-dns", Namespace: "kube-system"}}))).To(Succeed())
+		})
+
+		It("should add ignore annotation when updating existing service without ignore annotation", func() {
+			oldService := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-lb", Namespace: metav1.NamespaceSystem},
+				Spec:       corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			}
+			newService := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-lb", Namespace: metav1.NamespaceSystem},
+				Spec:       corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			}
+
+			err := mutator.Mutate(ctxWithClient, newService, oldService)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(newService.Annotations).To(HaveKeyWithValue("extensions.gardener.cloud/ignore-load-balancer", "true"))
+			Expect(newService.Annotations).ToNot(HaveKey("service.beta.kubernetes.io/aws-load-balancer-ip-address-type"))
+		})
+
+		It("should apply dualstack annotations when user removes ignore annotation", func() {
+			oldService := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-lb",
+					Namespace: metav1.NamespaceSystem,
+					Annotations: map[string]string{
+						"extensions.gardener.cloud/ignore-load-balancer": "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			}
+			newService := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-lb",
+					Namespace:   metav1.NamespaceSystem,
+					Annotations: map[string]string{},
+				},
+				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			}
+
+			err := mutator.Mutate(ctxWithClient, newService, oldService)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(newService.Annotations).To(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-ip-address-type", "dualstack"))
+			Expect(newService.Annotations).To(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-scheme", "internet-facing"))
+			Expect(newService.Annotations).To(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-nlb-target-type", "instance"))
+			Expect(newService.Annotations).To(HaveKeyWithValue("service.beta.kubernetes.io/aws-load-balancer-type", "external"))
+		})
+
+		It("should skip mutation when ignore annotation is still present", func() {
+			oldService := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-lb",
+					Namespace: metav1.NamespaceSystem,
+					Annotations: map[string]string{
+						"extensions.gardener.cloud/ignore-load-balancer": "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			}
+			newService := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-lb",
+					Namespace: metav1.NamespaceSystem,
+					Annotations: map[string]string{
+						"extensions.gardener.cloud/ignore-load-balancer": "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			}
+
+			err := mutator.Mutate(ctxWithClient, newService, oldService)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(newService.Annotations).ToNot(HaveKey("service.beta.kubernetes.io/aws-load-balancer-ip-address-type"))
+		})
+	})
 })

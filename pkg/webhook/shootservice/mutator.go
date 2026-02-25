@@ -25,7 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 )
+
+// Annotation and value constants moved to pkg/apis/aws/const.go
 
 type mutator struct {
 	logger           logr.Logger
@@ -44,28 +48,20 @@ func (m *mutator) WantsShootClient() bool {
 }
 
 // Mutate mutates resources.
-func (m *mutator) Mutate(ctx context.Context, newObj, _ client.Object) error {
+func (m *mutator) Mutate(ctx context.Context, newObj, oldObj client.Object) error {
 	service, ok := newObj.(*corev1.Service)
 	if !ok {
 		return fmt.Errorf("could not mutate: object is not of type corev1.Service")
 	}
 
+	log := m.logger.WithValues("service", client.ObjectKeyFromObject(service))
+
 	// If the object does have a deletion timestamp then we don't want to mutate anything.
 	if service.GetDeletionTimestamp() != nil {
 		return nil
 	}
-	extensionswebhook.LogMutation(m.logger, service.Kind, service.Namespace, service.Name)
 
 	if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
-		return nil
-	}
-
-	if metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme") &&
-		service.Annotations["service.beta.kubernetes.io/aws-load-balancer-scheme"] == "internal" ||
-		metav1.HasAnnotation(service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-internal") &&
-			service.Annotations["service.beta.kubernetes.io/aws-load-balancer-internal"] == "true" ||
-		metav1.HasAnnotation(service.ObjectMeta, "extensions.gardener.cloud/ignore-load-balancer") &&
-			service.Annotations["extensions.gardener.cloud/ignore-load-balancer"] == "true" {
 		return nil
 	}
 
@@ -76,14 +72,61 @@ func (m *mutator) Mutate(ctx context.Context, newObj, _ client.Object) error {
 
 	kubeDNSService := &corev1.Service{}
 	if err := shootClient.Get(ctx, types.NamespacedName{Name: "kube-dns", Namespace: "kube-system"}, kubeDNSService); err != nil {
+		log.Error(err, "Failed to get kube-dns service")
 		return err
 	}
-	if slices.Contains(kubeDNSService.Spec.IPFamilies, corev1.IPv6Protocol) {
-		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-ip-address-type", "dualstack")
-		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-scheme", "internet-facing")
-		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type", "instance")
-		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "service.beta.kubernetes.io/aws-load-balancer-type", "external")
+
+	// Early return if not dualstack (no IPv6)
+	if !slices.Contains(kubeDNSService.Spec.IPFamilies, corev1.IPv6Protocol) {
+		return nil
 	}
+
+	// For existing services, check if we should add the ignore annotation
+	if oldObj != nil {
+		oldService, ok := oldObj.(*corev1.Service)
+		if !ok {
+			return fmt.Errorf("oldObj is not of type corev1.Service")
+		}
+
+		hasIgnoreAnnotation := metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationIgnoreLoadBalancer) &&
+			service.Annotations[aws.AnnotationIgnoreLoadBalancer] == aws.ValueTrue
+		hadIgnoreAnnotation := metav1.HasAnnotation(oldService.ObjectMeta, aws.AnnotationIgnoreLoadBalancer) &&
+			oldService.Annotations[aws.AnnotationIgnoreLoadBalancer] == aws.ValueTrue
+		hasDualStackAnnotation := metav1.HasAnnotation(service.ObjectMeta, aws.AnnotationAWSLBIPType) &&
+			service.Annotations[aws.AnnotationAWSLBIPType] == aws.ValueDualStack
+
+		if !hasIgnoreAnnotation && !hasDualStackAnnotation {
+			// If old version didn't have it either, add it (preserve existing services)
+			if !hadIgnoreAnnotation {
+				log.Info("Adding ignore annotation to existing service to preserve current behavior")
+				metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationIgnoreLoadBalancer, aws.ValueTrue)
+				return nil
+			}
+			// If old version had it but new doesn't, user explicitly removed it -> proceed with mutation
+			log.Info("User removed ignore annotation, proceeding with mutation")
+		}
+	}
+
+	// Check if mutation should be skipped based on annotations
+	scheme, hasScheme := service.Annotations[aws.AnnotationAWSLBScheme]
+	internal, hasInternal := service.Annotations[aws.AnnotationAWSLBInternal]
+	ignore, hasIgnore := service.Annotations[aws.AnnotationIgnoreLoadBalancer]
+	if (hasScheme && scheme == aws.ValueInternal) ||
+		(hasInternal && internal == aws.ValueTrue) ||
+		(hasIgnore && ignore == aws.ValueTrue) {
+		return nil
+	}
+
+	// Preserve the old load balancer hostname for manual cleanup
+	if len(service.Status.LoadBalancer.Ingress) > 0 && service.Status.LoadBalancer.Ingress[0].Hostname != "" {
+		metav1.SetMetaDataAnnotation(&service.ObjectMeta, "gardener.cloud/old-load-balancer-name", service.Status.LoadBalancer.Ingress[0].Hostname)
+	}
+
+	log.Info("Setting dualstack annotations for IPv6-enabled cluster")
+	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBIPType, aws.ValueDualStack)
+	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBScheme, aws.ValueInternetFacing)
+	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBNLBTargetType, aws.ValueInstance)
+	metav1.SetMetaDataAnnotation(&service.ObjectMeta, aws.AnnotationAWSLBType, aws.ValueExternal)
 
 	return nil
 }
