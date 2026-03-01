@@ -30,7 +30,7 @@ images:
 - name: aws-load-balancer-controller
   sourceRepository: github.com/kubernetes-sigs/aws-load-balancer-controller
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v3.0.0
+  tag: v3.1.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -290,7 +290,7 @@ images:
 - name: csi-volume-modifier
   sourceRepository: github.com/awslabs/volume-modifier-for-k8s
   repository: public.ecr.aws/ebs-csi-driver/volume-modifier-for-k8s
-  tag: v0.9.2
+  tag: v0.9.3
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
