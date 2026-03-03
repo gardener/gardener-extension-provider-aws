@@ -20,7 +20,7 @@ require (
 	github.com/aws/smithy-go v1.24.1
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/gardener/etcd-druid/api v0.35.0
-	github.com/gardener/external-dns-management v0.35.1
+	github.com/gardener/external-dns-management v0.36.0
 	github.com/gardener/gardener v1.136.2
 	github.com/gardener/machine-controller-manager v0.61.2
 	github.com/go-logr/logr v1.4.3
