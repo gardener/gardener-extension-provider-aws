@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -20,8 +19,6 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
-	mockkubernetes "github.com/gardener/gardener/pkg/client/kubernetes/mock"
 	"github.com/gardener/gardener/pkg/utils"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
@@ -38,7 +35,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/gardener/gardener-extension-provider-aws/charts"
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
@@ -51,7 +47,6 @@ var _ = Describe("Machines", func() {
 		ctrl         *gomock.Controller
 		c            *mockclient.MockClient
 		statusWriter *mockclient.MockStatusWriter
-		chartApplier *mockkubernetes.MockChartApplier
 	)
 
 	BeforeEach(func() {
@@ -59,7 +54,6 @@ var _ = Describe("Machines", func() {
 
 		c = mockclient.NewMockClient(ctrl)
 		statusWriter = mockclient.NewMockStatusWriter(ctrl)
-		chartApplier = mockkubernetes.NewMockChartApplier(ctrl)
 	})
 
 	AfterEach(func() {
@@ -67,7 +61,7 @@ var _ = Describe("Machines", func() {
 	})
 
 	Context("WorkerDelegate", func() {
-		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, nil, "", nil, nil)
+		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, "", nil, nil)
 
 		DescribeTableSubtree("#GenerateMachineDeployments, #DeployMachineClasses", func(isCapabilitiesCloudProfile bool) {
 			var (
@@ -604,7 +598,7 @@ var _ = Describe("Machines", func() {
 				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
 				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil, nil)
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, clusterWithoutImages)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, clusterWithoutImages)
 			})
 
 			expectedUserDataSecretRefRead := func() {
@@ -964,7 +958,7 @@ var _ = Describe("Machines", func() {
 				})
 
 				It("should return machine deployments with AWS CSI Label", func() {
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					expectedUserDataSecretRefRead()
 
@@ -975,19 +969,9 @@ var _ = Describe("Machines", func() {
 				})
 
 				It("should return the expected machine deployments for profile image types", func() {
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					expectedUserDataSecretRefRead()
-
-					// Test WorkerDelegate.DeployMachineClasses()
-					chartApplier.EXPECT().ApplyFromEmbeddedFS(
-						ctx,
-						charts.InternalChart,
-						filepath.Join("internal", "machineclass"),
-						namespace,
-						"machineclass",
-						kubernetes.Values(machineClasses),
-					)
 
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
@@ -1055,23 +1039,13 @@ var _ = Describe("Machines", func() {
 					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{
 						Raw: encode(infrastructureProviderStatus),
 					}
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					for _, machineClass := range machineClasses["machineClasses"].([]map[string]interface{}) {
 						delete(machineClass, "keyName")
 					}
 
 					expectedUserDataSecretRefRead()
-
-					// Test WorkerDelegate.DeployMachineClasses()
-					chartApplier.EXPECT().ApplyFromEmbeddedFS(
-						ctx,
-						charts.InternalChart,
-						filepath.Join("internal", "machineclass"),
-						namespace,
-						"machineclass",
-						kubernetes.Values(machineClasses),
-					)
 
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
@@ -1104,18 +1078,10 @@ var _ = Describe("Machines", func() {
 						})}
 						modifyExpectedMachineClasses(map[string]interface{}{"name": iamInstanceProfileName})
 
-						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 						expectedUserDataSecretRefRead()
 
-						chartApplier.EXPECT().ApplyFromEmbeddedFS(
-							ctx,
-							charts.InternalChart,
-							filepath.Join("internal", "machineclass"),
-							namespace,
-							"machineclass",
-							kubernetes.Values(machineClasses),
-						)
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
 					})
 
@@ -1128,18 +1094,9 @@ var _ = Describe("Machines", func() {
 						})}
 						modifyExpectedMachineClasses(map[string]interface{}{"arn": iamInstanceProfileARN})
 
-						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 						expectedUserDataSecretRefRead()
-
-						chartApplier.EXPECT().ApplyFromEmbeddedFS(
-							ctx,
-							charts.InternalChart,
-							filepath.Join("internal", "machineclass"),
-							namespace,
-							"machineclass",
-							kubernetes.Values(machineClasses),
-						)
 
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
 					})
@@ -1148,7 +1105,7 @@ var _ = Describe("Machines", func() {
 				It("should return err when the infrastructure provider status cannot be decoded", func() {
 					// Deliberately setting InfrastructureProviderStatus to empty
 					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
-					workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					err := workerDelegate.DeployMachineClasses(context.TODO())
 					Expect(err).To(HaveOccurred())
@@ -1179,7 +1136,7 @@ var _ = Describe("Machines", func() {
 					expectedNodeTemplateCapacity := w.Spec.Pools[0].NodeTemplate.Capacity.DeepCopy()
 					maps.Copy(expectedNodeTemplateCapacity, customResources)
 
-					wd, err := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					wd, err := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 					Expect(err).NotTo(HaveOccurred())
 					expectedUserDataSecretRefRead()
 					_, err = wd.GenerateMachineDeployments(ctx)
@@ -1234,7 +1191,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the infrastructure status cannot be decoded", func() {
 				w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1246,7 +1203,7 @@ var _ = Describe("Machines", func() {
 					Raw: encode(&api.InfrastructureStatus{}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1267,7 +1224,7 @@ var _ = Describe("Machines", func() {
 					}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1277,7 +1234,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the ami for this region cannot be found", func() {
 				w.Spec.Region = "another-region"
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1291,7 +1248,7 @@ var _ = Describe("Machines", func() {
 					w.Spec.Pools[0].Architecture = ptr.To(archFAKE)
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1321,7 +1278,7 @@ var _ = Describe("Machines", func() {
 					}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				expectedUserDataSecretRefRead()
 
@@ -1333,7 +1290,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the volume size cannot be decoded", func() {
 				w.Spec.Pools[0].Volume.Size = "not-decodeable"
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1354,7 +1311,7 @@ var _ = Describe("Machines", func() {
 					NodeConditions:         testNodeConditions,
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				expectedUserDataSecretRefRead()
 
@@ -1379,7 +1336,7 @@ var _ = Describe("Machines", func() {
 					ScaleDownUtilizationThreshold:    ptr.To("0.5"),
 				}
 				w.Spec.Pools[1].ClusterAutoscaler = nil
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				expectedUserDataSecretRefRead()
 
