@@ -6,9 +6,9 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -23,15 +23,18 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
+	"github.com/gardener/gardener/pkg/controllerutils"
 	"github.com/gardener/gardener/pkg/utils"
+	"github.com/gardener/gardener/pkg/utils/flow"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
@@ -42,6 +45,11 @@ const (
 	// we need to support it because old PVs use it as node affinity
 	// see also: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/729#issuecomment-1942026577
 	CSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
+
+	// maxConcurrentMachineTasks defines the maximum number of machine-related tasks that can run concurrently.
+	// TODO(plkokanov): Use `genericworkeractuator.MaxConcurrentMachineTasks` introduced in https://github.com/gardener/gardener/pull/14220
+	// when available.
+	maxConcurrentMachineTasks = 50
 )
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
@@ -61,12 +69,38 @@ func (w *WorkerDelegate) MachineClass() client.Object {
 
 // DeployMachineClasses generates and creates the AWS specific machine classes.
 func (w *WorkerDelegate) DeployMachineClasses(ctx context.Context) error {
-	if w.machineClasses == nil {
+	if len(w.machineClassToMutateFuncMap) == 0 || len(w.machineClassSecretToMutateFuncMap) == 0 {
 		if err := w.generateMachineConfig(ctx); err != nil {
 			return err
 		}
 	}
-	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join(charts.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
+
+	var secretsTaskFns = make([]flow.TaskFn, 0, len(w.machineClassSecretToMutateFuncMap))
+	for secret, mutateFn := range w.machineClassSecretToMutateFuncMap {
+		secretsTaskFns = append(secretsTaskFns, func(ctx context.Context) error {
+			if _, err := controllerutils.GetAndCreateOrMergePatch(ctx, w.client, secret, mutateFn); err != nil {
+				return fmt.Errorf("could not deploy Secret '%s': %w", client.ObjectKeyFromObject(secret), err)
+			}
+
+			return nil
+		})
+	}
+	if err := flow.ParallelN(maxConcurrentMachineTasks, secretsTaskFns...)(ctx); err != nil {
+		return err
+	}
+
+	var machineClassesTaskFns = make([]flow.TaskFn, 0, len(w.machineClassToMutateFuncMap))
+	for machineClass, mutateFn := range w.machineClassToMutateFuncMap {
+		machineClassesTaskFns = append(machineClassesTaskFns, func(ctx context.Context) error {
+			if _, err := controllerutils.GetAndCreateOrMergePatch(ctx, w.client, machineClass, mutateFn); err != nil {
+				return fmt.Errorf("could not deploy MachineClass '%s':  %w", client.ObjectKeyFromObject(machineClass), err)
+			}
+
+			return nil
+		})
+	}
+
+	return flow.ParallelN(maxConcurrentMachineTasks, machineClassesTaskFns...)(ctx)
 }
 
 // GenerateMachineDeployments generates the configuration for the desired machine deployments.
@@ -81,9 +115,10 @@ func (w *WorkerDelegate) GenerateMachineDeployments(ctx context.Context) (worker
 
 func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 	var (
-		machineDeployments = worker.MachineDeployments{}
-		machineClasses     []map[string]interface{}
-		machineImages      []awsapi.MachineImage
+		machineDeployments                = worker.MachineDeployments{}
+		machineImages                     []awsapi.MachineImage
+		machineClassToMutateFuncMap       = map[*machinev1alpha1.MachineClass]controllerutil.MutateFn{}
+		machineClassSecretToMutateFuncMap = map[*corev1.Secret]controllerutil.MutateFn{}
 	)
 
 	// Normalize capability definitions once at the entry point.
@@ -159,11 +194,12 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				return err
 			}
 
-			machineClassSpec := map[string]interface{}{
-				"ami":                machineImage.AMI,
-				"region":             w.worker.Spec.Region,
-				"machineType":        pool.MachineType,
-				"iamInstanceProfile": iamInstanceProfile,
+			machineClassProviderSpec := map[string]interface{}{
+				"ami":                    machineImage.AMI,
+				"region":                 w.worker.Spec.Region,
+				"machineType":            pool.MachineType,
+				"srcAndDstChecksEnabled": false,
+				"iam":                    iamInstanceProfile,
 				"networkInterfaces": []map[string]interface{}{
 					{
 						"subnetID":         nodesSubnet.ID,
@@ -177,30 +213,23 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 					},
 					pool.Labels,
 				),
-				"credentialsSecretRef": map[string]interface{}{
-					"name":      w.worker.Spec.SecretRef.Name,
-					"namespace": w.worker.Spec.SecretRef.Namespace,
-				},
-				"secret": map[string]interface{}{
-					"cloudConfig": string(userData),
-				},
 				"blockDevices":            blockDevices,
 				"instanceMetadataOptions": instanceMetadataOptions,
 			}
 
 			networking := w.cluster.Shoot.Spec.Networking
 			if networking != nil && infraflow.ContainsIPv6(networking.IPFamilies) {
-				networkInterfaces, _ := machineClassSpec["networkInterfaces"].([]map[string]interface{})
+				networkInterfaces, _ := machineClassProviderSpec["networkInterfaces"].([]map[string]interface{})
 				networkInterfaces[0]["ipv6AddressCount"] = 1
 				networkInterfaces[0]["ipv6PrefixCount"] = 1
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
-				machineClassSpec["keyName"] = infrastructureStatus.EC2.KeyName
+				machineClassProviderSpec["keyName"] = infrastructureStatus.EC2.KeyName
 			}
-			var nodeTemplate machinev1alpha1.NodeTemplate
+			var nodeTemplate *machinev1alpha1.NodeTemplate
 			if pool.NodeTemplate != nil {
-				nodeTemplate = machinev1alpha1.NodeTemplate{
+				nodeTemplate = &machinev1alpha1.NodeTemplate{
 					Capacity:        pool.NodeTemplate.Capacity,
 					VirtualCapacity: pool.NodeTemplate.VirtualCapacity,
 					InstanceType:    pool.MachineType,
@@ -217,7 +246,6 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				}
 				maps.Copy(nodeTemplate.VirtualCapacity, workerConfig.NodeTemplate.VirtualCapacity)
 			}
-			machineClassSpec["nodeTemplate"] = nodeTemplate
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
 				cpuOpts := map[string]interface{}{}
@@ -228,14 +256,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 					cpuOpts["coreCount"] = *cpuOptions.CoreCount
 					cpuOpts["threadsPerCore"] = *cpuOptions.ThreadsPerCore
 				}
-				machineClassSpec["cpuOptions"] = cpuOpts
-			}
-
-			if pool.MachineImage.Name != "" && pool.MachineImage.Version != "" {
-				machineClassSpec["operatingSystem"] = map[string]interface{}{
-					"operatingSystemName":    pool.MachineImage.Name,
-					"operatingSystemVersion": strings.ReplaceAll(pool.MachineImage.Version, "+", "_"),
-				}
+				machineClassProviderSpec["cpuOptions"] = cpuOpts
 			}
 
 			if workerConfig.CapacityReservation != nil {
@@ -251,7 +272,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				if capacityReservationOpts.CapacityReservationResourceGroupARN != nil {
 					capacityReserverationCfg["capacityReservationResourceGroupArn"] = *capacityReservationOpts.CapacityReservationResourceGroupARN
 				}
-				machineClassSpec["capacityReservation"] = capacityReserverationCfg
+				machineClassProviderSpec["capacityReservation"] = capacityReserverationCfg
 			}
 
 			var (
@@ -305,17 +326,71 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				ClusterAutoscalerAnnotations: extensionsv1alpha1helper.GetMachineDeploymentClusterAutoscalerAnnotations(pool.ClusterAutoscaler),
 			})
 
-			machineClassSpec["name"] = className
-			machineClassSpec["labels"] = map[string]string{corev1.LabelZoneFailureDomain: zone}
-			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
+			var operatingSystemConfigLabels map[string]string
+			if pool.MachineImage.Name != "" && pool.MachineImage.Version != "" {
+				operatingSystemConfigLabels = map[string]string{
+					"operatingSystemName":    pool.MachineImage.Name,
+					"operatingSystemVersion": strings.ReplaceAll(pool.MachineImage.Version, "+", "_"),
+				}
+			}
 
-			machineClasses = append(machineClasses, machineClassSpec)
+			machineClass := &machinev1alpha1.MachineClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      className,
+					Namespace: w.worker.Namespace,
+				},
+			}
+
+			marshalledProviderSpec, err := json.Marshal(machineClassProviderSpec)
+			if err != nil {
+				return fmt.Errorf("could not marshal provider spec for MachineClass '%s' into json: %w", client.ObjectKeyFromObject(machineClass), err)
+			}
+
+			machineClassToMutateFuncMap[machineClass] = func() error {
+				machineClass.Labels = utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone})
+				machineClass.NodeTemplate = nodeTemplate
+				machineClass.CredentialsSecretRef = &corev1.SecretReference{
+					Name:      w.worker.Spec.SecretRef.Name,
+					Namespace: w.worker.Spec.SecretRef.Namespace,
+				}
+				machineClass.SecretRef = &corev1.SecretReference{
+					Name:      className,
+					Namespace: w.worker.Namespace,
+				}
+				machineClass.Provider = "AWS"
+
+				machineClass.ProviderSpec = runtime.RawExtension{
+					Raw: marshalledProviderSpec,
+				}
+
+				return nil
+			}
+
+			machineClassSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      className,
+					Namespace: w.worker.Namespace,
+				},
+			}
+
+			machineClassSecretToMutateFuncMap[machineClassSecret] = func() error {
+				machineClassSecret.Labels = map[string]string{
+					v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass,
+				}
+				machineClassSecret.Data = map[string][]byte{
+					"userData": userData,
+				}
+				machineClassSecret.Type = corev1.SecretTypeOpaque
+
+				return nil
+			}
 		}
 	}
 
 	w.machineDeployments = machineDeployments
-	w.machineClasses = machineClasses
 	w.machineImages = machineImages
+	w.machineClassToMutateFuncMap = machineClassToMutateFuncMap
+	w.machineClassSecretToMutateFuncMap = machineClassSecretToMutateFuncMap
 
 	return nil
 }
