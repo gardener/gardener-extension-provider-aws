@@ -20,6 +20,7 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils"
+	"github.com/gardener/gardener/pkg/utils/test"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/google/go-cmp/cmp"
@@ -31,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -612,10 +614,47 @@ var _ = Describe("Machines", func() {
 
 			Describe("machine images", func() {
 				var (
-					defaultMachineClass map[string]interface{}
-					machineDeployments  worker.MachineDeployments
-					machineClasses      map[string]interface{}
+					machineDeployments        worker.MachineDeployments
+					machineClasses            []*machinev1alpha1.MachineClass
+					machineClassSecrets       []*corev1.Secret
+					machineClassProviderSpecs []map[string]interface{}
 				)
+
+				expectMachineClassesAndSecrets := func() {
+					for _, secret := range machineClassSecrets {
+						existing := &corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      secret.Name,
+								Namespace: secret.Namespace,
+							},
+						}
+
+						c.EXPECT().Get(gomock.Any(), client.ObjectKeyFromObject(secret), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
+							func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
+								*obj = *existing
+								return nil
+							})
+
+						test.EXPECTPatch(gomock.Any(), c, secret, existing, types.MergePatchType)
+					}
+
+					for _, machineClass := range machineClasses {
+						existing := &machinev1alpha1.MachineClass{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      machineClass.Name,
+								Namespace: machineClass.Namespace,
+							},
+						}
+
+						c.EXPECT().Get(gomock.Any(), client.ObjectKeyFromObject(machineClass), gomock.AssignableToTypeOf(&machinev1alpha1.MachineClass{})).DoAndReturn(
+							func(_ context.Context, _ client.ObjectKey, obj *machinev1alpha1.MachineClass, _ ...client.GetOption) error {
+								*obj = *existing
+								return nil
+							})
+
+						test.EXPECTPatch(gomock.Any(), c, machineClass, existing, types.MergePatchType)
+					}
+				}
 
 				BeforeEach(func() {
 					ec2InstanceTags := utils.MergeStringMaps(
@@ -625,13 +664,12 @@ var _ = Describe("Machines", func() {
 						},
 						labels,
 					)
-					defaultMachineClass = map[string]interface{}{
-						"secret": map[string]interface{}{
-							"cloudConfig": string(userData),
-						},
-						"ami":    machineImageAMI,
-						"region": region,
-						"iamInstanceProfile": map[string]interface{}{
+
+					defaultMachineClassProviderSpec := map[string]interface{}{
+						"ami":                    machineImageAMI,
+						"region":                 region,
+						"srcAndDstChecksEnabled": false,
+						"iam": map[string]interface{}{
 							"name": instanceProfileName,
 						},
 						"keyName": keyName,
@@ -650,51 +688,70 @@ var _ = Describe("Machines", func() {
 							"httpPutResponseHopLimit": int64(2),
 							"httpTokens":              "required",
 						},
-						"operatingSystem": map[string]interface{}{
-							"operatingSystemName":    machineImageName,
-							"operatingSystemVersion": strings.ReplaceAll(machineImageVersion, "+", "_"),
+					}
+
+					operatingSystemConfigLabels := map[string]string{
+						"operatingSystemName":    machineImageName,
+						"operatingSystemVersion": strings.ReplaceAll(machineImageVersion, "+", "_"),
+					}
+
+					defaultMachineClass := &machinev1alpha1.MachineClass{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: w.Namespace,
 						},
+						Provider: "AWS",
+					}
+
+					defaultMachineClassSecret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: w.Namespace,
+							Labels:    map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass},
+						},
+						Data: map[string][]byte{
+							"userData": userData,
+						},
+						Type: corev1.SecretTypeOpaque,
 					}
 
 					var (
-						machineClassPool1Zone1 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassProviderSpecPool1Zone1 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone1,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
-						machineClassPool1Zone2 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassProviderSpecPool1Zone2 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone2,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
-						machineClassPool2Zone1 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassProviderSpecPool2Zone1 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone1,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
-						machineClassPool2Zone2 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassProviderSpecPool2Zone2 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone2,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
-						machineClassPool3Zone1 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassProviderSpecPool3Zone1 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone1,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
-						machineClassPool3Zone2 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassProviderSpecPool3Zone2 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
 							{
 								"subnetID":         subnetZone2,
 								"securityGroupIDs": []string{securityGroupID},
 							},
 						})
 
-						machineClassPool1BlockDevices = []map[string]interface{}{
+						machineClassProviderSpecPool1BlockDevices = []map[string]interface{}{
 							{
 								"deviceName": "/root",
 								"ebs": map[string]interface{}{
@@ -730,35 +787,24 @@ var _ = Describe("Machines", func() {
 						}
 					)
 
-					machineClassPool1Zone1["blockDevices"] = machineClassPool1BlockDevices
-					machineClassPool1Zone2["blockDevices"] = machineClassPool1BlockDevices
+					machineClassProviderSpecPool1Zone1["blockDevices"] = machineClassProviderSpecPool1BlockDevices
+					machineClassProviderSpecPool1Zone2["blockDevices"] = machineClassProviderSpecPool1BlockDevices
 
-					machineClassPool1Zone1["capacityReservation"] = map[string]string{
+					machineClassProviderSpecPool1Zone1["capacityReservation"] = map[string]string{
 						"capacityReservationPreference":       capacityReservationPreference,
 						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
 					}
-					machineClassPool1Zone2["capacityReservation"] = map[string]string{
+					machineClassProviderSpecPool1Zone2["capacityReservation"] = map[string]string{
 						"capacityReservationPreference":       capacityReservationPreference,
 						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
 					}
 
-					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
-					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "machineType", machineType)
-
-					machineClassPool1Zone2 = addKeyValueToMap(machineClassPool1Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
-					machineClassPool1Zone2 = addKeyValueToMap(machineClassPool1Zone2, "machineType", machineType)
-
-					machineClassPool2Zone1 = addKeyValueToMap(machineClassPool2Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
-					machineClassPool2Zone1 = addKeyValueToMap(machineClassPool2Zone1, "machineType", machineTypeArm)
-
-					machineClassPool2Zone2 = addKeyValueToMap(machineClassPool2Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
-					machineClassPool2Zone2 = addKeyValueToMap(machineClassPool2Zone2, "machineType", machineTypeArm)
-
-					machineClassPool3Zone1 = addKeyValueToMap(machineClassPool3Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
-					machineClassPool3Zone1 = addKeyValueToMap(machineClassPool3Zone1, "machineType", machineTypeArm)
-
-					machineClassPool3Zone2 = addKeyValueToMap(machineClassPool3Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
-					machineClassPool3Zone2 = addKeyValueToMap(machineClassPool3Zone2, "machineType", machineTypeArm)
+					machineClassProviderSpecPool1Zone1 = addKeyValueToMap(machineClassProviderSpecPool1Zone1, "machineType", machineType)
+					machineClassProviderSpecPool1Zone2 = addKeyValueToMap(machineClassProviderSpecPool1Zone2, "machineType", machineType)
+					machineClassProviderSpecPool2Zone1 = addKeyValueToMap(machineClassProviderSpecPool2Zone1, "machineType", machineTypeArm)
+					machineClassProviderSpecPool2Zone2 = addKeyValueToMap(machineClassProviderSpecPool2Zone2, "machineType", machineTypeArm)
+					machineClassProviderSpecPool3Zone1 = addKeyValueToMap(machineClassProviderSpecPool3Zone1, "machineType", machineTypeArm)
+					machineClassProviderSpecPool3Zone2 = addKeyValueToMap(machineClassProviderSpecPool3Zone2, "machineType", machineTypeArm)
 
 					var (
 						machineClassNamePool1Zone1 = fmt.Sprintf("%s-%s-z1", technicalID, namePool1)
@@ -774,14 +820,21 @@ var _ = Describe("Machines", func() {
 						machineClassWithHashPool2Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, workerPoolHash2)
 						machineClassWithHashPool3Zone1 = fmt.Sprintf("%s-%s", machineClassNamePool3Zone1, workerPoolHash3)
 						machineClassWithHashPool3Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool3Zone2, workerPoolHash3)
-					)
 
-					addNameAndSecretToMachineClass(machineClassPool1Zone1, machineClassWithHashPool1Zone1, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool1Zone2, machineClassWithHashPool1Zone2, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool2Zone1, machineClassWithHashPool2Zone1, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool2Zone2, machineClassWithHashPool2Zone2, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool3Zone1, machineClassWithHashPool3Zone1, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool3Zone2, machineClassWithHashPool3Zone2, w.Spec.SecretRef)
+						machineClassPool1Zone1 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool1Zone1, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone1}))
+						machineClassPool1Zone2 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool1Zone2, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone2}))
+						machineClassPool2Zone1 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool2Zone1, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone1}))
+						machineClassPool2Zone2 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool2Zone2, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone2}))
+						machineClassPool3Zone1 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool3Zone1, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone1}))
+						machineClassPool3Zone2 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool3Zone2, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone2}))
+
+						machineClassSecretPool1Zone1 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool1Zone1, nil)
+						machineClassSecretPool1Zone2 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool1Zone2, nil)
+						machineClassSecretPool2Zone1 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool2Zone1, nil)
+						machineClassSecretPool2Zone2 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool2Zone2, nil)
+						machineClassSecretPool3Zone1 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool3Zone1, nil)
+						machineClassSecretPool3Zone2 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool3Zone2, nil)
+					)
 
 					addNodeTemplateToMachineClass(machineClassPool1Zone1, nodeTemplatePool1Zone1)
 					addNodeTemplateToMachineClass(machineClassPool1Zone2, nodeTemplatePool1Zone2)
@@ -790,14 +843,43 @@ var _ = Describe("Machines", func() {
 					addNodeTemplateToMachineClass(machineClassPool3Zone1, nodeTemplatePool3Zone1)
 					addNodeTemplateToMachineClass(machineClassPool3Zone2, nodeTemplatePool3Zone2)
 
-					machineClasses = map[string]interface{}{"machineClasses": []map[string]interface{}{
+					addProviderSpecToMachineClass(machineClassPool1Zone1, machineClassProviderSpecPool1Zone1)
+					addProviderSpecToMachineClass(machineClassPool1Zone2, machineClassProviderSpecPool1Zone2)
+					addProviderSpecToMachineClass(machineClassPool2Zone1, machineClassProviderSpecPool2Zone1)
+					addProviderSpecToMachineClass(machineClassPool2Zone2, machineClassProviderSpecPool2Zone2)
+					addProviderSpecToMachineClass(machineClassPool3Zone1, machineClassProviderSpecPool3Zone1)
+					addProviderSpecToMachineClass(machineClassPool3Zone2, machineClassProviderSpecPool3Zone2)
+
+					machineClassProviderSpecs = []map[string]interface{}{
+						machineClassProviderSpecPool1Zone1,
+						machineClassProviderSpecPool1Zone2,
+						machineClassProviderSpecPool2Zone1,
+						machineClassProviderSpecPool2Zone2,
+						machineClassProviderSpecPool3Zone1,
+						machineClassProviderSpecPool3Zone2,
+					}
+
+					machineClasses = []*machinev1alpha1.MachineClass{
 						machineClassPool1Zone1,
 						machineClassPool1Zone2,
 						machineClassPool2Zone1,
 						machineClassPool2Zone2,
 						machineClassPool3Zone1,
 						machineClassPool3Zone2,
-					}}
+					}
+
+					for _, machineClass := range machineClasses {
+						addSecretRefsToMachineClass(machineClass, w.Spec.SecretRef)
+					}
+
+					machineClassSecrets = []*corev1.Secret{
+						machineClassSecretPool1Zone1,
+						machineClassSecretPool1Zone2,
+						machineClassSecretPool2Zone1,
+						machineClassSecretPool2Zone2,
+						machineClassSecretPool3Zone1,
+						machineClassSecretPool3Zone2,
+					}
 
 					emptyClusterAutoscalerAnnotations := map[string]string{
 						"autoscaler.gardener.cloud/max-node-provision-time":              "",
@@ -972,6 +1054,7 @@ var _ = Describe("Machines", func() {
 					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					expectedUserDataSecretRefRead()
+					expectMachineClassesAndSecrets()
 
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
@@ -1041,11 +1124,13 @@ var _ = Describe("Machines", func() {
 					}
 					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
-					for _, machineClass := range machineClasses["machineClasses"].([]map[string]interface{}) {
-						delete(machineClass, "keyName")
+					for i := range machineClasses {
+						delete(machineClassProviderSpecs[i], "keyName")
+						machineClasses[i].ProviderSpec.Raw = encode(machineClassProviderSpecs[i])
 					}
 
 					expectedUserDataSecretRefRead()
+					expectMachineClassesAndSecrets()
 
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
@@ -1056,17 +1141,13 @@ var _ = Describe("Machines", func() {
 						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
-						var (
-							machineClassNamePool2Zone1     = fmt.Sprintf("%s-%s-z1", technicalID, namePool2)
-							machineClassNamePool2Zone2     = fmt.Sprintf("%s-%s-z2", technicalID, namePool2)
-							machineClassWithHashPool2Zone1 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone1, newHash)
-							machineClassWithHashPool2Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, newHash)
-						)
+						machineClassProviderSpecs[2]["iam"] = expectedIamInstanceProfile
+						machineClasses[2].Name = strings.Replace(machineClasses[2].Name, workerPoolHash2, newHash, 1)
+						machineClasses[2].ProviderSpec.Raw = encode(machineClassProviderSpecs[2])
 
-						machineClasses["machineClasses"].([]map[string]interface{})[2]["name"] = machineClassWithHashPool2Zone1
-						machineClasses["machineClasses"].([]map[string]interface{})[2]["iamInstanceProfile"] = expectedIamInstanceProfile
-						machineClasses["machineClasses"].([]map[string]interface{})[3]["name"] = machineClassWithHashPool2Zone2
-						machineClasses["machineClasses"].([]map[string]interface{})[3]["iamInstanceProfile"] = expectedIamInstanceProfile
+						machineClassProviderSpecs[3]["iam"] = expectedIamInstanceProfile
+						machineClasses[3].Name = strings.Replace(machineClasses[3].Name, workerPoolHash2, newHash, 1)
+						machineClasses[3].ProviderSpec.Raw = encode(machineClassProviderSpecs[3])
 					}
 
 					It("should deploy the correct machine class when using iamInstanceProfile.Name", func() {
@@ -1081,6 +1162,7 @@ var _ = Describe("Machines", func() {
 						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 						expectedUserDataSecretRefRead()
+						expectMachineClassesAndSecrets()
 
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
 					})
@@ -1097,6 +1179,7 @@ var _ = Describe("Machines", func() {
 						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 						expectedUserDataSecretRefRead()
+						expectMachineClassesAndSecrets()
 
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
 					})
@@ -1139,21 +1222,24 @@ var _ = Describe("Machines", func() {
 					wd, err := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 					Expect(err).NotTo(HaveOccurred())
 					expectedUserDataSecretRefRead()
+
 					_, err = wd.GenerateMachineDeployments(ctx)
 					Expect(err).NotTo(HaveOccurred())
+
 					workerDelegate := wd.(*WorkerDelegate)
-					mClasses := workerDelegate.GetMachineClasses()
-					for _, mClz := range mClasses {
-						className := mClz["name"].(string)
+					machineClasses, err := workerDelegate.GetMachineClasses()
+					Expect(err).NotTo(HaveOccurred())
+					for _, machineClass := range machineClasses {
+						className := machineClass.Name
 						if strings.Contains(className, namePool1) {
-							GinkgoWriter.Printf("Machine class name: %q\n", className)
-							nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
-							Expect(nt.Capacity).To(Equal(expectedNodeTemplateCapacity))
-							Expect(nt.VirtualCapacity).To(Equal(customVirtualResources))
+							Expect(machineClass.NodeTemplate).NotTo(BeNil(), "MachineClass "+className+" should not be nil")
+							Expect(machineClass.NodeTemplate.Capacity).To(Equal(expectedNodeTemplateCapacity), "MachineClass "+className+" should have expected nodeTemplate.capacity")
+							Expect(machineClass.NodeTemplate.VirtualCapacity).To(Equal(customVirtualResources), "MachineClass "+className+" should have expected nodeTemplate.virtualCapacity")
 						}
 					}
 				})
 			})
+
 			DescribeTable("should generate same worker pool hash even when virtualCapacity is newly added or changed", Label("virtualCapacity"),
 				func(w1Def string, w2Def string) {
 					var w1, w2 extensionsv1alpha1.Worker
@@ -1665,7 +1751,7 @@ var _ = Describe("Machines", func() {
 	)
 })
 
-func encode(obj runtime.Object) []byte {
+func encode(obj interface{}) []byte {
 	data, _ := json.Marshal(obj)
 	return data
 }
@@ -1681,17 +1767,33 @@ func addKeyValueToMap(class map[string]interface{}, key string, value interface{
 	return out
 }
 
-func addNodeTemplateToMachineClass(class map[string]interface{}, nodeTemplate machinev1alpha1.NodeTemplate) {
-	class["nodeTemplate"] = nodeTemplate
+func addNodeTemplateToMachineClass(machineClass *machinev1alpha1.MachineClass, nodeTemplate machinev1alpha1.NodeTemplate) {
+	machineClass.NodeTemplate = &nodeTemplate
 }
 
-func addNameAndSecretToMachineClass(class map[string]interface{}, name string, credentialsSecretRef corev1.SecretReference) {
-	class["name"] = name
-	class["credentialsSecretRef"] = map[string]interface{}{
-		"name":      credentialsSecretRef.Name,
-		"namespace": credentialsSecretRef.Namespace,
+func addSecretRefsToMachineClass(machineClass *machinev1alpha1.MachineClass, credentialsSecretRef corev1.SecretReference) {
+	machineClass.CredentialsSecretRef = &corev1.SecretReference{
+		Name:      credentialsSecretRef.Name,
+		Namespace: credentialsSecretRef.Namespace,
 	}
-	class["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
+	machineClass.SecretRef = &corev1.SecretReference{
+		Name:      machineClass.Name,
+		Namespace: machineClass.Namespace,
+	}
+}
+
+func addProviderSpecToMachineClass(machineClass *machinev1alpha1.MachineClass, providerSpec map[string]interface{}) {
+	machineClass.ProviderSpec = runtime.RawExtension{Raw: encode(providerSpec)}
+}
+
+func createWithNameAndLabelsFromObject[T client.Object](obj T, name string, labels map[string]string) T {
+	out := obj.DeepCopyObject().(client.Object)
+	if len(labels) > 0 {
+		out.SetLabels(labels)
+	}
+	out.SetName(name)
+
+	return out.(T)
 }
 
 func loadDecodeWorker(decoder runtime.Decoder, filePath string, w *extensionsv1alpha1.Worker) error {
