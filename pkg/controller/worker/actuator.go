@@ -13,13 +13,15 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/util"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	gardener "github.com/gardener/gardener/pkg/client/kubernetes"
+	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -65,17 +67,11 @@ func (d *delegateFactory) WorkerDelegate(_ context.Context, worker *extensionsv1
 		return nil, err
 	}
 
-	seedChartApplier, err := gardener.NewChartApplierForConfig(d.restConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	return NewWorkerDelegate(
 		d.seedClient,
 		d.decoder,
 		d.scheme,
 
-		seedChartApplier,
 		serverVersion.GitVersion,
 
 		worker,
@@ -89,16 +85,16 @@ type WorkerDelegate struct {
 	decoder runtime.Decoder
 	scheme  *runtime.Scheme
 
-	seedChartApplier gardener.ChartApplier
-	serverVersion    string
+	serverVersion string
 
 	cloudProfileConfig *api.CloudProfileConfig
 	cluster            *extensionscontroller.Cluster
 	worker             *extensionsv1alpha1.Worker
 
-	machineClasses     []map[string]interface{}
-	machineDeployments worker.MachineDeployments
-	machineImages      []api.MachineImage
+	machineClassToMutateFuncMap       map[*machinev1alpha1.MachineClass]controllerutil.MutateFn
+	machineClassSecretToMutateFuncMap map[*corev1.Secret]controllerutil.MutateFn
+	machineDeployments                worker.MachineDeployments
+	machineImages                     []api.MachineImage
 }
 
 // NewWorkerDelegate creates a new context for a worker reconciliation.
@@ -107,7 +103,6 @@ func NewWorkerDelegate(
 	decoder runtime.Decoder,
 	scheme *runtime.Scheme,
 
-	seedChartApplier gardener.ChartApplier,
 	serverVersion string,
 
 	worker *extensionsv1alpha1.Worker,
@@ -122,8 +117,7 @@ func NewWorkerDelegate(
 		decoder: decoder,
 		scheme:  scheme,
 
-		seedChartApplier: seedChartApplier,
-		serverVersion:    serverVersion,
+		serverVersion: serverVersion,
 
 		cloudProfileConfig: config,
 		cluster:            cluster,
@@ -131,8 +125,18 @@ func NewWorkerDelegate(
 	}, nil
 }
 
-// GetMachineClasses returns the islice  of machine classes contained inside the worker delegate.
+// GetMachineClasses returns the islice of machine classes contained inside the worker delegate.
 // Introduced for Unit-testing.
-func (w *WorkerDelegate) GetMachineClasses() []map[string]any {
-	return w.machineClasses
+func (w *WorkerDelegate) GetMachineClasses() ([]*machinev1alpha1.MachineClass, error) {
+	var machineClasses = make([]*machinev1alpha1.MachineClass, 0, len(w.machineClassToMutateFuncMap))
+
+	for machineClass, mutateFn := range w.machineClassToMutateFuncMap {
+		if err := mutateFn(); err != nil {
+			return nil, err
+		}
+
+		machineClasses = append(machineClasses, machineClass)
+	}
+
+	return machineClasses, nil
 }
