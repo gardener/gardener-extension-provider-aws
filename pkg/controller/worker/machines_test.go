@@ -22,10 +22,12 @@ import (
 	"github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/pkg/utils/test"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
+	awsmachineapi "github.com/gardener/machine-controller-manager-provider-aws/pkg/aws/apis"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -621,7 +623,7 @@ var _ = Describe("Machines", func() {
 					machineDeployments        worker.MachineDeployments
 					machineClasses            []*machinev1alpha1.MachineClass
 					machineClassSecrets       []*corev1.Secret
-					machineClassProviderSpecs []map[string]interface{}
+					machineClassProviderSpecs []*awsmachineapi.AWSProviderSpec
 				)
 
 				expectMachineClassesAndSecrets := func() {
@@ -635,6 +637,8 @@ var _ = Describe("Machines", func() {
 
 						c.EXPECT().Get(gomock.Any(), client.ObjectKeyFromObject(secret), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
 							func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
+								defer GinkgoRecover()
+
 								*obj = *existing
 								return nil
 							})
@@ -652,6 +656,8 @@ var _ = Describe("Machines", func() {
 
 						c.EXPECT().Get(gomock.Any(), client.ObjectKeyFromObject(machineClass), gomock.AssignableToTypeOf(&machinev1alpha1.MachineClass{})).DoAndReturn(
 							func(_ context.Context, _ client.ObjectKey, obj *machinev1alpha1.MachineClass, _ ...client.GetOption) error {
+								defer GinkgoRecover()
+
 								*obj = *existing
 								return nil
 							})
@@ -660,7 +666,7 @@ var _ = Describe("Machines", func() {
 					}
 				}
 
-				BeforeEach(func() {
+				createMachineClassProviderSpec := func(subnetID, machineType string, blockDevices []awsmachineapi.AWSBlockDeviceMappingSpec, capacityReservations *awsmachineapi.AWSCapacityReservationTargetSpec) *awsmachineapi.AWSProviderSpec {
 					ec2InstanceTags := utils.MergeStringMaps(
 						map[string]string{
 							fmt.Sprintf("kubernetes.io/cluster/%s", technicalID): "1",
@@ -669,31 +675,47 @@ var _ = Describe("Machines", func() {
 						labels,
 					)
 
-					defaultMachineClassProviderSpec := map[string]interface{}{
-						"ami":                    machineImageAMI,
-						"region":                 region,
-						"srcAndDstChecksEnabled": false,
-						"iam": map[string]interface{}{
-							"name": instanceProfileName,
+					out := &awsmachineapi.AWSProviderSpec{
+						AMI:                    machineImageAMI,
+						Region:                 region,
+						SrcAndDstChecksEnabled: ptr.To(false),
+						IAM: awsmachineapi.AWSIAMProfileSpec{
+							Name: instanceProfileName,
 						},
-						"keyName": keyName,
-						"tags":    ec2InstanceTags,
-						"blockDevices": []map[string]interface{}{
+						MachineType: machineType,
+						NetworkInterfaces: []awsmachineapi.AWSNetworkInterfaceSpec{
 							{
-								"ebs": map[string]interface{}{
-									"volumeSize":          volumeSize,
-									"volumeType":          volumeType,
-									"deleteOnTermination": true,
-									"encrypted":           true,
+								SubnetID:         subnetID,
+								SecurityGroupIDs: []string{securityGroupID},
+							},
+						},
+						KeyName: ptr.To(keyName),
+						Tags:    ec2InstanceTags,
+						BlockDevices: []awsmachineapi.AWSBlockDeviceMappingSpec{
+							{
+								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
+									DeleteOnTermination: ptr.To(true),
+									Encrypted:           true,
+									VolumeSize:          int32(volumeSize),
+									VolumeType:          volumeType,
 								},
 							},
 						},
-						"instanceMetadataOptions": map[string]interface{}{
-							"httpPutResponseHopLimit": int64(2),
-							"httpTokens":              "required",
+						InstanceMetadataOptions: &awsmachineapi.InstanceMetadataOptions{
+							HTTPPutResponseHopLimit: ptr.To[int32](2),
+							HTTPTokens:              "required",
 						},
+						CapacityReservationTarget: capacityReservations,
 					}
 
+					if len(blockDevices) > 0 {
+						out.BlockDevices = blockDevices
+					}
+
+					return out
+				}
+
+				BeforeEach(func() {
 					operatingSystemConfigLabels := map[string]string{
 						"operatingSystemName":    machineImageName,
 						"operatingSystemVersion": strings.ReplaceAll(machineImageVersion, "+", "_"),
@@ -718,97 +740,52 @@ var _ = Describe("Machines", func() {
 					}
 
 					var (
-						machineClassProviderSpecPool1Zone1 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
+						machineClassProviderSpecPool1BlockDevices = []awsmachineapi.AWSBlockDeviceMappingSpec{
 							{
-								"subnetID":         subnetZone1,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassProviderSpecPool1Zone2 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone2,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassProviderSpecPool2Zone1 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone1,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassProviderSpecPool2Zone2 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone2,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassProviderSpecPool3Zone1 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone1,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassProviderSpecPool3Zone2 = addKeyValueToMap(defaultMachineClassProviderSpec, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone2,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-
-						machineClassProviderSpecPool1BlockDevices = []map[string]interface{}{
-							{
-								"deviceName": "/root",
-								"ebs": map[string]interface{}{
-									"volumeSize":          volumeSize,
-									"volumeType":          volumeType,
-									"iops":                volumeIOPS,
-									"throughput":          volumeThroughput,
-									"deleteOnTermination": true,
-									"encrypted":           volumeEncrypted,
+								DeviceName: "/root",
+								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
+									DeleteOnTermination: ptr.To(true),
+									Encrypted:           volumeEncrypted,
+									Iops:                int32(volumeIOPS),
+									Throughput:          ptr.To(int32(volumeThroughput)),
+									VolumeSize:          int32(volumeSize),
+									VolumeType:          volumeType,
 								},
 							},
 							{
-								"deviceName": "/dev/sdf",
-								"ebs": map[string]interface{}{
-									"volumeSize":          dataVolume1Size,
-									"volumeType":          dataVolume1Type,
-									"deleteOnTermination": true,
-									"encrypted":           dataVolume1Encrypted,
-									"iops":                dataVolume1IOPS,
-									"throughput":          dataVolume1Throughput,
+								DeviceName: "/dev/sdf",
+								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
+									DeleteOnTermination: ptr.To(true),
+									Encrypted:           dataVolume1Encrypted,
+									Iops:                int32(dataVolume1IOPS),
+									Throughput:          ptr.To(int32(dataVolume1Throughput)),
+									VolumeSize:          int32(dataVolume1Size),
+									VolumeType:          dataVolume1Type,
 								},
 							},
 							{
-								"deviceName": "/dev/sdg",
-								"ebs": map[string]interface{}{
-									"volumeSize":          dataVolume2Size,
-									"volumeType":          dataVolume2Type,
-									"deleteOnTermination": true,
-									"encrypted":           dataVolume2Encrypted,
-									"snapshotID":          dataVolume2SnapshotID,
+								DeviceName: "/dev/sdg",
+								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
+									DeleteOnTermination: ptr.To(true),
+									SnapshotID:          ptr.To(dataVolume2SnapshotID),
+									VolumeSize:          int32(dataVolume2Size),
+									VolumeType:          dataVolume2Type,
 								},
 							},
 						}
+
+						capacityReservation = &awsmachineapi.AWSCapacityReservationTargetSpec{
+							CapacityReservationPreference:       capacityReservationPreference,
+							CapacityReservationResourceGroupArn: &capacityReservationResourceGroupARN,
+						}
+
+						machineClassProviderSpecPool1Zone1 = createMachineClassProviderSpec(subnetZone1, machineType, machineClassProviderSpecPool1BlockDevices, capacityReservation)
+						machineClassProviderSpecPool1Zone2 = createMachineClassProviderSpec(subnetZone2, machineType, machineClassProviderSpecPool1BlockDevices, capacityReservation)
+						machineClassProviderSpecPool2Zone1 = createMachineClassProviderSpec(subnetZone1, machineTypeArm, nil, nil)
+						machineClassProviderSpecPool2Zone2 = createMachineClassProviderSpec(subnetZone2, machineTypeArm, nil, nil)
+						machineClassProviderSpecPool3Zone1 = createMachineClassProviderSpec(subnetZone1, machineTypeArm, nil, nil)
+						machineClassProviderSpecPool3Zone2 = createMachineClassProviderSpec(subnetZone2, machineTypeArm, nil, nil)
 					)
-
-					machineClassProviderSpecPool1Zone1["blockDevices"] = machineClassProviderSpecPool1BlockDevices
-					machineClassProviderSpecPool1Zone2["blockDevices"] = machineClassProviderSpecPool1BlockDevices
-
-					machineClassProviderSpecPool1Zone1["capacityReservation"] = map[string]string{
-						"capacityReservationPreference":       capacityReservationPreference,
-						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
-					}
-					machineClassProviderSpecPool1Zone2["capacityReservation"] = map[string]string{
-						"capacityReservationPreference":       capacityReservationPreference,
-						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
-					}
-
-					machineClassProviderSpecPool1Zone1 = addKeyValueToMap(machineClassProviderSpecPool1Zone1, "machineType", machineType)
-					machineClassProviderSpecPool1Zone2 = addKeyValueToMap(machineClassProviderSpecPool1Zone2, "machineType", machineType)
-					machineClassProviderSpecPool2Zone1 = addKeyValueToMap(machineClassProviderSpecPool2Zone1, "machineType", machineTypeArm)
-					machineClassProviderSpecPool2Zone2 = addKeyValueToMap(machineClassProviderSpecPool2Zone2, "machineType", machineTypeArm)
-					machineClassProviderSpecPool3Zone1 = addKeyValueToMap(machineClassProviderSpecPool3Zone1, "machineType", machineTypeArm)
-					machineClassProviderSpecPool3Zone2 = addKeyValueToMap(machineClassProviderSpecPool3Zone2, "machineType", machineTypeArm)
 
 					var (
 						machineClassNamePool1Zone1 = fmt.Sprintf("%s-%s-z1", technicalID, namePool1)
@@ -854,7 +831,7 @@ var _ = Describe("Machines", func() {
 					addProviderSpecToMachineClass(machineClassPool3Zone1, machineClassProviderSpecPool3Zone1)
 					addProviderSpecToMachineClass(machineClassPool3Zone2, machineClassProviderSpecPool3Zone2)
 
-					machineClassProviderSpecs = []map[string]interface{}{
+					machineClassProviderSpecs = []*awsmachineapi.AWSProviderSpec{
 						machineClassProviderSpecPool1Zone1,
 						machineClassProviderSpecPool1Zone2,
 						machineClassProviderSpecPool2Zone1,
@@ -1129,7 +1106,7 @@ var _ = Describe("Machines", func() {
 					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					for i := range machineClasses {
-						delete(machineClassProviderSpecs[i], "keyName")
+						machineClassProviderSpecs[i].KeyName = nil
 						machineClasses[i].ProviderSpec.Raw = encode(machineClassProviderSpecs[i])
 					}
 
@@ -1141,15 +1118,15 @@ var _ = Describe("Machines", func() {
 				})
 
 				Context("using workerConfig.iamInstanceProfile", func() {
-					modifyExpectedMachineClasses := func(expectedIamInstanceProfile map[string]interface{}) {
+					modifyExpectedMachineClasses := func(expectedIamInstanceProfile awsmachineapi.AWSIAMProfileSpec) {
 						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
-						machineClassProviderSpecs[2]["iam"] = expectedIamInstanceProfile
+						machineClassProviderSpecs[2].IAM = expectedIamInstanceProfile
 						machineClasses[2].Name = strings.Replace(machineClasses[2].Name, workerPoolHash2, newHash, 1)
 						machineClasses[2].ProviderSpec.Raw = encode(machineClassProviderSpecs[2])
 
-						machineClassProviderSpecs[3]["iam"] = expectedIamInstanceProfile
+						machineClassProviderSpecs[3].IAM = expectedIamInstanceProfile
 						machineClasses[3].Name = strings.Replace(machineClasses[3].Name, workerPoolHash2, newHash, 1)
 						machineClasses[3].ProviderSpec.Raw = encode(machineClassProviderSpecs[3])
 					}
@@ -1161,7 +1138,7 @@ var _ = Describe("Machines", func() {
 								Name: &iamInstanceProfileName,
 							},
 						})}
-						modifyExpectedMachineClasses(map[string]interface{}{"name": iamInstanceProfileName})
+						modifyExpectedMachineClasses(awsmachineapi.AWSIAMProfileSpec{Name: iamInstanceProfileName})
 
 						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
@@ -1178,7 +1155,7 @@ var _ = Describe("Machines", func() {
 								ARN: &iamInstanceProfileARN,
 							},
 						})}
-						modifyExpectedMachineClasses(map[string]interface{}{"arn": iamInstanceProfileARN})
+						modifyExpectedMachineClasses(awsmachineapi.AWSIAMProfileSpec{ARN: iamInstanceProfileARN})
 
 						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
@@ -1616,8 +1593,9 @@ var _ = Describe("Machines", func() {
 
 				res, err := ComputeInstanceMetadataOptions(workerConfig)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(2)))
-				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
+				Expect(res).NotTo(BeNil())
+				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(2))))
+				Expect(res.HTTPTokens).To(Equal("required"))
 			})
 			It("should calculate correct IMDS with user options", func() {
 				workerConfig.InstanceMetadataOptions = &api.InstanceMetadataOptions{
@@ -1627,8 +1605,9 @@ var _ = Describe("Machines", func() {
 
 				res, err := ComputeInstanceMetadataOptions(workerConfig)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(5)))
-				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
+				Expect(res).NotTo(BeNil())
+				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(5))))
+				Expect(res.HTTPTokens).To(Equal("required"))
 			})
 
 		})
@@ -1751,17 +1730,6 @@ func encode(obj interface{}) []byte {
 	return data
 }
 
-func addKeyValueToMap(class map[string]interface{}, key string, value interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(class)+1)
-
-	for k, v := range class {
-		out[k] = v
-	}
-
-	out[key] = value
-	return out
-}
-
 func addNodeTemplateToMachineClass(machineClass *machinev1alpha1.MachineClass, nodeTemplate machinev1alpha1.NodeTemplate) {
 	machineClass.NodeTemplate = &nodeTemplate
 }
@@ -1777,7 +1745,7 @@ func addSecretRefsToMachineClass(machineClass *machinev1alpha1.MachineClass, cre
 	}
 }
 
-func addProviderSpecToMachineClass(machineClass *machinev1alpha1.MachineClass, providerSpec map[string]interface{}) {
+func addProviderSpecToMachineClass(machineClass *machinev1alpha1.MachineClass, providerSpec *awsmachineapi.AWSProviderSpec) {
 	machineClass.ProviderSpec = runtime.RawExtension{Raw: encode(providerSpec)}
 }
 

@@ -984,6 +984,8 @@ github.com/gardener/gardener v1.136.2 h1:jvk8SmPRT/guLu8C3SlyvW+iGoVc3uCuuptUkqW
 github.com/gardener/gardener v1.136.2/go.mod h1:CfEl2QKzNh+B5fQrWCx+lhqg1dS8pp6wz8au1Ww6+xs=
 github.com/gardener/machine-controller-manager v0.61.2 h1:kG8DgmOqqlljWqxa4x0ER4+L5zg1lxNd1dQXT9gKbvA=
 github.com/gardener/machine-controller-manager v0.61.2/go.mod h1:8eE1qLztrWIbOM71mHSQGaC6Q+pl5lvOyN08qP39D7o=
+github.com/gardener/machine-controller-manager-provider-aws v0.27.2 h1:s8On43843YemHWzCVmEsC2T9LVhE1a7moF5z5bm9voM=
+github.com/gardener/machine-controller-manager-provider-aws v0.27.2/go.mod h1:k4en/QvXK0r2rRrLv0b9mz6K4VQejC0FGxXfrJUkqhQ=
 github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gkampitakis/ciinfo v0.3.2 h1:JcuOPk8ZU7nZQjdUhctuhQofk7BGHuIy0c9Ez8BNhXs=

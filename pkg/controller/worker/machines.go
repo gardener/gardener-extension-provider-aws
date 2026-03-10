@@ -27,6 +27,7 @@ import (
 	"github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
+	awsmachineapi "github.com/gardener/machine-controller-manager-provider-aws/pkg/aws/apis"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -186,37 +187,36 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				return err
 			}
 
-			machineClassProviderSpec := map[string]interface{}{
-				"ami":                    machineImage.AMI,
-				"region":                 w.worker.Spec.Region,
-				"machineType":            pool.MachineType,
-				"srcAndDstChecksEnabled": false,
-				"iam":                    iamInstanceProfile,
-				"networkInterfaces": []map[string]interface{}{
+			machineClassProviderSpec := &awsmachineapi.AWSProviderSpec{
+				AMI:                    machineImage.AMI,
+				Region:                 w.worker.Spec.Region,
+				MachineType:            pool.MachineType,
+				SrcAndDstChecksEnabled: ptr.To(false),
+				IAM:                    iamInstanceProfile,
+				NetworkInterfaces: []awsmachineapi.AWSNetworkInterfaceSpec{
 					{
-						"subnetID":         nodesSubnet.ID,
-						"securityGroupIDs": []string{nodesSecurityGroup.ID},
+						SubnetID:         nodesSubnet.ID,
+						SecurityGroupIDs: []string{nodesSecurityGroup.ID},
 					},
 				},
-				"tags": utils.MergeStringMaps(
+				Tags: utils.MergeStringMaps(
 					map[string]string{
 						fmt.Sprintf("kubernetes.io/cluster/%s", w.cluster.Shoot.Status.TechnicalID): "1",
 						"kubernetes.io/role/node": "1",
 					},
 					pool.Labels,
 				),
-				"blockDevices":            blockDevices,
-				"instanceMetadataOptions": instanceMetadataOptions,
+				BlockDevices:            blockDevices,
+				InstanceMetadataOptions: instanceMetadataOptions,
 			}
 
 			if isIPv6(w.cluster) {
-				networkInterfaces, _ := machineClassProviderSpec["networkInterfaces"].([]map[string]interface{})
-				networkInterfaces[0]["ipv6AddressCount"] = 1
-				networkInterfaces[0]["ipv6PrefixCount"] = 1
+				machineClassProviderSpec.NetworkInterfaces[0].Ipv6AddressCount = ptr.To[int32](1)
+				machineClassProviderSpec.NetworkInterfaces[0].Ipv6PrefixCount = ptr.To[int32](1)
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
-				machineClassProviderSpec["keyName"] = infrastructureStatus.EC2.KeyName
+				machineClassProviderSpec.KeyName = ptr.To(infrastructureStatus.EC2.KeyName)
 			}
 			var nodeTemplate *machinev1alpha1.NodeTemplate
 			if pool.NodeTemplate != nil {
@@ -239,31 +239,27 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
-				cpuOpts := map[string]interface{}{}
-				if cpuOptions.AmdSevSnp != nil {
-					cpuOpts["amdSevSnp"] = *cpuOptions.AmdSevSnp
+				cpuOpts := &awsmachineapi.CPUOptions{
+					AmdSevSnp: cpuOptions.AmdSevSnp,
 				}
+
 				if cpuOptions.CoreCount != nil && cpuOptions.ThreadsPerCore != nil {
-					cpuOpts["coreCount"] = *cpuOptions.CoreCount
-					cpuOpts["threadsPerCore"] = *cpuOptions.ThreadsPerCore
+					cpuOpts.CoreCount = ptr.To(int32(*cpuOptions.CoreCount))
+					cpuOpts.ThreadsPerCore = ptr.To(int32(*cpuOptions.ThreadsPerCore))
 				}
-				machineClassProviderSpec["cpuOptions"] = cpuOpts
+
+				machineClassProviderSpec.CPUOptions = cpuOpts
 			}
 
 			if workerConfig.CapacityReservation != nil {
 				capacityReservationOpts := *workerConfig.CapacityReservation
-				capacityReserverationCfg := map[string]string{}
+				capacityReserverationCfg := &awsmachineapi.AWSCapacityReservationTargetSpec{
+					CapacityReservationPreference:       ptr.Deref(capacityReservationOpts.CapacityReservationPreference, ""),
+					CapacityReservationID:               capacityReservationOpts.CapacityReservationID,
+					CapacityReservationResourceGroupArn: capacityReservationOpts.CapacityReservationResourceGroupARN,
+				}
 
-				if capacityReservationOpts.CapacityReservationPreference != nil {
-					capacityReserverationCfg["capacityReservationPreference"] = *capacityReservationOpts.CapacityReservationPreference
-				}
-				if capacityReservationOpts.CapacityReservationID != nil {
-					capacityReserverationCfg["capacityReservationId"] = *capacityReservationOpts.CapacityReservationID
-				}
-				if capacityReservationOpts.CapacityReservationResourceGroupARN != nil {
-					capacityReserverationCfg["capacityReservationResourceGroupArn"] = *capacityReservationOpts.CapacityReservationResourceGroupARN
-				}
-				machineClassProviderSpec["capacityReservation"] = capacityReserverationCfg
+				machineClassProviderSpec.CapacityReservationTarget = capacityReserverationCfg
 			}
 
 			var (
@@ -340,6 +336,10 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			machineClassToMutateFuncMap[machineClass] = func() error {
 				machineClass.Labels = utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone})
 				machineClass.NodeTemplate = nodeTemplate
+				machineClass.ProviderSpec = runtime.RawExtension{
+					Raw: marshalledProviderSpec,
+				}
+				machineClass.Provider = "AWS"
 				machineClass.CredentialsSecretRef = &corev1.SecretReference{
 					Name:      w.worker.Spec.SecretRef.Name,
 					Namespace: w.worker.Spec.SecretRef.Namespace,
@@ -347,11 +347,6 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				machineClass.SecretRef = &corev1.SecretReference{
 					Name:      className,
 					Namespace: w.worker.Namespace,
-				}
-				machineClass.Provider = "AWS"
-
-				machineClass.ProviderSpec = runtime.RawExtension{
-					Raw: marshalledProviderSpec,
 				}
 
 				return nil
@@ -386,8 +381,8 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 	return nil
 }
 
-func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]map[string]interface{}, error) {
-	var blockDevices []map[string]interface{}
+func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]awsmachineapi.AWSBlockDeviceMappingSpec, error) {
+	var blockDevices []awsmachineapi.AWSBlockDeviceMappingSpec
 
 	// handle root disk
 	rootDisk, err := computeEBSForVolume(*pool.Volume)
@@ -396,17 +391,17 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	}
 	if workerConfig.Volume != nil {
 		if workerConfig.Volume.IOPS != nil {
-			rootDisk["iops"] = *workerConfig.Volume.IOPS
+			rootDisk.Iops = int32(*workerConfig.Volume.IOPS)
 		}
 		if workerConfig.Volume.Throughput != nil {
-			rootDisk["throughput"] = *workerConfig.Volume.Throughput
+			rootDisk.Throughput = ptr.To(int32(*workerConfig.Volume.Throughput))
 		}
 	}
-	blockDevices = append(blockDevices, map[string]interface{}{"ebs": rootDisk})
+	blockDevices = append(blockDevices, awsmachineapi.AWSBlockDeviceMappingSpec{Ebs: rootDisk})
 
 	// handle data disks
 	if dataVolumes := pool.DataVolumes; len(dataVolumes) > 0 {
-		blockDevices[0]["deviceName"] = "/root"
+		blockDevices[0].DeviceName = "/root"
 
 		// sort data volumes for consistent device naming
 		sort.Slice(dataVolumes, func(i, j int) bool {
@@ -420,22 +415,20 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 			}
 			if dvConfig := awsapihelper.FindDataVolumeByName(workerConfig.DataVolumes, vol.Name); dvConfig != nil {
 				if dvConfig.IOPS != nil {
-					dataDisk["iops"] = *dvConfig.IOPS
-				}
-				if dvConfig.SnapshotID != nil {
-					dataDisk["snapshotID"] = *dvConfig.SnapshotID
+					dataDisk.Iops = int32(*dvConfig.IOPS)
 				}
 				if dvConfig.Throughput != nil {
-					dataDisk["throughput"] = *dvConfig.Throughput
+					dataDisk.Throughput = ptr.To(int32(*dvConfig.Throughput))
 				}
+				dataDisk.SnapshotID = dvConfig.SnapshotID
 			}
 			deviceName, err := computeEBSDeviceNameForIndex(i)
 			if err != nil {
 				return nil, fmt.Errorf("error when computing EBS device name for %v: %w", vol, err)
 			}
-			blockDevices = append(blockDevices, map[string]interface{}{
-				"deviceName": deviceName,
-				"ebs":        dataDisk,
+			blockDevices = append(blockDevices, awsmachineapi.AWSBlockDeviceMappingSpec{
+				DeviceName: deviceName,
+				Ebs:        dataDisk,
 			})
 		}
 	}
@@ -451,32 +444,32 @@ func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPo
 	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), v2HashData, ComputeAdditionalHashDataInPlace(pool))
 }
 
-func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
+func computeEBSForVolume(volume extensionsv1alpha1.Volume) (awsmachineapi.AWSEbsBlockDeviceSpec, error) {
 	return computeEBS(volume.Size, volume.Type, volume.Encrypted)
 }
 
-func computeEBSForDataVolume(volume extensionsv1alpha1.DataVolume) (map[string]interface{}, error) {
+func computeEBSForDataVolume(volume extensionsv1alpha1.DataVolume) (awsmachineapi.AWSEbsBlockDeviceSpec, error) {
 	return computeEBS(volume.Size, volume.Type, volume.Encrypted)
 }
 
-func computeEBS(size string, volumeType *string, encrypted *bool) (map[string]interface{}, error) {
+func computeEBS(size string, volumeType *string, encrypted *bool) (awsmachineapi.AWSEbsBlockDeviceSpec, error) {
 	volumeSize, err := worker.DiskSize(size)
 	if err != nil {
-		return nil, err
+		return awsmachineapi.AWSEbsBlockDeviceSpec{}, err
 	}
 
-	ebs := map[string]interface{}{
-		"volumeSize":          volumeSize,
-		"encrypted":           true,
-		"deleteOnTermination": true,
+	ebs := awsmachineapi.AWSEbsBlockDeviceSpec{
+		VolumeSize:          int32(volumeSize),
+		Encrypted:           true,
+		DeleteOnTermination: ptr.To(true),
 	}
 
 	if volumeType != nil {
-		ebs["volumeType"] = *volumeType
+		ebs.VolumeType = *volumeType
 	}
 
 	if encrypted != nil {
-		ebs["encrypted"] = *encrypted
+		ebs.Encrypted = *encrypted
 	}
 
 	return ebs, nil
@@ -565,47 +558,53 @@ func ComputeAdditionalHashDataInPlace(pool extensionsv1alpha1.WorkerPool) []stri
 	return additionalData
 }
 
-func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructureStatus *awsapi.InfrastructureStatus) (map[string]interface{}, error) {
+func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructureStatus *awsapi.InfrastructureStatus) (awsmachineapi.AWSIAMProfileSpec, error) {
 	if workerConfig.IAMInstanceProfile == nil {
 		nodesInstanceProfile, err := awsapihelper.FindInstanceProfileForPurpose(infrastructureStatus.IAM.InstanceProfiles, awsapi.PurposeNodes)
 		if err != nil {
-			return nil, err
+			return awsmachineapi.AWSIAMProfileSpec{}, err
 		}
 
-		return map[string]interface{}{"name": nodesInstanceProfile.Name}, nil
+		return awsmachineapi.AWSIAMProfileSpec{
+			Name: nodesInstanceProfile.Name,
+		}, nil
 	}
 
 	if v := workerConfig.IAMInstanceProfile.Name; v != nil {
-		return map[string]interface{}{"name": *v}, nil
+		return awsmachineapi.AWSIAMProfileSpec{
+			Name: *v,
+		}, nil
 	}
 
 	if v := workerConfig.IAMInstanceProfile.ARN; v != nil {
-		return map[string]interface{}{"arn": *v}, nil
+		return awsmachineapi.AWSIAMProfileSpec{
+			ARN: *v,
+		}, nil
 	}
 
-	return nil, fmt.Errorf("unable to compute IAM instance profile configuration")
+	return awsmachineapi.AWSIAMProfileSpec{}, fmt.Errorf("unable to compute IAM instance profile configuration")
 }
 
 // ComputeInstanceMetadataOptions calculates the InstanceMetadata options for a particular worker pool.
-func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig) (map[string]interface{}, error) {
-	res := make(map[string]interface{})
+func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig) (*awsmachineapi.InstanceMetadataOptions, error) {
+	var instanceMetadataOptions = &awsmachineapi.InstanceMetadataOptions{}
 
 	if workerConfig == nil || workerConfig.InstanceMetadataOptions == nil {
-		res["httpPutResponseHopLimit"] = int64(2)
-		res["httpTokens"] = string(awsapi.HTTPTokensRequired)
+		instanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To[int32](2)
+		instanceMetadataOptions.HTTPTokens = string(awsapi.HTTPTokensRequired)
 
-		return res, nil
+		return instanceMetadataOptions, nil
 	}
 
 	if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
-		res["httpPutResponseHopLimit"] = *workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit
+		instanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To(int32(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit))
 	}
 
 	if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
-		res["httpTokens"] = string(*workerConfig.InstanceMetadataOptions.HTTPTokens)
+		instanceMetadataOptions.HTTPTokens = string(*workerConfig.InstanceMetadataOptions.HTTPTokens)
 	}
 
-	return res, nil
+	return instanceMetadataOptions, nil
 }
 
 func isIPv6(c *controller.Cluster) bool {
