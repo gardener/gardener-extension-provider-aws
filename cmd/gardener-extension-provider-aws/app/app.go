@@ -47,6 +47,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 	awsseedprovider "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/seedprovider"
 )
 
@@ -163,6 +164,10 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 
 			if err := aggOption.Complete(); err != nil {
 				return fmt.Errorf("error completing options: %w", err)
+			}
+
+			if err := features.FeatureGate.SetFromMap(configFileOpts.Completed().Config.FeatureGates); err != nil {
+				return fmt.Errorf("error setting feature gates: %w", err)
 			}
 
 			if err := heartbeatCtrlOpts.Validate(); err != nil {
