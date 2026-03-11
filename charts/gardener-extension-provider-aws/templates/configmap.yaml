@@ -23,3 +23,9 @@ data:
 {{- if .Values.config.etcd.backup }}
       backup: {{- toYaml .Values.config.etcd.backup | nindent 8 }}
 {{- end }}
+{{- if .Values.config.featureGates }}
+    featureGates:
+  {{- range $feature, $enabled := .Values.config.featureGates }}
+      {{ $feature }}: {{ $enabled }}
+  {{- end }}
+{{- end }}
