@@ -30,6 +30,7 @@ import (
 	awsmachineapi "github.com/gardener/machine-controller-manager-provider-aws/pkg/aws/apis"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
@@ -218,33 +219,37 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				InstanceMetadataOptions: instanceMetadataOptions,
 			}
 
-<<<<<<< HEAD
 			networking := w.cluster.Shoot.Spec.Networking
 			if networking != nil && infraflow.ContainsIPv6(networking.IPFamilies) {
-				networkInterfaces, _ := machineClassProviderSpec["networkInterfaces"].([]map[string]interface{})
-				networkInterfaces[0]["ipv6AddressCount"] = 1
-				networkInterfaces[0]["ipv6PrefixCount"] = 1
-=======
-			if isIPv6(w.cluster) {
 				machineClassProviderSpec.NetworkInterfaces[0].Ipv6AddressCount = ptr.To[int32](1)
 				machineClassProviderSpec.NetworkInterfaces[0].Ipv6PrefixCount = ptr.To[int32](1)
->>>>>>> 9477f21e (Use concrete `AWSProviderSpec` type)
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
 				machineClassProviderSpec.KeyName = ptr.To(infrastructureStatus.EC2.KeyName)
 			}
-			var nodeTemplate *machinev1alpha1.NodeTemplate
-			if pool.NodeTemplate != nil {
-				nodeTemplate = &machinev1alpha1.NodeTemplate{
-					Capacity:        pool.NodeTemplate.Capacity,
-					VirtualCapacity: pool.NodeTemplate.VirtualCapacity,
-					InstanceType:    pool.MachineType,
-					Region:          w.worker.Spec.Region,
-					Zone:            zone,
-					Architecture:    &workerArchitecture,
-				}
+
+			nodeTemplate := &machinev1alpha1.NodeTemplate{
+				Architecture: ptr.To("amd64"),
+				Capacity: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("4"),
+					"GPU":                 resource.MustParse("0"),
+					corev1.ResourceMemory: resource.MustParse("16Gi"),
+				},
+				InstanceType: "m4.xlarge",
+				Region:       "eu-west-1",
+				Zone:         "eu-west-1a",
 			}
+
+			if pool.NodeTemplate != nil {
+				nodeTemplate.Capacity = pool.NodeTemplate.Capacity
+				nodeTemplate.VirtualCapacity = pool.NodeTemplate.VirtualCapacity
+				nodeTemplate.InstanceType = pool.MachineType
+				nodeTemplate.Region = w.worker.Spec.Region
+				nodeTemplate.Zone = zone
+				nodeTemplate.Architecture = &workerArchitecture
+			}
+
 			if workerConfig.NodeTemplate != nil {
 				// Support providerConfig extended resources by copying into node template capacity and virtualCapacity
 				maps.Copy(nodeTemplate.Capacity, workerConfig.NodeTemplate.Capacity)
@@ -602,17 +607,11 @@ func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructure
 }
 
 // ComputeInstanceMetadataOptions calculates the InstanceMetadata options for a particular worker pool.
-<<<<<<< HEAD
-func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig,
-	networking *gardencorev1beta1.Networking) (map[string]interface{}, error) {
-	res := make(map[string]interface{})
-=======
-func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig) (*awsmachineapi.InstanceMetadataOptions, error) {
+func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig, networking *gardencorev1beta1.Networking) (*awsmachineapi.InstanceMetadataOptions, error) {
 	var instanceMetadataOptions = &awsmachineapi.InstanceMetadataOptions{}
->>>>>>> 9477f21e (Use concrete `AWSProviderSpec` type)
 
 	if networking != nil && gardencorev1beta1.IsIPv6SingleStack(networking.IPFamilies) {
-		res["httpProtocolIpv6"] = string(ec2types.InstanceMetadataProtocolStateEnabled)
+		instanceMetadataOptions.HTTPProtocolIPv6 = string(ec2types.InstanceMetadataProtocolStateEnabled)
 	}
 
 	if workerConfig == nil || workerConfig.InstanceMetadataOptions == nil {
