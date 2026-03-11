@@ -30,6 +30,7 @@ import (
 	awsmachineapi "github.com/gardener/machine-controller-manager-provider-aws/pkg/aws/apis"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
@@ -218,17 +219,28 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
 				machineClassProviderSpec.KeyName = ptr.To(infrastructureStatus.EC2.KeyName)
 			}
-			var nodeTemplate *machinev1alpha1.NodeTemplate
-			if pool.NodeTemplate != nil {
-				nodeTemplate = &machinev1alpha1.NodeTemplate{
-					Capacity:        pool.NodeTemplate.Capacity,
-					VirtualCapacity: pool.NodeTemplate.VirtualCapacity,
-					InstanceType:    pool.MachineType,
-					Region:          w.worker.Spec.Region,
-					Zone:            zone,
-					Architecture:    &arch,
-				}
+
+			nodeTemplate := &machinev1alpha1.NodeTemplate{
+				Architecture: ptr.To("amd64"),
+				Capacity: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("4"),
+					"GPU":                 resource.MustParse("0"),
+					corev1.ResourceMemory: resource.MustParse("16Gi"),
+				},
+				InstanceType: "m4.xlarge",
+				Region:       "eu-west-1",
+				Zone:         "eu-west-1a",
 			}
+
+			if pool.NodeTemplate != nil {
+				nodeTemplate.Capacity = pool.NodeTemplate.Capacity
+				nodeTemplate.VirtualCapacity = pool.NodeTemplate.VirtualCapacity
+				nodeTemplate.InstanceType = pool.MachineType
+				nodeTemplate.Region = w.worker.Spec.Region
+				nodeTemplate.Zone = zone
+				nodeTemplate.Architecture = &arch
+			}
+
 			if workerConfig.NodeTemplate != nil {
 				// Support providerConfig extended resources by copying into node template capacity and virtualCapacity
 				maps.Copy(nodeTemplate.Capacity, workerConfig.NodeTemplate.Capacity)
