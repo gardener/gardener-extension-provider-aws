@@ -27,6 +27,11 @@ func NewWorkloadIdentityValidator() extensionswebhook.Validator {
 
 // Validate checks whether the given new workloadidentity contains a valid AWS configuration.
 func (wi *workloadIdentity) Validate(_ context.Context, newObj, oldObj client.Object) error {
+	return ValidateWorkloadIdentity(newObj, oldObj)
+}
+
+// ValidateWorkloadIdentity checks whether the given new workloadidentity contains a valid AWS configuration.
+func ValidateWorkloadIdentity(newObj, oldObj client.Object) error {
 	workloadIdentity, ok := newObj.(*securityv1alpha1.WorkloadIdentity)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", newObj)

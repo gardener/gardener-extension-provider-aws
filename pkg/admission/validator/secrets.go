@@ -26,6 +26,11 @@ func NewSecretValidator() extensionswebhook.Validator {
 
 // Validate checks whether the given new secret contains valid AWS credentials.
 func (s *secret) Validate(_ context.Context, newObj, oldObj client.Object) error {
+	return ValidateSecret(newObj, oldObj)
+}
+
+// ValidateSecret checks whether the given new secret contains valid AWS credentials.
+func ValidateSecret(newObj, oldObj client.Object) error {
 	secret, ok := newObj.(*corev1.Secret)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", newObj)
