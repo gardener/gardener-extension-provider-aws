@@ -1004,9 +1004,10 @@ func (c *Client) describeVpcs(ctx context.Context, input *ec2.DescribeVpcsInput)
 
 func (c *Client) fromVpc(ctx context.Context, item ec2types.Vpc, withAttributes bool) (*VPC, error) {
 	vpc := &VPC{
-		VpcId:     aws.ToString(item.VpcId),
-		Tags:      FromTags(item.Tags),
-		CidrBlock: aws.ToString(item.CidrBlock),
+		VpcId:                   aws.ToString(item.VpcId),
+		Tags:                    FromTags(item.Tags),
+		CidrBlock:               aws.ToString(item.CidrBlock),
+		CidrBlockAssociationSet: item.CidrBlockAssociationSet,
 		IPv6CidrBlock: func() string {
 			if item.Ipv6CidrBlockAssociationSet != nil {
 				return aws.ToString(item.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock)
