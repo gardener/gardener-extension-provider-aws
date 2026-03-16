@@ -27,3 +27,6 @@ updates:
   directory: "/"
   schedule:
     interval: "weekly"
+  labels:
+  - area/compliance
+  - kind/enhancement
