@@ -12,9 +12,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"github.com/gardener/gardener-extension-provider-aws/cmd/gardener-extension-provider-aws/app"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 )
 
 func main() {
+	features.RegisterFeatureGates()
 	logf.SetLogger(logger.MustNewZapLogger(logger.InfoLevel, logger.FormatJSON))
 	cmd := app.NewControllerManagerCommand(signals.SetupSignalHandler())
 

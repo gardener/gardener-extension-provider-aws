@@ -39,6 +39,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 )
 
 const namespace = "test"
@@ -47,6 +48,10 @@ func TestController(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "ControlPlane Webhook Suite")
 }
+
+var _ = BeforeSuite(func() {
+	features.RegisterFeatureGates()
+})
 
 var _ = Describe("Ensurer", func() {
 	var (
