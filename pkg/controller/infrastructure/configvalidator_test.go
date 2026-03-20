@@ -125,7 +125,7 @@ var _ = Describe("ConfigValidator", func() {
 			}, Fields{
 				"Type":   Equal(field.ErrorTypeInvalid),
 				"Field":  Equal("networks.vpc.id"),
-				"Detail": Equal("no attached internet gateway found"),
+				"Detail": Equal("no attached internet gateway found (required when Gardener manages public subnets)"),
 			}))
 		})
 
@@ -427,7 +427,16 @@ func baseInfra(region string, vpcID *string) *extensionsv1alpha1.Infrastructure 
 			DefaultSpec: extensionsv1alpha1.DefaultSpec{
 				Type: aws.Type,
 				ProviderConfig: &runtime.RawExtension{Raw: encode(&apisaws.InfrastructureConfig{
-					Networks: apisaws.Networks{VPC: apisaws.VPC{ID: vpcID}},
+					Networks: apisaws.Networks{
+						VPC: apisaws.VPC{ID: vpcID},
+						Zones: []apisaws.Zone{
+							{
+								Workers:  "10.250.0.0/19",
+								Internal: "10.250.32.0/20",
+								Public:   "10.250.48.0/20",
+							},
+						},
+					},
 				})},
 			},
 			Region:    region,
