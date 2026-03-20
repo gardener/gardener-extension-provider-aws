@@ -318,6 +318,37 @@ func (c *FlowContext) isCsiEfsEnabled() bool {
 	return c.config != nil && c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.Enabled
 }
 
+// isBYOInfrastructure returns true if all zones use WorkersSubnetID (BYO mode).
+// Validation ensures all zones use the same approach, so checking the first zone suffices.
+func (c *FlowContext) isBYOInfrastructure() bool {
+	return len(c.config.Networks.Zones) > 0 && c.config.Networks.Zones[0].WorkersSubnetID != nil
+}
+
+// hasManagedPublicSubnets returns true if at least one zone has a Public CIDR (Gardener-managed).
+func (c *FlowContext) hasManagedPublicSubnets() bool {
+	for _, zone := range c.config.Networks.Zones {
+		if zone.Public != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// hasManagedInternalSubnets returns true if at least one zone has an Internal CIDR (Gardener-managed).
+func (c *FlowContext) hasManagedInternalSubnets() bool {
+	for _, zone := range c.config.Networks.Zones {
+		if zone.Internal != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// isBYOSecurityGroup returns true if the user has provided a NodesSecurityGroupID.
+func (c *FlowContext) isBYOSecurityGroup() bool {
+	return c.config.Networks.NodesSecurityGroupID != nil
+}
+
 // ZoneSuffixHelper provides methods to create suffices for various resources
 type ZoneSuffixHelper struct {
 	suffix string
