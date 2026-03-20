@@ -284,6 +284,11 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 	if c.state.Get(IdentifierNodesSecurityGroup) == nil {
 		return nil
 	}
+	// Do not delete BYO security groups - they are user-managed.
+	if c.isBYOSecurityGroup() {
+		c.state.Delete(IdentifierNodesSecurityGroup)
+		return nil
+	}
 	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
@@ -305,6 +310,18 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteZones(ctx context.Context) error {
+	// For BYO infrastructure, just clear state - don't delete any subnets or zone resources.
+	if c.isBYOInfrastructure() {
+		child := c.state.GetChild(ChildIdZones)
+		for _, zoneKey := range child.GetChildrenKeys() {
+			zoneChild := child.GetChild(zoneKey)
+			zoneChild.Delete(IdentifierZoneSubnetWorkers)
+			zoneChild.Delete(IdentifierZoneSubnetPublic)
+			zoneChild.Delete(IdentifierZoneSubnetPrivate)
+		}
+		return nil
+	}
+
 	current, err := c.collectExistingSubnets(ctx)
 	if err != nil {
 		return err
