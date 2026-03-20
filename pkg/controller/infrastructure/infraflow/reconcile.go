@@ -58,6 +58,8 @@ func (c *FlowContext) Reconcile(ctx context.Context) error {
 
 func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 	createVPC := c.config.Networks.VPC.ID == nil
+	needsIGW := createVPC || c.hasManagedPublicSubnets()
+	needsMainRouteTable := needsIGW
 	g := flow.NewGraph("AWS infrastructure reconciliation")
 
 	ensureDhcpOptions := c.AddTask(g, "ensure DHCP options for VPC",
@@ -90,7 +92,7 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 	ensureMainRouteTable := c.AddTask(g, "ensure main route table",
 		c.ensureMainRouteTable,
-		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway, ensureEgressOnlyInternetGateway))
+		DoIf(needsMainRouteTable), Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway, ensureEgressOnlyInternetGateway))
 
 	ensureNodesSecurityGroup := c.AddTask(g, "ensure nodes security group",
 		c.ensureNodesSecurityGroup,
@@ -280,11 +282,16 @@ func (c *FlowContext) ensureExistingVpc(ctx context.Context) error {
 	if err := c.validateVpc(ctx, current); err != nil {
 		return err
 	}
-	gw, err := c.client.FindInternetGatewayByVPC(ctx, vpcID)
-	if err != nil {
-		return fmt.Errorf("internet Gateway not found for VPC %s", vpcID)
+
+	// Only look up the Internet Gateway when Gardener manages public subnets or the VPC is Gardener-managed.
+	// For fully BYO configurations, users manage their own connectivity.
+	if c.hasManagedPublicSubnets() {
+		gw, err := c.client.FindInternetGatewayByVPC(ctx, vpcID)
+		if err != nil {
+			return fmt.Errorf("internet Gateway not found for VPC %s", vpcID)
+		}
+		c.state.Set(IdentifierInternetGateway, gw.InternetGatewayId)
 	}
-	c.state.Set(IdentifierInternetGateway, gw.InternetGatewayId)
 
 	if ContainsIPv6(c.getIpFamilies()) {
 		eogw, err := c.client.FindEgressOnlyInternetGatewayByVPC(ctx, vpcID)
@@ -533,6 +540,14 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
+	// If user provides their own security group, use it directly.
+	if c.isBYOSecurityGroup() {
+		log := LogFromContext(ctx)
+		log.Info("using user-provided nodes security group", "sgID", *c.config.Networks.NodesSecurityGroupID)
+		c.state.Set(IdentifierNodesSecurityGroup, *c.config.Networks.NodesSecurityGroupID)
+		return nil
+	}
+
 	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
 
@@ -730,6 +745,41 @@ func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureZones(ctx context.Context) error {
+	// For BYO infrastructure, store the provided subnet IDs directly in state and skip creation.
+	if c.isBYOInfrastructure() {
+		return c.ensureBYOZones(ctx)
+	}
+	return c.ensureManagedZones(ctx)
+}
+
+// ensureBYOZones stores BYO subnet IDs in the flow state for status reporting.
+// No subnets, NAT gateways, route tables, or elastic IPs are created.
+func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
+	log := LogFromContext(ctx)
+	log.Info("using BYO worker subnets")
+
+	processedZones := sets.New[string]()
+	for _, zone := range c.config.Networks.Zones {
+		if processedZones.Has(zone.Name) {
+			continue
+		}
+		processedZones.Insert(zone.Name)
+
+		child := c.getSubnetZoneChild(zone.Name)
+		// Ensure zone suffix is assigned (needed for state consistency)
+		_ = c.zoneSuffixHelpers(zone.Name)
+
+		if zone.WorkersSubnetID != nil {
+			child.Set(IdentifierZoneSubnetWorkers, *zone.WorkersSubnetID)
+			log.Info("using BYO workers subnet", "zone", zone.Name, "subnetID", *zone.WorkersSubnetID)
+		}
+	}
+
+	// Persist state so BYO subnet IDs are available for status reporting
+	return c.PersistState(ctx)
+}
+
+func (c *FlowContext) ensureManagedZones(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	var desired []*awsclient.Subnet
 
