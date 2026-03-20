@@ -1,91 +1,122 @@
-# Flexible Network Configuration Proposal
+# Bring Your Own Infrastructure (BYOI) - Flexible Network Configuration
 
 ## Summary
 
-This proposal introduces enhanced flexibility in AWS infrastructure configuration, allowing users to:
+This proposal enables users to deploy Gardener-managed Kubernetes clusters into pre-provisioned AWS infrastructure. Users can bring their own:
 
-1. **Use existing AWS subnets for worker nodes** - Integrate with pre-provisioned network infrastructure
-2. **Make internal/public subnets optional** - Support private clusters without NAT gateways
-3. **Manage their own routing** - Use Transit Gateway, VPC peering, centralized NAT, or VPC endpoints
+1. **VPC** (already supported via `vpc.id`)
+2. **Worker subnets** - existing subnets for EC2 node placement
+3. **Security groups** - existing nodes security group with corporate-compliant rules
+4. **Routing** - Transit Gateway, centralized NAT, VPC endpoints, or any custom topology
+5. **Load balancer subnets** - discovered automatically via standard AWS tags (no explicit IDs needed)
+
+The design principle is: **BYO resources are referenced, never created, modified, or deleted by Gardener.**
 
 ## Motivation
 
-Currently, Gardener requires users to specify CIDR ranges for three subnet types per availability zone (workers, internal, public), and automatically creates NAT gateways. This prevents:
+Enterprise organizations need to:
 
-- **Reusing existing subnets** from centrally-managed network infrastructure
-- **Private cluster architectures** using VPC endpoints or centralized egress
-- **Custom network topologies** like Transit Gateway or shared NAT architectures
-- **Cost optimization** through shared NAT gateways or eliminating NAT entirely
+- **Reuse centrally-managed network infrastructure** (shared VPCs, hub-and-spoke topologies)
+- **Comply with security policies** requiring pre-approved security groups and firewall rules
+- **Deploy private clusters** using VPC endpoints or Transit Gateway (no Internet Gateway)
+- **Optimize costs** through shared NAT gateways or centralized egress
+- **Integrate with EKS-like architectures** where subnets, security groups, and routing are pre-provisioned by a platform team
 
-Organizations with existing network infrastructure, strict CIDR policies, or specific connectivity requirements cannot use Gardener effectively today.
+Today, Gardener always creates subnets, security groups, NAT gateways, and route tables. This prevents integration with existing network infrastructure.
 
-## Proposed API Changes
+## Design Rationale: Why No Explicit LB Subnet IDs
 
-### Zone Structure Enhancement
+A key design decision is that **internal and public load balancer subnets are NOT referenced by ID**. Instead, they are discovered at runtime via standard AWS tags by the Cloud Controller Manager (CCM) and AWS Load Balancer Controller (LBC). This is because:
 
-Add one new optional field to the `Zone` type:
+1. **The CCM and LBC already discover subnets via tags** - this is the standard AWS Kubernetes pattern (same as EKS). The tags `kubernetes.io/role/internal-elb=1` and `kubernetes.io/role/elb=1` are the authoritative mechanism.
+
+2. **Gardener itself never uses internal/public subnet IDs** - analysis of the codebase shows:
+   - `PurposeInternal` is a dead constant: never produced, never consumed
+   - `PurposePublic` is consumed only for the CCM config's `SubnetID` field (a fallback identity, not for LB placement) - and we can use the workers subnet for that instead
+
+3. **Users must tag subnets anyway** - even if we accepted subnet IDs, the CCM/LBC would still require the tags. Accepting IDs would create a false sense that tagging isn't needed.
+
+4. **Users can override per-Service** via the `service.beta.kubernetes.io/aws-load-balancer-subnets` annotation if they need explicit control.
+
+## Design Rationale: Why Security Group ID IS Explicit
+
+Unlike LB subnets, the nodes security group **must** be explicitly specified via `nodesSecurityGroupID` when bringing your own infrastructure. This is because:
+
+1. **Chicken-and-egg problem**: The security group ID must be known at MachineClass creation time, before any EC2 instances exist. You can't discover a SG from instances that don't exist yet.
+
+2. **MCM is the sole consumer**: The security group flows from `InfrastructureStatus` → Worker controller → `MachineClass.providerSpec.networkInterfaces[].securityGroupIDs` → MCM → `RunInstances` API. It is attached to the EC2 instance's primary network interface at launch.
+
+3. **The CCM does NOT need the SG**: Gardener configures `DisableSecurityGroupIngress=true` in the CCM's cloud-provider-config, which tells it to skip all security group rule management for load balancers.
+
+4. **No standard tag convention exists**: Unlike subnets (which have well-defined `kubernetes.io/role/*` tags), there is no standard tag for "this is the nodes security group." EKS also requires explicit SG specification for node groups.
+
+5. **No auto-discovery mechanism**: The AWS API has no built-in way to identify "the security group meant for Kubernetes nodes" without either tags or explicit configuration.
+
+## API Changes
+
+### Zone Structure
+
+One new optional field allows referencing an existing worker subnet:
 
 ```go
 type Zone struct {
-    // Name is the name for this zone.
     Name string
-    
-    // Internal is the private subnet range to create (used for internal load balancers).
-    // Optional when using WorkersSubnetID.
-    // +optional
-    Internal string
-    
-    // Public is the public subnet range to create (used for bastion and load balancers).
-    // Optional for private clusters.
-    // +optional
-    Public string
-    
-    // Workers is the workers subnet range to create (used for the VMs).
-    // Ignored if WorkersSubnetID is provided.
-    // +optional
-    Workers string
-    
-    // WorkersSubnetID is the ID of an existing subnet for worker nodes.
-    // When provided, users are responsible for:
-    // - Route tables and internet/AWS API connectivity
-    // - NAT Gateway, Transit Gateway, VPC endpoints, or other solutions
-    // - Load balancer subnets with proper tags if needed
-    // +optional
-    WorkersSubnetID *string
-    
-    // ElasticIPAllocationID for NAT gateway (only when Workers CIDR is provided)
-    // +optional
-    ElasticIPAllocationID *string
+
+    // Gardener-managed subnet CIDRs (all optional when WorkersSubnetID is set)
+    Workers  string  // +optional, mutually exclusive with WorkersSubnetID
+    Internal string  // +optional
+    Public   string  // +optional
+
+    // BYO worker subnet
+    WorkersSubnetID *string  // +optional, mutually exclusive with Workers
+
+    // Only valid when Workers and Public CIDRs are set (Gardener-managed)
+    ElasticIPAllocationID *string  // +optional
 }
 ```
+
+### Networks Structure
+
+One new optional field allows referencing an existing security group:
+
+```go
+type Networks struct {
+    VPC   VPC
+    Zones []Zone
+
+    // NodesSecurityGroupID optionally specifies an existing security group for worker nodes.
+    // When provided, Gardener will not create a nodes security group.
+    // Requires VPC.ID to be set.
+    // +optional
+    NodesSecurityGroupID *string
+}
+```
+
+## Validation Rules
+
+| Field | Rule |
+|-------|------|
+| `workers` / `workersSubnetID` | **Exactly one** must be provided per zone (XOR) |
+| **Zone consistency** | **All zones must use the same approach**: either all `workersSubnetID` or all `workers` CIDR. Mixing is forbidden. |
+| `internal` | Optional. When omitted, no internal subnet is created; LB subnets discovered via tags |
+| `public` | Optional. When omitted, no public subnet/NAT gateway is created; LB subnets discovered via tags |
+| `elasticIPAllocationID` | Only valid when both `workers` AND `public` CIDRs are set |
+| `workersSubnetID` | Requires `VPC.ID` to be set. Must exist in correct VPC/AZ. Immutable. |
+| `nodesSecurityGroupID` | Requires `VPC.ID` to be set. Must exist in correct VPC. Immutable. |
+
+Switching from CIDR-based to SubnetID-based workers (or vice versa) is **forbidden** on update.
+
+### Why No Mixed BYO/Managed Zones
+
+Mixed setups (some zones with `workersSubnetID`, others with `workers` CIDR) are forbidden because:
+- Gardener-managed zones require an Internet Gateway for public subnets and NAT gateways
+- BYO zones typically operate without an Internet Gateway (Transit Gateway, VPC endpoints)
+- The conflicting infrastructure requirements would create an inconsistent and confusing network topology
 
 ## Configuration Patterns
 
 ### Pattern 1: Traditional Gardener (Unchanged)
 
-Gardener creates and manages all infrastructure.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                           VPC                               │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │   Public     │  │   Internal   │  │     Workers      │  │
-│  │   Subnet     │  │   Subnet     │  │     Subnet       │  │
-│  │              │  │              │  │                  │  │
-│  │  ┌────────┐  │  │  Internal    │  │   ┌──────────┐  │  │
-│  │  │  NAT   │◄─┼──┼──────────────┼──┼───│  Nodes   │  │  │
-│  │  │Gateway │  │  │   LoadBalancer  │   │          │  │  │
-│  │  └───┬────┘  │  │              │  │   └──────────┘  │  │
-│  │      │       │  │              │  │                  │  │
-│  └──────┼───────┘  └──────────────┘  └──────────────────┘  │
-│         │                                                   │
-│         ▼                                                   │
-│  [Internet Gateway]                                         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Configuration:**
 ```yaml
 networks:
   vpc:
@@ -97,336 +128,56 @@ networks:
       public: 10.250.48.0/20
 ```
 
-### Pattern 2: Bring Your Own Subnets
+### Pattern 2: Complete BYO Infrastructure
 
-User provides existing worker subnet, manages all routing.
+User provides VPC, worker subnets, and security group. LB subnets are discovered via tags.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    VPC (Pre-existing)                       │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │   Public     │  │   Internal   │  │     Workers      │  │
-│  │   Subnet     │  │   Subnet     │  │     Subnet       │  │
-│  │ (existing)   │  │ (existing)   │  │   (existing)     │  │
-│  │              │  │              │  │                  │  │
-│  │  ┌────────┐  │  │    Tags:     │  │   ┌──────────┐  │  │
-│  │  │  NAT   │◄─┼──┼──────────────┼──┼───│  Nodes   │  │  │
-│  │  │Gateway │  │  │kubernetes.io/│  │   │          │  │  │
-│  │  │(user   │  │  │role/internal │  │   │   User   │  │  │
-│  │  │managed)│  │  │-elb=1        │  │   │ managed  │  │  │
-│  │  └────────┘  │  │              │  │   │ routes   │  │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-│                                                             │
-│  User manages route tables, NAT, and connectivity          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Configuration:**
 ```yaml
 networks:
   vpc:
     id: vpc-abc123
-  zones:
-    - name: eu-west-1a
-      workersSubnetID: subnet-workers-existing
-```
-
-**User responsibilities (CRITICAL):**
-- ✅ Route table on worker subnet configured for NAT/Transit Gateway/VPC endpoints
-- ✅ Internal LB subnet exists with **REQUIRED** tags:
-  - `kubernetes.io/role/internal-elb=1`
-  - `kubernetes.io/cluster/<cluster-name>=shared` (or `owned`)
-- ✅ Public LB subnet exists with **REQUIRED** tags (if public LBs needed):
-  - `kubernetes.io/role/elb=1`
-  - `kubernetes.io/cluster/<cluster-name>=shared` (or `owned`)
-- ✅ Minimum **2 availability zones** with tagged LB subnets for ALBs
-- ✅ Each LB subnet has **minimum 8 available IP addresses**
-- ✅ LB subnets have correct reachability (public subnets route to IGW for public LBs)
-
-
-### Pattern 3: Centralized NAT Architecture
-
-Multiple clusters share centralized NAT/egress infrastructure.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Shared VPC                             │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │           Centralized Egress Subnet                  │   │
-│  │                                                      │   │
-│  │     ┌────────────────┐          ┌────────────┐      │   │
-│  │     │  NAT Gateway   │          │  Transit   │      │   │
-│  │     │   (shared)     │          │  Gateway   │      │   │
-│  │     └────────────────┘          └────────────┘      │   │
-│  └─────────────▲──────────────────────────▲────────────┘   │
-│                │                           │                │
-│  ┌─────────────┴──────────┐   ┌───────────┴─────────────┐  │
-│  │  Cluster 1             │   │  Cluster 2              │  │
-│  │  ┌─────────────────┐   │   │  ┌─────────────────┐   │  │
-│  │  │ Workers Subnet  │   │   │  │ Workers Subnet  │   │  │
-│  │  │  (existing)     │   │   │  │  (existing)     │   │  │
-│  │  │                 │   │   │  │                 │   │  │
-│  │  │  User-managed   │   │   │  │  User-managed   │   │  │
-│  │  │  route tables   │   │   │  │  route tables   │   │  │
-│  │  └─────────────────┘   │   │  └─────────────────┘   │  │
-│  └────────────────────────┘   └─────────────────────────┘  │
-│                                                             │
-│  Both clusters route through shared egress                 │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Configuration (both clusters):**
-```yaml
-networks:
-  vpc:
-    id: vpc-shared
-  zones:
-    - name: eu-west-1a
-      workersSubnetID: subnet-cluster1-workers  # or cluster2
-```
-
-Users configure route tables to point to shared NAT or Transit Gateway.
-
-### Pattern 5: Hybrid - Gardener Workers, Existing LB Subnets
-
-Gardener creates worker subnets, users provide LB subnets via tags.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                           VPC                               │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │   Public     │  │   Internal   │  │     Workers      │  │
-│  │   Subnet     │  │   Subnet     │  │     Subnet       │  │
-│  │ (existing)   │  │ (existing)   │  │  (Gardener       │  │
-│  │              │  │              │  │   creates)       │  │
-│  │    Tags:     │  │    Tags:     │  │                  │  │
-│  │ kubernetes.io│  │ kubernetes.io│  │   ┌──────────┐  │  │
-│  │ /role/elb=1  │  │ /role/       │  │   │  Nodes   │  │  │
-│  │              │  │ internal     │  │   │          │  │  │
-│  │  ┌────────┐  │  │ -elb=1       │  │   └──────────┘  │  │
-│  │  │  NAT   │◄─┼──┼──────────────┼──┼─── (Gardener    │  │
-│  │  │Gateway │  │  │              │  │    creates NAT)  │  │
-│  │  └────────┘  │  │              │  │                  │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Configuration:**
-```yaml
-networks:
-  vpc:
-    id: vpc-abc123
-  zones:
-    - name: eu-west-1a
-      workers: 10.250.0.0/19
-      # Internal/public subnets discovered by tags
-```
-
-Load balancers find subnets via standard Kubernetes tags.
-
-## Validation Rules
-
-### Required Configuration
-
-At least one of the following must be provided per zone:
-- `workers` (CIDR) - Gardener creates worker subnet
-- `workersSubnetID` - User provides existing worker subnet
-
-### WorkersSubnetID Validation
-
-When `workersSubnetID` is provided, the extension validates:
-- Subnet exists in AWS
-- Subnet is in the specified availability zone
-- Subnet is in the configured VPC
-
-The extension does NOT validate:
-- Route table configuration
-- Internet/AWS API connectivity
-- NAT gateway presence
-
-These are user responsibilities when bringing existing subnets.
-
-### Subnet Priority
-
-If both `workersSubnetID` and `workers` are provided:
-- `workersSubnetID` takes precedence
-- `workers` CIDR is ignored
-
-### Optional Subnets
-
-- `internal` and `public` CIDRs are always optional
-- Omitting them is valid for private clusters or BYO subnet scenarios
-
-## Load Balancer Subnet Discovery
-
-The Cloud-controller-mamanger and AWS Load Balancer Controller (used by Gardener for load balancer provisioning) discover subnets automatically using a well-defined process. Understanding this is critical when using existing subnets.
-
-A detailed explanation of the discovery process, tag requirements, and selection criteria is provided below can be found in  the [upstream documentation](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/subnet_discovery/#subnet-reachability)
-
-### Subnet Role Tags
-
-Subnets are discovered via standard Kubernetes tags. These tags are **REQUIRED** for load balancer provisioning:
-
-**Internal Load Balancers:**
-```
-kubernetes.io/role/internal-elb=1 (or empty string "")
-kubernetes.io/cluster/<cluster-name>=shared|owned
-```
-
-**Public Load Balancers:**
-```
-kubernetes.io/role/elb=1 (or empty string "")
-kubernetes.io/cluster/<cluster-name>=shared|owned
-```
-
-**Note**: The role tag value can be either `1` or an empty string `""`. Both are valid.
-
-### Subnet Reachability
-
-The controller automatically classifies subnets as public or private based on route table configuration:
-
-- **Public subnet**: Route table contains a route to an Internet Gateway
-- **Private subnet**: No direct route to Internet Gateway
-
-This automatic classification is important when using existing subnets via `workersSubnetID`, as the controller will validate subnet reachability matches the load balancer type.
-
-**Note**: Reachability-based discovery can be disabled via the `SubnetDiscoveryByReachability` feature flag.
-
-### Subnet Filtering
-
-The controller filters out unsuitable subnets:
-
-1. **Cluster Tag Check**: 
-   - Subnets with ineligible cluster tags are filtered out
-   - If cluster tag exists but doesn't match current cluster, subnet is excluded
-   - For LBC < 2.1.1: Subnets without cluster tag matching cluster name are filtered out
-   - Can be disabled via `SubnetsClusterTagCheck` feature flag
-
-2. **IP Address Availability**: 
-   - Subnets with fewer than 8 available IP addresses are filtered out
-
-### Selection Priority
-
-When multiple subnets exist in the same availability zone, the following priority order applies:
-
-1. Subnets with cluster tag for the current cluster (`kubernetes.io/cluster/<cluster-name>`) are prioritized
-2. Subnets with lower lexicographical order of subnet ID are prioritized
-
-### Minimum Subnet Requirements
-
-- **Application Load Balancers (ALB)**: Require at least **2 subnets across different availability zones** by default
-  - Can be reduced to 1 subnet with `ALBSingleSubnet` feature gate (for allowlisted customers only)
-- **Network Load Balancers (NLB)**: Can use a single subnet
-
-### Behavior by Configuration
-
-| Configuration | Internal LB Subnets                        | Public LB Subnets                                      |
-|---------------|--------------------------------------------|--------------------------------------------------------|
-| Gardener creates all | Created with proper tags automatically     | Created with proper tags automatically                 |
-| `workersSubnetID` only | **User MUST provide with required tags**   | **User MUST provide with required tags**               |
-| `internal` CIDR provided | Gardener creates with tags                 | User must provide with tags (if needed)                |
-| No `internal` or `public` | **User SHOULD provide with required tags** | **User SHOULD provide with required tags** (if needed) |
-
-### Critical Requirements for BYO Subnets
-
-When using `workersSubnetID`, you **MUST** ensure:
-
-- ✅ Separate subnets exist for load balancers (worker subnets cannot be used for LBs)
-- ✅ Internal LB subnet has tag: `kubernetes.io/role/internal-elb=1` (or `""`)
-- ✅ Public LB subnet has tag: `kubernetes.io/role/elb=1` (or `""`) - if public LBs needed
-- ✅ All LB subnets have cluster tag: `kubernetes.io/cluster/<cluster-name>=shared` or `owned`
-- ✅ Each subnet has **at least 8 available IP addresses**
-- ✅ For ALBs: **At least 2 subnets across different availability zones**
-- ✅ Subnet reachability matches load balancer type (public subnets for public LBs, private for internal)
-
-**Failure to meet these requirements will result in load balancer provisioning failures.**
-
-## Examples
-
-### Example 1: Complete BYO Infrastructure
-
-```yaml
-apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-kind: InfrastructureConfig
-metadata:
-  name: my-cluster
-networks:
-  vpc:
-    id: vpc-0a1b2c3d
+  nodesSecurityGroupID: sg-0123456789abcdef0
   zones:
     - name: eu-west-1a
       workersSubnetID: subnet-workers-1a
     - name: eu-west-1b
       workersSubnetID: subnet-workers-1b
-    - name: eu-west-1c
-      workersSubnetID: subnet-workers-1c
 ```
 
-**User must provide (in addition to worker subnets):**
+**What Gardener creates:** IAM role, instance profile, SSH key pair only.
 
-1. **Worker subnet routing:**
-   - Route tables configured for internet/AWS API access
-   - NAT Gateway, Transit Gateway, VPC endpoints, or other connectivity
+**User responsibilities:**
+- Worker subnet routing (NAT/Transit Gateway/VPC endpoints for connectivity)
+- Internal LB subnets tagged with `kubernetes.io/role/internal-elb=1` and `kubernetes.io/cluster/<name>=shared`
+- Public LB subnets tagged with `kubernetes.io/role/elb=1` and `kubernetes.io/cluster/<name>=shared`
+- Security group with appropriate rules (see below)
+- Minimum 8 available IPs per LB subnet; at least 2 AZs for ALBs
 
-2. **Internal Load Balancer subnets** (minimum 2 AZs for ALBs):
-   - Subnet in eu-west-1a with tags:
-     - `kubernetes.io/role/internal-elb=1`
-     - `kubernetes.io/cluster/my-cluster=shared`
-   - Subnet in eu-west-1b with tags:
-     - `kubernetes.io/role/internal-elb=1`
-     - `kubernetes.io/cluster/my-cluster=shared`
-   - Each with minimum 8 available IPs
-   - Private subnets (no IGW route)
-
-3. **Public Load Balancer subnets** (if public LBs needed, minimum 2 AZs):
-   - Subnet in eu-west-1a with tags:
-     - `kubernetes.io/role/elb=1`
-     - `kubernetes.io/cluster/my-cluster=shared`
-   - Subnet in eu-west-1b with tags:
-     - `kubernetes.io/role/elb=1`
-     - `kubernetes.io/cluster/my-cluster=shared`
-   - Each with minimum 8 available IPs
-   - Public subnets (route to IGW)
-
-### Example 2: Private Cluster with VPC Endpoints
+### Pattern 3: Private Cluster (No IGW, Transit Gateway)
 
 ```yaml
-apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-kind: InfrastructureConfig
-metadata:
-  name: private-cluster
 networks:
   vpc:
-    id: vpc-0a1b2c3d
+    id: vpc-private
     gatewayEndpoints:
       - s3
       - dynamodb
+  nodesSecurityGroupID: sg-private-nodes
   zones:
     - name: eu-west-1a
-      workers: 10.250.0.0/19
-      internal: 10.250.32.0/20
-      # No public subnet - private cluster
+      workersSubnetID: subnet-private-workers-1a
+    - name: eu-west-1b
+      workersSubnetID: subnet-private-workers-1b
 ```
 
-**Result:**
-- Gardener creates worker and internal subnets
-- No NAT gateway created
-- Nodes access AWS services via VPC endpoints
-- Only internal load balancers supported
+No Internet Gateway required. Connectivity via Transit Gateway + VPC endpoints.
 
-### Example 3: Existing Workers, Gardener Creates LB Subnets
+### Pattern 4: BYO Workers, Gardener-Managed LB Subnets
 
 ```yaml
-apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-kind: InfrastructureConfig
-metadata:
-  name: hybrid-cluster
 networks:
   vpc:
-    id: vpc-0a1b2c3d
+    id: vpc-abc123
   zones:
     - name: eu-west-1a
       workersSubnetID: subnet-existing-workers
@@ -434,124 +185,113 @@ networks:
       public: 10.250.48.0/20
 ```
 
-**Result:**
-- Uses existing worker subnet (user manages routing)
-- Gardener creates internal and public subnets for load balancers
-- Gardener creates NAT gateway in public subnet (but worker subnet won't use it automatically)
+Gardener creates internal/public subnets and NAT gateway. User manages worker subnet routing.
 
-### Example 4: Traditional with Custom Elastic IP
+### Pattern 5: Gardener Workers, No Public Subnet (VPC Endpoints Only)
 
 ```yaml
-apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-kind: InfrastructureConfig
-metadata:
-  name: traditional-cluster
 networks:
   vpc:
-    cidr: 10.250.0.0/16
+    id: vpc-private
+    gatewayEndpoints:
+      - s3
+      - dynamodb
   zones:
     - name: eu-west-1a
       workers: 10.250.0.0/19
       internal: 10.250.32.0/20
-      public: 10.250.48.0/20
-      elasticIPAllocationID: eipalloc-0123456789abcdef0
+      # No public subnet - no NAT gateway
 ```
 
-**Result:**
-- Gardener creates all subnets
-- NAT gateway uses specified Elastic IP instead of creating new one
-- Standard Gardener behavior otherwise
+## Load Balancer Subnet Discovery
 
-### Example 5: Multi-Zone with Mixed Approach
+The CCM and LBC discover subnets automatically using the following process (verified from cloud-provider-aws source):
 
-```yaml
-apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-kind: InfrastructureConfig
-metadata:
-  name: mixed-cluster
-networks:
-  vpc:
-    id: vpc-0a1b2c3d
-  zones:
-    - name: eu-west-1a
-      workers: 10.250.0.0/19
-      internal: 10.250.32.0/20
-      public: 10.250.48.0/20
-    - name: eu-west-1b
-      workersSubnetID: subnet-existing-1b
-    - name: eu-west-1c
-      workers: 10.250.64.0/19
-      # No internal/public - discovered by tags or not needed
+### Discovery Flow
+
+1. **Annotation override**: If `service.beta.kubernetes.io/aws-load-balancer-subnets` is set on the Service, those subnets are used directly (by ID or Name tag)
+2. **Tag-based discovery**: Find all subnets in the VPC with cluster tag `kubernetes.io/cluster/<name>`
+3. **Per-AZ deduplication** with priority:
+   - Role tag: `kubernetes.io/role/elb=1` (public) or `kubernetes.io/role/internal-elb=1` (internal)
+   - Cluster tag presence
+   - Lexicographic subnet ID order
+4. **Reachability check**: Public LB subnets must have an IGW route; private subnets must not
+
+### Required Tags on User-Provided LB Subnets
+
+**Internal Load Balancers:**
+```
+kubernetes.io/role/internal-elb = 1
+kubernetes.io/cluster/<cluster-name> = shared
 ```
 
-**Result:**
-- Zone A: Traditional Gardener-managed
-- Zone B: BYO worker subnet (user manages routing)
-- Zone C: Gardener creates worker subnet, no NAT gateway
+**Public Load Balancers:**
+```
+kubernetes.io/role/elb = 1
+kubernetes.io/cluster/<cluster-name> = shared
+```
+
+### Requirements
+
+- ALBs: at least 2 subnets across different AZs
+- NLBs: can use a single subnet
+- Each LB subnet: minimum 8 available IP addresses
+- Public subnets: must have route to Internet Gateway
+- Private subnets: must NOT have route to Internet Gateway
+
+## Security Group Requirements for BYO
+
+When providing `nodesSecurityGroupID`, the security group **must** have:
+
+| Direction | Protocol | Ports | Source/Dest | Purpose |
+|-----------|----------|-------|-------------|---------|
+| Ingress | All | All | Self (same SG) | Pod-to-pod, node-to-node |
+| Ingress | TCP | 30000-32767 | 0.0.0.0/0 or LB CIDRs | NodePort services |
+| Ingress | UDP | 30000-32767 | 0.0.0.0/0 or LB CIDRs | NodePort services |
+| Egress | All | All | 0.0.0.0/0 | Outbound connectivity |
+
+Additional rules for EFS (TCP 2049) if using CSI EFS driver.
 
 ## Implementation Approach
 
-### When workersSubnetID is Provided
+### Reconcile Flow Changes
 
-1. **Skip worker subnet creation** - Use provided subnet ID
-2. **Skip route table creation for workers** - User manages routes
-3. **Skip NAT gateway creation** - User provides connectivity. Potential preflight check to warn if no NAT gateway or Transit Gateway route detected, but not blocking.
-4. **Discover load balancer subnets** - Not very important for provider-aws but controllers relying on subnet discovery will find subnets via tags or reachability. That includes CCM, IPAM and Custrom Route controllers.
-5. **Validate subnet existence** - Check subnet exists in correct VPC/AZ
-6. IPv6 support: If workersSubnetID is provided, we will check if the subnet has an IPv6 CIDR block and if so, we will use it for provisioning IPv6 worker nodes. This allows users to bring their own IPv6 subnets as well. Discovery of the IPv6 CIDR block will be done via AWS API for the subnet/VPC provided.
+| Condition | Skip |
+|-----------|------|
+| `workersSubnetID` set | Worker subnet creation, route table, NAT gateway, elastic IP |
+| No `public` CIDR in zone | Public subnet, NAT gateway, elastic IP for that zone |
+| No `internal` CIDR in zone | Internal subnet for that zone |
+| `nodesSecurityGroupID` set | Nodes security group creation and rule management |
+| No Gardener-managed public subnets anywhere | Main route table, Internet Gateway requirement |
 
-### When workers CIDR is Provided (Current Behavior)
+### Delete Flow
 
-1. **Create worker subnet** - As today
-2. **Create route table** - Point to NAT gateway (if public subnet exists)
-3. **Create NAT gateway** - If public subnet provided
-4. **Create internal/public subnets** - If CIDRs provided
+BYO resources are **never deleted**:
+- Worker subnets referenced by `workersSubnetID` are not deleted
+- Security groups referenced by `nodesSecurityGroupID` are not deleted
+- VPC referenced by `VPC.ID` is already not deleted (existing behavior)
 
-### Optional Internal/Public Subnets
+### InfrastructureStatus
 
-When `internal` or `public` CIDRs are omitted:
-- Skip subnet creation
-- Load balancers discover subnets via tags
-- No NAT gateway created if no public subnet
+- `VPC.Subnets[purpose=nodes]`: reports BYO worker subnet ID (from `workersSubnetID`) or Gardener-created one
+- `VPC.SecurityGroups[purpose=nodes]`: reports BYO security group ID or Gardener-created one
+- CCM config: uses workers subnet as `SubnetID` fallback when no public subnet exists
 
+## Open Questions
 
-## Open Discussion
+### Q: What about IPv6 support with BYO subnets?
+**A:** If `workersSubnetID` is provided, the extension will discover the IPv6 CIDR block from the subnet/VPC via the AWS API.
 
-### Q: What about IPv6 support?
+### Q: Can users mix BYO and Gardener-managed workers across zones?
+**A:** Yes, but not recommended. Operationally complex - we recommend consistency.
 
-### Q: How to verify connectivity with control-plane?
-**A:** We will validate subnet existence and basic configuration (VPC, AZ) but not connectivity. AWS API errors will surface connectivity issues when provisioning nodes or load balancers. We could consider a non-blocking preflight check to warn if no NAT gateway or Transit Gateway route detected, but this is not critical.
-
-### Q: How to communicate to users the correct naming and tagging requirements for load balancer subnets?
-
-**A:** Clear documentation is critical. We will provide detailed examples and a checklist of required tags and subnet characteristics. We could also consider adding validation for LB subnet tags if `workersSubnetID` is used, but this may be complex and we want to avoid blocking users who are responsible for their own routing.
-
-### Q: Should we validate route table configuration?
-
-**A:** If users provide existing subnets, they own the routing. We validate existence only. AWS API errors will surface connectivity issues. We could surface common issues as warnings in the infrastructure like for example when we do not make any discovery for public subnets.
-
-### Q: What if user doesn't provide load balancer subnets?
-
-**A:** Load balancer provisioning will fail with clear error from AWS cloud-controller-manager about missing subnets with proper tags. This is expected behavior.
-
-### Q: Can users mix BYO and Gardener-managed subnets across zones?
-
-**A:** Potentially yes, but we recommend against it for simplicity. Mixed configurations can lead to confusion about routing and load balancer provisioning. If supported, we will clearly document the behavior and limitations. Probably we will validate for a consistent approach across zones (either all BYO or all Gardener-managed) to avoid complexity.
-
-### Q: Is migration possible for existing clusters?
-
-**A:** Not planned for the initial implementation.
+### Q: Is migration from Gardener-managed to BYO possible?
+**A:** Not planned. `workersSubnetID` and `workers` are immutable; switching between them is forbidden.
 
 ## Success Criteria
 
-- ✅ Users can deploy clusters with existing worker subnets
-- ✅ Users can deploy clusters without NAT gateways. Cluster connectivity to internet is still mandatory, but users can provide it via VPC endpoints, Transit Gateway, or centralized NAT
-- ✅ Users can use centralized NAT/Transit Gateway architectures
-- ✅ Zero breaking changes to existing clusters
-- ✅ Clear documentation on tag requirements
-
-## Conclusion
-
-This proposal introduces minimal API changes (one new field) that unlock significant flexibility for enterprise users with existing network infrastructure. By making public/internal subnets optional and supporting BYO worker subnets, Gardener can integrate with various network architectures while maintaining full backward compatibility.
-
-The design principle is simple: **If users provide existing subnets, they own the routing and connectivity. Gardener provisions workloads but doesn't modify key network infrastructure.**
+- Users can deploy clusters with pre-provisioned VPC + worker subnets + security groups
+- Users can deploy clusters without Internet Gateway or NAT gateways
+- LB subnets are discovered via standard AWS tags (no explicit IDs needed)
+- Zero breaking changes to existing clusters
+- BYO resources are never modified or deleted by Gardener
