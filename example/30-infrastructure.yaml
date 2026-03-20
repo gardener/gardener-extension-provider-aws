@@ -57,6 +57,31 @@ spec:
         public: 10.250.96.0/22
         workers: 10.250.0.0/19
       # elasticIPAllocationID: eipalloc-123456 # Allocation ID of the Elastic IP that will be attached to the NAT gateway in this zone
+
+    ## BYO Infrastructure example:
+    ## Use an existing VPC with pre-provisioned worker subnets. Gardener still creates its
+    ## base nodes security group; additional SGs can be attached alongside for corporate rules.
+    ## LB subnets are discovered by CCM/LBC via standard AWS tags (kubernetes.io/role/elb,
+    ## kubernetes.io/role/internal-elb) — no explicit IDs needed.
+    #
+    # networks:
+    #   vpc:
+    #     id: vpc-123456
+    #   # additionalNodesSecurityGroupIDs: # optional, attached alongside Gardener's base SG
+    #   # - sg-corporate-compliance
+    #   # - sg-cross-vpc-peering
+    #   zones:
+    #   - name: eu-west-1a
+    #     workersSubnetID: subnet-0aabbcc11 # existing subnet for worker nodes
+    #   - name: eu-west-1b
+    #     workersSubnetID: subnet-0aabbcc22
+    #   # Internal/public CIDRs are optional in BYO mode. If provided, Gardener creates
+    #   # those subnets (requires an IGW on the VPC for the public subnet):
+    #   # - name: eu-west-1c
+    #   #   workersSubnetID: subnet-0aabbcc33
+    #   #   internal: 10.250.112.0/22
+    #   #   public: 10.250.96.0/22
+
     # ignoreTags:
     #   keys: # individual ignored tag keys
     #   - SomeCustomKey
