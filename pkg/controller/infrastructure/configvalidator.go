@@ -74,6 +74,16 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 			awsClient, *config, *config.Networks.VPC.ID, infra.Spec.Region)...)
 	}
 
+	// Validate BYO subnet IDs exist and are in the correct VPC/AZ
+	if config.Networks.VPC.ID != nil {
+		allErrs = append(allErrs, c.validateBYOSubnets(ctx, awsClient, config, *config.Networks.VPC.ID)...)
+	}
+
+	// Validate BYO security group exists and is in the correct VPC
+	if config.Networks.NodesSecurityGroupID != nil && config.Networks.VPC.ID != nil {
+		allErrs = append(allErrs, c.validateBYOSecurityGroup(ctx, awsClient, *config.Networks.NodesSecurityGroupID, *config.Networks.VPC.ID)...)
+	}
+
 	var (
 		eips      []string
 		eipToZone = make(map[string]string)
@@ -129,14 +139,25 @@ func (c *configValidator) validateVPC(
 		}
 	}
 
-	// Verify that there is an internet gateway attached to the VPC
-	internetGatewayID, err := awsClient.GetVPCInternetGateway(ctx, vpcID)
-	if err != nil {
-		allErrs = append(allErrs, field.InternalError(vpcIdPath, fmt.Errorf("could not get internet gateway for VPC %s: %w", vpcID, err)))
-		return allErrs
+	// Determine if any zone uses Gardener-managed public subnets (requires IGW).
+	// For fully BYO configurations, users manage their own connectivity.
+	requiresIGW := false
+	for _, zone := range infraConfig.Networks.Zones {
+		if zone.Public != "" {
+			requiresIGW = true
+			break
+		}
 	}
-	if internetGatewayID == "" {
-		allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, "no attached internet gateway found"))
+
+	if requiresIGW {
+		internetGatewayID, err := awsClient.GetVPCInternetGateway(ctx, vpcID)
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(vpcIdPath, fmt.Errorf("could not get internet gateway for VPC %s: %w", vpcID, err)))
+			return allErrs
+		}
+		if internetGatewayID == "" {
+			allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, "no attached internet gateway found (required when Gardener manages public subnets)"))
+		}
 	}
 
 	// Verify DHCP options
@@ -152,7 +173,7 @@ func (c *configValidator) validateVPC(
 		allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, fmt.Sprintf("invalid domain-name specified in DHCP options used by VPC: %s", domainName)))
 	}
 
-	// crosscheck subnet CIDRs are subset of VPC CIDR
+	// crosscheck subnet CIDRs are subset of VPC CIDR (only for Gardener-managed subnets)
 	vpc, err := awsClient.GetVpc(ctx, vpcID)
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(vpcIdPath, fmt.Errorf("could not get CIDR block for VPC %s: %w", vpcID, err)))
@@ -167,9 +188,68 @@ func (c *configValidator) validateVPC(
 	return allErrs
 }
 
+// validateBYOSubnets validates that referenced BYO subnet IDs exist and are in the correct VPC/AZ.
+func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsclient.Interface, config *apiaws.InfrastructureConfig, vpcID string) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for i, zone := range config.Networks.Zones {
+		zonePath := field.NewPath("networks", "zones").Index(i)
+
+		if zone.WorkersSubnetID == nil {
+			continue
+		}
+
+		fldPath := zonePath.Child("workersSubnetID")
+		subnets, err := awsClient.GetSubnets(ctx, []string{*zone.WorkersSubnetID})
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get subnet %s: %w", *zone.WorkersSubnetID, err)))
+			continue
+		}
+		if len(subnets) == 0 {
+			allErrs = append(allErrs, field.NotFound(fldPath, *zone.WorkersSubnetID))
+			continue
+		}
+		subnet := subnets[0]
+		if subnet.VpcId != nil && *subnet.VpcId != vpcID {
+			allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
+				fmt.Sprintf("subnet is in VPC %s, expected %s", *subnet.VpcId, vpcID)))
+		}
+		if subnet.AvailabilityZone != zone.Name {
+			allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
+				fmt.Sprintf("subnet is in availability zone %s, expected %s", subnet.AvailabilityZone, zone.Name)))
+		}
+	}
+
+	return allErrs
+}
+
+// validateBYOSecurityGroup validates that a referenced security group exists and is in the correct VPC.
+func (c *configValidator) validateBYOSecurityGroup(ctx context.Context, awsClient awsclient.Interface, sgID, vpcID string) field.ErrorList {
+	allErrs := field.ErrorList{}
+	fldPath := field.NewPath("networks", "nodesSecurityGroupID")
+
+	sg, err := awsClient.GetSecurityGroup(ctx, sgID)
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get security group %s: %w", sgID, err)))
+		return allErrs
+	}
+	if sg == nil {
+		allErrs = append(allErrs, field.NotFound(fldPath, sgID))
+		return allErrs
+	}
+	if sg.VpcId != nil && *sg.VpcId != vpcID {
+		allErrs = append(allErrs, field.Invalid(fldPath, sgID,
+			fmt.Sprintf("security group is in VPC %s, expected %s", *sg.VpcId, vpcID)))
+	}
+
+	return allErrs
+}
+
 // ValidateZoneSubnetCIDRs validates that the provided CIDRs (assumed to be from a single VPC) are
 // set up in a way that it's conceivable that the shoot creation can succeed. It is checked
 // that for each subnet there is at least one CIDR present that is a superset of the subnet's CIDR.
+// In BYO mode (zone.WorkersSubnetID set), the Workers CIDR is skipped. Empty Public/Internal CIDRs
+// are also skipped since they are optional.
 func validateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []apiaws.Zone) field.ErrorList {
 	allErrs := field.ErrorList{}
 	zonesPath := fldPath.Child("zones")
@@ -186,11 +266,17 @@ func validateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []apiaws
 	}
 
 	for i, zone := range zones {
-		for _, subnetCIDR := range []cidrvalidation.CIDR{
-			cidrvalidation.NewCIDR(zone.Workers, zonesPath.Index(i).Child("nodes")),
-			cidrvalidation.NewCIDR(zone.Public, zonesPath.Index(i).Child("public")),
-			cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal")),
-		} {
+		var subnetCIDRs []cidrvalidation.CIDR
+		if zone.Workers != "" && zone.WorkersSubnetID == nil {
+			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(zone.Workers, zonesPath.Index(i).Child("nodes")))
+		}
+		if zone.Public != "" {
+			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(zone.Public, zonesPath.Index(i).Child("public")))
+		}
+		if zone.Internal != "" {
+			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal")))
+		}
+		for _, subnetCIDR := range subnetCIDRs {
 			if !isSubnetCIDRContainedInAnyCIDR(vpcCIDRs, subnetCIDR) {
 				allErrs = append(allErrs, field.Invalid(
 					subnetCIDR.GetFieldPath(),
