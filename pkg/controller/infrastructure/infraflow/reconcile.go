@@ -662,11 +662,15 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		}
 
 		if containsIPv4(c.getIpFamilies()) {
-			ruleNodesInternalTCP.CidrBlocks = []string{zone.Internal}
-			ruleNodesInternalUDP.CidrBlocks = []string{zone.Internal}
-			ruleEfsInboundNFS.CidrBlocks = []string{zone.Internal}
-			ruleNodesPublicTCP.CidrBlocks = []string{zone.Public}
-			ruleNodesPublicUDP.CidrBlocks = []string{zone.Public}
+			if zone.Internal != "" {
+				ruleNodesInternalTCP.CidrBlocks = []string{zone.Internal}
+				ruleNodesInternalUDP.CidrBlocks = []string{zone.Internal}
+				ruleEfsInboundNFS.CidrBlocks = []string{zone.Internal}
+			}
+			if zone.Public != "" {
+				ruleNodesPublicTCP.CidrBlocks = []string{zone.Public}
+				ruleNodesPublicUDP.CidrBlocks = []string{zone.Public}
+			}
 		}
 
 		if containsIPv6(c.getIpFamilies()) {
@@ -688,8 +692,16 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 				ruleNodesPublicUDP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
 			}
 		}
-		desired.Rules = append(desired.Rules, ruleNodesInternalTCP, ruleNodesInternalUDP, ruleNodesPublicTCP, ruleNodesPublicUDP)
-		if c.isCsiEfsEnabled() {
+		// Only add per-zone CIDR rules when the CIDRs are actually configured.
+		// In BYO mode, internal/public CIDRs may be empty — the base rules (self-referencing,
+		// NodePort from 0.0.0.0/0, all-egress) still provide adequate security.
+		if hasCIDRs(ruleNodesInternalTCP) || hasCIDRs(ruleNodesInternalUDP) {
+			desired.Rules = append(desired.Rules, ruleNodesInternalTCP, ruleNodesInternalUDP)
+		}
+		if hasCIDRs(ruleNodesPublicTCP) || hasCIDRs(ruleNodesPublicUDP) {
+			desired.Rules = append(desired.Rules, ruleNodesPublicTCP, ruleNodesPublicUDP)
+		}
+		if c.isCsiEfsEnabled() && hasCIDRs(ruleEfsInboundNFS) {
 			desired.Rules = append(desired.Rules, ruleEfsInboundNFS)
 		}
 	}
@@ -723,6 +735,11 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// hasCIDRs returns true if the security group rule has at least one IPv4 or IPv6 CIDR block.
+func hasCIDRs(rule *awsclient.SecurityGroupRule) bool {
+	return len(rule.CidrBlocks) > 0 || len(rule.CidrBlocksv6) > 0
 }
 
 func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
@@ -1154,6 +1171,10 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 		}
 
 		if key == IdentifierZoneSubnetWorkers {
+			// BYO subnets may not have IPv6 CIDR blocks.
+			if len(subnet.Ipv6CidrBlocks) == 0 {
+				continue
+			}
 			cidr, err := cidrSubnet(subnet.Ipv6CidrBlocks[0], 108, 1)
 			if err != nil {
 				return err
@@ -1180,6 +1201,10 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 		}
 
 		if key == IdentifierZoneSubnetWorkers {
+			// BYO subnets may not have IPv6 CIDR blocks.
+			if len(subnet.Ipv6CidrBlocks) == 0 {
+				continue
+			}
 			cidr, err := cidrSubnet(subnet.Ipv6CidrBlocks[0], 108, 1)
 			if err != nil {
 				return err

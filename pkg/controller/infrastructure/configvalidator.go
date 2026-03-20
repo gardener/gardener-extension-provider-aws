@@ -83,6 +83,18 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 		allErrs = append(allErrs, c.validateBYOSecurityGroup(ctx, awsClient, *config.Networks.NodesSecurityGroupID, *config.Networks.VPC.ID)...)
 	}
 
+	// The AWS Cloud Controller Manager (CCM) runs outside the shoot VPC (in the seed). It requires
+	// a non-empty SubnetID in its cloud-provider-config to trigger "external master" mode
+	// (see aws.go:623 in cloud-provider-aws). Without this, the CCM tries to call the EC2 instance
+	// metadata service and crashes. The SubnetID is never actually used at runtime — LB subnets are
+	// discovered via cluster tags — but it must be non-empty for initialization.
+	// Gardener sets SubnetID to a PurposePublic subnet from InfrastructureStatus. Therefore at least
+	// one public subnet must be available: either Gardener-managed (public CIDR in config) or
+	// user-provided (tagged in the VPC).
+	if config.Networks.VPC.ID != nil {
+		allErrs = append(allErrs, c.validatePublicSubnetAvailability(ctx, awsClient, config, *config.Networks.VPC.ID, infra.Namespace)...)
+	}
+
 	var (
 		eips      []string
 		eipToZone = make(map[string]string)
@@ -298,6 +310,51 @@ func (c *configValidator) validateEIPS(ctx context.Context, awsClient awsclient.
 
 	for _, allocationID := range sets.List(diff) {
 		allErrs = append(allErrs, field.Invalid(fldPath, allocationID, fmt.Sprintf("elastic IP in zone %q cannot be attached to the clusters NAT Gateway(s) as it is already associated. Please make sure the elastic IPs configured in the Infrastructure configuration (field: `elasticIPAllocationID`) are not already attached to another AWS resource.", elasticIPAllocationIDToZone[allocationID])))
+	}
+
+	return allErrs
+}
+
+// validatePublicSubnetAvailability checks that at least one public subnet is available for the CCM config.
+// The AWS CCM runs outside the shoot VPC (in the seed) and needs a non-empty SubnetID in its
+// cloud-provider-config to trigger "external master" mode (see aws.go:623 in cloud-provider-aws).
+// Without it, the CCM tries to call the EC2 instance metadata service and crashes. The SubnetID is
+// never used at runtime — LB subnets are discovered via cluster tags — but must be non-empty for init.
+// A public subnet can come from either:
+//   - A Gardener-managed public CIDR in the zone config, or
+//   - An existing subnet in the VPC tagged with kubernetes.io/role/elb=1 and the cluster tag.
+func (c *configValidator) validatePublicSubnetAvailability(ctx context.Context, awsClient awsclient.Interface, config *apiaws.InfrastructureConfig, vpcID, clusterName string) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// If any zone has a public CIDR, Gardener will create a public subnet — nothing to check.
+	for _, zone := range config.Networks.Zones {
+		if zone.Public != "" {
+			return allErrs
+		}
+	}
+
+	// No Gardener-managed public subnets. Check if user-tagged public subnets exist in the VPC.
+	clusterTag := fmt.Sprintf("kubernetes.io/cluster/%s", clusterName)
+	filters := awsclient.WithFilters().
+		WithVpcId(vpcID).
+		WithTags(awsclient.Tags{
+			"kubernetes.io/role/elb": "1",
+			clusterTag:               "1",
+		}).
+		Build()
+
+	subnets, err := awsClient.FindSubnets(ctx, filters)
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(field.NewPath("networks", "zones"),
+			fmt.Errorf("could not check for existing public subnets in VPC %s: %w", vpcID, err)))
+		return allErrs
+	}
+
+	if len(subnets) == 0 {
+		allErrs = append(allErrs, field.Forbidden(field.NewPath("networks", "zones"),
+			"no public subnet available for the AWS Cloud Controller Manager configuration; "+
+				"either specify a public CIDR in at least one zone, or ensure an existing subnet "+
+				"in the VPC is tagged with kubernetes.io/role/elb=1 and "+clusterTag+"=1"))
 	}
 
 	return allErrs

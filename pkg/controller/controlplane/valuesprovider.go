@@ -513,7 +513,12 @@ func getConfigChartValues(
 	cp *extensionsv1alpha1.ControlPlane,
 	ipFamilies []v1beta1.IPFamily,
 ) (map[string]interface{}, error) {
-	// Get the first subnet with purpose "public"
+	// The CCM runs outside the shoot VPC (in the seed). It needs a non-empty SubnetID in its
+	// cloud-provider-config to trigger "external master" mode (see aws.go:623 in cloud-provider-aws).
+	// Without it, the CCM tries to call the EC2 instance metadata service and crashes. The SubnetID
+	// is never used at runtime — LB subnets are discovered via cluster tags — but must be non-empty
+	// for initialization. The infrastructure configvalidator ensures a public subnet is always
+	// available (either Gardener-managed or user-tagged in the VPC).
 	subnet, err := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposePublic)
 	if err != nil {
 		return nil, fmt.Errorf("could not determine subnet from infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
