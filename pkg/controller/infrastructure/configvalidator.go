@@ -155,7 +155,7 @@ func (c *configValidator) validateVPC(
 	// For fully BYO configurations, users manage their own connectivity.
 	requiresIGW := false
 	for _, zone := range infraConfig.Networks.Zones {
-		if zone.Public != "" {
+		if zone.Public != nil {
 			requiresIGW = true
 			break
 		}
@@ -230,6 +230,14 @@ func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsc
 			allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
 				fmt.Sprintf("subnet is in availability zone %s, expected %s", subnet.AvailabilityZone, zone.Name)))
 		}
+		// When DualStack/IPv6 is enabled, BYO subnets must have an IPv6 CIDR block
+		// from the VPC's IPv6 pool. Gardener uses this for CIDR reservations (services).
+		dualStack := config.DualStack != nil && config.DualStack.Enabled
+		if dualStack && len(subnet.Ipv6CidrBlocks) == 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
+				"subnet has no IPv6 CIDR block but DualStack is enabled; "+
+					"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool"))
+		}
 	}
 
 	return allErrs
@@ -279,14 +287,14 @@ func validateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []apiaws
 
 	for i, zone := range zones {
 		var subnetCIDRs []cidrvalidation.CIDR
-		if zone.Workers != "" && zone.WorkersSubnetID == nil {
-			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(zone.Workers, zonesPath.Index(i).Child("nodes")))
+		if zone.Workers != nil && zone.WorkersSubnetID == nil {
+			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(*zone.Workers, zonesPath.Index(i).Child("nodes")))
 		}
-		if zone.Public != "" {
-			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(zone.Public, zonesPath.Index(i).Child("public")))
+		if zone.Public != nil {
+			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(*zone.Public, zonesPath.Index(i).Child("public")))
 		}
-		if zone.Internal != "" {
-			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal")))
+		if zone.Internal != nil {
+			subnetCIDRs = append(subnetCIDRs, cidrvalidation.NewCIDR(*zone.Internal, zonesPath.Index(i).Child("internal")))
 		}
 		for _, subnetCIDR := range subnetCIDRs {
 			if !isSubnetCIDRContainedInAnyCIDR(vpcCIDRs, subnetCIDR) {
@@ -367,7 +375,7 @@ func (c *configValidator) validatePublicSubnetAvailability(ctx context.Context, 
 
 	// If any zone has a public CIDR, Gardener will create a public subnet — nothing to check.
 	for _, zone := range config.Networks.Zones {
-		if zone.Public != "" {
+		if zone.Public != nil {
 			return allErrs
 		}
 	}
