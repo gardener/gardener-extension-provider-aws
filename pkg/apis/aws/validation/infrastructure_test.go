@@ -36,9 +36,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 		awsZone2 = apisaws.Zone{
 			Name:     zone2,
-			Internal: "10.250.4.0/24",
-			Public:   "10.250.5.0/24",
-			Workers:  "10.250.6.0/24",
+			Internal: ptr.To("10.250.4.0/24"),
+			Public:   ptr.To("10.250.5.0/24"),
+			Workers:  ptr.To("10.250.6.0/24"),
 		}
 		familyIPv4 = []core.IPFamily{core.IPFamilyIPv4}
 	)
@@ -56,9 +56,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				Zones: []apisaws.Zone{
 					{
 						Name:     zone,
-						Internal: "10.250.1.0/24",
-						Public:   "10.250.2.0/24",
-						Workers:  "10.250.3.0/24",
+						Internal: ptr.To("10.250.1.0/24"),
+						Public:   ptr.To("10.250.2.0/24"),
+						Workers:  ptr.To("10.250.3.0/24"),
 					},
 				},
 			},
@@ -297,7 +297,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid invalid internal CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Internal = invalidCIDR
+					infrastructureConfig.Networks.Zones[0].Internal = &invalidCIDR
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -309,7 +309,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid invalid public CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Public = invalidCIDR
+					infrastructureConfig.Networks.Zones[0].Public = &invalidCIDR
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -321,7 +321,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid invalid workers CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Workers = invalidCIDR
+					infrastructureConfig.Networks.Zones[0].Workers = &invalidCIDR
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -333,7 +333,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid internal CIDR which is not in VPC CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Internal = "1.1.1.1/32"
+					infrastructureConfig.Networks.Zones[0].Internal = ptr.To("1.1.1.1/32")
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -345,7 +345,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid public CIDR which is not in VPC CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Public = "1.1.1.1/32"
+					infrastructureConfig.Networks.Zones[0].Public = ptr.To("1.1.1.1/32")
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -357,7 +357,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid workers CIDR which are not in VPC and Nodes CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Workers = "1.1.1.1/32"
+					infrastructureConfig.Networks.Zones[0].Workers = ptr.To("1.1.1.1/32")
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -396,9 +396,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 				It("should forbid VPC CIDRs to overlap with other VPC CIDRs", func() {
 					overlappingCIDR := "10.250.0.1/32"
-					infrastructureConfig.Networks.Zones[0].Internal = overlappingCIDR
-					infrastructureConfig.Networks.Zones[0].Public = overlappingCIDR
-					infrastructureConfig.Networks.Zones[0].Workers = overlappingCIDR
+					infrastructureConfig.Networks.Zones[0].Internal = &overlappingCIDR
+					infrastructureConfig.Networks.Zones[0].Public = &overlappingCIDR
+					infrastructureConfig.Networks.Zones[0].Workers = &overlappingCIDR
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &overlappingCIDR, &pods, &services)
 
@@ -419,9 +419,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 				It("should forbid non canonical CIDRs", func() {
 					vpcCIDR := "10.0.0.3/8"
-					infrastructureConfig.Networks.Zones[0].Public = "10.250.2.7/24"
-					infrastructureConfig.Networks.Zones[0].Internal = "10.250.1.6/24"
-					infrastructureConfig.Networks.Zones[0].Workers = "10.250.3.8/24"
+					infrastructureConfig.Networks.Zones[0].Public = ptr.To("10.250.2.7/24")
+					infrastructureConfig.Networks.Zones[0].Internal = ptr.To("10.250.1.6/24")
+					infrastructureConfig.Networks.Zones[0].Workers = ptr.To("10.250.3.8/24")
 					infrastructureConfig.Networks.VPC = apisaws.VPC{CIDR: &vpcCIDR}
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)

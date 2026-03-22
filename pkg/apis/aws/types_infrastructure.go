@@ -90,15 +90,15 @@ type Zone struct {
 	// Internal is the private subnet range to create (used for internal load balancers).
 	// Optional when using BYO worker subnets (internal LB subnets are discovered via tags).
 	// +optional
-	Internal string
+	Internal *string
 	// Public is the public subnet range to create (used for bastion, NAT gateways, and load balancers).
 	// Optional for private clusters or BYO worker subnets (public LB subnets are discovered via tags).
 	// +optional
-	Public string
+	Public *string
 	// Workers is the workers subnet range to create (used for the VMs).
 	// Mutually exclusive with WorkersSubnetID.
 	// +optional
-	Workers string
+	Workers *string
 	// WorkersSubnetID is the ID of an existing subnet for worker nodes.
 	// When set, Workers CIDR is ignored and no worker subnet is created.
 	// The user is responsible for subnet routing, connectivity, and tagging.

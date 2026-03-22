@@ -12,6 +12,7 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	cidrvalidation "github.com/gardener/gardener/pkg/utils/validation/cidr"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -46,7 +47,7 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 
 	usedZones := sets.New[string]()
 	for i, zone := range infra.Networks.Zones {
-		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && oldInfra.Networks.Zones[i] == zone {
+		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && apiequality.Semantic.DeepEqual(oldInfra.Networks.Zones[i], zone) {
 			usedZones.Insert(zone.Name)
 			continue
 		}
@@ -127,13 +128,17 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 			if zone.WorkersSubnetID != nil {
 				hasBYO = true
 			}
-			if zone.Workers != "" {
+			if zone.Workers != nil {
 				hasManaged = true
 			}
 		}
 		if hasBYO && hasManaged {
 			allErrs = append(allErrs, field.Forbidden(networksPath.Child("zones"),
 				"all zones must use the same approach: either all workersSubnetID (BYO) or all workers CIDR (Gardener-managed); mixing is not allowed"))
+		}
+		if !hasBYO && !hasManaged {
+			allErrs = append(allErrs, field.Required(networksPath.Child("zones"),
+				"each zone must specify either workers (CIDR) or workersSubnetID"))
 		}
 	}
 
@@ -142,10 +147,10 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		allErrs = append(allErrs, validateZoneName(zone.Name, zonePath.Child("name"))...)
 
 		// Determine which fields are set
-		hasWorkersCIDR := zone.Workers != ""
+		hasWorkersCIDR := zone.Workers != nil
 		hasWorkersSubnetID := zone.WorkersSubnetID != nil
-		hasInternalCIDR := zone.Internal != ""
-		hasPublicCIDR := zone.Public != ""
+		hasInternalCIDR := zone.Internal != nil
+		hasPublicCIDR := zone.Public != nil
 
 		// Validate workers: exactly one of Workers CIDR or WorkersSubnetID must be provided
 		allErrs = append(allErrs, validateZoneSubnetSpec(
@@ -158,19 +163,19 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		// overlap error messages. Internal and public are optional.
 		if hasPublicCIDR {
 			publicPath := zonePath.Child("public")
-			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Public, publicPath))
-			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(publicPath, zone.Public)...)
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(*zone.Public, publicPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(publicPath, *zone.Public)...)
 		}
 		if hasInternalCIDR {
 			internalPath := zonePath.Child("internal")
-			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
-			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, zone.Internal)...)
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(*zone.Internal, internalPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, *zone.Internal)...)
 		}
 		if hasWorkersCIDR && (ipFamilies == nil || slices.Contains(ipFamilies, core.IPFamilyIPv4)) {
 			workerPath := zonePath.Child("workers")
-			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
-			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
-			workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(*zone.Workers, workerPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, *zone.Workers)...)
+			workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(*zone.Workers, workerPath))
 		}
 
 		// ElasticIPAllocationID is only valid with Gardener-managed subnets (Workers + Public CIDRs)
@@ -323,14 +328,14 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.Name, oldZone.Name, idxPath.Child("name"))...)
 
-		// CIDRs are immutable when set (backward compatible - empty string means "not set")
-		if oldZone.Public != "" {
+		// CIDRs are immutable when set (backward compatible - nil means "not set")
+		if oldZone.Public != nil {
 			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.Public, oldZone.Public, idxPath.Child("public"))...)
 		}
-		if oldZone.Internal != "" {
+		if oldZone.Internal != nil {
 			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.Internal, oldZone.Internal, idxPath.Child("internal"))...)
 		}
-		if oldZone.Workers != "" {
+		if oldZone.Workers != nil {
 			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.Workers, oldZone.Workers, idxPath.Child("workers"))...)
 		}
 
@@ -338,11 +343,11 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.WorkersSubnetID, oldZone.WorkersSubnetID, idxPath.Child("workersSubnetID"))...)
 
 		// Prevent switching from CIDR to SubnetID or vice versa
-		if oldZone.Workers != "" && newZone.WorkersSubnetID != nil {
+		if oldZone.Workers != nil && newZone.WorkersSubnetID != nil {
 			allErrs = append(allErrs, field.Forbidden(idxPath.Child("workersSubnetID"),
 				"cannot switch from managed workers subnet (CIDR) to existing subnet (SubnetID)"))
 		}
-		if oldZone.WorkersSubnetID != nil && newZone.Workers != "" {
+		if oldZone.WorkersSubnetID != nil && newZone.Workers != nil {
 			allErrs = append(allErrs, field.Forbidden(idxPath.Child("workers"),
 				"cannot switch from existing workers subnet (SubnetID) to managed subnet (CIDR)"))
 		}

@@ -327,7 +327,7 @@ func (c *FlowContext) isBYOInfrastructure() bool {
 // hasManagedPublicSubnets returns true if at least one zone has a Public CIDR (Gardener-managed).
 func (c *FlowContext) hasManagedPublicSubnets() bool {
 	for _, zone := range c.config.Networks.Zones {
-		if zone.Public != "" {
+		if zone.Public != nil {
 			return true
 		}
 	}
@@ -337,7 +337,7 @@ func (c *FlowContext) hasManagedPublicSubnets() bool {
 // hasManagedInternalSubnets returns true if at least one zone has an Internal CIDR (Gardener-managed).
 func (c *FlowContext) hasManagedInternalSubnets() bool {
 	for _, zone := range c.config.Networks.Zones {
-		if zone.Internal != "" {
+		if zone.Internal != nil {
 			return true
 		}
 	}

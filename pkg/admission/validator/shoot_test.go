@@ -169,9 +169,9 @@ var _ = Describe("Shoot validator", func() {
 									Zones: []apisawsv1alpha1.Zone{
 										{
 											Name:     "zone1",
-											Internal: "10.250.112.0/26",
-											Public:   "10.250.96.0/26",
-											Workers:  "10.250.0.0/26",
+											Internal: ptr.To("10.250.112.0/26"),
+											Public:   ptr.To("10.250.96.0/26"),
+											Workers:  ptr.To("10.250.0.0/26"),
 										},
 									},
 								},
@@ -395,9 +395,9 @@ var _ = Describe("Shoot validator", func() {
 							Zones: []apisawsv1alpha1.Zone{
 								{
 									Name:     "zone1",
-									Internal: "10.250.112.0/26",
-									Public:   "10.250.96.0/26",
-									Workers:  "10.250.0.0/26",
+									Internal: ptr.To("10.250.112.0/26"),
+									Public:   ptr.To("10.250.96.0/26"),
+									Workers:  ptr.To("10.250.0.0/26"),
 								},
 							},
 						},
