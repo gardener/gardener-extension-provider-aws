@@ -661,14 +661,14 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		}
 
 		if containsIPv4(c.getIpFamilies()) {
-			if zone.Internal != "" {
-				ruleNodesInternalTCP.CidrBlocks = []string{zone.Internal}
-				ruleNodesInternalUDP.CidrBlocks = []string{zone.Internal}
-				ruleEfsInboundNFS.CidrBlocks = []string{zone.Internal}
+			if zone.Internal != nil {
+				ruleNodesInternalTCP.CidrBlocks = []string{*zone.Internal}
+				ruleNodesInternalUDP.CidrBlocks = []string{*zone.Internal}
+				ruleEfsInboundNFS.CidrBlocks = []string{*zone.Internal}
 			}
-			if zone.Public != "" {
-				ruleNodesPublicTCP.CidrBlocks = []string{zone.Public}
-				ruleNodesPublicUDP.CidrBlocks = []string{zone.Public}
+			if zone.Public != nil {
+				ruleNodesPublicTCP.CidrBlocks = []string{*zone.Public}
+				ruleNodesPublicUDP.CidrBlocks = []string{*zone.Public}
 			}
 		}
 
@@ -770,6 +770,8 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 }
 
 // ensureBYOZones stores BYO subnet IDs in the flow state for status reporting.
+// It also discovers existing tagged public and internal subnets in the VPC so they
+// can be reported in InfrastructureStatus for the CCM config and other consumers.
 // No subnets, NAT gateways, route tables, or elastic IPs are created.
 func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 	log := LogFromContext(ctx)
@@ -792,8 +794,83 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 		}
 	}
 
+	// Discover existing tagged subnets in the VPC for InfrastructureStatus.
+	// The CCM config needs at least one public or internal subnet for initialization.
+	if err := c.discoverTaggedSubnets(ctx); err != nil {
+		return err
+	}
+
 	// Persist state so BYO subnet IDs are available for status reporting
 	return c.PersistState(ctx)
+}
+
+// discoverTaggedSubnets finds existing public and internal subnets in the VPC that are
+// tagged with the cluster tag, and stores the first of each in the flow state.
+// This is needed for BYO setups where Gardener doesn't create these subnets but the
+// CCM config and InfrastructureStatus still need to reference them.
+func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
+	log := LogFromContext(ctx)
+	vpcID := c.state.Get(IdentifierVPC)
+	if vpcID == nil {
+		return nil
+	}
+
+	clusterTag := c.tagKeyCluster()
+
+	// Discover public subnets (tagged kubernetes.io/role/elb=1)
+	publicFilters := awsclient.WithFilters().
+		WithVpcId(*vpcID).
+		WithTags(awsclient.Tags{
+			TagKeyRolePublicELB: TagValueELB,
+			clusterTag:          TagValueCluster,
+		}).
+		Build()
+	publicSubnets, err := c.client.FindSubnets(ctx, publicFilters)
+	if err != nil {
+		return fmt.Errorf("failed to discover tagged public subnets: %w", err)
+	}
+	if len(publicSubnets) > 0 {
+		// Store the first discovered public subnet per AZ in state.
+		stored := sets.New[string]()
+		for _, subnet := range publicSubnets {
+			az := subnet.AvailabilityZone
+			if stored.Has(az) {
+				continue
+			}
+			stored.Insert(az)
+			child := c.getSubnetZoneChild(az)
+			child.Set(IdentifierZoneSubnetPublic, subnet.SubnetId)
+			log.Info("discovered tagged public subnet", "zone", az, "subnetID", subnet.SubnetId)
+		}
+	}
+
+	// Discover internal subnets (tagged kubernetes.io/role/internal-elb=1)
+	internalFilters := awsclient.WithFilters().
+		WithVpcId(*vpcID).
+		WithTags(awsclient.Tags{
+			TagKeyRolePrivateELB: TagValueELB,
+			clusterTag:           TagValueCluster,
+		}).
+		Build()
+	internalSubnets, err := c.client.FindSubnets(ctx, internalFilters)
+	if err != nil {
+		return fmt.Errorf("failed to discover tagged internal subnets: %w", err)
+	}
+	if len(internalSubnets) > 0 {
+		stored := sets.New[string]()
+		for _, subnet := range internalSubnets {
+			az := subnet.AvailabilityZone
+			if stored.Has(az) {
+				continue
+			}
+			stored.Insert(az)
+			child := c.getSubnetZoneChild(az)
+			child.Set(IdentifierZoneSubnetPrivate, subnet.SubnetId)
+			log.Info("discovered tagged internal subnet", "zone", az, "subnetID", subnet.SubnetId)
+		}
+	}
+
+	return nil
 }
 
 func (c *FlowContext) ensureManagedZones(ctx context.Context) error {
@@ -826,7 +903,7 @@ func (c *FlowContext) ensureManagedZones(ctx context.Context) error {
 		tagsPublic[TagKeyRolePublicELB] = TagValueELB
 		tagsPrivate := c.commonTagsWithSuffix(helper.GetSuffixSubnetPrivate())
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
-		workersCIDR := zone.Workers
+		workersCIDR := ptr.Deref(zone.Workers, "")
 		if !containsIPv4(c.getIpFamilies()) {
 			workersCIDR = ""
 		}
@@ -848,14 +925,14 @@ func (c *FlowContext) ensureManagedZones(ctx context.Context) error {
 				VpcId:                       c.state.Get(IdentifierVPC),
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: ptr.To(ContainsIPv6(c.getIpFamilies())),
-				CidrBlock:                   zone.Internal,
+				CidrBlock:                   ptr.Deref(zone.Internal, ""),
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPublic,
 				VpcId:                       c.state.Get(IdentifierVPC),
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: ptr.To(ContainsIPv6(c.getIpFamilies())),
-				CidrBlock:                   zone.Public,
+				CidrBlock:                   ptr.Deref(zone.Public, ""),
 			},
 		)
 
@@ -2155,12 +2232,13 @@ func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (string, string, erro
 		}
 		return "", "", fmt.Errorf("could not determine subnet key for subnet %s", item.SubnetId)
 	}
-	switch item.CidrBlock {
-	case zone.Workers:
+	if zone.Workers != nil && item.CidrBlock == *zone.Workers {
 		return zone.Name, IdentifierZoneSubnetWorkers, nil
-	case zone.Public:
+	}
+	if zone.Public != nil && item.CidrBlock == *zone.Public {
 		return zone.Name, IdentifierZoneSubnetPublic, nil
-	case zone.Internal:
+	}
+	if zone.Internal != nil && item.CidrBlock == *zone.Internal {
 		return zone.Name, IdentifierZoneSubnetPrivate, nil
 	}
 	return "", "", fmt.Errorf("could not determine subnet key for subnet %s", item.SubnetId)

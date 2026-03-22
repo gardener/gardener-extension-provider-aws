@@ -1319,9 +1319,9 @@ func Convert_aws_WorkloadIdentityConfig_To_v1alpha1_WorkloadIdentityConfig(in *a
 
 func autoConvert_v1alpha1_Zone_To_aws_Zone(in *Zone, out *aws.Zone, s conversion.Scope) error {
 	out.Name = in.Name
-	out.Internal = in.Internal
-	out.Public = in.Public
-	out.Workers = in.Workers
+	out.Internal = (*string)(unsafe.Pointer(in.Internal))
+	out.Public = (*string)(unsafe.Pointer(in.Public))
+	out.Workers = (*string)(unsafe.Pointer(in.Workers))
 	out.WorkersSubnetID = (*string)(unsafe.Pointer(in.WorkersSubnetID))
 	out.ElasticIPAllocationID = (*string)(unsafe.Pointer(in.ElasticIPAllocationID))
 	return nil
@@ -1334,9 +1334,9 @@ func Convert_v1alpha1_Zone_To_aws_Zone(in *Zone, out *aws.Zone, s conversion.Sco
 
 func autoConvert_aws_Zone_To_v1alpha1_Zone(in *aws.Zone, out *Zone, s conversion.Scope) error {
 	out.Name = in.Name
-	out.Internal = in.Internal
-	out.Public = in.Public
-	out.Workers = in.Workers
+	out.Internal = (*string)(unsafe.Pointer(in.Internal))
+	out.Public = (*string)(unsafe.Pointer(in.Public))
+	out.Workers = (*string)(unsafe.Pointer(in.Workers))
 	out.WorkersSubnetID = (*string)(unsafe.Pointer(in.WorkersSubnetID))
 	out.ElasticIPAllocationID = (*string)(unsafe.Pointer(in.ElasticIPAllocationID))
 	return nil

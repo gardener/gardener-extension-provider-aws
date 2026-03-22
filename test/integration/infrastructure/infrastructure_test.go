@@ -823,13 +823,13 @@ func newProviderConfigConfigureZones(vpc awsv1alpha1.VPC, configureZoneIPs bool)
 			Zones: []awsv1alpha1.Zone{
 				{
 					Name:     availabilityZone,
-					Internal: "10.250.112.0/22",
-					Public:   "10.250.96.0/22",
-					Workers: func() string {
+					Internal: ptr.To("10.250.112.0/22"),
+					Public:   ptr.To("10.250.96.0/22"),
+					Workers: func() *string {
 						if configureZoneIPs {
-							return "10.250.0.0/19"
+							return ptr.To("10.250.0.0/19")
 						}
-						return ""
+						return nil
 					}(),
 				},
 			},
@@ -1057,9 +1057,9 @@ func verifyCreation(
 	// security groups + security group rules
 
 	var (
-		internalCIDR = providerConfig.Networks.Zones[0].Internal
-		workersCIDR  = providerConfig.Networks.Zones[0].Workers
-		publicCIDR   = providerConfig.Networks.Zones[0].Public
+		internalCIDR = ptr.Deref(providerConfig.Networks.Zones[0].Internal, "")
+		workersCIDR  = ptr.Deref(providerConfig.Networks.Zones[0].Workers, "")
+		publicCIDR   = ptr.Deref(providerConfig.Networks.Zones[0].Public, "")
 	)
 
 	accountID, err := awsClient.GetAccountID(ctx)

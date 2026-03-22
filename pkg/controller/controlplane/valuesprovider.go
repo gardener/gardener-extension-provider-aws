@@ -518,11 +518,19 @@ func getConfigChartValues(
 	// cloud-provider-config to trigger "external master" mode (see aws.go:623 in cloud-provider-aws).
 	// Without it, the CCM tries to call the EC2 instance metadata service and crashes. The SubnetID
 	// is never used at runtime — LB subnets are discovered via cluster tags — but must be non-empty
-	// for initialization. The infrastructure configvalidator ensures a public subnet is always
-	// available (either Gardener-managed or user-tagged in the VPC).
+	// for initialization.
+	//
+	// Preference: public subnet > internal subnet. If neither is available, use the workers subnet
+	// as a last resort for the init gate (the CCM service controller will be disabled separately).
 	subnet, err := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposePublic)
 	if err != nil {
-		return nil, fmt.Errorf("could not determine subnet from infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
+		subnet, err = helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposeInternal)
+		if err != nil {
+			subnet, err = helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposeNodes)
+			if err != nil {
+				return nil, fmt.Errorf("could not determine subnet from infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
+			}
+		}
 	}
 
 	// Collect config chart values
@@ -554,7 +562,7 @@ func getControlPlaneChartValues(
 	scaledDown bool,
 	useWorkloadIdentity bool,
 ) (map[string]interface{}, error) {
-	ccm, err := getCCMChartValues(cpConfig, cp, cluster, secretsReader, checksums, scaledDown, useWorkloadIdentity)
+	ccm, err := getCCMChartValues(cpConfig, cp, infraStatus, cluster, secretsReader, checksums, scaledDown, useWorkloadIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -592,6 +600,7 @@ func getControlPlaneChartValues(
 func getCCMChartValues(
 	cpConfig *apisaws.ControlPlaneConfig,
 	cp *extensionsv1alpha1.ControlPlane,
+	infraStatus *apisaws.InfrastructureStatus,
 	cluster *extensionscontroller.Cluster,
 	secretsReader secretsmanager.Reader,
 	checksums map[string]string,
@@ -626,6 +635,15 @@ func getCCMChartValues(
 
 	if cpConfig.CloudControllerManager != nil {
 		values["featureGates"] = cpConfig.CloudControllerManager.FeatureGates
+	}
+
+	// Disable the CCM service controller when no public or internal subnets are available.
+	// Without LB subnets, the service controller cannot create load balancers and would
+	// error on every type: LoadBalancer Service. The CCM is still needed for node lifecycle.
+	_, hasPublic := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposePublic)
+	_, hasInternal := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposeInternal)
+	if hasPublic != nil && hasInternal != nil {
+		values["disableServiceController"] = true
 	}
 
 	return values, nil
