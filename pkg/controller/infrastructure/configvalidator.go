@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	awsSDK "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -342,14 +343,18 @@ func (c *configValidator) validatePublicSubnetAvailability(ctx context.Context, 
 	}
 
 	// No Gardener-managed public subnets. Check if user-tagged public subnets exist in the VPC.
+	// Use tag-key filter for the cluster tag (accepts any value: "1", "owned", "shared").
 	clusterTag := fmt.Sprintf("kubernetes.io/cluster/%s", clusterName)
-	filters := awsclient.WithFilters().
-		WithVpcId(vpcID).
-		WithTags(awsclient.Tags{
-			"kubernetes.io/role/elb": "1",
-			clusterTag:               "1",
-		}).
-		Build()
+	filters := append(
+		awsclient.WithFilters().
+			WithVpcId(vpcID).
+			WithTags(awsclient.Tags{"kubernetes.io/role/elb": "1"}).
+			Build(),
+		ec2types.Filter{
+			Name:   awsSDK.String("tag-key"),
+			Values: []string{clusterTag},
+		},
+	)
 
 	subnets, err := awsClient.FindSubnets(ctx, filters)
 	if err != nil {

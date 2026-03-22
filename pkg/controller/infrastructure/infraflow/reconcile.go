@@ -744,10 +744,10 @@ func hasCIDRs(rule *awsclient.SecurityGroupRule) bool {
 
 func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 	var egressIPs []string
-	tags := awsclient.Tags{
-		c.tagKeyCluster(): TagValueCluster,
-	}
-	filters := awsclient.WithFilters().WithTags(tags).WithVpcId(*c.state.Get(IdentifierVPC)).Build()
+	filters := append(
+		awsclient.WithFilters().WithVpcId(*c.state.Get(IdentifierVPC)).Build(),
+		c.clusterTagKeyExistsFilter(),
+	)
 	nats, err := c.client.FindNATGateways(ctx, filters)
 	if err != nil {
 		return err
@@ -792,6 +792,16 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 		if zone.WorkersSubnetID != nil {
 			child.Set(IdentifierZoneSubnetWorkers, *zone.WorkersSubnetID)
 			log.Info("using BYO workers subnet", "zone", zone.Name, "subnetID", *zone.WorkersSubnetID)
+
+			// Auto-tag the BYO subnet with the cluster tag (value "shared") so the CCM/LBC
+			// can discover it. This follows the EKS pattern: user provides subnet IDs,
+			// the platform auto-tags them with the cluster association.
+			byoTags := awsclient.Tags{
+				c.tagKeyCluster(): TagValueClusterShared,
+			}
+			if err := c.client.CreateEC2Tags(ctx, []string{*zone.WorkersSubnetID}, byoTags); err != nil {
+				return fmt.Errorf("failed to tag BYO workers subnet %s: %w", *zone.WorkersSubnetID, err)
+			}
 		}
 	}
 
@@ -816,16 +826,14 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 		return nil
 	}
 
-	clusterTag := c.tagKeyCluster()
-
-	// Discover public subnets (tagged kubernetes.io/role/elb=1)
-	publicFilters := awsclient.WithFilters().
-		WithVpcId(*vpcID).
-		WithTags(awsclient.Tags{
-			TagKeyRolePublicELB: TagValueELB,
-			clusterTag:          TagValueCluster,
-		}).
-		Build()
+	// Discover public subnets (tagged kubernetes.io/role/elb=1 + cluster tag key exists)
+	publicFilters := append(
+		awsclient.WithFilters().
+			WithVpcId(*vpcID).
+			WithTags(awsclient.Tags{TagKeyRolePublicELB: TagValueELB}).
+			Build(),
+		c.clusterTagKeyExistsFilter(),
+	)
 	publicSubnets, err := c.client.FindSubnets(ctx, publicFilters)
 	if err != nil {
 		return fmt.Errorf("failed to discover tagged public subnets: %w", err)
@@ -845,14 +853,14 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 		}
 	}
 
-	// Discover internal subnets (tagged kubernetes.io/role/internal-elb=1)
-	internalFilters := awsclient.WithFilters().
-		WithVpcId(*vpcID).
-		WithTags(awsclient.Tags{
-			TagKeyRolePrivateELB: TagValueELB,
-			clusterTag:           TagValueCluster,
-		}).
-		Build()
+	// Discover internal subnets (tagged kubernetes.io/role/internal-elb=1 + cluster tag key exists)
+	internalFilters := append(
+		awsclient.WithFilters().
+			WithVpcId(*vpcID).
+			WithTags(awsclient.Tags{TagKeyRolePrivateELB: TagValueELB}).
+			Build(),
+		c.clusterTagKeyExistsFilter(),
+	)
 	internalSubnets, err := c.client.FindSubnets(ctx, internalFilters)
 	if err != nil {
 		return fmt.Errorf("failed to discover tagged internal subnets: %w", err)
@@ -869,6 +877,14 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 			child.Set(IdentifierZoneSubnetPrivate, subnet.SubnetId)
 			log.Info("discovered tagged internal subnet", "zone", az, "subnetID", subnet.SubnetId)
 		}
+	}
+
+	if len(publicSubnets) == 0 && len(internalSubnets) == 0 {
+		log.Info("WARNING: no tagged public or internal subnets found in VPC; " +
+			"the CCM service controller will be disabled and the AWS Load Balancer Controller " +
+			"will only work for resources with explicit subnet annotations. " +
+			"Tag subnets with kubernetes.io/role/elb=1 (public) or kubernetes.io/role/internal-elb=1 (internal) " +
+			"and the cluster tag to enable automatic LB subnet discovery.")
 	}
 
 	return nil
@@ -1506,7 +1522,7 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 				return err
 			}
 		}
-		child.Delete(IdentifierZoneNATGateway)
+
 		return nil
 	}
 }

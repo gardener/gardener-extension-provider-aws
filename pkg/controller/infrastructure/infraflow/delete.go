@@ -469,8 +469,8 @@ func (c *FlowContext) deleteEfsMountTargets(ctx context.Context, efsID *string) 
 		if len(subnets) != 1 {
 			return fmt.Errorf("expected exactly one subnet for mount target %s, got %d", *mountTarget.MountTargetId, len(subnets))
 		}
-		// check if mount target was created by this shoot
-		if subnets[0].Tags == nil || subnets[0].Tags[c.tagKeyCluster()] != TagValueCluster {
+		// check if mount target was created by this shoot (accepts both legacy "1" and "owned")
+		if subnets[0].Tags == nil || !isOwnedClusterResource(subnets[0].Tags[c.tagKeyCluster()]) {
 			continue
 		}
 		log.Info("deleting...", "mountTargetId", *mountTarget.MountTargetId)
