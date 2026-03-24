@@ -38,7 +38,7 @@ This proposal enables users to deploy Gardener-managed Kubernetes clusters into 
 4. **Routing** - Transit Gateway, centralized NAT, VPC endpoints, or any custom topology
 5. **Load balancer subnets** - discovered automatically via standard AWS tags (no explicit IDs needed)
 
-The design principle is: **BYO resources are referenced, never created, modified, or deleted by Gardener.**
+The design principle is: **BYO resources are referenced, never created, modified, or deleted by Gardener.** VPC gateway endpoints (`gatewayEndpoints`) are the exception -- they are Gardener-managed even in BYO mode.
 
 ## Motivation
 
@@ -226,7 +226,7 @@ networks:
 
 #### Pattern 2: Complete BYO Infrastructure
 
-User provides VPC, worker subnets, and security group. Gardener does not create any network resources. LB subnets are discovered via tags.
+User provides VPC, worker subnets, and security group. Gardener does not create any network resources except VPC gateway endpoints if configured. LB subnets are discovered via tags.
 
 ```mermaid
 graph TB
