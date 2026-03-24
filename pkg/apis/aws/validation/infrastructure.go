@@ -97,6 +97,14 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 				allErrs = append(allErrs, field.Invalid(epsPath.Index(i), svc, "must be a valid DNS subdomain"))
 			}
 		}
+		// Gateway endpoints require route table associations to function. In BYO mode, Gardener
+		// does not manage route tables, so endpoints cannot be associated and would be non-functional.
+		if len(infra.Networks.Zones) > 0 && infra.Networks.Zones[0].WorkersSubnetID != nil {
+			allErrs = append(allErrs, field.Forbidden(epsPath,
+				"gatewayEndpoints are not supported in BYO mode (workersSubnetID); "+
+					"VPC gateway endpoints require route table associations that Gardener cannot manage in BYO mode; "+
+					"create and manage VPC endpoints independently"))
+		}
 	}
 
 	idProvided := infra.Networks.VPC.ID != nil

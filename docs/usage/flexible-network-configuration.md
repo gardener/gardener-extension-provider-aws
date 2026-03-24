@@ -38,7 +38,7 @@ This proposal enables users to deploy Gardener-managed Kubernetes clusters into 
 4. **Routing** - Transit Gateway, centralized NAT, VPC endpoints, or any custom topology
 5. **Load balancer subnets** - discovered automatically via standard AWS tags (no explicit IDs needed)
 
-The design principle is: **BYO resources are referenced, never created, modified, or deleted by Gardener.** VPC gateway endpoints (`gatewayEndpoints`) are the exception -- they are Gardener-managed even in BYO mode.
+The design principle is: **BYO resources are referenced, never created, modified, or deleted by Gardener.**
 
 ## Motivation
 
@@ -159,6 +159,7 @@ type Networks struct {
 | `elasticIPAllocationID` | Only valid when both `workers` AND `public` CIDRs are set |
 | `workersSubnetID` | Requires `VPC.ID` to be set. Must exist in correct VPC/AZ. Immutable. |
 | `nodesSecurityGroupID` | Requires `VPC.ID` to be set. Must exist in correct VPC. Immutable. |
+| `vpc.gatewayEndpoints` | **Forbidden** when `workersSubnetID` is set. Gateway endpoints require route table associations that Gardener cannot manage in BYO mode. |
 
 Switching from CIDR-based to SubnetID-based workers (or vice versa) is **forbidden** on update. Adding a new zone to an existing cluster requires the new zone to use the same approach as existing zones (all BYO or all managed).
 
@@ -226,7 +227,7 @@ networks:
 
 #### Pattern 2: Complete BYO Infrastructure
 
-User provides VPC, worker subnets, and security group. Gardener does not create any network resources except VPC gateway endpoints if configured. LB subnets are discovered via tags.
+User provides VPC, worker subnets, and security group. Gardener does not create any network resources. LB subnets are discovered via tags.
 
 ```mermaid
 graph TB
@@ -664,9 +665,11 @@ BYO resources are **never deleted**:
 
 Cluster tags (`kubernetes.io/cluster/<name>=shared`) added to BYO subnets during reconciliation **are removed** on teardown to prevent stale tags from accumulating across cluster lifecycles.
 
-#### Gateway Endpoints in BYO Mode
+#### VPC Gateway Endpoints in BYO Mode
 
-VPC gateway endpoints configured via `vpc.gatewayEndpoints` (e.g., S3, DynamoDB) are **still created and managed by Gardener** even in BYO mode. This is the one exception to "Gardener creates no networking resources in BYO mode." These endpoints are useful because they allow traffic to AWS services to stay within the VPC without requiring NAT/IGW. They are deleted on cluster teardown.
+VPC gateway endpoints configured via `vpc.gatewayEndpoints` (e.g., S3, DynamoDB) are **skipped** in BYO mode. Gateway endpoints are VPC-level resources that require route table associations to function -- without associations, AWS does not add the prefix list routes that direct traffic through the endpoint. Since Gardener does not create or manage route tables in BYO mode, it cannot associate endpoints with the user's route tables, making any created endpoint non-functional.
+
+Users who need VPC gateway endpoints in BYO mode must create and manage them independently, including associating them with their own route tables.
 
 #### Bastion Hosts
 
@@ -739,9 +742,9 @@ Only if network overlay is disabled. When overlay is disabled, the `aws-custom-r
 
 Not with the current bastion controller. It requires a Gardener-managed public subnet which does not exist in BYO mode. Use AWS Systems Manager Session Manager or a bastion in a user-managed public subnet instead.
 
-### Are VPC gateway endpoints still managed by Gardener in BYO mode?
+### Are VPC gateway endpoints managed by Gardener in BYO mode?
 
-Yes. VPC gateway endpoints configured via `vpc.gatewayEndpoints` (e.g., S3, DynamoDB) are still created and deleted by Gardener even in BYO mode. This is the one exception to the "no networking resources" rule and is intentional -- these endpoints are essential for AWS service access without NAT/IGW.
+No. The `gatewayEndpoints` field in the VPC configuration is ignored in BYO mode. VPC gateway endpoints require route table associations to function, and since Gardener does not manage route tables in BYO mode, it cannot make endpoints functional. Users must create and manage their own VPC endpoints, including associating them with their route tables.
 
 ## Success Criteria
 
