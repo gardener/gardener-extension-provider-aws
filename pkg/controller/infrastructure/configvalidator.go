@@ -80,6 +80,11 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 		allErrs = append(allErrs, c.validateBYOSubnets(ctx, awsClient, config, *config.Networks.VPC.ID)...)
 	}
 
+	// Validate BYO worker subnets have route table associations
+	if config.Networks.VPC.ID != nil {
+		allErrs = append(allErrs, c.validateBYOSubnetRouteTables(ctx, awsClient, config, *config.Networks.VPC.ID)...)
+	}
+
 	// Validate BYO security group exists and is in the correct VPC
 	if config.Networks.NodesSecurityGroupID != nil && config.Networks.VPC.ID != nil {
 		allErrs = append(allErrs, c.validateBYOSecurityGroup(ctx, awsClient, *config.Networks.NodesSecurityGroupID, *config.Networks.VPC.ID)...)
@@ -281,6 +286,46 @@ func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsc
 				"subnet has no IPv6 CIDR block but DualStack is enabled; "+
 					"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool"))
 		}
+	}
+
+	return allErrs
+}
+
+// validateBYOSubnetRouteTables validates that BYO worker subnets have at least one route table association.
+// Every subnet in AWS is implicitly associated with the VPC's main route table if no explicit association exists.
+// However, for BYO infrastructure, we require explicit route table associations to ensure the user has
+// consciously set up routing for their worker subnets. Without proper routing, nodes cannot reach the
+// Kubernetes API server, container registries, or other nodes. Additionally, the aws-custom-route-controller
+// discovers route tables via cluster tags to manage pod CIDR routes for cross-node communication — if
+// the worker subnet's route table is not properly configured, pod networking will break.
+func (c *configValidator) validateBYOSubnetRouteTables(ctx context.Context, awsClient awsclient.Interface, config *apiaws.InfrastructureConfig, vpcID string) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	var subnetIDs []string
+	for _, zone := range config.Networks.Zones {
+		if zone.WorkersSubnetID != nil {
+			subnetIDs = append(subnetIDs, *zone.WorkersSubnetID)
+		}
+	}
+
+	if len(subnetIDs) == 0 {
+		return allErrs
+	}
+
+	associationIDs, err := awsClient.GetRouteTableAssociationIDs(ctx, vpcID, subnetIDs)
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(field.NewPath("networks", "zones"),
+			fmt.Errorf("could not check route table associations for BYO subnets: %w", err)))
+		return allErrs
+	}
+
+	if len(associationIDs) == 0 {
+		allErrs = append(allErrs, field.Forbidden(field.NewPath("networks", "zones"),
+			"BYO worker subnets have no explicit route table associations; "+
+				"each worker subnet must be associated with a route table that provides connectivity "+
+				"to the Kubernetes API server, container registries, and other nodes; "+
+				"if the aws-custom-route-controller is enabled (overlay disabled), the route table must be "+
+				"tagged with kubernetes.io/cluster/<cluster-name> for pod CIDR route management"))
 	}
 
 	return allErrs
