@@ -22,6 +22,7 @@ reviewers:
   - [Validation Rules](#validation-rules)
   - [Configuration Patterns](#configuration-patterns)
   - [Security Group Design](#security-group-design)
+  - [Routing Requirements for BYO](#routing-requirements-for-byo)
   - [Load Balancer Subnet Discovery](#load-balancer-subnet-discovery)
   - [Implementation Approach](#implementation-approach)
 - [Alternatives](#alternatives)
@@ -478,6 +479,61 @@ The user's additional SG(s) would contain corporate/compliance rules: cross-VPC 
 
 > The additive model may be reconsidered as a complementary option in the future. The API field would be `AdditionalNodesSecurityGroupIDs []string`.
 
+### Routing Requirements for BYO
+
+In BYO mode, Gardener does **not** create any route tables, NAT gateways, or Internet Gateways. The user is fully responsible for all routing. Each BYO worker subnet must be associated with a route table that provides the connectivity required by a functioning Kubernetes cluster.
+
+#### Validation
+
+Gardener validates at infrastructure reconciliation time that each BYO worker subnet has at least one **explicit route table association**. While AWS implicitly associates every subnet with the VPC's main route table, relying on this implicit association is error-prone for production Kubernetes clusters. An explicit association ensures the user has consciously configured routing.
+
+#### Connectivity Requirements
+
+Worker nodes must be able to reach:
+
+| Destination | Purpose | Typical Route |
+|---|---|---|
+| Kubernetes API server (shoot control plane) | kubelet registration, API calls | Via NAT GW, TGW, or VPC peering to seed |
+| Container registries | Image pulls | Via NAT GW, TGW, or VPC endpoints |
+| AWS EC2/ELB/STS APIs | Cloud provider operations | Via NAT GW, TGW, or VPC endpoints |
+| Other worker nodes (same VPC) | Pod-to-pod, node-to-node | VPC local route (automatic) |
+| S3 / DynamoDB (if using ETCD backup, loki) | Backup and logging | Via gateway VPC endpoints (recommended) |
+
+#### Connectivity Models
+
+| Model | Default Route | When to Use |
+|---|---|---|
+| **Centralized NAT Gateway** | `0.0.0.0/0` -> NAT GW (shared or per-AZ) | Standard outbound internet access via user-managed NAT |
+| **Transit Gateway** | `0.0.0.0/0` -> TGW, or specific CIDRs -> TGW | Hub-and-spoke, on-premises connectivity, shared services |
+| **VPC Endpoints only** | No default route; AWS service traffic stays in VPC | Fully private clusters, no internet access |
+| **Direct Internet** | `0.0.0.0/0` -> IGW (subnet must be public) | Public-facing worker nodes (uncommon) |
+
+#### The `aws-custom-route-controller` and Pod CIDR Routing
+
+When network overlay is disabled (no VXLAN/Geneve encapsulation), Gardener deploys the [`aws-custom-route-controller`](https://github.com/gardener/aws-custom-route-controller) to manage **pod CIDR routes** in AWS VPC route tables. This controller:
+
+1. Watches Kubernetes Node objects for `.spec.podCIDR` assignments
+2. Creates AWS VPC routes in all discovered route tables: destination = node's podCIDR, target = node's ENI
+3. Discovers route tables via the tag `kubernetes.io/cluster/<cluster-name>`
+
+**In BYO mode**, the custom route controller will still be enabled when overlay is disabled. Since Gardener does not create route tables in BYO mode, the controller discovers them via tags. Users must ensure:
+
+- The route table(s) associated with worker subnets are tagged with `kubernetes.io/cluster/<cluster-name>=shared`
+- The AWS VPC route table limit (50 routes by default, expandable to 1000) is sufficient for the number of nodes
+
+If overlay networking **is** enabled (default), the custom route controller is disabled and no route table tagging is needed for pod CIDR routing.
+
+> **Note**: The CCM's built-in route controller is always disabled in Gardener (`--configure-cloud-routes=false`). Pod CIDR routing is exclusively handled by the `aws-custom-route-controller` when needed.
+
+#### Route Table Requirements Summary
+
+| Requirement | When |
+|---|---|
+| Worker subnets must have explicit route table association | Always (validated at reconciliation) |
+| Route table must provide outbound connectivity | Always |
+| Route table tagged with `kubernetes.io/cluster/<name>=shared` | Only when overlay is disabled (custom route controller needs it) |
+| Route table has capacity for pod CIDR routes | Only when overlay is disabled |
+
 ### Load Balancer Subnet Discovery
 
 #### Design Rationale: Why No Explicit LB Subnet IDs
@@ -669,6 +725,10 @@ It replaces it entirely. When `nodesSecurityGroupID` is set, Gardener does **not
 ### Why is `nodesSecurityGroupID` explicit while LB subnets use tag discovery?
 
 Security groups have no standard tag convention for discovery (unlike LB subnets which use `kubernetes.io/role/*` tags). The SG ID must be known at MachineClass creation time before any EC2 instances exist, and there is no AWS API to identify "the security group meant for Kubernetes nodes" without explicit configuration. EKS also requires explicit SG specification for node groups.
+
+### Do I need to tag my route tables in BYO mode?
+
+Only if network overlay is disabled. When overlay is disabled, the `aws-custom-route-controller` manages pod CIDR routes and discovers route tables via the `kubernetes.io/cluster/<cluster-name>=shared` tag. If overlay is enabled (default), no route table tagging is needed. Regardless of overlay, every BYO worker subnet must have an explicit route table association that provides outbound connectivity.
 
 ## Success Criteria
 
