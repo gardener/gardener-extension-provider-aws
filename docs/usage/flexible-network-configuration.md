@@ -418,7 +418,7 @@ When bringing your own infrastructure, the user provides a single security group
 
 2. **MCM is the sole consumer**: The security group flows from `InfrastructureStatus` -> Worker controller -> `MachineClass.providerSpec.networkInterfaces[].securityGroupIDs` -> MCM -> `RunInstances` API. It is attached to the EC2 instance's primary network interface at launch.
 
-3. **The CCM does NOT need the SG**: Gardener configures `DisableSecurityGroupIngress=true` in the CCM's cloud-provider-config, which tells it to skip all security group rule management for load balancers.
+3. **The CCM does NOT manage SG rules**: Gardener configures `DisableSecurityGroupIngress=true` in the CCM's cloud-provider-config. This disables the CCM's `updateInstanceSecurityGroupForNLBTraffic` and `updateInstanceSecurityGroupsForLoadBalancer` functions, which would otherwise dynamically add per-Service ingress rules (client traffic, health checks, MTU discovery) to worker instance security groups at runtime. With this flag enabled, **neither Gardener nor the CCM will ever modify security group rules after initial creation** — the user's BYO security group must already contain all required rules, including NodePort ingress for NLB traffic and health checks.
 
 4. **No standard tag convention exists**: Unlike subnets (which have well-defined `kubernetes.io/role/*` tags), there is no standard tag for "this is the nodes security group." EKS also requires explicit SG specification for node groups.
 
@@ -443,11 +443,13 @@ When providing `nodesSecurityGroupID`, the security group **must** include at mi
 | Direction | Protocol | Ports | Source/Dest | Purpose |
 |-----------|----------|-------|-------------|---------|
 | Ingress | All | All | Self (same SG) | Pod-to-pod, node-to-node |
-| Ingress | TCP | 30000-32767 | 0.0.0.0/0 or LB CIDRs | NodePort services |
-| Ingress | UDP | 30000-32767 | 0.0.0.0/0 or LB CIDRs | NodePort services |
+| Ingress | TCP | 30000-32767 | 0.0.0.0/0 or LB subnet CIDRs | NodePort services (NLB client traffic + health checks) |
+| Ingress | UDP | 30000-32767 | 0.0.0.0/0 or LB subnet CIDRs | NodePort services (NLB client traffic) |
 | Egress | All | All | 0.0.0.0/0 | Outbound connectivity |
 
-Additional rules for EFS (TCP 2049) if using CSI EFS driver.
+Additional rules for EFS (TCP 2049 from worker subnet CIDRs) if using the CSI EFS driver.
+
+> **NodePort note:** Because `DisableSecurityGroupIngress=true` is set, the CCM will **not** dynamically add per-NLB ingress rules (client traffic, health checks, ICMP MTU discovery) to the instance security group at runtime — unlike the default upstream behavior where the CCM's `updateInstanceSecurityGroupForNLBTraffic` function manages these rules automatically. The user must pre-provision NodePort ingress rules. Using `0.0.0.0/0` is the simplest option; for tighter security, use the CIDR ranges of the subnets where NLBs are placed (NLB health checks originate from the NLB's subnet IPs).
 
 > **Egress note:** The `0.0.0.0/0` egress rule is the simplest configuration. For private clusters with strict egress policies, the minimum required destinations are: the Kubernetes API server endpoint, container registries (for image pulls), and AWS APIs (EC2, ELB, STS, S3). These can be reached via VPC endpoints or specific CIDR allowlists instead of a blanket egress rule.
 
