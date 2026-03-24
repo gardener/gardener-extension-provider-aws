@@ -159,6 +159,19 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 			idProvided, &referencedSubnetIDs,
 		)...)
 
+		// When using BYO worker subnets, internal and public CIDRs are forbidden.
+		// In BYO mode, all subnets must be user-managed; LB subnets are discovered via AWS tags.
+		if hasWorkersSubnetID {
+			if hasInternalCIDR {
+				allErrs = append(allErrs, field.Forbidden(zonePath.Child("internal"),
+					"internal CIDR is forbidden when workersSubnetID is set; in BYO mode all subnets must be user-managed and LB subnets are discovered via tags"))
+			}
+			if hasPublicCIDR {
+				allErrs = append(allErrs, field.Forbidden(zonePath.Child("public"),
+					"public CIDR is forbidden when workersSubnetID is set; in BYO mode all subnets must be user-managed and LB subnets are discovered via tags"))
+			}
+		}
+
 		// Add CIDRs in the original order (public, internal, workers) for backward-compatible
 		// overlap error messages. Internal and public are optional.
 		if hasPublicCIDR {
