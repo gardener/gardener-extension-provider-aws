@@ -117,9 +117,9 @@ type Zone struct {
     Name string
 
     // Gardener-managed subnet CIDRs (mutually exclusive with WorkersSubnetID)
-    Workers  string  // +optional, mutually exclusive with WorkersSubnetID
-    Internal string  // +optional, forbidden when WorkersSubnetID is set
-    Public   string  // +optional, forbidden when WorkersSubnetID is set
+    Workers  *string  // +optional, mutually exclusive with WorkersSubnetID
+    Internal *string  // +optional, forbidden when WorkersSubnetID is set
+    Public   *string  // +optional, forbidden when WorkersSubnetID is set
 
     // BYO worker subnet
     WorkersSubnetID *string  // +optional, mutually exclusive with Workers
@@ -147,6 +147,8 @@ type Networks struct {
 }
 ```
 
+> **Design note:** `NodesSecurityGroupID` is on `Networks` (not per-zone) because a single security group applies to all worker nodes across all availability zones. AWS security groups are VPC-scoped, not AZ-scoped. `WorkersSubnetID` is per-zone because subnets are AZ-specific.
+
 ### Validation Rules
 
 | Field | Rule |
@@ -158,7 +160,7 @@ type Networks struct {
 | `workersSubnetID` | Requires `VPC.ID` to be set. Must exist in correct VPC/AZ. Immutable. |
 | `nodesSecurityGroupID` | Requires `VPC.ID` to be set. Must exist in correct VPC. Immutable. |
 
-Switching from CIDR-based to SubnetID-based workers (or vice versa) is **forbidden** on update.
+Switching from CIDR-based to SubnetID-based workers (or vice versa) is **forbidden** on update. Adding a new zone to an existing cluster requires the new zone to use the same approach as existing zones (all BYO or all managed).
 
 #### Why BYO Worker Subnets Require All Subnets to Be User-Managed
 
@@ -446,11 +448,15 @@ When providing `nodesSecurityGroupID`, the security group **must** include at mi
 
 Additional rules for EFS (TCP 2049) if using CSI EFS driver.
 
+> **Egress note:** The `0.0.0.0/0` egress rule is the simplest configuration. For private clusters with strict egress policies, the minimum required destinations are: the Kubernetes API server endpoint, container registries (for image pulls), and AWS APIs (EC2, ELB, STS, S3). These can be reached via VPC endpoints or specific CIDR allowlists instead of a blanket egress rule.
+
 **Risks the user must be aware of:**
 - Missing self-referencing ingress rule -> broken pod-to-pod communication
 - Missing NodePort range -> broken Services
 - Missing egress rule -> nodes can't reach the API server or pull container images
 - Gardener cannot recover from these misconfigurations automatically
+
+> **Future work:** A health check that verifies the BYO security group contains the minimum required rules could be added as a condition on the Infrastructure resource, providing early feedback to operators without blocking reconciliation.
 
 #### Alternative: Additive Model (Gardener base SG + user additional SGs)
 
@@ -483,9 +489,7 @@ The user's additional SG(s) would contain corporate/compliance rules: cross-VPC 
 
 In BYO mode, Gardener does **not** create any route tables, NAT gateways, or Internet Gateways. The user is fully responsible for all routing. Each BYO worker subnet must be associated with a route table that provides the connectivity required by a functioning Kubernetes cluster.
 
-#### Validation
-
-Gardener validates at infrastructure reconciliation time that each BYO worker subnet has at least one **explicit route table association**. While AWS implicitly associates every subnet with the VPC's main route table, relying on this implicit association is error-prone for production Kubernetes clusters. An explicit association ensures the user has consciously configured routing.
+Routing is **not validated** by Gardener — every subnet in AWS is implicitly associated with the VPC's main route table if no explicit association exists, so there is always a route table. However, users must ensure the route table has the correct routes for their connectivity model. If routing is misconfigured, nodes will fail to join the cluster.
 
 #### Connectivity Requirements
 
@@ -529,10 +533,9 @@ If overlay networking **is** enabled (default), the custom route controller is d
 
 | Requirement | When |
 |---|---|
-| Worker subnets must have explicit route table association | Always (validated at reconciliation) |
-| Route table must provide outbound connectivity | Always |
+| Worker subnets must have a route table with outbound connectivity | Always (user responsibility, not validated) |
 | Route table tagged with `kubernetes.io/cluster/<name>=shared` | Only when overlay is disabled (custom route controller needs it) |
-| Route table has capacity for pod CIDR routes | Only when overlay is disabled |
+| Route table has capacity for pod CIDR routes (50 default, expandable to 1000) | Only when overlay is disabled |
 
 ### Load Balancer Subnet Discovery
 
@@ -542,9 +545,7 @@ A key design decision is that **internal and public load balancer subnets are NO
 
 1. **The CCM and LBC already discover subnets via tags** - this is the standard AWS Kubernetes pattern (same as EKS). The tags `kubernetes.io/role/internal-elb=1` and `kubernetes.io/role/elb=1` are the authoritative mechanism.
 
-2. **Gardener itself never uses internal/public subnet IDs** - analysis of the codebase shows:
-   - `PurposeInternal` is a dead constant: never produced, never consumed
-   - `PurposePublic` is consumed only for the CCM config's `SubnetID` field (a fallback identity, not for LB placement) - and we can use the workers subnet for that instead
+2. **Gardener itself never uses internal/public subnet IDs at runtime** - `PurposePublic` is consumed only for the CCM config's `SubnetID` field (a fallback identity, not for LB placement) - and we can use the workers subnet for that instead.
 
 3. **Users must tag subnets anyway** - even if we accepted subnet IDs, the CCM/LBC would still require the tags. Accepting IDs would create a false sense that tagging isn't needed.
 
@@ -661,6 +662,18 @@ BYO resources are **never deleted**:
 - Security groups referenced by `nodesSecurityGroupID` are not deleted
 - VPC referenced by `VPC.ID` is already not deleted (existing behavior)
 
+Cluster tags (`kubernetes.io/cluster/<name>=shared`) added to BYO subnets during reconciliation **are removed** on teardown to prevent stale tags from accumulating across cluster lifecycles.
+
+#### Gateway Endpoints in BYO Mode
+
+VPC gateway endpoints configured via `vpc.gatewayEndpoints` (e.g., S3, DynamoDB) are **still created and managed by Gardener** even in BYO mode. This is the one exception to "Gardener creates no networking resources in BYO mode." These endpoints are useful because they allow traffic to AWS services to stay within the VPC without requiring NAT/IGW. They are deleted on cluster teardown.
+
+#### Bastion Hosts
+
+The current bastion controller creates a bastion EC2 instance in a **Gardener-managed public subnet** (`<cluster>-public-utility-z0`). In BYO mode where no public subnets are created by Gardener, bastion creation will fail. Users needing SSH access to worker nodes in BYO mode should use [AWS Systems Manager Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html) or a bastion host in a user-managed public subnet.
+
+> **Future work:** The bastion controller should be updated to support BYO mode, potentially by using a worker subnet with a public IP or by integrating with SSM.
+
 #### InfrastructureStatus
 
 - `VPC.Subnets[purpose=nodes]`: reports BYO worker subnet ID (from `workersSubnetID`) or Gardener-created one
@@ -700,19 +713,15 @@ Allowing `workersSubnetID` with `internal`/`public` CIDRs in the same configurat
 
 ### If I use BYO worker subnets, can I still have Gardener create internal or public subnets?
 
-No. When `workersSubnetID` is used, **all subnets must be user-managed**. Specifying `internal` or `public` CIDRs alongside `workersSubnetID` is forbidden by validation. In BYO mode, Gardener creates no network resources -- load balancer subnets are discovered via standard AWS tags (`kubernetes.io/role/internal-elb=1`, `kubernetes.io/role/elb=1`) that you apply to your own subnets.
+No. When `workersSubnetID` is used, **all subnets must be user-managed**. Specifying `internal` or `public` CIDRs alongside `workersSubnetID` is forbidden by validation. LB subnets are discovered via standard AWS tags.
+
+### Can I add a BYO zone to an existing cluster that uses Gardener-managed subnets?
+
+No. All zones must use the same approach. Adding a new zone with `workersSubnetID` to a cluster that uses `workers` CIDRs is forbidden by validation, and vice versa.
 
 ### What about IPv6 support with BYO subnets?
 
-If `workersSubnetID` is provided, the extension will discover the IPv6 CIDR block from the subnet/VPC via the AWS API.
-
-### Can users mix BYO and Gardener-managed workers across zones?
-
-No. All zones must use the same approach: either all `workersSubnetID` or all `workers` CIDR. This is enforced by validation.
-
-### Is migration from Gardener-managed to BYO possible?
-
-Not supported. `workersSubnetID` and `workers` are immutable; switching between them is forbidden on update.
+If `workersSubnetID` is provided, the extension will discover the IPv6 CIDR block from the subnet/VPC via the AWS API. The BYO subnet must have an IPv6 CIDR block when DualStack is enabled.
 
 ### What happens if LB subnets are not tagged?
 
@@ -722,13 +731,17 @@ The CCM/LBC will not find subnets for load balancers. NLB/CLB Services will fail
 
 It replaces it entirely. When `nodesSecurityGroupID` is set, Gardener does **not** create a nodes security group. The user-provided SG is the only one attached to EC2 instances. The user is responsible for including all required rules (see [Security Group Requirements](#security-group-requirements)).
 
-### Why is `nodesSecurityGroupID` explicit while LB subnets use tag discovery?
-
-Security groups have no standard tag convention for discovery (unlike LB subnets which use `kubernetes.io/role/*` tags). The SG ID must be known at MachineClass creation time before any EC2 instances exist, and there is no AWS API to identify "the security group meant for Kubernetes nodes" without explicit configuration. EKS also requires explicit SG specification for node groups.
-
 ### Do I need to tag my route tables in BYO mode?
 
-Only if network overlay is disabled. When overlay is disabled, the `aws-custom-route-controller` manages pod CIDR routes and discovers route tables via the `kubernetes.io/cluster/<cluster-name>=shared` tag. If overlay is enabled (default), no route table tagging is needed. Regardless of overlay, every BYO worker subnet must have an explicit route table association that provides outbound connectivity.
+Only if network overlay is disabled. When overlay is disabled, the `aws-custom-route-controller` manages pod CIDR routes and discovers route tables via the `kubernetes.io/cluster/<cluster-name>=shared` tag. If overlay is enabled (default), no route table tagging is needed.
+
+### Can I use bastion hosts in BYO mode?
+
+Not with the current bastion controller. It requires a Gardener-managed public subnet which does not exist in BYO mode. Use AWS Systems Manager Session Manager or a bastion in a user-managed public subnet instead.
+
+### Are VPC gateway endpoints still managed by Gardener in BYO mode?
+
+Yes. VPC gateway endpoints configured via `vpc.gatewayEndpoints` (e.g., S3, DynamoDB) are still created and deleted by Gardener even in BYO mode. This is the one exception to the "no networking resources" rule and is intentional -- these endpoints are essential for AWS service access without NAT/IGW.
 
 ## Success Criteria
 
