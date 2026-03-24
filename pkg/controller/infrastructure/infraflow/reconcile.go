@@ -58,6 +58,7 @@ func (c *FlowContext) Reconcile(ctx context.Context) error {
 
 func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 	createVPC := c.config.Networks.VPC.ID == nil
+	isBYO := c.isBYOInfrastructure()
 	needsIGW := createVPC || c.hasManagedPublicSubnets()
 	needsMainRouteTable := needsIGW
 	g := flow.NewGraph("AWS infrastructure reconciliation")
@@ -88,7 +89,7 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 	_ = c.AddTask(g, "ensure gateway endpoints",
 		c.ensureGatewayEndpoints,
-		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureDefaultSecurityGroup, ensureInternetGateway))
+		DoIf(!isBYO), Timeout(defaultTimeout), Dependencies(ensureVpc, ensureDefaultSecurityGroup, ensureInternetGateway))
 
 	ensureMainRouteTable := c.AddTask(g, "ensure main route table",
 		c.ensureMainRouteTable,

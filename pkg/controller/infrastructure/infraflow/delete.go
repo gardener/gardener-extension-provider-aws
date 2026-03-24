@@ -36,6 +36,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 	g := flow.NewGraph("AWS infrastructure destruction")
 
 	deleteVPC := c.config.Networks.VPC.ID == nil
+	isBYO := c.isBYOInfrastructure()
 
 	destroyLoadBalancersAndSecurityGroups := c.AddTask(g, "Destroying Kubernetes load balancers and security groups",
 		c.deleteKubernetesLoadBalancersAndSecurityGroups,
@@ -75,7 +76,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 
 	deleteGatewayEndpoints := c.AddTask(g, "delete gateway endpoints",
 		c.deleteGatewayEndpoints,
-		DoIf(c.hasVPC()), Timeout(defaultTimeout))
+		DoIf(!isBYO && c.hasVPC()), Timeout(defaultTimeout))
 
 	deleteInternetGateway := c.AddTask(g, "delete internet gateway",
 		c.deleteInternetGateway,
