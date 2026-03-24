@@ -3,9 +3,10 @@ title: Flexible Network Configuration (BYOI)
 creation-date: 2026-03-23
 status: implementable
 authors:
-- "@TBD"
+- "@kon-angelo"
 reviewers:
-- "@TBD"
+- "@gardener-extension-provider-aws-maintainers"
+- "@gardener-core-networking-maintainers"
 ---
 
 # Flexible Network Configuration - Bring Your Own Infrastructure (BYOI)
