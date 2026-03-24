@@ -310,11 +310,19 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteZones(ctx context.Context) error {
-	// For BYO infrastructure, just clear state - don't delete any subnets or zone resources.
+	// For BYO infrastructure, clean up cluster tags from BYO subnets and clear state.
+	// BYO subnets themselves are never deleted, but the cluster tags added during reconcile
+	// must be removed to avoid stale tags accumulating across cluster lifecycles.
 	if c.isBYOInfrastructure() {
 		child := c.state.GetChild(ChildIdZones)
+		clusterTag := awsclient.Tags{c.tagKeyCluster(): TagValueClusterShared}
 		for _, zoneKey := range child.GetChildrenKeys() {
 			zoneChild := child.GetChild(zoneKey)
+			if subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers); subnetID != nil {
+				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
+					return fmt.Errorf("failed to remove cluster tag from BYO subnet %s: %w", *subnetID, err)
+				}
+			}
 			zoneChild.Delete(IdentifierZoneSubnetWorkers)
 			zoneChild.Delete(IdentifierZoneSubnetPublic)
 			zoneChild.Delete(IdentifierZoneSubnetPrivate)
