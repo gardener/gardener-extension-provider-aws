@@ -1323,6 +1323,8 @@ func autoConvert_v1alpha1_Zone_To_aws_Zone(in *Zone, out *aws.Zone, s conversion
 	out.Public = (*string)(unsafe.Pointer(in.Public))
 	out.Workers = (*string)(unsafe.Pointer(in.Workers))
 	out.WorkersSubnetID = (*string)(unsafe.Pointer(in.WorkersSubnetID))
+	out.PublicSubnetID = (*string)(unsafe.Pointer(in.PublicSubnetID))
+	out.InternalSubnetID = (*string)(unsafe.Pointer(in.InternalSubnetID))
 	out.ElasticIPAllocationID = (*string)(unsafe.Pointer(in.ElasticIPAllocationID))
 	return nil
 }
@@ -1338,6 +1340,8 @@ func autoConvert_aws_Zone_To_v1alpha1_Zone(in *aws.Zone, out *Zone, s conversion
 	out.Public = (*string)(unsafe.Pointer(in.Public))
 	out.Workers = (*string)(unsafe.Pointer(in.Workers))
 	out.WorkersSubnetID = (*string)(unsafe.Pointer(in.WorkersSubnetID))
+	out.PublicSubnetID = (*string)(unsafe.Pointer(in.PublicSubnetID))
+	out.InternalSubnetID = (*string)(unsafe.Pointer(in.InternalSubnetID))
 	out.ElasticIPAllocationID = (*string)(unsafe.Pointer(in.ElasticIPAllocationID))
 	return nil
 }

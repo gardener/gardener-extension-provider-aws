@@ -1086,6 +1086,16 @@ func (in *Zone) DeepCopyInto(out *Zone) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.PublicSubnetID != nil {
+		in, out := &in.PublicSubnetID, &out.PublicSubnetID
+		*out = new(string)
+		**out = **in
+	}
+	if in.InternalSubnetID != nil {
+		in, out := &in.InternalSubnetID, &out.InternalSubnetID
+		*out = new(string)
+		**out = **in
+	}
 	if in.ElasticIPAllocationID != nil {
 		in, out := &in.ElasticIPAllocationID, &out.ElasticIPAllocationID
 		*out = new(string)
