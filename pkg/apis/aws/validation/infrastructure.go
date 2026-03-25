@@ -148,6 +148,14 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 			allErrs = append(allErrs, field.Required(networksPath.Child("zones"),
 				"each zone must specify either workers (CIDR) or workersSubnetID"))
 		}
+
+		// In BYO mode, Gardener does not create EFS file systems or mount targets.
+		// The user must provide an existing EFS file system ID.
+		if hasBYO && infra.ElasticFileSystem != nil && infra.ElasticFileSystem.Enabled && infra.ElasticFileSystem.ID == nil {
+			allErrs = append(allErrs, field.Required(field.NewPath("elasticFileSystem", "id"),
+				"elasticFileSystem.id is required in BYO mode (workersSubnetID); "+
+					"Gardener does not create EFS file systems or mount targets in BYO mode"))
+		}
 	}
 
 	for i, zone := range infra.Networks.Zones {
