@@ -543,6 +543,11 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 
 func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	// If user provides their own security group, use it directly.
+	// TODO: Open question — should nodesSecurityGroupID be allowed without workersSubnetID?
+	// Currently it is: Gardener skips SG creation but still creates subnets/NAT/IGW.
+	// This is a valid use case (user wants to control SG rules but let Gardener manage
+	// subnets), but the SG rule set (e.g. TCP 2049 NFS rule using zone.Internal CIDR)
+	// should be reviewed for correctness in this hybrid scenario.
 	if c.isBYOSecurityGroup() {
 		log := LogFromContext(ctx)
 		log.Info("using user-provided nodes security group", "sgID", *c.config.Networks.NodesSecurityGroupID)
@@ -655,6 +660,10 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 			Protocol: "udp",
 		}
 
+		// TODO: The TCP 2049 NFS ingress rule uses zone.Internal as the source CIDR, but both the
+		// mount target and the worker nodes are in the workers subnet and share the same security
+		// group. The self-referencing rule (Self: true, Protocol: -1) already allows all traffic
+		// between SG members, making this CIDR-based rule redundant. Consider removing it.
 		ruleEfsInboundNFS := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
 			FromPort: ptr.To[int32](2049),
@@ -2067,6 +2076,15 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureEfs(ctx context.Context) error {
+	// In BYO mode, Gardener does not create EFS file systems or mount targets.
+	// The user provides an existing file system ID and is responsible for mount targets.
+	// The CSI driver discovers mount targets at runtime via the EFS API.
+	if c.isBYOInfrastructure() {
+		log := LogFromContext(ctx)
+		log.Info("skipping EFS file system and mount target creation in BYO mode")
+		return nil
+	}
+
 	err := c.ensureEfsCreateFileSystem(ctx)
 	if err != nil {
 		return err

@@ -682,7 +682,10 @@ The current bastion controller creates a bastion EC2 instance in a **Gardener-ma
 #### InfrastructureStatus
 
 - `VPC.Subnets[purpose=nodes]`: reports BYO worker subnet ID (from `workersSubnetID`) or Gardener-created one
+- `VPC.Subnets[purpose=public]`: reports tag-discovered public LB subnet or Gardener-created one
+- `VPC.Subnets[purpose=internal]`: reports tag-discovered internal LB subnet or Gardener-created one
 - `VPC.SecurityGroups[purpose=nodes]`: reports BYO security group ID or Gardener-created one
+- `ElasticFileSystem.ID`: reports user-provided or Gardener-created EFS file system ID (when enabled)
 - CCM config: uses workers subnet as `SubnetID` fallback when no public subnet exists
 
 ## Alternatives
@@ -747,6 +750,42 @@ Not with the current bastion controller. It requires a Gardener-managed public s
 ### Are VPC gateway endpoints managed by Gardener in BYO mode?
 
 No. The `gatewayEndpoints` field in the VPC configuration is ignored in BYO mode. VPC gateway endpoints require route table associations to function, and since Gardener does not manage route tables in BYO mode, it cannot make endpoints functional. Users must create and manage their own VPC endpoints, including associating them with their route tables.
+
+## Open Questions
+
+### BYO Security Group with Gardener-Managed Subnets
+
+Currently, `nodesSecurityGroupID` only requires `VPC.ID` — it does not require `workersSubnetID`. This means a user can provide a BYO security group while letting Gardener manage all subnets (workers, internal, public). Gardener would skip SG creation but still create all network resources.
+
+This is a valid use case: the user wants to control firewall rules (corporate compliance) while letting Gardener manage the network topology. However, the interaction with Gardener's SG rule construction (which uses `zone.Internal` CIDRs for EFS NFS rules) needs review. If we support this hybrid scenario long-term, it should be explicitly tested and documented.
+
+### TCP 2049 NFS Rule Redundancy
+
+The CIDR-based NFS ingress rule (TCP 2049) on the nodes SG uses `zone.Internal` as the source CIDR. However:
+- Mount targets are placed in the **workers** subnet
+- Worker nodes are also in the **workers** subnet
+- Both the mount target ENI and the worker ENI are members of the **same** security group
+- The self-referencing rule (`Self: true, Protocol: -1`) already allows **all** traffic between SG members
+
+The CIDR-based NFS rule is therefore redundant in all cases where the mount target and nodes share a SG. It should be reviewed and potentially removed. This also exists on `origin/master` — it is not a regression from this PR.
+
+### EFS in BYO Mode
+
+`elasticFileSystem.enabled` should remain allowed in BYO mode. The behavior differs:
+
+| Aspect | Managed Mode | BYO Mode |
+|--------|-------------|----------|
+| File system creation | Gardener creates (or user provides ID) | User must provide `elasticFileSystem.id` |
+| Mount target creation | Gardener creates one per zone in workers subnet | **Skipped** — user may already have mount targets |
+| Mount target discovery | N/A (Gardener creates them) | Gardener discovers existing mount targets via `DescribeMountTargets` |
+| SG NFS rule | Added to nodes SG (using `zone.Internal` CIDR) | Skipped (no internal CIDR); user must ensure self-referencing rule covers NFS traffic |
+| CSI driver config | `fileSystemID` from status | `fileSystemID` from status (same path) |
+
+**Key constraints:**
+- EFS is bound to exactly one VPC; the user-provided EFS must be in the same VPC
+- Only one mount target per AZ is allowed — Gardener must not create duplicates
+- The CSI driver only needs `fileSystemID` — it discovers mount targets at runtime via the EFS API
+- In BYO mode, `elasticFileSystem.id` must be required (validation) since Gardener won't create the file system
 
 ## Success Criteria
 

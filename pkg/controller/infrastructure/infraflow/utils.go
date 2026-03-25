@@ -277,6 +277,8 @@ func BuildInfrastructureStatus(
 					purpose = awsapi.PurposePublic
 				case IdentifierZoneSubnetWorkers:
 					purpose = awsapi.PurposeNodes
+				case IdentifierZoneSubnetPrivate:
+					purpose = awsapi.PurposeInternal
 				default:
 					continue
 				}
