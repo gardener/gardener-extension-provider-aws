@@ -26,6 +26,7 @@ reviewers:
   - [Load Balancer Subnet Discovery](#load-balancer-subnet-discovery)
   - [Implementation Approach](#implementation-approach)
 - [Alternatives](#alternatives)
+- [Open Questions](#open-questions)
 - [FAQ](#faq)
 
 ## Summary
@@ -679,6 +680,31 @@ The current bastion controller creates a bastion EC2 instance in a **Gardener-ma
 
 > **Future work:** The bastion controller should be updated to support BYO mode, potentially by using a worker subnet with a public IP or by integrating with SSM.
 
+#### EFS (Elastic File System) in BYO Mode
+
+When `elasticFileSystem.enabled` is set in BYO mode, Gardener's behavior differs from the managed case:
+
+| Aspect | Managed Mode | BYO Mode |
+|--------|-------------|----------|
+| File system creation | Gardener creates (encrypted, tagged) or user provides `elasticFileSystem.id` | User **must** provide `elasticFileSystem.id` (validated) |
+| Mount target creation | Gardener creates one per zone in workers subnet | **Skipped** — user manages mount targets |
+| Mount target discovery | N/A | Gardener discovers existing mount targets via `DescribeMountTargets` for state observability |
+| SG NFS rule (TCP 2049) | Added to nodes SG using `zone.Internal` CIDR | Skipped (no internal CIDR in BYO). Not needed — the self-referencing rule covers intra-SG NFS traffic. |
+| CSI driver config | `fileSystemID` from `InfrastructureStatus` | Same — only `fileSystemID` is needed |
+| IAM permissions | EFS API permissions on node role | Same |
+
+**Why mount targets are not created in BYO mode:**
+
+1. **Only one mount target per AZ is allowed.** The user may already have mount targets in their subnets. Creating a duplicate would fail.
+2. **Follows the BYO principle:** BYO resources are referenced, never created. Mount targets are infrastructure the user owns.
+3. **The CSI driver doesn't need them from Gardener:** The EFS CSI driver discovers mount targets at runtime via the `elasticfilesystem:DescribeMountTargets` IAM permission. Only the `fileSystemID` (passed via the `StorageClass`) is needed for provisioning.
+
+**EFS is bound to exactly one VPC.** The user-provided EFS must be in the same VPC referenced by `vpc.id`. Mount targets must exist in the same VPC. Changing the VPC requires deleting and recreating all mount targets.
+
+**Validation:** When `workersSubnetID` is set and `elasticFileSystem.enabled` is true, `elasticFileSystem.id` is required. Gardener will not create a file system in BYO mode.
+
+**Security group:** NFS traffic (TCP 2049) between worker nodes and mount targets is covered by the self-referencing SG rule (`Self: true, Protocol: -1`), provided both the nodes and the mount target ENI are members of the same security group. When using a BYO SG, the user must ensure the self-referencing ingress rule is present (already a documented requirement).
+
 #### InfrastructureStatus
 
 - `VPC.Subnets[purpose=nodes]`: reports BYO worker subnet ID (from `workersSubnetID`) or Gardener-created one
@@ -750,6 +776,10 @@ Not with the current bastion controller. It requires a Gardener-managed public s
 ### Are VPC gateway endpoints managed by Gardener in BYO mode?
 
 No. The `gatewayEndpoints` field in the VPC configuration is ignored in BYO mode. VPC gateway endpoints require route table associations to function, and since Gardener does not manage route tables in BYO mode, it cannot make endpoints functional. Users must create and manage their own VPC endpoints, including associating them with their route tables.
+
+### Can I use EFS (Elastic File System) in BYO mode?
+
+Yes, with constraints. Set `elasticFileSystem.enabled: true` and provide `elasticFileSystem.id` with the ID of an existing EFS file system in the same VPC. Gardener will **not** create a file system or mount targets — the user is responsible for both. The EFS CSI driver only needs the file system ID (passed via a `StorageClass`); it discovers mount targets at runtime via the AWS API. See [EFS in BYO Mode](#efs-elastic-file-system-in-byo-mode) for details.
 
 ## Open Questions
 
