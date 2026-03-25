@@ -26,6 +26,7 @@ import (
 	secretutils "github.com/gardener/gardener/pkg/utils/secrets"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
+	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -360,7 +361,7 @@ type valuesProvider struct {
 
 // GetConfigChartValues returns the values for the config chart applied by the generic actuator.
 func (vp *valuesProvider) GetConfigChartValues(
-	_ context.Context,
+	ctx context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
 	cluster *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
@@ -374,8 +375,13 @@ func (vp *valuesProvider) GetConfigChartValues(
 
 	ipFamilies := cluster.Shoot.Spec.Networking.IPFamilies
 
+	log, err := logr.FromContext(ctx)
+	if err != nil {
+		log = logr.Discard()
+	}
+
 	// Get config chart values
-	return getConfigChartValues(infraStatus, cp, ipFamilies)
+	return getConfigChartValues(log, infraStatus, cp, ipFamilies)
 }
 
 // GetControlPlaneChartValues returns the values for the control plane chart applied by the generic actuator.
@@ -510,6 +516,7 @@ func (vp *valuesProvider) decodeInfrastructureStatus(cp *extensionsv1alpha1.Cont
 
 // getConfigChartValues collects and returns the configuration chart values.
 func getConfigChartValues(
+	log logr.Logger,
 	infraStatus *apisaws.InfrastructureStatus,
 	cp *extensionsv1alpha1.ControlPlane,
 	ipFamilies []v1beta1.IPFamily,
@@ -530,7 +537,12 @@ func getConfigChartValues(
 			if err != nil {
 				return nil, fmt.Errorf("could not determine subnet from infrastructureProviderStatus of controlplane '%s': %w", k8sclient.ObjectKeyFromObject(cp), err)
 			}
+			log.Info("Using workers subnet for CCM config (no public or internal subnet available)", "subnetID", subnet.ID, "zone", subnet.Zone, "purpose", apisaws.PurposeNodes)
+		} else {
+			log.Info("Using internal subnet for CCM config (no public subnet available)", "subnetID", subnet.ID, "zone", subnet.Zone, "purpose", apisaws.PurposeInternal)
 		}
+	} else {
+		log.Info("Using public subnet for CCM config", "subnetID", subnet.ID, "zone", subnet.Zone, "purpose", apisaws.PurposePublic)
 	}
 
 	// Collect config chart values

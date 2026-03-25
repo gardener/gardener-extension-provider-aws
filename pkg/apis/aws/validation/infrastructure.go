@@ -362,16 +362,6 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 
 		// Subnet IDs are immutable once set
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.WorkersSubnetID, oldZone.WorkersSubnetID, idxPath.Child("workersSubnetID"))...)
-
-		// Prevent switching from CIDR to SubnetID or vice versa
-		if oldZone.Workers != nil && newZone.WorkersSubnetID != nil {
-			allErrs = append(allErrs, field.Forbidden(idxPath.Child("workersSubnetID"),
-				"cannot switch from managed workers subnet (CIDR) to existing subnet (SubnetID)"))
-		}
-		if oldZone.WorkersSubnetID != nil && newZone.Workers != nil {
-			allErrs = append(allErrs, field.Forbidden(idxPath.Child("workers"),
-				"cannot switch from existing workers subnet (SubnetID) to managed subnet (CIDR)"))
-		}
 	}
 	if oldConfig.DualStack != nil && oldConfig.DualStack.Enabled && (newConfig.DualStack == nil || !newConfig.DualStack.Enabled) {
 		dualStackPath := field.NewPath("dualStack.enabled")
