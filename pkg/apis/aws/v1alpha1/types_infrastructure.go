@@ -116,6 +116,18 @@ type Zone struct {
 	// Requires VPC.ID to be set.
 	// +optional
 	WorkersSubnetID *string `json:"workersSubnetID,omitempty"`
+	// PublicSubnetID is the ID of an existing subnet for public load balancers.
+	// Only allowed in BYO mode (when WorkersSubnetID is set).
+	// Gardener tags this subnet with kubernetes.io/role/elb=1 and the cluster tag on reconcile,
+	// and removes only the cluster tag on delete (the role tag is shared infrastructure).
+	// +optional
+	PublicSubnetID *string `json:"publicSubnetID,omitempty"`
+	// InternalSubnetID is the ID of an existing subnet for internal load balancers.
+	// Only allowed in BYO mode (when WorkersSubnetID is set).
+	// Gardener tags this subnet with kubernetes.io/role/internal-elb=1 and the cluster tag on reconcile,
+	// and removes only the cluster tag on delete (the role tag is shared infrastructure).
+	// +optional
+	InternalSubnetID *string `json:"internalSubnetID,omitempty"`
 	// ElasticIPAllocationID contains the allocation ID of an Elastic IP that will be attached to the NAT gateway in
 	// this zone (e.g., `eipalloc-123456`). If it's not provided then a new Elastic IP will be automatically created
 	// and attached.

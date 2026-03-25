@@ -111,7 +111,7 @@ flowchart TB
 
 #### Zone Structure
 
-One new optional field allows referencing an existing worker subnet:
+New optional fields allow referencing existing subnets:
 
 ```go
 type Zone struct {
@@ -124,6 +124,12 @@ type Zone struct {
 
     // BYO worker subnet
     WorkersSubnetID *string  // +optional, mutually exclusive with Workers
+
+    // BYO load balancer subnets (only allowed when WorkersSubnetID is set)
+    // Gardener auto-tags these with the cluster tag and the role tag on reconcile.
+    // On delete, only the cluster tag is removed (the role tag is shared infrastructure).
+    PublicSubnetID   *string  // +optional, BYO only
+    InternalSubnetID *string  // +optional, BYO only
 
     // Only valid when Workers and Public CIDRs are set (Gardener-managed)
     ElasticIPAllocationID *string  // +optional
@@ -156,7 +162,8 @@ type Networks struct {
 |-------|------|
 | `workers` / `workersSubnetID` | **Exactly one** must be provided per zone (XOR) |
 | **Zone consistency** | **All zones must use the same approach**: either all `workersSubnetID` or all `workers` CIDR. Mixing is forbidden. |
-| `internal` / `public` | **Forbidden** when `workersSubnetID` is set. In BYO mode, all subnets are user-managed; LB subnets are tag-discovered. |
+| `internal` / `public` | **Forbidden** when `workersSubnetID` is set. In BYO mode, all subnets are user-managed; LB subnets are referenced by ID or tag-discovered. |
+| `publicSubnetID` / `internalSubnetID` | **Only allowed** when `workersSubnetID` is set (BYO mode). Requires `VPC.ID`. Must exist in correct VPC/AZ. Immutable. No duplicates across zones. |
 | `elasticIPAllocationID` | Only valid when both `workers` AND `public` CIDRs are set |
 | `workersSubnetID` | Requires `VPC.ID` to be set. Must exist in correct VPC/AZ. Immutable. |
 | `nodesSecurityGroupID` | Requires `VPC.ID` to be set. Must exist in correct VPC. Immutable. |
@@ -283,8 +290,12 @@ networks:
   zones:
     - name: eu-west-1a
       workersSubnetID: subnet-workers-1a
+      publicSubnetID: subnet-public-1a       # auto-tagged by Gardener
+      internalSubnetID: subnet-internal-1a   # auto-tagged by Gardener
     - name: eu-west-1b
       workersSubnetID: subnet-workers-1b
+      publicSubnetID: subnet-public-1b
+      internalSubnetID: subnet-internal-1b
 ```
 
 **What Gardener creates:** IAM role, instance profile, SSH key pair only.
@@ -543,17 +554,23 @@ If overlay networking **is** enabled (default), the custom route controller is d
 
 ### Load Balancer Subnet Discovery
 
-#### Design Rationale: Why No Explicit LB Subnet IDs
+#### Two Modes: Explicit IDs or Tag-Based Discovery
 
-A key design decision is that **internal and public load balancer subnets are NOT referenced by ID**. Instead, they are discovered at runtime via standard AWS tags by the Cloud Controller Manager (CCM) and AWS Load Balancer Controller (LBC). This is because:
+Load balancer subnets can be configured in two ways in BYO mode:
 
-1. **The CCM and LBC already discover subnets via tags** - this is the standard AWS Kubernetes pattern (same as EKS). The tags `kubernetes.io/role/internal-elb=1` and `kubernetes.io/role/elb=1` are the authoritative mechanism.
+1. **Explicit IDs** (recommended): Provide `publicSubnetID` and/or `internalSubnetID` per zone. Gardener auto-tags these subnets with the cluster tag (`kubernetes.io/cluster/<name>=shared`) and the role tag (`kubernetes.io/role/elb=1` or `kubernetes.io/role/internal-elb=1`). On delete, only the cluster tag is removed — the role tag is shared infrastructure. After tagging, Gardener validates that the CCM would discover the same subnets (no ambiguity from other tagged subnets in the same AZ).
 
-2. **Gardener itself never uses internal/public subnet IDs at runtime** - `PurposePublic` is consumed only for the CCM config's `SubnetID` field (a fallback identity, not for LB placement) - and we can use the workers subnet for that instead.
+2. **Tag-based discovery** (fallback): If no explicit IDs are provided, subnets are discovered at runtime via standard AWS tags. The user must pre-tag subnets with both the cluster tag and the role tag. This is the same pattern as EKS.
 
-3. **Users must tag subnets anyway** - even if we accepted subnet IDs, the CCM/LBC would still require the tags. Accepting IDs would create a false sense that tagging isn't needed.
+#### Why explicit IDs are recommended
 
-4. **Users can override per-Service** via the `service.beta.kubernetes.io/aws-load-balancer-subnets` annotation if they need explicit control.
+- **No manual tagging required**: Gardener handles both the cluster tag and the role tag.
+- **Prevents CCM ambiguity**: If multiple subnets in the same AZ have the cluster tag + role tag, the CCM picks one by lexicographic subnet ID order. With explicit IDs, Gardener validates that the CCM would pick the intended subnet.
+- **Clean lifecycle**: Cluster tags are added on reconcile and removed on delete. Role tags persist across cluster lifecycles (shared infrastructure).
+
+#### Underlying Discovery Mechanism
+
+The CCM and LBC still discover subnets via tags at runtime — the explicit IDs only control which subnets Gardener tags. Users can also override per-Service via the `service.beta.kubernetes.io/aws-load-balancer-subnets` annotation.
 
 #### Discovery Flow
 

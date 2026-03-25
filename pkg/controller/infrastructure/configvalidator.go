@@ -244,6 +244,41 @@ func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsc
 				"subnet has no IPv6 CIDR block but DualStack is enabled; "+
 					"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool"))
 		}
+
+		// Validate BYO public LB subnet
+		allErrs = append(allErrs, c.validateBYOLBSubnet(ctx, awsClient, zone.PublicSubnetID, zonePath.Child("publicSubnetID"), vpcID, zone.Name)...)
+		// Validate BYO internal LB subnet
+		allErrs = append(allErrs, c.validateBYOLBSubnet(ctx, awsClient, zone.InternalSubnetID, zonePath.Child("internalSubnetID"), vpcID, zone.Name)...)
+	}
+
+	return allErrs
+}
+
+// validateBYOLBSubnet validates that a referenced BYO LB subnet ID exists and is in the correct VPC/AZ.
+func (c *configValidator) validateBYOLBSubnet(ctx context.Context, awsClient awsclient.Interface, subnetID *string, fldPath *field.Path, vpcID, expectedAZ string) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if subnetID == nil {
+		return allErrs
+	}
+
+	subnets, err := awsClient.GetSubnets(ctx, []string{*subnetID})
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get subnet %s: %w", *subnetID, err)))
+		return allErrs
+	}
+	if len(subnets) == 0 {
+		allErrs = append(allErrs, field.NotFound(fldPath, *subnetID))
+		return allErrs
+	}
+	subnet := subnets[0]
+	if subnet.VpcId != nil && *subnet.VpcId != vpcID {
+		allErrs = append(allErrs, field.Invalid(fldPath, *subnetID,
+			fmt.Sprintf("subnet is in VPC %s, expected %s", *subnet.VpcId, vpcID)))
+	}
+	if subnet.AvailabilityZone != expectedAZ {
+		allErrs = append(allErrs, field.Invalid(fldPath, *subnetID,
+			fmt.Sprintf("subnet is in availability zone %s, expected %s", subnet.AvailabilityZone, expectedAZ)))
 	}
 
 	return allErrs

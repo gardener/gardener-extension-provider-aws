@@ -186,6 +186,30 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 				allErrs = append(allErrs, field.Forbidden(zonePath.Child("public"),
 					"public CIDR is forbidden when workersSubnetID is set; in BYO mode all subnets must be user-managed and LB subnets are discovered via tags"))
 			}
+
+			// Validate optional BYO LB subnet IDs
+			if zone.PublicSubnetID != nil {
+				allErrs = append(allErrs, validateSubnetIDField(
+					zonePath.Child("publicSubnetID"), zone.PublicSubnetID,
+					idProvided, &referencedSubnetIDs,
+				)...)
+			}
+			if zone.InternalSubnetID != nil {
+				allErrs = append(allErrs, validateSubnetIDField(
+					zonePath.Child("internalSubnetID"), zone.InternalSubnetID,
+					idProvided, &referencedSubnetIDs,
+				)...)
+			}
+		} else {
+			// PublicSubnetID and InternalSubnetID are only allowed in BYO mode
+			if zone.PublicSubnetID != nil {
+				allErrs = append(allErrs, field.Forbidden(zonePath.Child("publicSubnetID"),
+					"publicSubnetID is only allowed when workersSubnetID is set (BYO mode)"))
+			}
+			if zone.InternalSubnetID != nil {
+				allErrs = append(allErrs, field.Forbidden(zonePath.Child("internalSubnetID"),
+					"internalSubnetID is only allowed when workersSubnetID is set (BYO mode)"))
+			}
 		}
 
 		// Add CIDRs in the original order (public, internal, workers) for backward-compatible
@@ -370,6 +394,12 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 
 		// Subnet IDs are immutable once set
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.WorkersSubnetID, oldZone.WorkersSubnetID, idxPath.Child("workersSubnetID"))...)
+		if oldZone.PublicSubnetID != nil {
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.PublicSubnetID, oldZone.PublicSubnetID, idxPath.Child("publicSubnetID"))...)
+		}
+		if oldZone.InternalSubnetID != nil {
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.InternalSubnetID, oldZone.InternalSubnetID, idxPath.Child("internalSubnetID"))...)
+		}
 	}
 	if oldConfig.DualStack != nil && oldConfig.DualStack.Enabled && (newConfig.DualStack == nil || !newConfig.DualStack.Enabled) {
 		dualStackPath := field.NewPath("dualStack.enabled")

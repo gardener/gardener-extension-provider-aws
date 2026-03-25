@@ -320,9 +320,22 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 		clusterTag := awsclient.Tags{c.tagKeyCluster(): TagValueClusterShared}
 		for _, zoneKey := range child.GetChildrenKeys() {
 			zoneChild := child.GetChild(zoneKey)
+			// Remove cluster tag from BYO worker subnets
 			if subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers); subnetID != nil {
 				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
 					return fmt.Errorf("failed to remove cluster tag from BYO subnet %s: %w", *subnetID, err)
+				}
+			}
+			// Remove cluster tag from BYO public LB subnets (leave kubernetes.io/role/elb intact)
+			if subnetID := zoneChild.Get(IdentifierZoneSubnetPublic); subnetID != nil {
+				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
+					return fmt.Errorf("failed to remove cluster tag from BYO public subnet %s: %w", *subnetID, err)
+				}
+			}
+			// Remove cluster tag from BYO internal LB subnets (leave kubernetes.io/role/internal-elb intact)
+			if subnetID := zoneChild.Get(IdentifierZoneSubnetPrivate); subnetID != nil {
+				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
+					return fmt.Errorf("failed to remove cluster tag from BYO internal subnet %s: %w", *subnetID, err)
 				}
 			}
 			zoneChild.Delete(IdentifierZoneSubnetWorkers)
