@@ -677,6 +677,55 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			})
 		})
 
+		Context("EFS in BYO mode", func() {
+			It("should forbid EFS enabled without ID in BYO mode", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
+					Enabled: true,
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeRequired),
+					"Field":  Equal("elasticFileSystem.id"),
+					"Detail": ContainSubstring("required in BYO mode"),
+				}))
+			})
+
+			It("should allow EFS enabled with ID in BYO mode", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.NodesSecurityGroupID = ptr.To("sg-1234567890abcdef0")
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
+					Enabled: true,
+					ID:      ptr.To("fs-1234567890abcdef0"),
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow EFS enabled without ID in managed mode", func() {
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
+					Enabled: true,
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+		})
+
 		Context("ignoreTags", func() {
 			It("should forbid ignoring reserved tags", func() {
 				infrastructureConfig.IgnoreTags = &apisaws.IgnoreTags{

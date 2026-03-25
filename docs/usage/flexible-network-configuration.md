@@ -801,21 +801,7 @@ The CIDR-based NFS rule is therefore redundant in all cases where the mount targ
 
 ### EFS in BYO Mode
 
-`elasticFileSystem.enabled` should remain allowed in BYO mode. The behavior differs:
-
-| Aspect | Managed Mode | BYO Mode |
-|--------|-------------|----------|
-| File system creation | Gardener creates (or user provides ID) | User must provide `elasticFileSystem.id` |
-| Mount target creation | Gardener creates one per zone in workers subnet | **Skipped** — user may already have mount targets |
-| Mount target discovery | N/A (Gardener creates them) | Gardener discovers existing mount targets via `DescribeMountTargets` |
-| SG NFS rule | Added to nodes SG (using `zone.Internal` CIDR) | Skipped (no internal CIDR); user must ensure self-referencing rule covers NFS traffic |
-| CSI driver config | `fileSystemID` from status | `fileSystemID` from status (same path) |
-
-**Key constraints:**
-- EFS is bound to exactly one VPC; the user-provided EFS must be in the same VPC
-- Only one mount target per AZ is allowed — Gardener must not create duplicates
-- The CSI driver only needs `fileSystemID` — it discovers mount targets at runtime via the EFS API
-- In BYO mode, `elasticFileSystem.id` must be required (validation) since Gardener won't create the file system
+EFS is supported in BYO mode with constraints — see [EFS in BYO Mode](#efs-elastic-file-system-in-byo-mode) in the proposal for full details. Remaining open question: should the mount target discovery populate the `InfrastructureStatus` with mount target details (beyond `fileSystemID`), or is the current `fileSystemID`-only approach sufficient for all consumers?
 
 ## Success Criteria
 
