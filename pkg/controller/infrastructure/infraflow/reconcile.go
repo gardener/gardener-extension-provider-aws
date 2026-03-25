@@ -893,31 +893,32 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to discover tagged public subnets: %w", err)
 	}
-	if len(publicSubnets) > 0 {
-		// Store the first discovered public subnet per AZ in state.
-		stored := sets.New[string]()
-		for _, subnet := range publicSubnets {
-			az := subnet.AvailabilityZone
-			if stored.Has(az) {
-				continue
-			}
-			stored.Insert(az)
-			child := c.getSubnetZoneChild(az)
-
-			// If an explicit public subnet ID was provided for this AZ, validate it matches
-			if expectedID, ok := explicitPublic[az]; ok {
-				if subnet.SubnetId != expectedID {
-					return fmt.Errorf("CCM would discover public subnet %s in %s, but publicSubnetID specifies %s; "+
-						"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/elb=1",
-						subnet.SubnetId, az, expectedID)
-				}
-				// Already stored by ensureBYOZones, skip overwriting
-				continue
-			}
-
-			child.Set(IdentifierZoneSubnetPublic, subnet.SubnetId)
-			log.Info("discovered tagged public subnet", "zone", az, "subnetID", subnet.SubnetId)
+	// Group discovered public subnets by AZ to detect ambiguity
+	publicByAZ := map[string][]string{} // az -> []subnetID
+	for _, subnet := range publicSubnets {
+		publicByAZ[subnet.AvailabilityZone] = append(publicByAZ[subnet.AvailabilityZone], subnet.SubnetId)
+	}
+	for az, subnetIDs := range publicByAZ {
+		if len(subnetIDs) > 1 {
+			return fmt.Errorf("multiple public subnets discovered in %s with cluster tag and kubernetes.io/role/elb=1: %v; "+
+				"the CCM would pick one by lexicographic order which is fragile; "+
+				"remove the cluster tag from all but one subnet, or use publicSubnetID to be explicit",
+				az, subnetIDs)
 		}
+		subnetID := subnetIDs[0]
+		// If an explicit public subnet ID was provided for this AZ, validate it matches
+		if expectedID, ok := explicitPublic[az]; ok {
+			if subnetID != expectedID {
+				return fmt.Errorf("discovered public subnet %s in %s, but publicSubnetID specifies %s; "+
+					"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/elb=1",
+					subnetID, az, expectedID)
+			}
+			// Already stored by ensureBYOZones, skip overwriting
+			continue
+		}
+		child := c.getSubnetZoneChild(az)
+		child.Set(IdentifierZoneSubnetPublic, subnetID)
+		log.Info("discovered tagged public subnet", "zone", az, "subnetID", subnetID)
 	}
 
 	// Discover internal subnets (tagged kubernetes.io/role/internal-elb=1 + cluster tag key exists)
@@ -932,30 +933,32 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to discover tagged internal subnets: %w", err)
 	}
-	if len(internalSubnets) > 0 {
-		stored := sets.New[string]()
-		for _, subnet := range internalSubnets {
-			az := subnet.AvailabilityZone
-			if stored.Has(az) {
-				continue
-			}
-			stored.Insert(az)
-			child := c.getSubnetZoneChild(az)
-
-			// If an explicit internal subnet ID was provided for this AZ, validate it matches
-			if expectedID, ok := explicitInternal[az]; ok {
-				if subnet.SubnetId != expectedID {
-					return fmt.Errorf("CCM would discover internal subnet %s in %s, but internalSubnetID specifies %s; "+
-						"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/internal-elb=1",
-						subnet.SubnetId, az, expectedID)
-				}
-				// Already stored by ensureBYOZones, skip overwriting
-				continue
-			}
-
-			child.Set(IdentifierZoneSubnetPrivate, subnet.SubnetId)
-			log.Info("discovered tagged internal subnet", "zone", az, "subnetID", subnet.SubnetId)
+	// Group discovered internal subnets by AZ to detect ambiguity
+	internalByAZ := map[string][]string{} // az -> []subnetID
+	for _, subnet := range internalSubnets {
+		internalByAZ[subnet.AvailabilityZone] = append(internalByAZ[subnet.AvailabilityZone], subnet.SubnetId)
+	}
+	for az, subnetIDs := range internalByAZ {
+		if len(subnetIDs) > 1 {
+			return fmt.Errorf("multiple internal subnets discovered in %s with cluster tag and kubernetes.io/role/internal-elb=1: %v; "+
+				"the CCM would pick one by lexicographic order which is fragile; "+
+				"remove the cluster tag from all but one subnet, or use internalSubnetID to be explicit",
+				az, subnetIDs)
 		}
+		subnetID := subnetIDs[0]
+		// If an explicit internal subnet ID was provided for this AZ, validate it matches
+		if expectedID, ok := explicitInternal[az]; ok {
+			if subnetID != expectedID {
+				return fmt.Errorf("discovered internal subnet %s in %s, but internalSubnetID specifies %s; "+
+					"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/internal-elb=1",
+					subnetID, az, expectedID)
+			}
+			// Already stored by ensureBYOZones, skip overwriting
+			continue
+		}
+		child := c.getSubnetZoneChild(az)
+		child.Set(IdentifierZoneSubnetPrivate, subnetID)
+		log.Info("discovered tagged internal subnet", "zone", az, "subnetID", subnetID)
 	}
 
 	if len(publicSubnets) == 0 && len(internalSubnets) == 0 {

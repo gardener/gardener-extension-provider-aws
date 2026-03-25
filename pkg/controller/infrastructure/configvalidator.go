@@ -218,44 +218,35 @@ func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsc
 		}
 
 		fldPath := zonePath.Child("workersSubnetID")
-		subnets, err := awsClient.GetSubnets(ctx, []string{*zone.WorkersSubnetID})
-		if err != nil {
-			allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get subnet %s: %w", *zone.WorkersSubnetID, err)))
+		workerErrs := c.validateBYOSubnet(ctx, awsClient, zone.WorkersSubnetID, fldPath, vpcID, zone.Name)
+		allErrs = append(allErrs, workerErrs...)
+		if len(workerErrs) > 0 {
 			continue
 		}
-		if len(subnets) == 0 {
-			allErrs = append(allErrs, field.NotFound(fldPath, *zone.WorkersSubnetID))
-			continue
-		}
-		subnet := subnets[0]
-		if subnet.VpcId != nil && *subnet.VpcId != vpcID {
-			allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
-				fmt.Sprintf("subnet is in VPC %s, expected %s", *subnet.VpcId, vpcID)))
-		}
-		if subnet.AvailabilityZone != zone.Name {
-			allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
-				fmt.Sprintf("subnet is in availability zone %s, expected %s", subnet.AvailabilityZone, zone.Name)))
-		}
-		// When DualStack/IPv6 is enabled, BYO subnets must have an IPv6 CIDR block
+
+		// When DualStack/IPv6 is enabled, BYO worker subnets must have an IPv6 CIDR block
 		// from the VPC's IPv6 pool. Gardener uses this for CIDR reservations (services).
 		dualStack := config.DualStack != nil && config.DualStack.Enabled
-		if dualStack && len(subnet.Ipv6CidrBlocks) == 0 {
-			allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
-				"subnet has no IPv6 CIDR block but DualStack is enabled; "+
-					"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool"))
+		if dualStack {
+			subnets, _ := awsClient.GetSubnets(ctx, []string{*zone.WorkersSubnetID})
+			if len(subnets) > 0 && len(subnets[0].Ipv6CidrBlocks) == 0 {
+				allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
+					"subnet has no IPv6 CIDR block but DualStack is enabled; "+
+						"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool"))
+			}
 		}
 
 		// Validate BYO public LB subnet
-		allErrs = append(allErrs, c.validateBYOLBSubnet(ctx, awsClient, zone.PublicSubnetID, zonePath.Child("publicSubnetID"), vpcID, zone.Name)...)
+		allErrs = append(allErrs, c.validateBYOSubnet(ctx, awsClient, zone.PublicSubnetID, zonePath.Child("publicSubnetID"), vpcID, zone.Name)...)
 		// Validate BYO internal LB subnet
-		allErrs = append(allErrs, c.validateBYOLBSubnet(ctx, awsClient, zone.InternalSubnetID, zonePath.Child("internalSubnetID"), vpcID, zone.Name)...)
+		allErrs = append(allErrs, c.validateBYOSubnet(ctx, awsClient, zone.InternalSubnetID, zonePath.Child("internalSubnetID"), vpcID, zone.Name)...)
 	}
 
 	return allErrs
 }
 
-// validateBYOLBSubnet validates that a referenced BYO LB subnet ID exists and is in the correct VPC/AZ.
-func (c *configValidator) validateBYOLBSubnet(ctx context.Context, awsClient awsclient.Interface, subnetID *string, fldPath *field.Path, vpcID, expectedAZ string) field.ErrorList {
+// validateBYOSubnet validates that a referenced BYO subnet ID exists and is in the correct VPC/AZ.
+func (c *configValidator) validateBYOSubnet(ctx context.Context, awsClient awsclient.Interface, subnetID *string, fldPath *field.Path, vpcID, expectedAZ string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if subnetID == nil {

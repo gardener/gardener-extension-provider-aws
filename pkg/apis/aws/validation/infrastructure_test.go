@@ -742,6 +742,20 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				Expect(errorList).To(BeEmpty())
 			})
 
+			It("should allow only publicSubnetID without internalSubnetID", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						PublicSubnetID:  ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
 			It("should forbid publicSubnetID in managed mode", func() {
 				infrastructureConfig.Networks.Zones = []apisaws.Zone{
 					{
@@ -1075,6 +1089,61 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("elasticFileSystem"),
 				}))))
+			})
+		})
+
+		Context("BYO LB subnet ID updates", func() {
+			It("should forbid changing publicSubnetID once set", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						PublicSubnetID:  ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.Networks.Zones[0].PublicSubnetID = ptr.To("subnet-0676786f3e288044e")
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0].publicSubnetID"),
+				}))))
+			})
+
+			It("should forbid changing internalSubnetID once set", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:             zone,
+						WorkersSubnetID:  ptr.To("subnet-0676786f3e288044c"),
+						InternalSubnetID: ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.Networks.Zones[0].InternalSubnetID = ptr.To("subnet-0676786f3e288044e")
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0].internalSubnetID"),
+				}))))
+			})
+
+			It("should allow adding publicSubnetID to existing BYO zone", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.Networks.Zones[0].PublicSubnetID = ptr.To("subnet-0676786f3e288044d")
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+				Expect(errorList).To(BeEmpty())
 			})
 		})
 	})
