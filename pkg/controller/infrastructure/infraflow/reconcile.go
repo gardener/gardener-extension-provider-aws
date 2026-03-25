@@ -812,6 +812,34 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 				return fmt.Errorf("failed to tag BYO workers subnet %s: %w", *zone.WorkersSubnetID, err)
 			}
 		}
+
+		// Tag and store BYO public LB subnet (for CCM/LBC discovery)
+		if zone.PublicSubnetID != nil {
+			child.Set(IdentifierZoneSubnetPublic, *zone.PublicSubnetID)
+			log.Info("using BYO public LB subnet", "zone", zone.Name, "subnetID", *zone.PublicSubnetID)
+
+			publicTags := awsclient.Tags{
+				c.tagKeyCluster():   TagValueClusterShared,
+				TagKeyRolePublicELB: TagValueELB,
+			}
+			if err := c.client.CreateEC2Tags(ctx, []string{*zone.PublicSubnetID}, publicTags); err != nil {
+				return fmt.Errorf("failed to tag BYO public subnet %s: %w", *zone.PublicSubnetID, err)
+			}
+		}
+
+		// Tag and store BYO internal LB subnet (for CCM/LBC discovery)
+		if zone.InternalSubnetID != nil {
+			child.Set(IdentifierZoneSubnetPrivate, *zone.InternalSubnetID)
+			log.Info("using BYO internal LB subnet", "zone", zone.Name, "subnetID", *zone.InternalSubnetID)
+
+			internalTags := awsclient.Tags{
+				c.tagKeyCluster():    TagValueClusterShared,
+				TagKeyRolePrivateELB: TagValueELB,
+			}
+			if err := c.client.CreateEC2Tags(ctx, []string{*zone.InternalSubnetID}, internalTags); err != nil {
+				return fmt.Errorf("failed to tag BYO internal subnet %s: %w", *zone.InternalSubnetID, err)
+			}
+		}
 	}
 
 	// Discover existing tagged subnets in the VPC for InfrastructureStatus.
@@ -828,11 +856,28 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 // tagged with the cluster tag, and stores the first of each in the flow state.
 // This is needed for BYO setups where Gardener doesn't create these subnets but the
 // CCM config and InfrastructureStatus still need to reference them.
+//
+// When explicit LB subnet IDs are provided (PublicSubnetID/InternalSubnetID), this function
+// validates that the CCM would discover the same subnets. If a different subnet is discovered
+// for the same AZ (e.g., due to lexicographic ordering of multiple tagged subnets), an error
+// is returned to prevent the CCM from picking a different subnet than intended.
 func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	vpcID := c.state.Get(IdentifierVPC)
 	if vpcID == nil {
 		return nil
+	}
+
+	// Build a map of explicitly provided LB subnet IDs per AZ for validation
+	explicitPublic := map[string]string{}   // az -> subnetID
+	explicitInternal := map[string]string{} // az -> subnetID
+	for _, zone := range c.config.Networks.Zones {
+		if zone.PublicSubnetID != nil {
+			explicitPublic[zone.Name] = *zone.PublicSubnetID
+		}
+		if zone.InternalSubnetID != nil {
+			explicitInternal[zone.Name] = *zone.InternalSubnetID
+		}
 	}
 
 	// Discover public subnets (tagged kubernetes.io/role/elb=1 + cluster tag key exists)
@@ -857,6 +902,18 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 			}
 			stored.Insert(az)
 			child := c.getSubnetZoneChild(az)
+
+			// If an explicit public subnet ID was provided for this AZ, validate it matches
+			if expectedID, ok := explicitPublic[az]; ok {
+				if subnet.SubnetId != expectedID {
+					return fmt.Errorf("CCM would discover public subnet %s in %s, but publicSubnetID specifies %s; "+
+						"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/elb=1",
+						subnet.SubnetId, az, expectedID)
+				}
+				// Already stored by ensureBYOZones, skip overwriting
+				continue
+			}
+
 			child.Set(IdentifierZoneSubnetPublic, subnet.SubnetId)
 			log.Info("discovered tagged public subnet", "zone", az, "subnetID", subnet.SubnetId)
 		}
@@ -883,6 +940,18 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 			}
 			stored.Insert(az)
 			child := c.getSubnetZoneChild(az)
+
+			// If an explicit internal subnet ID was provided for this AZ, validate it matches
+			if expectedID, ok := explicitInternal[az]; ok {
+				if subnet.SubnetId != expectedID {
+					return fmt.Errorf("CCM would discover internal subnet %s in %s, but internalSubnetID specifies %s; "+
+						"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/internal-elb=1",
+						subnet.SubnetId, az, expectedID)
+				}
+				// Already stored by ensureBYOZones, skip overwriting
+				continue
+			}
+
 			child.Set(IdentifierZoneSubnetPrivate, subnet.SubnetId)
 			log.Info("discovered tagged internal subnet", "zone", az, "subnetID", subnet.SubnetId)
 		}
