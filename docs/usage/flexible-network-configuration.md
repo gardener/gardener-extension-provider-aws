@@ -743,15 +743,6 @@ Instead of the full replacement model (`NodesSecurityGroupID`), we could keep Ga
 
 The additive model remains a valid future addition for users who want a safety net.
 
-### Accepting Explicit LB Subnet IDs
-
-Instead of tag-based discovery, we could accept `internalSubnetID` and `publicSubnetID` per zone. This was rejected because:
-
-- The CCM and LBC already discover subnets via tags -- this is the standard AWS pattern
-- Users must tag subnets regardless (CCM/LBC require it)
-- Accepting IDs would create a false sense that tagging isn't needed
-- Users can always override per-Service via annotations
-
 ### Mixed BYO/Managed Subnets per Zone
 
 Allowing `workersSubnetID` with `internal`/`public` CIDRs in the same configuration was rejected because:
