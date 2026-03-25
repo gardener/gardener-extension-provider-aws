@@ -2098,6 +2098,9 @@ func (c *FlowContext) ensureEfs(ctx context.Context) error {
 			if mountTargetOutput != nil {
 				for _, mt := range mountTargetOutput.MountTargets {
 					if mt.MountTargetId != nil && mt.SubnetId != nil {
+						// Key format differs from managed path (which uses efsID_subnetID_sgID) because
+						// BYO discovery is read-only — we never create or delete these mount targets.
+						// The key only needs to be unique for state storage, not match the managed format.
 						key := fmt.Sprintf("%s_%s", *efsID, *mt.SubnetId)
 						childMountTargets.Set(key, *mt.MountTargetId)
 						log.Info("discovered EFS mount target", "mountTargetID", *mt.MountTargetId, "subnetID", *mt.SubnetId, "az", ptr.Deref(mt.AvailabilityZoneName, ""))
