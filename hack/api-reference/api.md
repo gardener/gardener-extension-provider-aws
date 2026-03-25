@@ -2123,6 +2123,36 @@ Requires VPC.ID to be set.</p>
 </tr>
 <tr>
 <td>
+<code>publicSubnetID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PublicSubnetID is the ID of an existing subnet for public load balancers.
+Only allowed in BYO mode (when WorkersSubnetID is set).
+Gardener tags this subnet with kubernetes.io/role/elb=1 and the cluster tag on reconcile,
+and removes only the cluster tag on delete (the role tag is shared infrastructure).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>internalSubnetID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>InternalSubnetID is the ID of an existing subnet for internal load balancers.
+Only allowed in BYO mode (when WorkersSubnetID is set).
+Gardener tags this subnet with kubernetes.io/role/internal-elb=1 and the cluster tag on reconcile,
+and removes only the cluster tag on delete (the role tag is shared infrastructure).</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>elasticIPAllocationID</code></br>
 <em>
 string
