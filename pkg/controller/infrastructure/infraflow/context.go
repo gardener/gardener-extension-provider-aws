@@ -359,16 +359,6 @@ func (c *FlowContext) hasManagedPublicSubnets() bool {
 	return false
 }
 
-// hasManagedInternalSubnets returns true if at least one zone has an Internal CIDR (Gardener-managed).
-func (c *FlowContext) hasManagedInternalSubnets() bool {
-	for _, zone := range c.config.Networks.Zones {
-		if zone.Internal != nil {
-			return true
-		}
-	}
-	return false
-}
-
 // isBYOSecurityGroup returns true if the user has provided a NodesSecurityGroupID.
 func (c *FlowContext) isBYOSecurityGroup() bool {
 	return c.config.Networks.NodesSecurityGroupID != nil
