@@ -2078,9 +2078,34 @@ func (c *FlowContext) ensureEfs(ctx context.Context) error {
 	// In BYO mode, Gardener does not create EFS file systems or mount targets.
 	// The user provides an existing file system ID and is responsible for mount targets.
 	// The CSI driver discovers mount targets at runtime via the EFS API.
+	// We still discover existing mount targets to populate state for observability.
 	if c.isBYOInfrastructure() {
 		log := LogFromContext(ctx)
 		log.Info("skipping EFS file system and mount target creation in BYO mode")
+
+		if c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.ID != nil {
+			efsID := c.config.ElasticFileSystem.ID
+			log.Info("discovering existing EFS mount targets", "fileSystemID", *efsID)
+
+			mountTargetOutput, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
+				FileSystemId: efsID,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to describe mount targets for EFS %s: %w", *efsID, err)
+			}
+
+			childMountTargets := c.state.GetChild(ChildEfsMountTargets)
+			if mountTargetOutput != nil {
+				for _, mt := range mountTargetOutput.MountTargets {
+					if mt.MountTargetId != nil && mt.SubnetId != nil {
+						key := fmt.Sprintf("%s_%s", *efsID, *mt.SubnetId)
+						childMountTargets.Set(key, *mt.MountTargetId)
+						log.Info("discovered EFS mount target", "mountTargetID", *mt.MountTargetId, "subnetID", *mt.SubnetId, "az", ptr.Deref(mt.AvailabilityZoneName, ""))
+					}
+				}
+			}
+		}
+
 		return nil
 	}
 
