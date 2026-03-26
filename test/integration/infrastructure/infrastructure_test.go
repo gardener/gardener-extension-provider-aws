@@ -530,13 +530,22 @@ var _ = Describe("Infrastructure tests", func() {
 				Expect(integration.DestroySubnet(ctx, log, awsClient, workerSubnetID)).To(Succeed())
 			})
 
-			By("create BYO public LB subnet (tagged for CCM/LBC)")
+			By("create BYO public LB subnet")
 			publicLBSubnetID, err := integration.CreateSubnetInZone(ctx, log, awsClient, vpcID, "10.250.48.0/20", "byo-public-lb", availabilityZone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(publicLBSubnetID).NotTo(BeEmpty())
 
 			framework.AddCleanupAction(func() {
 				Expect(integration.DestroySubnet(ctx, log, awsClient, publicLBSubnetID)).To(Succeed())
+			})
+
+			By("create BYO internal LB subnet")
+			internalLBSubnetID, err := integration.CreateSubnetInZone(ctx, log, awsClient, vpcID, "10.250.112.0/22", "byo-internal-lb", availabilityZone)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(internalLBSubnetID).NotTo(BeEmpty())
+
+			framework.AddCleanupAction(func() {
+				Expect(integration.DestroySubnet(ctx, log, awsClient, internalLBSubnetID)).To(Succeed())
 			})
 
 			By("create BYO nodes security group")
@@ -563,8 +572,10 @@ var _ = Describe("Infrastructure tests", func() {
 					NodesSecurityGroupID: &sgID,
 					Zones: []awsv1alpha1.Zone{
 						{
-							Name:            availabilityZone,
-							WorkersSubnetID: &workerSubnetID,
+							Name:             availabilityZone,
+							WorkersSubnetID:  &workerSubnetID,
+							PublicSubnetID:   &publicLBSubnetID,
+							InternalSubnetID: &internalLBSubnetID,
 						},
 					},
 				},
@@ -577,23 +588,7 @@ var _ = Describe("Infrastructure tests", func() {
 			namespace, err := generateNamespaceName()
 			Expect(err).NotTo(HaveOccurred())
 
-			By("tag public LB subnet for CCM/LBC discovery")
-			_, err = awsClient.EC2.CreateTags(ctx, &ec2.CreateTagsInput{
-				Resources: []string{publicLBSubnetID},
-				Tags: []ec2types.Tag{
-					{
-						Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
-						Value: awssdk.String("1"),
-					},
-					{
-						Key:   awssdk.String(kubernetesClusterTagPrefix + namespace),
-						Value: awssdk.String("shared"),
-					},
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			err = runBYOTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, vpcID, workerSubnetID, sgID)
+			err = runBYOTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, vpcID, workerSubnetID, publicLBSubnetID, internalLBSubnetID, sgID)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -899,7 +894,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 
 func runBYOTest(ctx context.Context, log logr.Logger, c client.Client, namespaceName string,
 	providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client,
-	byoVpcID, byoWorkerSubnetID, byoSecurityGroupID string) error {
+	byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID string) error {
 	var (
 		namespace *corev1.Namespace
 		cluster   *extensionsv1alpha1.Cluster
@@ -924,7 +919,7 @@ func runBYOTest(ctx context.Context, log logr.Logger, c client.Client, namespace
 		Expect(err).NotTo(HaveOccurred())
 
 		By("verify BYO resources still exist after deletion")
-		verifyBYODeletion(ctx, awsClient, namespaceName, byoVpcID, byoWorkerSubnetID, byoSecurityGroupID)
+		verifyBYODeletion(ctx, awsClient, namespaceName, byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID)
 
 		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
 		Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
@@ -1018,7 +1013,7 @@ func runBYOTest(ctx context.Context, log logr.Logger, c client.Client, namespace
 	}
 
 	By("verify BYO infrastructure creation")
-	verifyBYOCreation(ctx, awsClient, infra, providerStatus, byoVpcID, byoWorkerSubnetID, byoSecurityGroupID)
+	verifyBYOCreation(ctx, awsClient, infra, providerStatus, byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID)
 
 	cleanupFunc()
 	return nil
@@ -1026,17 +1021,19 @@ func runBYOTest(ctx context.Context, log logr.Logger, c client.Client, namespace
 
 // verifyBYOCreation verifies that BYO infrastructure was created correctly:
 // - VPC is the user-provided one
-// - Worker subnet is reported in status
+// - Worker, public, and internal subnets are reported in status
 // - Security group is reported in status
 // - No Gardener-managed subnets, NAT gateways, elastic IPs, or route tables were created
 // - IAM resources are created
 // - Worker subnet is tagged with the cluster tag
+// - Public subnet is tagged with cluster tag + kubernetes.io/role/elb=1
+// - Internal subnet is tagged with cluster tag + kubernetes.io/role/internal-elb=1
 func verifyBYOCreation(
 	ctx context.Context,
 	awsClient *awsclient.Client,
 	infra *extensionsv1alpha1.Infrastructure,
 	infraStatus *awsv1alpha1.InfrastructureStatus,
-	byoVpcID, byoWorkerSubnetID, byoSecurityGroupID string,
+	byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID string,
 ) {
 	// VPC should be the user-provided one
 	Expect(infraStatus.VPC.ID).To(Equal(byoVpcID))
@@ -1045,6 +1042,20 @@ func verifyBYOCreation(
 	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{
 		Purpose: awsv1alpha1.PurposeNodes,
 		ID:      byoWorkerSubnetID,
+		Zone:    *region + "b",
+	}))
+
+	// Public subnet should be reported in status with purpose=public
+	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{
+		Purpose: awsv1alpha1.PurposePublic,
+		ID:      byoPublicSubnetID,
+		Zone:    *region + "b",
+	}))
+
+	// Internal subnet should be reported in status with purpose=internal
+	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{
+		Purpose: awsv1alpha1.PurposeInternal,
+		ID:      byoInternalSubnetID,
 		Zone:    *region + "b",
 	}))
 
@@ -1063,6 +1074,36 @@ func verifyBYOCreation(
 	Expect(describeSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
 		Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
 		Value: awssdk.String("shared"),
+	}))
+
+	// Public LB subnet should be tagged with cluster tag AND role tag by Gardener
+	describePublicSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+		SubnetIds: []string{byoPublicSubnetID},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describePublicSubnetsOutput.Subnets).To(HaveLen(1))
+	Expect(describePublicSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
+		Value: awssdk.String("shared"),
+	}))
+	Expect(describePublicSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
+		Value: awssdk.String("1"),
+	}))
+
+	// Internal LB subnet should be tagged with cluster tag AND role tag by Gardener
+	describeInternalSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+		SubnetIds: []string{byoInternalSubnetID},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeInternalSubnetsOutput.Subnets).To(HaveLen(1))
+	Expect(describeInternalSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
+		Value: awssdk.String("shared"),
+	}))
+	Expect(describeInternalSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesRoleTagPrefix + "internal-elb"),
+		Value: awssdk.String("1"),
 	}))
 
 	// Gardener should NOT have created any NAT gateways in the VPC
@@ -1120,28 +1161,52 @@ func verifyBYOCreation(
 }
 
 // verifyBYODeletion verifies that BYO resources are NOT deleted by Gardener,
-// cluster tags are removed from BYO subnets, and IAM resources are cleaned up.
+// cluster tags are removed from BYO subnets, role tags are preserved on LB subnets,
+// and IAM resources are cleaned up.
 func verifyBYODeletion(
 	ctx context.Context,
 	awsClient *awsclient.Client,
 	namespaceName string,
-	byoVpcID, byoWorkerSubnetID, byoSecurityGroupID string,
+	byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID string,
 ) {
+	clusterTagKey := kubernetesClusterTagPrefix + namespaceName
+
 	// BYO VPC should still exist
 	describeVpcsOutput, err := awsClient.EC2.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{VpcIds: []string{byoVpcID}})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeVpcsOutput.Vpcs).To(HaveLen(1))
 
-	// BYO worker subnet should still exist
+	// BYO worker subnet should still exist, cluster tag removed
 	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{byoWorkerSubnetID}})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeSubnetsOutput.Subnets).To(HaveLen(1))
-
-	// Cluster tag should be removed from BYO worker subnet
-	clusterTagKey := kubernetesClusterTagPrefix + namespaceName
 	for _, tag := range describeSubnetsOutput.Subnets[0].Tags {
-		Expect(*tag.Key).NotTo(Equal(clusterTagKey), "cluster tag should be removed from BYO subnet on deletion")
+		Expect(*tag.Key).NotTo(Equal(clusterTagKey), "cluster tag should be removed from BYO worker subnet on deletion")
 	}
+
+	// BYO public LB subnet should still exist, cluster tag removed, role tag preserved
+	describePublicOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{byoPublicSubnetID}})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describePublicOutput.Subnets).To(HaveLen(1))
+	for _, tag := range describePublicOutput.Subnets[0].Tags {
+		Expect(*tag.Key).NotTo(Equal(clusterTagKey), "cluster tag should be removed from BYO public subnet on deletion")
+	}
+	Expect(describePublicOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
+		Value: awssdk.String("1"),
+	}), "role tag kubernetes.io/role/elb should be preserved on BYO public subnet after deletion")
+
+	// BYO internal LB subnet should still exist, cluster tag removed, role tag preserved
+	describeInternalOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{byoInternalSubnetID}})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeInternalOutput.Subnets).To(HaveLen(1))
+	for _, tag := range describeInternalOutput.Subnets[0].Tags {
+		Expect(*tag.Key).NotTo(Equal(clusterTagKey), "cluster tag should be removed from BYO internal subnet on deletion")
+	}
+	Expect(describeInternalOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesRoleTagPrefix + "internal-elb"),
+		Value: awssdk.String("1"),
+	}), "role tag kubernetes.io/role/internal-elb should be preserved on BYO internal subnet after deletion")
 
 	// BYO security group should still exist
 	describeSecurityGroupsOutput, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{GroupIds: []string{byoSecurityGroupID}})
