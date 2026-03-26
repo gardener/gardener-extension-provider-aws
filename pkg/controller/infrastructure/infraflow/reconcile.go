@@ -787,6 +787,9 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	log.Info("using BYO worker subnets")
 
+	var workerSubnetIDs []string
+	subnetToZone := map[string]string{} // subnetID -> zoneName
+
 	processedZones := sets.New[string]()
 	for _, zone := range c.config.Networks.Zones {
 		if processedZones.Has(zone.Name) {
@@ -811,6 +814,9 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 			if err := c.client.CreateEC2Tags(ctx, []string{*zone.WorkersSubnetID}, byoTags); err != nil {
 				return fmt.Errorf("failed to tag BYO workers subnet %s: %w", *zone.WorkersSubnetID, err)
 			}
+
+			workerSubnetIDs = append(workerSubnetIDs, *zone.WorkersSubnetID)
+			subnetToZone[*zone.WorkersSubnetID] = zone.Name
 		}
 
 		// Tag and store BYO public LB subnet (for CCM/LBC discovery)
@@ -842,6 +848,13 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 		}
 	}
 
+	// Discover and tag route tables associated with BYO worker subnets so the
+	// aws-custom-route-controller can find them. The controller looks for route tables
+	// with the tag kubernetes.io/cluster/<clusterName> (any value).
+	if err := c.tagBYORouteTables(ctx, workerSubnetIDs, subnetToZone); err != nil {
+		return err
+	}
+
 	// Discover existing tagged subnets in the VPC for InfrastructureStatus.
 	// The CCM config needs at least one public or internal subnet for initialization.
 	if err := c.discoverTaggedSubnets(ctx); err != nil {
@@ -850,6 +863,76 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 
 	// Persist state so BYO subnet IDs are available for status reporting
 	return c.PersistState(ctx)
+}
+
+// tagBYORouteTables discovers the route tables associated with BYO worker subnets
+// and tags them with the cluster tag (value "shared") so the aws-custom-route-controller
+// can discover them. Route table IDs are stored in the per-zone state for cleanup during deletion.
+func (c *FlowContext) tagBYORouteTables(ctx context.Context, workerSubnetIDs []string, subnetToZone map[string]string) error {
+	if len(workerSubnetIDs) == 0 {
+		return nil
+	}
+	vpcID := c.state.Get(IdentifierVPC)
+	if vpcID == nil {
+		return nil
+	}
+
+	log := LogFromContext(ctx)
+
+	routeTables, err := c.client.FindRouteTablesForSubnets(ctx, *vpcID, workerSubnetIDs)
+	if err != nil {
+		return fmt.Errorf("failed to discover route tables for BYO worker subnets: %w", err)
+	}
+
+	clusterTag := awsclient.Tags{c.tagKeyCluster(): TagValueClusterShared}
+	taggedRTs := sets.New[string]()
+
+	for _, rt := range routeTables {
+		// Tag each route table only once (multiple subnets may share a route table)
+		if !taggedRTs.Has(rt.RouteTableId) {
+			if err := c.client.CreateEC2Tags(ctx, []string{rt.RouteTableId}, clusterTag); err != nil {
+				return fmt.Errorf("failed to tag BYO route table %s: %w", rt.RouteTableId, err)
+			}
+			taggedRTs.Insert(rt.RouteTableId)
+			log.Info("tagged BYO route table with cluster tag", "routeTableID", rt.RouteTableId)
+		}
+
+		// Store route table ID in per-zone state for cleanup during deletion
+		for _, assoc := range rt.Associations {
+			if assoc.SubnetId != nil {
+				if zoneName, ok := subnetToZone[*assoc.SubnetId]; ok {
+					child := c.getSubnetZoneChild(zoneName)
+					child.Set(IdentifierZoneRouteTable, rt.RouteTableId)
+				}
+			}
+			// Also store the main route table for zones whose subnets have no explicit association
+			if assoc.Main {
+				for _, subnetID := range workerSubnetIDs {
+					if !c.subnetHasExplicitRouteTable(routeTables, subnetID) {
+						if zoneName, ok := subnetToZone[subnetID]; ok {
+							child := c.getSubnetZoneChild(zoneName)
+							child.Set(IdentifierZoneRouteTable, rt.RouteTableId)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// subnetHasExplicitRouteTable checks if a subnet has an explicit route table association
+// among the given route tables.
+func (c *FlowContext) subnetHasExplicitRouteTable(routeTables []*awsclient.RouteTable, subnetID string) bool {
+	for _, rt := range routeTables {
+		for _, assoc := range rt.Associations {
+			if assoc.SubnetId != nil && *assoc.SubnetId == subnetID {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // discoverTaggedSubnets finds existing public and internal subnets in the VPC that are

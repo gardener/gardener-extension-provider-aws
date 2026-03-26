@@ -941,6 +941,21 @@ func (mr *MockInterfaceMockRecorder) FindRouteTablesByTags(ctx, tags any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRouteTablesByTags", reflect.TypeOf((*MockInterface)(nil).FindRouteTablesByTags), ctx, tags)
 }
 
+// FindRouteTablesForSubnets mocks base method.
+func (m *MockInterface) FindRouteTablesForSubnets(ctx context.Context, vpcID string, subnetIDs []string) ([]*client.RouteTable, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRouteTablesForSubnets", ctx, vpcID, subnetIDs)
+	ret0, _ := ret[0].([]*client.RouteTable)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRouteTablesForSubnets indicates an expected call of FindRouteTablesForSubnets.
+func (mr *MockInterfaceMockRecorder) FindRouteTablesForSubnets(ctx, vpcID, subnetIDs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRouteTablesForSubnets", reflect.TypeOf((*MockInterface)(nil).FindRouteTablesForSubnets), ctx, vpcID, subnetIDs)
+}
+
 // FindSecurityGroupsByTags mocks base method.
 func (m *MockInterface) FindSecurityGroupsByTags(ctx context.Context, tags client.Tags) ([]*client.SecurityGroup, error) {
 	m.ctrl.T.Helper()
