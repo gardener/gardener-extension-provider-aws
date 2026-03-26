@@ -40,7 +40,6 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/utils"
 )
 
@@ -476,8 +475,18 @@ func (e *ensurer) EnsureKubernetesGeneralConfiguration(_ context.Context, _ gcon
 }
 
 // EnsureAdditionalUnits ensures that additional required system units are added.
-func (e *ensurer) EnsureAdditionalUnits(_ context.Context, _ gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.Unit) error {
-	if !features.FeatureGate.Enabled(features.MTUCustomizer) {
+func (e *ensurer) EnsureAdditionalUnits(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.Unit) error {
+	cluster, err := gctx.GetCluster(ctx)
+	if err != nil {
+		return err
+	}
+
+	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
+	if err != nil {
+		return err
+	}
+
+	if infraConfig == nil || !ptr.Deref(infraConfig.EnableMTUCustomizer, true) {
 		return nil
 	}
 
@@ -607,10 +616,6 @@ done
 
 // EnsureAdditionalFiles ensures that additional required system files are added.
 func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.GardenContext, newObj, _ *[]extensionsv1alpha1.File) error {
-	if features.FeatureGate.Enabled(features.MTUCustomizer) {
-		*newObj = extensionswebhook.EnsureFileWithPath(*newObj, e.ensureMTUFiles())
-	}
-
 	cluster, err := gctx.GetCluster(ctx)
 	if err != nil {
 		return err
@@ -619,6 +624,10 @@ func (e *ensurer) EnsureAdditionalFiles(ctx context.Context, gctx gcontext.Garde
 	infraConfig, err := helper.InfrastructureConfigFromCluster(cluster)
 	if err != nil {
 		return err
+	}
+
+	if infraConfig != nil && ptr.Deref(infraConfig.EnableMTUCustomizer, true) {
+		*newObj = extensionswebhook.EnsureFileWithPath(*newObj, e.ensureMTUFiles())
 	}
 
 	if infraConfig != nil && ptr.Deref(infraConfig.EnableECRAccess, true) {

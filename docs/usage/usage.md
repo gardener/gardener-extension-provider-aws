@@ -260,6 +260,7 @@ An example `InfrastructureConfig` for the AWS extension looks as follows:
 apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: InfrastructureConfig
 enableECRAccess: true
+enableMTUCustomizer: true
 dualStack:
   enabled: false
 networks:
@@ -286,6 +287,11 @@ The `enableECRAccess` flag specifies whether the AWS IAM role policy attached to
 If the flag is not provided it is defaulted to `true`.
 Please note that if the `iamInstanceProfile` is set for a worker pool in the `WorkerConfig` (see below) then `enableECRAccess` does not have any effect.
 It only applies for those worker pools whose `iamInstanceProfile` is not set.
+
+The `enableMTUCustomizer` flag controls whether a systemd unit and script are deployed to the shoot worker nodes that set the MTU of all non-virtual network interfaces to `1460`.
+This is a legacy mechanism from a time when CNIs lacked automatic MTU detection. Modern CNIs detect and configure the MTU automatically, so this flag is typically not needed for new clusters.
+It may still be useful in environments where the default AWS MTU of `9001` causes connectivity issues with peers that have a lower MTU (e.g. `1500`) and the CNI does not handle this automatically.
+If the flag is not provided it defaults to `true`.
 
 <details>
   <summary>Click to expand the default AWS IAM policy document used for the instance profiles!</summary>

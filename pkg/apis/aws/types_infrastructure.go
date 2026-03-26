@@ -41,6 +41,11 @@ type InfrastructureConfig struct {
 	// ElasticFileSystem contains optional information about the EFS that should be used.
 	// This field is immutable and cannot be changed once created.
 	ElasticFileSystem *ElasticFileSystemConfig
+
+	// EnableMTUCustomizer controls whether the mtu-customizer systemd unit and script are deployed
+	// to the shoot worker nodes. When enabled, the MTU of all non-virtual network interfaces is set to 1460.
+	// default: true
+	EnableMTUCustomizer *bool
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
