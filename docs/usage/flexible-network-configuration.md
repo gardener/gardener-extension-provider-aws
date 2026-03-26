@@ -37,9 +37,9 @@ This proposal enables users to deploy Gardener-managed Kubernetes clusters into 
 2. **Worker subnets** - existing subnets for EC2 node placement
 3. **Security group** - existing nodes security group with corporate-compliant rules
 4. **Routing** - Transit Gateway, centralized NAT, VPC endpoints, or any custom topology
-5. **Load balancer subnets** - discovered automatically via standard AWS tags (no explicit IDs needed)
+5. **Load balancer subnets** - referenced by ID (Gardener auto-tags them) or discovered via standard AWS tags
 
-The design principle is: **BYO resources are referenced, never created, modified, or deleted by Gardener.**
+The design principle is: **BYO resources are referenced, never created or deleted by Gardener.** Gardener adds AWS tags to BYO subnets for cluster association and LB discovery, and removes only the cluster-specific tags on teardown. Role tags (e.g., `kubernetes.io/role/elb`) are shared infrastructure and are never removed.
 
 ## Motivation
 
@@ -65,7 +65,7 @@ Today, Gardener always creates subnets, security groups, NAT gateways, and route
 
 - Allowing mixed BYO/Gardener-managed worker subnets across zones (all zones must be consistent)
 - Allowing BYO worker subnets combined with Gardener-managed subnets in the same configuration (BYO mode means all subnets are user-managed)
-- Managing or modifying any user-provided (BYO) resources
+- Managing or modifying any user-provided (BYO) resources beyond adding/removing AWS tags for cluster association and LB discovery
 - Supporting IPv6-only BYO subnets in the initial release
 
 ## Proposal
@@ -79,7 +79,7 @@ flowchart TB
         VPC["VPC\nvpc.id"]
         WS["Worker Subnets\nworkersSubnetID per zone"]
         SG["Nodes Security Group\nnodesSecurityGroupID"]
-        LBS["LB Subnets\nDiscovered via AWS tags"]
+        LBS["LB Subnets\npublicSubnetID / internalSubnetID\nor discovered via AWS tags"]
         RT["Routing\nTGW / NAT / VPC Endpoints"]
     end
 
@@ -303,8 +303,7 @@ networks:
 **User responsibilities:**
 - Worker subnet routing (NAT/Transit Gateway/VPC endpoints for connectivity)
 - Security group with appropriate rules (see [Security Group Requirements](#security-group-requirements))
-- Internal LB subnets tagged with `kubernetes.io/role/internal-elb=1` and `kubernetes.io/cluster/<name>=shared`
-- Public LB subnets tagged with `kubernetes.io/role/elb=1` and `kubernetes.io/cluster/<name>=shared`
+- LB subnets: provide `publicSubnetID`/`internalSubnetID` per zone (recommended — Gardener auto-tags them), or pre-tag subnets manually with `kubernetes.io/role/internal-elb=1`, `kubernetes.io/role/elb=1`, and `kubernetes.io/cluster/<name>=shared`
 - Minimum 8 available IPs per LB subnet; at least 2 AZs for ALBs
 
 ---
@@ -566,6 +565,7 @@ Load balancer subnets can be configured in two ways in BYO mode:
 
 - **No manual tagging required**: Gardener handles both the cluster tag and the role tag.
 - **Prevents CCM ambiguity**: If multiple subnets in the same AZ have the cluster tag + role tag, the CCM picks one by lexicographic subnet ID order. With explicit IDs, Gardener validates that the CCM would pick the intended subnet.
+- **Ambiguity detection**: During reconciliation, Gardener discovers all tagged subnets and **errors if multiple subnets in the same AZ match** the same role tag + cluster tag. This prevents silent misrouting regardless of whether explicit IDs are used.
 - **Clean lifecycle**: Cluster tags are added on reconcile and removed on delete. Role tags persist across cluster lifecycles (shared infrastructure).
 
 #### Underlying Discovery Mechanism
@@ -632,7 +632,7 @@ kubernetes.io/cluster/<cluster-name> = shared
 
 | Condition | Skip |
 |-----------|------|
-| `workersSubnetID` set | Worker subnet creation, route table, NAT gateway, elastic IP, internal subnet, public subnet |
+| `workersSubnetID` set | Worker subnet creation, route table, NAT gateway, elastic IP, internal subnet, public subnet. BYO worker/public/internal subnets are tagged with the cluster tag. `publicSubnetID`/`internalSubnetID` are additionally tagged with role tags. |
 | No `public` CIDR in zone | Public subnet, NAT gateway, elastic IP for that zone |
 | No `internal` CIDR in zone | Internal subnet for that zone |
 | `nodesSecurityGroupID` set | Nodes security group creation and rule management |
@@ -683,7 +683,7 @@ BYO resources are **never deleted**:
 - Security groups referenced by `nodesSecurityGroupID` are not deleted
 - VPC referenced by `VPC.ID` is already not deleted (existing behavior)
 
-Cluster tags (`kubernetes.io/cluster/<name>=shared`) added to BYO subnets during reconciliation **are removed** on teardown to prevent stale tags from accumulating across cluster lifecycles.
+Cluster tags (`kubernetes.io/cluster/<name>=shared`) added to BYO subnets (workers, public, internal) during reconciliation **are removed** on teardown to prevent stale tags from accumulating across cluster lifecycles. Role tags (`kubernetes.io/role/elb`, `kubernetes.io/role/internal-elb`) are **never removed** — they are shared infrastructure that may be used by other clusters.
 
 #### VPC Gateway Endpoints in BYO Mode
 
@@ -725,8 +725,8 @@ When `elasticFileSystem.enabled` is set in BYO mode, Gardener's behavior differs
 #### InfrastructureStatus
 
 - `VPC.Subnets[purpose=nodes]`: reports BYO worker subnet ID (from `workersSubnetID`) or Gardener-created one
-- `VPC.Subnets[purpose=public]`: reports tag-discovered public LB subnet or Gardener-created one
-- `VPC.Subnets[purpose=internal]`: reports tag-discovered internal LB subnet or Gardener-created one
+- `VPC.Subnets[purpose=public]`: reports explicit `publicSubnetID`, tag-discovered public LB subnet, or Gardener-created one
+- `VPC.Subnets[purpose=internal]`: reports explicit `internalSubnetID`, tag-discovered internal LB subnet, or Gardener-created one
 - `VPC.SecurityGroups[purpose=nodes]`: reports BYO security group ID or Gardener-created one
 - `ElasticFileSystem.ID`: reports user-provided or Gardener-created EFS file system ID (when enabled)
 - CCM config: uses workers subnet as `SubnetID` fallback when no public subnet exists
@@ -767,7 +767,7 @@ If `workersSubnetID` is provided, the extension will discover the IPv6 CIDR bloc
 
 ### What happens if LB subnets are not tagged?
 
-The CCM/LBC will not find subnets for load balancers. NLB/CLB Services will fail to provision. The CCM service controller may be disabled entirely if no tagged subnets are discovered during infrastructure reconciliation.
+If no `publicSubnetID`/`internalSubnetID` are provided and no subnets are pre-tagged, the CCM/LBC will not find subnets for load balancers. NLB/CLB Services will fail to provision. The CCM service controller may be disabled entirely if no tagged subnets are discovered during infrastructure reconciliation. Using explicit IDs is recommended — Gardener handles all tagging automatically.
 
 ### Does `nodesSecurityGroupID` replace Gardener's SG or add to it?
 
@@ -815,6 +815,7 @@ EFS is supported in BYO mode with constraints — see [EFS in BYO Mode](#efs-ela
 
 - Users can deploy clusters with pre-provisioned VPC + worker subnets + security group
 - Users can deploy clusters without Internet Gateway or NAT gateways
-- LB subnets are discovered via standard AWS tags (no explicit IDs needed)
+- LB subnets are referenced by explicit IDs (auto-tagged) or discovered via standard AWS tags
+- Ambiguous LB subnet configurations (multiple tagged subnets per AZ) are detected and rejected
 - Zero breaking changes to existing clusters
 - BYO resources are never modified or deleted by Gardener
