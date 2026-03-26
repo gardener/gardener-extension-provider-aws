@@ -11,6 +11,7 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/utils/flow"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -311,12 +312,13 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteZones(ctx context.Context) error {
-	// For BYO infrastructure, clean up cluster tags from BYO subnets and clear state.
-	// BYO subnets themselves are never deleted, but the cluster tags added during reconcile
-	// must be removed to avoid stale tags accumulating across cluster lifecycles.
+	// For BYO infrastructure, clean up cluster tags from BYO subnets and route tables,
+	// then clear state. BYO resources are never deleted, but the cluster tags added
+	// during reconcile must be removed to avoid stale tags accumulating across cluster lifecycles.
 	if c.isBYOInfrastructure() {
 		child := c.state.GetChild(ChildIdZones)
 		clusterTag := awsclient.Tags{c.tagKeyCluster(): TagValueClusterShared}
+		untaggedRouteTables := sets.New[string]()
 		for _, zoneKey := range child.GetChildrenKeys() {
 			zoneChild := child.GetChild(zoneKey)
 			// Remove cluster tag from BYO worker subnets
@@ -337,9 +339,19 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 					return fmt.Errorf("failed to remove cluster tag from BYO internal subnet %s: %w", *subnetID, err)
 				}
 			}
+			// Remove cluster tag from BYO route tables (deduplicate since multiple zones may share one)
+			if routeTableID := zoneChild.Get(IdentifierZoneRouteTable); routeTableID != nil {
+				if !untaggedRouteTables.Has(*routeTableID) {
+					if err := c.client.DeleteEC2Tags(ctx, []string{*routeTableID}, clusterTag); err != nil {
+						return fmt.Errorf("failed to remove cluster tag from BYO route table %s: %w", *routeTableID, err)
+					}
+					untaggedRouteTables.Insert(*routeTableID)
+				}
+			}
 			zoneChild.Delete(IdentifierZoneSubnetWorkers)
 			zoneChild.Delete(IdentifierZoneSubnetPublic)
 			zoneChild.Delete(IdentifierZoneSubnetPrivate)
+			zoneChild.Delete(IdentifierZoneRouteTable)
 		}
 		return nil
 	}
