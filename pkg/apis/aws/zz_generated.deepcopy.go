@@ -460,6 +460,11 @@ func (in *InfrastructureConfig) DeepCopyInto(out *InfrastructureConfig) {
 		*out = new(ElasticFileSystemConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EnableMTUCustomizer != nil {
+		in, out := &in.EnableMTUCustomizer, &out.EnableMTUCustomizer
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

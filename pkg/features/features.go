@@ -18,6 +18,7 @@ const (
 	MTUCustomizer featuregate.Feature = "MTUCustomizer"
 )
 
+// FeatureGate is the feature gate for the provider-aws extension.
 var FeatureGate featuregate.MutableFeatureGate = featuregate.NewFeatureGate()
 
 var featureGates = map[featuregate.Feature]featuregate.FeatureSpec{

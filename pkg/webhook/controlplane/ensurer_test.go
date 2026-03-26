@@ -431,9 +431,14 @@ var _ = Describe("Ensurer", func() {
 	})
 
 	Describe("#EnsureAdditionalUnits", func() {
-		It("should add additional units to the current ones", func() {
-			var (
-				customMTUUnitContent = `[Unit]
+		Context("EnableMTUCustomizer is true", func() {
+			BeforeEach(func() {
+				infraConfig.EnableMTUCustomizer = ptr.To(true)
+			})
+
+			It("should add additional units to the current ones", func() {
+				var (
+					customMTUUnitContent = `[Unit]
 Description=Apply a custom MTU to network interfaces
 After=network.target
 Wants=network.target
@@ -447,19 +452,70 @@ RemainAfterExit=yes
 ExecStart=/opt/bin/mtu-customizer.sh
 `
 
-				oldUnit        = extensionsv1alpha1.Unit{Name: "oldunit"}
-				additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: ptr.To(true), Command: ptr.To(extensionsv1alpha1.CommandStart), Content: &customMTUUnitContent}
+					oldUnit        = extensionsv1alpha1.Unit{Name: "oldunit"}
+					additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: ptr.To(true), Command: ptr.To(extensionsv1alpha1.CommandStart), Content: &customMTUUnitContent}
 
-				units = []extensionsv1alpha1.Unit{oldUnit}
-			)
+					units = []extensionsv1alpha1.Unit{oldUnit}
+				)
 
-			// Create ensurer
-			ensurer := NewEnsurer(logger, c)
+				// Create ensurer
+				ensurer := NewEnsurer(logger, c)
 
-			// Call EnsureAdditionalUnits method and check the result
-			err := ensurer.EnsureAdditionalUnits(ctx, eContextK8s130, &units, nil)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(units).To(ConsistOf(oldUnit, additionalUnit))
+				// Call EnsureAdditionalUnits method and check the result
+				err := ensurer.EnsureAdditionalUnits(ctx, eContextK8s130, &units, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(units).To(ConsistOf(oldUnit, additionalUnit))
+			})
+		})
+
+		Context("EnableMTUCustomizer is false", func() {
+			BeforeEach(func() {
+				infraConfig.EnableMTUCustomizer = ptr.To(false)
+			})
+
+			It("should not add additional units", func() {
+				var (
+					oldUnit = extensionsv1alpha1.Unit{Name: "oldunit"}
+					units   = []extensionsv1alpha1.Unit{oldUnit}
+				)
+
+				ensurer := NewEnsurer(logger, c)
+
+				err := ensurer.EnsureAdditionalUnits(ctx, eContextK8s130, &units, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(units).To(ConsistOf(oldUnit))
+			})
+		})
+
+		Context("EnableMTUCustomizer is unset (nil)", func() {
+			// EnableMTUCustomizer is not set — simulates a shoot created before the field existed.
+			// The default is true, so the unit must be added to preserve backward compatibility.
+			It("should add additional units", func() {
+				var (
+					customMTUUnitContent = `[Unit]
+Description=Apply a custom MTU to network interfaces
+After=network.target
+Wants=network.target
+
+[Install]
+WantedBy=kubelet.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/bin/mtu-customizer.sh
+`
+					oldUnit        = extensionsv1alpha1.Unit{Name: "oldunit"}
+					additionalUnit = extensionsv1alpha1.Unit{Name: "custom-mtu.service", Enable: ptr.To(true), Command: ptr.To(extensionsv1alpha1.CommandStart), Content: &customMTUUnitContent}
+					units          = []extensionsv1alpha1.Unit{oldUnit}
+				)
+
+				ensurer := NewEnsurer(logger, c)
+
+				err := ensurer.EnsureAdditionalUnits(ctx, eContextK8s130, &units, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(units).To(ConsistOf(oldUnit, additionalUnit))
+			})
 		})
 	})
 
@@ -489,6 +545,7 @@ done
 		Context("ECRAccess is enabled", func() {
 			BeforeEach(func() {
 				infraConfig.EnableECRAccess = ptr.To(true)
+				infraConfig.EnableMTUCustomizer = ptr.To(true)
 			})
 
 			It("should add credential provider files to the current ones", func() {
@@ -543,6 +600,7 @@ done
 		Context("ECRAccess is disabled", func() {
 			BeforeEach(func() {
 				infraConfig.EnableECRAccess = ptr.To(false)
+				infraConfig.EnableMTUCustomizer = ptr.To(true)
 			})
 
 			It("should add additional files to the current ones", func() {
@@ -596,6 +654,57 @@ done
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(files).To(ConsistOf(oldFile, additionalFile))
 				Expect(files).To(HaveLen(2))
+			})
+		})
+
+		Context("MTUCustomizer is disabled", func() {
+			BeforeEach(func() {
+				infraConfig.EnableECRAccess = ptr.To(false)
+				infraConfig.EnableMTUCustomizer = ptr.To(false)
+			})
+
+			It("should not add the mtu-customizer file", func() {
+				var (
+					oldFile = extensionsv1alpha1.File{Path: "oldpath"}
+					files   = []extensionsv1alpha1.File{oldFile}
+				)
+
+				ensurer := NewEnsurer(logger, c)
+
+				err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s130, &files, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(files).To(ConsistOf(oldFile))
+			})
+		})
+
+		Context("EnableMTUCustomizer is unset (nil)", func() {
+			// EnableMTUCustomizer is not set — simulates a shoot created before the field existed.
+			// The default is true, so the file must be added to preserve backward compatibility.
+			BeforeEach(func() {
+				infraConfig.EnableECRAccess = ptr.To(false)
+			})
+
+			It("should add the mtu-customizer file", func() {
+				var (
+					oldFile        = extensionsv1alpha1.File{Path: "oldpath"}
+					additionalFile = extensionsv1alpha1.File{
+						Path:        filePath,
+						Permissions: &permissions,
+						Content: extensionsv1alpha1.FileContent{
+							Inline: &extensionsv1alpha1.FileContentInline{
+								Encoding: "",
+								Data:     customFileContent,
+							},
+						},
+					}
+					files = []extensionsv1alpha1.File{oldFile}
+				)
+
+				ensurer := NewEnsurer(logger, c)
+
+				err := ensurer.EnsureAdditionalFiles(ctx, eContextK8s130, &files, nil)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(files).To(ConsistOf(oldFile, additionalFile))
 			})
 		})
 	})
