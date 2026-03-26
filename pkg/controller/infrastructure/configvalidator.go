@@ -90,10 +90,11 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	// (see aws.go:623 in cloud-provider-aws). Without this, the CCM tries to call the EC2 instance
 	// metadata service and crashes. The SubnetID is never actually used at runtime — LB subnets are
 	// discovered via cluster tags — but it must be non-empty for initialization.
-	// Gardener sets SubnetID to a PurposePublic subnet from InfrastructureStatus. Therefore at least
-	// one public subnet must be available: either Gardener-managed (public CIDR in config) or
-	// user-provided (tagged in the VPC).
-	if config.Networks.VPC.ID != nil {
+	// The CCM config uses a fallback cascade: public > internal > workers subnet.
+	// In BYO mode (workersSubnetID set), the workers subnet is always available as a fallback,
+	// so this check is only needed for managed mode where no public CIDR might be specified.
+	isBYO := len(config.Networks.Zones) > 0 && config.Networks.Zones[0].WorkersSubnetID != nil
+	if config.Networks.VPC.ID != nil && !isBYO {
 		allErrs = append(allErrs, c.validatePublicSubnetAvailability(ctx, awsClient, config, *config.Networks.VPC.ID, infra.Namespace)...)
 	}
 
@@ -428,8 +429,8 @@ func (c *configValidator) validatePublicSubnetAvailability(ctx context.Context, 
 	if len(subnets) == 0 {
 		allErrs = append(allErrs, field.Forbidden(field.NewPath("networks", "zones"),
 			"no public subnet available for the AWS Cloud Controller Manager configuration; "+
-				"either specify a public CIDR in at least one zone, or ensure an existing subnet "+
-				"in the VPC is tagged with kubernetes.io/role/elb=1 and "+clusterTag+"=1"))
+				"either specify a public CIDR in at least one zone, use publicSubnetID in BYO mode, "+
+				"or ensure an existing subnet in the VPC is tagged with kubernetes.io/role/elb=1 and "+clusterTag+"=1"))
 	}
 
 	return allErrs
