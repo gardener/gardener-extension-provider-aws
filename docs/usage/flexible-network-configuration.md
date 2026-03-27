@@ -3,10 +3,9 @@ title: Flexible Network Configuration (BYOI)
 creation-date: 2026-03-23
 status: implementable
 authors:
-- "@kon-angelo"
+- "@TBD"
 reviewers:
-- "@gardener-extension-provider-aws-maintainers"
-- "@gardener-core-networking-maintainers"
+- "@TBD"
 ---
 
 # Flexible Network Configuration - Bring Your Own Infrastructure (BYOI)
@@ -27,6 +26,7 @@ reviewers:
   - [Load Balancer Subnet Discovery](#load-balancer-subnet-discovery)
   - [Implementation Approach](#implementation-approach)
 - [Alternatives](#alternatives)
+- [Open Questions](#open-questions)
 - [FAQ](#faq)
 
 ## Summary
@@ -37,9 +37,9 @@ This proposal enables users to deploy Gardener-managed Kubernetes clusters into 
 2. **Worker subnets** - existing subnets for EC2 node placement
 3. **Security group** - existing nodes security group with corporate-compliant rules
 4. **Routing** - Transit Gateway, centralized NAT, VPC endpoints, or any custom topology
-5. **Load balancer subnets** - discovered automatically via standard AWS tags (no explicit IDs needed)
+5. **Load balancer subnets** - referenced by ID (Gardener auto-tags them) or discovered via standard AWS tags
 
-The design principle is: **BYO resources are referenced, never created, modified, or deleted by Gardener.**
+The design principle is: **BYO resources are referenced, never created or deleted by Gardener.** Gardener adds AWS tags to BYO subnets for cluster association and LB discovery, and removes only the cluster-specific tags on teardown. Role tags (e.g., `kubernetes.io/role/elb`) are shared infrastructure and are never removed.
 
 ## Motivation
 
@@ -65,7 +65,7 @@ Today, Gardener always creates subnets, security groups, NAT gateways, and route
 
 - Allowing mixed BYO/Gardener-managed worker subnets across zones (all zones must be consistent)
 - Allowing BYO worker subnets combined with Gardener-managed subnets in the same configuration (BYO mode means all subnets are user-managed)
-- Managing or modifying any user-provided (BYO) resources
+- Managing or modifying any user-provided (BYO) resources beyond adding/removing AWS tags for cluster association and LB discovery
 - Supporting IPv6-only BYO subnets in the initial release
 
 ## Proposal
@@ -79,7 +79,7 @@ flowchart TB
         VPC["VPC\nvpc.id"]
         WS["Worker Subnets\nworkersSubnetID per zone"]
         SG["Nodes Security Group\nnodesSecurityGroupID"]
-        LBS["LB Subnets\nDiscovered via AWS tags"]
+        LBS["LB Subnets\npublicSubnetID / internalSubnetID\nor discovered via AWS tags"]
         RT["Routing\nTGW / NAT / VPC Endpoints"]
     end
 
@@ -111,7 +111,7 @@ flowchart TB
 
 #### Zone Structure
 
-One new optional field allows referencing an existing worker subnet:
+New optional fields allow referencing existing subnets:
 
 ```go
 type Zone struct {
@@ -124,6 +124,12 @@ type Zone struct {
 
     // BYO worker subnet
     WorkersSubnetID *string  // +optional, mutually exclusive with Workers
+
+    // BYO load balancer subnets (only allowed when WorkersSubnetID is set)
+    // Gardener auto-tags these with the cluster tag and the role tag on reconcile.
+    // On delete, only the cluster tag is removed (the role tag is shared infrastructure).
+    PublicSubnetID   *string  // +optional, BYO only
+    InternalSubnetID *string  // +optional, BYO only
 
     // Only valid when Workers and Public CIDRs are set (Gardener-managed)
     ElasticIPAllocationID *string  // +optional
@@ -156,7 +162,8 @@ type Networks struct {
 |-------|------|
 | `workers` / `workersSubnetID` | **Exactly one** must be provided per zone (XOR) |
 | **Zone consistency** | **All zones must use the same approach**: either all `workersSubnetID` or all `workers` CIDR. Mixing is forbidden. |
-| `internal` / `public` | **Forbidden** when `workersSubnetID` is set. In BYO mode, all subnets are user-managed; LB subnets are tag-discovered. |
+| `internal` / `public` | **Forbidden** when `workersSubnetID` is set. In BYO mode, all subnets are user-managed; LB subnets are referenced by ID or tag-discovered. |
+| `publicSubnetID` / `internalSubnetID` | **Only allowed** when `workersSubnetID` is set (BYO mode). Requires `VPC.ID`. Must exist in correct VPC/AZ. Immutable. No duplicates across zones. |
 | `elasticIPAllocationID` | Only valid when both `workers` AND `public` CIDRs are set |
 | `workersSubnetID` | Requires `VPC.ID` to be set. Must exist in correct VPC/AZ. Immutable. |
 | `nodesSecurityGroupID` | Requires `VPC.ID` to be set. Must exist in correct VPC. Immutable. |
@@ -283,8 +290,12 @@ networks:
   zones:
     - name: eu-west-1a
       workersSubnetID: subnet-workers-1a
+      publicSubnetID: subnet-public-1a       # auto-tagged by Gardener
+      internalSubnetID: subnet-internal-1a   # auto-tagged by Gardener
     - name: eu-west-1b
       workersSubnetID: subnet-workers-1b
+      publicSubnetID: subnet-public-1b
+      internalSubnetID: subnet-internal-1b
 ```
 
 **What Gardener creates:** IAM role, instance profile, SSH key pair only.
@@ -292,8 +303,7 @@ networks:
 **User responsibilities:**
 - Worker subnet routing (NAT/Transit Gateway/VPC endpoints for connectivity)
 - Security group with appropriate rules (see [Security Group Requirements](#security-group-requirements))
-- Internal LB subnets tagged with `kubernetes.io/role/internal-elb=1` and `kubernetes.io/cluster/<name>=shared`
-- Public LB subnets tagged with `kubernetes.io/role/elb=1` and `kubernetes.io/cluster/<name>=shared`
+- LB subnets: provide `publicSubnetID`/`internalSubnetID` per zone (recommended — Gardener auto-tags them), or pre-tag subnets manually with `kubernetes.io/role/internal-elb=1`, `kubernetes.io/role/elb=1`, and `kubernetes.io/cluster/<name>=shared`
 - Minimum 8 available IPs per LB subnet; at least 2 AZs for ALBs
 
 ---
@@ -419,7 +429,7 @@ When bringing your own infrastructure, the user provides a single security group
 
 2. **MCM is the sole consumer**: The security group flows from `InfrastructureStatus` -> Worker controller -> `MachineClass.providerSpec.networkInterfaces[].securityGroupIDs` -> MCM -> `RunInstances` API. It is attached to the EC2 instance's primary network interface at launch.
 
-3. **The CCM does NOT need the SG**: Gardener configures `DisableSecurityGroupIngress=true` in the CCM's cloud-provider-config, which tells it to skip all security group rule management for load balancers.
+3. **The CCM does NOT manage SG rules**: Gardener configures `DisableSecurityGroupIngress=true` in the CCM's cloud-provider-config. This disables the CCM's `updateInstanceSecurityGroupForNLBTraffic` and `updateInstanceSecurityGroupsForLoadBalancer` functions, which would otherwise dynamically add per-Service ingress rules (client traffic, health checks, MTU discovery) to worker instance security groups at runtime. With this flag enabled, **neither Gardener nor the CCM will ever modify security group rules after initial creation** — the user's BYO security group must already contain all required rules, including NodePort ingress for NLB traffic and health checks.
 
 4. **No standard tag convention exists**: Unlike subnets (which have well-defined `kubernetes.io/role/*` tags), there is no standard tag for "this is the nodes security group." EKS also requires explicit SG specification for node groups.
 
@@ -444,11 +454,13 @@ When providing `nodesSecurityGroupID`, the security group **must** include at mi
 | Direction | Protocol | Ports | Source/Dest | Purpose |
 |-----------|----------|-------|-------------|---------|
 | Ingress | All | All | Self (same SG) | Pod-to-pod, node-to-node |
-| Ingress | TCP | 30000-32767 | 0.0.0.0/0 or LB CIDRs | NodePort services |
-| Ingress | UDP | 30000-32767 | 0.0.0.0/0 or LB CIDRs | NodePort services |
+| Ingress | TCP | 30000-32767 | 0.0.0.0/0 or LB subnet CIDRs | NodePort services (NLB client traffic + health checks) |
+| Ingress | UDP | 30000-32767 | 0.0.0.0/0 or LB subnet CIDRs | NodePort services (NLB client traffic) |
 | Egress | All | All | 0.0.0.0/0 | Outbound connectivity |
 
-Additional rules for EFS (TCP 2049) if using CSI EFS driver.
+Additional rules for EFS (TCP 2049 from worker subnet CIDRs) if using the CSI EFS driver.
+
+> **NodePort note:** Because `DisableSecurityGroupIngress=true` is set, the CCM will **not** dynamically add per-NLB ingress rules (client traffic, health checks, ICMP MTU discovery) to the instance security group at runtime — unlike the default upstream behavior where the CCM's `updateInstanceSecurityGroupForNLBTraffic` function manages these rules automatically. The user must pre-provision NodePort ingress rules. Using `0.0.0.0/0` is the simplest option; for tighter security, use the CIDR ranges of the subnets where NLBs are placed (NLB health checks originate from the NLB's subnet IPs).
 
 > **Egress note:** The `0.0.0.0/0` egress rule is the simplest configuration. For private clusters with strict egress policies, the minimum required destinations are: the Kubernetes API server endpoint, container registries (for image pulls), and AWS APIs (EC2, ELB, STS, S3). These can be reached via VPC endpoints or specific CIDR allowlists instead of a blanket egress rule.
 
@@ -541,17 +553,24 @@ If overlay networking **is** enabled (default), the custom route controller is d
 
 ### Load Balancer Subnet Discovery
 
-#### Design Rationale: Why No Explicit LB Subnet IDs
+#### Two Modes: Explicit IDs or Tag-Based Discovery
 
-A key design decision is that **internal and public load balancer subnets are NOT referenced by ID**. Instead, they are discovered at runtime via standard AWS tags by the Cloud Controller Manager (CCM) and AWS Load Balancer Controller (LBC). This is because:
+Load balancer subnets can be configured in two ways in BYO mode:
 
-1. **The CCM and LBC already discover subnets via tags** - this is the standard AWS Kubernetes pattern (same as EKS). The tags `kubernetes.io/role/internal-elb=1` and `kubernetes.io/role/elb=1` are the authoritative mechanism.
+1. **Explicit IDs** (recommended): Provide `publicSubnetID` and/or `internalSubnetID` per zone. Gardener auto-tags these subnets with the cluster tag (`kubernetes.io/cluster/<name>=shared`) and the role tag (`kubernetes.io/role/elb=1` or `kubernetes.io/role/internal-elb=1`). On delete, only the cluster tag is removed — the role tag is shared infrastructure. After tagging, Gardener validates that the CCM would discover the same subnets (no ambiguity from other tagged subnets in the same AZ).
 
-2. **Gardener itself never uses internal/public subnet IDs at runtime** - `PurposePublic` is consumed only for the CCM config's `SubnetID` field (a fallback identity, not for LB placement) - and we can use the workers subnet for that instead.
+2. **Tag-based discovery** (fallback): If no explicit IDs are provided, subnets are discovered at runtime via standard AWS tags. The user must pre-tag subnets with both the cluster tag and the role tag. This is the same pattern as EKS.
 
-3. **Users must tag subnets anyway** - even if we accepted subnet IDs, the CCM/LBC would still require the tags. Accepting IDs would create a false sense that tagging isn't needed.
+#### Why explicit IDs are recommended
 
-4. **Users can override per-Service** via the `service.beta.kubernetes.io/aws-load-balancer-subnets` annotation if they need explicit control.
+- **No manual tagging required**: Gardener handles both the cluster tag and the role tag.
+- **Prevents CCM ambiguity**: If multiple subnets in the same AZ have the cluster tag + role tag, the CCM picks one by lexicographic subnet ID order. With explicit IDs, Gardener validates that the CCM would pick the intended subnet.
+- **Ambiguity detection**: During reconciliation, Gardener discovers all tagged subnets and **errors if multiple subnets in the same AZ match** the same role tag + cluster tag. This prevents silent misrouting regardless of whether explicit IDs are used.
+- **Clean lifecycle**: Cluster tags are added on reconcile and removed on delete. Role tags persist across cluster lifecycles (shared infrastructure).
+
+#### Underlying Discovery Mechanism
+
+The CCM and LBC still discover subnets via tags at runtime — the explicit IDs only control which subnets Gardener tags. Users can also override per-Service via the `service.beta.kubernetes.io/aws-load-balancer-subnets` annotation.
 
 #### Discovery Flow
 
@@ -613,7 +632,7 @@ kubernetes.io/cluster/<cluster-name> = shared
 
 | Condition | Skip |
 |-----------|------|
-| `workersSubnetID` set | Worker subnet creation, route table, NAT gateway, elastic IP, internal subnet, public subnet |
+| `workersSubnetID` set | Worker subnet creation, route table, NAT gateway, elastic IP, internal subnet, public subnet. BYO worker/public/internal subnets are tagged with the cluster tag. `publicSubnetID`/`internalSubnetID` are additionally tagged with role tags. |
 | No `public` CIDR in zone | Public subnet, NAT gateway, elastic IP for that zone |
 | No `internal` CIDR in zone | Internal subnet for that zone |
 | `nodesSecurityGroupID` set | Nodes security group creation and rule management |
@@ -664,7 +683,7 @@ BYO resources are **never deleted**:
 - Security groups referenced by `nodesSecurityGroupID` are not deleted
 - VPC referenced by `VPC.ID` is already not deleted (existing behavior)
 
-Cluster tags (`kubernetes.io/cluster/<name>=shared`) added to BYO subnets during reconciliation **are removed** on teardown to prevent stale tags from accumulating across cluster lifecycles.
+Cluster tags (`kubernetes.io/cluster/<name>=shared`) added to BYO subnets (workers, public, internal) during reconciliation **are removed** on teardown to prevent stale tags from accumulating across cluster lifecycles. Role tags (`kubernetes.io/role/elb`, `kubernetes.io/role/internal-elb`) are **never removed** — they are shared infrastructure that may be used by other clusters.
 
 #### VPC Gateway Endpoints in BYO Mode
 
@@ -678,10 +697,38 @@ The current bastion controller creates a bastion EC2 instance in a **Gardener-ma
 
 > **Future work:** The bastion controller should be updated to support BYO mode, potentially by using a worker subnet with a public IP or by integrating with SSM.
 
+#### EFS (Elastic File System) in BYO Mode
+
+When `elasticFileSystem.enabled` is set in BYO mode, Gardener's behavior differs from the managed case:
+
+| Aspect | Managed Mode | BYO Mode |
+|--------|-------------|----------|
+| File system creation | Gardener creates (encrypted, tagged) or user provides `elasticFileSystem.id` | User **must** provide `elasticFileSystem.id` (validated) |
+| Mount target creation | Gardener creates one per zone in workers subnet | **Skipped** — user manages mount targets |
+| Mount target discovery | N/A | Gardener discovers existing mount targets via `DescribeMountTargets` for state observability |
+| SG NFS rule (TCP 2049) | Added to nodes SG using `zone.Internal` CIDR | Skipped (no internal CIDR in BYO). Not needed — the self-referencing rule covers intra-SG NFS traffic. |
+| CSI driver config | `fileSystemID` from `InfrastructureStatus` | Same — only `fileSystemID` is needed |
+| IAM permissions | EFS API permissions on node role | Same |
+
+**Why mount targets are not created in BYO mode:**
+
+1. **Only one mount target per AZ is allowed.** The user may already have mount targets in their subnets. Creating a duplicate would fail.
+2. **Follows the BYO principle:** BYO resources are referenced, never created. Mount targets are infrastructure the user owns.
+3. **The CSI driver doesn't need them from Gardener:** The EFS CSI driver discovers mount targets at runtime via the `elasticfilesystem:DescribeMountTargets` IAM permission. Only the `fileSystemID` (passed via the `StorageClass`) is needed for provisioning.
+
+**EFS is bound to exactly one VPC.** The user-provided EFS must be in the same VPC referenced by `vpc.id`. Mount targets must exist in the same VPC. Changing the VPC requires deleting and recreating all mount targets.
+
+**Validation:** When `workersSubnetID` is set and `elasticFileSystem.enabled` is true, `elasticFileSystem.id` is required. Gardener will not create a file system in BYO mode.
+
+**Security group:** NFS traffic (TCP 2049) between worker nodes and mount targets is covered by the self-referencing SG rule (`Self: true, Protocol: -1`), provided both the nodes and the mount target ENI are members of the same security group. When using a BYO SG, the user must ensure the self-referencing ingress rule is present (already a documented requirement).
+
 #### InfrastructureStatus
 
 - `VPC.Subnets[purpose=nodes]`: reports BYO worker subnet ID (from `workersSubnetID`) or Gardener-created one
+- `VPC.Subnets[purpose=public]`: reports explicit `publicSubnetID`, tag-discovered public LB subnet, or Gardener-created one
+- `VPC.Subnets[purpose=internal]`: reports explicit `internalSubnetID`, tag-discovered internal LB subnet, or Gardener-created one
 - `VPC.SecurityGroups[purpose=nodes]`: reports BYO security group ID or Gardener-created one
+- `ElasticFileSystem.ID`: reports user-provided or Gardener-created EFS file system ID (when enabled)
 - CCM config: uses workers subnet as `SubnetID` fallback when no public subnet exists
 
 ## Alternatives
@@ -695,15 +742,6 @@ Instead of the full replacement model (`NodesSecurityGroupID`), we could keep Ga
 - The full replacement model gives users complete control, which is what enterprise BYO scenarios require
 
 The additive model remains a valid future addition for users who want a safety net.
-
-### Accepting Explicit LB Subnet IDs
-
-Instead of tag-based discovery, we could accept `internalSubnetID` and `publicSubnetID` per zone. This was rejected because:
-
-- The CCM and LBC already discover subnets via tags -- this is the standard AWS pattern
-- Users must tag subnets regardless (CCM/LBC require it)
-- Accepting IDs would create a false sense that tagging isn't needed
-- Users can always override per-Service via annotations
 
 ### Mixed BYO/Managed Subnets per Zone
 
@@ -729,7 +767,7 @@ If `workersSubnetID` is provided, the extension will discover the IPv6 CIDR bloc
 
 ### What happens if LB subnets are not tagged?
 
-The CCM/LBC will not find subnets for load balancers. NLB/CLB Services will fail to provision. The CCM service controller may be disabled entirely if no tagged subnets are discovered during infrastructure reconciliation.
+If no `publicSubnetID`/`internalSubnetID` are provided and no subnets are pre-tagged, the CCM/LBC will not find subnets for load balancers. NLB/CLB Services will fail to provision. The CCM service controller may be disabled entirely if no tagged subnets are discovered during infrastructure reconciliation. Using explicit IDs is recommended — Gardener handles all tagging automatically.
 
 ### Does `nodesSecurityGroupID` replace Gardener's SG or add to it?
 
@@ -747,10 +785,37 @@ Not with the current bastion controller. It requires a Gardener-managed public s
 
 No. The `gatewayEndpoints` field in the VPC configuration is ignored in BYO mode. VPC gateway endpoints require route table associations to function, and since Gardener does not manage route tables in BYO mode, it cannot make endpoints functional. Users must create and manage their own VPC endpoints, including associating them with their route tables.
 
+### Can I use EFS (Elastic File System) in BYO mode?
+
+Yes, with constraints. Set `elasticFileSystem.enabled: true` and provide `elasticFileSystem.id` with the ID of an existing EFS file system in the same VPC. Gardener will **not** create a file system or mount targets — the user is responsible for both. The EFS CSI driver only needs the file system ID (passed via a `StorageClass`); it discovers mount targets at runtime via the AWS API. See [EFS in BYO Mode](#efs-elastic-file-system-in-byo-mode) for details.
+
+## Open Questions
+
+### BYO Security Group with Gardener-Managed Subnets
+
+Currently, `nodesSecurityGroupID` only requires `VPC.ID` — it does not require `workersSubnetID`. This means a user can provide a BYO security group while letting Gardener manage all subnets (workers, internal, public). Gardener would skip SG creation but still create all network resources.
+
+This is a valid use case: the user wants to control firewall rules (corporate compliance) while letting Gardener manage the network topology. However, the interaction with Gardener's SG rule construction (which uses `zone.Internal` CIDRs for EFS NFS rules) needs review. If we support this hybrid scenario long-term, it should be explicitly tested and documented.
+
+### TCP 2049 NFS Rule Redundancy
+
+The CIDR-based NFS ingress rule (TCP 2049) on the nodes SG uses `zone.Internal` as the source CIDR. However:
+- Mount targets are placed in the **workers** subnet
+- Worker nodes are also in the **workers** subnet
+- Both the mount target ENI and the worker ENI are members of the **same** security group
+- The self-referencing rule (`Self: true, Protocol: -1`) already allows **all** traffic between SG members
+
+The CIDR-based NFS rule is therefore redundant in all cases where the mount target and nodes share a SG. It should be reviewed and potentially removed. This also exists on `origin/master` — it is not a regression from this PR.
+
+### EFS in BYO Mode
+
+EFS is supported in BYO mode with constraints — see [EFS in BYO Mode](#efs-elastic-file-system-in-byo-mode) in the proposal for full details. Remaining open question: should the mount target discovery populate the `InfrastructureStatus` with mount target details (beyond `fileSystemID`), or is the current `fileSystemID`-only approach sufficient for all consumers?
+
 ## Success Criteria
 
 - Users can deploy clusters with pre-provisioned VPC + worker subnets + security group
 - Users can deploy clusters without Internet Gateway or NAT gateways
-- LB subnets are discovered via standard AWS tags (no explicit IDs needed)
+- LB subnets are referenced by explicit IDs (auto-tagged) or discovered via standard AWS tags
+- Ambiguous LB subnet configurations (multiple tagged subnets per AZ) are detected and rejected
 - Zero breaking changes to existing clusters
 - BYO resources are never modified or deleted by Gardener
