@@ -128,6 +128,7 @@ type Interface interface {
 	CreateRouteTable(ctx context.Context, routeTable *RouteTable) (*RouteTable, error)
 	GetRouteTable(ctx context.Context, id string) (*RouteTable, error)
 	FindRouteTablesByTags(ctx context.Context, tags Tags) ([]*RouteTable, error)
+	FindRouteTablesForSubnets(ctx context.Context, vpcID string, subnetIDs []string) ([]*RouteTable, error)
 	DeleteRouteTable(ctx context.Context, id string) error
 	CreateRoute(ctx context.Context, routeTableId string, route *Route) error
 	DeleteRoute(ctx context.Context, routeTableId string, route *Route) error
