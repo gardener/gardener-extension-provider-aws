@@ -52,7 +52,7 @@ Users can choose to trust Gardener's Workload Identity Issuer and eliminate the 
 ![OIDC Federation](./images/oidc-federation.png)
 
 > [!TIP]
-> You can retrieve Gardener's Workload Identity Issuer URL directly from the Garden cluster by reading the contents of the [Gardener Info ConfigMap](https://gardener.cloud/docs/gardener/gardener/gardener_info_configmap/).
+> You can retrieve Gardener's Workload Identity Issuer URL directly from the Garden cluster by reading the contents of the [Gardener Info ConfigMap](https://github.com/gardener/gardener/blob/master/docs/operations/configmap.md).
 >
 > ```bash
 > kubectl -n gardener-system-public get configmap gardener-info -o yaml
