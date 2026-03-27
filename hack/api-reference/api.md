@@ -310,6 +310,20 @@ ElasticFileSystemConfig
 This field is immutable and cannot be changed once created.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>enableMTUCustomizer</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EnableMTUCustomizer controls whether the mtu-customizer systemd unit and script are deployed
+to the shoot worker nodes. When enabled, the MTU of all non-virtual network interfaces is set to 1460.
+default: true</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig
