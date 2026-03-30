@@ -10,11 +10,10 @@ import (
 	"time"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	pvcautoscalingv1alpha1 "github.com/gardener/pvc-autoscaler/api/autoscaling/v1alpha1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	pvcautoscalingv1alpha1 "github.com/gardener/pvc-autoscaler/api/autoscaling/v1alpha1"
 )
 
 var defaultCooldownDuration = &metav1.Duration{Duration: 6 * time.Hour}
