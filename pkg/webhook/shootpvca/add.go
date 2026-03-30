@@ -5,14 +5,14 @@
 package shootpvca
 
 import (
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	pvcautoscalingv1alpha1 "github.com/gardener/pvc-autoscaler/api/autoscaling/v1alpha1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	pvcautoscalingv1alpha1 "github.com/gardener/pvc-autoscaler/api/autoscaling/v1alpha1"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 const (
