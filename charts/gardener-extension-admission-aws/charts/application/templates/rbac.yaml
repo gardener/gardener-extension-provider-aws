@@ -39,8 +39,17 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  resourceNames:
+  - {{ include "name" . }}
+  verbs:
   - patch
   - update
+  - delete
 - apiGroups:
   - security.gardener.cloud
   resources:
