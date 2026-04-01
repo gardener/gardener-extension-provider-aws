@@ -120,6 +120,21 @@ docker-image-admission:
 .PHONY: docker-images
 docker-images: docker-image-provider docker-image-admission
 
+.PHONY: docker-push-provider
+docker-push-provider: $(KUBECTL)
+	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
+	@docker tag $(IMAGE_PREFIX)/$(NAME):$(VERSION) $(REGISTRY_URL)/$(NAME):$(VERSION)
+	@docker push $(REGISTRY_URL)/$(NAME):$(VERSION)
+
+.PHONY: docker-push-admission
+docker-push-admission: $(KUBECTL)
+	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
+	@docker tag $(IMAGE_PREFIX)/$(ADMISSION_NAME):$(VERSION) $(REGISTRY_URL)/$(ADMISSION_NAME):$(VERSION)
+	@docker push $(REGISTRY_URL)/$(ADMISSION_NAME):$(VERSION)
+
+.PHONY: docker-push
+docker-push: docker-push-provider docker-push-admission
+
 .PHONY: helm-chart-provider
 helm-chart-provider: $(HELM)
 	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(NAME) --version $(VERSION) --app-version $(VERSION) --destination .
@@ -134,12 +149,12 @@ helm-charts: helm-chart-provider helm-chart-admission
 
 .PHONY: helm-push-provider
 helm-push-provider: $(HELM) $(KUBECTL)
-	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
+	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
 	@$(HELM) push $(EXTENSION_PREFIX)-$(NAME)-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
 
 .PHONY: helm-push-admission
 helm-push-admission: $(HELM) $(KUBECTL)
-	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
+	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
 	@$(HELM) push $(ADMISSION_NAME)-application-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
 	@$(HELM) push $(ADMISSION_NAME)-runtime-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
 
