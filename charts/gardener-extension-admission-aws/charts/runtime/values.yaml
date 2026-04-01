@@ -12,6 +12,7 @@ vpa:
   updatePolicy:
     updateMode: "Recreate"
 webhookConfig:
+  servicePort: 443
   serverPort: 10250
 # Kubeconfig to the target cluster. In-cluster configuration will be used if not specified.
 kubeconfig:

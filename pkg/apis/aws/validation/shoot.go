@@ -10,8 +10,8 @@ import (
 	"math"
 	"slices"
 
+	corehelper "github.com/gardener/gardener/pkg/api/core/helper"
 	"github.com/gardener/gardener/pkg/apis/core"
-	corehelper "github.com/gardener/gardener/pkg/apis/core/helper"
 	validationutils "github.com/gardener/gardener/pkg/utils/validation"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"

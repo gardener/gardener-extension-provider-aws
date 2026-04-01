@@ -9,9 +9,9 @@ import (
 	"slices"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	gardencorev1beta1helper "github.com/gardener/gardener/pkg/api/core/v1beta1/helper"
 	"github.com/gardener/gardener/pkg/apis/core"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	gardencorev1beta1helper "github.com/gardener/gardener/pkg/apis/core/v1beta1/helper"
 	"gopkg.in/inf.v0"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
