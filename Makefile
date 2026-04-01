@@ -168,8 +168,11 @@ extension-manifest: $(KUBECTL)
 	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
 	@mkdir -p remote
 	@yq eval '.spec.deployment.admission.runtimeCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-runtime:$(VERSION)" | \
+	          .spec.deployment.admission.runtimeCluster.helm.ociRepository.pullSecretRef.name = "gardener-images" | \
 	          .spec.deployment.admission.virtualCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-application:$(VERSION)" | \
+	          .spec.deployment.admission.virtualCluster.helm.ociRepository.pullSecretRef.name = "gardener-images" | \
 	          .spec.deployment.extension.helm.ociRepository.ref = "$(REGISTRY_URL)/$(EXTENSION_PREFIX)-$(NAME):$(VERSION)" | \
+	          .spec.deployment.extension.helm.ociRepository.pullSecretRef.name = "gardener-images" | \
 	          .spec.deployment.admission.values.image.repository = "$(REGISTRY_URL)/$(ADMISSION_NAME)" | \
 	          .spec.deployment.admission.values.image.tag = "$(VERSION)" | \
 	          .spec.deployment.extension.values.image.repository = "$(REGISTRY_URL)/$(NAME)" | \
