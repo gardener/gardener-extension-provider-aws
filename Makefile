@@ -132,6 +132,20 @@ helm-chart-admission: $(HELM)
 .PHONY: helm-charts
 helm-charts: helm-chart-provider helm-chart-admission
 
+.PHONY: helm-push-provider
+helm-push-provider: $(HELM) $(KUBECTL)
+	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
+	@$(HELM) push $(EXTENSION_PREFIX)-$(NAME)-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
+
+.PHONY: helm-push-admission
+helm-push-admission: $(HELM) $(KUBECTL)
+	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
+	@$(HELM) push $(ADMISSION_NAME)-application-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
+	@$(HELM) push $(ADMISSION_NAME)-runtime-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
+
+.PHONY: helm-push
+helm-push: helm-push-provider helm-push-admission
+
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
 #####################################################################
