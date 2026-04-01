@@ -164,10 +164,10 @@ helm-push-admission: $(HELM) $(KUBECTL)
 helm-push: helm-push-provider helm-push-admission
 
 .PHONY: extension-manifest
-extension-manifest: $(KUBECTL)
+extension-manifest: $(KUBECTL) $(YQ)
 	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
 	@mkdir -p remote
-	@yq eval '.spec.deployment.admission.runtimeCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-runtime:$(VERSION)" | \
+	@$(YQ) eval '.spec.deployment.admission.runtimeCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-runtime:$(VERSION)" | \
 	          .spec.deployment.admission.runtimeCluster.helm.ociRepository.pullSecretRef.name = "gardener-images" | \
 	          .spec.deployment.admission.virtualCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-application:$(VERSION)" | \
 	          .spec.deployment.admission.virtualCluster.helm.ociRepository.pullSecretRef.name = "gardener-images" | \
