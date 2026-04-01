@@ -177,6 +177,10 @@ extension-manifest: $(KUBECTL)
 	          example/extension.yaml > remote/extension.yaml
 	@echo "Created remote/extension.yaml with registry $(REGISTRY_URL)"
 
+.PHONY: extension-apply
+extension-apply: $(KUBECTL)
+	@$(KUBECTL) apply -f remote/extension.yaml
+
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
 #####################################################################
