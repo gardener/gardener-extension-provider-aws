@@ -150,16 +150,29 @@ helm-charts: helm-chart-provider helm-chart-admission
 .PHONY: helm-push-provider
 helm-push-provider: $(HELM) $(KUBECTL)
 	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
-	@$(HELM) push $(EXTENSION_PREFIX)-$(NAME)-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
+	@$(HELM) push $(EXTENSION_PREFIX)-$(NAME)-$(VERSION).tgz oci://$(REGISTRY_URL)
 
 .PHONY: helm-push-admission
 helm-push-admission: $(HELM) $(KUBECTL)
 	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
-	@$(HELM) push $(ADMISSION_NAME)-application-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
-	@$(HELM) push $(ADMISSION_NAME)-runtime-$(VERSION).tgz oci://$(REGISTRY_URL)/charts
+	@$(HELM) push $(ADMISSION_NAME)-application-$(VERSION).tgz oci://$(REGISTRY_URL)
+	@$(HELM) push $(ADMISSION_NAME)-runtime-$(VERSION).tgz oci://$(REGISTRY_URL)
 
 .PHONY: helm-push
 helm-push: helm-push-provider helm-push-admission
+
+.PHONY: extension-manifest
+extension-manifest: $(KUBECTL)
+	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
+	@yq eval '.spec.deployment.admission.runtimeCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-runtime:$(VERSION)" | \
+	          .spec.deployment.admission.virtualCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-application:$(VERSION)" | \
+	          .spec.deployment.extension.helm.ociRepository.ref = "$(REGISTRY_URL)/$(EXTENSION_PREFIX)-$(NAME):$(VERSION)" | \
+	          .spec.deployment.admission.values.image.repository = "$(REGISTRY_URL)/$(ADMISSION_NAME)" | \
+	          .spec.deployment.admission.values.image.tag = "$(VERSION)" | \
+	          .spec.deployment.extension.values.image.repository = "$(REGISTRY_URL)/$(NAME)" | \
+	          .spec.deployment.extension.values.image.tag = "$(VERSION)"' \
+	          example/extension.yaml > extension-local.yaml
+	@echo "Created extension-local.yaml with registry $(REGISTRY_URL)"
 
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
