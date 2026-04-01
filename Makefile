@@ -120,6 +120,18 @@ docker-image-admission:
 .PHONY: docker-images
 docker-images: docker-image-provider docker-image-admission
 
+.PHONY: helm-chart-provider
+helm-chart-provider: $(HELM)
+	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(NAME) --version $(VERSION) --app-version $(VERSION) --destination .
+
+.PHONY: helm-chart-admission
+helm-chart-admission: $(HELM)
+	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(ADMISSION_NAME)/charts/application --version $(VERSION) --app-version $(VERSION) --destination .
+	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(ADMISSION_NAME)/charts/runtime --version $(VERSION) --app-version $(VERSION) --destination .
+
+.PHONY: helm-charts
+helm-charts: helm-chart-provider helm-chart-admission
+
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
 #####################################################################
