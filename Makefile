@@ -181,6 +181,10 @@ extension-manifest: $(KUBECTL)
 extension-apply: $(KUBECTL)
 	@$(KUBECTL) apply -f remote/extension.yaml
 
+.PHONY: deploy-remote
+deploy-remote: docker-images docker-push helm-charts helm-push extension-manifest extension-apply
+	@echo "Successfully deployed extension to remote cluster"
+
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
 #####################################################################
