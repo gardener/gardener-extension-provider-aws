@@ -137,12 +137,14 @@ docker-push: docker-push-provider docker-push-admission
 
 .PHONY: helm-chart-provider
 helm-chart-provider: $(HELM)
-	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(NAME) --version $(VERSION) --app-version $(VERSION) --destination .
+	@mkdir -p remote
+	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(NAME) --version $(VERSION) --app-version $(VERSION) --destination remote
 
 .PHONY: helm-chart-admission
 helm-chart-admission: $(HELM)
-	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(ADMISSION_NAME)/charts/application --version $(VERSION) --app-version $(VERSION) --destination .
-	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(ADMISSION_NAME)/charts/runtime --version $(VERSION) --app-version $(VERSION) --destination .
+	@mkdir -p remote
+	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(ADMISSION_NAME)/charts/application --version $(VERSION) --app-version $(VERSION) --destination remote
+	@$(HELM) package ./charts/$(EXTENSION_PREFIX)-$(ADMISSION_NAME)/charts/runtime --version $(VERSION) --app-version $(VERSION) --destination remote
 
 .PHONY: helm-charts
 helm-charts: helm-chart-provider helm-chart-admission
@@ -150,13 +152,13 @@ helm-charts: helm-chart-provider helm-chart-admission
 .PHONY: helm-push-provider
 helm-push-provider: $(HELM) $(KUBECTL)
 	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
-	@$(HELM) push $(EXTENSION_PREFIX)-$(NAME)-$(VERSION).tgz oci://$(REGISTRY_URL)
+	@$(HELM) push remote/$(EXTENSION_PREFIX)-$(NAME)-$(VERSION).tgz oci://$(REGISTRY_URL)
 
 .PHONY: helm-push-admission
 helm-push-admission: $(HELM) $(KUBECTL)
 	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
-	@$(HELM) push $(ADMISSION_NAME)-application-$(VERSION).tgz oci://$(REGISTRY_URL)
-	@$(HELM) push $(ADMISSION_NAME)-runtime-$(VERSION).tgz oci://$(REGISTRY_URL)
+	@$(HELM) push remote/$(ADMISSION_NAME)-application-$(VERSION).tgz oci://$(REGISTRY_URL)
+	@$(HELM) push remote/$(ADMISSION_NAME)-runtime-$(VERSION).tgz oci://$(REGISTRY_URL)
 
 .PHONY: helm-push
 helm-push: helm-push-provider helm-push-admission
@@ -164,6 +166,7 @@ helm-push: helm-push-provider helm-push-admission
 .PHONY: extension-manifest
 extension-manifest: $(KUBECTL)
 	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
+	@mkdir -p remote
 	@yq eval '.spec.deployment.admission.runtimeCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-runtime:$(VERSION)" | \
 	          .spec.deployment.admission.virtualCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-application:$(VERSION)" | \
 	          .spec.deployment.extension.helm.ociRepository.ref = "$(REGISTRY_URL)/$(EXTENSION_PREFIX)-$(NAME):$(VERSION)" | \
@@ -171,8 +174,8 @@ extension-manifest: $(KUBECTL)
 	          .spec.deployment.admission.values.image.tag = "$(VERSION)" | \
 	          .spec.deployment.extension.values.image.repository = "$(REGISTRY_URL)/$(NAME)" | \
 	          .spec.deployment.extension.values.image.tag = "$(VERSION)"' \
-	          example/extension.yaml > extension-local.yaml
-	@echo "Created extension-local.yaml with registry $(REGISTRY_URL)"
+	          example/extension.yaml > remote/extension.yaml
+	@echo "Created remote/extension.yaml with registry $(REGISTRY_URL)"
 
 #####################################################################
 # Rules for verification, formatting, linting, testing and cleaning #
