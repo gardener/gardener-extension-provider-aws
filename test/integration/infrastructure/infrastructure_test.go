@@ -505,6 +505,94 @@ var _ = Describe("Infrastructure tests", func() {
 
 	})
 
+	Context("with BYO infrastructure (workersSubnetID + nodesSecurityGroupID)", func() {
+		It("should successfully create and delete with BYO worker subnet and security group", func() {
+			availabilityZone := *region + "b"
+
+			By("create VPC for BYO test")
+			enableDnsHostnames := true
+			assignIPv6CidrBlock := false
+			vpcID, igwID, _, err := integration.CreateVPC(ctx, log, awsClient, vpcCIDR, enableDnsHostnames, assignIPv6CidrBlock, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vpcID).NotTo(BeEmpty())
+			Expect(igwID).NotTo(BeEmpty())
+
+			framework.AddCleanupAction(func() {
+				Expect(integration.DestroyVPC(ctx, log, awsClient, vpcID)).To(Succeed())
+			})
+
+			By("create BYO worker subnet")
+			workerSubnetID, err := integration.CreateSubnetInZone(ctx, log, awsClient, vpcID, "10.250.0.0/19", "byo-workers", availabilityZone)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(workerSubnetID).NotTo(BeEmpty())
+
+			framework.AddCleanupAction(func() {
+				Expect(integration.DestroySubnet(ctx, log, awsClient, workerSubnetID)).To(Succeed())
+			})
+
+			By("create BYO public LB subnet")
+			publicLBSubnetID, err := integration.CreateSubnetInZone(ctx, log, awsClient, vpcID, "10.250.48.0/20", "byo-public-lb", availabilityZone)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(publicLBSubnetID).NotTo(BeEmpty())
+
+			framework.AddCleanupAction(func() {
+				Expect(integration.DestroySubnet(ctx, log, awsClient, publicLBSubnetID)).To(Succeed())
+			})
+
+			By("create BYO internal LB subnet")
+			internalLBSubnetID, err := integration.CreateSubnetInZone(ctx, log, awsClient, vpcID, "10.250.112.0/22", "byo-internal-lb", availabilityZone)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(internalLBSubnetID).NotTo(BeEmpty())
+
+			framework.AddCleanupAction(func() {
+				Expect(integration.DestroySubnet(ctx, log, awsClient, internalLBSubnetID)).To(Succeed())
+			})
+
+			By("create BYO nodes security group")
+			sgID, err := integration.CreateSecurityGroup(ctx, awsClient, "byo-nodes-sg", vpcID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(sgID).NotTo(BeEmpty())
+
+			framework.AddCleanupAction(func() {
+				Expect(integration.DestroySecurityGroup(ctx, log, awsClient, sgID)).To(Succeed())
+			})
+
+			By("create BYO infrastructure config")
+			providerConfig := &awsv1alpha1.InfrastructureConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+					Kind:       "InfrastructureConfig",
+				},
+				EnableECRAccess: ptr.To(true),
+				DualStack:       &awsv1alpha1.DualStack{Enabled: false},
+				Networks: awsv1alpha1.Networks{
+					VPC: awsv1alpha1.VPC{
+						ID: &vpcID,
+					},
+					NodesSecurityGroupID: &sgID,
+					Zones: []awsv1alpha1.Zone{
+						{
+							Name:             availabilityZone,
+							WorkersSubnetID:  &workerSubnetID,
+							PublicSubnetID:   &publicLBSubnetID,
+							InternalSubnetID: &internalLBSubnetID,
+						},
+					},
+				},
+				IgnoreTags: &awsv1alpha1.IgnoreTags{
+					Keys:        []string{ignoredTagKey1, ignoredTagKey2},
+					KeyPrefixes: []string{ignoredTagKeyPrefix1, ignoredTagKeyPrefix2},
+				},
+			}
+
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = runBYOTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, vpcID, workerSubnetID, publicLBSubnetID, internalLBSubnetID, sgID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
 	Context("with invalid credentials", func() {
 		It("should fail creation but succeed deletion", func() {
 			providerConfig := newProviderConfig(awsv1alpha1.VPC{
@@ -804,6 +892,335 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 	return nil
 }
 
+func runBYOTest(ctx context.Context, log logr.Logger, c client.Client, namespaceName string,
+	providerConfig *awsv1alpha1.InfrastructureConfig, decoder runtime.Decoder, awsClient *awsclient.Client,
+	byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID string) error {
+	var (
+		namespace *corev1.Namespace
+		cluster   *extensionsv1alpha1.Cluster
+		infra     *extensionsv1alpha1.Infrastructure
+	)
+
+	cleanupFunc := sync.OnceFunc(func() {
+		defer GinkgoRecover()
+		By("delete infrastructure")
+		Expect(client.IgnoreNotFound(c.Delete(ctx, infra))).To(Succeed())
+
+		By("wait until infrastructure is deleted")
+		err := extensions.WaitUntilExtensionObjectDeleted(
+			ctx,
+			c,
+			log,
+			infra,
+			extensionsv1alpha1.InfrastructureResource,
+			10*time.Second,
+			16*time.Minute,
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify BYO resources still exist after deletion")
+		verifyBYODeletion(ctx, awsClient, namespaceName, byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID)
+
+		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
+		Expect(client.IgnoreNotFound(c.Delete(ctx, cluster))).To(Succeed())
+	})
+	framework.AddCleanupAction(cleanupFunc)
+
+	By("create namespace for test execution")
+	namespace = &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespaceName,
+		},
+	}
+	if err := c.Create(ctx, namespace); err != nil {
+		return err
+	}
+
+	By("create cluster")
+	shootRaw, _ := json.Marshal(gardencorev1beta1.Shoot{
+		ObjectMeta: metav1.ObjectMeta{
+			UID: types.UID(namespaceName),
+		},
+		Spec: gardencorev1beta1.ShootSpec{
+			Networking: &gardencorev1beta1.Networking{
+				IPFamilies: []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4},
+			},
+		},
+	})
+
+	cluster = &extensionsv1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespaceName,
+		},
+		Spec: extensionsv1alpha1.ClusterSpec{
+			CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
+			Seed:         runtime.RawExtension{Raw: []byte("{}")},
+			Shoot:        runtime.RawExtension{Raw: shootRaw},
+		},
+	}
+	if err := c.Create(ctx, cluster); err != nil {
+		return err
+	}
+
+	By("deploy cloudprovider secret into namespace")
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloudprovider",
+			Namespace: namespaceName,
+		},
+		Data: map[string][]byte{
+			aws.AccessKeyID:     []byte(*accessKeyID),
+			aws.SecretAccessKey: []byte(*secretAccessKey),
+		},
+	}
+	if err := c.Create(ctx, secret); err != nil {
+		return err
+	}
+
+	By("create infrastructure")
+	infra, err := newInfrastructure(namespaceName, providerConfig)
+	if err != nil {
+		return err
+	}
+
+	if err := c.Create(ctx, infra); err != nil {
+		return err
+	}
+
+	By("wait until infrastructure is created")
+	if err := extensions.WaitUntilExtensionObjectReady(
+		ctx,
+		c,
+		log,
+		infra,
+		extensionsv1alpha1.InfrastructureResource,
+		10*time.Second,
+		30*time.Second,
+		16*time.Minute,
+		nil,
+	); err != nil {
+		return err
+	}
+
+	By("decode infrastructure status")
+	if err := c.Get(ctx, client.ObjectKey{Namespace: infra.Namespace, Name: infra.Name}, infra); err != nil {
+		return err
+	}
+
+	providerStatus := &awsv1alpha1.InfrastructureStatus{}
+	if _, _, err := decoder.Decode(infra.Status.ProviderStatus.Raw, nil, providerStatus); err != nil {
+		return err
+	}
+
+	By("verify BYO infrastructure creation")
+	verifyBYOCreation(ctx, awsClient, infra, providerStatus, byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID)
+
+	cleanupFunc()
+	return nil
+}
+
+// verifyBYOCreation verifies that BYO infrastructure was created correctly:
+// - VPC is the user-provided one
+// - Worker, public, and internal subnets are reported in status
+// - Security group is reported in status
+// - No Gardener-managed subnets, NAT gateways, elastic IPs, or route tables were created
+// - IAM resources are created
+// - Worker subnet is tagged with the cluster tag
+// - Public subnet is tagged with cluster tag + kubernetes.io/role/elb=1
+// - Internal subnet is tagged with cluster tag + kubernetes.io/role/internal-elb=1
+func verifyBYOCreation(
+	ctx context.Context,
+	awsClient *awsclient.Client,
+	infra *extensionsv1alpha1.Infrastructure,
+	infraStatus *awsv1alpha1.InfrastructureStatus,
+	byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID string,
+) {
+	// VPC should be the user-provided one
+	Expect(infraStatus.VPC.ID).To(Equal(byoVpcID))
+
+	// Worker subnet should be reported in status with purpose=nodes
+	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{
+		Purpose: awsv1alpha1.PurposeNodes,
+		ID:      byoWorkerSubnetID,
+		Zone:    *region + "b",
+	}))
+
+	// Public subnet should be reported in status with purpose=public
+	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{
+		Purpose: awsv1alpha1.PurposePublic,
+		ID:      byoPublicSubnetID,
+		Zone:    *region + "b",
+	}))
+
+	// Internal subnet should be reported in status with purpose=internal
+	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{
+		Purpose: awsv1alpha1.PurposeInternal,
+		ID:      byoInternalSubnetID,
+		Zone:    *region + "b",
+	}))
+
+	// Security group should be reported in status with purpose=nodes
+	Expect(infraStatus.VPC.SecurityGroups).To(ContainElement(awsv1alpha1.SecurityGroup{
+		Purpose: awsv1alpha1.PurposeNodes,
+		ID:      byoSecurityGroupID,
+	}))
+
+	// Worker subnet should be tagged with the cluster tag (value=shared for BYO)
+	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+		SubnetIds: []string{byoWorkerSubnetID},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeSubnetsOutput.Subnets).To(HaveLen(1))
+	Expect(describeSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
+		Value: awssdk.String("shared"),
+	}))
+
+	// Public LB subnet should be tagged with cluster tag AND role tag by Gardener
+	describePublicSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+		SubnetIds: []string{byoPublicSubnetID},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describePublicSubnetsOutput.Subnets).To(HaveLen(1))
+	Expect(describePublicSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
+		Value: awssdk.String("shared"),
+	}))
+	Expect(describePublicSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
+		Value: awssdk.String("1"),
+	}))
+
+	// Internal LB subnet should be tagged with cluster tag AND role tag by Gardener
+	describeInternalSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+		SubnetIds: []string{byoInternalSubnetID},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeInternalSubnetsOutput.Subnets).To(HaveLen(1))
+	Expect(describeInternalSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
+		Value: awssdk.String("shared"),
+	}))
+	Expect(describeInternalSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesRoleTagPrefix + "internal-elb"),
+		Value: awssdk.String("1"),
+	}))
+
+	// Gardener should NOT have created any NAT gateways in the VPC
+	describeNatGatewaysOutput, err := awsClient.EC2.DescribeNatGateways(ctx, &ec2.DescribeNatGatewaysInput{
+		Filter: []ec2types.Filter{
+			{
+				Name:   awssdk.String("vpc-id"),
+				Values: []string{byoVpcID},
+			},
+			{
+				Name:   awssdk.String("state"),
+				Values: []string{"available"},
+			},
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeNatGatewaysOutput.NatGateways).To(BeEmpty(), "Gardener should not create NAT gateways in BYO mode")
+
+	// Gardener should NOT have created any elastic IPs (tagged with cluster tag)
+	describeAddressesOutput, err := awsClient.EC2.DescribeAddresses(ctx, &ec2.DescribeAddressesInput{
+		Filters: []ec2types.Filter{
+			{
+				Name:   awssdk.String("tag:" + kubernetesClusterTagPrefix + infra.Namespace),
+				Values: []string{"1"},
+			},
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeAddressesOutput.Addresses).To(BeEmpty(), "Gardener should not create elastic IPs in BYO mode")
+
+	// Gardener should NOT have created any VPC endpoints
+	describeVpcEndpointsOutput, err := awsClient.EC2.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{
+		Filters: []ec2types.Filter{
+			{
+				Name:   awssdk.String("vpc-id"),
+				Values: []string{byoVpcID},
+			},
+			{
+				Name:   awssdk.String("tag:" + kubernetesClusterTagPrefix + infra.Namespace),
+				Values: []string{"1"},
+			},
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeVpcEndpointsOutput.VpcEndpoints).To(BeEmpty(), "Gardener should not create VPC endpoints in BYO mode")
+
+	// IAM resources should still be created
+	getRoleOutput, err := awsClient.IAM.GetRole(ctx, &iam.GetRoleInput{RoleName: awssdk.String(infra.Namespace + "-nodes")})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(getRoleOutput.Role).NotTo(BeNil())
+
+	getInstanceProfileOutput, err := awsClient.IAM.GetInstanceProfile(ctx, &iam.GetInstanceProfileInput{InstanceProfileName: awssdk.String(infra.Namespace + "-nodes")})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(getInstanceProfileOutput.InstanceProfile).NotTo(BeNil())
+}
+
+// verifyBYODeletion verifies that BYO resources are NOT deleted by Gardener,
+// cluster tags are removed from BYO subnets, role tags are preserved on LB subnets,
+// and IAM resources are cleaned up.
+func verifyBYODeletion(
+	ctx context.Context,
+	awsClient *awsclient.Client,
+	namespaceName string,
+	byoVpcID, byoWorkerSubnetID, byoPublicSubnetID, byoInternalSubnetID, byoSecurityGroupID string,
+) {
+	clusterTagKey := kubernetesClusterTagPrefix + namespaceName
+
+	// BYO VPC should still exist
+	describeVpcsOutput, err := awsClient.EC2.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{VpcIds: []string{byoVpcID}})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeVpcsOutput.Vpcs).To(HaveLen(1))
+
+	// BYO worker subnet should still exist, cluster tag removed
+	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{byoWorkerSubnetID}})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeSubnetsOutput.Subnets).To(HaveLen(1))
+	for _, tag := range describeSubnetsOutput.Subnets[0].Tags {
+		Expect(*tag.Key).NotTo(Equal(clusterTagKey), "cluster tag should be removed from BYO worker subnet on deletion")
+	}
+
+	// BYO public LB subnet should still exist, cluster tag removed, role tag preserved
+	describePublicOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{byoPublicSubnetID}})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describePublicOutput.Subnets).To(HaveLen(1))
+	for _, tag := range describePublicOutput.Subnets[0].Tags {
+		Expect(*tag.Key).NotTo(Equal(clusterTagKey), "cluster tag should be removed from BYO public subnet on deletion")
+	}
+	Expect(describePublicOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesRoleTagPrefix + "elb"),
+		Value: awssdk.String("1"),
+	}), "role tag kubernetes.io/role/elb should be preserved on BYO public subnet after deletion")
+
+	// BYO internal LB subnet should still exist, cluster tag removed, role tag preserved
+	describeInternalOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{byoInternalSubnetID}})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeInternalOutput.Subnets).To(HaveLen(1))
+	for _, tag := range describeInternalOutput.Subnets[0].Tags {
+		Expect(*tag.Key).NotTo(Equal(clusterTagKey), "cluster tag should be removed from BYO internal subnet on deletion")
+	}
+	Expect(describeInternalOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
+		Key:   awssdk.String(kubernetesRoleTagPrefix + "internal-elb"),
+		Value: awssdk.String("1"),
+	}), "role tag kubernetes.io/role/internal-elb should be preserved on BYO internal subnet after deletion")
+
+	// BYO security group should still exist
+	describeSecurityGroupsOutput, err := awsClient.EC2.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{GroupIds: []string{byoSecurityGroupID}})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(describeSecurityGroupsOutput.SecurityGroups).To(HaveLen(1))
+
+	// IAM resources should be cleaned up
+	_, err = awsClient.IAM.GetRole(ctx, &iam.GetRoleInput{RoleName: awssdk.String(namespaceName + "-nodes")})
+	Expect(err).To(HaveOccurred())
+	var awsErr smithy.APIError
+	Expect(errors.As(err, &awsErr)).To(BeTrue())
+	Expect(awsErr.ErrorCode()).To(Equal("NoSuchEntity"))
+}
+
 func newProviderConfig(vpc awsv1alpha1.VPC) *awsv1alpha1.InfrastructureConfig {
 	return newProviderConfigConfigureZones(vpc, true)
 }
@@ -823,13 +1240,13 @@ func newProviderConfigConfigureZones(vpc awsv1alpha1.VPC, configureZoneIPs bool)
 			Zones: []awsv1alpha1.Zone{
 				{
 					Name:     availabilityZone,
-					Internal: "10.250.112.0/22",
-					Public:   "10.250.96.0/22",
-					Workers: func() string {
+					Internal: ptr.To("10.250.112.0/22"),
+					Public:   ptr.To("10.250.96.0/22"),
+					Workers: func() *string {
 						if configureZoneIPs {
-							return "10.250.0.0/19"
+							return ptr.To("10.250.0.0/19")
 						}
-						return ""
+						return nil
 					}(),
 				},
 			},
@@ -1057,9 +1474,9 @@ func verifyCreation(
 	// security groups + security group rules
 
 	var (
-		internalCIDR = providerConfig.Networks.Zones[0].Internal
-		workersCIDR  = providerConfig.Networks.Zones[0].Workers
-		publicCIDR   = providerConfig.Networks.Zones[0].Public
+		internalCIDR = ptr.Deref(providerConfig.Networks.Zones[0].Internal, "")
+		workersCIDR  = ptr.Deref(providerConfig.Networks.Zones[0].Workers, "")
+		publicCIDR   = ptr.Deref(providerConfig.Networks.Zones[0].Public, "")
 	)
 
 	accountID, err := awsClient.GetAccountID(ctx)

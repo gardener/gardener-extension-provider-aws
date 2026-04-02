@@ -19,7 +19,13 @@ import (
 
 // CreateSubnet creates a new subnet and waits for it to become available.
 func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string, cidr string, name string) (string, error) {
-	output, err := awsClient.EC2.CreateSubnet(ctx, &ec2.CreateSubnetInput{
+	return CreateSubnetInZone(ctx, log, awsClient, vpcID, cidr, name, "")
+}
+
+// CreateSubnetInZone creates a new subnet in a specific availability zone and waits for it to become available.
+// If availabilityZone is empty, AWS picks the default AZ.
+func CreateSubnetInZone(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string, cidr string, name string, availabilityZone string) (string, error) {
+	input := &ec2.CreateSubnetInput{
 		CidrBlock: aws.String(cidr),
 		VpcId:     aws.String(vpcID),
 		TagSpecifications: []ec2types.TagSpecification{
@@ -33,7 +39,12 @@ func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Cli
 				},
 			},
 		},
-	})
+	}
+	if availabilityZone != "" {
+		input.AvailabilityZone = aws.String(availabilityZone)
+	}
+
+	output, err := awsClient.EC2.CreateSubnet(ctx, input)
 	if err != nil {
 		return "", err
 	}

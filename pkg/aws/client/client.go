@@ -1576,6 +1576,71 @@ func (c *Client) FindRouteTablesByTags(ctx context.Context, tags Tags) ([]*Route
 	return c.describeRouteTables(ctx, input)
 }
 
+// FindRouteTablesForSubnets finds route tables associated with the given subnets in a VPC.
+// It first queries for route tables that have explicit subnet associations. For any subnets
+// that do not have an explicit association, the VPC's main route table is included as a fallback
+// (since subnets without explicit associations implicitly use the main route table).
+func (c *Client) FindRouteTablesForSubnets(ctx context.Context, vpcID string, subnetIDs []string) ([]*RouteTable, error) {
+	// Find route tables with explicit subnet associations
+	input := &ec2.DescribeRouteTablesInput{
+		Filters: []ec2types.Filter{
+			{Name: aws.String("vpc-id"), Values: []string{vpcID}},
+			{Name: aws.String("association.subnet-id"), Values: subnetIDs},
+		},
+	}
+	tables, err := c.describeRouteTables(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check which subnets are covered by explicit associations
+	coveredSubnets := sets.New[string]()
+	for _, table := range tables {
+		for _, assoc := range table.Associations {
+			if assoc.SubnetId != nil {
+				coveredSubnets.Insert(*assoc.SubnetId)
+			}
+		}
+	}
+
+	// If all subnets are covered, no need to look up the main route table
+	allCovered := true
+	for _, id := range subnetIDs {
+		if !coveredSubnets.Has(id) {
+			allCovered = false
+			break
+		}
+	}
+	if allCovered {
+		return tables, nil
+	}
+
+	// Some subnets have no explicit route table — they use the VPC's main route table
+	mainInput := &ec2.DescribeRouteTablesInput{
+		Filters: []ec2types.Filter{
+			{Name: aws.String("vpc-id"), Values: []string{vpcID}},
+			{Name: aws.String("association.main"), Values: []string{"true"}},
+		},
+	}
+	mainTables, err := c.describeRouteTables(ctx, mainInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// Deduplicate (unlikely, but be safe)
+	seen := sets.New[string]()
+	for _, t := range tables {
+		seen.Insert(t.RouteTableId)
+	}
+	for _, t := range mainTables {
+		if !seen.Has(t.RouteTableId) {
+			tables = append(tables, t)
+		}
+	}
+
+	return tables, nil
+}
+
 func (c *Client) describeRouteTables(ctx context.Context, input *ec2.DescribeRouteTablesInput) ([]*RouteTable, error) {
 	output, err := c.EC2.DescribeRouteTables(ctx, input)
 	if err != nil {

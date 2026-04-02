@@ -12,6 +12,7 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	cidrvalidation "github.com/gardener/gardener/pkg/utils/validation/cidr"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -46,7 +47,7 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 
 	usedZones := sets.New[string]()
 	for i, zone := range infra.Networks.Zones {
-		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && oldInfra.Networks.Zones[i] == zone {
+		if oldInfra != nil && len(oldInfra.Networks.Zones) > i && apiequality.Semantic.DeepEqual(oldInfra.Networks.Zones[i], zone) {
 			usedZones.Insert(zone.Name)
 			continue
 		}
@@ -96,43 +97,155 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 				allErrs = append(allErrs, field.Invalid(epsPath.Index(i), svc, "must be a valid DNS subdomain"))
 			}
 		}
+		// Gateway endpoints require route table associations to function. In BYO mode, Gardener
+		// does not manage route tables, so endpoints cannot be associated and would be non-functional.
+		if len(infra.Networks.Zones) > 0 && infra.Networks.Zones[0].WorkersSubnetID != nil {
+			allErrs = append(allErrs, field.Forbidden(epsPath,
+				"gatewayEndpoints are not supported in BYO mode (workersSubnetID); "+
+					"VPC gateway endpoints require route table associations that Gardener cannot manage in BYO mode; "+
+					"create and manage VPC endpoints independently"))
+		}
+	}
+
+	idProvided := infra.Networks.VPC.ID != nil
+	cidrProvided := infra.Networks.VPC.CIDR != nil
+
+	// Validate NodesSecurityGroupID
+	if infra.Networks.NodesSecurityGroupID != nil {
+		sgPath := networksPath.Child("nodesSecurityGroupID")
+		allErrs = append(allErrs, validateSecurityGroupID(*infra.Networks.NodesSecurityGroupID, sgPath)...)
+		if !idProvided {
+			allErrs = append(allErrs, field.Forbidden(sgPath, "nodesSecurityGroupID requires VPC.ID to be set (existing VPC)"))
+		}
 	}
 
 	var (
 		cidrs                            = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones)*3)
 		workerCIDRs                      = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones))
 		referencedElasticIPAllocationIDs []string
+		referencedSubnetIDs              = sets.New[string]()
 	)
+
+	// Validate that all zones use the same approach: either all BYO (workersSubnetID) or all managed (workers CIDR).
+	// Mixed setups are forbidden because Gardener-managed zones require an Internet Gateway (for public
+	// subnets and NAT gateways), while BYO zones typically don't, creating conflicting infrastructure requirements.
+	if len(infra.Networks.Zones) > 0 {
+		hasBYO := false
+		hasManaged := false
+		for _, zone := range infra.Networks.Zones {
+			if zone.WorkersSubnetID != nil {
+				hasBYO = true
+			}
+			if zone.Workers != nil {
+				hasManaged = true
+			}
+		}
+		if hasBYO && hasManaged {
+			allErrs = append(allErrs, field.Forbidden(networksPath.Child("zones"),
+				"all zones must use the same approach: either all workersSubnetID (BYO) or all workers CIDR (Gardener-managed); mixing is not allowed"))
+		}
+		if !hasBYO && !hasManaged {
+			allErrs = append(allErrs, field.Required(networksPath.Child("zones"),
+				"each zone must specify either workers (CIDR) or workersSubnetID"))
+		}
+
+		// In BYO mode, Gardener does not create EFS file systems or mount targets.
+		// The user must provide an existing EFS file system ID.
+		if hasBYO && infra.ElasticFileSystem != nil && infra.ElasticFileSystem.Enabled && infra.ElasticFileSystem.ID == nil {
+			allErrs = append(allErrs, field.Required(field.NewPath("elasticFileSystem", "id"),
+				"elasticFileSystem.id is required in BYO mode (workersSubnetID); "+
+					"Gardener does not create EFS file systems or mount targets in BYO mode"))
+		}
+	}
 
 	for i, zone := range infra.Networks.Zones {
 		zonePath := networksPath.Child("zones").Index(i)
-
 		allErrs = append(allErrs, validateZoneName(zone.Name, zonePath.Child("name"))...)
 
-		publicPath := zonePath.Child("public")
-		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Public, publicPath))
-		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(publicPath, zone.Public)...)
+		// Determine which fields are set
+		hasWorkersCIDR := zone.Workers != nil
+		hasWorkersSubnetID := zone.WorkersSubnetID != nil
+		hasInternalCIDR := zone.Internal != nil
+		hasPublicCIDR := zone.Public != nil
 
-		internalPath := zonePath.Child("internal")
-		cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Internal, internalPath))
-		allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, zone.Internal)...)
+		// Validate workers: exactly one of Workers CIDR or WorkersSubnetID must be provided
+		allErrs = append(allErrs, validateZoneSubnetSpec(
+			zonePath, "workers", "workersSubnetID",
+			hasWorkersCIDR, hasWorkersSubnetID, zone.WorkersSubnetID,
+			idProvided, &referencedSubnetIDs,
+		)...)
 
-		if ipFamilies == nil || slices.Contains(ipFamilies, core.IPFamilyIPv4) {
-			workerPath := zonePath.Child("workers")
-			cidrs = append(cidrs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
-			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
-			workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
+		// When using BYO worker subnets, internal and public CIDRs are forbidden.
+		// In BYO mode, all subnets must be user-managed; LB subnets are discovered via AWS tags.
+		if hasWorkersSubnetID {
+			if hasInternalCIDR {
+				allErrs = append(allErrs, field.Forbidden(zonePath.Child("internal"),
+					"internal CIDR is forbidden when workersSubnetID is set; in BYO mode all subnets must be user-managed and LB subnets are discovered via tags"))
+			}
+			if hasPublicCIDR {
+				allErrs = append(allErrs, field.Forbidden(zonePath.Child("public"),
+					"public CIDR is forbidden when workersSubnetID is set; in BYO mode all subnets must be user-managed and LB subnets are discovered via tags"))
+			}
+
+			// Validate optional BYO LB subnet IDs
+			if zone.PublicSubnetID != nil {
+				allErrs = append(allErrs, validateSubnetIDField(
+					zonePath.Child("publicSubnetID"), zone.PublicSubnetID,
+					idProvided, &referencedSubnetIDs,
+				)...)
+			}
+			if zone.InternalSubnetID != nil {
+				allErrs = append(allErrs, validateSubnetIDField(
+					zonePath.Child("internalSubnetID"), zone.InternalSubnetID,
+					idProvided, &referencedSubnetIDs,
+				)...)
+			}
+		} else {
+			// PublicSubnetID and InternalSubnetID are only allowed in BYO mode
+			if zone.PublicSubnetID != nil {
+				allErrs = append(allErrs, field.Forbidden(zonePath.Child("publicSubnetID"),
+					"publicSubnetID is only allowed when workersSubnetID is set (BYO mode)"))
+			}
+			if zone.InternalSubnetID != nil {
+				allErrs = append(allErrs, field.Forbidden(zonePath.Child("internalSubnetID"),
+					"internalSubnetID is only allowed when workersSubnetID is set (BYO mode)"))
+			}
 		}
 
+		// Add CIDRs in the original order (public, internal, workers) for backward-compatible
+		// overlap error messages. Internal and public are optional.
+		if hasPublicCIDR {
+			publicPath := zonePath.Child("public")
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(*zone.Public, publicPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(publicPath, *zone.Public)...)
+		}
+		if hasInternalCIDR {
+			internalPath := zonePath.Child("internal")
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(*zone.Internal, internalPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(internalPath, *zone.Internal)...)
+		}
+		if hasWorkersCIDR && (ipFamilies == nil || slices.Contains(ipFamilies, core.IPFamilyIPv4)) {
+			workerPath := zonePath.Child("workers")
+			cidrs = append(cidrs, cidrvalidation.NewCIDR(*zone.Workers, workerPath))
+			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, *zone.Workers)...)
+			workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(*zone.Workers, workerPath))
+		}
+
+		// ElasticIPAllocationID is only valid with Gardener-managed subnets (Workers + Public CIDRs)
 		if zone.ElasticIPAllocationID != nil {
+			eipPath := zonePath.Child("elasticIPAllocationID")
+			if !hasWorkersCIDR || !hasPublicCIDR {
+				allErrs = append(allErrs, field.Forbidden(eipPath,
+					"elasticIPAllocationID is only valid when workers and public CIDRs are provided (Gardener-managed subnets)"))
+			}
 			for _, eIP := range referencedElasticIPAllocationIDs {
 				if eIP == *zone.ElasticIPAllocationID {
-					allErrs = append(allErrs, field.Duplicate(zonePath.Child("elasticIPAllocationID"), *zone.ElasticIPAllocationID))
+					allErrs = append(allErrs, field.Duplicate(eipPath, *zone.ElasticIPAllocationID))
 					break
 				}
 			}
 			referencedElasticIPAllocationIDs = append(referencedElasticIPAllocationIDs, *zone.ElasticIPAllocationID)
-			allErrs = append(allErrs, validateEipAllocationID(*zone.ElasticIPAllocationID, zonePath.Child("elasticIPAllocationID"))...)
+			allErrs = append(allErrs, validateEipAllocationID(*zone.ElasticIPAllocationID, eipPath)...)
 		}
 	}
 
@@ -142,8 +255,6 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		allErrs = append(allErrs, nodes.ValidateSubset(workerCIDRs...)...)
 	}
 
-	idProvided := infra.Networks.VPC.ID != nil
-	cidrProvided := infra.Networks.VPC.CIDR != nil
 	switch {
 	case !idProvided && !cidrProvided:
 		allErrs = append(allErrs, field.Invalid(networksPath.Child("vpc"), infra.Networks.VPC, "must specify either a vpc id or a cidr"))
@@ -175,6 +286,61 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 	return allErrs
 }
 
+// validateZoneSubnetSpec validates that exactly one of CIDR or SubnetID is provided for a required subnet type (workers).
+func validateZoneSubnetSpec(
+	zonePath *field.Path, cidrFieldName, subnetIDFieldName string,
+	hasCIDR, hasSubnetID bool, subnetID *string,
+	vpcIDProvided bool, referencedSubnetIDs *sets.Set[string],
+) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if !hasCIDR && !hasSubnetID {
+		allErrs = append(allErrs, field.Required(zonePath,
+			fmt.Sprintf("must specify either %s (CIDR) or %s", cidrFieldName, subnetIDFieldName)))
+		return allErrs
+	}
+
+	if hasCIDR && hasSubnetID {
+		allErrs = append(allErrs, field.Invalid(zonePath.Child(cidrFieldName), "",
+			fmt.Sprintf("cannot specify both %s (CIDR) and %s", cidrFieldName, subnetIDFieldName)))
+	}
+
+	if hasSubnetID {
+		allErrs = append(allErrs, validateSubnetIDField(
+			zonePath.Child(subnetIDFieldName), subnetID,
+			vpcIDProvided, referencedSubnetIDs,
+		)...)
+	}
+
+	return allErrs
+}
+
+// validateSubnetIDField validates a subnet ID reference field.
+func validateSubnetIDField(
+	fldPath *field.Path, subnetID *string,
+	vpcIDProvided bool, referencedSubnetIDs *sets.Set[string],
+) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if subnetID == nil {
+		return allErrs
+	}
+
+	allErrs = append(allErrs, validateSubnetID(*subnetID, fldPath)...)
+
+	if !vpcIDProvided {
+		allErrs = append(allErrs, field.Forbidden(fldPath,
+			"subnet ID references require VPC.ID to be set (existing VPC)"))
+	}
+
+	if referencedSubnetIDs.Has(*subnetID) {
+		allErrs = append(allErrs, field.Duplicate(fldPath, *subnetID))
+	}
+	referencedSubnetIDs.Insert(*subnetID)
+
+	return allErrs
+}
+
 // ValidateInfrastructureConfigUpdate validates a InfrastructureConfig object.
 func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.InfrastructureConfig) field.ErrorList {
 	allErrs := field.ErrorList{}
@@ -192,6 +358,13 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newVPC.ID, oldVPC.ID, vpcPath.Child("id"))...)
 	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newVPC.CIDR, oldVPC.CIDR, vpcPath.Child("cidr"))...)
 
+	// NodesSecurityGroupID is immutable once set
+	allErrs = append(allErrs, apivalidation.ValidateImmutableField(
+		newConfig.Networks.NodesSecurityGroupID,
+		oldConfig.Networks.NodesSecurityGroupID,
+		field.NewPath("networks.nodesSecurityGroupID"),
+	)...)
+
 	var (
 		oldZones = oldConfig.Networks.Zones
 		newZones = newConfig.Networks.Zones
@@ -204,10 +377,29 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 
 	for i, oldZone := range oldZones {
 		idxPath := field.NewPath("networks.zones").Index(i)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Name, oldZone.Name, idxPath.Child("name"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Public, oldZone.Public, idxPath.Child("public"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Internal, oldZone.Internal, idxPath.Child("internal"))...)
-		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Workers, oldZone.Workers, idxPath.Child("workers"))...)
+		newZone := newConfig.Networks.Zones[i]
+
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.Name, oldZone.Name, idxPath.Child("name"))...)
+
+		// CIDRs are immutable when set (backward compatible - nil means "not set")
+		if oldZone.Public != nil {
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.Public, oldZone.Public, idxPath.Child("public"))...)
+		}
+		if oldZone.Internal != nil {
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.Internal, oldZone.Internal, idxPath.Child("internal"))...)
+		}
+		if oldZone.Workers != nil {
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.Workers, oldZone.Workers, idxPath.Child("workers"))...)
+		}
+
+		// Subnet IDs are immutable once set
+		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.WorkersSubnetID, oldZone.WorkersSubnetID, idxPath.Child("workersSubnetID"))...)
+		if oldZone.PublicSubnetID != nil {
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.PublicSubnetID, oldZone.PublicSubnetID, idxPath.Child("publicSubnetID"))...)
+		}
+		if oldZone.InternalSubnetID != nil {
+			allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZone.InternalSubnetID, oldZone.InternalSubnetID, idxPath.Child("internalSubnetID"))...)
+		}
 	}
 	if oldConfig.DualStack != nil && oldConfig.DualStack.Enabled && (newConfig.DualStack == nil || !newConfig.DualStack.Enabled) {
 		dualStackPath := field.NewPath("dualStack.enabled")
