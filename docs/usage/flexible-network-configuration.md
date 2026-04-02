@@ -537,7 +537,7 @@ When network overlay is disabled (no VXLAN/Geneve encapsulation), Gardener deplo
 **In BYO mode**, the custom route controller will still be enabled when overlay is disabled. Since Gardener does not create route tables in BYO mode, the controller discovers them via tags. Users must ensure:
 
 - The route table(s) associated with worker subnets are tagged with `kubernetes.io/cluster/<cluster-name>=shared`
-- The AWS VPC route table limit (50 routes by default, expandable to 1000) is sufficient for the number of nodes
+- The AWS VPC route table limit (500 routes by default, expandable to 1000) is sufficient for the number of nodes
 
 If overlay networking **is** enabled (default), the custom route controller is disabled and no route table tagging is needed for pod CIDR routing.
 
@@ -549,7 +549,7 @@ If overlay networking **is** enabled (default), the custom route controller is d
 |---|---|
 | Worker subnets must have a route table with outbound connectivity | Always (user responsibility, not validated) |
 | Route table tagged with `kubernetes.io/cluster/<name>=shared` | Only when overlay is disabled (custom route controller needs it) |
-| Route table has capacity for pod CIDR routes (50 default, expandable to 1000) | Only when overlay is disabled |
+| Route table has capacity for pod CIDR routes (500 default, expandable to 1000) | Only when overlay is disabled |
 
 ### Load Balancer Subnet Discovery
 
@@ -695,7 +695,7 @@ Users who need VPC gateway endpoints in BYO mode must create and manage them ind
 
 The current bastion controller creates a bastion EC2 instance in a **Gardener-managed public subnet** (`<cluster>-public-utility-z0`). In BYO mode where no public subnets are created by Gardener, bastion creation will fail. Users needing SSH access to worker nodes in BYO mode should use [AWS Systems Manager Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html) or a bastion host in a user-managed public subnet.
 
-> **Future work:** The bastion controller should be updated to support BYO mode, potentially by using a worker subnet with a public IP or by integrating with SSM.
+> **Future work:** The bastion controller should be updated to support BYO mode, potentially by using a worker subnet with a public IP or by integrating with SSM. See [#109](https://github.com/gardener/gardener-extension-provider-aws/issues/109).
 
 #### EFS (Elastic File System) in BYO Mode
 
