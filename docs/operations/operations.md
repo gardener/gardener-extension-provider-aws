@@ -333,3 +333,19 @@ If updateStrategy _is_ set to `inPlace` and `NewWorkerPoolHash` _is_ enabled,
 all the fields mentioned above except of the providerConifg are used.
 
 If in-place-updates are enabled for a worker-pool, then updates to the fields that trigger rolling updates will be disallowed.
+
+## Feature Gates
+
+The `gardener-extension-provider-aws` controller supports the following feature gates, which can be configured via `.config.featureGates` in the Helm values:
+
+| Feature Gate | Default | Description |
+|---|---|---|
+| `MTUCustomizer` | `true` | Controls whether the `mtu-customizer` DaemonSet and its ConfigMap are deployed on the seed cluster. The DaemonSet sets the MTU of non-virtual network interfaces on seed nodes to `1460`. Disable this feature gate to prevent the DaemonSet from being deployed for all seeds managed by this controller. Note: per-shoot MTU customization on worker nodes is controlled separately via the `enableMTUCustomizer` field in `InfrastructureConfig`. |
+
+Example Helm values to disable the feature gate:
+
+```yaml
+config:
+  featureGates:
+    MTUCustomizer: false
+```

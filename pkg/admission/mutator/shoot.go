@@ -161,6 +161,20 @@ func (s *shoot) Mutate(_ context.Context, newObj, oldObj client.Object) error {
 			}
 		}
 	}
+
+	infraConfig, err := s.decodeInfrastructureConfig(shoot.Spec.Provider.InfrastructureConfig)
+	if err != nil {
+		return err
+	}
+
+	if infraConfig.EnableMTUCustomizer == nil && oldShoot == nil {
+		// New cluster: default to false
+		infraConfig.EnableMTUCustomizer = ptr.To(false)
+		shoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{
+			Object: infraConfig,
+		}
+	}
+
 	return nil
 }
 
@@ -177,6 +191,21 @@ func (s *shoot) decodeControlplaneConfig(controlPlaneConfig *runtime.RawExtensio
 		}
 	}
 	return cp, nil
+}
+
+func (s *shoot) decodeInfrastructureConfig(infraConfig *runtime.RawExtension) (*awsv1alpha1.InfrastructureConfig, error) {
+	infra := &awsv1alpha1.InfrastructureConfig{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: awsv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "InfrastructureConfig",
+		},
+	}
+	if infraConfig != nil && infraConfig.Raw != nil {
+		if _, _, err := s.decoder.Decode(infraConfig.Raw, nil, infra); err != nil {
+			return nil, err
+		}
+	}
+	return infra, nil
 }
 
 func (s *shoot) decodeNetworkConfig(network *runtime.RawExtension) (map[string]interface{}, error) {

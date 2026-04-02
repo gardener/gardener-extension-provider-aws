@@ -6,6 +6,7 @@ package mutator_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/mutator"
+	awsinstall "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
@@ -43,6 +45,7 @@ var _ = Describe("Shoot mutator", func() {
 
 			scheme := runtime.NewScheme()
 			Expect(gardencorev1beta1.AddToScheme(scheme)).To(Succeed())
+			Expect(awsinstall.AddToScheme(scheme)).To(Succeed())
 
 			mgr = mockmanager.NewMockManager(ctrl)
 			mgr.EXPECT().GetScheme().Return(scheme)
@@ -363,6 +366,38 @@ var _ = Describe("Shoot mutator", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(shoot.Spec.SystemComponents.NodeLocalDNS.ForceTCPToUpstreamDNS).ToNot(BeNil())
 				Expect(*shoot.Spec.SystemComponents.NodeLocalDNS.ForceTCPToUpstreamDNS).To(BeFalse())
+			})
+		})
+
+		Context("Mutate InfrastructureConfig EnableMTUCustomizer default", func() {
+			infraConfigWithMTU := func(enabled bool) *runtime.RawExtension {
+				return &runtime.RawExtension{
+					Raw: []byte(fmt.Sprintf(`{"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1","kind":"InfrastructureConfig","networks":{"vpc":{"cidr":"10.250.0.0/16"}},"enableMTUCustomizer":%v}`, enabled)),
+				}
+			}
+
+			It("should default enableMTUCustomizer to false for a new shoot", func() {
+				err := shootMutator.Mutate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(shoot.Spec.Provider.InfrastructureConfig).NotTo(BeNil())
+				infra, ok := shoot.Spec.Provider.InfrastructureConfig.Object.(*awsv1alpha1.InfrastructureConfig)
+				Expect(ok).To(BeTrue())
+				Expect(infra.EnableMTUCustomizer).NotTo(BeNil())
+				Expect(*infra.EnableMTUCustomizer).To(BeFalse())
+			})
+
+			It("should not set enableMTUCustomizer for an existing shoot that never set the field", func() {
+				shoot.Spec.Kubernetes.Version = "1.35.0"
+				err := shootMutator.Mutate(ctx, shoot, oldShoot)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(shoot.Spec.Provider.InfrastructureConfig).To(BeNil())
+			})
+
+			It("should not overwrite an explicitly set enableMTUCustomizer on a new shoot", func() {
+				shoot.Spec.Provider.InfrastructureConfig = infraConfigWithMTU(true)
+				err := shootMutator.Mutate(ctx, shoot, nil)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(shoot.Spec.Provider.InfrastructureConfig.Raw).NotTo(BeNil())
 			})
 		})
 	})

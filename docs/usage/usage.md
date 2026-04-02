@@ -289,9 +289,9 @@ Please note that if the `iamInstanceProfile` is set for a worker pool in the `Wo
 It only applies for those worker pools whose `iamInstanceProfile` is not set.
 
 The `enableMTUCustomizer` flag controls whether a systemd unit and script are deployed to the shoot worker nodes that set the MTU of all non-virtual network interfaces to `1460`.
-This is a legacy mechanism from a time when CNIs lacked automatic MTU detection. Modern CNIs detect and configure the MTU automatically, so this flag is typically not needed for new clusters.
+This is a legacy mechanism from a time when CNIs lacked automatic MTU detection. Modern CNIs detect and configure the MTU automatically, so new clusters should explicitly set this flag to `false`.
 It may still be useful in environments where the default AWS MTU of `9001` causes connectivity issues with peers that have a lower MTU (e.g. `1500`) and the CNI does not handle this automatically.
-If the flag is not provided it defaults to `true`.
+If the flag is not provided, the admission webhook defaults it to `false` for newly created shoots. For existing shoots the field remains unset, which also defaults to `true` for backwards compatibility.
 
 <details>
   <summary>Click to expand the default AWS IAM policy document used for the instance profiles!</summary>
