@@ -7,6 +7,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
@@ -15,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -92,8 +94,13 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	return allErrs
 }
 
-func (c *configValidator) validateVPC(ctx context.Context, fldPath *field.Path, awsClient awsclient.Interface,
-	infraConfig apiaws.InfrastructureConfig, vpcID, region string) field.ErrorList {
+func (c *configValidator) validateVPC(
+	ctx context.Context,
+	fldPath *field.Path,
+	awsClient awsclient.Interface,
+	infraConfig apiaws.InfrastructureConfig,
+	vpcID, region string,
+) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Verify that the VPC exists and the enableDnsSupport and enableDnsHostnames VPC attributes are both true
@@ -150,17 +157,53 @@ func (c *configValidator) validateVPC(ctx context.Context, fldPath *field.Path, 
 		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get CIDR block for VPC %s: %w", vpcID, err)))
 		return allErrs
 	}
+
+	cidrsToConsider := []string{vpc.CidrBlock}
+
+	for _, cidrBlock := range vpc.CidrBlockAssociationSet {
+		if cidr := ptr.Deref(cidrBlock.CidrBlock, ""); cidr != "" {
+			cidrsToConsider = append(cidrsToConsider, cidr)
+		}
+	}
+
 	networkingPath := field.NewPath("networking")
-	vpcCIDR := cidrvalidation.NewCIDR(vpc.CidrBlock, fldPath)
+
+	if len(cidrsToConsider) == 1 {
+		// Special case, use old behaviour (so we keep the pretty error message)
+		allErrs = append(allErrs, validateZoneSubnetCIDRs(networkingPath, cidrsToConsider[0], infraConfig)...)
+
+	} else {
+		// Only check if there is at least one valid cidr on the vpc that matches and return an error if there is not
+		haveValidCidr := slices.ContainsFunc(cidrsToConsider, func(cidr string) bool {
+			return validateZoneSubnetCIDRs(networkingPath, cidr, infraConfig).ToAggregate() == nil
+		})
+
+		if !haveValidCidr {
+			allErrs = append(
+				allErrs,
+				field.Invalid(
+					fldPath,
+					vpcID,
+					"provided VPC has no CIDR block matching the clusters configured networks. There must be a CIDR block that is a superset of all subnet ranges.",
+				),
+			)
+		}
+	}
+
+	return allErrs
+}
+
+func validateZoneSubnetCIDRs(fldPath *field.Path, cidr string, infraConfig apiaws.InfrastructureConfig) field.ErrorList {
+	allErrs := field.ErrorList{}
+	vpcCIDR := cidrvalidation.NewCIDR(cidr, fldPath)
 	for _, zones := range infraConfig.Networks.Zones {
 		zoneSubnetCIDRs := []cidrvalidation.CIDR{
-			cidrvalidation.NewCIDR(zones.Workers, networkingPath.Child("nodes")),
-			cidrvalidation.NewCIDR(zones.Public, networkingPath.Child("public")),
-			cidrvalidation.NewCIDR(zones.Internal, networkingPath.Child("internal")),
+			cidrvalidation.NewCIDR(zones.Workers, fldPath.Child("nodes")),
+			cidrvalidation.NewCIDR(zones.Public, fldPath.Child("public")),
+			cidrvalidation.NewCIDR(zones.Internal, fldPath.Child("internal")),
 		}
 		allErrs = append(allErrs, vpcCIDR.ValidateSubset(zoneSubnetCIDRs...)...)
 	}
-
 	return allErrs
 }
 
