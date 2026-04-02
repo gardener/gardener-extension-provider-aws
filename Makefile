@@ -167,21 +167,21 @@ helm-push: helm-push-provider helm-push-admission
 extension-manifest: $(KUBECTL) $(YQ)
 	$(eval REGISTRY_URL := $(shell $(KUBECTL) cluster-info | head -1 | grep -oP 'https://\K[^:]+' | sed 's/^api\./reg./'))
 	@mkdir -p remote
-	@$(YQ) eval '.spec.deployment.admission.runtimeCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-runtime:$(VERSION)" | \
-	          .spec.deployment.admission.runtimeCluster.helm.ociRepository.pullSecretRef.name = "gardener-images" | \
-	          .spec.deployment.admission.virtualCluster.helm.ociRepository.ref = "$(REGISTRY_URL)/$(ADMISSION_NAME)-application:$(VERSION)" | \
-	          .spec.deployment.admission.virtualCluster.helm.ociRepository.pullSecretRef.name = "gardener-images" | \
-	          .spec.deployment.extension.helm.ociRepository.ref = "$(REGISTRY_URL)/$(EXTENSION_PREFIX)-$(NAME):$(VERSION)" | \
-	          .spec.deployment.extension.helm.ociRepository.pullSecretRef.name = "gardener-images" | \
-	          .spec.deployment.admission.values.image.repository = "$(REGISTRY_URL)/$(ADMISSION_NAME)" | \
-	          .spec.deployment.admission.values.image.tag = "$(VERSION)" | \
-	          .spec.deployment.admission.values.image.pullPolicy = "Always" | \
-	          .spec.deployment.extension.values.image.repository = "$(REGISTRY_URL)/$(NAME)" | \
-	          .spec.deployment.extension.values.image.tag = "$(VERSION)" | \
-	          .spec.deployment.extension.values.image.pullPolicy = "Always" | \
-	          .spec.deployment.extension.runtimeClusterValues.image.repository = "$(REGISTRY_URL)/$(NAME)" | \
-	          .spec.deployment.extension.runtimeClusterValues.image.tag = "$(VERSION)" | \
-	          .spec.deployment.extension.runtimeClusterValues.image.pullPolicy = "Always"' \
+	@$(YQ) eval ".spec.deployment.admission.runtimeCluster.helm.ociRepository.ref = \"$(REGISTRY_URL)/$(ADMISSION_NAME)-runtime:$(VERSION)\" | \
+	          .spec.deployment.admission.runtimeCluster.helm.ociRepository.pullSecretRef.name = \"gardener-images\" | \
+	          .spec.deployment.admission.virtualCluster.helm.ociRepository.ref = \"$(REGISTRY_URL)/$(ADMISSION_NAME)-application:$(VERSION)\" | \
+	          .spec.deployment.admission.virtualCluster.helm.ociRepository.pullSecretRef.name = \"gardener-images\" | \
+	          .spec.deployment.extension.helm.ociRepository.ref = \"$(REGISTRY_URL)/$(EXTENSION_PREFIX)-$(NAME):$(VERSION)\" | \
+	          .spec.deployment.extension.helm.ociRepository.pullSecretRef.name = \"gardener-images\" | \
+	          .spec.deployment.admission.values.image.repository = \"$(REGISTRY_URL)/$(ADMISSION_NAME)\" | \
+	          .spec.deployment.admission.values.image.tag = \"$(VERSION)\" | \
+	          .spec.deployment.admission.values.image.pullPolicy = \"Always\" | \
+	          .spec.deployment.extension.values.image.repository = \"$(REGISTRY_URL)/$(NAME)\" | \
+	          .spec.deployment.extension.values.image.tag = \"$(VERSION)\" | \
+	          .spec.deployment.extension.values.image.pullPolicy = \"Always\" | \
+	          .spec.deployment.extension.runtimeClusterValues.image.repository = \"$(REGISTRY_URL)/$(NAME)\" | \
+	          .spec.deployment.extension.runtimeClusterValues.image.tag = \"$(VERSION)\" | \
+	          .spec.deployment.extension.runtimeClusterValues.image.pullPolicy = \"Always\"" \
 	          example/extension.yaml > remote/extension.yaml
 	@echo "Created remote/extension.yaml with registry $(REGISTRY_URL)"
 
