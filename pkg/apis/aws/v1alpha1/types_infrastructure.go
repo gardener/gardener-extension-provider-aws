@@ -47,6 +47,12 @@ type InfrastructureConfig struct {
 	// This field is immutable and cannot be changed once created.
 	// +optional
 	ElasticFileSystem *ElasticFileSystemConfig `json:"elasticFileSystem,omitempty"`
+
+	// EnableMTUCustomizer controls whether the mtu-customizer systemd unit and script are deployed
+	// to the shoot worker nodes. When enabled, the MTU of all non-virtual network interfaces is set to 1460.
+	// default: true
+	// +optional
+	EnableMTUCustomizer *bool `json:"enableMTUCustomizer,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

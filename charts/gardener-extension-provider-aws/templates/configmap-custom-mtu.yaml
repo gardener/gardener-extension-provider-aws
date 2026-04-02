@@ -1,3 +1,4 @@
+{{ if and (eq (include "seed.provider" .) "aws") (index .Values.config.featureGates "MTUCustomizer") }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -21,3 +22,4 @@ data:
         echo changing mtu of non-virtual interface: ${interface}
         ip link set dev ${interface} mtu 1460
     done
+{{ end }}

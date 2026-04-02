@@ -88,6 +88,8 @@ config:
       encrypted: true
 #     backup:
 #       schedule: "0 */1 * * *"
+  featureGates:
+    MTUCustomizer: true
 
 gardener:
   version: ""

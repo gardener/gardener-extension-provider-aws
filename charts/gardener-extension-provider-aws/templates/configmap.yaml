@@ -23,3 +23,6 @@ data:
 {{- if .Values.config.etcd.backup }}
       backup: {{- toYaml .Values.config.etcd.backup | nindent 8 }}
 {{- end }}
+{{- if .Values.config.featureGates }}
+    featureGates: {{- toYaml .Values.config.featureGates | nindent 6 }}
+{{- end }}
