@@ -932,3 +932,14 @@ The "flow" implementation is a newer implementation that is trying to solve issu
 For most users there will be no noticeable difference. However for certain use-cases, users may notice a slight deviation from the previous behavior. For example, with flow-based infrastructure users may be able to perform certain modifications to infrastructure resources without having them reconciled back by terraform. Operations that would degrade the shoot infrastructure are still expected to be reverted back.
 
 For the time-being, to take advantage of the flow reconciler users have to "opt-in" by annotating the shoot manifest with: `aws.provider.extensions.gardener.cloud/use-flow="true"`. For existing shoots with this annotation, the migration will take place on the next infrastructure reconciliation (on maintenance window or if other infrastructure changes are requested). The migration is not revertible.
+
+## Route table entries limit
+
+Gardener can be used with or without the overlay network.
+In case of calico, overlay network is disabled by default.
+This means that the routing is done directly through the VPC routing table.
+The [aws-custom-route-controller](https://github.com/gardener/aws-custom-route-controller) performs this if required.
+You can find more information on how to enable/disable calico overlay in the gardener [calico documentation](https://github.com/gardener/gardener-extension-networking-calico/blob/master/docs/usage/shoot_overlay_network.md).
+The default quota for route table entries per route table is 500 entries.
+This means that a cluster with more than 500 nodes will run into the default limit resulting in a partially unusable pod network.
+Apart from the default limit (500), it is also important to mention the hard limit of 1000 route table entries resulting in a hard stop regarding the amount of cluster nodes that can be used in an overlay free pod network.
