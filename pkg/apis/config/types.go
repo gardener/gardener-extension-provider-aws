@@ -24,6 +24,9 @@ type ControllerConfiguration struct {
 	ETCD ETCD
 	// HealthCheckConfig is the config for the health check controller
 	HealthCheckConfig *apisconfigv1alpha1.HealthCheckConfig
+	// FeatureGates contains information about enabled feature gates.
+	// +optional
+	FeatureGates map[string]bool
 }
 
 // ETCD is an etcd configuration.
