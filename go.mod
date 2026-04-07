@@ -24,6 +24,7 @@ require (
 	github.com/gardener/gardener v1.139.0
 	github.com/gardener/gardener/pkg/apis v1.139.0
 	github.com/gardener/machine-controller-manager v0.61.2
+	github.com/gardener/pvc-autoscaler v0.1.3-0.20260302080529-0051ec27d9c6
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/ginkgo/v2 v2.28.1
