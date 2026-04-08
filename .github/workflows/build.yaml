@@ -16,7 +16,7 @@ on:
 
 jobs:
   prepare:
-    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@v1
     permissions:
       id-token: write
       pull-requests: write # required until https://github.com/gardener/cc-utils/pull/1529 is merged
@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
         with:
           remove-trusted-label: false
       - name: run-verify
@@ -42,7 +42,7 @@ jobs:
           mkdir /tmp/blobs.d
           tar czf /tmp/blobs.d/gosec-report.tar.gz gosec-report.sarif
       - name: add-sast-report-to-component-descriptor
-        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
         with:
           blobs-directory: /tmp/blobs.d
           ocm-resources: |
@@ -70,7 +70,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
+    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@v1
     strategy:
       matrix:
         args:
@@ -117,7 +117,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@master
+    uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@v1
     strategy:
       matrix:
         args:
