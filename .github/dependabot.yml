@@ -21,8 +21,8 @@ updates:
     gardener-dependencies:
       applies-to: "version-updates"
       patterns:
-        - "github.com/gardener/gardener"
-        - "github.com/gardener/gardener/*"
+      - "github.com/gardener/gardener"
+      - "github.com/gardener/gardener/*"
   ignore:
   - dependency-name: "k8s.io/*"
   - dependency-name: "sigs.k8s.io/*"
