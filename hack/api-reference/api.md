@@ -4,31 +4,20 @@
 <a href="#aws.provider.extensions.gardener.cloud%2fv1alpha1">aws.provider.extensions.gardener.cloud/v1alpha1</a>
 </li>
 </ul>
+
 <h2 id="aws.provider.extensions.gardener.cloud/v1alpha1">aws.provider.extensions.gardener.cloud/v1alpha1</h2>
 <p>
-<p>Package v1alpha1 contains the AWS provider API resources.</p>
+
 </p>
-Resource Types:
-<ul><li>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.BackupBucketConfig">BackupBucketConfig</a>
-</li><li>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CloudProfileConfig">CloudProfileConfig</a>
-</li><li>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>
-</li><li>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>
-</li><li>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>
-</li><li>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus</a>
-</li><li>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkloadIdentityConfig">WorkloadIdentityConfig</a>
-</li></ul>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.BackupBucketConfig">BackupBucketConfig
+
+<h3 id="backupbucketconfig">BackupBucketConfig
 </h3>
+
+
 <p>
-<p>BackupBucketConfig represents the configuration for a backup bucket.</p>
+BackupBucketConfig represents the configuration for a backup bucket.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -37,30 +26,12 @@ Resource Types:
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-aws.provider.extensions.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>BackupBucketConfig</code></td>
-</tr>
+
 <tr>
 <td>
 <code>immutability</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ImmutableConfig">
-ImmutableConfig
-</a>
+<a href="#immutableconfig">ImmutableConfig</a>
 </em>
 </td>
 <td>
@@ -68,14 +39,23 @@ ImmutableConfig
 <p>Immutability defines the immutability configuration for the backup bucket.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CloudProfileConfig">CloudProfileConfig
+
+
+<h3 id="capacityreservation">CapacityReservation
 </h3>
+
+
 <p>
-<p>CloudProfileConfig contains provider-specific configuration that is embedded into Gardener&rsquo;s <code>CloudProfile</code>
-resource.</p>
+(<em>Appears on:</em><a href="#workerconfig">WorkerConfig</a>)
 </p>
+
+<p>
+CapacityReservation contains configuration about the Capacity Reservation to use for the instance.
+</p>
+
 <table>
 <thead>
 <tr>
@@ -84,484 +64,7 @@ resource.</p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-aws.provider.extensions.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>CloudProfileConfig</code></td>
-</tr>
-<tr>
-<td>
-<code>machineImages</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImages">
-[]MachineImages
-</a>
-</em>
-</td>
-<td>
-<p>MachineImages is the list of machine images that are understood by the controller. It maps
-logical names and versions to provider-specific identifiers.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig
-</h3>
-<p>
-<p>ControlPlaneConfig contains configuration settings for the control plane.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-aws.provider.extensions.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>ControlPlaneConfig</code></td>
-</tr>
-<tr>
-<td>
-<code>cloudControllerManager</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CloudControllerManagerConfig">
-CloudControllerManagerConfig
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>CloudControllerManager contains configuration settings for the cloud-controller-manager.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>loadBalancerController</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.LoadBalancerControllerConfig">
-LoadBalancerControllerConfig
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>storage</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Storage">
-Storage
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Storage contains configuration for storage in the cluster.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig
-</h3>
-<p>
-<p>InfrastructureConfig infrastructure configuration resource</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-aws.provider.extensions.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>InfrastructureConfig</code></td>
-</tr>
-<tr>
-<td>
-<code>enableECRAccess</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>EnableECRAccess specifies whether the IAM role policy for the worker nodes shall contain
-permissions to access the ECR.
-default: true</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>dualStack</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.DualStack">
-DualStack
-</a>
-</em>
-</td>
-<td>
-<p>DualStack specifies whether dual-stack or IPv4-only should be supported.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>networks</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Networks">
-Networks
-</a>
-</em>
-</td>
-<td>
-<p>Networks is the AWS specific network configuration (VPC, subnets, etc.)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>ignoreTags</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IgnoreTags">
-IgnoreTags
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>IgnoreTags allows to configure which resource tags on resources managed by Gardener should be ignored during
-infrastructure reconciliation. By default, all tags that are added outside of Gardener&rsquo;s / terraform&rsquo;s
-reconciliation will be removed during the next reconciliation. This field allows users and automation to add
-custom tags on resources created and managed by Gardener without loosing them on the next reconciliation.
-See <a href="https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources">https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources</a>
-for details of the underlying terraform implementation.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>enableDedicatedTenancyForVPC</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>EnableDedicatedTenancyForVPC allows to configure the VPC to use dedicated tenancy.
-If this field is set to true, all VMs created in this VPC will have dedicated tenancy enabled.
-This setting is immutable and cannot be changed once the VPC has been created.
-default: false</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>elasticFileSystem</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystemConfig">
-ElasticFileSystemConfig
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ElasticFileSystem contains information about the EFS that should be used.
-This field is immutable and cannot be changed once created.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>enableMTUCustomizer</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>EnableMTUCustomizer controls whether the mtu-customizer systemd unit and script are deployed
-to the shoot worker nodes. When enabled, the MTU of all non-virtual network interfaces is set to 1460.
-default: true</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig
-</h3>
-<p>
-<p>WorkerConfig contains configuration settings for the worker nodes.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-aws.provider.extensions.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>WorkerConfig</code></td>
-</tr>
-<tr>
-<td>
-<code>nodeTemplate</code></br>
-<em>
-github.com/gardener/gardener/pkg/apis/extensions/v1alpha1.NodeTemplate
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>NodeTemplate contains resource information of the machine which is used by Cluster Autoscaler to generate nodeTemplate during scaling a nodeGroup from zero.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>volume</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Volume">
-Volume
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Volume contains configuration for the root disks attached to VMs.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>dataVolumes</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.DataVolume">
-[]DataVolume
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DataVolumes contains configuration for the additional disks attached to VMs.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>iamInstanceProfile</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IAMInstanceProfile">
-IAMInstanceProfile
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
-worker pool.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>instanceMetadataOptions</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">
-InstanceMetadataOptions
-</a>
-</em>
-</td>
-<td>
-<p>InstanceMetadataOptions contains configuration for controlling access to the metadata API.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>cpuOptions</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CpuOptions">
-CpuOptions
-</a>
-</em>
-</td>
-<td>
-<p>CpuOptions contains detailed configuration for the number of cores and threads for the instance.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>capacityReservation</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CapacityReservation">
-CapacityReservation
-</a>
-</em>
-</td>
-<td>
-<p>CapacityReservation contains configuration about the Capacity Reservation to use for the instance.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus
-</h3>
-<p>
-<p>WorkerStatus contains information about created worker resources.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-aws.provider.extensions.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>WorkerStatus</code></td>
-</tr>
-<tr>
-<td>
-<code>machineImages</code></br>
-<em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImage">
-[]MachineImage
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>MachineImages is a list of machine images that have been used in this worker. Usually, the extension controller
-gets the mapping from name/version to the provider-specific machine image data in its componentconfig. However, if
-a version that is still in use gets removed from this componentconfig it cannot reconcile anymore existing <code>Worker</code>
-resources that are still using this version. Hence, it stores the used versions in the provider status to ensure
-reconciliation is possible.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.WorkloadIdentityConfig">WorkloadIdentityConfig
-</h3>
-<p>
-<p>WorkloadIdentityConfig contains configuration settings for workload identity.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-aws.provider.extensions.gardener.cloud/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>WorkloadIdentityConfig</code></td>
-</tr>
-<tr>
-<td>
-<code>roleARN</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>RoleARN is the identifier of the role that the workload identity will assume.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CapacityReservation">CapacityReservation
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
-</p>
-<p>
-<p>CapacityReservation contains configuration about the Capacity Reservation to use for the instance.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
+
 <tr>
 <td>
 <code>capacityReservationPreference</code></br>
@@ -570,7 +73,7 @@ string
 </em>
 </td>
 <td>
-<p>CapacityReservationPreference defines the instance&rsquo;s reservation preferences.</p>
+<p>CapacityReservationPreference defines the instance's reservation preferences.</p>
 </td>
 </tr>
 <tr>
@@ -595,17 +98,23 @@ string
 <p>CapacityReservationResourceGroupARN is the ARN of the Capacity Reservation Group in which to look for a Capacity Reservation. Mutually exclusive with CapacityReservationID.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CloudControllerManagerConfig">CloudControllerManagerConfig
+
+
+<h3 id="cloudcontrollermanagerconfig">CloudControllerManagerConfig
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
+(<em>Appears on:</em><a href="#controlplaneconfig">ControlPlaneConfig</a>)
 </p>
+
 <p>
-<p>CloudControllerManagerConfig contains configuration settings for the cloud-controller-manager.</p>
+CloudControllerManagerConfig contains configuration settings for the cloud-controller-manager.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -614,11 +123,12 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>featureGates</code></br>
 <em>
-map[string]bool
+object (keys:string, values:boolean)
 </em>
 </td>
 <td>
@@ -630,26 +140,28 @@ map[string]bool
 <td>
 <code>useCustomRouteController</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>UseCustomRouteController controls if custom route controller should be used.
-Defaults to false.</p>
+<p>UseCustomRouteController controls if custom route controller should be used.<br />Defaults to false.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.CpuOptions">CpuOptions
+
+
+<h3 id="cloudprofileconfig">CloudProfileConfig
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+CloudProfileConfig contains provider-specific configuration that is embedded into Gardener's `CloudProfile`
+resource.
 </p>
-<p>
-<p>CpuOptions contains detailed configuration for the number of cores and threads for the instance.</p>
-</p>
+
 <table>
 <thead>
 <tr>
@@ -658,11 +170,107 @@ Defaults to false.</p>
 </tr>
 </thead>
 <tbody>
+
+<tr>
+<td>
+<code>machineImages</code></br>
+<em>
+<a href="#machineimages">MachineImages</a> array
+</em>
+</td>
+<td>
+<p>MachineImages is the list of machine images that are understood by the controller. It maps<br />logical names and versions to provider-specific identifiers.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="controlplaneconfig">ControlPlaneConfig
+</h3>
+
+
+<p>
+ControlPlaneConfig contains configuration settings for the control plane.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>cloudControllerManager</code></br>
+<em>
+<a href="#cloudcontrollermanagerconfig">CloudControllerManagerConfig</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CloudControllerManager contains configuration settings for the cloud-controller-manager.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>loadBalancerController</code></br>
+<em>
+<a href="#loadbalancercontrollerconfig">LoadBalancerControllerConfig</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>LoadBalancerController contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>storage</code></br>
+<em>
+<a href="#storage">Storage</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Storage contains configuration for storage in the cluster.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="cpuoptions">CpuOptions
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#workerconfig">WorkerConfig</a>)
+</p>
+
+<p>
+CpuOptions contains detailed configuration for the number of cores and threads for the instance.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
 <tr>
 <td>
 <code>coreCount</code></br>
 <em>
-int64
+integer
 </em>
 </td>
 <td>
@@ -673,11 +281,11 @@ int64
 <td>
 <code>threadsPerCore</code></br>
 <em>
-int64
+integer
 </em>
 </td>
 <td>
-<p>ThreadsPerCore sets the number of threads per core. Must be either &lsquo;1&rsquo; (disable multi-threading) or &lsquo;2&rsquo;.</p>
+<p>ThreadsPerCore sets the number of threads per core. Must be either '1' (disable multi-threading) or '2'.</p>
 </td>
 </tr>
 <tr>
@@ -689,22 +297,26 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>AmdSevSnp indicates whether AMD SEV-SNP is enabled.
-Currently, this option is only supported on M6a, R6a, and C6a instance types.
-Valid options are &ldquo;enabled&rdquo; and &ldquo;disabled&rdquo;.</p>
+<p>AmdSevSnp indicates whether AMD SEV-SNP is enabled.<br />Currently, this option is only supported on M6a, R6a, and C6a instance types.<br />Valid options are "enabled" and "disabled".</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.DataVolume">DataVolume
+
+
+<h3 id="datavolume">DataVolume
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+(<em>Appears on:</em><a href="#workerconfig">WorkerConfig</a>)
 </p>
+
 <p>
-<p>DataVolume contains configuration for data volumes attached to VMs.</p>
+DataVolume contains configuration for data volumes attached to VMs.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -713,6 +325,7 @@ Valid options are &ldquo;enabled&rdquo; and &ldquo;disabled&rdquo;.</p>
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>name</code></br>
@@ -726,18 +339,25 @@ string
 </tr>
 <tr>
 <td>
-<code>Volume</code></br>
+<code>iops</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Volume">
-Volume
-</a>
+integer
 </em>
 </td>
 <td>
-<p>
-(Members of <code>Volume</code> are embedded into this type.)
-</p>
-<p>Volume contains configuration for the volume.</p>
+<em>(Optional)</em>
+<p>IOPS is the number of I/O operations per second (IOPS) that the volume supports.<br />For io1 volume type, this represents the number of IOPS that are provisioned for the<br />volume. For gp2 volume type, this represents the baseline performance of the volume and<br />the rate at which the volume accumulates I/O credits for bursting. For more<br />information about General Purpose SSD baseline performance, I/O credits,<br />and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)<br />in the Amazon Elastic Compute Cloud User Guide.<br />Constraint: Range is 100-20000 IOPS for io1 volumes and 100-10000 IOPS for<br />gp2 volumes.<br />Condition: This parameter is required for requests to create io1 volumes;<br />it is not used in requests to create gp2, st1, sc1, or standard volumes.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>throughput</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<p>The throughput that the volume supports, in MiB/s.<br />This parameter is valid only for gp3 volumes.<br />Valid Range: The range as of 16th Aug 2022 is from 125 MiB/s to 1000 MiB/s. For more info refer (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)</p>
 </td>
 </tr>
 <tr>
@@ -752,17 +372,23 @@ string
 <p>SnapshotID is the ID of the snapshot.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.DualStack">DualStack
+
+
+<h3 id="dualstack">DualStack
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
+(<em>Appears on:</em><a href="#infrastructureconfig">InfrastructureConfig</a>)
 </p>
+
 <p>
-<p>DualStack specifies whether dual-stack or IPv4-only should be supported.</p>
+DualStack specifies whether dual-stack or IPv4-only should be supported.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -771,28 +397,35 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>enabled</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
 <p>Enabled specifies if dual-stack is enabled or not.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.EC2">EC2
+
+
+<h3 id="ec2">EC2
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
+(<em>Appears on:</em><a href="#infrastructurestatus">InfrastructureStatus</a>)
 </p>
+
 <p>
-<p>EC2 contains information about the  AWS EC2 resources.</p>
+EC2 contains information about the  AWS EC2 resources.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -801,6 +434,7 @@ bool
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>keyName</code></br>
@@ -812,17 +446,23 @@ string
 <p>KeyName is the name of the SSH key.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystemConfig">ElasticFileSystemConfig
+
+
+<h3 id="elasticfilesystemconfig">ElasticFileSystemConfig
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
+(<em>Appears on:</em><a href="#infrastructureconfig">InfrastructureConfig</a>)
 </p>
+
 <p>
-<p>ElasticFileSystemConfig holds config information about the EFS storage</p>
+ElasticFileSystemConfig holds config information about the EFS storage
 </p>
+
 <table>
 <thead>
 <tr>
@@ -831,19 +471,16 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>enabled</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
-<p>Enabled is the switch to install the CSI EFS driver
-if enabled:
-- the IAM role policy for the worker nodes shall contain permissions to access the EFS.
-- an EFS will be created if the ID is not specified.
-- firewall rules will be created to allow access to the EFS from the worker nodes.</p>
+<p>Enabled is the switch to install the CSI EFS driver<br />if enabled:<br />- the IAM role policy for the worker nodes shall contain permissions to access the EFS.<br />- an EFS will be created if the ID is not specified.<br />- firewall rules will be created to allow access to the EFS from the worker nodes.</p>
 </td>
 </tr>
 <tr>
@@ -857,17 +494,23 @@ string
 <p>ID of the EFS to use. For example: fs-0272b97527ed4de53.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystemStatus">ElasticFileSystemStatus
+
+
+<h3 id="elasticfilesystemstatus">ElasticFileSystemStatus
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
+(<em>Appears on:</em><a href="#infrastructurestatus">InfrastructureStatus</a>)
 </p>
+
 <p>
-<p>ElasticFileSystemStatus contains status info about the Elastic File System (EFS).</p>
+ElasticFileSystemStatus contains status info about the Elastic File System (EFS).
 </p>
+
 <table>
 <thead>
 <tr>
@@ -876,6 +519,7 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>ID</code></br>
@@ -887,26 +531,37 @@ string
 <p>ID contains the Elastic Files System ID.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.HTTPTokensValue">HTTPTokensValue
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">InstanceMetadataOptions</a>)
-</p>
-<p>
-<p>HTTPTokensValue is a constant for HTTPTokens values.</p>
-</p>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IAM">IAM
+
+
+<h3 id="httptokensvalue">HTTPTokensValue
 </h3>
+<p><em>Underlying type: string</em></p>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
+(<em>Appears on:</em><a href="#instancemetadataoptions">InstanceMetadataOptions</a>)
 </p>
+
 <p>
-<p>IAM contains information about the AWS IAM resources.</p>
+HTTPTokensValue is a constant for HTTPTokens values.
 </p>
+
+
+<h3 id="iam">IAM
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#infrastructurestatus">InfrastructureStatus</a>)
+</p>
+
+<p>
+IAM contains information about the AWS IAM resources.
+</p>
+
 <table>
 <thead>
 <tr>
@@ -915,13 +570,12 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>instanceProfiles</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InstanceProfile">
-[]InstanceProfile
-</a>
+<a href="#instanceprofile">InstanceProfile</a> array
 </em>
 </td>
 <td>
@@ -932,27 +586,31 @@ string
 <td>
 <code>roles</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Role">
-[]Role
-</a>
+<a href="#role">Role</a> array
 </em>
 </td>
 <td>
 <p>Roles is a list of AWS IAM roles.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IAMInstanceProfile">IAMInstanceProfile
+
+
+<h3 id="iaminstanceprofile">IAMInstanceProfile
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+(<em>Appears on:</em><a href="#workerconfig">WorkerConfig</a>)
 </p>
+
 <p>
-<p>IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
-worker pool. Either &lsquo;Name&rdquo; or &lsquo;ARN&rsquo; must be specified.</p>
+IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this
+worker pool. Either 'Name" or 'ARN' must be specified.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -961,6 +619,7 @@ worker pool. Either &lsquo;Name&rdquo; or &lsquo;ARN&rsquo; must be specified.</
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>name</code></br>
@@ -985,18 +644,24 @@ string
 <p>ARN is the ARN of the instance profile.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IPAMPool">IPAMPool
+
+
+<h3 id="ipampool">IPAMPool
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.VPC">VPC</a>)
+(<em>Appears on:</em><a href="#vpc">VPC</a>)
 </p>
+
 <p>
-<p>IPAMPool represents an AWS IPAM pool referenced for IPv6 address allocation of the VPC.
-Currently only the ID is required; future fields may extend configuration.</p>
+IPAMPool represents an AWS IPAM pool referenced for IPv6 address allocation of the VPC.
+Currently only the ID is required; future fields may extend configuration.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1005,6 +670,7 @@ Currently only the ID is required; future fields may extend configuration.</p>
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>id</code></br>
@@ -1016,17 +682,23 @@ string
 <p>ID is the IPAM pool id.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.IgnoreTags">IgnoreTags
+
+
+<h3 id="ignoretags">IgnoreTags
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
+(<em>Appears on:</em><a href="#infrastructureconfig">InfrastructureConfig</a>)
 </p>
+
 <p>
-<p>IgnoreTags holds information about ignored resource tags.</p>
+IgnoreTags holds information about ignored resource tags.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1035,11 +707,12 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>keys</code></br>
 <em>
-[]string
+string array
 </em>
 </td>
 <td>
@@ -1051,7 +724,7 @@ string
 <td>
 <code>keyPrefixes</code></br>
 <em>
-[]string
+string array
 </em>
 </td>
 <td>
@@ -1059,17 +732,23 @@ string
 <p>KeyPrefixes is a list of tag key prefixes, that should be ignored during infrastructure reconciliation.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ImmutableConfig">ImmutableConfig
+
+
+<h3 id="immutableconfig">ImmutableConfig
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.BackupBucketConfig">BackupBucketConfig</a>)
+(<em>Appears on:</em><a href="#backupbucketconfig">BackupBucketConfig</a>)
 </p>
+
 <p>
-<p>ImmutableConfig represents the immutability configuration for a backup bucket.</p>
+ImmutableConfig represents the immutability configuration for a backup bucket.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1078,56 +757,53 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>retentionType</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.RetentionType">
-RetentionType
-</a>
+<a href="#retentiontype">RetentionType</a>
 </em>
 </td>
 <td>
-<p>RetentionType specifies the type of retention for the backup bucket.
-Currently allowed value is:
-- &ldquo;bucket&rdquo;: retention policy applies on the entire bucket.</p>
+<p>RetentionType specifies the type of retention for the backup bucket.<br />Currently allowed value is:<br />- "bucket": retention policy applies on the entire bucket.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>retentionPeriod</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#duration-v1-meta">
-Kubernetes meta/v1.Duration
-</a>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#duration-v1-meta">Duration</a>
 </em>
 </td>
 <td>
-<p>RetentionPeriod specifies the immutability retention period for the backup bucket.
-S3 only supports immutability durations in days or years, therefore this field must be set as multiple of 24h.</p>
+<p>RetentionPeriod specifies the immutability retention period for the backup bucket.<br />S3 only supports immutability durations in days or years, therefore this field must be set as multiple of 24h.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>mode</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ModeType">
-ModeType
-</a>
+<a href="#modetype">ModeType</a>
 </em>
 </td>
 <td>
-<p>S3 provides two retention modes that apply different levels of protection to objects:
-Allowed values are: &ldquo;governance&rdquo; or &ldquo;compliance&rdquo; mode.</p>
+<p>S3 provides two retention modes that apply different levels of protection to objects:<br />Allowed values are: "governance" or "compliance" mode.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureState">InfrastructureState
+
+
+<h3 id="infrastructureconfig">InfrastructureConfig
 </h3>
+
+
 <p>
-<p>InfrastructureState is the state which is persisted as part of the infrastructure status.</p>
+InfrastructureConfig infrastructure configuration resource
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1136,23 +812,135 @@ Allowed values are: &ldquo;governance&rdquo; or &ldquo;compliance&rdquo; mode.</
 </tr>
 </thead>
 <tbody>
+
+<tr>
+<td>
+<code>enableECRAccess</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EnableECRAccess specifies whether the IAM role policy for the worker nodes shall contain<br />permissions to access the ECR.<br />default: true</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dualStack</code></br>
+<em>
+<a href="#dualstack">DualStack</a>
+</em>
+</td>
+<td>
+<p>DualStack specifies whether dual-stack or IPv4-only should be supported.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>networks</code></br>
+<em>
+<a href="#networks">Networks</a>
+</em>
+</td>
+<td>
+<p>Networks is the AWS specific network configuration (VPC, subnets, etc.)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreTags</code></br>
+<em>
+<a href="#ignoretags">IgnoreTags</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IgnoreTags allows to configure which resource tags on resources managed by Gardener should be ignored during<br />infrastructure reconciliation. By default, all tags that are added outside of Gardener's / terraform's<br />reconciliation will be removed during the next reconciliation. This field allows users and automation to add<br />custom tags on resources created and managed by Gardener without loosing them on the next reconciliation.<br />See https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources<br />for details of the underlying terraform implementation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableDedicatedTenancyForVPC</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EnableDedicatedTenancyForVPC allows to configure the VPC to use dedicated tenancy.<br />If this field is set to true, all VMs created in this VPC will have dedicated tenancy enabled.<br />This setting is immutable and cannot be changed once the VPC has been created.<br />default: false</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>elasticFileSystem</code></br>
+<em>
+<a href="#elasticfilesystemconfig">ElasticFileSystemConfig</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ElasticFileSystem contains information about the EFS that should be used.<br />This field is immutable and cannot be changed once created.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableMTUCustomizer</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>EnableMTUCustomizer controls whether the mtu-customizer systemd unit and script are deployed<br />to the shoot worker nodes. When enabled, the MTU of all non-virtual network interfaces is set to 1460.<br />default: true</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="infrastructurestate">InfrastructureState
+</h3>
+
+
+<p>
+InfrastructureState is the state which is persisted as part of the infrastructure status.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
 <tr>
 <td>
 <code>data</code></br>
 <em>
-map[string]string
+object (keys:string, values:string)
 </em>
 </td>
 <td>
+<p></p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus
+
+
+<h3 id="infrastructurestatus">InfrastructureStatus
 </h3>
+
+
 <p>
-<p>InfrastructureStatus contains information about created infrastructure resources.</p>
+InfrastructureStatus contains information about created infrastructure resources.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1161,13 +949,12 @@ map[string]string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>ec2</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.EC2">
-EC2
-</a>
+<a href="#ec2">EC2</a>
 </em>
 </td>
 <td>
@@ -1178,9 +965,7 @@ EC2
 <td>
 <code>iam</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IAM">
-IAM
-</a>
+<a href="#iam">IAM</a>
 </em>
 </td>
 <td>
@@ -1191,9 +976,7 @@ IAM
 <td>
 <code>vpc</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.VPCStatus">
-VPCStatus
-</a>
+<a href="#vpcstatus">VPCStatus</a>
 </em>
 </td>
 <td>
@@ -1204,26 +987,30 @@ VPCStatus
 <td>
 <code>elasticFileSystem</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ElasticFileSystemStatus">
-ElasticFileSystemStatus
-</a>
+<a href="#elasticfilesystemstatus">ElasticFileSystemStatus</a>
 </em>
 </td>
 <td>
 <p>ElasticFileSystem contains information about the created ElasticFileSystem.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InstanceMetadataOptions">InstanceMetadataOptions
+
+
+<h3 id="instancemetadataoptions">InstanceMetadataOptions
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>)
+(<em>Appears on:</em><a href="#workerconfig">WorkerConfig</a>)
 </p>
+
 <p>
-<p>InstanceMetadataOptions contains configuration for controlling access to the metadata API.</p>
+InstanceMetadataOptions contains configuration for controlling access to the metadata API.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1232,13 +1019,12 @@ ElasticFileSystemStatus
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>httpTokens</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.HTTPTokensValue">
-HTTPTokensValue
-</a>
+<a href="#httptokensvalue">HTTPTokensValue</a>
 </em>
 </td>
 <td>
@@ -1249,25 +1035,30 @@ HTTPTokensValue
 <td>
 <code>httpPutResponseHopLimit</code></br>
 <em>
-int64
+integer
 </em>
 </td>
 <td>
-<p>HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
-Valid values are between 1 and 64.</p>
+<p>HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.<br />Valid values are between 1 and 64.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.InstanceProfile">InstanceProfile
+
+
+<h3 id="instanceprofile">InstanceProfile
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IAM">IAM</a>)
+(<em>Appears on:</em><a href="#iam">IAM</a>)
 </p>
+
 <p>
-<p>InstanceProfile is an AWS IAM instance profile.</p>
+InstanceProfile is an AWS IAM instance profile.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1276,6 +1067,7 @@ Valid values are between 1 and 64.</p>
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>purpose</code></br>
@@ -1298,17 +1090,23 @@ string
 <p>Name is the name for this instance profile.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.LoadBalancerControllerConfig">LoadBalancerControllerConfig
+
+
+<h3 id="loadbalancercontrollerconfig">LoadBalancerControllerConfig
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
+(<em>Appears on:</em><a href="#controlplaneconfig">ControlPlaneConfig</a>)
 </p>
+
 <p>
-<p>LoadBalancerControllerConfig contains configuration settings for the optional aws-load-balancer-controller (ALB).</p>
+LoadBalancerControllerConfig contains configuration settings for the optional aws-load-balancer-controller (ALB).
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1317,11 +1115,12 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>enabled</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
@@ -1337,21 +1136,26 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>IngressClassName is the name of the ingress class the ALB controller will target. Default value is &lsquo;alb&rsquo;.
-If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb</p>
+<p>IngressClassName is the name of the ingress class the ALB controller will target. Default value is 'alb'.<br />If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.MachineImage">MachineImage
+
+
+<h3 id="machineimage">MachineImage
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerStatus">WorkerStatus</a>)
+(<em>Appears on:</em><a href="#workerstatus">WorkerStatus</a>)
 </p>
+
 <p>
-<p>MachineImage is a mapping from logical names and versions to provider-specific machine image data.</p>
+MachineImage is a mapping from logical names and versions to provider-specific machine image data.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1360,6 +1164,7 @@ If empty string is specified, it will match all ingresses without ingress class 
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>name</code></br>
@@ -1409,24 +1214,30 @@ string
 <td>
 <code>capabilities</code></br>
 <em>
-github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
+<a href="#capabilities">Capabilities</a>
 </em>
 </td>
 <td>
 <p>Capabilities of the machine image.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageFlavor">MachineImageFlavor
+
+
+<h3 id="machineimageflavor">MachineImageFlavor
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion</a>)
+(<em>Appears on:</em><a href="#machineimageversion">MachineImageVersion</a>)
 </p>
+
 <p>
-<p>MachineImageFlavor groups all RegionAMIMappings for a specific set of capabilities.</p>
+MachineImageFlavor groups all RegionAMIMappings for a specific set of capabilities.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1435,13 +1246,12 @@ github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>regions</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.RegionAMIMapping">
-[]RegionAMIMapping
-</a>
+<a href="#regionamimapping">RegionAMIMapping</a> array
 </em>
 </td>
 <td>
@@ -1452,24 +1262,30 @@ github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
 <td>
 <code>capabilities</code></br>
 <em>
-github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
+<a href="#capabilities">Capabilities</a>
 </em>
 </td>
 <td>
 <p>Capabilities that are supported by the AMIs in this set.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion
+
+
+<h3 id="machineimageversion">MachineImageVersion
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImages">MachineImages</a>)
+(<em>Appears on:</em><a href="#machineimages">MachineImages</a>)
 </p>
+
 <p>
-<p>MachineImageVersion contains a version and a provider-specific identifier.</p>
+MachineImageVersion contains a version and a provider-specific identifier.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1478,6 +1294,7 @@ github.com/gardener/gardener/pkg/apis/core/v1beta1.Capabilities
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>version</code></br>
@@ -1493,9 +1310,7 @@ string
 <td>
 <code>regions</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.RegionAMIMapping">
-[]RegionAMIMapping
-</a>
+<a href="#regionamimapping">RegionAMIMapping</a> array
 </em>
 </td>
 <td>
@@ -1506,26 +1321,30 @@ string
 <td>
 <code>capabilityFlavors</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageFlavor">
-[]MachineImageFlavor
-</a>
+<a href="#machineimageflavor">MachineImageFlavor</a> array
 </em>
 </td>
 <td>
 <p>CapabilityFlavors is grouping of region AMIs by capabilities.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.MachineImages">MachineImages
+
+
+<h3 id="machineimages">MachineImages
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.CloudProfileConfig">CloudProfileConfig</a>)
+(<em>Appears on:</em><a href="#cloudprofileconfig">CloudProfileConfig</a>)
 </p>
+
 <p>
-<p>MachineImages is a mapping from logical names and versions to provider-specific identifiers.</p>
+MachineImages is a mapping from logical names and versions to provider-specific identifiers.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1534,6 +1353,7 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>name</code></br>
@@ -1549,35 +1369,44 @@ string
 <td>
 <code>versions</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">
-[]MachineImageVersion
-</a>
+<a href="#machineimageversion">MachineImageVersion</a> array
 </em>
 </td>
 <td>
 <p>Versions contains versions and a provider-specific identifier.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.ModeType">ModeType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ImmutableConfig">ImmutableConfig</a>)
-</p>
-<p>
-<p>ModeType defines the type of object lock mode for immutability settings.</p>
-</p>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Networks">Networks
+
+
+<h3 id="modetype">ModeType
 </h3>
+<p><em>Underlying type: string</em></p>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureConfig">InfrastructureConfig</a>)
+(<em>Appears on:</em><a href="#immutableconfig">ImmutableConfig</a>)
 </p>
+
 <p>
-<p>Networks holds information about the Kubernetes and infrastructure networks.</p>
+ModeType defines the type of object lock mode for immutability settings.
 </p>
+
+
+<h3 id="networks">Networks
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#infrastructureconfig">InfrastructureConfig</a>)
+</p>
+
+<p>
+Networks holds information about the Kubernetes and infrastructure networks.
+</p>
+
 <table>
 <thead>
 <tr>
@@ -1586,13 +1415,12 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>vpc</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.VPC">
-VPC
-</a>
+<a href="#vpc">VPC</a>
 </em>
 </td>
 <td>
@@ -1603,27 +1431,30 @@ VPC
 <td>
 <code>zones</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Zone">
-[]Zone
-</a>
+<a href="#zone">Zone</a> array
 </em>
 </td>
 <td>
 <p>Zones belonging to the same region</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.RegionAMIMapping">RegionAMIMapping
+
+
+<h3 id="regionamimapping">RegionAMIMapping
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageFlavor">MachineImageFlavor</a>, 
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.MachineImageVersion">MachineImageVersion</a>)
+(<em>Appears on:</em><a href="#machineimageflavor">MachineImageFlavor</a>, <a href="#machineimageversion">MachineImageVersion</a>)
 </p>
+
 <p>
-<p>RegionAMIMapping is a mapping to the correct AMI for the machine image in the given region.</p>
+RegionAMIMapping is a mapping to the correct AMI for the machine image in the given region.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1632,6 +1463,7 @@ VPC
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>name</code></br>
@@ -1666,26 +1498,37 @@ string
 <p>Architecture is the CPU architecture of the machine image.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.RetentionType">RetentionType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ImmutableConfig">ImmutableConfig</a>)
-</p>
-<p>
-<p>RetentionType defines the level at which immutability properties are applied on objects.</p>
-</p>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Role">Role
+
+
+<h3 id="retentiontype">RetentionType
 </h3>
+<p><em>Underlying type: string</em></p>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IAM">IAM</a>)
+(<em>Appears on:</em><a href="#immutableconfig">ImmutableConfig</a>)
 </p>
+
 <p>
-<p>Role is an AWS IAM role.</p>
+RetentionType defines the level at which immutability properties are applied on objects.
 </p>
+
+
+<h3 id="role">Role
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#iam">IAM</a>)
+</p>
+
+<p>
+Role is an AWS IAM role.
+</p>
+
 <table>
 <thead>
 <tr>
@@ -1694,6 +1537,7 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>purpose</code></br>
@@ -1716,17 +1560,23 @@ string
 <p>ARN is the AWS Resource Name for this role.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.SecurityGroup">SecurityGroup
+
+
+<h3 id="securitygroup">SecurityGroup
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.VPCStatus">VPCStatus</a>)
+(<em>Appears on:</em><a href="#vpcstatus">VPCStatus</a>)
 </p>
+
 <p>
-<p>SecurityGroup is an AWS security group related to a VPC.</p>
+SecurityGroup is an AWS security group related to a VPC.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1735,6 +1585,7 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>purpose</code></br>
@@ -1757,17 +1608,23 @@ string
 <p>ID is the subnet id.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Storage">Storage
+
+
+<h3 id="storage">Storage
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.ControlPlaneConfig">ControlPlaneConfig</a>)
+(<em>Appears on:</em><a href="#controlplaneconfig">ControlPlaneConfig</a>)
 </p>
+
 <p>
-<p>Storage contains configuration for storage in the cluster.</p>
+Storage contains configuration for storage in the cluster.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1776,32 +1633,36 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>managedDefaultClass</code></br>
 <em>
-bool
+boolean
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ManagedDefaultClass controls if the &lsquo;default&rsquo; StorageClass and &lsquo;default&rsquo; VolumeSnapshotClass
-would be marked as default. Set to false to manually set the default to another class not
-managed by Gardener.
-Defaults to true.</p>
+<p>ManagedDefaultClass controls if the 'default' StorageClass and 'default' VolumeSnapshotClass<br />would be marked as default. Set to false to manually set the default to another class not<br />managed by Gardener.<br />Defaults to true.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Subnet">Subnet
+
+
+<h3 id="subnet">Subnet
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.VPCStatus">VPCStatus</a>)
+(<em>Appears on:</em><a href="#vpcstatus">VPCStatus</a>)
 </p>
+
 <p>
-<p>Subnet is an AWS subnet related to a VPC.</p>
+Subnet is an AWS subnet related to a VPC.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1810,6 +1671,7 @@ Defaults to true.</p>
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>purpose</code></br>
@@ -1843,17 +1705,23 @@ string
 <p>Zone is the availability zone into which the subnet has been created.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.VPC">VPC
+
+
+<h3 id="vpc">VPC
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Networks">Networks</a>)
+(<em>Appears on:</em><a href="#networks">Networks</a>)
 </p>
+
 <p>
-<p>VPC contains information about the AWS VPC and some related resources.</p>
+VPC contains information about the AWS VPC and some related resources.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1862,6 +1730,7 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>id</code></br>
@@ -1890,7 +1759,7 @@ string
 <td>
 <code>gatewayEndpoints</code></br>
 <em>
-[]string
+string array
 </em>
 </td>
 <td>
@@ -1902,29 +1771,31 @@ string
 <td>
 <code>ipv6IpamPool</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.IPAMPool">
-IPAMPool
-</a>
+<a href="#ipampool">IPAMPool</a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Ipv6IpamPool references an AWS IPv6 IPAM pool used to allocate the VPC&rsquo;s IPv6 CIDR block.
-If specified, the extension will request the VPC&rsquo;s IPv6 CIDR from this pool instead of
-letting AWS auto-assign one. The pool must already exist in the target account/region.</p>
+<p>Ipv6IpamPool references an AWS IPv6 IPAM pool used to allocate the VPC's IPv6 CIDR block.<br />If specified, the extension will request the VPC's IPv6 CIDR from this pool instead of<br />letting AWS auto-assign one. The pool must already exist in the target account/region.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.VPCStatus">VPCStatus
+
+
+<h3 id="vpcstatus">VPCStatus
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.InfrastructureStatus">InfrastructureStatus</a>)
+(<em>Appears on:</em><a href="#infrastructurestatus">InfrastructureStatus</a>)
 </p>
+
 <p>
-<p>VPCStatus contains information about a generated VPC or resources inside an existing VPC.</p>
+VPCStatus contains information about a generated VPC or resources inside an existing VPC.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1933,6 +1804,7 @@ letting AWS auto-assign one. The pool must already exist in the target account/r
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>id</code></br>
@@ -1948,9 +1820,7 @@ string
 <td>
 <code>subnets</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Subnet">
-[]Subnet
-</a>
+<a href="#subnet">Subnet</a> array
 </em>
 </td>
 <td>
@@ -1961,27 +1831,30 @@ string
 <td>
 <code>securityGroups</code></br>
 <em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.SecurityGroup">
-[]SecurityGroup
-</a>
+<a href="#securitygroup">SecurityGroup</a> array
 </em>
 </td>
 <td>
 <p>SecurityGroups is a list of security groups that have been created.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Volume">Volume
+
+
+<h3 id="volume">Volume
 </h3>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.WorkerConfig">WorkerConfig</a>, 
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.DataVolume">DataVolume</a>)
+(<em>Appears on:</em><a href="#datavolume">DataVolume</a>, <a href="#workerconfig">WorkerConfig</a>)
 </p>
+
 <p>
-<p>Volume contains configuration for the root disks attached to VMs.</p>
+Volume contains configuration for the root disks attached to VMs.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -1990,57 +1863,53 @@ string
 </tr>
 </thead>
 <tbody>
+
 <tr>
 <td>
 <code>iops</code></br>
 <em>
-int64
+integer
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>IOPS is the number of I/O operations per second (IOPS) that the volume supports.
-For io1 volume type, this represents the number of IOPS that are provisioned for the
-volume. For gp2 volume type, this represents the baseline performance of the volume and
-the rate at which the volume accumulates I/O credits for bursting. For more
-information about General Purpose SSD baseline performance, I/O credits,
-and bursting, see Amazon EBS Volume Types (<a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html">http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html</a>)
-in the Amazon Elastic Compute Cloud User Guide.</p>
-<p>Constraint: Range is 100-20000 IOPS for io1 volumes and 100-10000 IOPS for
-gp2 volumes.</p>
-<p>Condition: This parameter is required for requests to create io1 volumes;
-it is not used in requests to create gp2, st1, sc1, or standard volumes.</p>
+<p>IOPS is the number of I/O operations per second (IOPS) that the volume supports.<br />For io1 volume type, this represents the number of IOPS that are provisioned for the<br />volume. For gp2 volume type, this represents the baseline performance of the volume and<br />the rate at which the volume accumulates I/O credits for bursting. For more<br />information about General Purpose SSD baseline performance, I/O credits,<br />and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)<br />in the Amazon Elastic Compute Cloud User Guide.<br />Constraint: Range is 100-20000 IOPS for io1 volumes and 100-10000 IOPS for<br />gp2 volumes.<br />Condition: This parameter is required for requests to create io1 volumes;<br />it is not used in requests to create gp2, st1, sc1, or standard volumes.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>throughput</code></br>
 <em>
-int64
+integer
 </em>
 </td>
 <td>
-<p>The throughput that the volume supports, in MiB/s.</p>
-<p>This parameter is valid only for gp3 volumes.</p>
-<p>Valid Range: The range as of 16th Aug 2022 is from 125 MiB/s to 1000 MiB/s. For more info refer (<a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html">http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html</a>)</p>
+<p>The throughput that the volume supports, in MiB/s.<br />This parameter is valid only for gp3 volumes.<br />Valid Range: The range as of 16th Aug 2022 is from 125 MiB/s to 1000 MiB/s. For more info refer (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.VolumeType">VolumeType
-(<code>string</code> alias)</p></h3>
-<p>
-<p>VolumeType is a constant for volume types.</p>
-</p>
-<h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.Zone">Zone
+
+
+<h3 id="volumetype">VolumeType
 </h3>
+<p><em>Underlying type: string</em></p>
+
+
 <p>
-(<em>Appears on:</em>
-<a href="#aws.provider.extensions.gardener.cloud/v1alpha1.Networks">Networks</a>)
+VolumeType is a constant for volume types.
 </p>
+
+
+<h3 id="workerconfig">WorkerConfig
+</h3>
+
+
 <p>
-<p>Zone describes the properties of a zone.</p>
+WorkerConfig contains configuration settings for the worker nodes.
 </p>
+
 <table>
 <thead>
 <tr>
@@ -2049,6 +1918,181 @@ int64
 </tr>
 </thead>
 <tbody>
+
+<tr>
+<td>
+<code>nodeTemplate</code></br>
+<em>
+<a href="#nodetemplate">NodeTemplate</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NodeTemplate contains resource information of the machine which is used by Cluster Autoscaler to generate nodeTemplate during scaling a nodeGroup from zero.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>volume</code></br>
+<em>
+<a href="#volume">Volume</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Volume contains configuration for the root disks attached to VMs.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dataVolumes</code></br>
+<em>
+<a href="#datavolume">DataVolume</a> array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DataVolumes contains configuration for the additional disks attached to VMs.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>iamInstanceProfile</code></br>
+<em>
+<a href="#iaminstanceprofile">IAMInstanceProfile</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IAMInstanceProfile contains configuration for the IAM instance profile that should be used for the VMs of this<br />worker pool.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>instanceMetadataOptions</code></br>
+<em>
+<a href="#instancemetadataoptions">InstanceMetadataOptions</a>
+</em>
+</td>
+<td>
+<p>InstanceMetadataOptions contains configuration for controlling access to the metadata API.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cpuOptions</code></br>
+<em>
+<a href="#cpuoptions">CpuOptions</a>
+</em>
+</td>
+<td>
+<p>CpuOptions contains detailed configuration for the number of cores and threads for the instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>capacityReservation</code></br>
+<em>
+<a href="#capacityreservation">CapacityReservation</a>
+</em>
+</td>
+<td>
+<p>CapacityReservation contains configuration about the Capacity Reservation to use for the instance.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="workerstatus">WorkerStatus
+</h3>
+
+
+<p>
+WorkerStatus contains information about created worker resources.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>machineImages</code></br>
+<em>
+<a href="#machineimage">MachineImage</a> array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MachineImages is a list of machine images that have been used in this worker. Usually, the extension controller<br />gets the mapping from name/version to the provider-specific machine image data in its componentconfig. However, if<br />a version that is still in use gets removed from this componentconfig it cannot reconcile anymore existing `Worker`<br />resources that are still using this version. Hence, it stores the used versions in the provider status to ensure<br />reconciliation is possible.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="workloadidentityconfig">WorkloadIdentityConfig
+</h3>
+
+
+<p>
+WorkloadIdentityConfig contains configuration settings for workload identity.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>roleARN</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>RoleARN is the identifier of the role that the workload identity will assume.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="zone">Zone
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#networks">Networks</a>)
+</p>
+
+<p>
+Zone describes the properties of a zone.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
 <tr>
 <td>
 <code>name</code></br>
@@ -2102,17 +2146,11 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>ElasticIPAllocationID contains the allocation ID of an Elastic IP that will be attached to the NAT gateway in
-this zone (e.g., <code>eipalloc-123456</code>). If it&rsquo;s not provided then a new Elastic IP will be automatically created
-and attached.
-Important: If this field is changed then the already attached Elastic IP will be disassociated from the NAT gateway
-(and potentially removed if it was created by this extension). Also, the NAT gateway will be deleted. This will
-disrupt egress traffic for a while.</p>
+<p>ElasticIPAllocationID contains the allocation ID of an Elastic IP that will be attached to the NAT gateway in<br />this zone (e.g., `eipalloc-123456`). If it's not provided then a new Elastic IP will be automatically created<br />and attached.<br />Important: If this field is changed then the already attached Elastic IP will be disassociated from the NAT gateway<br />(and potentially removed if it was created by this extension). Also, the NAT gateway will be deleted. This will<br />disrupt egress traffic for a while.</p>
 </td>
 </tr>
+
 </tbody>
 </table>
-<hr/>
-<p><em>
-Generated with <a href="https://github.com/ahmetb/gen-crd-api-reference-docs">gen-crd-api-reference-docs</a>
-</em></p>
+
+
