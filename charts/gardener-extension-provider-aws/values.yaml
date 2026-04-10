@@ -86,6 +86,8 @@ config:
       provisioner: ebs.csi.aws.com
       volumeBindingMode: WaitForFirstConsumer
       encrypted: true
+      parameters:
+        type: gp3
 #     backup:
 #       schedule: "0 */1 * * *"
   featureGates:
