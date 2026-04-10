@@ -171,7 +171,6 @@ func (c *configValidator) validateVPC(
 	if len(cidrsToConsider) == 1 {
 		// Special case, use old behaviour (so we keep the pretty error message)
 		allErrs = append(allErrs, validateZoneSubnetCIDRs(networkingPath, cidrsToConsider[0], infraConfig)...)
-
 	} else {
 		// Only check if there is at least one valid cidr on the vpc that matches and return an error if there is not
 		haveValidCidr := slices.ContainsFunc(cidrsToConsider, func(cidr string) bool {
