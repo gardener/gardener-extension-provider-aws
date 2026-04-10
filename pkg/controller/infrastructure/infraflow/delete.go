@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/utils/flow"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -37,6 +38,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 	g := flow.NewGraph("AWS infrastructure destruction")
 
 	deleteVPC := c.config.Networks.VPC.ID == nil
+	isBYO := c.isBYOInfrastructure()
 
 	destroyLoadBalancersAndSecurityGroups := c.AddTask(g, "Destroying Kubernetes load balancers and security groups",
 		c.deleteKubernetesLoadBalancersAndSecurityGroups,
@@ -76,7 +78,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 
 	deleteGatewayEndpoints := c.AddTask(g, "delete gateway endpoints",
 		c.deleteGatewayEndpoints,
-		DoIf(c.hasVPC()), Timeout(defaultTimeout))
+		DoIf(!isBYO && c.hasVPC()), Timeout(defaultTimeout))
 
 	deleteInternetGateway := c.AddTask(g, "delete internet gateway",
 		c.deleteInternetGateway,
@@ -285,6 +287,11 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 	if c.state.Get(IdentifierNodesSecurityGroup) == nil {
 		return nil
 	}
+	// Do not delete BYO security groups - they are user-managed.
+	if c.isBYOSecurityGroup() {
+		c.state.Delete(IdentifierNodesSecurityGroup)
+		return nil
+	}
 	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
 	current, err := FindExisting(ctx, c.state.Get(IdentifierNodesSecurityGroup), c.commonTagsWithSuffix("nodes"),
@@ -306,6 +313,50 @@ func (c *FlowContext) deleteNodesSecurityGroup(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteZones(ctx context.Context) error {
+	// For BYO infrastructure, clean up cluster tags from BYO subnets and route tables,
+	// then clear state. BYO resources are never deleted, but the cluster tags added
+	// during reconcile must be removed to avoid stale tags accumulating across cluster lifecycles.
+	if c.isBYOInfrastructure() {
+		child := c.state.GetChild(ChildIdZones)
+		clusterTag := awsclient.Tags{c.tagKeyCluster(): TagValueClusterShared}
+		untaggedRouteTables := sets.New[string]()
+		for _, zoneKey := range child.GetChildrenKeys() {
+			zoneChild := child.GetChild(zoneKey)
+			// Remove cluster tag from BYO worker subnets
+			if subnetID := zoneChild.Get(IdentifierZoneSubnetWorkers); subnetID != nil {
+				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
+					return fmt.Errorf("failed to remove cluster tag from BYO subnet %s: %w", *subnetID, err)
+				}
+			}
+			// Remove cluster tag from BYO public LB subnets (leave kubernetes.io/role/elb intact)
+			if subnetID := zoneChild.Get(IdentifierZoneSubnetPublic); subnetID != nil {
+				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
+					return fmt.Errorf("failed to remove cluster tag from BYO public subnet %s: %w", *subnetID, err)
+				}
+			}
+			// Remove cluster tag from BYO internal LB subnets (leave kubernetes.io/role/internal-elb intact)
+			if subnetID := zoneChild.Get(IdentifierZoneSubnetPrivate); subnetID != nil {
+				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
+					return fmt.Errorf("failed to remove cluster tag from BYO internal subnet %s: %w", *subnetID, err)
+				}
+			}
+			// Remove cluster tag from BYO route tables (deduplicate since multiple zones may share one)
+			if routeTableID := zoneChild.Get(IdentifierZoneRouteTable); routeTableID != nil {
+				if !untaggedRouteTables.Has(*routeTableID) {
+					if err := c.client.DeleteEC2Tags(ctx, []string{*routeTableID}, clusterTag); err != nil {
+						return fmt.Errorf("failed to remove cluster tag from BYO route table %s: %w", *routeTableID, err)
+					}
+					untaggedRouteTables.Insert(*routeTableID)
+				}
+			}
+			zoneChild.Delete(IdentifierZoneSubnetWorkers)
+			zoneChild.Delete(IdentifierZoneSubnetPublic)
+			zoneChild.Delete(IdentifierZoneSubnetPrivate)
+			zoneChild.Delete(IdentifierZoneRouteTable)
+		}
+		return nil
+	}
+
 	current, err := c.collectExistingSubnets(ctx)
 	if err != nil {
 		return err
@@ -452,8 +503,8 @@ func (c *FlowContext) deleteEfsMountTargets(ctx context.Context, efsID *string) 
 		if len(subnets) != 1 {
 			return fmt.Errorf("expected exactly one subnet for mount target %s, got %d", *mountTarget.MountTargetId, len(subnets))
 		}
-		// check if mount target was created by this shoot
-		if subnets[0].Tags == nil || subnets[0].Tags[c.tagKeyCluster()] != TagValueCluster {
+		// check if mount target was created by this shoot (accepts both legacy "1" and "owned")
+		if subnets[0].Tags == nil || !isOwnedClusterResource(subnets[0].Tags[c.tagKeyCluster()]) {
 			continue
 		}
 		log.Info("deleting...", "mountTargetId", *mountTarget.MountTargetId)

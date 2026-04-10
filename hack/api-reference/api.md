@@ -1612,6 +1612,24 @@ VPC
 <p>Zones belonging to the same region</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>nodesSecurityGroupID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NodesSecurityGroupID optionally specifies an existing security group ID for worker nodes.
+When provided, Gardener will not create a nodes security group and will use this one instead.
+The security group must exist in the same VPC and must allow:
+- All ingress from self (for pod-to-pod and node-to-node communication)
+- TCP/UDP ingress on ports 30000-32767 (NodePort range) from LB subnets
+- All egress traffic
+Requires VPC.ID to be set.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="aws.provider.extensions.gardener.cloud/v1alpha1.RegionAMIMapping">RegionAMIMapping
@@ -2068,7 +2086,9 @@ string
 </em>
 </td>
 <td>
-<p>Internal is the private subnet range to create (used for internal load balancers).</p>
+<em>(Optional)</em>
+<p>Internal is the private subnet range to create (used for internal load balancers).
+Optional when using BYO worker subnets (internal LB subnets are discovered via tags).</p>
 </td>
 </tr>
 <tr>
@@ -2079,7 +2099,9 @@ string
 </em>
 </td>
 <td>
-<p>Public is the public subnet range to create (used for bastion and load balancers).</p>
+<em>(Optional)</em>
+<p>Public is the public subnet range to create (used for bastion, NAT gateways, and load balancers).
+Optional for private clusters or BYO worker subnets (public LB subnets are discovered via tags).</p>
 </td>
 </tr>
 <tr>
@@ -2090,7 +2112,57 @@ string
 </em>
 </td>
 <td>
-<p>Workers is the workers subnet range to create (used for the VMs).</p>
+<em>(Optional)</em>
+<p>Workers is the workers subnet range to create (used for the VMs).
+Mutually exclusive with WorkersSubnetID.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>workersSubnetID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>WorkersSubnetID is the ID of an existing subnet for worker nodes.
+When set, Workers CIDR is ignored and no worker subnet is created.
+The user is responsible for subnet routing, connectivity, and tagging.
+Load balancer subnets (internal/public) are discovered automatically via standard
+AWS tags (kubernetes.io/role/internal-elb, kubernetes.io/role/elb) by the
+Cloud Controller Manager and AWS Load Balancer Controller.
+Requires VPC.ID to be set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>publicSubnetID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PublicSubnetID is the ID of an existing subnet for public load balancers.
+Only allowed in BYO mode (when WorkersSubnetID is set).
+Gardener tags this subnet with kubernetes.io/role/elb=1 and the cluster tag on reconcile,
+and removes only the cluster tag on delete (the role tag is shared infrastructure).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>internalSubnetID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>InternalSubnetID is the ID of an existing subnet for internal load balancers.
+Only allowed in BYO mode (when WorkersSubnetID is set).
+Gardener tags this subnet with kubernetes.io/role/internal-elb=1 and the cluster tag on reconcile,
+and removes only the cluster tag on delete (the role tag is shared infrastructure).</p>
 </td>
 </tr>
 <tr>
@@ -2105,6 +2177,7 @@ string
 <p>ElasticIPAllocationID contains the allocation ID of an Elastic IP that will be attached to the NAT gateway in
 this zone (e.g., <code>eipalloc-123456</code>). If it&rsquo;s not provided then a new Elastic IP will be automatically created
 and attached.
+Only valid when Gardener manages subnets (i.e., Workers and Public CIDRs are provided).
 Important: If this field is changed then the already attached Elastic IP will be disassociated from the NAT gateway
 (and potentially removed if it was created by this extension). Also, the NAT gateway will be deleted. This will
 disrupt egress traffic for a while.</p>
