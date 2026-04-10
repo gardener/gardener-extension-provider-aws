@@ -10,8 +10,12 @@ allowVolumeExpansion: true
 provisioner: {{ .Values.config.etcd.storage.provisioner }}
 volumeBindingMode: {{ .Values.config.etcd.storage.volumeBindingMode }}
 parameters:
-  type: gp3
+  {{- if .Values.config.etcd.storage.parameters }}
+  {{- toYaml .Values.config.etcd.storage.parameters | nindent 2 }}
+  {{- end }}
   {{- if .Values.config.etcd.storage.encrypted }}
+  {{- if not (hasKey (default dict .Values.config.etcd.storage.parameters) "encrypted") }}
   encrypted: "true"
+  {{- end }}
   {{- end }}
 {{- end }}
