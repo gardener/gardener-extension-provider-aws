@@ -187,6 +187,16 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
+# Duration after which TargetGroupBinding will be requeued for reconciliation when it's waiting for AWS resources to update.
+targetgroupbindingRequeueDuration:
+
+# Maximum number of concurrently running reconcile loops for ALB gateways (default 3)
+albGatewayMaxConcurrentReconciles:
+
+# Maximum number of concurrently running reconcile loops for NLB gateways (default 3)
+nlbGatewayMaxConcurrentReconciles:
+
+
 # Period at which the controller forces the repopulation of its local object stores. (default 1h0m0s)
 syncPeriod:
 
@@ -299,8 +309,26 @@ disableRestrictedSecurityGroupRules:
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
   featureGates: {}
-  #  ServiceTypeLoadBalancerOnly: true
-  #  EndpointsFailOpen: true
+  # ListenerRulesTagging: true
+  # WeightedTargetGroups: true
+  # ServiceTypeLoadBalancerOnly: false
+  # EndpointsFailOpen: true
+  # EnableServiceController: true
+  # EnableIPTargetType: true
+  # EnableTCPUDPListener: false
+  # EnableRGTAPI: false
+  # SubnetsClusterTagCheck: true
+  # NLBHealthCheckAdvancedConfig: true
+  # NLBSecurityGroup: true
+  # ALBSingleSubnet: false
+  # LBCapacityReservation: true
+  # SubnetDiscoveryByReachability: true
+  # NLBGatewayAPI: true
+  # ALBGatewayAPI: true
+  # GlobalAcceleratorController: false
+  # EnhancedDefaultBehavior: false
+  # EnableDefaultTagsLowPriority: false
+  # ALBTargetControlAgent: false
 
 # serviceTargetENISGTags extra tags used by the controller when finding the target ENI security group to which it should add inbound rules.
 serviceTargetENISGTags:

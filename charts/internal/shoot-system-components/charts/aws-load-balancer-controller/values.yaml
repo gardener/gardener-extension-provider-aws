@@ -279,8 +279,26 @@ disableRestrictedSecurityGroupRules:
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
   featureGates: {}
-  #  ServiceTypeLoadBalancerOnly: true
-  #  EndpointsFailOpen: true
+  # ListenerRulesTagging: true
+  # WeightedTargetGroups: true
+  # ServiceTypeLoadBalancerOnly: false
+  # EndpointsFailOpen: true
+  # EnableServiceController: true
+  # EnableIPTargetType: true
+  # EnableTCPUDPListener: false
+  # EnableRGTAPI: false
+  # SubnetsClusterTagCheck: true
+  # NLBHealthCheckAdvancedConfig: true
+  # NLBSecurityGroup: true
+  # ALBSingleSubnet: false
+  # LBCapacityReservation: true
+  # SubnetDiscoveryByReachability: true
+  # NLBGatewayAPI: true
+  # ALBGatewayAPI: true
+  # GlobalAcceleratorController: false
+  # EnhancedDefaultBehavior: false
+  # EnableDefaultTagsLowPriority: false
+  # ALBTargetControlAgent: false
 
 # objectSelector for webhook
 objectSelector:
