@@ -83,9 +83,11 @@ config:
     storage:
       className: gardener.cloud-fast
       capacity: 25Gi
-      provisioner: kubernetes.io/aws-ebs
+      provisioner: ebs.csi.aws.com
       volumeBindingMode: WaitForFirstConsumer
       encrypted: true
+      parameters:
+        type: gp3
 #     backup:
 #       schedule: "0 */1 * * *"
   featureGates:
