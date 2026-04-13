@@ -2345,7 +2345,7 @@ func (c *Client) CreateFileSystem(ctx context.Context, input ElasticFileSystem, 
 		}
 		return false, nil
 	})
-	return fID, nil
+	return fID, err
 }
 
 // DeleteFileSystem deletes an efs file system
