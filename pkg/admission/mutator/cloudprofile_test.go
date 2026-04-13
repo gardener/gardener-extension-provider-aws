@@ -260,6 +260,113 @@ var _ = Describe("CloudProfile Mutator", func() {
 					}),
 				))
 			})
+
+			It("should convert old format (regions with architecture) to capabilityFlavors", func() {
+				cloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
+					{
+						Name: "os-1",
+						Versions: []v1beta1.MachineImageVersion{
+							{ExpirableVersion: v1beta1.ExpirableVersion{Version: "1.0.0"}},
+							{ExpirableVersion: v1beta1.ExpirableVersion{Version: "1.0.1"}},
+						},
+					},
+				}
+				cloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[
+  {"name":"os-1","versions":[
+	{"version":"1.0.0","regions":[
+		{"name":"eu-west-1","ami":"ami-1234","architecture":"amd64"},
+		{"name":"eu-west-1","ami":"ami-5678","architecture":"arm64"},
+		{"name":"us-east-1","ami":"ami-9999","architecture":"amd64"}
+	]},
+	{"version":"1.0.1","regions":[
+		{"name":"eu-west-1","ami":"ami-abcd"}
+	]}
+  ]}
+]}`)}
+				Expect(cloudProfileMutator.Mutate(ctx, cloudProfile, nil)).To(Succeed())
+				Expect(cloudProfile.Spec.MachineImages).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("os-1"),
+						"Versions": ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"ExpirableVersion": MatchFields(IgnoreExtras, Fields{"Version": Equal("1.0.0")}),
+								"CapabilityFlavors": ConsistOf(
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"amd64"}}),
+									}),
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"arm64"}}),
+									}),
+								),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"ExpirableVersion": MatchFields(IgnoreExtras, Fields{"Version": Equal("1.0.1")}),
+								"CapabilityFlavors": ConsistOf(
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"amd64"}}),
+									}),
+								),
+							}),
+						),
+					}),
+				))
+			})
+
+			It("should support mixed format - old and new format in same image", func() {
+				cloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
+					{
+						Name: "os-1",
+						Versions: []v1beta1.MachineImageVersion{
+							{ExpirableVersion: v1beta1.ExpirableVersion{Version: "1.0.0"}},
+							{ExpirableVersion: v1beta1.ExpirableVersion{Version: "1.0.1"}},
+						},
+					},
+				}
+				cloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[
+  {"name":"os-1","versions":[
+	{"version":"1.0.0","regions":[
+		{"name":"eu-west-1","ami":"ami-1234","architecture":"amd64"},
+		{"name":"eu-west-1","ami":"ami-5678","architecture":"arm64"}
+	]},
+	{"version":"1.0.1","capabilityFlavors":[
+		{"capabilities":{"architecture":["amd64"],"gpu":["true"]},"regions":[{"name":"eu-west-1","ami":"ami-gpu"}]}
+	]}
+  ]}
+]}`)}
+				Expect(cloudProfileMutator.Mutate(ctx, cloudProfile, nil)).To(Succeed())
+				Expect(cloudProfile.Spec.MachineImages).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("os-1"),
+						"Versions": ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"ExpirableVersion": MatchFields(IgnoreExtras, Fields{"Version": Equal("1.0.0")}),
+								"CapabilityFlavors": ConsistOf(
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"amd64"}}),
+									}),
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"arm64"}}),
+									}),
+								),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"ExpirableVersion": MatchFields(IgnoreExtras, Fields{"Version": Equal("1.0.1")}),
+								"CapabilityFlavors": ConsistOf(
+									MatchFields(IgnoreExtras, Fields{
+										"Capabilities": Equal(v1beta1.Capabilities{"architecture": []string{"amd64"}, "gpu": []string{"true"}}),
+									}),
+								),
+							}),
+						),
+					}),
+				))
+			})
 		})
 
 	})
