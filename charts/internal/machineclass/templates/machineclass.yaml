@@ -66,6 +66,9 @@ providerSpec:
   {{- if $machineClass.instanceMetadataOptions.httpTokens }}
     httpTokens: {{ $machineClass.instanceMetadataOptions.httpTokens }}
   {{- end }}
+  {{- if $machineClass.instanceMetadataOptions.httpProtocolIpv6 }}
+    httpProtocolIpv6: {{ $machineClass.instanceMetadataOptions.httpProtocolIpv6 }}
+  {{- end }}
 {{- end }}
 {{- with $machineClass.cpuOptions }}
   cpuOptions:

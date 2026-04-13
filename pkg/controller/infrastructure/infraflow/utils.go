@@ -183,7 +183,8 @@ func deref[T any](ts []*T) []T {
 	return res
 }
 
-func containsIPv6(ipFamilies []gardencorev1beta1.IPFamily) bool {
+// ContainsIPv6 returns true if the given ipFamilies contains IPv6.
+func ContainsIPv6(ipFamilies []gardencorev1beta1.IPFamily) bool {
 	return slices.Contains(ipFamilies, gardencorev1beta1.IPFamilyIPv6)
 }
 
@@ -205,6 +206,16 @@ func toEc2IpAddressType(ipFamilies []gardencorev1beta1.IPFamily) ec2types.IpAddr
 
 	// fallback to IPv4
 	return ec2types.IpAddressTypeIpv4
+}
+
+func toEfsIpAddressType(ipFamilies []gardencorev1beta1.IPFamily) efstypes.IpAddressType {
+	if gardencorev1beta1.IsIPv4SingleStack(ipFamilies) {
+		return efstypes.IpAddressTypeIpv4Only
+	}
+	if gardencorev1beta1.IsIPv6SingleStack(ipFamilies) {
+		return efstypes.IpAddressTypeIpv6Only
+	}
+	return efstypes.IpAddressTypeDualStack
 }
 
 // a failed NAT will automatically be deleted by AWS
