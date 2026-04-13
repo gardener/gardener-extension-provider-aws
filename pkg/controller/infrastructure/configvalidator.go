@@ -16,7 +16,6 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -161,9 +160,7 @@ func (c *configValidator) validateVPC(
 	cidrsToConsider := []string{vpc.CidrBlock}
 
 	for _, cidrBlock := range vpc.CidrBlockAssociationSet {
-		if cidr := ptr.Deref(cidrBlock.CidrBlock, ""); cidr != "" {
-			cidrsToConsider = append(cidrsToConsider, cidr)
-		}
+		cidrsToConsider = append(cidrsToConsider, cidrBlock)
 	}
 
 	networkingPath := field.NewPath("networking")

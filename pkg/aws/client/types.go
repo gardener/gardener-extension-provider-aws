@@ -232,7 +232,7 @@ type VPC struct {
 	Tags
 	VpcId                        string
 	CidrBlock                    string
-	CidrBlockAssociationSet      []ec2types.VpcCidrBlockAssociation
+	CidrBlockAssociationSet      []string
 	IPv6CidrBlock                string
 	EnableDnsSupport             bool
 	EnableDnsHostnames           bool
