@@ -63,6 +63,13 @@ spec:
             {{- with .Values.node.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+            - name: CSI_NODE_MEMORY_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: driver-efs-node
+                  resource: limits.memory
+            - name: PORT_RANGE_UPPER_BOUND
+              value: "21049"
           volumeMounts:
             - name: kubelet-dir
               mountPath: {{ .Values.node.kubeletPath }}

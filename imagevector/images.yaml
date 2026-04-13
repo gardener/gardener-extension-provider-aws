@@ -215,11 +215,10 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: 5.3.x
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: registry.k8s.io/sig-storage/csi-provisioner
-  tag: v6.1.1
+  tag: v6.2.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -230,7 +229,7 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: 6.1.x
+  targetVersion: '>= 1.34'
 - name: csi-provisioner
   sourceRepository: github.com/kubernetes-csi/external-provisioner
   repository: registry.k8s.io/sig-storage/csi-provisioner
