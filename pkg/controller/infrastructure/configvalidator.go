@@ -158,10 +158,7 @@ func (c *configValidator) validateVPC(
 	}
 
 	cidrsToConsider := []string{vpc.CidrBlock}
-
-	for _, cidrBlock := range vpc.CidrBlockAssociationSet {
-		cidrsToConsider = append(cidrsToConsider, cidrBlock)
-	}
+	cidrsToConsider = append(cidrsToConsider, vpc.CidrBlockAssociationSet...)
 
 	networkingPath := field.NewPath("networking")
 
