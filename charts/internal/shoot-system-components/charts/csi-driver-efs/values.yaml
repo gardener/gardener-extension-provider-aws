@@ -26,6 +26,7 @@ resources:
       memory: 38Mi
     limits:
       memory: 400Mi
+  portRangeUpperBound: "21049"
 
 sidecars:
   livenessProbe:
