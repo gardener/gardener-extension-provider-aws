@@ -1007,8 +1007,18 @@ func (c *Client) fromVpc(ctx context.Context, item ec2types.Vpc, withAttributes 
 		VpcId:     aws.ToString(item.VpcId),
 		Tags:      FromTags(item.Tags),
 		CidrBlock: aws.ToString(item.CidrBlock),
+		// CidrBlockAssociationSet: item.CidrBlockAssociationSet,
+		CidrBlockAssociationSet: func() []string {
+			cidrBlocks := make([]string, 0, len(item.CidrBlockAssociationSet))
+			for _, i := range item.CidrBlockAssociationSet {
+				if i.CidrBlockState.State == ec2types.VpcCidrBlockStateCodeAssociated {
+					cidrBlocks = append(cidrBlocks, aws.ToString(i.CidrBlock))
+				}
+			}
+			return cidrBlocks
+		}(),
 		IPv6CidrBlock: func() string {
-			if item.Ipv6CidrBlockAssociationSet != nil {
+			if len(item.Ipv6CidrBlockAssociationSet) > 0 && item.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlockState.State == ec2types.VpcCidrBlockStateCodeAssociated {
 				return aws.ToString(item.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock)
 			}
 			return ""
