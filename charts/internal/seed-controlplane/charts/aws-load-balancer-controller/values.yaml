@@ -138,6 +138,11 @@ awsMaxRetries:
 # NOTE: In Gardener, only "instance" mode is currently supported.
 defaultTargetType: instance
 
+# Default load balancer scheme when not specifying "alb.ingress.kubernetes.io/scheme" or
+# "service.beta.kubernetes.io/aws-load-balancer-scheme" annotations.
+# Possible values are "internal" and "internet-facing" (default "internal")
+defaultLoadBalancerScheme:
+
 # If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods (default true)
 enablePodReadinessGateInject:
 
@@ -196,6 +201,14 @@ albGatewayMaxConcurrentReconciles:
 # Maximum number of concurrently running reconcile loops for NLB gateways (default 3)
 nlbGatewayMaxConcurrentReconciles:
 
+# Maximum number of concurrently running reconcile loops for GlobalAccelerator objects
+globalAcceleratorMaxConcurrentReconciles:
+
+# Maximum duration of exponential backoff for GlobalAccelerator reconcile failures
+globalAcceleratorMaxExponentialBackoffDelay:
+
+# Interval at which the controller monitors the state of load balancer after creation for stabilization
+lbStabilizationMonitorInterval:
 
 # Period at which the controller forces the repopulation of its local object stores. (default 1h0m0s)
 syncPeriod:
@@ -305,6 +318,9 @@ backendSecurityGroup:
 # disableRestrictedSecurityGroupRules specifies whether to disable creating port-range restricted security group rules for traffic
 disableRestrictedSecurityGroupRules:
 
+# maxTargetsPerTargetGroup specifies the maximum number of targets that the controller will attempt to add to a given ELB instance
+maxTargetsPerTargetGroup:
+
 # controllerConfig specifies controller configuration
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
@@ -363,3 +379,6 @@ ingressClassConfig:
   default: false
 
 useWorkloadIdentity: false
+
+certDiscovery:
+  allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
