@@ -104,7 +104,7 @@ func NewOpts(ctx context.Context, bastion *extensionsv1alpha1.Bastion, cluster *
 	machineTypeCapabilities := helper.NormalizeMachineTypeCapabilities(vmDetails.MachineTypeCapabilities, &vmDetails.Architecture, capabilityDefinitions)
 
 	var ami string
-	imageFlavor, err := helper.FindImageInCloudProfile(cloudProfileConfig, vmDetails.ImageBaseName, vmDetails.ImageVersion, region, machineTypeCapabilities, cluster.CloudProfile.Spec.MachineCapabilities)
+	imageFlavor, err := helper.FindImageInCloudProfile(cloudProfileConfig, vmDetails.ImageBaseName, vmDetails.ImageVersion, region, machineTypeCapabilities, capabilityDefinitions)
 	if err != nil {
 		return Options{}, fmt.Errorf("failed to find machine image in CloudProfileConfig: %w", err)
 	}
