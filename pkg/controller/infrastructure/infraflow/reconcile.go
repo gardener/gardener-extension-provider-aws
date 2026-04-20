@@ -2242,24 +2242,24 @@ func (c *FlowContext) ensureEfs(ctx context.Context) error {
 			efsID := c.config.ElasticFileSystem.ID
 			log.Info("discovering existing EFS mount targets", "fileSystemID", *efsID)
 
-			mountTargetOutput, err := c.client.DescribeMountTargetsEfs(ctx, &efs.DescribeMountTargetsInput{
-				FileSystemId: efsID,
-			})
+			mountTargetOutput, err := c.client.GetMountTargetsEfs(ctx, *efsID)
 			if err != nil {
-				return fmt.Errorf("failed to describe mount targets for EFS %s: %w", *efsID, err)
+				return fmt.Errorf("failed to get mount targets for EFS %s: %w", *efsID, err)
+			}
+			if mountTargetOutput == nil {
+				return fmt.Errorf("found no mount targets for EFS %s", *efsID)
 			}
 
 			childMountTargets := c.state.GetChild(ChildEfsMountTargets)
-			if mountTargetOutput != nil {
-				for _, mt := range mountTargetOutput.MountTargets {
-					if mt.MountTargetId != nil && mt.SubnetId != nil {
-						// Key format differs from managed path (which uses efsID_subnetID_sgID) because
-						// BYO discovery is read-only — we never create or delete these mount targets.
-						// The key only needs to be unique for state storage, not match the managed format.
-						key := fmt.Sprintf("%s_%s", *efsID, *mt.SubnetId)
-						childMountTargets.Set(key, *mt.MountTargetId)
-						log.Info("discovered EFS mount target", "mountTargetID", *mt.MountTargetId, "subnetID", *mt.SubnetId, "az", ptr.Deref(mt.AvailabilityZoneName, ""))
-					}
+			for _, mt := range mountTargetOutput.MountTargets {
+				if mt.MountTargetId != nil && mt.SubnetId != nil {
+					// Key format differs from managed path (which uses efsID_subnetID_sgID) because
+					// BYO discovery is read-only — we never create or delete these mount targets.
+					// The key only needs to be unique for state storage, not match the managed format.
+					key := fmt.Sprintf("%s_%s", *efsID, *mt.SubnetId)
+					childMountTargets.Set(key, *mt.MountTargetId)
+					log.Info("discovered EFS mount target", "mountTargetID", *mt.MountTargetId,
+						"subnetID", *mt.SubnetId, "az", ptr.Deref(mt.AvailabilityZoneName, ""))
 				}
 			}
 		}
@@ -2278,6 +2278,7 @@ func (c *FlowContext) ensureEfs(ctx context.Context) error {
 func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
 	log := LogFromContext(ctx)
 
+	// returns nil error if not found
 	current, err := FindExisting(ctx, c.state.Get(IdentifierManagedEfsID), c.commonTags.AddManagedTag(),
 		c.client.GetFileSystem, c.client.FindFileSystemsByTags)
 	if err != nil {
