@@ -69,7 +69,7 @@ spec:
                   containerName: driver-efs-node
                   resource: limits.memory
             - name: PORT_RANGE_UPPER_BOUND
-              value: {{ .Values.resources.portRangeUpperBound }}
+              value: {{ .Values.resources.portRangeUpperBound | quote }}
           volumeMounts:
             - name: kubelet-dir
               mountPath: {{ .Values.node.kubeletPath }}
