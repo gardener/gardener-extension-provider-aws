@@ -181,12 +181,12 @@ func (in *CpuOptions) DeepCopyInto(out *CpuOptions) {
 	*out = *in
 	if in.CoreCount != nil {
 		in, out := &in.CoreCount, &out.CoreCount
-		*out = new(int64)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ThreadsPerCore != nil {
 		in, out := &in.ThreadsPerCore, &out.ThreadsPerCore
-		*out = new(int64)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.AmdSevSnp != nil {
@@ -557,7 +557,7 @@ func (in *InstanceMetadataOptions) DeepCopyInto(out *InstanceMetadataOptions) {
 	}
 	if in.HTTPPutResponseHopLimit != nil {
 		in, out := &in.HTTPPutResponseHopLimit, &out.HTTPPutResponseHopLimit
-		*out = new(int64)
+		*out = new(int32)
 		**out = **in
 	}
 	return
@@ -918,12 +918,12 @@ func (in *Volume) DeepCopyInto(out *Volume) {
 	*out = *in
 	if in.IOPS != nil {
 		in, out := &in.IOPS, &out.IOPS
-		*out = new(int64)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Throughput != nil {
 		in, out := &in.Throughput, &out.Throughput
-		*out = new(int64)
+		*out = new(int32)
 		**out = **in
 	}
 	return

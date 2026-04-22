@@ -52,7 +52,7 @@ var _ = Describe("Shoot validation", func() {
 		var (
 			worker   core.Worker
 			awsZones []apisaws.Zone
-			iops     int64 = 1234
+			iops     int32 = 1234
 		)
 
 		BeforeEach(func() {

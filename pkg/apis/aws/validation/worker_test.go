@@ -27,12 +27,12 @@ var _ = Describe("ValidateWorkerConfig", func() {
 	Describe("#ValidateWorkerConfig", func() {
 		var (
 			io1type          = string(apisaws.VolumeTypeIO1)
-			io1iops    int64 = 200
+			io1iops    int32 = 200
 			gp2type          = string(apisaws.VolumeTypeGP2)
-			gp2iops    int64 = 400
+			gp2iops    int32 = 400
 			gp3type          = string(apisaws.VolumeTypeGP3)
-			gp3iops    int64 = 4000
-			throughput int64 = 200
+			gp3iops    int32 = 4000
+			throughput int32 = 200
 
 			rootVolumeIO1 = &core.Volume{Type: &io1type}
 			rootVolumeGP2 = &core.Volume{Type: &gp2type}
@@ -226,7 +226,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 		})
 
 		It("should enforce that the IOPS is positive", func() {
-			var negative int64 = -100
+			var negative int32 = -100
 			worker.Volume.IOPS = &negative
 			worker.DataVolumes[0].IOPS = &negative
 
@@ -256,7 +256,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 		})
 
 		It("should enforce that the throughput is positive", func() {
-			var negative int64 = -100
+			var negative int32 = -100
 			worker.Volume.Throughput = &negative
 			worker.DataVolumes[0].Throughput = &negative
 
@@ -380,7 +380,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should allow disabling IMDS from pods", func() {
 				v := apisaws.HTTPTokensRequired
 				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
-					HTTPPutResponseHopLimit: ptr.To[int64](1),
+					HTTPPutResponseHopLimit: ptr.To[int32](1),
 					HTTPTokens:              &v,
 				}
 
@@ -404,7 +404,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 
 			It("httpPutResponseHopLimit should only contain valid values", func() {
 				worker.InstanceMetadataOptions = &apisaws.InstanceMetadataOptions{
-					HTTPPutResponseHopLimit: ptr.To[int64](100),
+					HTTPPutResponseHopLimit: ptr.To[int32](100),
 				}
 
 				errList := ValidateWorkerConfig(worker, rootVolumeIO1, dataVolumes, fldPath)
@@ -443,7 +443,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should require ThreadsPerCore when CoreCount is set", func() {
 				wc := &apisaws.WorkerConfig{
 					CpuOptions: &apisaws.CpuOptions{
-						CoreCount: ptr.To[int64](4),
+						CoreCount: ptr.To[int32](4),
 					},
 				}
 				errs := validate(wc)
@@ -457,7 +457,7 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should require CoreCount when ThreadsPerCore is set", func() {
 				wc := &apisaws.WorkerConfig{
 					CpuOptions: &apisaws.CpuOptions{
-						ThreadsPerCore: ptr.To[int64](2),
+						ThreadsPerCore: ptr.To[int32](2),
 					},
 				}
 				errs := validate(wc)
@@ -471,8 +471,8 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should reject ThreadsPerCore values other than 1 or 2", func() {
 				wc := &apisaws.WorkerConfig{
 					CpuOptions: &apisaws.CpuOptions{
-						CoreCount:      ptr.To[int64](8),
-						ThreadsPerCore: ptr.To[int64](3),
+						CoreCount:      ptr.To[int32](8),
+						ThreadsPerCore: ptr.To[int32](3),
 					},
 				}
 				errs := validate(wc)
@@ -486,8 +486,8 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should accept ThreadsPerCore == 1", func() {
 				wc := &apisaws.WorkerConfig{
 					CpuOptions: &apisaws.CpuOptions{
-						CoreCount:      ptr.To[int64](4),
-						ThreadsPerCore: ptr.To[int64](1),
+						CoreCount:      ptr.To[int32](4),
+						ThreadsPerCore: ptr.To[int32](1),
 					},
 				}
 				Expect(validate(wc)).To(BeEmpty())
@@ -496,8 +496,8 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should accept ThreadsPerCore == 2", func() {
 				wc := &apisaws.WorkerConfig{
 					CpuOptions: &apisaws.CpuOptions{
-						CoreCount:      ptr.To[int64](4),
-						ThreadsPerCore: ptr.To[int64](2),
+						CoreCount:      ptr.To[int32](4),
+						ThreadsPerCore: ptr.To[int32](2),
 					},
 				}
 				Expect(validate(wc)).To(BeEmpty())
@@ -545,8 +545,8 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should report only the invalid ThreadsPerCore error when both counts are set but ThreadsPerCore invalid", func() {
 				wc := &apisaws.WorkerConfig{
 					CpuOptions: &apisaws.CpuOptions{
-						CoreCount:      ptr.To[int64](16),
-						ThreadsPerCore: ptr.To[int64](5),
+						CoreCount:      ptr.To[int32](16),
+						ThreadsPerCore: ptr.To[int32](5),
 					},
 				}
 				errs := validate(wc)
@@ -560,8 +560,8 @@ var _ = Describe("ValidateWorkerConfig", func() {
 			It("should return no errors for a fully valid configuration", func() {
 				wc := &apisaws.WorkerConfig{
 					CpuOptions: &apisaws.CpuOptions{
-						CoreCount:      ptr.To[int64](8),
-						ThreadsPerCore: ptr.To[int64](2),
+						CoreCount:      ptr.To[int32](8),
+						ThreadsPerCore: ptr.To[int32](2),
 						AmdSevSnp:      ptr.To("enabled"),
 					},
 				}

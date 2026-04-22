@@ -92,21 +92,21 @@ var _ = Describe("Machines", func() {
 				archFAKE string
 
 				volumeType       string
-				volumeSize       int
+				volumeSize       int32
 				volumeEncrypted  bool
-				volumeIOPS       int64
-				volumeThroughput int64
+				volumeIOPS       int32
+				volumeThroughput int32
 
 				dataVolume1Name       string
 				dataVolume1Type       string
-				dataVolume1Size       int
-				dataVolume1IOPS       int64
-				dataVolume1Throughput int64
+				dataVolume1Size       int32
+				dataVolume1IOPS       int32
+				dataVolume1Throughput int32
 				dataVolume1Encrypted  bool
 
 				dataVolume2Name       string
 				dataVolume2Type       string
-				dataVolume2Size       int
+				dataVolume2Size       int32
 				dataVolume2Encrypted  bool
 				dataVolume2SnapshotID string
 
@@ -692,7 +692,7 @@ var _ = Describe("Machines", func() {
 								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
 									DeleteOnTermination: ptr.To(true),
 									Encrypted:           true,
-									VolumeSize:          int32(volumeSize),
+									VolumeSize:          volumeSize,
 									VolumeType:          volumeType,
 								},
 							},
@@ -742,9 +742,9 @@ var _ = Describe("Machines", func() {
 								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
 									DeleteOnTermination: ptr.To(true),
 									Encrypted:           volumeEncrypted,
-									Iops:                int32(volumeIOPS),
-									Throughput:          ptr.To(int32(volumeThroughput)),
-									VolumeSize:          int32(volumeSize),
+									Iops:                volumeIOPS,
+									Throughput:          ptr.To(volumeThroughput),
+									VolumeSize:          volumeSize,
 									VolumeType:          volumeType,
 								},
 							},
@@ -753,9 +753,9 @@ var _ = Describe("Machines", func() {
 								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
 									DeleteOnTermination: ptr.To(true),
 									Encrypted:           dataVolume1Encrypted,
-									Iops:                int32(dataVolume1IOPS),
-									Throughput:          ptr.To(int32(dataVolume1Throughput)),
-									VolumeSize:          int32(dataVolume1Size),
+									Iops:                dataVolume1IOPS,
+									Throughput:          ptr.To(dataVolume1Throughput),
+									VolumeSize:          dataVolume1Size,
 									VolumeType:          dataVolume1Type,
 								},
 							},
@@ -764,7 +764,7 @@ var _ = Describe("Machines", func() {
 								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
 									DeleteOnTermination: ptr.To(true),
 									SnapshotID:          ptr.To(dataVolume2SnapshotID),
-									VolumeSize:          int32(dataVolume2Size),
+									VolumeSize:          dataVolume2Size,
 									VolumeType:          dataVolume2Type,
 								},
 							},
@@ -1479,8 +1479,8 @@ var _ = Describe("Machines", func() {
 					BeforeEach(func() {
 						workerConfig = api.WorkerConfig{
 							CpuOptions: &api.CpuOptions{
-								CoreCount:      ptr.To(int64(4)),
-								ThreadsPerCore: ptr.To(int64(2)),
+								CoreCount:      ptr.To(int32(4)),
+								ThreadsPerCore: ptr.To(int32(2)),
 							},
 							IAMInstanceProfile: &api.IAMInstanceProfile{
 								ARN:  ptr.To("arn"),
@@ -1488,7 +1488,7 @@ var _ = Describe("Machines", func() {
 							},
 							InstanceMetadataOptions: &api.InstanceMetadataOptions{
 								HTTPTokens:              ptr.To(api.HTTPTokensRequired),
-								HTTPPutResponseHopLimit: ptr.To(int64(1)),
+								HTTPPutResponseHopLimit: ptr.To(int32(1)),
 							},
 						}
 						workerConfigData = encode(&workerConfig)
@@ -1598,7 +1598,7 @@ var _ = Describe("Machines", func() {
 			It("should calculate correct IMDS with user options", func() {
 				workerConfig.InstanceMetadataOptions = &api.InstanceMetadataOptions{
 					HTTPTokens:              ptr.To(api.HTTPTokensRequired),
-					HTTPPutResponseHopLimit: ptr.To(int64(5)),
+					HTTPPutResponseHopLimit: ptr.To(int32(5)),
 				}
 
 				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
@@ -1613,7 +1613,7 @@ var _ = Describe("Machines", func() {
 
 				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(res).To(HaveKeyWithValue("httpProtocolIpv6", "enabled"))
+				Expect(res.HTTPProtocolIPv6).To(Equal("enabled"))
 			})
 		})
 
