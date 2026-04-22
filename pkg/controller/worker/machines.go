@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"sort"
 	"strconv"
@@ -260,16 +261,11 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 			}
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
-				cpuOpts := &awsmachineapi.CPUOptions{
-					AmdSevSnp: cpuOptions.AmdSevSnp,
+				machineClassProviderSpec.CPUOptions = &awsmachineapi.CPUOptions{
+					AmdSevSnp:      cpuOptions.AmdSevSnp,
+					CoreCount:      cpuOptions.CoreCount,
+					ThreadsPerCore: cpuOptions.ThreadsPerCore,
 				}
-
-				if cpuOptions.CoreCount != nil && cpuOptions.ThreadsPerCore != nil {
-					cpuOpts.CoreCount = ptr.To(int32(*cpuOptions.CoreCount))
-					cpuOpts.ThreadsPerCore = ptr.To(int32(*cpuOptions.ThreadsPerCore))
-				}
-
-				machineClassProviderSpec.CPUOptions = cpuOpts
 			}
 
 			if workerConfig.CapacityReservation != nil {
@@ -412,10 +408,10 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	}
 	if workerConfig.Volume != nil {
 		if workerConfig.Volume.IOPS != nil {
-			rootDisk.Iops = int32(*workerConfig.Volume.IOPS)
+			rootDisk.Iops = *workerConfig.Volume.IOPS
 		}
 		if workerConfig.Volume.Throughput != nil {
-			rootDisk.Throughput = ptr.To(int32(*workerConfig.Volume.Throughput))
+			rootDisk.Throughput = workerConfig.Volume.Throughput
 		}
 	}
 	blockDevices = append(blockDevices, awsmachineapi.AWSBlockDeviceMappingSpec{Ebs: rootDisk})
@@ -436,10 +432,10 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 			}
 			if dvConfig := awsapihelper.FindDataVolumeByName(workerConfig.DataVolumes, vol.Name); dvConfig != nil {
 				if dvConfig.IOPS != nil {
-					dataDisk.Iops = int32(*dvConfig.IOPS)
+					dataDisk.Iops = *dvConfig.IOPS
 				}
 				if dvConfig.Throughput != nil {
-					dataDisk.Throughput = ptr.To(int32(*dvConfig.Throughput))
+					dataDisk.Throughput = dvConfig.Throughput
 				}
 				dataDisk.SnapshotID = dvConfig.SnapshotID
 			}
@@ -479,8 +475,12 @@ func computeEBS(size string, volumeType *string, encrypted *bool) (awsmachineapi
 		return awsmachineapi.AWSEbsBlockDeviceSpec{}, err
 	}
 
+	if volumeSize > math.MaxInt32 {
+		return awsmachineapi.AWSEbsBlockDeviceSpec{}, fmt.Errorf("volume size cannot exceed %d", math.MaxInt32)
+	}
+
 	ebs := awsmachineapi.AWSEbsBlockDeviceSpec{
-		VolumeSize:          int32(volumeSize),
+		VolumeSize:          int32(volumeSize), // #nosec: G115 - volumeSize is checked to not exceed max int32.
 		Encrypted:           true,
 		DeleteOnTermination: ptr.To(true),
 	}
@@ -622,7 +622,7 @@ func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig, networkin
 	}
 
 	if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
-		instanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To(int32(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit))
+		instanceMetadataOptions.HTTPPutResponseHopLimit = workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit
 	}
 
 	if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
@@ -688,20 +688,20 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 	}
 	if workerConfig.Volume != nil {
 		if workerConfig.Volume.IOPS != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.Volume.IOPS, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.Volume.IOPS), 10))
 		}
 		if workerConfig.Volume.Throughput != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.Volume.Throughput, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.Volume.Throughput), 10))
 		}
 	}
 	if workerConfig.DataVolumes != nil {
 		for _, dv := range workerConfig.DataVolumes {
 			hashData = append(hashData, dv.Name)
 			if dv.IOPS != nil {
-				hashData = append(hashData, strconv.FormatInt(*dv.IOPS, 10))
+				hashData = append(hashData, strconv.FormatInt(int64(*dv.IOPS), 10))
 			}
 			if dv.Throughput != nil {
-				hashData = append(hashData, strconv.FormatInt(*dv.Throughput, 10))
+				hashData = append(hashData, strconv.FormatInt(int64(*dv.Throughput), 10))
 			}
 			if dv.SnapshotID != nil {
 				hashData = append(hashData, *dv.SnapshotID)
@@ -722,16 +722,16 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 			hashData = append(hashData, string(*workerConfig.InstanceMetadataOptions.HTTPTokens))
 		}
 		if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit), 10))
 		}
 	}
 
 	if workerConfig.CpuOptions != nil {
 		if workerConfig.CpuOptions.CoreCount != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.CpuOptions.CoreCount, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.CpuOptions.CoreCount), 10))
 		}
 		if workerConfig.CpuOptions.ThreadsPerCore != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.CpuOptions.ThreadsPerCore, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.CpuOptions.ThreadsPerCore), 10))
 		}
 	}
 
