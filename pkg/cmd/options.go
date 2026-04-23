@@ -34,9 +34,9 @@ import (
 	workercontroller "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
 	cloudproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/cloudprovider"
 	controlplanewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/controlplane"
+	pvcawebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/pvca"
 	seedproviderwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/seedprovider"
 	configmapwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootconfigmap"
-	pvcawebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootpvca"
 	servicewebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/shootservice"
 	terraformerwebhook "github.com/gardener/gardener-extension-provider-aws/pkg/webhook/terraformer"
 )

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package shootpvca_test
+package pvca_test
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestShootPVCA(t *testing.T) {
+func TestPVCA(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Shoot PVCA Webhook Suite")
 }
