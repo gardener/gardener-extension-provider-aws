@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package shootpvca
+package pvca
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var defaultCooldownDuration = &metav1.Duration{Duration: 6 * time.Hour}
+const minCooldownDuration = 6 * time.Hour
 
 type mutator struct {
 	logger logr.Logger
@@ -38,8 +38,8 @@ func (m *mutator) Mutate(_ context.Context, newObj, _ client.Object) error {
 
 	for i := range pvca.Spec.VolumePolicies {
 		if pvca.Spec.VolumePolicies[i].ScaleUp != nil &&
-			pvca.Spec.VolumePolicies[i].ScaleUp.CooldownDuration == nil {
-			pvca.Spec.VolumePolicies[i].ScaleUp.CooldownDuration = defaultCooldownDuration.DeepCopy()
+			(pvca.Spec.VolumePolicies[i].ScaleUp.CooldownDuration == nil || pvca.Spec.VolumePolicies[i].ScaleUp.CooldownDuration.Duration < minCooldownDuration) {
+			pvca.Spec.VolumePolicies[i].ScaleUp.CooldownDuration = &metav1.Duration{Duration: minCooldownDuration}
 		}
 	}
 
