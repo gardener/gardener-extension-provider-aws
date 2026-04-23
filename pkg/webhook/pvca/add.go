@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package shootpvca
+package pvca
 
 import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
@@ -43,7 +43,6 @@ func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebh
 		return nil, err
 	}
 
-	// This webhook should apply to all namespaces in the shoot cluster.
 	return &extensionswebhook.Webhook{
 		Name:              WebhookName,
 		Target:            extensionswebhook.TargetSeed,
