@@ -376,7 +376,22 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: '>= 1.34'
+  targetVersion: '1.34.x'
+- name: ecr-credential-provider
+  sourceRepository: github.com/gardener/ecr-credential-provider
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
+  tag: v1.35.1
+  labels:
+  - name: gardener.cloud/cve-categorisation
+    value:
+      network_exposure: protected
+      authentication_enforced: false
+      user_interaction: end-user
+      confidentiality_requirement: high
+      integrity_requirement: high
+      availability_requirement: low
+    signing: false
+  targetVersion: '>= 1.35'
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/machine-controller-manager-provider-aws
