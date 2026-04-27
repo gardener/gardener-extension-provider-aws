@@ -47,6 +47,7 @@ spec:
         - --logtostderr
         - --v=5
         - --batching=true
+        - --http-endpoint=0.0.0.0:3301
         env:
         - name: CSI_ENDPOINT
           value: unix://{{ .Values.socketPath }}/csi.sock
@@ -69,6 +70,9 @@ spec:
         ports:
         - name: healthz
           containerPort: 9808
+          protocol: TCP
+        - name: metrics
+          containerPort: 3301
           protocol: TCP
         livenessProbe:
           httpGet:
