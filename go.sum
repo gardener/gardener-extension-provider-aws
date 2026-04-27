@@ -931,6 +931,8 @@ github.com/gardener/gardener/pkg/apis v1.139.1 h1:yxHSs1y393/FesGAVBORnDbc7isi3c
 github.com/gardener/gardener/pkg/apis v1.139.1/go.mod h1:3Tbqw9dx7KaJ7Fikkna+WVGjRCyTTdlZEAy0GV6u4Gc=
 github.com/gardener/machine-controller-manager v0.61.3 h1:w0JuHCKLmcK7B8E7mx3TvE3e0hSYwikchsMSiMhocqw=
 github.com/gardener/machine-controller-manager v0.61.3/go.mod h1:8eE1qLztrWIbOM71mHSQGaC6Q+pl5lvOyN08qP39D7o=
+github.com/gardener/pvc-autoscaler v0.1.3-0.20260302080529-0051ec27d9c6 h1:0EsdbkVr39JtXXKu3kr9hPK0ET3ArSyTDP8ZQkUENbs=
+github.com/gardener/pvc-autoscaler v0.1.3-0.20260302080529-0051ec27d9c6/go.mod h1:7BjeWJXsRLGz701hBLFewASKloAqPvQAIXezPJX2cg0=
 github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gkampitakis/ciinfo v0.3.2 h1:JcuOPk8ZU7nZQjdUhctuhQofk7BGHuIy0c9Ez8BNhXs=

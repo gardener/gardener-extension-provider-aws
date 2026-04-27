@@ -76,7 +76,7 @@ spec:
         - --extension-classes=garden
 {{- else }}
         - --disable-controllers={{ .Values.disableControllers | join "," }}
-        - --disable-webhooks={{ .Values.disableWebhooks | join "," }}
+        - --disable-webhooks={{ include "disable.webhooks" . }}
 {{- end }}
         - --metrics-bind-address=:{{ tpl .Values.metricsPort . }}
         - --health-bind-address=:{{ tpl .Values.healthPort . }}
