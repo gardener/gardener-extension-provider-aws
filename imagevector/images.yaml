@@ -44,36 +44,6 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: v1.30.10
-  labels:
-  - name: gardener.cloud/cve-categorisation
-    value:
-      network_exposure: protected
-      authentication_enforced: false
-      user_interaction: gardener-operator
-      confidentiality_requirement: high
-      integrity_requirement: high
-      availability_requirement: low
-    signing: false
-  targetVersion: 1.30.x
-- name: cloud-controller-manager
-  sourceRepository: github.com/kubernetes/cloud-provider-aws
-  repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: v1.31.9
-  labels:
-  - name: gardener.cloud/cve-categorisation
-    value:
-      network_exposure: protected
-      authentication_enforced: false
-      user_interaction: gardener-operator
-      confidentiality_requirement: high
-      integrity_requirement: high
-      availability_requirement: low
-    signing: false
-  targetVersion: 1.31.x
-- name: cloud-controller-manager
-  sourceRepository: github.com/kubernetes/cloud-provider-aws
-  repository: registry.k8s.io/provider-aws/cloud-controller-manager
   tag: v1.32.5
   labels:
   - name: gardener.cloud/cve-categorisation
@@ -302,36 +272,6 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-- name: ecr-credential-provider
-  sourceRepository: github.com/gardener/ecr-credential-provider
-  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
-  tag: v1.30.3
-  labels:
-  - name: gardener.cloud/cve-categorisation
-    value:
-      network_exposure: protected
-      authentication_enforced: false
-      user_interaction: end-user
-      confidentiality_requirement: high
-      integrity_requirement: high
-      availability_requirement: low
-    signing: false
-  targetVersion: 1.30.x
-- name: ecr-credential-provider
-  sourceRepository: github.com/gardener/ecr-credential-provider
-  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
-  tag: v1.31.0
-  labels:
-  - name: gardener.cloud/cve-categorisation
-    value:
-      network_exposure: protected
-      authentication_enforced: false
-      user_interaction: end-user
-      confidentiality_requirement: high
-      integrity_requirement: high
-      availability_requirement: low
-    signing: false
-  targetVersion: 1.31.x
 - name: ecr-credential-provider
   sourceRepository: github.com/gardener/ecr-credential-provider
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider

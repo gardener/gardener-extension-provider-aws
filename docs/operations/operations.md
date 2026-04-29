@@ -79,9 +79,9 @@ spec:
   type: aws
   kubernetes:
     versions:
-    - version: 1.32.1
-    - version: 1.31.4
-      expirationDate: "2022-10-31T23:59:59Z"
+    - version: 1.34.1
+    - version: 1.33.4
+      expirationDate: "2023-10-31T23:59:59Z"
   machineImages:
   - name: coreos
     versions:
@@ -143,9 +143,9 @@ spec:
   type: aws
   kubernetes:
     versions:
-    - version: 1.32.1
-    - version: 1.31.4
-      expirationDate: "2022-10-31T23:59:59Z"
+    - version: 1.34.1
+    - version: 1.33.4
+      expirationDate: "2023-10-31T23:59:59Z"
   machineImages:
   - name: coreos
     versions:
