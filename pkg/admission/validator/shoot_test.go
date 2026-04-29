@@ -13,8 +13,8 @@ import (
 	"github.com/gardener/gardener/pkg/apis/core"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
+	testutils "github.com/gardener/gardener/pkg/utils/test"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
-	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -43,7 +43,7 @@ var _ = Describe("Shoot validator", func() {
 			shootValidator extensionswebhook.Validator
 
 			ctrl                   *gomock.Controller
-			mgr                    *mockmanager.MockManager
+			mgr                    *testutils.FakeManager
 			c                      *mockclient.MockClient
 			reader                 *mockclient.MockReader
 			cloudProfile           *gardencorev1beta1.CloudProfile
@@ -73,11 +73,7 @@ var _ = Describe("Shoot validator", func() {
 
 			c = mockclient.NewMockClient(ctrl)
 			reader = mockclient.NewMockReader(ctrl)
-			mgr = mockmanager.NewMockManager(ctrl)
-
-			mgr.EXPECT().GetScheme().Return(scheme).Times(2)
-			mgr.EXPECT().GetClient().Return(c)
-			mgr.EXPECT().GetAPIReader().Return(reader)
+			mgr = &testutils.FakeManager{Scheme: scheme, Client: c, APIReader: reader}
 
 			shootValidator = validator.NewShootValidator(mgr)
 
