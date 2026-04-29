@@ -11,8 +11,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 const (
@@ -27,9 +25,8 @@ func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	logger.Info("Setting up webhook", "name", Name)
 
 	return extensionswebhook.New(mgr, extensionswebhook.Args{
-		Provider: aws.Type,
-		Name:     Name,
-		Path:     "/webhooks/mutate",
+		Name: Name,
+		Path: "/webhooks/mutate",
 		Mutators: map[extensionswebhook.Mutator][]extensionswebhook.Type{
 			NewShootMutator(mgr):                  {{Obj: &gardencorev1beta1.Shoot{}}},
 			NewNamespacedCloudProfileMutator(mgr): {{Obj: &gardencorev1beta1.NamespacedCloudProfile{}, Subresource: ptr.To("status")}},

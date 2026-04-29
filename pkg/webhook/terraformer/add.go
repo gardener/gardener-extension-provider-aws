@@ -43,7 +43,6 @@ func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	return &extensionswebhook.Webhook{
 		Name:              WebhookName,
 		Target:            extensionswebhook.TargetSeed,
-		Provider:          aws.Type,
 		Types:             types,
 		Webhook:           &admission.Webhook{Handler: handler, RecoverPanic: ptr.To(true)},
 		Path:              webhookPath,
