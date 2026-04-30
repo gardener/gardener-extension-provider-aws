@@ -58,6 +58,9 @@ func (c *FlowContext) Reconcile(ctx context.Context) error {
 
 func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 	createVPC := c.config.Networks.VPC.ID == nil
+	isBYO := c.isBYOInfrastructure()
+	needsIGW := createVPC || c.hasManagedPublicSubnets()
+	needsMainRouteTable := needsIGW
 	g := flow.NewGraph("AWS infrastructure reconciliation")
 
 	ensureDhcpOptions := c.AddTask(g, "ensure DHCP options for VPC",
@@ -86,11 +89,11 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 
 	_ = c.AddTask(g, "ensure gateway endpoints",
 		c.ensureGatewayEndpoints,
-		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureDefaultSecurityGroup, ensureInternetGateway))
+		DoIf(!isBYO), Timeout(defaultTimeout), Dependencies(ensureVpc, ensureDefaultSecurityGroup, ensureInternetGateway))
 
 	ensureMainRouteTable := c.AddTask(g, "ensure main route table",
 		c.ensureMainRouteTable,
-		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway, ensureEgressOnlyInternetGateway))
+		DoIf(needsMainRouteTable), Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway, ensureEgressOnlyInternetGateway))
 
 	ensureNodesSecurityGroup := c.AddTask(g, "ensure nodes security group",
 		c.ensureNodesSecurityGroup,
@@ -280,11 +283,16 @@ func (c *FlowContext) ensureExistingVpc(ctx context.Context) error {
 	if err := c.validateVpc(ctx, current); err != nil {
 		return err
 	}
-	gw, err := c.client.FindInternetGatewayByVPC(ctx, vpcID)
-	if err != nil {
-		return fmt.Errorf("internet Gateway not found for VPC %s", vpcID)
+
+	// Only look up the Internet Gateway when Gardener manages public subnets or the VPC is Gardener-managed.
+	// For fully BYO configurations, users manage their own connectivity.
+	if c.hasManagedPublicSubnets() {
+		gw, err := c.client.FindInternetGatewayByVPC(ctx, vpcID)
+		if err != nil {
+			return fmt.Errorf("internet Gateway not found for VPC %s", vpcID)
+		}
+		c.state.Set(IdentifierInternetGateway, gw.InternetGatewayId)
 	}
-	c.state.Set(IdentifierInternetGateway, gw.InternetGatewayId)
 
 	if ContainsIPv6(c.getIpFamilies()) {
 		eogw, err := c.client.FindEgressOnlyInternetGatewayByVPC(ctx, vpcID)
@@ -533,6 +541,19 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
+	// If user provides their own security group, use it directly.
+	// TODO: Open question — should nodesSecurityGroupID be allowed without workersSubnetID?
+	// Currently it is: Gardener skips SG creation but still creates subnets/NAT/IGW.
+	// This is a valid use case (user wants to control SG rules but let Gardener manage
+	// subnets), but the SG rule set (e.g. TCP 2049 NFS rule using zone.Internal CIDR)
+	// should be reviewed for correctness in this hybrid scenario.
+	if c.isBYOSecurityGroup() {
+		log := LogFromContext(ctx)
+		log.Info("using user-provided nodes security group", "sgID", *c.config.Networks.NodesSecurityGroupID)
+		c.state.Set(IdentifierNodesSecurityGroup, *c.config.Networks.NodesSecurityGroupID)
+		return nil
+	}
+
 	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
 
@@ -638,6 +659,10 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 			Protocol: "udp",
 		}
 
+		// TODO: The TCP 2049 NFS ingress rule uses zone.Internal as the source CIDR, but both the
+		// mount target and the worker nodes are in the workers subnet and share the same security
+		// group. The self-referencing rule (Self: true, Protocol: -1) already allows all traffic
+		// between SG members, making this CIDR-based rule redundant. Consider removing it.
 		ruleEfsInboundNFS := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
 			FromPort: ptr.To[int32](2049),
@@ -646,11 +671,15 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		}
 
 		if containsIPv4(c.getIpFamilies()) {
-			ruleNodesInternalTCP.CidrBlocks = []string{zone.Internal}
-			ruleNodesInternalUDP.CidrBlocks = []string{zone.Internal}
-			ruleEfsInboundNFS.CidrBlocks = []string{zone.Internal}
-			ruleNodesPublicTCP.CidrBlocks = []string{zone.Public}
-			ruleNodesPublicUDP.CidrBlocks = []string{zone.Public}
+			if zone.Internal != nil {
+				ruleNodesInternalTCP.CidrBlocks = []string{*zone.Internal}
+				ruleNodesInternalUDP.CidrBlocks = []string{*zone.Internal}
+				ruleEfsInboundNFS.CidrBlocks = []string{*zone.Internal}
+			}
+			if zone.Public != nil {
+				ruleNodesPublicTCP.CidrBlocks = []string{*zone.Public}
+				ruleNodesPublicUDP.CidrBlocks = []string{*zone.Public}
+			}
 		}
 
 		if ContainsIPv6(c.getIpFamilies()) {
@@ -672,8 +701,16 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 				ruleNodesPublicUDP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
 			}
 		}
-		desired.Rules = append(desired.Rules, ruleNodesInternalTCP, ruleNodesInternalUDP, ruleNodesPublicTCP, ruleNodesPublicUDP)
-		if c.isCsiEfsEnabled() {
+		// Only add per-zone CIDR rules when the CIDRs are actually configured.
+		// In BYO mode, internal/public CIDRs may be empty — the base rules (self-referencing,
+		// NodePort from 0.0.0.0/0, all-egress) still provide adequate security.
+		if hasCIDRs(ruleNodesInternalTCP) || hasCIDRs(ruleNodesInternalUDP) {
+			desired.Rules = append(desired.Rules, ruleNodesInternalTCP, ruleNodesInternalUDP)
+		}
+		if hasCIDRs(ruleNodesPublicTCP) || hasCIDRs(ruleNodesPublicUDP) {
+			desired.Rules = append(desired.Rules, ruleNodesPublicTCP, ruleNodesPublicUDP)
+		}
+		if c.isCsiEfsEnabled() && hasCIDRs(ruleEfsInboundNFS) {
 			desired.Rules = append(desired.Rules, ruleEfsInboundNFS)
 		}
 	}
@@ -709,12 +746,17 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	return nil
 }
 
+// hasCIDRs returns true if the security group rule has at least one IPv4 or IPv6 CIDR block.
+func hasCIDRs(rule *awsclient.SecurityGroupRule) bool {
+	return len(rule.CidrBlocks) > 0 || len(rule.CidrBlocksv6) > 0
+}
+
 func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 	var egressIPs []string
-	tags := awsclient.Tags{
-		c.tagKeyCluster(): TagValueCluster,
-	}
-	filters := awsclient.WithFilters().WithTags(tags).WithVpcId(*c.state.Get(IdentifierVPC)).Build()
+	filters := append(
+		awsclient.WithFilters().WithVpcId(*c.state.Get(IdentifierVPC)).Build(),
+		c.clusterTagKeyExistsFilter(),
+	)
 	nats, err := c.client.FindNATGateways(ctx, filters)
 	if err != nil {
 		return err
@@ -730,6 +772,289 @@ func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureZones(ctx context.Context) error {
+	// For BYO infrastructure, store the provided subnet IDs directly in state and skip creation.
+	if c.isBYOInfrastructure() {
+		return c.ensureBYOZones(ctx)
+	}
+	return c.ensureManagedZones(ctx)
+}
+
+// ensureBYOZones stores BYO subnet IDs in the flow state for status reporting.
+// It also discovers existing tagged public and internal subnets in the VPC so they
+// can be reported in InfrastructureStatus for the CCM config and other consumers.
+// No subnets, NAT gateways, route tables, or elastic IPs are created.
+func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
+	log := LogFromContext(ctx)
+	log.Info("using BYO worker subnets")
+
+	var workerSubnetIDs []string
+	subnetToZone := map[string]string{} // subnetID -> zoneName
+
+	processedZones := sets.New[string]()
+	for _, zone := range c.config.Networks.Zones {
+		if processedZones.Has(zone.Name) {
+			continue
+		}
+		processedZones.Insert(zone.Name)
+
+		child := c.getSubnetZoneChild(zone.Name)
+		// Ensure zone suffix is assigned (needed for state consistency)
+		_ = c.zoneSuffixHelpers(zone.Name)
+
+		if zone.WorkersSubnetID != nil {
+			child.Set(IdentifierZoneSubnetWorkers, *zone.WorkersSubnetID)
+			log.Info("using BYO workers subnet", "zone", zone.Name, "subnetID", *zone.WorkersSubnetID)
+
+			// Auto-tag the BYO subnet with the cluster tag (value "shared") so the CCM/LBC
+			// can discover it. This follows the EKS pattern: user provides subnet IDs,
+			// the platform auto-tags them with the cluster association.
+			byoTags := awsclient.Tags{
+				c.tagKeyCluster(): TagValueClusterShared,
+			}
+			if err := c.client.CreateEC2Tags(ctx, []string{*zone.WorkersSubnetID}, byoTags); err != nil {
+				return fmt.Errorf("failed to tag BYO workers subnet %s: %w", *zone.WorkersSubnetID, err)
+			}
+
+			workerSubnetIDs = append(workerSubnetIDs, *zone.WorkersSubnetID)
+			subnetToZone[*zone.WorkersSubnetID] = zone.Name
+		}
+
+		// Tag and store BYO public LB subnet (for CCM/LBC discovery)
+		if zone.PublicSubnetID != nil {
+			child.Set(IdentifierZoneSubnetPublic, *zone.PublicSubnetID)
+			log.Info("using BYO public LB subnet", "zone", zone.Name, "subnetID", *zone.PublicSubnetID)
+
+			publicTags := awsclient.Tags{
+				c.tagKeyCluster():   TagValueClusterShared,
+				TagKeyRolePublicELB: TagValueELB,
+			}
+			if err := c.client.CreateEC2Tags(ctx, []string{*zone.PublicSubnetID}, publicTags); err != nil {
+				return fmt.Errorf("failed to tag BYO public subnet %s: %w", *zone.PublicSubnetID, err)
+			}
+		}
+
+		// Tag and store BYO internal LB subnet (for CCM/LBC discovery)
+		if zone.InternalSubnetID != nil {
+			child.Set(IdentifierZoneSubnetPrivate, *zone.InternalSubnetID)
+			log.Info("using BYO internal LB subnet", "zone", zone.Name, "subnetID", *zone.InternalSubnetID)
+
+			internalTags := awsclient.Tags{
+				c.tagKeyCluster():    TagValueClusterShared,
+				TagKeyRolePrivateELB: TagValueELB,
+			}
+			if err := c.client.CreateEC2Tags(ctx, []string{*zone.InternalSubnetID}, internalTags); err != nil {
+				return fmt.Errorf("failed to tag BYO internal subnet %s: %w", *zone.InternalSubnetID, err)
+			}
+		}
+	}
+
+	// Discover and tag route tables associated with BYO worker subnets so the
+	// aws-custom-route-controller can find them. The controller looks for route tables
+	// with the tag kubernetes.io/cluster/<clusterName> (any value).
+	if err := c.tagBYORouteTables(ctx, workerSubnetIDs, subnetToZone); err != nil {
+		return err
+	}
+
+	// Discover existing tagged subnets in the VPC for InfrastructureStatus.
+	// The CCM config needs at least one public or internal subnet for initialization.
+	if err := c.discoverTaggedSubnets(ctx); err != nil {
+		return err
+	}
+
+	// Persist state so BYO subnet IDs are available for status reporting
+	return c.PersistState(ctx)
+}
+
+// tagBYORouteTables discovers the route tables associated with BYO worker subnets
+// and tags them with the cluster tag (value "shared") so the aws-custom-route-controller
+// can discover them. Route table IDs are stored in the per-zone state for cleanup during deletion.
+func (c *FlowContext) tagBYORouteTables(ctx context.Context, workerSubnetIDs []string, subnetToZone map[string]string) error {
+	if len(workerSubnetIDs) == 0 {
+		return nil
+	}
+	vpcID := c.state.Get(IdentifierVPC)
+	if vpcID == nil {
+		return nil
+	}
+
+	log := LogFromContext(ctx)
+
+	routeTables, err := c.client.FindRouteTablesForSubnets(ctx, *vpcID, workerSubnetIDs)
+	if err != nil {
+		return fmt.Errorf("failed to discover route tables for BYO worker subnets: %w", err)
+	}
+
+	clusterTag := awsclient.Tags{c.tagKeyCluster(): TagValueClusterShared}
+	taggedRTs := sets.New[string]()
+
+	for _, rt := range routeTables {
+		// Tag each route table only once (multiple subnets may share a route table)
+		if !taggedRTs.Has(rt.RouteTableId) {
+			if err := c.client.CreateEC2Tags(ctx, []string{rt.RouteTableId}, clusterTag); err != nil {
+				return fmt.Errorf("failed to tag BYO route table %s: %w", rt.RouteTableId, err)
+			}
+			taggedRTs.Insert(rt.RouteTableId)
+			log.Info("tagged BYO route table with cluster tag", "routeTableID", rt.RouteTableId)
+		}
+
+		// Store route table ID in per-zone state for cleanup during deletion
+		for _, assoc := range rt.Associations {
+			if assoc.SubnetId != nil {
+				if zoneName, ok := subnetToZone[*assoc.SubnetId]; ok {
+					child := c.getSubnetZoneChild(zoneName)
+					child.Set(IdentifierZoneRouteTable, rt.RouteTableId)
+				}
+			}
+			// Also store the main route table for zones whose subnets have no explicit association
+			if assoc.Main {
+				for _, subnetID := range workerSubnetIDs {
+					if !c.subnetHasExplicitRouteTable(routeTables, subnetID) {
+						if zoneName, ok := subnetToZone[subnetID]; ok {
+							child := c.getSubnetZoneChild(zoneName)
+							child.Set(IdentifierZoneRouteTable, rt.RouteTableId)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// subnetHasExplicitRouteTable checks if a subnet has an explicit route table association
+// among the given route tables.
+func (c *FlowContext) subnetHasExplicitRouteTable(routeTables []*awsclient.RouteTable, subnetID string) bool {
+	for _, rt := range routeTables {
+		for _, assoc := range rt.Associations {
+			if assoc.SubnetId != nil && *assoc.SubnetId == subnetID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// discoverTaggedSubnets finds existing public and internal subnets in the VPC that are
+// tagged with the cluster tag, and stores the first of each in the flow state.
+// This is needed for BYO setups where Gardener doesn't create these subnets but the
+// CCM config and InfrastructureStatus still need to reference them.
+//
+// When explicit LB subnet IDs are provided (PublicSubnetID/InternalSubnetID), this function
+// validates that the CCM would discover the same subnets. If a different subnet is discovered
+// for the same AZ (e.g., due to lexicographic ordering of multiple tagged subnets), an error
+// is returned to prevent the CCM from picking a different subnet than intended.
+func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
+	log := LogFromContext(ctx)
+	vpcID := c.state.Get(IdentifierVPC)
+	if vpcID == nil {
+		return nil
+	}
+
+	// Build a map of explicitly provided LB subnet IDs per AZ for validation
+	explicitPublic := map[string]string{}   // az -> subnetID
+	explicitInternal := map[string]string{} // az -> subnetID
+	for _, zone := range c.config.Networks.Zones {
+		if zone.PublicSubnetID != nil {
+			explicitPublic[zone.Name] = *zone.PublicSubnetID
+		}
+		if zone.InternalSubnetID != nil {
+			explicitInternal[zone.Name] = *zone.InternalSubnetID
+		}
+	}
+
+	// Discover public subnets (tagged kubernetes.io/role/elb=1 + cluster tag key exists)
+	publicFilters := append(
+		awsclient.WithFilters().
+			WithVpcId(*vpcID).
+			WithTags(awsclient.Tags{TagKeyRolePublicELB: TagValueELB}).
+			Build(),
+		c.clusterTagKeyExistsFilter(),
+	)
+	publicSubnets, err := c.client.FindSubnets(ctx, publicFilters)
+	if err != nil {
+		return fmt.Errorf("failed to discover tagged public subnets: %w", err)
+	}
+	// Group discovered public subnets by AZ to detect ambiguity
+	publicByAZ := map[string][]string{} // az -> []subnetID
+	for _, subnet := range publicSubnets {
+		publicByAZ[subnet.AvailabilityZone] = append(publicByAZ[subnet.AvailabilityZone], subnet.SubnetId)
+	}
+	for az, subnetIDs := range publicByAZ {
+		if len(subnetIDs) > 1 {
+			return fmt.Errorf("multiple public subnets discovered in %s with cluster tag and kubernetes.io/role/elb=1: %v; "+
+				"the CCM would pick one by lexicographic order which is fragile; "+
+				"remove the cluster tag from all but one subnet, or use publicSubnetID to be explicit",
+				az, subnetIDs)
+		}
+		subnetID := subnetIDs[0]
+		// If an explicit public subnet ID was provided for this AZ, validate it matches
+		if expectedID, ok := explicitPublic[az]; ok {
+			if subnetID != expectedID {
+				return fmt.Errorf("discovered public subnet %s in %s, but publicSubnetID specifies %s; "+
+					"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/elb=1",
+					subnetID, az, expectedID)
+			}
+			// Already stored by ensureBYOZones, skip overwriting
+			continue
+		}
+		child := c.getSubnetZoneChild(az)
+		child.Set(IdentifierZoneSubnetPublic, subnetID)
+		log.Info("discovered tagged public subnet", "zone", az, "subnetID", subnetID)
+	}
+
+	// Discover internal subnets (tagged kubernetes.io/role/internal-elb=1 + cluster tag key exists)
+	internalFilters := append(
+		awsclient.WithFilters().
+			WithVpcId(*vpcID).
+			WithTags(awsclient.Tags{TagKeyRolePrivateELB: TagValueELB}).
+			Build(),
+		c.clusterTagKeyExistsFilter(),
+	)
+	internalSubnets, err := c.client.FindSubnets(ctx, internalFilters)
+	if err != nil {
+		return fmt.Errorf("failed to discover tagged internal subnets: %w", err)
+	}
+	// Group discovered internal subnets by AZ to detect ambiguity
+	internalByAZ := map[string][]string{} // az -> []subnetID
+	for _, subnet := range internalSubnets {
+		internalByAZ[subnet.AvailabilityZone] = append(internalByAZ[subnet.AvailabilityZone], subnet.SubnetId)
+	}
+	for az, subnetIDs := range internalByAZ {
+		if len(subnetIDs) > 1 {
+			return fmt.Errorf("multiple internal subnets discovered in %s with cluster tag and kubernetes.io/role/internal-elb=1: %v; "+
+				"the CCM would pick one by lexicographic order which is fragile; "+
+				"remove the cluster tag from all but one subnet, or use internalSubnetID to be explicit",
+				az, subnetIDs)
+		}
+		subnetID := subnetIDs[0]
+		// If an explicit internal subnet ID was provided for this AZ, validate it matches
+		if expectedID, ok := explicitInternal[az]; ok {
+			if subnetID != expectedID {
+				return fmt.Errorf("discovered internal subnet %s in %s, but internalSubnetID specifies %s; "+
+					"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/internal-elb=1",
+					subnetID, az, expectedID)
+			}
+			// Already stored by ensureBYOZones, skip overwriting
+			continue
+		}
+		child := c.getSubnetZoneChild(az)
+		child.Set(IdentifierZoneSubnetPrivate, subnetID)
+		log.Info("discovered tagged internal subnet", "zone", az, "subnetID", subnetID)
+	}
+
+	if len(publicSubnets) == 0 && len(internalSubnets) == 0 {
+		log.Info("WARNING: no tagged public or internal subnets found in VPC; " +
+			"the CCM service controller will be disabled and the AWS Load Balancer Controller " +
+			"will only work for resources with explicit subnet annotations. " +
+			"Tag subnets with kubernetes.io/role/elb=1 (public) or kubernetes.io/role/internal-elb=1 (internal) " +
+			"and the cluster tag to enable automatic LB subnet discovery.")
+	}
+
+	return nil
+}
+
+func (c *FlowContext) ensureManagedZones(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	var desired []*awsclient.Subnet
 
@@ -759,7 +1084,7 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 		tagsPublic[TagKeyRolePublicELB] = TagValueELB
 		tagsPrivate := c.commonTagsWithSuffix(helper.GetSuffixSubnetPrivate())
 		tagsPrivate[TagKeyRolePrivateELB] = TagValueELB
-		workersCIDR := zone.Workers
+		workersCIDR := ptr.Deref(zone.Workers, "")
 		if !containsIPv4(c.getIpFamilies()) {
 			workersCIDR = ""
 		}
@@ -781,14 +1106,14 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 				VpcId:                       c.state.Get(IdentifierVPC),
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: ptr.To(ContainsIPv6(c.getIpFamilies())),
-				CidrBlock:                   zone.Internal,
+				CidrBlock:                   ptr.Deref(zone.Internal, ""),
 			},
 			&awsclient.Subnet{
 				Tags:                        tagsPublic,
 				VpcId:                       c.state.Get(IdentifierVPC),
 				AvailabilityZone:            zone.Name,
 				AssignIpv6AddressOnCreation: ptr.To(ContainsIPv6(c.getIpFamilies())),
-				CidrBlock:                   zone.Public,
+				CidrBlock:                   ptr.Deref(zone.Public, ""),
 			},
 		)
 
@@ -1103,6 +1428,10 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 		}
 
 		if key == IdentifierZoneSubnetWorkers {
+			// BYO subnets may not have IPv6 CIDR blocks.
+			if len(subnet.Ipv6CidrBlocks) == 0 {
+				continue
+			}
 			cidr, err := cidrSubnet(subnet.Ipv6CidrBlocks[0], 108, 1)
 			if err != nil {
 				return err
@@ -1129,6 +1458,10 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 		}
 
 		if key == IdentifierZoneSubnetWorkers {
+			// BYO subnets may not have IPv6 CIDR blocks.
+			if len(subnet.Ipv6CidrBlocks) == 0 {
+				continue
+			}
 			cidr, err := cidrSubnet(subnet.Ipv6CidrBlocks[0], 108, 1)
 			if err != nil {
 				return err
@@ -1353,7 +1686,7 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 				return err
 			}
 		}
-		child.Delete(IdentifierZoneNATGateway)
+
 		return nil
 	}
 }
@@ -1897,6 +2230,43 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureEfs(ctx context.Context) error {
+	// In BYO mode, Gardener does not create EFS file systems or mount targets.
+	// The user provides an existing file system ID and is responsible for mount targets.
+	// The CSI driver discovers mount targets at runtime via the EFS API.
+	// We still discover existing mount targets to populate state for observability.
+	if c.isBYOInfrastructure() {
+		log := LogFromContext(ctx)
+		log.Info("skipping EFS file system and mount target creation in BYO mode")
+
+		if c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.ID != nil {
+			efsID := c.config.ElasticFileSystem.ID
+			log.Info("discovering existing EFS mount targets", "fileSystemID", *efsID)
+
+			mountTargetOutput, err := c.client.GetMountTargetsEfs(ctx, *efsID)
+			if err != nil {
+				return fmt.Errorf("failed to get mount targets for EFS %s: %w", *efsID, err)
+			}
+			if mountTargetOutput == nil {
+				return fmt.Errorf("found no mount targets for EFS %s", *efsID)
+			}
+
+			childMountTargets := c.state.GetChild(ChildEfsMountTargets)
+			for _, mt := range mountTargetOutput.MountTargets {
+				if mt.MountTargetId != nil && mt.SubnetId != nil {
+					// Key format differs from managed path (which uses efsID_subnetID_sgID) because
+					// BYO discovery is read-only — we never create or delete these mount targets.
+					// The key only needs to be unique for state storage, not match the managed format.
+					key := fmt.Sprintf("%s_%s", *efsID, *mt.SubnetId)
+					childMountTargets.Set(key, *mt.MountTargetId)
+					log.Info("discovered EFS mount target", "mountTargetID", *mt.MountTargetId,
+						"subnetID", *mt.SubnetId, "az", ptr.Deref(mt.AvailabilityZoneName, ""))
+				}
+			}
+		}
+
+		return nil
+	}
+
 	err := c.ensureEfsCreateFileSystem(ctx)
 	if err != nil {
 		return err
@@ -1908,6 +2278,7 @@ func (c *FlowContext) ensureEfs(ctx context.Context) error {
 func (c *FlowContext) ensureEfsCreateFileSystem(ctx context.Context) error {
 	log := LogFromContext(ctx)
 
+	// returns nil error if not found
 	current, err := FindExisting(ctx, c.state.Get(IdentifierManagedEfsID), c.commonTags.AddManagedTag(),
 		c.client.GetFileSystem, c.client.FindFileSystemsByTags)
 	if err != nil {
@@ -2080,12 +2451,13 @@ func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (string, string, erro
 		}
 		return "", "", fmt.Errorf("could not determine subnet key for subnet %s", item.SubnetId)
 	}
-	switch item.CidrBlock {
-	case zone.Workers:
+	if zone.Workers != nil && item.CidrBlock == *zone.Workers {
 		return zone.Name, IdentifierZoneSubnetWorkers, nil
-	case zone.Public:
+	}
+	if zone.Public != nil && item.CidrBlock == *zone.Public {
 		return zone.Name, IdentifierZoneSubnetPublic, nil
-	case zone.Internal:
+	}
+	if zone.Internal != nil && item.CidrBlock == *zone.Internal {
 		return zone.Name, IdentifierZoneSubnetPrivate, nil
 	}
 	return "", "", fmt.Errorf("could not determine subnet key for subnet %s", item.SubnetId)

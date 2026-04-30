@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
@@ -33,8 +35,15 @@ const (
 	TagKeyRolePublicELB = "kubernetes.io/role/elb"
 	// TagKeyRolePrivateELB is the tag key for the internal ELB
 	TagKeyRolePrivateELB = "kubernetes.io/role/internal-elb"
-	// TagValueCluster is the tag value for the cluster tag
+	// TagValueCluster is the legacy tag value for the cluster tag (kept for backwards compatibility).
+	// Treated as equivalent to TagValueClusterOwned in Gardener's ownership checks.
 	TagValueCluster = "1"
+	// TagValueClusterOwned indicates the resource is owned by this cluster and can be deleted on cleanup.
+	// Aligns with the AWS convention used by the CCM's hasClusterTagOwned check.
+	TagValueClusterOwned = "owned"
+	// TagValueClusterShared indicates the resource is used by this cluster but not owned by it.
+	// BYO resources are tagged with this value. No controller should delete shared resources.
+	TagValueClusterShared = "shared"
 	// TagValueELB is the tag value for the ELB tag keys
 	TagValueELB = "1"
 
@@ -171,7 +180,7 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		shootUUID:     string(opts.Shoot.UID),
 	}
 	flowContext.commonTags = awsclient.Tags{
-		flowContext.tagKeyCluster(): TagValueCluster,
+		flowContext.tagKeyCluster(): TagValueClusterOwned,
 		TagKeyName:                  opts.Infrastructure.Namespace,
 	}
 	return flowContext, nil
@@ -278,9 +287,25 @@ func (c *FlowContext) tagKeyCluster() string {
 	return fmt.Sprintf(TagKeyClusterTemplate, c.namespace)
 }
 
+// isOwnedClusterResource checks if a resource's cluster tag value indicates ownership.
+// Accepts both the legacy value ("1") and the standard value ("owned").
+func isOwnedClusterResource(tagValue string) bool {
+	return tagValue == TagValueCluster || tagValue == TagValueClusterOwned
+}
+
+// clusterTagKeyExistsFilter returns an EC2 filter that matches resources having the cluster
+// tag key regardless of value. Used for discovery where we want to find all resources
+// associated with this cluster (owned, shared, or legacy).
+func (c *FlowContext) clusterTagKeyExistsFilter() ec2types.Filter {
+	return ec2types.Filter{
+		Name:   aws.String("tag-key"),
+		Values: []string{c.tagKeyCluster()},
+	}
+}
+
 func (c *FlowContext) clusterTags() awsclient.Tags {
 	tags := awsclient.Tags{}
-	tags[c.tagKeyCluster()] = TagValueCluster
+	tags[c.tagKeyCluster()] = TagValueClusterOwned
 	return tags
 }
 
@@ -316,6 +341,27 @@ func (c *FlowContext) zoneSuffixHelpers(zoneName string) *ZoneSuffixHelper {
 
 func (c *FlowContext) isCsiEfsEnabled() bool {
 	return c.config != nil && c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.Enabled
+}
+
+// isBYOInfrastructure returns true if all zones use WorkersSubnetID (BYO mode).
+// Validation ensures all zones use the same approach, so checking the first zone suffices.
+func (c *FlowContext) isBYOInfrastructure() bool {
+	return len(c.config.Networks.Zones) > 0 && c.config.Networks.Zones[0].WorkersSubnetID != nil
+}
+
+// hasManagedPublicSubnets returns true if at least one zone has a Public CIDR (Gardener-managed).
+func (c *FlowContext) hasManagedPublicSubnets() bool {
+	for _, zone := range c.config.Networks.Zones {
+		if zone.Public != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// isBYOSecurityGroup returns true if the user has provided a NodesSecurityGroupID.
+func (c *FlowContext) isBYOSecurityGroup() bool {
+	return c.config.Networks.NodesSecurityGroupID != nil
 }
 
 // ZoneSuffixHelper provides methods to create suffices for various resources
