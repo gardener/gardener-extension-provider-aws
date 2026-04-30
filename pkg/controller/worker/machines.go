@@ -6,9 +6,10 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
-	"path/filepath"
+	"math"
 	"slices"
 	"sort"
 	"strconv"
@@ -23,15 +24,20 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
+	"github.com/gardener/gardener/pkg/controllerutils"
 	"github.com/gardener/gardener/pkg/utils"
+	"github.com/gardener/gardener/pkg/utils/flow"
 	versionutils "github.com/gardener/gardener/pkg/utils/version"
+	awsmachineapi "github.com/gardener/machine-controller-manager-provider-aws/pkg/aws/apis"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/gardener/gardener-extension-provider-aws/charts"
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
@@ -42,6 +48,11 @@ const (
 	// we need to support it because old PVs use it as node affinity
 	// see also: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/issues/729#issuecomment-1942026577
 	CSIDriverTopologyKey = "topology.ebs.csi.aws.com/zone"
+
+	// maxConcurrentMachineTasks defines the maximum number of machine-related tasks that can run concurrently.
+	// TODO(plkokanov): Use `genericworkeractuator.MaxConcurrentMachineTasks` introduced in https://github.com/gardener/gardener/pull/14220
+	// when available.
+	maxConcurrentMachineTasks = 50
 )
 
 // MachineClassKind yields the name of the machine class kind used by AWS provider.
@@ -61,12 +72,38 @@ func (w *WorkerDelegate) MachineClass() client.Object {
 
 // DeployMachineClasses generates and creates the AWS specific machine classes.
 func (w *WorkerDelegate) DeployMachineClasses(ctx context.Context) error {
-	if w.machineClasses == nil {
+	if len(w.machineClassToMutateFuncMap) == 0 || len(w.machineClassSecretToMutateFuncMap) == 0 {
 		if err := w.generateMachineConfig(ctx); err != nil {
 			return err
 		}
 	}
-	return w.seedChartApplier.ApplyFromEmbeddedFS(ctx, charts.InternalChart, filepath.Join(charts.InternalChartsPath, "machineclass"), w.worker.Namespace, "machineclass", kubernetes.Values(map[string]interface{}{"machineClasses": w.machineClasses}))
+
+	var secretsTaskFns = make([]flow.TaskFn, 0, len(w.machineClassSecretToMutateFuncMap))
+	for secret, mutateFn := range w.machineClassSecretToMutateFuncMap {
+		secretsTaskFns = append(secretsTaskFns, func(ctx context.Context) error {
+			if _, err := controllerutils.GetAndCreateOrMergePatch(ctx, w.client, secret, mutateFn); err != nil {
+				return fmt.Errorf("could not deploy Secret '%s': %w", client.ObjectKeyFromObject(secret), err)
+			}
+
+			return nil
+		})
+	}
+	if err := flow.ParallelN(maxConcurrentMachineTasks, secretsTaskFns...)(ctx); err != nil {
+		return err
+	}
+
+	var machineClassesTaskFns = make([]flow.TaskFn, 0, len(w.machineClassToMutateFuncMap))
+	for machineClass, mutateFn := range w.machineClassToMutateFuncMap {
+		machineClassesTaskFns = append(machineClassesTaskFns, func(ctx context.Context) error {
+			if _, err := controllerutils.GetAndCreateOrMergePatch(ctx, w.client, machineClass, mutateFn); err != nil {
+				return fmt.Errorf("could not deploy MachineClass '%s':  %w", client.ObjectKeyFromObject(machineClass), err)
+			}
+
+			return nil
+		})
+	}
+
+	return flow.ParallelN(maxConcurrentMachineTasks, machineClassesTaskFns...)(ctx)
 }
 
 // GenerateMachineDeployments generates the configuration for the desired machine deployments.
@@ -81,9 +118,10 @@ func (w *WorkerDelegate) GenerateMachineDeployments(ctx context.Context) (worker
 
 func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 	var (
-		machineDeployments = worker.MachineDeployments{}
-		machineClasses     []map[string]interface{}
-		machineImages      []awsapi.MachineImage
+		machineDeployments                = worker.MachineDeployments{}
+		machineImages                     []awsapi.MachineImage
+		machineClassToMutateFuncMap       = map[*machinev1alpha1.MachineClass]controllerutil.MutateFn{}
+		machineClassSecretToMutateFuncMap = map[*corev1.Secret]controllerutil.MutateFn{}
 	)
 
 	// Normalize capability definitions once at the entry point.
@@ -159,56 +197,60 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				return err
 			}
 
-			machineClassSpec := map[string]interface{}{
-				"ami":                machineImage.AMI,
-				"region":             w.worker.Spec.Region,
-				"machineType":        pool.MachineType,
-				"iamInstanceProfile": iamInstanceProfile,
-				"networkInterfaces": []map[string]interface{}{
+			machineClassProviderSpec := &awsmachineapi.AWSProviderSpec{
+				AMI:                    machineImage.AMI,
+				Region:                 w.worker.Spec.Region,
+				MachineType:            pool.MachineType,
+				SrcAndDstChecksEnabled: ptr.To(false),
+				IAM:                    iamInstanceProfile,
+				NetworkInterfaces: []awsmachineapi.AWSNetworkInterfaceSpec{
 					{
-						"subnetID":         nodesSubnet.ID,
-						"securityGroupIDs": []string{nodesSecurityGroup.ID},
+						SubnetID:         nodesSubnet.ID,
+						SecurityGroupIDs: []string{nodesSecurityGroup.ID},
 					},
 				},
-				"tags": utils.MergeStringMaps(
+				Tags: utils.MergeStringMaps(
 					map[string]string{
 						fmt.Sprintf("kubernetes.io/cluster/%s", w.cluster.Shoot.Status.TechnicalID): "1",
 						"kubernetes.io/role/node": "1",
 					},
 					pool.Labels,
 				),
-				"credentialsSecretRef": map[string]interface{}{
-					"name":      w.worker.Spec.SecretRef.Name,
-					"namespace": w.worker.Spec.SecretRef.Namespace,
-				},
-				"secret": map[string]interface{}{
-					"cloudConfig": string(userData),
-				},
-				"blockDevices":            blockDevices,
-				"instanceMetadataOptions": instanceMetadataOptions,
+				BlockDevices:            blockDevices,
+				InstanceMetadataOptions: instanceMetadataOptions,
 			}
 
 			networking := w.cluster.Shoot.Spec.Networking
 			if networking != nil && infraflow.ContainsIPv6(networking.IPFamilies) {
-				networkInterfaces, _ := machineClassSpec["networkInterfaces"].([]map[string]interface{})
-				networkInterfaces[0]["ipv6AddressCount"] = 1
-				networkInterfaces[0]["ipv6PrefixCount"] = 1
+				machineClassProviderSpec.NetworkInterfaces[0].Ipv6AddressCount = ptr.To[int32](1)
+				machineClassProviderSpec.NetworkInterfaces[0].Ipv6PrefixCount = ptr.To[int32](1)
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
-				machineClassSpec["keyName"] = infrastructureStatus.EC2.KeyName
+				machineClassProviderSpec.KeyName = ptr.To(infrastructureStatus.EC2.KeyName)
 			}
-			var nodeTemplate machinev1alpha1.NodeTemplate
+
+			nodeTemplate := &machinev1alpha1.NodeTemplate{
+				Architecture: ptr.To("amd64"),
+				Capacity: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("4"),
+					"GPU":                 resource.MustParse("0"),
+					corev1.ResourceMemory: resource.MustParse("16Gi"),
+				},
+				InstanceType: "m4.xlarge",
+				Region:       "eu-west-1",
+				Zone:         "eu-west-1a",
+			}
+
 			if pool.NodeTemplate != nil {
-				nodeTemplate = machinev1alpha1.NodeTemplate{
-					Capacity:        pool.NodeTemplate.Capacity,
-					VirtualCapacity: pool.NodeTemplate.VirtualCapacity,
-					InstanceType:    pool.MachineType,
-					Region:          w.worker.Spec.Region,
-					Zone:            zone,
-					Architecture:    &workerArchitecture,
-				}
+				nodeTemplate.Capacity = pool.NodeTemplate.Capacity
+				nodeTemplate.VirtualCapacity = pool.NodeTemplate.VirtualCapacity
+				nodeTemplate.InstanceType = pool.MachineType
+				nodeTemplate.Region = w.worker.Spec.Region
+				nodeTemplate.Zone = zone
+				nodeTemplate.Architecture = &workerArchitecture
 			}
+
 			if workerConfig.NodeTemplate != nil {
 				// Support providerConfig extended resources by copying into node template capacity and virtualCapacity
 				maps.Copy(nodeTemplate.Capacity, workerConfig.NodeTemplate.Capacity)
@@ -217,41 +259,24 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				}
 				maps.Copy(nodeTemplate.VirtualCapacity, workerConfig.NodeTemplate.VirtualCapacity)
 			}
-			machineClassSpec["nodeTemplate"] = nodeTemplate
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
-				cpuOpts := map[string]interface{}{}
-				if cpuOptions.AmdSevSnp != nil {
-					cpuOpts["amdSevSnp"] = *cpuOptions.AmdSevSnp
-				}
-				if cpuOptions.CoreCount != nil && cpuOptions.ThreadsPerCore != nil {
-					cpuOpts["coreCount"] = *cpuOptions.CoreCount
-					cpuOpts["threadsPerCore"] = *cpuOptions.ThreadsPerCore
-				}
-				machineClassSpec["cpuOptions"] = cpuOpts
-			}
-
-			if pool.MachineImage.Name != "" && pool.MachineImage.Version != "" {
-				machineClassSpec["operatingSystem"] = map[string]interface{}{
-					"operatingSystemName":    pool.MachineImage.Name,
-					"operatingSystemVersion": strings.ReplaceAll(pool.MachineImage.Version, "+", "_"),
+				machineClassProviderSpec.CPUOptions = &awsmachineapi.CPUOptions{
+					AmdSevSnp:      cpuOptions.AmdSevSnp,
+					CoreCount:      cpuOptions.CoreCount,
+					ThreadsPerCore: cpuOptions.ThreadsPerCore,
 				}
 			}
 
 			if workerConfig.CapacityReservation != nil {
 				capacityReservationOpts := *workerConfig.CapacityReservation
-				capacityReserverationCfg := map[string]string{}
+				capacityReserverationCfg := &awsmachineapi.AWSCapacityReservationTargetSpec{
+					CapacityReservationPreference:       ptr.Deref(capacityReservationOpts.CapacityReservationPreference, ""),
+					CapacityReservationID:               capacityReservationOpts.CapacityReservationID,
+					CapacityReservationResourceGroupArn: capacityReservationOpts.CapacityReservationResourceGroupARN,
+				}
 
-				if capacityReservationOpts.CapacityReservationPreference != nil {
-					capacityReserverationCfg["capacityReservationPreference"] = *capacityReservationOpts.CapacityReservationPreference
-				}
-				if capacityReservationOpts.CapacityReservationID != nil {
-					capacityReserverationCfg["capacityReservationId"] = *capacityReservationOpts.CapacityReservationID
-				}
-				if capacityReservationOpts.CapacityReservationResourceGroupARN != nil {
-					capacityReserverationCfg["capacityReservationResourceGroupArn"] = *capacityReservationOpts.CapacityReservationResourceGroupARN
-				}
-				machineClassSpec["capacityReservation"] = capacityReserverationCfg
+				machineClassProviderSpec.CapacityReservationTarget = capacityReserverationCfg
 			}
 
 			var (
@@ -305,23 +330,76 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				ClusterAutoscalerAnnotations: extensionsv1alpha1helper.GetMachineDeploymentClusterAutoscalerAnnotations(pool.ClusterAutoscaler),
 			})
 
-			machineClassSpec["name"] = className
-			machineClassSpec["labels"] = map[string]string{corev1.LabelZoneFailureDomain: zone}
-			machineClassSpec["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
+			var operatingSystemConfigLabels map[string]string
+			if pool.MachineImage.Name != "" && pool.MachineImage.Version != "" {
+				operatingSystemConfigLabels = map[string]string{
+					"operatingSystemName":    pool.MachineImage.Name,
+					"operatingSystemVersion": strings.ReplaceAll(pool.MachineImage.Version, "+", "_"),
+				}
+			}
 
-			machineClasses = append(machineClasses, machineClassSpec)
+			machineClass := &machinev1alpha1.MachineClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      className,
+					Namespace: w.worker.Namespace,
+				},
+			}
+
+			marshalledProviderSpec, err := json.Marshal(machineClassProviderSpec)
+			if err != nil {
+				return fmt.Errorf("could not marshal provider spec for MachineClass '%s' into json: %w", client.ObjectKeyFromObject(machineClass), err)
+			}
+
+			machineClassToMutateFuncMap[machineClass] = func() error {
+				machineClass.Labels = utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone})
+				machineClass.NodeTemplate = nodeTemplate
+				machineClass.ProviderSpec = runtime.RawExtension{
+					Raw: marshalledProviderSpec,
+				}
+				machineClass.Provider = "AWS"
+				machineClass.CredentialsSecretRef = &corev1.SecretReference{
+					Name:      w.worker.Spec.SecretRef.Name,
+					Namespace: w.worker.Spec.SecretRef.Namespace,
+				}
+				machineClass.SecretRef = &corev1.SecretReference{
+					Name:      className,
+					Namespace: w.worker.Namespace,
+				}
+
+				return nil
+			}
+
+			machineClassSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      className,
+					Namespace: w.worker.Namespace,
+				},
+			}
+
+			machineClassSecretToMutateFuncMap[machineClassSecret] = func() error {
+				machineClassSecret.Labels = map[string]string{
+					v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass,
+				}
+				machineClassSecret.Data = map[string][]byte{
+					"userData": userData,
+				}
+				machineClassSecret.Type = corev1.SecretTypeOpaque
+
+				return nil
+			}
 		}
 	}
 
 	w.machineDeployments = machineDeployments
-	w.machineClasses = machineClasses
 	w.machineImages = machineImages
+	w.machineClassToMutateFuncMap = machineClassToMutateFuncMap
+	w.machineClassSecretToMutateFuncMap = machineClassSecretToMutateFuncMap
 
 	return nil
 }
 
-func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]map[string]interface{}, error) {
-	var blockDevices []map[string]interface{}
+func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool, workerConfig *awsapi.WorkerConfig) ([]awsmachineapi.AWSBlockDeviceMappingSpec, error) {
+	var blockDevices []awsmachineapi.AWSBlockDeviceMappingSpec
 
 	// handle root disk
 	rootDisk, err := computeEBSForVolume(*pool.Volume)
@@ -330,17 +408,17 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 	}
 	if workerConfig.Volume != nil {
 		if workerConfig.Volume.IOPS != nil {
-			rootDisk["iops"] = *workerConfig.Volume.IOPS
+			rootDisk.Iops = *workerConfig.Volume.IOPS
 		}
 		if workerConfig.Volume.Throughput != nil {
-			rootDisk["throughput"] = *workerConfig.Volume.Throughput
+			rootDisk.Throughput = workerConfig.Volume.Throughput
 		}
 	}
-	blockDevices = append(blockDevices, map[string]interface{}{"ebs": rootDisk})
+	blockDevices = append(blockDevices, awsmachineapi.AWSBlockDeviceMappingSpec{Ebs: rootDisk})
 
 	// handle data disks
 	if dataVolumes := pool.DataVolumes; len(dataVolumes) > 0 {
-		blockDevices[0]["deviceName"] = "/root"
+		blockDevices[0].DeviceName = "/root"
 
 		// sort data volumes for consistent device naming
 		sort.Slice(dataVolumes, func(i, j int) bool {
@@ -354,22 +432,20 @@ func (w *WorkerDelegate) computeBlockDevices(pool extensionsv1alpha1.WorkerPool,
 			}
 			if dvConfig := awsapihelper.FindDataVolumeByName(workerConfig.DataVolumes, vol.Name); dvConfig != nil {
 				if dvConfig.IOPS != nil {
-					dataDisk["iops"] = *dvConfig.IOPS
-				}
-				if dvConfig.SnapshotID != nil {
-					dataDisk["snapshotID"] = *dvConfig.SnapshotID
+					dataDisk.Iops = *dvConfig.IOPS
 				}
 				if dvConfig.Throughput != nil {
-					dataDisk["throughput"] = *dvConfig.Throughput
+					dataDisk.Throughput = dvConfig.Throughput
 				}
+				dataDisk.SnapshotID = dvConfig.SnapshotID
 			}
 			deviceName, err := computeEBSDeviceNameForIndex(i)
 			if err != nil {
 				return nil, fmt.Errorf("error when computing EBS device name for %v: %w", vol, err)
 			}
-			blockDevices = append(blockDevices, map[string]interface{}{
-				"deviceName": deviceName,
-				"ebs":        dataDisk,
+			blockDevices = append(blockDevices, awsmachineapi.AWSBlockDeviceMappingSpec{
+				DeviceName: deviceName,
+				Ebs:        dataDisk,
 			})
 		}
 	}
@@ -385,32 +461,36 @@ func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPo
 	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), v2HashData, ComputeAdditionalHashDataInPlace(pool))
 }
 
-func computeEBSForVolume(volume extensionsv1alpha1.Volume) (map[string]interface{}, error) {
+func computeEBSForVolume(volume extensionsv1alpha1.Volume) (awsmachineapi.AWSEbsBlockDeviceSpec, error) {
 	return computeEBS(volume.Size, volume.Type, volume.Encrypted)
 }
 
-func computeEBSForDataVolume(volume extensionsv1alpha1.DataVolume) (map[string]interface{}, error) {
+func computeEBSForDataVolume(volume extensionsv1alpha1.DataVolume) (awsmachineapi.AWSEbsBlockDeviceSpec, error) {
 	return computeEBS(volume.Size, volume.Type, volume.Encrypted)
 }
 
-func computeEBS(size string, volumeType *string, encrypted *bool) (map[string]interface{}, error) {
+func computeEBS(size string, volumeType *string, encrypted *bool) (awsmachineapi.AWSEbsBlockDeviceSpec, error) {
 	volumeSize, err := worker.DiskSize(size)
 	if err != nil {
-		return nil, err
+		return awsmachineapi.AWSEbsBlockDeviceSpec{}, err
 	}
 
-	ebs := map[string]interface{}{
-		"volumeSize":          volumeSize,
-		"encrypted":           true,
-		"deleteOnTermination": true,
+	if volumeSize > math.MaxInt32 {
+		return awsmachineapi.AWSEbsBlockDeviceSpec{}, fmt.Errorf("volume size cannot exceed %d", math.MaxInt32)
+	}
+
+	ebs := awsmachineapi.AWSEbsBlockDeviceSpec{
+		VolumeSize:          int32(volumeSize), // #nosec: G115 - volumeSize is checked to not exceed max int32.
+		Encrypted:           true,
+		DeleteOnTermination: ptr.To(true),
 	}
 
 	if volumeType != nil {
-		ebs["volumeType"] = *volumeType
+		ebs.VolumeType = *volumeType
 	}
 
 	if encrypted != nil {
-		ebs["encrypted"] = *encrypted
+		ebs.Encrypted = *encrypted
 	}
 
 	return ebs, nil
@@ -499,52 +579,57 @@ func ComputeAdditionalHashDataInPlace(pool extensionsv1alpha1.WorkerPool) []stri
 	return additionalData
 }
 
-func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructureStatus *awsapi.InfrastructureStatus) (map[string]interface{}, error) {
+func computeIAMInstanceProfile(workerConfig *awsapi.WorkerConfig, infrastructureStatus *awsapi.InfrastructureStatus) (awsmachineapi.AWSIAMProfileSpec, error) {
 	if workerConfig.IAMInstanceProfile == nil {
 		nodesInstanceProfile, err := awsapihelper.FindInstanceProfileForPurpose(infrastructureStatus.IAM.InstanceProfiles, awsapi.PurposeNodes)
 		if err != nil {
-			return nil, err
+			return awsmachineapi.AWSIAMProfileSpec{}, err
 		}
 
-		return map[string]interface{}{"name": nodesInstanceProfile.Name}, nil
+		return awsmachineapi.AWSIAMProfileSpec{
+			Name: nodesInstanceProfile.Name,
+		}, nil
 	}
 
 	if v := workerConfig.IAMInstanceProfile.Name; v != nil {
-		return map[string]interface{}{"name": *v}, nil
+		return awsmachineapi.AWSIAMProfileSpec{
+			Name: *v,
+		}, nil
 	}
 
 	if v := workerConfig.IAMInstanceProfile.ARN; v != nil {
-		return map[string]interface{}{"arn": *v}, nil
+		return awsmachineapi.AWSIAMProfileSpec{
+			ARN: *v,
+		}, nil
 	}
 
-	return nil, fmt.Errorf("unable to compute IAM instance profile configuration")
+	return awsmachineapi.AWSIAMProfileSpec{}, fmt.Errorf("unable to compute IAM instance profile configuration")
 }
 
 // ComputeInstanceMetadataOptions calculates the InstanceMetadata options for a particular worker pool.
-func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig,
-	networking *gardencorev1beta1.Networking) (map[string]interface{}, error) {
-	res := make(map[string]interface{})
+func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig, networking *gardencorev1beta1.Networking) (*awsmachineapi.InstanceMetadataOptions, error) {
+	var instanceMetadataOptions = &awsmachineapi.InstanceMetadataOptions{}
 
 	if networking != nil && gardencorev1beta1.IsIPv6SingleStack(networking.IPFamilies) {
-		res["httpProtocolIpv6"] = string(ec2types.InstanceMetadataProtocolStateEnabled)
+		instanceMetadataOptions.HTTPProtocolIPv6 = string(ec2types.InstanceMetadataProtocolStateEnabled)
 	}
 
 	if workerConfig == nil || workerConfig.InstanceMetadataOptions == nil {
-		res["httpPutResponseHopLimit"] = int64(2)
-		res["httpTokens"] = string(awsapi.HTTPTokensRequired)
+		instanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To[int32](2)
+		instanceMetadataOptions.HTTPTokens = string(awsapi.HTTPTokensRequired)
 
-		return res, nil
+		return instanceMetadataOptions, nil
 	}
 
 	if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
-		res["httpPutResponseHopLimit"] = *workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit
+		instanceMetadataOptions.HTTPPutResponseHopLimit = workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit
 	}
 
 	if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
-		res["httpTokens"] = string(*workerConfig.InstanceMetadataOptions.HTTPTokens)
+		instanceMetadataOptions.HTTPTokens = string(*workerConfig.InstanceMetadataOptions.HTTPTokens)
 	}
 
-	return res, nil
+	return instanceMetadataOptions, nil
 }
 
 // EnsureUniformMachineImages ensures that all machine images are in the same format, either with or without Capabilities.
@@ -603,20 +688,20 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 	}
 	if workerConfig.Volume != nil {
 		if workerConfig.Volume.IOPS != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.Volume.IOPS, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.Volume.IOPS), 10))
 		}
 		if workerConfig.Volume.Throughput != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.Volume.Throughput, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.Volume.Throughput), 10))
 		}
 	}
 	if workerConfig.DataVolumes != nil {
 		for _, dv := range workerConfig.DataVolumes {
 			hashData = append(hashData, dv.Name)
 			if dv.IOPS != nil {
-				hashData = append(hashData, strconv.FormatInt(*dv.IOPS, 10))
+				hashData = append(hashData, strconv.FormatInt(int64(*dv.IOPS), 10))
 			}
 			if dv.Throughput != nil {
-				hashData = append(hashData, strconv.FormatInt(*dv.Throughput, 10))
+				hashData = append(hashData, strconv.FormatInt(int64(*dv.Throughput), 10))
 			}
 			if dv.SnapshotID != nil {
 				hashData = append(hashData, *dv.SnapshotID)
@@ -637,16 +722,16 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 			hashData = append(hashData, string(*workerConfig.InstanceMetadataOptions.HTTPTokens))
 		}
 		if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit), 10))
 		}
 	}
 
 	if workerConfig.CpuOptions != nil {
 		if workerConfig.CpuOptions.CoreCount != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.CpuOptions.CoreCount, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.CpuOptions.CoreCount), 10))
 		}
 		if workerConfig.CpuOptions.ThreadsPerCore != nil {
-			hashData = append(hashData, strconv.FormatInt(*workerConfig.CpuOptions.ThreadsPerCore, 10))
+			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.CpuOptions.ThreadsPerCore), 10))
 		}
 	}
 

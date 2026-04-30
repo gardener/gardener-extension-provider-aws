@@ -530,8 +530,8 @@ func Convert_aws_ControlPlaneConfig_To_v1alpha1_ControlPlaneConfig(in *aws.Contr
 }
 
 func autoConvert_v1alpha1_CpuOptions_To_aws_CpuOptions(in *CpuOptions, out *aws.CpuOptions, s conversion.Scope) error {
-	out.CoreCount = (*int64)(unsafe.Pointer(in.CoreCount))
-	out.ThreadsPerCore = (*int64)(unsafe.Pointer(in.ThreadsPerCore))
+	out.CoreCount = (*int32)(unsafe.Pointer(in.CoreCount))
+	out.ThreadsPerCore = (*int32)(unsafe.Pointer(in.ThreadsPerCore))
 	out.AmdSevSnp = (*string)(unsafe.Pointer(in.AmdSevSnp))
 	return nil
 }
@@ -542,8 +542,8 @@ func Convert_v1alpha1_CpuOptions_To_aws_CpuOptions(in *CpuOptions, out *aws.CpuO
 }
 
 func autoConvert_aws_CpuOptions_To_v1alpha1_CpuOptions(in *aws.CpuOptions, out *CpuOptions, s conversion.Scope) error {
-	out.CoreCount = (*int64)(unsafe.Pointer(in.CoreCount))
-	out.ThreadsPerCore = (*int64)(unsafe.Pointer(in.ThreadsPerCore))
+	out.CoreCount = (*int32)(unsafe.Pointer(in.CoreCount))
+	out.ThreadsPerCore = (*int32)(unsafe.Pointer(in.ThreadsPerCore))
 	out.AmdSevSnp = (*string)(unsafe.Pointer(in.AmdSevSnp))
 	return nil
 }
@@ -873,7 +873,7 @@ func Convert_aws_InfrastructureStatus_To_v1alpha1_InfrastructureStatus(in *aws.I
 
 func autoConvert_v1alpha1_InstanceMetadataOptions_To_aws_InstanceMetadataOptions(in *InstanceMetadataOptions, out *aws.InstanceMetadataOptions, s conversion.Scope) error {
 	out.HTTPTokens = (*aws.HTTPTokensValue)(unsafe.Pointer(in.HTTPTokens))
-	out.HTTPPutResponseHopLimit = (*int64)(unsafe.Pointer(in.HTTPPutResponseHopLimit))
+	out.HTTPPutResponseHopLimit = (*int32)(unsafe.Pointer(in.HTTPPutResponseHopLimit))
 	return nil
 }
 
@@ -884,7 +884,7 @@ func Convert_v1alpha1_InstanceMetadataOptions_To_aws_InstanceMetadataOptions(in 
 
 func autoConvert_aws_InstanceMetadataOptions_To_v1alpha1_InstanceMetadataOptions(in *aws.InstanceMetadataOptions, out *InstanceMetadataOptions, s conversion.Scope) error {
 	out.HTTPTokens = (*HTTPTokensValue)(unsafe.Pointer(in.HTTPTokens))
-	out.HTTPPutResponseHopLimit = (*int64)(unsafe.Pointer(in.HTTPPutResponseHopLimit))
+	out.HTTPPutResponseHopLimit = (*int32)(unsafe.Pointer(in.HTTPPutResponseHopLimit))
 	return nil
 }
 
@@ -1222,8 +1222,8 @@ func Convert_aws_VPCStatus_To_v1alpha1_VPCStatus(in *aws.VPCStatus, out *VPCStat
 }
 
 func autoConvert_v1alpha1_Volume_To_aws_Volume(in *Volume, out *aws.Volume, s conversion.Scope) error {
-	out.IOPS = (*int64)(unsafe.Pointer(in.IOPS))
-	out.Throughput = (*int64)(unsafe.Pointer(in.Throughput))
+	out.IOPS = (*int32)(unsafe.Pointer(in.IOPS))
+	out.Throughput = (*int32)(unsafe.Pointer(in.Throughput))
 	return nil
 }
 
@@ -1233,8 +1233,8 @@ func Convert_v1alpha1_Volume_To_aws_Volume(in *Volume, out *aws.Volume, s conver
 }
 
 func autoConvert_aws_Volume_To_v1alpha1_Volume(in *aws.Volume, out *Volume, s conversion.Scope) error {
-	out.IOPS = (*int64)(unsafe.Pointer(in.IOPS))
-	out.Throughput = (*int64)(unsafe.Pointer(in.Throughput))
+	out.IOPS = (*int32)(unsafe.Pointer(in.IOPS))
+	out.Throughput = (*int32)(unsafe.Pointer(in.Throughput))
 	return nil
 }
 

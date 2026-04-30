@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -20,25 +19,26 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"github.com/gardener/gardener/pkg/client/kubernetes"
-	mockkubernetes "github.com/gardener/gardener/pkg/client/kubernetes/mock"
 	"github.com/gardener/gardener/pkg/utils"
+	"github.com/gardener/gardener/pkg/utils/test"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
+	awsmachineapi "github.com/gardener/machine-controller-manager-provider-aws/pkg/aws/apis"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/gardener/gardener-extension-provider-aws/charts"
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
@@ -51,7 +51,6 @@ var _ = Describe("Machines", func() {
 		ctrl         *gomock.Controller
 		c            *mockclient.MockClient
 		statusWriter *mockclient.MockStatusWriter
-		chartApplier *mockkubernetes.MockChartApplier
 	)
 
 	BeforeEach(func() {
@@ -59,7 +58,6 @@ var _ = Describe("Machines", func() {
 
 		c = mockclient.NewMockClient(ctrl)
 		statusWriter = mockclient.NewMockStatusWriter(ctrl)
-		chartApplier = mockkubernetes.NewMockChartApplier(ctrl)
 	})
 
 	AfterEach(func() {
@@ -67,7 +65,7 @@ var _ = Describe("Machines", func() {
 	})
 
 	Context("WorkerDelegate", func() {
-		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, nil, "", nil, nil)
+		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, "", nil, nil)
 
 		DescribeTableSubtree("#GenerateMachineDeployments, #DeployMachineClasses", func(isCapabilitiesCloudProfile bool) {
 			var (
@@ -94,21 +92,21 @@ var _ = Describe("Machines", func() {
 				archFAKE string
 
 				volumeType       string
-				volumeSize       int
+				volumeSize       int32
 				volumeEncrypted  bool
-				volumeIOPS       int64
-				volumeThroughput int64
+				volumeIOPS       int32
+				volumeThroughput int32
 
 				dataVolume1Name       string
 				dataVolume1Type       string
-				dataVolume1Size       int
-				dataVolume1IOPS       int64
-				dataVolume1Throughput int64
+				dataVolume1Size       int32
+				dataVolume1IOPS       int32
+				dataVolume1Throughput int32
 				dataVolume1Encrypted  bool
 
 				dataVolume2Name       string
 				dataVolume2Type       string
-				dataVolume2Size       int
+				dataVolume2Size       int32
 				dataVolume2Encrypted  bool
 				dataVolume2SnapshotID string
 
@@ -604,7 +602,7 @@ var _ = Describe("Machines", func() {
 				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
 				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil, nil)
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, clusterWithoutImages)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, clusterWithoutImages)
 			})
 
 			expectedUserDataSecretRefRead := func() {
@@ -618,12 +616,53 @@ var _ = Describe("Machines", func() {
 
 			Describe("machine images", func() {
 				var (
-					defaultMachineClass map[string]interface{}
-					machineDeployments  worker.MachineDeployments
-					machineClasses      map[string]interface{}
+					machineDeployments        worker.MachineDeployments
+					machineClasses            []*machinev1alpha1.MachineClass
+					machineClassSecrets       []*corev1.Secret
+					machineClassProviderSpecs []*awsmachineapi.AWSProviderSpec
 				)
 
-				BeforeEach(func() {
+				expectMachineClassesAndSecrets := func() {
+					for _, secret := range machineClassSecrets {
+						existing := &corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      secret.Name,
+								Namespace: secret.Namespace,
+							},
+						}
+
+						c.EXPECT().Get(gomock.Any(), client.ObjectKeyFromObject(secret), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
+							func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
+								defer GinkgoRecover()
+
+								*obj = *existing
+								return nil
+							})
+
+						test.EXPECTPatch(gomock.Any(), c, secret, existing, types.MergePatchType)
+					}
+
+					for _, machineClass := range machineClasses {
+						existing := &machinev1alpha1.MachineClass{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      machineClass.Name,
+								Namespace: machineClass.Namespace,
+							},
+						}
+
+						c.EXPECT().Get(gomock.Any(), client.ObjectKeyFromObject(machineClass), gomock.AssignableToTypeOf(&machinev1alpha1.MachineClass{})).DoAndReturn(
+							func(_ context.Context, _ client.ObjectKey, obj *machinev1alpha1.MachineClass, _ ...client.GetOption) error {
+								defer GinkgoRecover()
+
+								*obj = *existing
+								return nil
+							})
+
+						test.EXPECTPatch(gomock.Any(), c, machineClass, existing, types.MergePatchType)
+					}
+				}
+
+				createMachineClassProviderSpec := func(subnetID, machineType string, blockDevices []awsmachineapi.AWSBlockDeviceMappingSpec, capacityReservations *awsmachineapi.AWSCapacityReservationTargetSpec) *awsmachineapi.AWSProviderSpec {
 					ec2InstanceTags := utils.MergeStringMaps(
 						map[string]string{
 							fmt.Sprintf("kubernetes.io/cluster/%s", technicalID): "1",
@@ -631,140 +670,118 @@ var _ = Describe("Machines", func() {
 						},
 						labels,
 					)
-					defaultMachineClass = map[string]interface{}{
-						"secret": map[string]interface{}{
-							"cloudConfig": string(userData),
+
+					out := &awsmachineapi.AWSProviderSpec{
+						AMI:                    machineImageAMI,
+						Region:                 region,
+						SrcAndDstChecksEnabled: ptr.To(false),
+						IAM: awsmachineapi.AWSIAMProfileSpec{
+							Name: instanceProfileName,
 						},
-						"ami":    machineImageAMI,
-						"region": region,
-						"iamInstanceProfile": map[string]interface{}{
-							"name": instanceProfileName,
-						},
-						"keyName": keyName,
-						"tags":    ec2InstanceTags,
-						"blockDevices": []map[string]interface{}{
+						MachineType: machineType,
+						NetworkInterfaces: []awsmachineapi.AWSNetworkInterfaceSpec{
 							{
-								"ebs": map[string]interface{}{
-									"volumeSize":          volumeSize,
-									"volumeType":          volumeType,
-									"deleteOnTermination": true,
-									"encrypted":           true,
+								SubnetID:         subnetID,
+								SecurityGroupIDs: []string{securityGroupID},
+							},
+						},
+						KeyName: ptr.To(keyName),
+						Tags:    ec2InstanceTags,
+						BlockDevices: []awsmachineapi.AWSBlockDeviceMappingSpec{
+							{
+								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
+									DeleteOnTermination: ptr.To(true),
+									Encrypted:           true,
+									VolumeSize:          volumeSize,
+									VolumeType:          volumeType,
 								},
 							},
 						},
-						"instanceMetadataOptions": map[string]interface{}{
-							"httpPutResponseHopLimit": int64(2),
-							"httpTokens":              "required",
+						InstanceMetadataOptions: &awsmachineapi.InstanceMetadataOptions{
+							HTTPPutResponseHopLimit: ptr.To[int32](2),
+							HTTPTokens:              "required",
 						},
-						"operatingSystem": map[string]interface{}{
-							"operatingSystemName":    machineImageName,
-							"operatingSystemVersion": strings.ReplaceAll(machineImageVersion, "+", "_"),
+						CapacityReservationTarget: capacityReservations,
+					}
+
+					if len(blockDevices) > 0 {
+						out.BlockDevices = blockDevices
+					}
+
+					return out
+				}
+
+				BeforeEach(func() {
+					operatingSystemConfigLabels := map[string]string{
+						"operatingSystemName":    machineImageName,
+						"operatingSystemVersion": strings.ReplaceAll(machineImageVersion, "+", "_"),
+					}
+
+					defaultMachineClass := &machinev1alpha1.MachineClass{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: w.Namespace,
 						},
+						Provider: "AWS",
+					}
+
+					defaultMachineClassSecret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: w.Namespace,
+							Labels:    map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass},
+						},
+						Data: map[string][]byte{
+							"userData": userData,
+						},
+						Type: corev1.SecretTypeOpaque,
 					}
 
 					var (
-						machineClassPool1Zone1 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
+						machineClassProviderSpecPool1BlockDevices = []awsmachineapi.AWSBlockDeviceMappingSpec{
 							{
-								"subnetID":         subnetZone1,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassPool1Zone2 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone2,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassPool2Zone1 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone1,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassPool2Zone2 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone2,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassPool3Zone1 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone1,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-						machineClassPool3Zone2 = addKeyValueToMap(defaultMachineClass, "networkInterfaces", []map[string]interface{}{
-							{
-								"subnetID":         subnetZone2,
-								"securityGroupIDs": []string{securityGroupID},
-							},
-						})
-
-						machineClassPool1BlockDevices = []map[string]interface{}{
-							{
-								"deviceName": "/root",
-								"ebs": map[string]interface{}{
-									"volumeSize":          volumeSize,
-									"volumeType":          volumeType,
-									"iops":                volumeIOPS,
-									"throughput":          volumeThroughput,
-									"deleteOnTermination": true,
-									"encrypted":           volumeEncrypted,
+								DeviceName: "/root",
+								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
+									DeleteOnTermination: ptr.To(true),
+									Encrypted:           volumeEncrypted,
+									Iops:                volumeIOPS,
+									Throughput:          ptr.To(volumeThroughput),
+									VolumeSize:          volumeSize,
+									VolumeType:          volumeType,
 								},
 							},
 							{
-								"deviceName": "/dev/sdf",
-								"ebs": map[string]interface{}{
-									"volumeSize":          dataVolume1Size,
-									"volumeType":          dataVolume1Type,
-									"deleteOnTermination": true,
-									"encrypted":           dataVolume1Encrypted,
-									"iops":                dataVolume1IOPS,
-									"throughput":          dataVolume1Throughput,
+								DeviceName: "/dev/sdf",
+								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
+									DeleteOnTermination: ptr.To(true),
+									Encrypted:           dataVolume1Encrypted,
+									Iops:                dataVolume1IOPS,
+									Throughput:          ptr.To(dataVolume1Throughput),
+									VolumeSize:          dataVolume1Size,
+									VolumeType:          dataVolume1Type,
 								},
 							},
 							{
-								"deviceName": "/dev/sdg",
-								"ebs": map[string]interface{}{
-									"volumeSize":          dataVolume2Size,
-									"volumeType":          dataVolume2Type,
-									"deleteOnTermination": true,
-									"encrypted":           dataVolume2Encrypted,
-									"snapshotID":          dataVolume2SnapshotID,
+								DeviceName: "/dev/sdg",
+								Ebs: awsmachineapi.AWSEbsBlockDeviceSpec{
+									DeleteOnTermination: ptr.To(true),
+									SnapshotID:          ptr.To(dataVolume2SnapshotID),
+									VolumeSize:          dataVolume2Size,
+									VolumeType:          dataVolume2Type,
 								},
 							},
 						}
+
+						capacityReservation = &awsmachineapi.AWSCapacityReservationTargetSpec{
+							CapacityReservationPreference:       capacityReservationPreference,
+							CapacityReservationResourceGroupArn: &capacityReservationResourceGroupARN,
+						}
+
+						machineClassProviderSpecPool1Zone1 = createMachineClassProviderSpec(subnetZone1, machineType, machineClassProviderSpecPool1BlockDevices, capacityReservation)
+						machineClassProviderSpecPool1Zone2 = createMachineClassProviderSpec(subnetZone2, machineType, machineClassProviderSpecPool1BlockDevices, capacityReservation)
+						machineClassProviderSpecPool2Zone1 = createMachineClassProviderSpec(subnetZone1, machineTypeArm, nil, nil)
+						machineClassProviderSpecPool2Zone2 = createMachineClassProviderSpec(subnetZone2, machineTypeArm, nil, nil)
+						machineClassProviderSpecPool3Zone1 = createMachineClassProviderSpec(subnetZone1, machineTypeArm, nil, nil)
+						machineClassProviderSpecPool3Zone2 = createMachineClassProviderSpec(subnetZone2, machineTypeArm, nil, nil)
 					)
-
-					machineClassPool1Zone1["blockDevices"] = machineClassPool1BlockDevices
-					machineClassPool1Zone2["blockDevices"] = machineClassPool1BlockDevices
-
-					machineClassPool1Zone1["capacityReservation"] = map[string]string{
-						"capacityReservationPreference":       capacityReservationPreference,
-						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
-					}
-					machineClassPool1Zone2["capacityReservation"] = map[string]string{
-						"capacityReservationPreference":       capacityReservationPreference,
-						"capacityReservationResourceGroupArn": capacityReservationResourceGroupARN,
-					}
-
-					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
-					machineClassPool1Zone1 = addKeyValueToMap(machineClassPool1Zone1, "machineType", machineType)
-
-					machineClassPool1Zone2 = addKeyValueToMap(machineClassPool1Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
-					machineClassPool1Zone2 = addKeyValueToMap(machineClassPool1Zone2, "machineType", machineType)
-
-					machineClassPool2Zone1 = addKeyValueToMap(machineClassPool2Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
-					machineClassPool2Zone1 = addKeyValueToMap(machineClassPool2Zone1, "machineType", machineTypeArm)
-
-					machineClassPool2Zone2 = addKeyValueToMap(machineClassPool2Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
-					machineClassPool2Zone2 = addKeyValueToMap(machineClassPool2Zone2, "machineType", machineTypeArm)
-
-					machineClassPool3Zone1 = addKeyValueToMap(machineClassPool3Zone1, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone1})
-					machineClassPool3Zone1 = addKeyValueToMap(machineClassPool3Zone1, "machineType", machineTypeArm)
-
-					machineClassPool3Zone2 = addKeyValueToMap(machineClassPool3Zone2, "labels", map[string]string{corev1.LabelZoneFailureDomain: zone2})
-					machineClassPool3Zone2 = addKeyValueToMap(machineClassPool3Zone2, "machineType", machineTypeArm)
 
 					var (
 						machineClassNamePool1Zone1 = fmt.Sprintf("%s-%s-z1", technicalID, namePool1)
@@ -780,14 +797,21 @@ var _ = Describe("Machines", func() {
 						machineClassWithHashPool2Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, workerPoolHash2)
 						machineClassWithHashPool3Zone1 = fmt.Sprintf("%s-%s", machineClassNamePool3Zone1, workerPoolHash3)
 						machineClassWithHashPool3Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool3Zone2, workerPoolHash3)
-					)
 
-					addNameAndSecretToMachineClass(machineClassPool1Zone1, machineClassWithHashPool1Zone1, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool1Zone2, machineClassWithHashPool1Zone2, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool2Zone1, machineClassWithHashPool2Zone1, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool2Zone2, machineClassWithHashPool2Zone2, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool3Zone1, machineClassWithHashPool3Zone1, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool3Zone2, machineClassWithHashPool3Zone2, w.Spec.SecretRef)
+						machineClassPool1Zone1 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool1Zone1, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone1}))
+						machineClassPool1Zone2 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool1Zone2, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone2}))
+						machineClassPool2Zone1 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool2Zone1, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone1}))
+						machineClassPool2Zone2 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool2Zone2, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone2}))
+						machineClassPool3Zone1 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool3Zone1, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone1}))
+						machineClassPool3Zone2 = createWithNameAndLabelsFromObject(defaultMachineClass, machineClassWithHashPool3Zone2, utils.MergeStringMaps(operatingSystemConfigLabels, map[string]string{corev1.LabelZoneFailureDomain: zone2}))
+
+						machineClassSecretPool1Zone1 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool1Zone1, nil)
+						machineClassSecretPool1Zone2 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool1Zone2, nil)
+						machineClassSecretPool2Zone1 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool2Zone1, nil)
+						machineClassSecretPool2Zone2 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool2Zone2, nil)
+						machineClassSecretPool3Zone1 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool3Zone1, nil)
+						machineClassSecretPool3Zone2 = createWithNameAndLabelsFromObject(defaultMachineClassSecret, machineClassWithHashPool3Zone2, nil)
+					)
 
 					addNodeTemplateToMachineClass(machineClassPool1Zone1, nodeTemplatePool1Zone1)
 					addNodeTemplateToMachineClass(machineClassPool1Zone2, nodeTemplatePool1Zone2)
@@ -796,14 +820,43 @@ var _ = Describe("Machines", func() {
 					addNodeTemplateToMachineClass(machineClassPool3Zone1, nodeTemplatePool3Zone1)
 					addNodeTemplateToMachineClass(machineClassPool3Zone2, nodeTemplatePool3Zone2)
 
-					machineClasses = map[string]interface{}{"machineClasses": []map[string]interface{}{
+					addProviderSpecToMachineClass(machineClassPool1Zone1, machineClassProviderSpecPool1Zone1)
+					addProviderSpecToMachineClass(machineClassPool1Zone2, machineClassProviderSpecPool1Zone2)
+					addProviderSpecToMachineClass(machineClassPool2Zone1, machineClassProviderSpecPool2Zone1)
+					addProviderSpecToMachineClass(machineClassPool2Zone2, machineClassProviderSpecPool2Zone2)
+					addProviderSpecToMachineClass(machineClassPool3Zone1, machineClassProviderSpecPool3Zone1)
+					addProviderSpecToMachineClass(machineClassPool3Zone2, machineClassProviderSpecPool3Zone2)
+
+					machineClassProviderSpecs = []*awsmachineapi.AWSProviderSpec{
+						machineClassProviderSpecPool1Zone1,
+						machineClassProviderSpecPool1Zone2,
+						machineClassProviderSpecPool2Zone1,
+						machineClassProviderSpecPool2Zone2,
+						machineClassProviderSpecPool3Zone1,
+						machineClassProviderSpecPool3Zone2,
+					}
+
+					machineClasses = []*machinev1alpha1.MachineClass{
 						machineClassPool1Zone1,
 						machineClassPool1Zone2,
 						machineClassPool2Zone1,
 						machineClassPool2Zone2,
 						machineClassPool3Zone1,
 						machineClassPool3Zone2,
-					}}
+					}
+
+					for _, machineClass := range machineClasses {
+						addSecretRefsToMachineClass(machineClass, w.Spec.SecretRef)
+					}
+
+					machineClassSecrets = []*corev1.Secret{
+						machineClassSecretPool1Zone1,
+						machineClassSecretPool1Zone2,
+						machineClassSecretPool2Zone1,
+						machineClassSecretPool2Zone2,
+						machineClassSecretPool3Zone1,
+						machineClassSecretPool3Zone2,
+					}
 
 					emptyClusterAutoscalerAnnotations := map[string]string{
 						"autoscaler.gardener.cloud/max-node-provision-time":              "",
@@ -964,7 +1017,7 @@ var _ = Describe("Machines", func() {
 				})
 
 				It("should return machine deployments with AWS CSI Label", func() {
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					expectedUserDataSecretRefRead()
 
@@ -975,19 +1028,10 @@ var _ = Describe("Machines", func() {
 				})
 
 				It("should return the expected machine deployments for profile image types", func() {
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					expectedUserDataSecretRefRead()
-
-					// Test WorkerDelegate.DeployMachineClasses()
-					chartApplier.EXPECT().ApplyFromEmbeddedFS(
-						ctx,
-						charts.InternalChart,
-						filepath.Join("internal", "machineclass"),
-						namespace,
-						"machineclass",
-						kubernetes.Values(machineClasses),
-					)
+					expectMachineClassesAndSecrets()
 
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
@@ -1055,44 +1099,32 @@ var _ = Describe("Machines", func() {
 					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{
 						Raw: encode(infrastructureProviderStatus),
 					}
-					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
-					for _, machineClass := range machineClasses["machineClasses"].([]map[string]interface{}) {
-						delete(machineClass, "keyName")
+					for i := range machineClasses {
+						machineClassProviderSpecs[i].KeyName = nil
+						machineClasses[i].ProviderSpec.Raw = encode(machineClassProviderSpecs[i])
 					}
 
 					expectedUserDataSecretRefRead()
-
-					// Test WorkerDelegate.DeployMachineClasses()
-					chartApplier.EXPECT().ApplyFromEmbeddedFS(
-						ctx,
-						charts.InternalChart,
-						filepath.Join("internal", "machineclass"),
-						namespace,
-						"machineclass",
-						kubernetes.Values(machineClasses),
-					)
+					expectMachineClassesAndSecrets()
 
 					err := workerDelegate.DeployMachineClasses(ctx)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				Context("using workerConfig.iamInstanceProfile", func() {
-					modifyExpectedMachineClasses := func(expectedIamInstanceProfile map[string]interface{}) {
+					modifyExpectedMachineClasses := func(expectedIamInstanceProfile awsmachineapi.AWSIAMProfileSpec) {
 						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
-						var (
-							machineClassNamePool2Zone1     = fmt.Sprintf("%s-%s-z1", technicalID, namePool2)
-							machineClassNamePool2Zone2     = fmt.Sprintf("%s-%s-z2", technicalID, namePool2)
-							machineClassWithHashPool2Zone1 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone1, newHash)
-							machineClassWithHashPool2Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, newHash)
-						)
+						machineClassProviderSpecs[2].IAM = expectedIamInstanceProfile
+						machineClasses[2].Name = strings.Replace(machineClasses[2].Name, workerPoolHash2, newHash, 1)
+						machineClasses[2].ProviderSpec.Raw = encode(machineClassProviderSpecs[2])
 
-						machineClasses["machineClasses"].([]map[string]interface{})[2]["name"] = machineClassWithHashPool2Zone1
-						machineClasses["machineClasses"].([]map[string]interface{})[2]["iamInstanceProfile"] = expectedIamInstanceProfile
-						machineClasses["machineClasses"].([]map[string]interface{})[3]["name"] = machineClassWithHashPool2Zone2
-						machineClasses["machineClasses"].([]map[string]interface{})[3]["iamInstanceProfile"] = expectedIamInstanceProfile
+						machineClassProviderSpecs[3].IAM = expectedIamInstanceProfile
+						machineClasses[3].Name = strings.Replace(machineClasses[3].Name, workerPoolHash2, newHash, 1)
+						machineClasses[3].ProviderSpec.Raw = encode(machineClassProviderSpecs[3])
 					}
 
 					It("should deploy the correct machine class when using iamInstanceProfile.Name", func() {
@@ -1102,20 +1134,13 @@ var _ = Describe("Machines", func() {
 								Name: &iamInstanceProfileName,
 							},
 						})}
-						modifyExpectedMachineClasses(map[string]interface{}{"name": iamInstanceProfileName})
+						modifyExpectedMachineClasses(awsmachineapi.AWSIAMProfileSpec{Name: iamInstanceProfileName})
 
-						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 						expectedUserDataSecretRefRead()
+						expectMachineClassesAndSecrets()
 
-						chartApplier.EXPECT().ApplyFromEmbeddedFS(
-							ctx,
-							charts.InternalChart,
-							filepath.Join("internal", "machineclass"),
-							namespace,
-							"machineclass",
-							kubernetes.Values(machineClasses),
-						)
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
 					})
 
@@ -1126,20 +1151,12 @@ var _ = Describe("Machines", func() {
 								ARN: &iamInstanceProfileARN,
 							},
 						})}
-						modifyExpectedMachineClasses(map[string]interface{}{"arn": iamInstanceProfileARN})
+						modifyExpectedMachineClasses(awsmachineapi.AWSIAMProfileSpec{ARN: iamInstanceProfileARN})
 
-						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+						workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 						expectedUserDataSecretRefRead()
-
-						chartApplier.EXPECT().ApplyFromEmbeddedFS(
-							ctx,
-							charts.InternalChart,
-							filepath.Join("internal", "machineclass"),
-							namespace,
-							"machineclass",
-							kubernetes.Values(machineClasses),
-						)
+						expectMachineClassesAndSecrets()
 
 						Expect(workerDelegate.DeployMachineClasses(context.TODO())).NotTo(HaveOccurred())
 					})
@@ -1148,7 +1165,7 @@ var _ = Describe("Machines", func() {
 				It("should return err when the infrastructure provider status cannot be decoded", func() {
 					// Deliberately setting InfrastructureProviderStatus to empty
 					w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
-					workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					workerDelegate, _ := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 					err := workerDelegate.DeployMachineClasses(context.TODO())
 					Expect(err).To(HaveOccurred())
@@ -1179,24 +1196,27 @@ var _ = Describe("Machines", func() {
 					expectedNodeTemplateCapacity := w.Spec.Pools[0].NodeTemplate.Capacity.DeepCopy()
 					maps.Copy(expectedNodeTemplateCapacity, customResources)
 
-					wd, err := NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+					wd, err := NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 					Expect(err).NotTo(HaveOccurred())
 					expectedUserDataSecretRefRead()
+
 					_, err = wd.GenerateMachineDeployments(ctx)
 					Expect(err).NotTo(HaveOccurred())
+
 					workerDelegate := wd.(*WorkerDelegate)
-					mClasses := workerDelegate.GetMachineClasses()
-					for _, mClz := range mClasses {
-						className := mClz["name"].(string)
+					machineClasses, err := workerDelegate.GetMachineClasses()
+					Expect(err).NotTo(HaveOccurred())
+					for _, machineClass := range machineClasses {
+						className := machineClass.Name
 						if strings.Contains(className, namePool1) {
-							GinkgoWriter.Printf("Machine class name: %q\n", className)
-							nt := mClz["nodeTemplate"].(machinev1alpha1.NodeTemplate)
-							Expect(nt.Capacity).To(Equal(expectedNodeTemplateCapacity))
-							Expect(nt.VirtualCapacity).To(Equal(customVirtualResources))
+							Expect(machineClass.NodeTemplate).NotTo(BeNil(), "MachineClass "+className+" should not be nil")
+							Expect(machineClass.NodeTemplate.Capacity).To(Equal(expectedNodeTemplateCapacity), "MachineClass "+className+" should have expected nodeTemplate.capacity")
+							Expect(machineClass.NodeTemplate.VirtualCapacity).To(Equal(customVirtualResources), "MachineClass "+className+" should have expected nodeTemplate.virtualCapacity")
 						}
 					}
 				})
 			})
+
 			DescribeTable("should generate same worker pool hash even when virtualCapacity is newly added or changed", Label("virtualCapacity"),
 				func(w1Def string, w2Def string) {
 					var w1, w2 extensionsv1alpha1.Worker
@@ -1234,7 +1254,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the infrastructure status cannot be decoded", func() {
 				w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1246,7 +1266,7 @@ var _ = Describe("Machines", func() {
 					Raw: encode(&api.InfrastructureStatus{}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1267,7 +1287,7 @@ var _ = Describe("Machines", func() {
 					}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1277,7 +1297,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the ami for this region cannot be found", func() {
 				w.Spec.Region = "another-region"
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1291,7 +1311,7 @@ var _ = Describe("Machines", func() {
 					w.Spec.Pools[0].Architecture = ptr.To(archFAKE)
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1321,7 +1341,7 @@ var _ = Describe("Machines", func() {
 					}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				expectedUserDataSecretRefRead()
 
@@ -1333,7 +1353,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the volume size cannot be decoded", func() {
 				w.Spec.Pools[0].Volume.Size = "not-decodeable"
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				result, err := workerDelegate.GenerateMachineDeployments(ctx)
 				Expect(err).To(HaveOccurred())
@@ -1354,7 +1374,7 @@ var _ = Describe("Machines", func() {
 					NodeConditions:         testNodeConditions,
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				expectedUserDataSecretRefRead()
 
@@ -1379,7 +1399,7 @@ var _ = Describe("Machines", func() {
 					ScaleDownUtilizationThreshold:    ptr.To("0.5"),
 				}
 				w.Spec.Pools[1].ClusterAutoscaler = nil
-				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, chartApplier, "", w, cluster)
+				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, cluster)
 
 				expectedUserDataSecretRefRead()
 
@@ -1459,8 +1479,8 @@ var _ = Describe("Machines", func() {
 					BeforeEach(func() {
 						workerConfig = api.WorkerConfig{
 							CpuOptions: &api.CpuOptions{
-								CoreCount:      ptr.To(int64(4)),
-								ThreadsPerCore: ptr.To(int64(2)),
+								CoreCount:      ptr.To(int32(4)),
+								ThreadsPerCore: ptr.To(int32(2)),
 							},
 							IAMInstanceProfile: &api.IAMInstanceProfile{
 								ARN:  ptr.To("arn"),
@@ -1468,7 +1488,7 @@ var _ = Describe("Machines", func() {
 							},
 							InstanceMetadataOptions: &api.InstanceMetadataOptions{
 								HTTPTokens:              ptr.To(api.HTTPTokensRequired),
-								HTTPPutResponseHopLimit: ptr.To(int64(1)),
+								HTTPPutResponseHopLimit: ptr.To(int32(1)),
 							},
 						}
 						workerConfigData = encode(&workerConfig)
@@ -1571,19 +1591,21 @@ var _ = Describe("Machines", func() {
 
 				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(2)))
-				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
+				Expect(res).NotTo(BeNil())
+				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(2))))
+				Expect(res.HTTPTokens).To(Equal("required"))
 			})
 			It("should calculate correct IMDS with user options", func() {
 				workerConfig.InstanceMetadataOptions = &api.InstanceMetadataOptions{
 					HTTPTokens:              ptr.To(api.HTTPTokensRequired),
-					HTTPPutResponseHopLimit: ptr.To(int64(5)),
+					HTTPPutResponseHopLimit: ptr.To(int32(5)),
 				}
 
 				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(res).To(HaveKeyWithValue("httpPutResponseHopLimit", int64(5)))
-				Expect(res).To(HaveKeyWithValue("httpTokens", "required"))
+				Expect(res).NotTo(BeNil())
+				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(5))))
+				Expect(res.HTTPTokens).To(Equal("required"))
 			})
 
 			It("should calculate correct IMDS in an IPv6 only cluster", func() {
@@ -1591,7 +1613,7 @@ var _ = Describe("Machines", func() {
 
 				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(res).To(HaveKeyWithValue("httpProtocolIpv6", "enabled"))
+				Expect(res.HTTPProtocolIPv6).To(Equal("enabled"))
 			})
 		})
 
@@ -1708,33 +1730,38 @@ var _ = Describe("Machines", func() {
 	)
 })
 
-func encode(obj runtime.Object) []byte {
+func encode(obj interface{}) []byte {
 	data, _ := json.Marshal(obj)
 	return data
 }
 
-func addKeyValueToMap(class map[string]interface{}, key string, value interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(class)+1)
-
-	for k, v := range class {
-		out[k] = v
-	}
-
-	out[key] = value
-	return out
+func addNodeTemplateToMachineClass(machineClass *machinev1alpha1.MachineClass, nodeTemplate machinev1alpha1.NodeTemplate) {
+	machineClass.NodeTemplate = &nodeTemplate
 }
 
-func addNodeTemplateToMachineClass(class map[string]interface{}, nodeTemplate machinev1alpha1.NodeTemplate) {
-	class["nodeTemplate"] = nodeTemplate
+func addSecretRefsToMachineClass(machineClass *machinev1alpha1.MachineClass, credentialsSecretRef corev1.SecretReference) {
+	machineClass.CredentialsSecretRef = &corev1.SecretReference{
+		Name:      credentialsSecretRef.Name,
+		Namespace: credentialsSecretRef.Namespace,
+	}
+	machineClass.SecretRef = &corev1.SecretReference{
+		Name:      machineClass.Name,
+		Namespace: machineClass.Namespace,
+	}
 }
 
-func addNameAndSecretToMachineClass(class map[string]interface{}, name string, credentialsSecretRef corev1.SecretReference) {
-	class["name"] = name
-	class["credentialsSecretRef"] = map[string]interface{}{
-		"name":      credentialsSecretRef.Name,
-		"namespace": credentialsSecretRef.Namespace,
+func addProviderSpecToMachineClass(machineClass *machinev1alpha1.MachineClass, providerSpec *awsmachineapi.AWSProviderSpec) {
+	machineClass.ProviderSpec = runtime.RawExtension{Raw: encode(providerSpec)}
+}
+
+func createWithNameAndLabelsFromObject[T client.Object](obj T, name string, labels map[string]string) T {
+	out := obj.DeepCopyObject().(client.Object)
+	if len(labels) > 0 {
+		out.SetLabels(labels)
 	}
-	class["secret"].(map[string]interface{})["labels"] = map[string]string{v1beta1constants.GardenerPurpose: v1beta1constants.GardenPurposeMachineClass}
+	out.SetName(name)
+
+	return out.(T)
 }
 
 func loadDecodeWorker(decoder runtime.Decoder, filePath string, w *extensionsv1alpha1.Worker) error {

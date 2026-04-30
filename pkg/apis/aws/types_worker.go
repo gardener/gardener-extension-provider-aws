@@ -48,14 +48,14 @@ type Volume struct {
 	//
 	// Condition: This parameter is required for requests to create io1 volumes;
 	// Do not specify it in requests to create gp2, st1, sc1, or standard volumes.
-	IOPS *int64
+	IOPS *int32
 
 	// The throughput that the volume supports, in MiB/s.
 	//
 	// This parameter is valid only for gp3 volumes.
 	//
 	// Valid Range: The range as of 16th Aug 2022 is from 125 MiB/s to 1000 MiB/s. For more info refer (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
-	Throughput *int64
+	Throughput *int32
 }
 
 // DataVolume contains configuration for data volumes attached to VMs.
@@ -135,15 +135,15 @@ type InstanceMetadataOptions struct {
 	HTTPTokens *HTTPTokensValue
 	// HTTPPutResponseHopLimit is the response hop limit for instance metadata requests.
 	// Valid values are between 1 and 64.
-	HTTPPutResponseHopLimit *int64
+	HTTPPutResponseHopLimit *int32
 }
 
 // CpuOptions contains detailed configuration for the number of cores and threads for the instance.
 type CpuOptions struct {
 	// CoreCount specifies the number of CPU cores per instance.
-	CoreCount *int64
+	CoreCount *int32
 	// ThreadsPerCore sets the number of threads per core. Must be either '1' (disable multi-threading) or '2'.
-	ThreadsPerCore *int64
+	ThreadsPerCore *int32
 	// AmdSevSnp indicates whether AMD SEV-SNP is enabled.
 	// Currently, this option is only supported on M6a, R6a, and C6a instance types.
 	// Valid options are "enabled" and "disabled".

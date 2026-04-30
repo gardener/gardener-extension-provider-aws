@@ -662,7 +662,7 @@ Defaults to false.</p>
 <td>
 <code>coreCount</code></br>
 <em>
-int64
+int32
 </em>
 </td>
 <td>
@@ -673,7 +673,7 @@ int64
 <td>
 <code>threadsPerCore</code></br>
 <em>
-int64
+int32
 </em>
 </td>
 <td>
@@ -1249,7 +1249,7 @@ HTTPTokensValue
 <td>
 <code>httpPutResponseHopLimit</code></br>
 <em>
-int64
+int32
 </em>
 </td>
 <td>
@@ -1994,7 +1994,7 @@ string
 <td>
 <code>iops</code></br>
 <em>
-int64
+int32
 </em>
 </td>
 <td>
@@ -2016,7 +2016,7 @@ it is not used in requests to create gp2, st1, sc1, or standard volumes.</p>
 <td>
 <code>throughput</code></br>
 <em>
-int64
+int32
 </em>
 </td>
 <td>
