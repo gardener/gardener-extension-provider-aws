@@ -134,6 +134,9 @@ func FindImageInCloudProfile(
 	if cloudProfileConfig == nil {
 		return nil, fmt.Errorf("cloud profile config is nil")
 	}
+	if len(capabilityDefinitions) == 0 {
+		return nil, fmt.Errorf("capabilityDefinitions must not be empty, use NormalizeCapabilityDefinitions() to ensure defaults")
+	}
 	machineImages := cloudProfileConfig.MachineImages
 
 	for _, machineImage := range machineImages {
