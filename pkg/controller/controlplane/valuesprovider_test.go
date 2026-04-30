@@ -722,4 +722,235 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(values).NotTo(HaveKey("controller"))
 		})
 	})
+
+	Describe("#isMutatingAdmissionPolicyEnabled", func() {
+		var testCluster *extensionscontroller.Cluster
+
+		BeforeEach(func() {
+			calico := "calico"
+			testCluster = &extensionscontroller.Cluster{
+				Shoot: &gardencorev1beta1.Shoot{
+					Spec: gardencorev1beta1.ShootSpec{
+						Networking: &gardencorev1beta1.Networking{
+							Type: &calico,
+						},
+						Kubernetes: gardencorev1beta1.Kubernetes{
+							Version: "1.33.0",
+						},
+					},
+				},
+			}
+		})
+
+		It("should return false if KubeAPIServer is nil", func() {
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return false if feature gates are nil", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return false if MutatingAdmissionPolicy feature gate is not set", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"SomeOtherGate": true},
+				},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return false if MutatingAdmissionPolicy feature gate is disabled", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": false},
+				},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return false if RuntimeConfig is nil", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
+				},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return false if neither v1alpha1 nor v1beta1 is enabled in RuntimeConfig", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
+				},
+				RuntimeConfig: map[string]bool{"some.other/v1": true},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return true if feature gate is enabled and v1alpha1 is in RuntimeConfig", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
+				},
+				RuntimeConfig: map[string]bool{"admissionregistration.k8s.io/v1alpha1": true},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+
+		It("should return true if feature gate is enabled and v1beta1 is in RuntimeConfig", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
+				},
+				RuntimeConfig: map[string]bool{"admissionregistration.k8s.io/v1beta1": true},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+
+		It("should return true if feature gate is enabled and both v1alpha1 and v1beta1 are in RuntimeConfig", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
+				},
+				RuntimeConfig: map[string]bool{
+					"admissionregistration.k8s.io/v1alpha1": true,
+					"admissionregistration.k8s.io/v1beta1":  true,
+				},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+
+		It("should return true for K8s >= 1.34 without any feature gate or RuntimeConfig (beta)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.34.0"
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+
+		It("should return true for K8s >= 1.34 even without KubeAPIServer config (beta)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.35.0"
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+
+		It("should return false for K8s >= 1.34 and < 1.36 if feature gate is explicitly disabled (beta)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.34.0"
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": false},
+				},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return false for K8s 1.35 if feature gate is explicitly disabled (beta)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.35.0"
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": false},
+				},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return true for K8s >= 1.36 even if feature gate is explicitly disabled (GA, locked on)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.36.0"
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": false},
+				},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+
+		It("should return true for K8s >= 1.36 without any feature gate or RuntimeConfig (GA)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.36.0"
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+
+		It("should return true for K8s >= 1.36 even without KubeAPIServer config (GA)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.37.1"
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+	})
+
+	Describe("#mutatingAdmissionPolicyAPIVersion", func() {
+		var testCluster *extensionscontroller.Cluster
+
+		BeforeEach(func() {
+			testCluster = &extensionscontroller.Cluster{
+				Shoot: &gardencorev1beta1.Shoot{
+					Spec: gardencorev1beta1.ShootSpec{
+						Kubernetes: gardencorev1beta1.Kubernetes{
+							Version: "1.33.0",
+						},
+					},
+				},
+			}
+		})
+
+		It("should return v1alpha1 if no RuntimeConfig is set (< 1.34)", func() {
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1alpha1"))
+		})
+
+		It("should return v1alpha1 if only v1alpha1 is in RuntimeConfig (< 1.34)", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				RuntimeConfig: map[string]bool{"admissionregistration.k8s.io/v1alpha1": true},
+			}
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1alpha1"))
+		})
+
+		It("should return v1beta1 if v1beta1 is in RuntimeConfig (< 1.34)", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				RuntimeConfig: map[string]bool{"admissionregistration.k8s.io/v1beta1": true},
+			}
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1beta1"))
+		})
+
+		It("should return v1beta1 if both v1alpha1 and v1beta1 are in RuntimeConfig (< 1.34)", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				RuntimeConfig: map[string]bool{
+					"admissionregistration.k8s.io/v1alpha1": true,
+					"admissionregistration.k8s.io/v1beta1":  true,
+				},
+			}
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1beta1"))
+		})
+
+		It("should return v1alpha1 if v1beta1 is explicitly disabled in RuntimeConfig (< 1.34)", func() {
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				RuntimeConfig: map[string]bool{
+					"admissionregistration.k8s.io/v1alpha1": true,
+					"admissionregistration.k8s.io/v1beta1":  false,
+				},
+			}
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1alpha1"))
+		})
+
+		It("should return v1beta1 for K8s >= 1.34 (beta)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.34.0"
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1beta1"))
+		})
+
+		It("should return v1beta1 for K8s 1.35 (beta)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.35.0"
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1beta1"))
+		})
+
+		It("should return v1 for K8s >= 1.36 (GA)", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.36.0"
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1"))
+		})
+
+		It("should return v1 for K8s 1.36 even if v1beta1 is in RuntimeConfig", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.36.2"
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				RuntimeConfig: map[string]bool{"admissionregistration.k8s.io/v1beta1": true},
+			}
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1"))
+		})
+
+		It("should return v1 for K8s versions higher than 1.36", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.38.0"
+			Expect(mutatingAdmissionPolicyAPIVersion(testCluster)).To(Equal("v1"))
+		})
+	})
 })
