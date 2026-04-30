@@ -13,8 +13,8 @@ import (
 	gardencorev1beta1helper "github.com/gardener/gardener/pkg/api/core/v1beta1/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	testutils "github.com/gardener/gardener/pkg/utils/test"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
-	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,7 +47,7 @@ var _ = Describe("Actuator", func() {
 	var (
 		ctrl             *gomock.Controller
 		c                *mockclient.MockClient
-		mgr              *mockmanager.MockManager
+		mgr              *testutils.FakeManager
 		sw               *mockclient.MockStatusWriter
 		awsClientFactory *mockawsclient.MockFactory
 		awsClient        *mockawsclient.MockInterface
@@ -64,9 +64,7 @@ var _ = Describe("Actuator", func() {
 		ctrl = gomock.NewController(GinkgoT())
 
 		c = mockclient.NewMockClient(ctrl)
-		mgr = mockmanager.NewMockManager(ctrl)
-
-		mgr.EXPECT().GetClient().Return(c)
+		mgr = &testutils.FakeManager{Client: c}
 
 		sw = mockclient.NewMockStatusWriter(ctrl)
 		awsClientFactory = mockawsclient.NewMockFactory(ctrl)

@@ -783,27 +783,19 @@ done
 			}
 		})
 
-		DescribeTable("should modify existing elements of kubelet configuration",
-			func(kubeletVersion *semver.Version, expectedFeatureGates map[string]bool) {
-				newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
-					FeatureGates: map[string]bool{
-						"Foo": true,
-					},
-					EnableControllerAttachDetach: ptr.To(true),
-				}
-				kubeletConfig := *oldKubeletConfig
+		It("should modify existing elements of kubelet configuration", func() {
+			newKubeletConfig := &kubeletconfigv1beta1.KubeletConfiguration{
+				FeatureGates: map[string]bool{
+					"Foo": true,
+				},
+				EnableControllerAttachDetach: ptr.To(true),
+			}
+			kubeletConfig := *oldKubeletConfig
 
-				for featureGate, value := range expectedFeatureGates {
-					newKubeletConfig.FeatureGates[featureGate] = value
-				}
-
-				err := ensurer.EnsureKubeletConfiguration(ctx, nil, kubeletVersion, &kubeletConfig, nil)
-				Expect(err).To(Not(HaveOccurred()))
-				Expect(&kubeletConfig).To(Equal(newKubeletConfig))
-			},
-
-			Entry("kubelet 1.34", semver.MustParse("1.34"), map[string]bool{}),
-		)
+			err := ensurer.EnsureKubeletConfiguration(ctx, nil, semver.MustParse("1.34"), &kubeletConfig, nil)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(&kubeletConfig).To(Equal(newKubeletConfig))
+		})
 	})
 
 	Describe("#EnsureKubernetesGeneralConfiguration", func() {

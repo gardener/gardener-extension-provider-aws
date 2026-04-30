@@ -13,8 +13,8 @@ import (
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	testutils "github.com/gardener/gardener/pkg/utils/test"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
-	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,7 +46,7 @@ var _ = Describe("Actuator", func() {
 	var (
 		ctrl             *gomock.Controller
 		c                *mockclient.MockClient
-		mgr              *mockmanager.MockManager
+		mgr              *testutils.FakeManager
 		sw               *mockclient.MockStatusWriter
 		a                backupbucket.Actuator
 		awsClientFactory *mockawsclient.MockFactory
@@ -67,8 +67,7 @@ var _ = Describe("Actuator", func() {
 		Expect(apisaws.AddToScheme(scheme)).To(Succeed())
 
 		c = mockclient.NewMockClient(ctrl)
-		mgr = mockmanager.NewMockManager(ctrl)
-		mgr.EXPECT().GetClient().Return(c).AnyTimes()
+		mgr = &testutils.FakeManager{Client: c}
 		c.EXPECT().Scheme().Return(scheme).MaxTimes(1)
 
 		sw = mockclient.NewMockStatusWriter(ctrl)

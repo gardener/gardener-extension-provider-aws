@@ -13,9 +13,9 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	testutils "github.com/gardener/gardener/pkg/utils/test"
 	. "github.com/gardener/gardener/pkg/utils/test/matchers"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
-	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -69,8 +69,7 @@ var _ = Describe("ConfigValidator", func() {
 		ctx = context.TODO()
 		logger = log.Log.WithName("test")
 
-		mgr := mockmanager.NewMockManager(ctrl)
-		mgr.EXPECT().GetClient().Return(c)
+		mgr := &testutils.FakeManager{Client: c}
 		cv = NewConfigValidator(mgr, awsClientFactory, logger)
 
 		// shared infra + secret setup
@@ -332,7 +331,7 @@ var _ = Describe("ConfigValidator", func() {
 			}
 			awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
 			awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).
-				Return(sets.New[string](
+				Return(sets.New(
 					"eipalloc-0e2669d4b46150ee4",
 					"eipalloc-0e2669d4b46150ee5",
 					"eipalloc-0e2669d4b46150ee6"), nil)
@@ -386,7 +385,7 @@ var _ = Describe("ConfigValidator", func() {
 				"eipalloc-0e2669d4b46150ee5": ptr.To("eipassoc-0f8ff66536587824c"),
 			}
 			awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
-			awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.New[string](
+			awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.New(
 				"eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
 
 			errorList := cv.Validate(ctx, infra)
@@ -405,7 +404,7 @@ var _ = Describe("ConfigValidator", func() {
 				"eipalloc-0e2669d4b46150ee6": ptr.To("eipassoc-0f8ff66536587824d"),
 			}
 			awsClient.EXPECT().GetElasticIPsAssociationIDForAllocationIDs(ctx, gomock.Any()).Return(mapping, nil)
-			awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.New[string](
+			awsClient.EXPECT().GetNATGatewayAddressAllocations(ctx, infra.Namespace).Return(sets.New(
 				"eipalloc-0e2669d4b46150ee4", "eipalloc-0e2669d4b46150ee5"), nil)
 
 			errorList := cv.Validate(ctx, infra)

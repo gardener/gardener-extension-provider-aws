@@ -827,17 +827,18 @@ func getCSIControllerChartValues(
 	if err != nil {
 		return nil, err
 	}
-	if versionutils.ConstraintK8sLess134.Check(k8sVersion) &&
-		aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
-		values["csiResizer"] = map[string]interface{}{
-			"featureGates": map[string]string{
-				"VolumeAttributesClass": "true",
-			},
-		}
-		values["csiProvisioner"] = map[string]interface{}{
-			"featureGates": map[string]string{
-				"VolumeAttributesClass": "true",
-			},
+	if versionutils.ConstraintK8sLess134.Check(k8sVersion) {
+		if aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
+			values["csiResizer"] = map[string]interface{}{
+				"featureGates": map[string]string{
+					"VolumeAttributesClass": "true",
+				},
+			}
+			values["csiProvisioner"] = map[string]interface{}{
+				"featureGates": map[string]string{
+					"VolumeAttributesClass": "true",
+				},
+			}
 		}
 	}
 

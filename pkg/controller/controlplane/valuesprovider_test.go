@@ -18,8 +18,8 @@ import (
 	"github.com/gardener/gardener/pkg/utils"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
 	fakesecretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager/fake"
+	testutils "github.com/gardener/gardener/pkg/utils/test"
 	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
-	mockmanager "github.com/gardener/gardener/third_party/mock/controller-runtime/manager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
@@ -46,7 +46,7 @@ var _ = Describe("ValuesProvider", func() {
 	var (
 		ctrl         *gomock.Controller
 		c            *mockclient.MockClient
-		mgr          *mockmanager.MockManager
+		mgr          *testutils.FakeManager
 		encoder      runtime.Encoder
 		ctx          context.Context
 		scheme       *runtime.Scheme
@@ -213,9 +213,7 @@ var _ = Describe("ValuesProvider", func() {
 
 		ctrl = gomock.NewController(GinkgoT())
 		c = mockclient.NewMockClient(ctrl)
-		mgr = mockmanager.NewMockManager(ctrl)
-		mgr.EXPECT().GetClient().Return(c)
-		mgr.EXPECT().GetScheme().Return(scheme)
+		mgr = &testutils.FakeManager{Client: c, Scheme: scheme}
 		vp = NewValuesProvider(mgr)
 
 		fakeClient = fakeclient.NewClientBuilder().Build()

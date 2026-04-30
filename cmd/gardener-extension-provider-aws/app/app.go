@@ -245,16 +245,11 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			dnsRecordCtrlOpts.Completed().Apply(&awsdnsrecord.DefaultAddOptions.Controller)
 			dnsRecordCtrlOpts.Completed().ApplyRateLimiter(&awsdnsrecord.DefaultAddOptions.RateLimiter)
 			infraCtrlOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.Controller)
-			reconcileOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.IgnoreOperationAnnotation, &awsinfrastructure.DefaultAddOptions.ExtensionClasses)
-			reconcileOpts.Completed().Apply(&awscontrolplane.DefaultAddOptions.IgnoreOperationAnnotation, &awscontrolplane.DefaultAddOptions.ExtensionClasses)
-			reconcileOpts.Completed().Apply(&awsworker.DefaultAddOptions.IgnoreOperationAnnotation, &awsworker.DefaultAddOptions.ExtensionClasses)
-			reconcileOpts.Completed().Apply(&awsbastion.DefaultAddOptions.IgnoreOperationAnnotation, &awsbastion.DefaultAddOptions.ExtensionClasses)
-			reconcileOpts.Completed().Apply(&awsbackupbucket.DefaultAddOptions.IgnoreOperationAnnotation, &awsbackupbucket.DefaultAddOptions.ExtensionClasses)
-			reconcileOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.IgnoreOperationAnnotation, &awsbackupentry.DefaultAddOptions.ExtensionClasses)
-			reconcileOpts.Completed().Apply(&awsdnsrecord.DefaultAddOptions.IgnoreOperationAnnotation, &awsdnsrecord.DefaultAddOptions.ExtensionClasses)
 			workerCtrlOpts.Completed().Apply(&awsworker.DefaultAddOptions.Controller)
+
 			awsworker.DefaultAddOptions.GardenCluster = gardenCluster
-			awsworker.DefaultAddOptions.SelfHostedShootCluster = generalOpts.Completed().SelfHostedShootCluster
+			applyGeneralOptions(generalOpts)
+			applyReconcileOptions(reconcileOpts)
 
 			atomicShootWebhookConfig, err := webhookOptions.Completed().AddToManager(ctx, mgr, nil)
 			if err != nil {
@@ -298,6 +293,32 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 	aggOption.AddFlags(cmd.Flags())
 
 	return cmd
+}
+
+func applyReconcileOptions(reconcileOpts *controllercmd.ReconcilerOptions) {
+	config := reconcileOpts.Completed()
+
+	awsinfrastructure.DefaultAddOptions.IgnoreOperationAnnotation = config.IgnoreOperationAnnotation
+	awscontrolplane.DefaultAddOptions.IgnoreOperationAnnotation = config.IgnoreOperationAnnotation
+	awsworker.DefaultAddOptions.IgnoreOperationAnnotation = config.IgnoreOperationAnnotation
+	awsbastion.DefaultAddOptions.IgnoreOperationAnnotation = config.IgnoreOperationAnnotation
+	awsbackupbucket.DefaultAddOptions.IgnoreOperationAnnotation = config.IgnoreOperationAnnotation
+	awsbackupentry.DefaultAddOptions.IgnoreOperationAnnotation = config.IgnoreOperationAnnotation
+	awsdnsrecord.DefaultAddOptions.IgnoreOperationAnnotation = config.IgnoreOperationAnnotation
+}
+
+func applyGeneralOptions(generalOpts *controllercmd.GeneralOptions) {
+	config := generalOpts.Completed()
+
+	awsworker.DefaultAddOptions.SelfHostedShootCluster = config.SelfHostedShootCluster
+
+	awsinfrastructure.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
+	awscontrolplane.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
+	awsworker.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
+	awsbastion.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
+	awsbackupbucket.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
+	awsbackupentry.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
+	awsdnsrecord.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
 }
 
 // TODO (kon-angelo): Remove after the release of version 1.68.0
