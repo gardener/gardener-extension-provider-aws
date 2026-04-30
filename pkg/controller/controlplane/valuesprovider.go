@@ -48,7 +48,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/utils"
-	networking "github.com/gardener/gardener-extension-provider-aws/pkg/utils/networking"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/utils/networking"
 )
 
 const (
@@ -827,18 +827,17 @@ func getCSIControllerChartValues(
 	if err != nil {
 		return nil, err
 	}
-	if versionutils.ConstraintK8sGreaterEqual131.Check(k8sVersion) && versionutils.ConstraintK8sLess134.Check(k8sVersion) {
-		if aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
-			values["csiResizer"] = map[string]interface{}{
-				"featureGates": map[string]string{
-					"VolumeAttributesClass": "true",
-				},
-			}
-			values["csiProvisioner"] = map[string]interface{}{
-				"featureGates": map[string]string{
-					"VolumeAttributesClass": "true",
-				},
-			}
+	if versionutils.ConstraintK8sLess134.Check(k8sVersion) &&
+		aws.VolumeAttributesClassBetaEnabled(cluster.Shoot) {
+		values["csiResizer"] = map[string]interface{}{
+			"featureGates": map[string]string{
+				"VolumeAttributesClass": "true",
+			},
+		}
+		values["csiProvisioner"] = map[string]interface{}{
+			"featureGates": map[string]string{
+				"VolumeAttributesClass": "true",
+			},
 		}
 	}
 

@@ -1566,8 +1566,8 @@ var _ = Describe("Machines", func() {
 				}
 				networking = &gardencorev1beta1.Networking{}
 			})
-			It("should calculate correct IMDS for k8s >=1.30", func() {
-				cluster.Shoot.Spec.Kubernetes.Version = "1.30.0"
+			It("should calculate correct IMDS for k8s >=1.32", func() {
+				cluster.Shoot.Spec.Kubernetes.Version = "1.32.0"
 
 				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
