@@ -9,7 +9,7 @@ spec:
   command: [bash, -c]
   args:
   - >-
-    GOMAXPROCS=2 go run ./test/tm/generator.go
+    go run ./test/tm/generator.go
     --infrastructure-provider-config-filepath=$INFRASTRUCTURE_PROVIDER_CONFIG_FILEPATH
     --controlplane-provider-config-filepath=$CONTROLPLANE_PROVIDER_CONFIG_FILEPATH
     --network-vpc-cidr=$NETWORK_VPC_CIDR
@@ -22,4 +22,4 @@ spec:
   resources:
     requests:
       memory: "1.5Gi"
-      cpu: "1"
+      cpu: "8"
