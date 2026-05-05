@@ -324,27 +324,27 @@ maxTargetsPerTargetGroup:
 # controllerConfig specifies controller configuration
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
-  featureGates: {}
-  # ListenerRulesTagging: true
-  # WeightedTargetGroups: true
-  # ServiceTypeLoadBalancerOnly: false
-  # EndpointsFailOpen: true
-  # EnableServiceController: true
-  # EnableIPTargetType: true
-  # EnableTCPUDPListener: false
-  # EnableRGTAPI: false
-  # SubnetsClusterTagCheck: true
-  # NLBHealthCheckAdvancedConfig: true
-  # NLBSecurityGroup: true
-  # ALBSingleSubnet: false
-  # LBCapacityReservation: true
-  # SubnetDiscoveryByReachability: true
-  # NLBGatewayAPI: true
-  # ALBGatewayAPI: true
-  # GlobalAcceleratorController: false
-  # EnhancedDefaultBehavior: false
-  # EnableDefaultTagsLowPriority: false
-  # ALBTargetControlAgent: false
+  featureGates:
+    # ListenerRulesTagging: true
+    # WeightedTargetGroups: true
+    # ServiceTypeLoadBalancerOnly: false
+    # EndpointsFailOpen: true
+    # EnableServiceController: true
+    # EnableIPTargetType: true
+    # EnableTCPUDPListener: false
+    # EnableRGTAPI: false
+    # SubnetsClusterTagCheck: true
+    # NLBHealthCheckAdvancedConfig: true
+    # NLBSecurityGroup: true
+    # ALBSingleSubnet: false
+    # LBCapacityReservation: true
+    # SubnetDiscoveryByReachability: true
+    NLBGatewayAPI: false
+    ALBGatewayAPI: false
+    # GlobalAcceleratorController: false
+    # EnhancedDefaultBehavior: false
+    # EnableDefaultTagsLowPriority: false
+    # ALBTargetControlAgent: false
 
 # serviceTargetENISGTags extra tags used by the controller when finding the target ENI security group to which it should add inbound rules.
 serviceTargetENISGTags:
