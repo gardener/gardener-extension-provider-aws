@@ -324,7 +324,7 @@ maxTargetsPerTargetGroup:
 # controllerConfig specifies controller configuration
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
-  featureGates: {}
+  featureGates:
   # ListenerRulesTagging: true
   # WeightedTargetGroups: true
   # ServiceTypeLoadBalancerOnly: false
@@ -339,8 +339,8 @@ controllerConfig:
   # ALBSingleSubnet: false
   # LBCapacityReservation: true
   # SubnetDiscoveryByReachability: true
-  # NLBGatewayAPI: true
-  # ALBGatewayAPI: true
+  NLBGatewayAPI: false
+  ALBGatewayAPI: false
   # GlobalAcceleratorController: false
   # EnhancedDefaultBehavior: false
   # EnableDefaultTagsLowPriority: false
