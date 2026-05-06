@@ -1,7 +1,7 @@
 module github.com/gardener/gardener-extension-provider-aws
 
 // minimum version of Go required
-go 1.25.7
+go 1.26.2
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
