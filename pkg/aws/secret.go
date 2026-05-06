@@ -101,6 +101,25 @@ func NewClientFromSecretRef(ctx context.Context, client client.Client, secretRef
 	return awsclient.NewClient(*authConfig)
 }
 
+// NewClientFromAssumeRole creates a new Client by using the given base credentials
+// to assume the specified IAM role via STS. This is the preferred method for
+// cross-account access — no long-lived keys needed in the target account.
+func NewClientFromAssumeRole(ctx context.Context, baseClient client.Client, baseSecretRef corev1.SecretReference, roleARN, externalID, region string) (awsclient.Interface, error) {
+	// Get the base credentials (seed's own creds) for the STS call.
+	baseAuthConfig, err := GetCredentialsFromSecretRef(ctx, baseClient, baseSecretRef, false, region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get base credentials for AssumeRole: %w", err)
+	}
+
+	// Add AssumeRole configuration.
+	baseAuthConfig.AssumeRole = &awsclient.AssumeRole{
+		RoleARN:    roleARN,
+		ExternalID: externalID,
+	}
+
+	return awsclient.NewClient(*baseAuthConfig)
+}
+
 func getSecretDataValue(secret *corev1.Secret, key string, altKey *string, required bool) ([]byte, error) {
 	if value, ok := secret.Data[key]; ok {
 		return value, nil

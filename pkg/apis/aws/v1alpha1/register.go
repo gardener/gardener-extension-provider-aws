@@ -44,6 +44,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&InfrastructureConfig{},
 		&InfrastructureState{},
 		&InfrastructureStatus{},
+		&SeedProviderConfig{},
 		&WorkerConfig{},
 		&WorkerStatus{},
 		&WorkloadIdentityConfig{},

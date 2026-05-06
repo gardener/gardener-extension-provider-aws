@@ -893,3 +893,378 @@ var _ = Describe("InfrastructureConfig validation", func() {
 		})
 	})
 })
+
+var _ = Describe("TransitGateway validation", func() {
+	Describe("#ValidateShootTransitGateway", func() {
+		It("should accept nil TGW", func() {
+			errs := ValidateShootTransitGateway(field.NewPath("tgw"), nil)
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("should accept disabled TGW", func() {
+			tgw := &apisaws.TransitGateway{Enabled: false}
+			errs := ValidateShootTransitGateway(field.NewPath("tgw"), tgw)
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("should require ID for shoot-level TGW", func() {
+			tgw := &apisaws.TransitGateway{
+				Enabled:           true,
+				HubRouteTableID:   ptr.To("tgw-rtb-hub"),
+				SpokeRouteTableID: ptr.To("tgw-rtb-spoke"),
+			}
+			errs := ValidateShootTransitGateway(field.NewPath("tgw"), tgw)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeRequired),
+				"Field": Equal("tgw.id"),
+			}))))
+		})
+
+		It("should require hub and spoke route table IDs", func() {
+			tgw := &apisaws.TransitGateway{
+				Enabled: true,
+				ID:      ptr.To("tgw-123"),
+			}
+			errs := ValidateShootTransitGateway(field.NewPath("tgw"), tgw)
+			Expect(errs).To(ContainElements(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("tgw.hubRouteTableId"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("tgw.spokeRouteTableId"),
+				})),
+			))
+		})
+
+		It("should reject createConfig at shoot level", func() {
+			tgw := &apisaws.TransitGateway{
+				Enabled:           true,
+				ID:                ptr.To("tgw-123"),
+				HubRouteTableID:   ptr.To("tgw-rtb-hub"),
+				SpokeRouteTableID: ptr.To("tgw-rtb-spoke"),
+				CreateConfig:      &apisaws.TransitGatewayCreateConfig{},
+			}
+			errs := ValidateShootTransitGateway(field.NewPath("tgw"), tgw)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("tgw.createConfig"),
+			}))))
+		})
+
+		It("should reject globalVPCs at shoot level", func() {
+			tgw := &apisaws.TransitGateway{
+				Enabled:           true,
+				ID:                ptr.To("tgw-123"),
+				HubRouteTableID:   ptr.To("tgw-rtb-hub"),
+				SpokeRouteTableID: ptr.To("tgw-rtb-spoke"),
+				GlobalVPCs:        []apisaws.GlobalVPC{{Name: "test", AttachmentID: ptr.To("tgw-attach-1")}},
+			}
+			errs := ValidateShootTransitGateway(field.NewPath("tgw"), tgw)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("tgw.globalVPCs"),
+			}))))
+		})
+
+		It("should accept valid shoot-level TGW", func() {
+			tgw := &apisaws.TransitGateway{
+				Enabled:           true,
+				ID:                ptr.To("tgw-123"),
+				HubRouteTableID:   ptr.To("tgw-rtb-hub"),
+				SpokeRouteTableID: ptr.To("tgw-rtb-spoke"),
+			}
+			errs := ValidateShootTransitGateway(field.NewPath("tgw"), tgw)
+			Expect(errs).To(BeEmpty())
+		})
+	})
+
+	Describe("#ValidateCustomRoutes", func() {
+		It("should accept empty routes", func() {
+			errs := ValidateCustomRoutes(field.NewPath("routes"), nil)
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("should require at least one destination", func() {
+			routes := []apisaws.CustomRoute{{TransitGatewayId: ptr.To("tgw-123")}}
+			errs := ValidateCustomRoutes(field.NewPath("routes"), routes)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(field.ErrorTypeRequired),
+			}))))
+		})
+
+		It("should require at least one target", func() {
+			routes := []apisaws.CustomRoute{{DestinationCidrBlock: ptr.To("10.0.0.0/8")}}
+			errs := ValidateCustomRoutes(field.NewPath("routes"), routes)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(field.ErrorTypeRequired),
+			}))))
+		})
+
+		It("should reject invalid CIDR", func() {
+			routes := []apisaws.CustomRoute{{
+				DestinationCidrBlock: ptr.To("not-a-cidr"),
+				TransitGatewayId:     ptr.To("tgw-123"),
+			}}
+			errs := ValidateCustomRoutes(field.NewPath("routes"), routes)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeInvalid),
+				"Field": Equal("routes[0].destinationCidrBlock"),
+			}))))
+		})
+
+		It("should reject 0.0.0.0/0", func() {
+			routes := []apisaws.CustomRoute{{
+				DestinationCidrBlock: ptr.To("0.0.0.0/0"),
+				TransitGatewayId:     ptr.To("tgw-123"),
+			}}
+			errs := ValidateCustomRoutes(field.NewPath("routes"), routes)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeInvalid),
+				"Field": Equal("routes[0].destinationCidrBlock"),
+			}))))
+		})
+
+		It("should reject duplicate CIDRs", func() {
+			routes := []apisaws.CustomRoute{
+				{DestinationCidrBlock: ptr.To("10.0.0.0/8"), TransitGatewayId: ptr.To("tgw-1")},
+				{DestinationCidrBlock: ptr.To("10.0.0.0/8"), TransitGatewayId: ptr.To("tgw-2")},
+			}
+			errs := ValidateCustomRoutes(field.NewPath("routes"), routes)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeDuplicate),
+				"Field": Equal("routes[1].destinationCidrBlock"),
+			}))))
+		})
+
+		It("should accept valid route", func() {
+			routes := []apisaws.CustomRoute{{
+				DestinationCidrBlock: ptr.To("10.0.0.0/8"),
+				TransitGatewayId:     ptr.To("tgw-123"),
+			}}
+			errs := ValidateCustomRoutes(field.NewPath("routes"), routes)
+			Expect(errs).To(BeEmpty())
+		})
+	})
+
+	Describe("#ValidateSeedProviderConfig", func() {
+		It("should accept nil config", func() {
+			errs := ValidateSeedProviderConfig(nil)
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("should accept disabled TGW", func() {
+			cfg := &apisaws.SeedProviderConfig{
+				TransitGateway: &apisaws.TransitGateway{Enabled: false},
+			}
+			errs := ValidateSeedProviderConfig(cfg)
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("should reject duplicate globalVPC names", func() {
+			cfg := &apisaws.SeedProviderConfig{
+				TransitGateway: &apisaws.TransitGateway{
+					Enabled: true,
+					GlobalVPCs: []apisaws.GlobalVPC{
+						{Name: "vpc-a", AttachmentID: ptr.To("tgw-attach-1")},
+						{Name: "vpc-a", AttachmentID: ptr.To("tgw-attach-2")},
+					},
+				},
+			}
+			errs := ValidateSeedProviderConfig(cfg)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeDuplicate),
+				"Field": Equal("transitGateway.globalVPCs[1].name"),
+			}))))
+		})
+
+		It("should reject duplicate globalVPC attachmentIDs", func() {
+			cfg := &apisaws.SeedProviderConfig{
+				TransitGateway: &apisaws.TransitGateway{
+					Enabled: true,
+					GlobalVPCs: []apisaws.GlobalVPC{
+						{Name: "vpc-a", AttachmentID: ptr.To("tgw-attach-1")},
+						{Name: "vpc-b", AttachmentID: ptr.To("tgw-attach-1")},
+					},
+				},
+			}
+			errs := ValidateSeedProviderConfig(cfg)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeDuplicate),
+				"Field": Equal("transitGateway.globalVPCs[1].attachmentId"),
+			}))))
+		})
+
+		It("should reject overlapping globalVPC CIDRs", func() {
+			cfg := &apisaws.SeedProviderConfig{
+				TransitGateway: &apisaws.TransitGateway{
+					Enabled: true,
+					GlobalVPCs: []apisaws.GlobalVPC{
+						{Name: "vpc-a", AttachmentID: ptr.To("tgw-attach-1"), CIDRs: []string{"10.0.0.0/8"}},
+						{Name: "vpc-b", AttachmentID: ptr.To("tgw-attach-2"), CIDRs: []string{"10.1.0.0/16"}},
+					},
+				},
+			}
+			errs := ValidateSeedProviderConfig(cfg)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("transitGateway.globalVPCs[1].cidrs[0]"),
+			}))))
+		})
+
+		It("should reject invalid globalVPC CIDR", func() {
+			cfg := &apisaws.SeedProviderConfig{
+				TransitGateway: &apisaws.TransitGateway{
+					Enabled: true,
+					GlobalVPCs: []apisaws.GlobalVPC{
+						{Name: "vpc-a", AttachmentID: ptr.To("tgw-attach-1"), CIDRs: []string{"not-valid"}},
+					},
+				},
+			}
+			errs := ValidateSeedProviderConfig(cfg)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeInvalid),
+				"Field": Equal("transitGateway.globalVPCs[0].cidrs[0]"),
+			}))))
+		})
+
+		It("should reject globalVPC CIDR conflicting with globalCustomRoutes", func() {
+			cfg := &apisaws.SeedProviderConfig{
+				TransitGateway: &apisaws.TransitGateway{
+					Enabled: true,
+					GlobalVPCs: []apisaws.GlobalVPC{
+						{Name: "vpc-a", AttachmentID: ptr.To("tgw-attach-1"), CIDRs: []string{"10.0.0.0/8"}},
+					},
+				},
+				GlobalCustomRoutes: []apisaws.CustomRoute{
+					{DestinationCidrBlock: ptr.To("10.0.0.0/8"), TransitGatewayId: ptr.To("tgw-123")},
+				},
+			}
+			errs := ValidateSeedProviderConfig(cfg)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("transitGateway.globalVPCs[0].cidrs[0]"),
+			}))))
+		})
+
+		It("should accept valid config", func() {
+			cfg := &apisaws.SeedProviderConfig{
+				TransitGateway: &apisaws.TransitGateway{
+					Enabled: true,
+					GlobalVPCs: []apisaws.GlobalVPC{
+						{Name: "vpc-a", AttachmentID: ptr.To("tgw-attach-1"), CIDRs: []string{"10.0.0.0/16"}},
+						{Name: "vpc-b", AttachmentID: ptr.To("tgw-attach-2"), CIDRs: []string{"10.1.0.0/16"}},
+					},
+				},
+				GlobalCustomRoutes: []apisaws.CustomRoute{
+					{DestinationCidrBlock: ptr.To("172.16.0.0/12"), TransitGatewayId: ptr.To("tgw-123")},
+				},
+			}
+			errs := ValidateSeedProviderConfig(cfg)
+			Expect(errs).To(BeEmpty())
+		})
+	})
+
+	Describe("#ValidateCustomRoutesAgainstGlobalRoutes", func() {
+		It("should accept non-conflicting routes", func() {
+			shoot := []apisaws.CustomRoute{
+				{DestinationCidrBlock: ptr.To("10.0.0.0/8"), TransitGatewayId: ptr.To("tgw-1")},
+			}
+			global := []apisaws.CustomRoute{
+				{DestinationCidrBlock: ptr.To("172.16.0.0/12"), TransitGatewayId: ptr.To("tgw-2")},
+			}
+			errs := ValidateCustomRoutesAgainstGlobalRoutes(field.NewPath("routes"), shoot, global)
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("should reject conflicting CIDR destinations", func() {
+			shoot := []apisaws.CustomRoute{
+				{DestinationCidrBlock: ptr.To("10.0.0.0/8"), TransitGatewayId: ptr.To("tgw-1")},
+			}
+			global := []apisaws.CustomRoute{
+				{DestinationCidrBlock: ptr.To("10.0.0.0/8"), TransitGatewayId: ptr.To("tgw-2")},
+			}
+			errs := ValidateCustomRoutesAgainstGlobalRoutes(field.NewPath("routes"), shoot, global)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("routes[0].destinationCidrBlock"),
+			}))))
+		})
+
+		It("should reject conflicting prefix list destinations", func() {
+			shoot := []apisaws.CustomRoute{
+				{DestinationPrefixListId: ptr.To("pl-123"), TransitGatewayId: ptr.To("tgw-1")},
+			}
+			global := []apisaws.CustomRoute{
+				{DestinationPrefixListId: ptr.To("pl-123"), TransitGatewayId: ptr.To("tgw-2")},
+			}
+			errs := ValidateCustomRoutesAgainstGlobalRoutes(field.NewPath("routes"), shoot, global)
+			Expect(errs).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("routes[0].destinationPrefixListId"),
+			}))))
+		})
+	})
+
+	Describe("#ValidateInfrastructureConfigUpdate (TGW mutability)", func() {
+		It("should accept disabling TGW once enabled", func() {
+			oldConfig := &apisaws.InfrastructureConfig{
+				Networks: apisaws.Networks{
+					VPC:   apisaws.VPC{CIDR: ptr.To("10.0.0.0/16")},
+					Zones: []apisaws.Zone{{Name: "z1", Internal: "10.0.0.0/24", Public: "10.0.1.0/24", Workers: "10.0.2.0/24"}},
+					TransitGateway: &apisaws.TransitGateway{
+						Enabled:           true,
+						ID:                ptr.To("tgw-123"),
+						HubRouteTableID:   ptr.To("tgw-rtb-hub"),
+						SpokeRouteTableID: ptr.To("tgw-rtb-spoke"),
+					},
+				},
+			}
+			newConfig := oldConfig.DeepCopy()
+			newConfig.Networks.TransitGateway.Enabled = false
+
+			errs := ValidateInfrastructureConfigUpdate(oldConfig, newConfig)
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("should accept changing TGW ID", func() {
+			oldConfig := &apisaws.InfrastructureConfig{
+				Networks: apisaws.Networks{
+					VPC:   apisaws.VPC{CIDR: ptr.To("10.0.0.0/16")},
+					Zones: []apisaws.Zone{{Name: "z1", Internal: "10.0.0.0/24", Public: "10.0.1.0/24", Workers: "10.0.2.0/24"}},
+					TransitGateway: &apisaws.TransitGateway{
+						Enabled:           true,
+						ID:                ptr.To("tgw-123"),
+						HubRouteTableID:   ptr.To("tgw-rtb-hub"),
+						SpokeRouteTableID: ptr.To("tgw-rtb-spoke"),
+					},
+				},
+			}
+			newConfig := oldConfig.DeepCopy()
+			newConfig.Networks.TransitGateway.ID = ptr.To("tgw-456")
+
+			errs := ValidateInfrastructureConfigUpdate(oldConfig, newConfig)
+			Expect(errs).To(BeEmpty())
+		})
+
+		It("should accept unchanged TGW config", func() {
+			oldConfig := &apisaws.InfrastructureConfig{
+				Networks: apisaws.Networks{
+					VPC:   apisaws.VPC{CIDR: ptr.To("10.0.0.0/16")},
+					Zones: []apisaws.Zone{{Name: "z1", Internal: "10.0.0.0/24", Public: "10.0.1.0/24", Workers: "10.0.2.0/24"}},
+					TransitGateway: &apisaws.TransitGateway{
+						Enabled:           true,
+						ID:                ptr.To("tgw-123"),
+						HubRouteTableID:   ptr.To("tgw-rtb-hub"),
+						SpokeRouteTableID: ptr.To("tgw-rtb-spoke"),
+					},
+				},
+			}
+			newConfig := oldConfig.DeepCopy()
+
+			errs := ValidateInfrastructureConfigUpdate(oldConfig, newConfig)
+			Expect(errs).To(BeEmpty())
+		})
+	})
+})

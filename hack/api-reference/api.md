@@ -305,6 +305,93 @@ string
 </table>
 
 
+<h3 id="customroute">CustomRoute
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#networks">Networks</a>, <a href="#seedproviderconfig">SeedProviderConfig</a>)
+</p>
+
+<p>
+CustomRoute defines a route to be added to all zone (private) route tables.
+Exactly one destination and one target must be specified.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>destinationCidrBlock</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DestinationCidrBlock is the destination CIDR for this route.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>destinationPrefixListId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DestinationPrefixListId is the ID of a managed prefix list.<br />Alternative to DestinationCidrBlock for dynamic CIDR sets.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>transitGatewayId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TransitGatewayId routes traffic to a Transit Gateway.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>vpcPeeringConnectionId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>VpcPeeringConnectionId routes traffic to a VPC peering connection.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>networkInterfaceId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NetworkInterfaceId routes traffic to a network interface.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
 <h3 id="datavolume">DataVolume
 </h3>
 
@@ -529,6 +616,193 @@ string
 </td>
 <td>
 <p>ID contains the Elastic Files System ID.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="globalvpc">GlobalVPC
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#transitgateway">TransitGateway</a>)
+</p>
+
+<p>
+GlobalVPC defines a shared/utility VPC that should be accessible to all
+shoots on this seed via the TGW.
+
+Two modes:
+  - Referenced (attachmentId set): attachment already exists, extension only manages
+    association/propagation/routes.
+  - Managed (vpcId + subnetIds set): extension creates and manages the TGW VPC attachment.
+
+Exactly one of attachmentId or vpcId must be set.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is a human-readable identifier for this VPC (e.g., "harbor-registry").</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>attachmentId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AttachmentID is the pre-existing TGW VPC attachment ID (referenced mode).<br />Provider-aws does NOT create or delete it.<br />Mutually exclusive with vpcId.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>vpcId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>VpcID is the ID of the utility VPC to attach to the TGW (managed mode).<br />When set, provider-aws creates the TGW VPC attachment and manages its<br />lifecycle (create on add, delete on removal).<br />Mutually exclusive with attachmentId. Requires subnetIds.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>subnetIds</code></br>
+<em>
+string array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SubnetIDs are private subnet IDs in the utility VPC, one per AZ.<br />TGW creates an ENI in each subnet. Required when vpcId is set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>credentialsRef</code></br>
+<em>
+<a href="#globalvpccredentialsref">GlobalVPCCredentialsRef</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CredentialsRef references a Secret containing AWS credentials for the<br />account that owns the utility VPC. Only needed for cross-account<br />globalVPCs where the utility VPC is in a different account than the TGW.<br />If nil, the extension uses the shoot's default credentials (same account).<br />The secret must contain 'accessKeyID' and 'secretAccessKey' keys.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cidrs</code></br>
+<em>
+string array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CIDRs are the CIDR blocks reachable through this VPC.<br />If omitted, provider-aws discovers them via DescribeVpcs.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="globalvpccredentialsref">GlobalVPCCredentialsRef
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#globalvpc">GlobalVPC</a>, <a href="#transitgateway">TransitGateway</a>)
+</p>
+
+<p>
+GlobalVPCCredentialsRef references AWS credentials for cross-account operations.
+Three modes are supported:
+
+ 1. Secret only (name+namespace): static keys from a k8s Secret. Used directly.
+ 2. AssumeRole only (assumeRoleARN without name/namespace): the shoot's own
+    credentials call sts:AssumeRole to get temporary creds in the target account.
+ 3. Secret + AssumeRole (name+namespace AND assumeRoleARN): keys from the Secret
+    are used as base credentials to call sts:AssumeRole. Supports intermediary
+    account keys assuming a role in the target account.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Name is the secret name containing AWS credentials used as base credentials.<br />In mode 1, these are used directly. In mode 3, these call sts:AssumeRole.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Namespace is the secret namespace.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>assumeRoleARN</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AssumeRoleARN is the ARN of an IAM role to assume for cross-account access.<br />In mode 2 (no name/namespace), the shoot's own credentials call sts:AssumeRole.<br />In mode 3 (with name/namespace), the Secret's credentials call sts:AssumeRole.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>externalID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExternalID is an optional external ID for the AssumeRole call.<br />Recommended for cross-account access to prevent confused deputy attacks.</p>
 </td>
 </tr>
 
@@ -994,6 +1268,18 @@ InfrastructureStatus contains information about created infrastructure resources
 <p>ElasticFileSystem contains information about the created ElasticFileSystem.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>transitGateway</code></br>
+<em>
+<a href="#transitgatewaystatus">TransitGatewayStatus</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TransitGateway contains information about the TGW resources used by this shoot.</p>
+</td>
+</tr>
 
 </tbody>
 </table>
@@ -1438,6 +1724,30 @@ Networks holds information about the Kubernetes and infrastructure networks.
 <p>Zones belonging to the same region</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>transitGateway</code></br>
+<em>
+<a href="#transitgateway">TransitGateway</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TransitGateway configures this shoot's own TGW connection, independent<br />of the seed's platform TGW. This is additive — the shoot gets both<br />the seed TGW attachment (if seed has one) and this shoot-level attachment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>customRoutes</code></br>
+<em>
+<a href="#customroute">CustomRoute</a> array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CustomRoutes are additional routes added to this shoot's zone route tables.<br />Merged with the seed's globalCustomRoutes (global applied first).<br />Must not conflict with global routes — conflicts are rejected at validation.</p>
+</td>
+</tr>
 
 </tbody>
 </table>
@@ -1613,6 +1923,53 @@ string
 </table>
 
 
+<h3 id="seedproviderconfig">SeedProviderConfig
+</h3>
+
+
+<p>
+SeedProviderConfig is the provider-specific configuration for AWS seeds.
+Specified in Seed.spec.provider.providerConfig.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>transitGateway</code></br>
+<em>
+<a href="#transitgateway">TransitGateway</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TransitGateway configures the platform TGW for all shoots on this seed.<br />When nil or Enabled=false, no TGW operations are performed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>globalCustomRoutes</code></br>
+<em>
+<a href="#customroute">CustomRoute</a> array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GlobalCustomRoutes are routes enforced on ALL shoot zone route tables<br />on this seed. These are generic routes (TGW, VPC peering, network interface<br />targets) and do NOT require a TGW — they work independently.<br />Per-shoot customRoutes cannot conflict with global routes —<br />conflicting shoot routes are rejected at validation.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
 <h3 id="storage">Storage
 </h3>
 
@@ -1703,6 +2060,320 @@ string
 </td>
 <td>
 <p>Zone is the availability zone into which the subnet has been created.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="transitgateway">TransitGateway
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#networks">Networks</a>, <a href="#seedproviderconfig">SeedProviderConfig</a>)
+</p>
+
+<p>
+TransitGateway configures optional connectivity via an AWS Transit Gateway.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<p>Enabled explicitly enables TGW integration. Must be true for any<br />TGW operations to occur.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>id</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ID of an existing Transit Gateway (referenced). If set, provider-aws uses it as-is<br />and never deletes it. If nil, provider-aws auto-creates and manages a TGW.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>createConfig</code></br>
+<em>
+<a href="#transitgatewaycreateconfig">TransitGatewayCreateConfig</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CreateConfig optionally tunes parameters for auto-created TGWs (ASN, default<br />association/propagation). Ignored when ID is set (referenced).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>hubRouteTableId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HubRouteTableID is a referenced TGW route table used by the hub (seed VPC).<br />All shoot/seed VPC attachments propagate to this table so the hub can reach them.<br />If nil, provider-aws auto-creates and manages a hub route table.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>spokeRouteTableId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SpokeRouteTableID is a referenced TGW route table used by spoke VPCs<br />(seed VPCs, shoot VPCs, globalVPCs). Shoot VPC attachments associate<br />with this table, enforcing isolation — shoots can only route to CIDRs<br />propagated to this table.<br />If nil, provider-aws auto-creates and manages a spoke route table.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteManagedOnDisable</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeleteManagedOnDisable controls what happens to auto-created (managed) TGW resources<br />when TGW is disabled (Enabled set to false).<br />When true: auto-created TGW and route tables are deleted (aggressive cleanup).<br />When false (default): only the VPC attachment is removed; TGW and route tables are preserved (safe).<br />Has NO EFFECT on referenced resources (ID, HubRouteTableID, or SpokeRouteTableID set) —<br />referenced resources are never deleted regardless of this setting.<br />Only readable when the config block exists (enabled: false). If the entire<br />transitGateway block is removed from config, behavior defaults to preserve (safe, same as false).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>isolationMode</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IsolationMode controls how shoot VPCs are isolated from each other.<br />"hub-spoke" (default): two route tables, shoots isolated from each other.<br />"shared": single route table, all VPCs see each other.<br />Immutable once set. To change: disable TGW first.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>routeTableId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RouteTableID is the single TGW route table for "shared" isolation mode.<br />Rejected in "hub-spoke" mode.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>globalVPCs</code></br>
+<em>
+<a href="#globalvpc">GlobalVPC</a> array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GlobalVPCs are utility/shared VPCs that all shoots on this seed should<br />be able to reach via the TGW. Each entry references a pre-existing TGW<br />VPC attachment. Provider-aws manages TGW route table association/propagation<br />and adds routes to shoot VPC route tables for the specified CIDRs.<br />Lives under TransitGateway because globalVPCs require a TGW to function.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>seedVPCCredentialsRef</code></br>
+<em>
+<a href="#globalvpccredentialsref">GlobalVPCCredentialsRef</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SeedVPCCredentialsRef references a Secret containing AWS credentials for<br />cross-account seed VPC operations. Only needed when the seed VPC (runtime VPC<br />for this seed) is in a different AWS account than the TGW.<br />When nil, the extension uses the shoot's default credentials (same account).<br />The secret must contain 'accessKeyID' and 'secretAccessKey' keys.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>transitGatewayCredentialsRef</code></br>
+<em>
+<a href="#globalvpccredentialsref">GlobalVPCCredentialsRef</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TransitGatewayCredentialsRef references a Secret containing AWS credentials for<br />the account that owns the Transit Gateway. Required when the TGW is in a different<br />AWS account than the shoot. When nil, uses the shoot's default credentials.<br />The secret must contain 'accessKeyID' and 'secretAccessKey' keys.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="transitgatewaycreateconfig">TransitGatewayCreateConfig
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#transitgateway">TransitGateway</a>)
+</p>
+
+<p>
+TransitGatewayCreateConfig specifies parameters for TGW auto-creation.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>amazonSideAsn</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AmazonSideAsn is the private ASN for the AWS side of the TGW.<br />Only relevant for BGP (VPN, Direct Connect, TGW peering).<br />Default: 64512.<br />Mutable: can be changed later if no BGP attachments are active.<br />Valid ranges: 64512-65534 (16-bit) or 4200000000-4294967294 (32-bit).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableDefaultAssociation</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<p>EnableDefaultAssociation controls whether new attachments auto-associate<br />with the default TGW route table. Recommend false for explicit control.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>enableDefaultPropagation</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<p>EnableDefaultPropagation controls whether new attachments auto-propagate<br />to the default TGW route table. Recommend false for explicit control.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>autoAcceptSharedAttachments</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<p>AutoAcceptSharedAttachments enables auto-accept for cross-account<br />attachments (via RAM).</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="transitgatewaystatus">TransitGatewayStatus
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#infrastructurestatus">InfrastructureStatus</a>)
+</p>
+
+<p>
+TransitGatewayStatus contains information about TGW resources for a shoot.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>id</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ID is the Transit Gateway ID (referenced or auto-created).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>hubRouteTableId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HubRouteTableID is the hub TGW route table ID.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>spokeRouteTableId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SpokeRouteTableID is the spoke TGW route table ID.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>attachmentId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AttachmentID is the seed-level TGW VPC attachment ID.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>shootAttachmentId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ShootAttachmentID is the shoot-level TGW VPC attachment ID (if configured).</p>
 </td>
 </tr>
 

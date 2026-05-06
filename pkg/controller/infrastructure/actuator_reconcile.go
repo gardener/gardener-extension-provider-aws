@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
@@ -61,19 +62,79 @@ func (a *actuator) reconcile(ctx context.Context, log logr.Logger, infra *extens
 		return fmt.Errorf("failed to create new AWS client: %w", err)
 	}
 
+	effectiveSeed := a.resolveEffectiveSeed(ctx, log, cluster)
+
+	// Check if this shoot IS a ManagedSeed by looking up a Seed with the shoot's name.
+	// ManagedSeed shoots need special TGW handling: their VPC is the seed VPC for child
+	// shoots and must be on hub RT with spoke propagation preserved.
+	isManagedSeedShoot := false
+	if a.gardenReader != nil {
+		candidateSeed := &v1beta1.Seed{}
+		if err := a.gardenReader.Get(ctx, client.ObjectKey{Name: cluster.Shoot.Name}, candidateSeed); err == nil {
+			isManagedSeedShoot = true
+			log.Info("shoot is a ManagedSeed — TGW attachment will use hub RT", "seedName", cluster.Shoot.Name)
+		}
+	}
+
 	fctx, err := infraflow.NewFlowContext(infraflow.Opts{
-		Log:            log,
-		Infrastructure: infra,
-		State:          infraState,
-		RuntimeClient:  a.client,
-		AwsClient:      awsClient,
-		Shoot:          cluster.Shoot,
+		Log:                log,
+		Infrastructure:     infra,
+		State:              infraState,
+		RuntimeClient:      a.client,
+		AwsClient:          awsClient,
+		Shoot:              cluster.Shoot,
+		Seed:               effectiveSeed,
+		Recorder:           a.recorder,
+		IsManagedSeedShoot: isManagedSeedShoot,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)
 	}
 
-	return fctx.Reconcile(ctx)
+	if err := fctx.Reconcile(ctx); err != nil {
+		return err
+	}
+
+	// If TGW drift was detected, log it but do NOT return RequeueAfterError.
+	//
+	// RequeueAfterError causes statusUpdater.Error to mark the Infrastructure (and
+	// transitively the Shoot) as Error. For ManagedSeeds, the parent gardenlet's
+	// ManagedSeed controller hard-blocks at managedseed/reconciler.go:157 on
+	// shoot.LastOperation.State == Succeeded — so an Error shoot prevents the
+	// ManagedSeed from ever propagating an updated gardenlet config to the seed
+	// cluster, even when the user has already patched the ManagedSeed. The result
+	// is a deadlock: the seed's gardenlet keeps reconciling with the OLD config,
+	// every reconcile re-detects drift, the Shoot stays Error, the ManagedSeed
+	// stays blocked, the gardenlet never gets the new config.
+	//
+	// Instead, mark the reconcile Succeeded. Phase 1 has already added the target
+	// propagation (so routes appear), the attachment stays on its current RT (so
+	// connectivity is preserved), and Phase 2 will fire naturally on the next
+	// reconcile triggered by ManagedSeed propagation, syncPeriod, or any other
+	// shoot's reconcile. Drift is a transient mid-switch state, not an error.
+	if fctx.TGWDriftDetected() {
+		log.Info("TGW drift detected — Phase 1/2 in progress, will resolve on next reconcile (not erroring to avoid ManagedSeed deadlock)")
+	}
+
+	// Fix #3: post-hoc DWD recovery — if assertSeedSideAssociations corrected
+	// drift this reconcile, trigger reconciles on every child shoot so their
+	// DWD-scaled deployments come back online without waiting for the next 1h
+	// sync. Only the seed shoot can correct seed-side drift, so this is
+	// effectively gated by isManagedSeedShoot via the helper itself.
+	if fctx.DriftCorrectedThisReconcile() && a.gardenWriter != nil && isManagedSeedShoot {
+		// context.WithoutCancel detaches from the reconcile's lifetime so the
+		// trigger can complete after this reconcile returns, while preserving
+		// logger/trace values from the parent context.
+		bgCtx := context.WithoutCancel(ctx)
+		go func() {
+			if err := triggerShootReconciles(bgCtx, a.gardenWriter, cluster.Shoot.Name); err != nil {
+				log.Info("post-drift DWD recovery: failed to trigger child shoot reconciles (will rely on next sync)",
+					"error", err.Error())
+			}
+		}()
+	}
+
+	return nil
 }
 
 func (a *actuator) migrateFromTerraform(ctx context.Context, log logr.Logger, infra *extensionsv1alpha1.Infrastructure, networking *v1beta1.Networking) (*awsapi.InfrastructureState, error) {

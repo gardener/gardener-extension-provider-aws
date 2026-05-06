@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -38,6 +39,12 @@ var (
 			},
 		},
 	}
+
+	// GardenCluster is the garden cluster, set from app.go. Used by the
+	// TGW healthchecker to detect ManagedSeed status by looking up a Seed
+	// with the calling shoot's name. Optional — falls back to legacy detection
+	// (request.Name == seed.Name) if nil.
+	GardenCluster cluster.Cluster
 )
 
 // RegisterHealthChecks registers health checks for each extension resource
@@ -75,6 +82,33 @@ func RegisterHealthChecks(_ context.Context, mgr manager.Manager, opts healthche
 		return err
 	}
 
+	if err := healthcheck.DefaultRegistration(
+		aws.Type,
+		extensionsv1alpha1.SchemeGroupVersion.WithKind(extensionsv1alpha1.InfrastructureResource),
+		func() client.ObjectList { return &extensionsv1alpha1.InfrastructureList{} },
+		func() extensionsv1alpha1.Object { return &extensionsv1alpha1.Infrastructure{} },
+		mgr,
+		opts,
+		nil,
+		[]healthcheck.ConditionTypeToHealthCheck{
+			{
+				// Custom condition — detailed TGW diagnostics on the Infrastructure resource.
+				ConditionType: string(TGWNetworkHealthy),
+				HealthCheck:   NewTGWHealthChecker(mgr.GetClient(), gardenReader()),
+			},
+			{
+				// Also report under EveryNodeReady — makes TGW failures visible on the
+				// Shoot status and dashboard. TGW routing failures directly cause nodes
+				// to be unreachable (machines pending, kubelet can't connect).
+				ConditionType: string(gardencorev1beta1.ShootEveryNodeReady),
+				HealthCheck:   NewTGWHealthChecker(mgr.GetClient(), gardenReader()),
+			},
+		},
+		sets.New[gardencorev1beta1.ConditionType](),
+	); err != nil {
+		return err
+	}
+
 	return healthcheck.DefaultRegistration(
 		aws.Type,
 		extensionsv1alpha1.SchemeGroupVersion.WithKind(extensionsv1alpha1.WorkerResource),
@@ -97,4 +131,13 @@ func RegisterHealthChecks(_ context.Context, mgr manager.Manager, opts healthche
 // AddToManager adds a controller with the default Options.
 func AddToManager(ctx context.Context, mgr manager.Manager) error {
 	return RegisterHealthChecks(ctx, mgr, DefaultAddOptions)
+}
+
+// gardenReader returns the garden cluster's Reader, or nil if the garden
+// cluster wasn't wired (for example, in test contexts).
+func gardenReader() client.Reader {
+	if GardenCluster == nil {
+		return nil
+	}
+	return GardenCluster.GetAPIReader()
 }

@@ -38,6 +38,8 @@ func (a *actuator) delete(ctx context.Context, log logr.Logger, infra *extension
 		return err
 	}
 
+	effectiveSeed := a.resolveEffectiveSeed(ctx, log, c)
+
 	fctx, err := infraflow.NewFlowContext(infraflow.Opts{
 		Log:            log,
 		Infrastructure: infra,
@@ -45,6 +47,8 @@ func (a *actuator) delete(ctx context.Context, log logr.Logger, infra *extension
 		AwsClient:      awsClient,
 		RuntimeClient:  a.client,
 		Shoot:          c.Shoot,
+		Seed:           effectiveSeed,
+		Recorder:       a.recorder,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)

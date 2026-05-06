@@ -19,6 +19,8 @@ import (
 func RegisterDefaults(scheme *runtime.Scheme) error {
 	scheme.AddTypeDefaultingFunc(&CloudProfileConfig{}, func(obj interface{}) { SetObjectDefaults_CloudProfileConfig(obj.(*CloudProfileConfig)) })
 	scheme.AddTypeDefaultingFunc(&ControlPlaneConfig{}, func(obj interface{}) { SetObjectDefaults_ControlPlaneConfig(obj.(*ControlPlaneConfig)) })
+	scheme.AddTypeDefaultingFunc(&InfrastructureConfig{}, func(obj interface{}) { SetObjectDefaults_InfrastructureConfig(obj.(*InfrastructureConfig)) })
+	scheme.AddTypeDefaultingFunc(&SeedProviderConfig{}, func(obj interface{}) { SetObjectDefaults_SeedProviderConfig(obj.(*SeedProviderConfig)) })
 	scheme.AddTypeDefaultingFunc(&WorkerStatus{}, func(obj interface{}) { SetObjectDefaults_WorkerStatus(obj.(*WorkerStatus)) })
 	return nil
 }
@@ -48,6 +50,22 @@ func SetObjectDefaults_ControlPlaneConfig(in *ControlPlaneConfig) {
 	SetDefaults_ControlPlaneConfig(in)
 	if in.Storage != nil {
 		SetDefaults_Storage(in.Storage)
+	}
+}
+
+func SetObjectDefaults_InfrastructureConfig(in *InfrastructureConfig) {
+	if in.Networks.TransitGateway != nil {
+		if in.Networks.TransitGateway.CreateConfig != nil {
+			SetDefaults_TransitGatewayCreateConfig(in.Networks.TransitGateway.CreateConfig)
+		}
+	}
+}
+
+func SetObjectDefaults_SeedProviderConfig(in *SeedProviderConfig) {
+	if in.TransitGateway != nil {
+		if in.TransitGateway.CreateConfig != nil {
+			SetDefaults_TransitGatewayCreateConfig(in.TransitGateway.CreateConfig)
+		}
 	}
 }
 

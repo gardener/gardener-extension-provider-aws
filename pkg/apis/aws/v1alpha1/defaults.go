@@ -10,6 +10,11 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+const (
+	// DefaultTransitGatewayASN is the default Amazon-side ASN for auto-created Transit Gateways.
+	DefaultTransitGatewayASN int64 = 64512
+)
+
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
 	return RegisterDefaults(scheme)
 }
@@ -48,6 +53,13 @@ func SetDefaults_RegionAMIMapping(obj *RegionAMIMapping) {
 func SetDefaults_MachineImage(obj *MachineImage) {
 	if obj.Architecture == nil {
 		obj.Architecture = ptr.To(v1beta1constants.ArchitectureAMD64)
+	}
+}
+
+// SetDefaults_TransitGatewayCreateConfig sets defaults for TGW auto-creation parameters.
+func SetDefaults_TransitGatewayCreateConfig(obj *TransitGatewayCreateConfig) {
+	if obj.AmazonSideAsn == nil {
+		obj.AmazonSideAsn = ptr.To(DefaultTransitGatewayASN)
 	}
 }
 

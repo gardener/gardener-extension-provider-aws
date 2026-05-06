@@ -7,10 +7,14 @@ package infraflow
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/utils/flow"
+	"github.com/go-logr/logr"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -61,9 +65,28 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 		c.deleteIAMRole,
 		Timeout(defaultTimeout), Dependencies(deleteIAMInstanceProfile, deleteIAMRolePolicy))
 
+	deleteTransitGatewayAttachment := c.AddTask(g, "delete transit gateway VPC attachment",
+		c.deleteTransitGatewayAttachment,
+		DoIf(c.hasVPC() && c.state.Get(IdentifierTransitGatewayAttachment) != nil), Timeout(defaultTimeout))
+
+	deleteShootTransitGatewayAttachment := c.AddTask(g, "delete shoot-level transit gateway VPC attachment",
+		c.deleteShootTransitGatewayAttachment,
+		DoIf(c.hasVPC() && c.state.Get(IdentifierShootTransitGatewayAttachment) != nil), Timeout(defaultTimeout))
+
+	deleteManagedGlobalVPCAttachments := c.AddTask(g, "delete managed globalVPC TGW attachments",
+		c.deleteManagedGlobalVPCAttachments,
+		DoIf(c.hasManagedGlobalVPCAttachments()), Timeout(defaultTimeout))
+
+	// Zones must be deleted AFTER TGW attachments — TGW attachments create ENIs in worker
+	// subnets that block subnet deletion with DependencyViolation errors.
 	deleteZones := c.AddTask(g, "delete zones resources",
 		c.deleteZones,
-		DoIf(c.hasVPC()), Timeout(defaultLongTimeout), Dependencies(deleteEfs))
+		DoIf(c.hasVPC()), Timeout(defaultLongTimeout), Dependencies(deleteEfs, deleteTransitGatewayAttachment, deleteShootTransitGatewayAttachment, deleteManagedGlobalVPCAttachments))
+
+	// Delete managed TGW + route tables after all attachments are gone.
+	_ = c.AddTask(g, "delete managed transit gateway resources",
+		c.deleteManagedTransitGatewayResources,
+		DoIf(c.state.Get(IdentifierTransitGatewayManaged) != nil), Timeout(defaultTimeout), Dependencies(deleteTransitGatewayAttachment, deleteShootTransitGatewayAttachment, deleteManagedGlobalVPCAttachments))
 
 	deleteNodesSecurityGroup := c.AddTask(g, "delete nodes security group",
 		c.deleteNodesSecurityGroup,
@@ -92,7 +115,7 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 	deleteVpc := c.AddTask(g, "delete VPC",
 		c.deleteVpc,
 		DoIf(deleteVPC && c.hasVPC()), Timeout(defaultTimeout),
-		Dependencies(deleteInternetGateway, deleteDefaultSecurityGroup, deleteNodesSecurityGroup, destroyLoadBalancersAndSecurityGroups, deleteEgressOnlyInternetGateway))
+		Dependencies(deleteInternetGateway, deleteDefaultSecurityGroup, deleteNodesSecurityGroup, destroyLoadBalancersAndSecurityGroups, deleteEgressOnlyInternetGateway, deleteTransitGatewayAttachment, deleteShootTransitGatewayAttachment))
 
 	_ = c.AddTask(g, "delete DHCP options for VPC",
 		c.deleteDhcpOptions,
@@ -134,6 +157,170 @@ func DestroyKubernetesLoadBalancersAndSecurityGroups(ctx context.Context, awsCli
 		}
 	}
 
+	return nil
+}
+
+func (c *FlowContext) deleteTransitGatewayAttachment(ctx context.Context) error {
+	log := LogFromContext(ctx)
+
+	// Use discovery-based cleanup: finds what exists in AWS and cleans it,
+	// regardless of state accuracy. See tgw_reconcile.go.
+	return c.reconcileTGWDeleteState(ctx, log)
+}
+
+// deleteShootTransitGatewayAttachment deletes the shoot-level TGW VPC attachment.
+// This is the shoot's own TGW (InfrastructureConfig.Networks.TransitGateway), independent
+// of the seed-level TGW.
+func (c *FlowContext) deleteShootTransitGatewayAttachment(ctx context.Context) error {
+	attachmentID := c.state.Get(IdentifierShootTransitGatewayAttachment)
+	if attachmentID == nil {
+		return nil
+	}
+	log := LogFromContext(ctx)
+
+	tgwClient, err := c.getTGWClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get TGW client: %w", err)
+	}
+
+	current, err := tgwClient.GetTransitGatewayVPCAttachment(ctx, *attachmentID)
+	if err != nil {
+		return err
+	}
+	if current != nil {
+		// For shoot-level TGW, route table IDs come from the shoot config (referenced only).
+		// Fall back gracefully if config is already removed — AWS handles orphaned
+		// associations/propagations automatically when attachment is deleted.
+		if c.isShootTGWEnabled() {
+			shootTGW := c.config.Networks.TransitGateway
+			if shootTGW.SpokeRouteTableID != nil {
+				log.Info("disassociating shoot TGW attachment from spoke route table", "routeTableId", *shootTGW.SpokeRouteTableID)
+				if err := tgwClient.DisassociateTransitGatewayRouteTable(ctx, *shootTGW.SpokeRouteTableID, *attachmentID); err != nil {
+					if code := awsclient.GetAWSAPIErrorCode(err); code != "InvalidAssociation.NotFound" {
+						return fmt.Errorf("failed to disassociate shoot TGW attachment: %w", err)
+					}
+				}
+				// Also disable spoke propagation if it was enabled.
+				if err := tgwClient.DisableTransitGatewayRouteTablePropagation(ctx, *shootTGW.SpokeRouteTableID, *attachmentID); err != nil {
+					if code := awsclient.GetAWSAPIErrorCode(err); code != "TransitGatewayRouteTablePropagation.NotFound" {
+						return fmt.Errorf("failed to disable shoot TGW spoke propagation: %w", err)
+					}
+				}
+			}
+			if shootTGW.HubRouteTableID != nil {
+				log.Info("disabling shoot TGW propagation from hub route table", "routeTableId", *shootTGW.HubRouteTableID)
+				if err := tgwClient.DisableTransitGatewayRouteTablePropagation(ctx, *shootTGW.HubRouteTableID, *attachmentID); err != nil {
+					if code := awsclient.GetAWSAPIErrorCode(err); code != "TransitGatewayRouteTablePropagation.NotFound" {
+						return fmt.Errorf("failed to disable shoot TGW propagation: %w", err)
+					}
+				}
+			}
+		} else {
+			log.Info("shoot TGW config removed — deleting attachment directly (AWS auto-cleans associations/propagations)")
+		}
+
+		if err := c.deleteAndWaitForTransitGatewayVPCAttachment(ctx, log, tgwClient, *attachmentID); err != nil {
+			return err
+		}
+	}
+	c.state.Delete(IdentifierShootTransitGatewayAttachment)
+	return nil
+}
+
+// deleteManagedGlobalVPCAttachments deletes TGW VPC attachments that were created
+// by the extension for managed globalVPCs. Referenced attachments are never deleted.
+func (c *FlowContext) deleteManagedGlobalVPCAttachments(ctx context.Context) error {
+	log := LogFromContext(ctx)
+
+	tgwClient, err := c.getTGWClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get TGW client: %w", err)
+	}
+
+	for _, name := range c.listGlobalVPCAttachmentNames() {
+		if !c.getGlobalVPCAttachmentManaged(name) {
+			continue
+		}
+		attachmentID := c.getGlobalVPCAttachmentID(name)
+		if attachmentID == nil {
+			continue
+		}
+
+		existing, err := tgwClient.GetTransitGatewayVPCAttachment(ctx, *attachmentID)
+		if err != nil {
+			return fmt.Errorf("failed to get managed globalVPC %q attachment %s: %w", name, *attachmentID, err)
+		}
+		if existing != nil {
+			if err := c.deleteAndWaitForTransitGatewayVPCAttachment(ctx, log, tgwClient, *attachmentID); err != nil {
+				return err
+			}
+		}
+		c.deleteGlobalVPCAttachmentState(name)
+	}
+	return nil
+}
+
+// deleteManagedTransitGatewayResources deletes auto-created TGW route tables and TGW
+// during infrastructure deletion. Only deletes resources marked as managed in state.
+// Checks for remaining attachments before deleting the TGW (safety guard).
+func (c *FlowContext) deleteManagedTransitGatewayResources(ctx context.Context) error {
+	log := LogFromContext(ctx)
+	tgwID := c.state.Get(IdentifierTransitGatewayID)
+	if tgwID == nil {
+		c.cleanupTGWState()
+		return nil
+	}
+
+	tgwClient, err := c.getTGWClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get TGW client: %w", err)
+	}
+
+	// Check deleteManagedOnDisable — if not set, skip TGW/RT deletion (preserve is safe default).
+	if !c.shouldDeleteManagedOnDisable() {
+		log.Info("deleteManagedOnDisable is false — keeping managed TGW and route tables", "tgwId", *tgwID)
+		c.cleanupTGWState()
+		return nil
+	}
+
+	// Check for remaining attachments on this TGW.
+	remaining, err := tgwClient.ListTransitGatewayVPCAttachments(ctx, *tgwID)
+	if err != nil {
+		return fmt.Errorf("failed to list TGW attachments: %w", err)
+	}
+	if len(remaining) > 0 {
+		log.Info("WARNING: TGW still has active VPC attachments — skipping deletion",
+			"tgwId", *tgwID, "remainingAttachments", len(remaining))
+		c.cleanupTGWState()
+		return nil
+	}
+
+	// Delete managed route tables.
+	spokeRT := c.state.Get(IdentifierTransitGatewaySpokeRouteTable)
+	hubRT := c.state.Get(IdentifierTransitGatewayHubRouteTable)
+	spokeManaged := c.state.Get(IdentifierTransitGatewaySpokeRouteTableManaged)
+	hubManaged := c.state.Get(IdentifierTransitGatewayHubRouteTableManaged)
+
+	if spokeRT != nil && spokeManaged != nil && *spokeManaged == "true" {
+		log.Info("deleting managed spoke route table", "routeTableId", *spokeRT)
+		if err := tgwClient.DeleteTransitGatewayRouteTable(ctx, *spokeRT); err != nil {
+			return fmt.Errorf("failed to delete spoke route table: %w", err)
+		}
+	}
+	if hubRT != nil && hubManaged != nil && *hubManaged == "true" {
+		log.Info("deleting managed hub route table", "routeTableId", *hubRT)
+		if err := tgwClient.DeleteTransitGatewayRouteTable(ctx, *hubRT); err != nil {
+			return fmt.Errorf("failed to delete hub route table: %w", err)
+		}
+	}
+
+	log.Info("deleting managed transit gateway", "tgwId", *tgwID)
+	if err := tgwClient.DeleteTransitGateway(ctx, *tgwID); err != nil {
+		return fmt.Errorf("failed to delete transit gateway: %w", err)
+	}
+
+	c.cleanupTGWState()
+	log.Info("managed TGW cleanup complete")
 	return nil
 }
 
@@ -461,4 +648,92 @@ func (c *FlowContext) deleteEfsMountTargets(ctx context.Context, efsID string) e
 	}
 
 	return nil
+}
+
+// cleanupChildShootRoutesFromRuntimeAndGlobalVPCs removes the child shoot's CIDR route
+// from the runtime VPC and globalVPC route tables. These routes were added during reconcile
+// (ensureRuntimeVPCAttachment Step 5b and ensureSeedVPCAttachment Step 6c) for return traffic.
+func (c *FlowContext) cleanupChildShootRoutesFromRuntimeAndGlobalVPCs(ctx context.Context, log logr.Logger, shootCIDR string) {
+	// Clean up runtime VPC routes (reverse of Steps 5b and 5c).
+	runtimeVPCID := c.state.Get(IdentifierRuntimeVPCID)
+	if runtimeVPCID != nil {
+		runtimeClient, clientErr := c.getSeedVPCClient(ctx)
+		if clientErr != nil {
+			log.Info("warning: failed to get seed VPC client for runtime VPC route cleanup", "error", clientErr)
+		} else {
+			// 5b reverse: remove shoot CIDR route from runtime VPC.
+			log.Info("cleaning up child shoot route from runtime VPC", "runtimeVpcId", *runtimeVPCID, "shootCIDR", shootCIDR)
+			c.deleteRouteFromVPC(ctx, log, runtimeClient, *runtimeVPCID, shootCIDR, "runtime VPC")
+
+			// 5c reverse: remove globalVPC CIDR routes from runtime VPC.
+			// These are shared routes (all shoots add the same globalVPC CIDRs), so only
+			// remove them if this is the LAST child shoot being deleted. Since we can't
+			// easily determine that here, we skip per-shoot cleanup of globalVPC routes —
+			// they are harmless stale routes (point to TGW that may be deleted, becoming
+			// blackholes that AWS ignores). The managed TGW full cleanup handles this.
+		}
+	}
+
+	// Clean up globalVPC routes (reverse of Step 6c).
+	if c.seedConfig != nil && c.seedConfig.TransitGateway != nil {
+		tgwClient, tgwErr := c.getTGWClient(ctx)
+		if tgwErr != nil {
+			log.Info("warning: failed to get TGW client for globalVPC route cleanup", "error", tgwErr)
+			return
+		}
+
+		for i := range c.seedConfig.TransitGateway.GlobalVPCs {
+			gvpc := &c.seedConfig.TransitGateway.GlobalVPCs[i]
+			var gvpcVpcID string
+			if gvpc.VpcID != nil && *gvpc.VpcID != "" {
+				gvpcVpcID = *gvpc.VpcID
+			} else if gvpc.AttachmentID != nil && *gvpc.AttachmentID != "" {
+				att, attErr := tgwClient.GetTransitGatewayVPCAttachment(ctx, *gvpc.AttachmentID)
+				if attErr != nil || att == nil {
+					continue
+				}
+				gvpcVpcID = att.VpcId
+			}
+			if gvpcVpcID == "" {
+				continue
+			}
+
+			gvpcClient, clientErr := c.getGlobalVPCClient(ctx, gvpc)
+			if clientErr != nil {
+				log.Info("warning: failed to get globalVPC client for route cleanup", "name", gvpc.Name, "error", clientErr)
+				continue
+			}
+			log.Info("cleaning up child shoot route from globalVPC", "globalVPC", gvpc.Name, "vpcId", gvpcVpcID, "shootCIDR", shootCIDR)
+			c.deleteRouteFromVPC(ctx, log, gvpcClient, gvpcVpcID, shootCIDR, fmt.Sprintf("globalVPC %s", gvpc.Name))
+		}
+	}
+}
+
+// deleteRouteFromVPC removes a specific CIDR route from all private route tables of a VPC.
+func (c *FlowContext) deleteRouteFromVPC(ctx context.Context, log logr.Logger, awsClient awsclient.Interface, vpcID, cidr, description string) {
+	rts, err := awsClient.FindRouteTablesByFilters(ctx, []ec2types.Filter{
+		{Name: ptr.To("vpc-id"), Values: []string{vpcID}},
+	})
+	if err != nil {
+		log.Error(err, "failed to find route tables for route cleanup", "vpcId", vpcID)
+		return
+	}
+	for _, rt := range rts {
+		if !strings.Contains(rt.Tags["Name"], "private") {
+			continue
+		}
+		for _, r := range rt.Routes {
+			if r.DestinationCidrBlock != nil && *r.DestinationCidrBlock == cidr && r.TransitGatewayId != nil {
+				log.Info("removing child shoot route from "+description, "routeTableId", rt.RouteTableId, "cidr", cidr)
+				if err := awsClient.DeleteRoute(ctx, rt.RouteTableId, &awsclient.Route{
+					DestinationCidrBlock: r.DestinationCidrBlock,
+				}); err != nil {
+					if code := awsclient.GetAWSAPIErrorCode(err); code != "InvalidRoute.NotFound" {
+						log.Error(err, "failed to delete route — continuing", "routeTableId", rt.RouteTableId)
+					}
+				}
+				break
+			}
+		}
+	}
 }

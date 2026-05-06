@@ -86,6 +86,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*CustomRoute)(nil), (*aws.CustomRoute)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_CustomRoute_To_aws_CustomRoute(a.(*CustomRoute), b.(*aws.CustomRoute), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*aws.CustomRoute)(nil), (*CustomRoute)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_aws_CustomRoute_To_v1alpha1_CustomRoute(a.(*aws.CustomRoute), b.(*CustomRoute), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*DataVolume)(nil), (*aws.DataVolume)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_DataVolume_To_aws_DataVolume(a.(*DataVolume), b.(*aws.DataVolume), scope)
 	}); err != nil {
@@ -133,6 +143,26 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*aws.ElasticFileSystemStatus)(nil), (*ElasticFileSystemStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_aws_ElasticFileSystemStatus_To_v1alpha1_ElasticFileSystemStatus(a.(*aws.ElasticFileSystemStatus), b.(*ElasticFileSystemStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*GlobalVPC)(nil), (*aws.GlobalVPC)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_GlobalVPC_To_aws_GlobalVPC(a.(*GlobalVPC), b.(*aws.GlobalVPC), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*aws.GlobalVPC)(nil), (*GlobalVPC)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_aws_GlobalVPC_To_v1alpha1_GlobalVPC(a.(*aws.GlobalVPC), b.(*GlobalVPC), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*GlobalVPCCredentialsRef)(nil), (*aws.GlobalVPCCredentialsRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_GlobalVPCCredentialsRef_To_aws_GlobalVPCCredentialsRef(a.(*GlobalVPCCredentialsRef), b.(*aws.GlobalVPCCredentialsRef), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*aws.GlobalVPCCredentialsRef)(nil), (*GlobalVPCCredentialsRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_aws_GlobalVPCCredentialsRef_To_v1alpha1_GlobalVPCCredentialsRef(a.(*aws.GlobalVPCCredentialsRef), b.(*GlobalVPCCredentialsRef), scope)
 	}); err != nil {
 		return err
 	}
@@ -326,6 +356,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*SeedProviderConfig)(nil), (*aws.SeedProviderConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_SeedProviderConfig_To_aws_SeedProviderConfig(a.(*SeedProviderConfig), b.(*aws.SeedProviderConfig), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*aws.SeedProviderConfig)(nil), (*SeedProviderConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_aws_SeedProviderConfig_To_v1alpha1_SeedProviderConfig(a.(*aws.SeedProviderConfig), b.(*SeedProviderConfig), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*Storage)(nil), (*aws.Storage)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_Storage_To_aws_Storage(a.(*Storage), b.(*aws.Storage), scope)
 	}); err != nil {
@@ -343,6 +383,36 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*aws.Subnet)(nil), (*Subnet)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_aws_Subnet_To_v1alpha1_Subnet(a.(*aws.Subnet), b.(*Subnet), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*TransitGateway)(nil), (*aws.TransitGateway)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TransitGateway_To_aws_TransitGateway(a.(*TransitGateway), b.(*aws.TransitGateway), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*aws.TransitGateway)(nil), (*TransitGateway)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_aws_TransitGateway_To_v1alpha1_TransitGateway(a.(*aws.TransitGateway), b.(*TransitGateway), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*TransitGatewayCreateConfig)(nil), (*aws.TransitGatewayCreateConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TransitGatewayCreateConfig_To_aws_TransitGatewayCreateConfig(a.(*TransitGatewayCreateConfig), b.(*aws.TransitGatewayCreateConfig), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*aws.TransitGatewayCreateConfig)(nil), (*TransitGatewayCreateConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_aws_TransitGatewayCreateConfig_To_v1alpha1_TransitGatewayCreateConfig(a.(*aws.TransitGatewayCreateConfig), b.(*TransitGatewayCreateConfig), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*TransitGatewayStatus)(nil), (*aws.TransitGatewayStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_TransitGatewayStatus_To_aws_TransitGatewayStatus(a.(*TransitGatewayStatus), b.(*aws.TransitGatewayStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*aws.TransitGatewayStatus)(nil), (*TransitGatewayStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_aws_TransitGatewayStatus_To_v1alpha1_TransitGatewayStatus(a.(*aws.TransitGatewayStatus), b.(*TransitGatewayStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -553,6 +623,34 @@ func Convert_aws_CpuOptions_To_v1alpha1_CpuOptions(in *aws.CpuOptions, out *CpuO
 	return autoConvert_aws_CpuOptions_To_v1alpha1_CpuOptions(in, out, s)
 }
 
+func autoConvert_v1alpha1_CustomRoute_To_aws_CustomRoute(in *CustomRoute, out *aws.CustomRoute, s conversion.Scope) error {
+	out.DestinationCidrBlock = (*string)(unsafe.Pointer(in.DestinationCidrBlock))
+	out.DestinationPrefixListId = (*string)(unsafe.Pointer(in.DestinationPrefixListId))
+	out.TransitGatewayId = (*string)(unsafe.Pointer(in.TransitGatewayId))
+	out.VpcPeeringConnectionId = (*string)(unsafe.Pointer(in.VpcPeeringConnectionId))
+	out.NetworkInterfaceId = (*string)(unsafe.Pointer(in.NetworkInterfaceId))
+	return nil
+}
+
+// Convert_v1alpha1_CustomRoute_To_aws_CustomRoute is an autogenerated conversion function.
+func Convert_v1alpha1_CustomRoute_To_aws_CustomRoute(in *CustomRoute, out *aws.CustomRoute, s conversion.Scope) error {
+	return autoConvert_v1alpha1_CustomRoute_To_aws_CustomRoute(in, out, s)
+}
+
+func autoConvert_aws_CustomRoute_To_v1alpha1_CustomRoute(in *aws.CustomRoute, out *CustomRoute, s conversion.Scope) error {
+	out.DestinationCidrBlock = (*string)(unsafe.Pointer(in.DestinationCidrBlock))
+	out.DestinationPrefixListId = (*string)(unsafe.Pointer(in.DestinationPrefixListId))
+	out.TransitGatewayId = (*string)(unsafe.Pointer(in.TransitGatewayId))
+	out.VpcPeeringConnectionId = (*string)(unsafe.Pointer(in.VpcPeeringConnectionId))
+	out.NetworkInterfaceId = (*string)(unsafe.Pointer(in.NetworkInterfaceId))
+	return nil
+}
+
+// Convert_aws_CustomRoute_To_v1alpha1_CustomRoute is an autogenerated conversion function.
+func Convert_aws_CustomRoute_To_v1alpha1_CustomRoute(in *aws.CustomRoute, out *CustomRoute, s conversion.Scope) error {
+	return autoConvert_aws_CustomRoute_To_v1alpha1_CustomRoute(in, out, s)
+}
+
 func autoConvert_v1alpha1_DataVolume_To_aws_DataVolume(in *DataVolume, out *aws.DataVolume, s conversion.Scope) error {
 	out.Name = in.Name
 	if err := Convert_v1alpha1_Volume_To_aws_Volume(&in.Volume, &out.Volume, s); err != nil {
@@ -661,6 +759,62 @@ func autoConvert_aws_ElasticFileSystemStatus_To_v1alpha1_ElasticFileSystemStatus
 // Convert_aws_ElasticFileSystemStatus_To_v1alpha1_ElasticFileSystemStatus is an autogenerated conversion function.
 func Convert_aws_ElasticFileSystemStatus_To_v1alpha1_ElasticFileSystemStatus(in *aws.ElasticFileSystemStatus, out *ElasticFileSystemStatus, s conversion.Scope) error {
 	return autoConvert_aws_ElasticFileSystemStatus_To_v1alpha1_ElasticFileSystemStatus(in, out, s)
+}
+
+func autoConvert_v1alpha1_GlobalVPC_To_aws_GlobalVPC(in *GlobalVPC, out *aws.GlobalVPC, s conversion.Scope) error {
+	out.Name = in.Name
+	out.AttachmentID = (*string)(unsafe.Pointer(in.AttachmentID))
+	out.VpcID = (*string)(unsafe.Pointer(in.VpcID))
+	out.SubnetIDs = *(*[]string)(unsafe.Pointer(&in.SubnetIDs))
+	out.CredentialsRef = (*aws.GlobalVPCCredentialsRef)(unsafe.Pointer(in.CredentialsRef))
+	out.CIDRs = *(*[]string)(unsafe.Pointer(&in.CIDRs))
+	return nil
+}
+
+// Convert_v1alpha1_GlobalVPC_To_aws_GlobalVPC is an autogenerated conversion function.
+func Convert_v1alpha1_GlobalVPC_To_aws_GlobalVPC(in *GlobalVPC, out *aws.GlobalVPC, s conversion.Scope) error {
+	return autoConvert_v1alpha1_GlobalVPC_To_aws_GlobalVPC(in, out, s)
+}
+
+func autoConvert_aws_GlobalVPC_To_v1alpha1_GlobalVPC(in *aws.GlobalVPC, out *GlobalVPC, s conversion.Scope) error {
+	out.Name = in.Name
+	out.AttachmentID = (*string)(unsafe.Pointer(in.AttachmentID))
+	out.VpcID = (*string)(unsafe.Pointer(in.VpcID))
+	out.SubnetIDs = *(*[]string)(unsafe.Pointer(&in.SubnetIDs))
+	out.CredentialsRef = (*GlobalVPCCredentialsRef)(unsafe.Pointer(in.CredentialsRef))
+	out.CIDRs = *(*[]string)(unsafe.Pointer(&in.CIDRs))
+	return nil
+}
+
+// Convert_aws_GlobalVPC_To_v1alpha1_GlobalVPC is an autogenerated conversion function.
+func Convert_aws_GlobalVPC_To_v1alpha1_GlobalVPC(in *aws.GlobalVPC, out *GlobalVPC, s conversion.Scope) error {
+	return autoConvert_aws_GlobalVPC_To_v1alpha1_GlobalVPC(in, out, s)
+}
+
+func autoConvert_v1alpha1_GlobalVPCCredentialsRef_To_aws_GlobalVPCCredentialsRef(in *GlobalVPCCredentialsRef, out *aws.GlobalVPCCredentialsRef, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Namespace = in.Namespace
+	out.AssumeRoleARN = (*string)(unsafe.Pointer(in.AssumeRoleARN))
+	out.ExternalID = (*string)(unsafe.Pointer(in.ExternalID))
+	return nil
+}
+
+// Convert_v1alpha1_GlobalVPCCredentialsRef_To_aws_GlobalVPCCredentialsRef is an autogenerated conversion function.
+func Convert_v1alpha1_GlobalVPCCredentialsRef_To_aws_GlobalVPCCredentialsRef(in *GlobalVPCCredentialsRef, out *aws.GlobalVPCCredentialsRef, s conversion.Scope) error {
+	return autoConvert_v1alpha1_GlobalVPCCredentialsRef_To_aws_GlobalVPCCredentialsRef(in, out, s)
+}
+
+func autoConvert_aws_GlobalVPCCredentialsRef_To_v1alpha1_GlobalVPCCredentialsRef(in *aws.GlobalVPCCredentialsRef, out *GlobalVPCCredentialsRef, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Namespace = in.Namespace
+	out.AssumeRoleARN = (*string)(unsafe.Pointer(in.AssumeRoleARN))
+	out.ExternalID = (*string)(unsafe.Pointer(in.ExternalID))
+	return nil
+}
+
+// Convert_aws_GlobalVPCCredentialsRef_To_v1alpha1_GlobalVPCCredentialsRef is an autogenerated conversion function.
+func Convert_aws_GlobalVPCCredentialsRef_To_v1alpha1_GlobalVPCCredentialsRef(in *aws.GlobalVPCCredentialsRef, out *GlobalVPCCredentialsRef, s conversion.Scope) error {
+	return autoConvert_aws_GlobalVPCCredentialsRef_To_v1alpha1_GlobalVPCCredentialsRef(in, out, s)
 }
 
 func autoConvert_v1alpha1_IAM_To_aws_IAM(in *IAM, out *aws.IAM, s conversion.Scope) error {
@@ -842,6 +996,7 @@ func autoConvert_v1alpha1_InfrastructureStatus_To_aws_InfrastructureStatus(in *I
 	if err := Convert_v1alpha1_ElasticFileSystemStatus_To_aws_ElasticFileSystemStatus(&in.ElasticFileSystem, &out.ElasticFileSystem, s); err != nil {
 		return err
 	}
+	out.TransitGateway = (*aws.TransitGatewayStatus)(unsafe.Pointer(in.TransitGateway))
 	return nil
 }
 
@@ -863,6 +1018,7 @@ func autoConvert_aws_InfrastructureStatus_To_v1alpha1_InfrastructureStatus(in *a
 	if err := Convert_aws_ElasticFileSystemStatus_To_v1alpha1_ElasticFileSystemStatus(&in.ElasticFileSystem, &out.ElasticFileSystem, s); err != nil {
 		return err
 	}
+	out.TransitGateway = (*TransitGatewayStatus)(unsafe.Pointer(in.TransitGateway))
 	return nil
 }
 
@@ -1038,6 +1194,8 @@ func autoConvert_v1alpha1_Networks_To_aws_Networks(in *Networks, out *aws.Networ
 		return err
 	}
 	out.Zones = *(*[]aws.Zone)(unsafe.Pointer(&in.Zones))
+	out.TransitGateway = (*aws.TransitGateway)(unsafe.Pointer(in.TransitGateway))
+	out.CustomRoutes = *(*[]aws.CustomRoute)(unsafe.Pointer(&in.CustomRoutes))
 	return nil
 }
 
@@ -1051,6 +1209,8 @@ func autoConvert_aws_Networks_To_v1alpha1_Networks(in *aws.Networks, out *Networ
 		return err
 	}
 	out.Zones = *(*[]Zone)(unsafe.Pointer(&in.Zones))
+	out.TransitGateway = (*TransitGateway)(unsafe.Pointer(in.TransitGateway))
+	out.CustomRoutes = *(*[]CustomRoute)(unsafe.Pointer(&in.CustomRoutes))
 	return nil
 }
 
@@ -1127,6 +1287,28 @@ func Convert_aws_SecurityGroup_To_v1alpha1_SecurityGroup(in *aws.SecurityGroup, 
 	return autoConvert_aws_SecurityGroup_To_v1alpha1_SecurityGroup(in, out, s)
 }
 
+func autoConvert_v1alpha1_SeedProviderConfig_To_aws_SeedProviderConfig(in *SeedProviderConfig, out *aws.SeedProviderConfig, s conversion.Scope) error {
+	out.TransitGateway = (*aws.TransitGateway)(unsafe.Pointer(in.TransitGateway))
+	out.GlobalCustomRoutes = *(*[]aws.CustomRoute)(unsafe.Pointer(&in.GlobalCustomRoutes))
+	return nil
+}
+
+// Convert_v1alpha1_SeedProviderConfig_To_aws_SeedProviderConfig is an autogenerated conversion function.
+func Convert_v1alpha1_SeedProviderConfig_To_aws_SeedProviderConfig(in *SeedProviderConfig, out *aws.SeedProviderConfig, s conversion.Scope) error {
+	return autoConvert_v1alpha1_SeedProviderConfig_To_aws_SeedProviderConfig(in, out, s)
+}
+
+func autoConvert_aws_SeedProviderConfig_To_v1alpha1_SeedProviderConfig(in *aws.SeedProviderConfig, out *SeedProviderConfig, s conversion.Scope) error {
+	out.TransitGateway = (*TransitGateway)(unsafe.Pointer(in.TransitGateway))
+	out.GlobalCustomRoutes = *(*[]CustomRoute)(unsafe.Pointer(&in.GlobalCustomRoutes))
+	return nil
+}
+
+// Convert_aws_SeedProviderConfig_To_v1alpha1_SeedProviderConfig is an autogenerated conversion function.
+func Convert_aws_SeedProviderConfig_To_v1alpha1_SeedProviderConfig(in *aws.SeedProviderConfig, out *SeedProviderConfig, s conversion.Scope) error {
+	return autoConvert_aws_SeedProviderConfig_To_v1alpha1_SeedProviderConfig(in, out, s)
+}
+
 func autoConvert_v1alpha1_Storage_To_aws_Storage(in *Storage, out *aws.Storage, s conversion.Scope) error {
 	out.ManagedDefaultClass = (*bool)(unsafe.Pointer(in.ManagedDefaultClass))
 	return nil
@@ -1169,6 +1351,100 @@ func autoConvert_aws_Subnet_To_v1alpha1_Subnet(in *aws.Subnet, out *Subnet, s co
 // Convert_aws_Subnet_To_v1alpha1_Subnet is an autogenerated conversion function.
 func Convert_aws_Subnet_To_v1alpha1_Subnet(in *aws.Subnet, out *Subnet, s conversion.Scope) error {
 	return autoConvert_aws_Subnet_To_v1alpha1_Subnet(in, out, s)
+}
+
+func autoConvert_v1alpha1_TransitGateway_To_aws_TransitGateway(in *TransitGateway, out *aws.TransitGateway, s conversion.Scope) error {
+	out.Enabled = in.Enabled
+	out.ID = (*string)(unsafe.Pointer(in.ID))
+	out.CreateConfig = (*aws.TransitGatewayCreateConfig)(unsafe.Pointer(in.CreateConfig))
+	out.HubRouteTableID = (*string)(unsafe.Pointer(in.HubRouteTableID))
+	out.SpokeRouteTableID = (*string)(unsafe.Pointer(in.SpokeRouteTableID))
+	out.DeleteManagedOnDisable = in.DeleteManagedOnDisable
+	out.IsolationMode = in.IsolationMode
+	out.RouteTableID = (*string)(unsafe.Pointer(in.RouteTableID))
+	out.GlobalVPCs = *(*[]aws.GlobalVPC)(unsafe.Pointer(&in.GlobalVPCs))
+	out.SeedVPCCredentialsRef = (*aws.GlobalVPCCredentialsRef)(unsafe.Pointer(in.SeedVPCCredentialsRef))
+	out.TransitGatewayCredentialsRef = (*aws.GlobalVPCCredentialsRef)(unsafe.Pointer(in.TransitGatewayCredentialsRef))
+	return nil
+}
+
+// Convert_v1alpha1_TransitGateway_To_aws_TransitGateway is an autogenerated conversion function.
+func Convert_v1alpha1_TransitGateway_To_aws_TransitGateway(in *TransitGateway, out *aws.TransitGateway, s conversion.Scope) error {
+	return autoConvert_v1alpha1_TransitGateway_To_aws_TransitGateway(in, out, s)
+}
+
+func autoConvert_aws_TransitGateway_To_v1alpha1_TransitGateway(in *aws.TransitGateway, out *TransitGateway, s conversion.Scope) error {
+	out.Enabled = in.Enabled
+	out.ID = (*string)(unsafe.Pointer(in.ID))
+	out.CreateConfig = (*TransitGatewayCreateConfig)(unsafe.Pointer(in.CreateConfig))
+	out.HubRouteTableID = (*string)(unsafe.Pointer(in.HubRouteTableID))
+	out.SpokeRouteTableID = (*string)(unsafe.Pointer(in.SpokeRouteTableID))
+	out.DeleteManagedOnDisable = in.DeleteManagedOnDisable
+	out.IsolationMode = in.IsolationMode
+	out.RouteTableID = (*string)(unsafe.Pointer(in.RouteTableID))
+	out.GlobalVPCs = *(*[]GlobalVPC)(unsafe.Pointer(&in.GlobalVPCs))
+	out.SeedVPCCredentialsRef = (*GlobalVPCCredentialsRef)(unsafe.Pointer(in.SeedVPCCredentialsRef))
+	out.TransitGatewayCredentialsRef = (*GlobalVPCCredentialsRef)(unsafe.Pointer(in.TransitGatewayCredentialsRef))
+	return nil
+}
+
+// Convert_aws_TransitGateway_To_v1alpha1_TransitGateway is an autogenerated conversion function.
+func Convert_aws_TransitGateway_To_v1alpha1_TransitGateway(in *aws.TransitGateway, out *TransitGateway, s conversion.Scope) error {
+	return autoConvert_aws_TransitGateway_To_v1alpha1_TransitGateway(in, out, s)
+}
+
+func autoConvert_v1alpha1_TransitGatewayCreateConfig_To_aws_TransitGatewayCreateConfig(in *TransitGatewayCreateConfig, out *aws.TransitGatewayCreateConfig, s conversion.Scope) error {
+	out.AmazonSideAsn = (*int64)(unsafe.Pointer(in.AmazonSideAsn))
+	out.EnableDefaultAssociation = in.EnableDefaultAssociation
+	out.EnableDefaultPropagation = in.EnableDefaultPropagation
+	out.AutoAcceptSharedAttachments = in.AutoAcceptSharedAttachments
+	return nil
+}
+
+// Convert_v1alpha1_TransitGatewayCreateConfig_To_aws_TransitGatewayCreateConfig is an autogenerated conversion function.
+func Convert_v1alpha1_TransitGatewayCreateConfig_To_aws_TransitGatewayCreateConfig(in *TransitGatewayCreateConfig, out *aws.TransitGatewayCreateConfig, s conversion.Scope) error {
+	return autoConvert_v1alpha1_TransitGatewayCreateConfig_To_aws_TransitGatewayCreateConfig(in, out, s)
+}
+
+func autoConvert_aws_TransitGatewayCreateConfig_To_v1alpha1_TransitGatewayCreateConfig(in *aws.TransitGatewayCreateConfig, out *TransitGatewayCreateConfig, s conversion.Scope) error {
+	out.AmazonSideAsn = (*int64)(unsafe.Pointer(in.AmazonSideAsn))
+	out.EnableDefaultAssociation = in.EnableDefaultAssociation
+	out.EnableDefaultPropagation = in.EnableDefaultPropagation
+	out.AutoAcceptSharedAttachments = in.AutoAcceptSharedAttachments
+	return nil
+}
+
+// Convert_aws_TransitGatewayCreateConfig_To_v1alpha1_TransitGatewayCreateConfig is an autogenerated conversion function.
+func Convert_aws_TransitGatewayCreateConfig_To_v1alpha1_TransitGatewayCreateConfig(in *aws.TransitGatewayCreateConfig, out *TransitGatewayCreateConfig, s conversion.Scope) error {
+	return autoConvert_aws_TransitGatewayCreateConfig_To_v1alpha1_TransitGatewayCreateConfig(in, out, s)
+}
+
+func autoConvert_v1alpha1_TransitGatewayStatus_To_aws_TransitGatewayStatus(in *TransitGatewayStatus, out *aws.TransitGatewayStatus, s conversion.Scope) error {
+	out.ID = (*string)(unsafe.Pointer(in.ID))
+	out.HubRouteTableID = (*string)(unsafe.Pointer(in.HubRouteTableID))
+	out.SpokeRouteTableID = (*string)(unsafe.Pointer(in.SpokeRouteTableID))
+	out.AttachmentID = (*string)(unsafe.Pointer(in.AttachmentID))
+	out.ShootAttachmentID = (*string)(unsafe.Pointer(in.ShootAttachmentID))
+	return nil
+}
+
+// Convert_v1alpha1_TransitGatewayStatus_To_aws_TransitGatewayStatus is an autogenerated conversion function.
+func Convert_v1alpha1_TransitGatewayStatus_To_aws_TransitGatewayStatus(in *TransitGatewayStatus, out *aws.TransitGatewayStatus, s conversion.Scope) error {
+	return autoConvert_v1alpha1_TransitGatewayStatus_To_aws_TransitGatewayStatus(in, out, s)
+}
+
+func autoConvert_aws_TransitGatewayStatus_To_v1alpha1_TransitGatewayStatus(in *aws.TransitGatewayStatus, out *TransitGatewayStatus, s conversion.Scope) error {
+	out.ID = (*string)(unsafe.Pointer(in.ID))
+	out.HubRouteTableID = (*string)(unsafe.Pointer(in.HubRouteTableID))
+	out.SpokeRouteTableID = (*string)(unsafe.Pointer(in.SpokeRouteTableID))
+	out.AttachmentID = (*string)(unsafe.Pointer(in.AttachmentID))
+	out.ShootAttachmentID = (*string)(unsafe.Pointer(in.ShootAttachmentID))
+	return nil
+}
+
+// Convert_aws_TransitGatewayStatus_To_v1alpha1_TransitGatewayStatus is an autogenerated conversion function.
+func Convert_aws_TransitGatewayStatus_To_v1alpha1_TransitGatewayStatus(in *aws.TransitGatewayStatus, out *TransitGatewayStatus, s conversion.Scope) error {
+	return autoConvert_aws_TransitGatewayStatus_To_v1alpha1_TransitGatewayStatus(in, out, s)
 }
 
 func autoConvert_v1alpha1_VPC_To_aws_VPC(in *VPC, out *aws.VPC, s conversion.Scope) error {

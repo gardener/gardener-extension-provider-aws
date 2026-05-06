@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	v2config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
@@ -56,6 +57,22 @@ type AuthConfig struct {
 	// WorkloadIdentity contains workload identity configuration.
 	// This field is mutually exclusive with AccessKey.
 	WorkloadIdentity *WorkloadIdentity
+
+	// AssumeRole configures STS AssumeRole for cross-account access.
+	// When set, the base credentials (AccessKey or WorkloadIdentity) are used
+	// to assume the specified role, and the resulting temporary credentials
+	// are used for all API calls. This is the preferred method for cross-account
+	// access in production (no long-lived keys in target accounts).
+	AssumeRole *AssumeRole
+}
+
+// AssumeRole configures STS AssumeRole for cross-account access.
+type AssumeRole struct {
+	// RoleARN is the ARN of the IAM role to assume in the target account.
+	RoleARN string
+	// ExternalID is an optional external ID for the assume role call.
+	// Recommended for cross-account access to prevent confused deputy attacks.
+	ExternalID string
 }
 
 // AccessKey represents static credentials for authentication to AWS.
@@ -119,6 +136,29 @@ func NewClient(authConfig AuthConfig) (*Client, error) {
 			authConfig.WorkloadIdentity.TokenRetriever,
 		)
 	}
+
+	// If AssumeRole is configured, wrap the base credentials with STS AssumeRole.
+	// The base credentials (static keys or workload identity) call sts:AssumeRole
+	// to get temporary credentials in the target account.
+	if authConfig.AssumeRole != nil {
+		baseCfg, baseErr := v2config.LoadDefaultConfig(
+			context.TODO(),
+			v2config.WithRegion(authConfig.Region),
+			v2config.WithCredentialsProvider(aws.NewCredentialsCache(credentialsProvider)),
+		)
+		if baseErr != nil {
+			return nil, fmt.Errorf("failed to load base config for AssumeRole: %w", baseErr)
+		}
+		stsClient := sts.NewFromConfig(baseCfg)
+		assumeRoleOpts := func(o *stscreds.AssumeRoleOptions) {
+			o.RoleSessionName = "gardener-extension-provider-aws"
+			if authConfig.AssumeRole.ExternalID != "" {
+				o.ExternalID = &authConfig.AssumeRole.ExternalID
+			}
+		}
+		credentialsProvider = stscreds.NewAssumeRoleProvider(stsClient, authConfig.AssumeRole.RoleARN, assumeRoleOpts)
+	}
+
 	cfg, err := v2config.LoadDefaultConfig(
 		context.TODO(),
 		v2config.WithRegion(authConfig.Region),
@@ -157,7 +197,7 @@ func NewClient(authConfig AuthConfig) (*Client, error) {
 	})
 
 	return &Client{
-		EC2:                           *ec2.NewFromConfig(cfg),
+		EC2:                           *ec2.NewFromConfig(cfg, withTGWTransientRetryer()),
 		ELB:                           *elb.NewFromConfig(cfg),
 		ELBv2:                         *elbv2.NewFromConfig(cfg),
 		IAM:                           *iam.NewFromConfig(cfg),
@@ -170,6 +210,43 @@ func NewClient(authConfig AuthConfig) (*Client, error) {
 		Logger:                        log.Log.WithName("aws-client"),
 		PollInterval:                  5 * time.Second,
 	}, nil
+}
+
+// withTGWTransientRetryer returns an EC2 service option that installs a custom
+// retryer matching the SDK's default behavior PLUS retries on AWS error codes
+// that indicate eventual-consistency lag during TGW transitions:
+//
+//   - InvalidTransitGatewayID.NotFound: TGW just created/modified, internal
+//     reference indices haven't propagated yet (observed live during S4
+//     mode-switch transitions where ReplaceRoute fails immediately after
+//     CreateTransitGateway returns success and the AvailableWaiter completes).
+//   - InvalidTransitGatewayAttachmentID.NotFound: same pattern for attachments.
+//   - InvalidTransitGatewayRouteTableID.NotFound: same pattern for RTs.
+//   - IncorrectState: AWS reports the resource is mid-state-transition (e.g.,
+//     RT being disassociated; cannot be deleted yet). Re-fires after a backoff
+//     usually clears within 5–10s.
+//
+// The SDK's standard retryer handles backoff (exponential with jitter),
+// max-attempts (5 here vs SDK default 3), and rate limiting. This avoids
+// arbitrary sleep+retry numbers in business logic and replaces fix #108's
+// regex-based error classification (which failed to actually mark these as
+// retryable because configurationProblemRegexp also matched). See task #111.
+func withTGWTransientRetryer() func(*ec2.Options) {
+	transientCodes := map[string]struct{}{
+		"InvalidTransitGatewayID.NotFound":              {},
+		"InvalidTransitGatewayAttachmentID.NotFound":    {},
+		"InvalidTransitGatewayRouteTableID.NotFound":    {},
+		"IncorrectState":                                {},
+	}
+	return func(o *ec2.Options) {
+		o.Retryer = retry.NewStandard(func(so *retry.StandardOptions) {
+			so.MaxAttempts = 5
+			so.MaxBackoff = 30 * time.Second
+			so.Retryables = append(so.Retryables, retry.RetryableErrorCode{
+				Codes: transientCodes,
+			})
+		})
+	}
 }
 
 // GetAccountID returns the ID of the AWS account the Client is interacting with.
@@ -986,6 +1063,12 @@ func (c *Client) FindVpcsByTags(ctx context.Context, tags Tags) ([]*VPC, error) 
 	return c.describeVpcs(ctx, input)
 }
 
+// FindVpcsByFilters finds VPCs matching the given EC2 filters (e.g., cidr-block-association.cidr-block, vpc-id).
+func (c *Client) FindVpcsByFilters(ctx context.Context, filters []ec2types.Filter) ([]*VPC, error) {
+	input := &ec2.DescribeVpcsInput{Filters: filters}
+	return c.describeVpcs(ctx, input)
+}
+
 func (c *Client) describeVpcs(ctx context.Context, input *ec2.DescribeVpcsInput) ([]*VPC, error) {
 	output, err := c.EC2.DescribeVpcs(ctx, input)
 	if err != nil {
@@ -1555,6 +1638,9 @@ func (c *Client) CreateRoute(ctx context.Context, routeTableId string, route *Ro
 		GatewayId:                   route.GatewayId,
 		NatGatewayId:                route.NatGatewayId,
 		EgressOnlyInternetGatewayId: route.EgressOnlyInternetGatewayId,
+		TransitGatewayId:            route.TransitGatewayId,
+		VpcPeeringConnectionId:      route.VpcPeeringConnectionId,
+		NetworkInterfaceId:          route.NetworkInterfaceId,
 		RouteTableId:                aws.String(routeTableId),
 	}
 	_, err := c.EC2.CreateRoute(ctx, input)
@@ -1573,6 +1659,25 @@ func (c *Client) DeleteRoute(ctx context.Context, routeTableId string, route *Ro
 	return err
 }
 
+// ReplaceRoute atomically updates an existing route's target. Unlike
+// DeleteRoute+CreateRoute, there is no routing gap during the swap.
+func (c *Client) ReplaceRoute(ctx context.Context, routeTableId string, route *Route) error {
+	input := &ec2.ReplaceRouteInput{
+		DestinationCidrBlock:        route.DestinationCidrBlock,
+		DestinationIpv6CidrBlock:    route.DestinationIpv6CidrBlock,
+		DestinationPrefixListId:     route.DestinationPrefixListId,
+		GatewayId:                   route.GatewayId,
+		NatGatewayId:                route.NatGatewayId,
+		EgressOnlyInternetGatewayId: route.EgressOnlyInternetGatewayId,
+		TransitGatewayId:            route.TransitGatewayId,
+		VpcPeeringConnectionId:      route.VpcPeeringConnectionId,
+		NetworkInterfaceId:          route.NetworkInterfaceId,
+		RouteTableId:                aws.String(routeTableId),
+	}
+	_, err := c.EC2.ReplaceRoute(ctx, input)
+	return err
+}
+
 // GetRouteTable gets a route table by the identifier.
 func (c *Client) GetRouteTable(ctx context.Context, id string) (*RouteTable, error) {
 	input := &ec2.DescribeRouteTablesInput{RouteTableIds: []string{id}}
@@ -1583,6 +1688,12 @@ func (c *Client) GetRouteTable(ctx context.Context, id string) (*RouteTable, err
 // FindRouteTablesByTags finds routing table resources matching the given tag map.
 func (c *Client) FindRouteTablesByTags(ctx context.Context, tags Tags) ([]*RouteTable, error) {
 	input := &ec2.DescribeRouteTablesInput{Filters: tags.ToFilters()}
+	return c.describeRouteTables(ctx, input)
+}
+
+// FindRouteTablesByFilters finds routing tables matching the given EC2 filters (e.g., vpc-id).
+func (c *Client) FindRouteTablesByFilters(ctx context.Context, filters []ec2types.Filter) ([]*RouteTable, error) {
+	input := &ec2.DescribeRouteTablesInput{Filters: filters}
 	return c.describeRouteTables(ctx, input)
 }
 
@@ -1599,6 +1710,7 @@ func (c *Client) describeRouteTables(ctx context.Context, input *ec2.DescribeRou
 			VpcId:        item.VpcId,
 		}
 		for _, route := range item.Routes {
+			state := string(route.State)
 			table.Routes = append(table.Routes, &Route{
 				DestinationCidrBlock:        route.DestinationCidrBlock,
 				GatewayId:                   route.GatewayId,
@@ -1606,6 +1718,10 @@ func (c *Client) describeRouteTables(ctx context.Context, input *ec2.DescribeRou
 				EgressOnlyInternetGatewayId: route.EgressOnlyInternetGatewayId,
 				DestinationPrefixListId:     route.DestinationPrefixListId,
 				DestinationIpv6CidrBlock:    route.DestinationIpv6CidrBlock,
+				TransitGatewayId:            route.TransitGatewayId,
+				VpcPeeringConnectionId:      route.VpcPeeringConnectionId,
+				NetworkInterfaceId:          route.NetworkInterfaceId,
+				State:                       &state,
 			})
 		}
 		for _, assoc := range item.Associations {
@@ -1965,6 +2081,42 @@ func (c *Client) WaitForNATGatewayAvailable(ctx context.Context, id string) erro
 		} else {
 			return isNATGatewayReady(item), nil
 		}
+	})
+}
+
+// WaitForTransitGatewayAvailable waits until the TGW transitions from "pending" to "available".
+func (c *Client) WaitForTransitGatewayAvailable(ctx context.Context, id string) error {
+	return c.PollImmediateUntil(ctx, func(ctx context.Context) (done bool, err error) {
+		item, err := c.GetTransitGateway(ctx, id)
+		if err != nil {
+			return false, err
+		}
+		return item != nil && strings.EqualFold(item.State, "available"), nil
+	})
+}
+
+// WaitForTransitGatewayVPCAttachmentAvailable waits until the TGW VPC attachment transitions to "available".
+func (c *Client) WaitForTransitGatewayVPCAttachmentAvailable(ctx context.Context, id string) error {
+	return c.PollImmediateUntil(ctx, func(ctx context.Context) (done bool, err error) {
+		item, err := c.GetTransitGatewayVPCAttachment(ctx, id)
+		if err != nil {
+			return false, err
+		}
+		return item != nil && strings.EqualFold(item.State, "available"), nil
+	})
+}
+
+// WaitForTransitGatewayVPCAttachmentDeleted waits until the TGW VPC attachment transitions
+// to "deleted" or is no longer found. This ensures ENIs are released before returning,
+// preventing DependencyViolation errors when subnets are subsequently deleted.
+func (c *Client) WaitForTransitGatewayVPCAttachmentDeleted(ctx context.Context, id string) error {
+	return c.PollImmediateUntil(ctx, func(ctx context.Context) (done bool, err error) {
+		item, err := c.GetTransitGatewayVPCAttachment(ctx, id)
+		if err != nil {
+			return false, err
+		}
+		// nil means not found (already deleted) or state is "deleted"
+		return item == nil || strings.EqualFold(item.State, "deleted"), nil
 	})
 }
 
@@ -2527,6 +2679,24 @@ func IgnoreAlreadyDetached(err error) error {
 	return err
 }
 
+// IsDuplicatePropagationError returns true if the error indicates that a TGW route table propagation already exists.
+func IsDuplicatePropagationError(err error) bool {
+	var apiError smithy.APIError
+	if errors.As(err, &apiError) {
+		if code := apiError.ErrorCode(); code == "TransitGatewayRouteTablePropagation.Duplicate" {
+			return true
+		}
+	}
+	return false
+}
+
+func ignoreDuplicatePropagation(err error) error {
+	if err == nil || IsDuplicatePropagationError(err) {
+		return nil
+	}
+	return err
+}
+
 func chunkSlice(slice []*string, chunkSize int) [][]*string {
 	var chunks [][]*string
 	for i := 0; i < len(slice); i += chunkSize {
@@ -2956,4 +3126,487 @@ func setObjectTag(ctx context.Context, s3Client *s3.Client, bucket, key, verionI
 	}
 
 	return nil
+}
+
+// CreateTransitGateway creates a new Transit Gateway.
+func (c *Client) CreateTransitGateway(ctx context.Context, tgw *TransitGateway) (*TransitGateway, error) {
+	// Default: disable all auto-behavior for explicit hub/spoke control.
+	opts := &ec2types.TransitGatewayRequestOptions{
+		DefaultRouteTableAssociation: ec2types.DefaultRouteTableAssociationValueDisable,
+		DefaultRouteTablePropagation: ec2types.DefaultRouteTablePropagationValueDisable,
+		AutoAcceptSharedAttachments:  ec2types.AutoAcceptSharedAttachmentsValueDisable,
+	}
+	if tgw.CreateOptions != nil {
+		if tgw.CreateOptions.AmazonSideAsn != nil {
+			opts.AmazonSideAsn = tgw.CreateOptions.AmazonSideAsn
+		}
+		if tgw.CreateOptions.EnableDefaultAssociation {
+			opts.DefaultRouteTableAssociation = ec2types.DefaultRouteTableAssociationValueEnable
+		}
+		if tgw.CreateOptions.EnableDefaultPropagation {
+			opts.DefaultRouteTablePropagation = ec2types.DefaultRouteTablePropagationValueEnable
+		}
+		if tgw.CreateOptions.AutoAcceptSharedAttachments {
+			opts.AutoAcceptSharedAttachments = ec2types.AutoAcceptSharedAttachmentsValueEnable
+		}
+	}
+	input := &ec2.CreateTransitGatewayInput{
+		TagSpecifications: []ec2types.TagSpecification{
+			{
+				ResourceType: ec2types.ResourceTypeTransitGateway,
+				Tags:         tgw.ToEC2Tags(),
+			},
+		},
+		Options: opts,
+	}
+	output, err := c.EC2.CreateTransitGateway(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return &TransitGateway{
+		TransitGatewayId: aws.ToString(output.TransitGateway.TransitGatewayId),
+		State:            string(output.TransitGateway.State),
+		Tags:             FromTags(output.TransitGateway.Tags),
+	}, nil
+}
+
+// GetTransitGateway gets a Transit Gateway by ID.
+func (c *Client) GetTransitGateway(ctx context.Context, id string) (*TransitGateway, error) {
+	input := &ec2.DescribeTransitGatewaysInput{
+		TransitGatewayIds: []string{id},
+	}
+	output, err := c.EC2.DescribeTransitGateways(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	for _, tgw := range output.TransitGateways {
+		if tgw.State == ec2types.TransitGatewayStateDeleted ||
+			tgw.State == ec2types.TransitGatewayStateDeleting {
+			continue
+		}
+		result := &TransitGateway{
+			TransitGatewayId: aws.ToString(tgw.TransitGatewayId),
+			State:            string(tgw.State),
+			Tags:             FromTags(tgw.Tags),
+		}
+		if tgw.Options != nil {
+			result.DefaultRouteTablePropagation = string(tgw.Options.DefaultRouteTablePropagation)
+			result.DefaultRouteTableAssociation = string(tgw.Options.DefaultRouteTableAssociation)
+		}
+		return result, nil
+	}
+	return nil, nil
+}
+
+// FindTransitGatewaysByTags finds Transit Gateways matching tags.
+func (c *Client) FindTransitGatewaysByTags(ctx context.Context, tags Tags) ([]*TransitGateway, error) {
+	input := &ec2.DescribeTransitGatewaysInput{
+		Filters: tags.ToFilters(),
+	}
+	output, err := c.EC2.DescribeTransitGateways(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	var result []*TransitGateway
+	for _, tgw := range output.TransitGateways {
+		if tgw.State == ec2types.TransitGatewayStateDeleted ||
+			tgw.State == ec2types.TransitGatewayStateDeleting {
+			continue
+		}
+		result = append(result, &TransitGateway{
+			TransitGatewayId: aws.ToString(tgw.TransitGatewayId),
+			State:            string(tgw.State),
+			Tags:             FromTags(tgw.Tags),
+		})
+	}
+	return result, nil
+}
+
+// DeleteTransitGateway deletes a Transit Gateway.
+func (c *Client) DeleteTransitGateway(ctx context.Context, id string) error {
+	input := &ec2.DeleteTransitGatewayInput{
+		TransitGatewayId: aws.String(id),
+	}
+	_, err := c.EC2.DeleteTransitGateway(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// ModifyTransitGateway modifies a Transit Gateway's options (ASN, default association/propagation, auto-accept).
+func (c *Client) ModifyTransitGateway(ctx context.Context, id string, options *TransitGatewayCreateOptions) error {
+	if options == nil {
+		return nil
+	}
+	modOpts := &ec2types.ModifyTransitGatewayOptions{}
+	if options.AmazonSideAsn != nil {
+		modOpts.AmazonSideAsn = options.AmazonSideAsn
+	}
+	if options.EnableDefaultAssociation {
+		modOpts.DefaultRouteTableAssociation = ec2types.DefaultRouteTableAssociationValueEnable
+	} else {
+		modOpts.DefaultRouteTableAssociation = ec2types.DefaultRouteTableAssociationValueDisable
+	}
+	if options.EnableDefaultPropagation {
+		modOpts.DefaultRouteTablePropagation = ec2types.DefaultRouteTablePropagationValueEnable
+	} else {
+		modOpts.DefaultRouteTablePropagation = ec2types.DefaultRouteTablePropagationValueDisable
+	}
+	if options.AutoAcceptSharedAttachments {
+		modOpts.AutoAcceptSharedAttachments = ec2types.AutoAcceptSharedAttachmentsValueEnable
+	} else {
+		modOpts.AutoAcceptSharedAttachments = ec2types.AutoAcceptSharedAttachmentsValueDisable
+	}
+
+	input := &ec2.ModifyTransitGatewayInput{
+		TransitGatewayId: aws.String(id),
+		Options:          modOpts,
+	}
+	_, err := c.EC2.ModifyTransitGateway(ctx, input)
+	if err != nil {
+		// Ignore if modification is already in progress or values are unchanged.
+		if code := GetAWSAPIErrorCode(err); code == "IncorrectState" {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// GetTransitGatewayRouteTable gets a TGW route table by ID.
+func (c *Client) GetTransitGatewayRouteTable(ctx context.Context, id string) (*TransitGatewayRouteTableInfo, error) {
+	input := &ec2.DescribeTransitGatewayRouteTablesInput{
+		TransitGatewayRouteTableIds: []string{id},
+	}
+	output, err := c.EC2.DescribeTransitGatewayRouteTables(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	for _, rt := range output.TransitGatewayRouteTables {
+		if rt.State == ec2types.TransitGatewayRouteTableStateDeleted ||
+			rt.State == ec2types.TransitGatewayRouteTableStateDeleting {
+			continue
+		}
+		return &TransitGatewayRouteTableInfo{
+			TransitGatewayRouteTableId: aws.ToString(rt.TransitGatewayRouteTableId),
+			TransitGatewayId:           aws.ToString(rt.TransitGatewayId),
+			State:                      string(rt.State),
+			Tags:                       FromTags(rt.Tags),
+		}, nil
+	}
+	return nil, nil
+}
+
+// FindTransitGatewayRouteTablesByTags finds TGW route tables matching tags.
+func (c *Client) FindTransitGatewayRouteTablesByTags(ctx context.Context, tags Tags) ([]*TransitGatewayRouteTableInfo, error) {
+	input := &ec2.DescribeTransitGatewayRouteTablesInput{
+		Filters: tags.ToFilters(),
+	}
+	output, err := c.EC2.DescribeTransitGatewayRouteTables(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	var results []*TransitGatewayRouteTableInfo
+	for _, rt := range output.TransitGatewayRouteTables {
+		if rt.State == ec2types.TransitGatewayRouteTableStateDeleted ||
+			rt.State == ec2types.TransitGatewayRouteTableStateDeleting {
+			continue
+		}
+		results = append(results, &TransitGatewayRouteTableInfo{
+			TransitGatewayRouteTableId: aws.ToString(rt.TransitGatewayRouteTableId),
+			TransitGatewayId:           aws.ToString(rt.TransitGatewayId),
+			State:                      string(rt.State),
+			Tags:                       FromTags(rt.Tags),
+		})
+	}
+	return results, nil
+}
+
+// CreateTransitGatewayRouteTable creates a TGW route table.
+func (c *Client) CreateTransitGatewayRouteTable(ctx context.Context, transitGatewayId string, tags Tags) (*TransitGatewayRouteTableInfo, error) {
+	input := &ec2.CreateTransitGatewayRouteTableInput{
+		TransitGatewayId: aws.String(transitGatewayId),
+		TagSpecifications: []ec2types.TagSpecification{
+			{
+				ResourceType: ec2types.ResourceTypeTransitGatewayRouteTable,
+				Tags:         tags.ToEC2Tags(),
+			},
+		},
+	}
+	output, err := c.EC2.CreateTransitGatewayRouteTable(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return &TransitGatewayRouteTableInfo{
+		TransitGatewayRouteTableId: aws.ToString(output.TransitGatewayRouteTable.TransitGatewayRouteTableId),
+		TransitGatewayId:           aws.ToString(output.TransitGatewayRouteTable.TransitGatewayId),
+		State:                      string(output.TransitGatewayRouteTable.State),
+		Tags:                       FromTags(output.TransitGatewayRouteTable.Tags),
+	}, nil
+}
+
+// DeleteTransitGatewayRouteTable deletes a TGW route table.
+func (c *Client) DeleteTransitGatewayRouteTable(ctx context.Context, id string) error {
+	input := &ec2.DeleteTransitGatewayRouteTableInput{
+		TransitGatewayRouteTableId: aws.String(id),
+	}
+	_, err := c.EC2.DeleteTransitGatewayRouteTable(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// CreateTransitGatewayVPCAttachment creates a TGW VPC attachment.
+func (c *Client) CreateTransitGatewayVPCAttachment(ctx context.Context, attachment *TransitGatewayVPCAttachment) (*TransitGatewayVPCAttachment, error) {
+	input := &ec2.CreateTransitGatewayVpcAttachmentInput{
+		TransitGatewayId: aws.String(attachment.TransitGatewayId),
+		VpcId:            aws.String(attachment.VpcId),
+		SubnetIds:        attachment.SubnetIds,
+		TagSpecifications: []ec2types.TagSpecification{
+			{
+				ResourceType: ec2types.ResourceTypeTransitGatewayAttachment,
+				Tags:         attachment.ToEC2Tags(),
+			},
+		},
+	}
+	output, err := c.EC2.CreateTransitGatewayVpcAttachment(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	a := output.TransitGatewayVpcAttachment
+	return &TransitGatewayVPCAttachment{
+		TransitGatewayAttachmentId: aws.ToString(a.TransitGatewayAttachmentId),
+		TransitGatewayId:           aws.ToString(a.TransitGatewayId),
+		VpcId:                      aws.ToString(a.VpcId),
+		SubnetIds:                  a.SubnetIds,
+		State:                      string(a.State),
+		Tags:                       FromTags(a.Tags),
+	}, nil
+}
+
+// GetTransitGatewayVPCAttachment gets a TGW VPC attachment by ID.
+func (c *Client) GetTransitGatewayVPCAttachment(ctx context.Context, id string) (*TransitGatewayVPCAttachment, error) {
+	input := &ec2.DescribeTransitGatewayVpcAttachmentsInput{
+		TransitGatewayAttachmentIds: []string{id},
+	}
+	output, err := c.EC2.DescribeTransitGatewayVpcAttachments(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	for _, a := range output.TransitGatewayVpcAttachments {
+		if a.State == ec2types.TransitGatewayAttachmentStateDeleted ||
+			a.State == ec2types.TransitGatewayAttachmentStateDeleting {
+			continue
+		}
+		return &TransitGatewayVPCAttachment{
+			TransitGatewayAttachmentId: aws.ToString(a.TransitGatewayAttachmentId),
+			TransitGatewayId:           aws.ToString(a.TransitGatewayId),
+			VpcId:                      aws.ToString(a.VpcId),
+			SubnetIds:                  a.SubnetIds,
+			State:                      string(a.State),
+			Tags:                       FromTags(a.Tags),
+		}, nil
+	}
+	return nil, nil
+}
+
+// FindTransitGatewayVPCAttachments finds TGW VPC attachments by TGW ID and VPC ID.
+// Returns only attachments in "available" state.
+func (c *Client) FindTransitGatewayVPCAttachments(ctx context.Context, transitGatewayID, vpcID string) ([]*TransitGatewayVPCAttachment, error) {
+	filters := []ec2types.Filter{
+		{Name: ptr.To("state"), Values: []string{"available"}},
+	}
+	if transitGatewayID != "" {
+		filters = append(filters, ec2types.Filter{Name: ptr.To("transit-gateway-id"), Values: []string{transitGatewayID}})
+	}
+	if vpcID != "" {
+		filters = append(filters, ec2types.Filter{Name: ptr.To("vpc-id"), Values: []string{vpcID}})
+	}
+	input := &ec2.DescribeTransitGatewayVpcAttachmentsInput{
+		Filters: filters,
+	}
+	output, err := c.EC2.DescribeTransitGatewayVpcAttachments(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe TGW VPC attachments: %w", err)
+	}
+	var result []*TransitGatewayVPCAttachment
+	for _, att := range output.TransitGatewayVpcAttachments {
+		result = append(result, &TransitGatewayVPCAttachment{
+			TransitGatewayAttachmentId: aws.ToString(att.TransitGatewayAttachmentId),
+			TransitGatewayId:           aws.ToString(att.TransitGatewayId),
+			VpcId:                      aws.ToString(att.VpcId),
+			SubnetIds:                  att.SubnetIds,
+			State:                      string(att.State),
+			Tags:                       FromTags(att.Tags),
+		})
+	}
+	return result, nil
+}
+
+// FindTransitGatewayVPCAttachmentsByTags finds TGW VPC attachments matching tags.
+func (c *Client) FindTransitGatewayVPCAttachmentsByTags(ctx context.Context, tags Tags) ([]*TransitGatewayVPCAttachment, error) {
+	input := &ec2.DescribeTransitGatewayVpcAttachmentsInput{
+		Filters: tags.ToFilters(),
+	}
+	output, err := c.EC2.DescribeTransitGatewayVpcAttachments(ctx, input)
+	if err != nil {
+		return nil, ignoreNotFound(err)
+	}
+	var result []*TransitGatewayVPCAttachment
+	for _, a := range output.TransitGatewayVpcAttachments {
+		if a.State == ec2types.TransitGatewayAttachmentStateDeleted ||
+			a.State == ec2types.TransitGatewayAttachmentStateDeleting {
+			continue
+		}
+		result = append(result, &TransitGatewayVPCAttachment{
+			TransitGatewayAttachmentId: aws.ToString(a.TransitGatewayAttachmentId),
+			TransitGatewayId:           aws.ToString(a.TransitGatewayId),
+			VpcId:                      aws.ToString(a.VpcId),
+			SubnetIds:                  a.SubnetIds,
+			State:                      string(a.State),
+			Tags:                       FromTags(a.Tags),
+		})
+	}
+	return result, nil
+}
+
+// DeleteTransitGatewayVPCAttachment deletes a TGW VPC attachment.
+func (c *Client) DeleteTransitGatewayVPCAttachment(ctx context.Context, id string) error {
+	input := &ec2.DeleteTransitGatewayVpcAttachmentInput{
+		TransitGatewayAttachmentId: aws.String(id),
+	}
+	_, err := c.EC2.DeleteTransitGatewayVpcAttachment(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// ListTransitGatewayVPCAttachments lists all non-deleted VPC attachments for a TGW.
+func (c *Client) ListTransitGatewayVPCAttachments(ctx context.Context, transitGatewayId string) ([]*TransitGatewayVPCAttachment, error) {
+	input := &ec2.DescribeTransitGatewayVpcAttachmentsInput{
+		Filters: []ec2types.Filter{
+			{
+				Name:   aws.String("transit-gateway-id"),
+				Values: []string{transitGatewayId},
+			},
+		},
+	}
+	output, err := c.EC2.DescribeTransitGatewayVpcAttachments(ctx, input)
+	if err != nil {
+		if IsNotFoundError(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var result []*TransitGatewayVPCAttachment
+	for _, a := range output.TransitGatewayVpcAttachments {
+		if a.State == ec2types.TransitGatewayAttachmentStateDeleted ||
+			a.State == ec2types.TransitGatewayAttachmentStateDeleting {
+			continue
+		}
+		result = append(result, &TransitGatewayVPCAttachment{
+			TransitGatewayAttachmentId: aws.ToString(a.TransitGatewayAttachmentId),
+			TransitGatewayId:           aws.ToString(a.TransitGatewayId),
+			VpcId:                      aws.ToString(a.VpcId),
+			SubnetIds:                  a.SubnetIds,
+			State:                      string(a.State),
+			Tags:                       FromTags(a.Tags),
+		})
+	}
+	return result, nil
+}
+
+// GetTransitGatewayAttachmentAssociation returns the route table ID that the given
+// TGW attachment is currently associated with. Returns empty string if not associated.
+func (c *Client) GetTransitGatewayAttachmentAssociation(ctx context.Context, transitGatewayAttachmentId string) (string, error) {
+	output, err := c.EC2.DescribeTransitGatewayAttachments(ctx, &ec2.DescribeTransitGatewayAttachmentsInput{
+		TransitGatewayAttachmentIds: []string{transitGatewayAttachmentId},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to describe TGW attachment %s: %w", transitGatewayAttachmentId, err)
+	}
+	if len(output.TransitGatewayAttachments) == 0 {
+		return "", fmt.Errorf("TGW attachment %s not found", transitGatewayAttachmentId)
+	}
+	assoc := output.TransitGatewayAttachments[0].Association
+	if assoc == nil || assoc.TransitGatewayRouteTableId == nil {
+		return "", nil
+	}
+	return *assoc.TransitGatewayRouteTableId, nil
+}
+
+// AssociateTransitGatewayRouteTable associates an attachment with a TGW route table.
+func (c *Client) AssociateTransitGatewayRouteTable(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	input := &ec2.AssociateTransitGatewayRouteTableInput{
+		TransitGatewayRouteTableId: aws.String(transitGatewayRouteTableId),
+		TransitGatewayAttachmentId: aws.String(transitGatewayAttachmentId),
+	}
+	_, err := c.EC2.AssociateTransitGatewayRouteTable(ctx, input)
+	return ignoreAlreadyAssociated(err)
+}
+
+// AssociateTransitGatewayRouteTableStrict is like AssociateTransitGatewayRouteTable but
+// does NOT swallow Resource.AlreadyAssociated errors. Use when you need to detect and
+// handle the case where the attachment is associated with the wrong table.
+func (c *Client) AssociateTransitGatewayRouteTableStrict(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	input := &ec2.AssociateTransitGatewayRouteTableInput{
+		TransitGatewayRouteTableId: aws.String(transitGatewayRouteTableId),
+		TransitGatewayAttachmentId: aws.String(transitGatewayAttachmentId),
+	}
+	_, err := c.EC2.AssociateTransitGatewayRouteTable(ctx, input)
+	return err
+}
+
+// DisassociateTransitGatewayRouteTable disassociates an attachment from a TGW route table.
+func (c *Client) DisassociateTransitGatewayRouteTable(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	input := &ec2.DisassociateTransitGatewayRouteTableInput{
+		TransitGatewayRouteTableId: aws.String(transitGatewayRouteTableId),
+		TransitGatewayAttachmentId: aws.String(transitGatewayAttachmentId),
+	}
+	_, err := c.EC2.DisassociateTransitGatewayRouteTable(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// EnableTransitGatewayRouteTablePropagation enables route propagation from an attachment to a TGW route table.
+func (c *Client) EnableTransitGatewayRouteTablePropagation(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	input := &ec2.EnableTransitGatewayRouteTablePropagationInput{
+		TransitGatewayRouteTableId: aws.String(transitGatewayRouteTableId),
+		TransitGatewayAttachmentId: aws.String(transitGatewayAttachmentId),
+	}
+	_, err := c.EC2.EnableTransitGatewayRouteTablePropagation(ctx, input)
+	return ignoreDuplicatePropagation(err)
+}
+
+// DisableTransitGatewayRouteTablePropagation disables route propagation from an attachment to a TGW route table.
+func (c *Client) DisableTransitGatewayRouteTablePropagation(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	input := &ec2.DisableTransitGatewayRouteTablePropagationInput{
+		TransitGatewayRouteTableId: aws.String(transitGatewayRouteTableId),
+		TransitGatewayAttachmentId: aws.String(transitGatewayAttachmentId),
+	}
+	_, err := c.EC2.DisableTransitGatewayRouteTablePropagation(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// ListNLBs returns metadata for all Network Load Balancers in the account/region.
+func (c *Client) ListNLBs(ctx context.Context) ([]NLBInfo, error) {
+	var result []NLBInfo
+	paginator := elbv2.NewDescribeLoadBalancersPaginator(&c.ELBv2, &elbv2.DescribeLoadBalancersInput{})
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, lb := range output.LoadBalancers {
+			result = append(result, NLBInfo{
+				Name:    aws.ToString(lb.LoadBalancerName),
+				ARN:     aws.ToString(lb.LoadBalancerArn),
+				Scheme:  string(lb.Scheme),
+				VpcId:   aws.ToString(lb.VpcId),
+				DNSName: aws.ToString(lb.DNSName),
+			})
+		}
+	}
+	return result, nil
+}
+
+// DeleteNLB deletes a Network Load Balancer by ARN.
+func (c *Client) DeleteNLB(ctx context.Context, arn string) error {
+	_, err := c.ELBv2.DeleteLoadBalancer(ctx, &elbv2.DeleteLoadBalancerInput{
+		LoadBalancerArn: aws.String(arn),
+	})
+	return err
 }

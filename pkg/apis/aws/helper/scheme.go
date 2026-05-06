@@ -11,6 +11,7 @@ import (
 
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -162,6 +163,26 @@ func HasFlowState(status extensionsv1alpha1.InfrastructureStatus) (bool, error) 
 		Version: apiv1alpha1.SchemeGroupVersion.Version,
 		Kind:    "InfrastructureState",
 	}, nil
+}
+
+// SeedProviderConfigFromSeed extracts the SeedProviderConfig from the seed's provider config.
+// Returns nil if the seed has no provider config set.
+func SeedProviderConfigFromSeed(seed *gardencorev1beta1.Seed) (*api.SeedProviderConfig, error) {
+	if seed == nil || seed.Spec.Provider.ProviderConfig == nil {
+		return nil, nil
+	}
+	data, err := marshalRaw(seed.Spec.Provider.ProviderConfig)
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal seed provider config: %w", err)
+	}
+	if data == nil {
+		return nil, nil
+	}
+	seedConfig := &api.SeedProviderConfig{}
+	if _, _, err := lenientDecoder.Decode(data, nil, seedConfig); err != nil {
+		return nil, fmt.Errorf("could not decode seed provider config: %w", err)
+	}
+	return seedConfig, nil
 }
 
 // InfrastructureStateFromRaw extracts the state from the Infrastructure. If no state was available, it returns a "zero" value InfrastructureState object.

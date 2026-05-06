@@ -75,6 +75,34 @@ func (mr *MockInterfaceMockRecorder) AddVpcDhcpOptionAssociation(vpcId, dhcpOpti
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVpcDhcpOptionAssociation", reflect.TypeOf((*MockInterface)(nil).AddVpcDhcpOptionAssociation), vpcId, dhcpOptionsId)
 }
 
+// AssociateTransitGatewayRouteTable mocks base method.
+func (m *MockInterface) AssociateTransitGatewayRouteTable(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssociateTransitGatewayRouteTable", ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AssociateTransitGatewayRouteTable indicates an expected call of AssociateTransitGatewayRouteTable.
+func (mr *MockInterfaceMockRecorder) AssociateTransitGatewayRouteTable(ctx, transitGatewayRouteTableId, transitGatewayAttachmentId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssociateTransitGatewayRouteTable", reflect.TypeOf((*MockInterface)(nil).AssociateTransitGatewayRouteTable), ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+}
+
+// AssociateTransitGatewayRouteTableStrict mocks base method.
+func (m *MockInterface) AssociateTransitGatewayRouteTableStrict(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssociateTransitGatewayRouteTableStrict", ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AssociateTransitGatewayRouteTableStrict indicates an expected call of AssociateTransitGatewayRouteTableStrict.
+func (mr *MockInterfaceMockRecorder) AssociateTransitGatewayRouteTableStrict(ctx, transitGatewayRouteTableId, transitGatewayAttachmentId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssociateTransitGatewayRouteTableStrict", reflect.TypeOf((*MockInterface)(nil).AssociateTransitGatewayRouteTableStrict), ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+}
+
 // AttachInternetGateway mocks base method.
 func (m *MockInterface) AttachInternetGateway(ctx context.Context, vpcId, internetGatewayId string) error {
 	m.ctrl.T.Helper()
@@ -354,6 +382,51 @@ func (mr *MockInterfaceMockRecorder) CreateSubnet(ctx, subnet, maxWaitDur any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnet", reflect.TypeOf((*MockInterface)(nil).CreateSubnet), ctx, subnet, maxWaitDur)
 }
 
+// CreateTransitGateway mocks base method.
+func (m *MockInterface) CreateTransitGateway(ctx context.Context, tgw *client.TransitGateway) (*client.TransitGateway, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateTransitGateway", ctx, tgw)
+	ret0, _ := ret[0].(*client.TransitGateway)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTransitGateway indicates an expected call of CreateTransitGateway.
+func (mr *MockInterfaceMockRecorder) CreateTransitGateway(ctx, tgw any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTransitGateway", reflect.TypeOf((*MockInterface)(nil).CreateTransitGateway), ctx, tgw)
+}
+
+// CreateTransitGatewayRouteTable mocks base method.
+func (m *MockInterface) CreateTransitGatewayRouteTable(ctx context.Context, transitGatewayId string, tags client.Tags) (*client.TransitGatewayRouteTableInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateTransitGatewayRouteTable", ctx, transitGatewayId, tags)
+	ret0, _ := ret[0].(*client.TransitGatewayRouteTableInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTransitGatewayRouteTable indicates an expected call of CreateTransitGatewayRouteTable.
+func (mr *MockInterfaceMockRecorder) CreateTransitGatewayRouteTable(ctx, transitGatewayId, tags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTransitGatewayRouteTable", reflect.TypeOf((*MockInterface)(nil).CreateTransitGatewayRouteTable), ctx, transitGatewayId, tags)
+}
+
+// CreateTransitGatewayVPCAttachment mocks base method.
+func (m *MockInterface) CreateTransitGatewayVPCAttachment(ctx context.Context, attachment *client.TransitGatewayVPCAttachment) (*client.TransitGatewayVPCAttachment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateTransitGatewayVPCAttachment", ctx, attachment)
+	ret0, _ := ret[0].(*client.TransitGatewayVPCAttachment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTransitGatewayVPCAttachment indicates an expected call of CreateTransitGatewayVPCAttachment.
+func (mr *MockInterfaceMockRecorder) CreateTransitGatewayVPCAttachment(ctx, attachment any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTransitGatewayVPCAttachment", reflect.TypeOf((*MockInterface)(nil).CreateTransitGatewayVPCAttachment), ctx, attachment)
+}
+
 // CreateVpc mocks base method.
 func (m *MockInterface) CreateVpc(ctx context.Context, vpc *client.VPC) (*client.VPC, error) {
 	m.ctrl.T.Helper()
@@ -623,6 +696,20 @@ func (mr *MockInterfaceMockRecorder) DeleteNATGateway(ctx, id any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNATGateway", reflect.TypeOf((*MockInterface)(nil).DeleteNATGateway), ctx, id)
 }
 
+// DeleteNLB mocks base method.
+func (m *MockInterface) DeleteNLB(ctx context.Context, arn string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteNLB", ctx, arn)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteNLB indicates an expected call of DeleteNLB.
+func (mr *MockInterfaceMockRecorder) DeleteNLB(ctx, arn any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNLB", reflect.TypeOf((*MockInterface)(nil).DeleteNLB), ctx, arn)
+}
+
 // DeleteObjectsWithPrefix mocks base method.
 func (m *MockInterface) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error {
 	m.ctrl.T.Helper()
@@ -649,6 +736,20 @@ func (m *MockInterface) DeleteRoute(ctx context.Context, routeTableId string, ro
 func (mr *MockInterfaceMockRecorder) DeleteRoute(ctx, routeTableId, route any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoute", reflect.TypeOf((*MockInterface)(nil).DeleteRoute), ctx, routeTableId, route)
+}
+
+// ReplaceRoute mocks base method.
+func (m *MockInterface) ReplaceRoute(ctx context.Context, routeTableId string, route *client.Route) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplaceRoute", ctx, routeTableId, route)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplaceRoute indicates an expected call of ReplaceRoute.
+func (mr *MockInterfaceMockRecorder) ReplaceRoute(ctx, routeTableId, route any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceRoute", reflect.TypeOf((*MockInterface)(nil).ReplaceRoute), ctx, routeTableId, route)
 }
 
 // DeleteRouteTable mocks base method.
@@ -705,6 +806,48 @@ func (m *MockInterface) DeleteSubnet(ctx context.Context, id string) error {
 func (mr *MockInterfaceMockRecorder) DeleteSubnet(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnet", reflect.TypeOf((*MockInterface)(nil).DeleteSubnet), ctx, id)
+}
+
+// DeleteTransitGateway mocks base method.
+func (m *MockInterface) DeleteTransitGateway(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTransitGateway", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTransitGateway indicates an expected call of DeleteTransitGateway.
+func (mr *MockInterfaceMockRecorder) DeleteTransitGateway(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTransitGateway", reflect.TypeOf((*MockInterface)(nil).DeleteTransitGateway), ctx, id)
+}
+
+// DeleteTransitGatewayRouteTable mocks base method.
+func (m *MockInterface) DeleteTransitGatewayRouteTable(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTransitGatewayRouteTable", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTransitGatewayRouteTable indicates an expected call of DeleteTransitGatewayRouteTable.
+func (mr *MockInterfaceMockRecorder) DeleteTransitGatewayRouteTable(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTransitGatewayRouteTable", reflect.TypeOf((*MockInterface)(nil).DeleteTransitGatewayRouteTable), ctx, id)
+}
+
+// DeleteTransitGatewayVPCAttachment mocks base method.
+func (m *MockInterface) DeleteTransitGatewayVPCAttachment(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTransitGatewayVPCAttachment", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTransitGatewayVPCAttachment indicates an expected call of DeleteTransitGatewayVPCAttachment.
+func (mr *MockInterfaceMockRecorder) DeleteTransitGatewayVPCAttachment(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTransitGatewayVPCAttachment", reflect.TypeOf((*MockInterface)(nil).DeleteTransitGatewayVPCAttachment), ctx, id)
 }
 
 // DeleteVpc mocks base method.
@@ -777,6 +920,34 @@ func (mr *MockInterfaceMockRecorder) DetachInternetGateway(ctx, vpcId, internetG
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetachInternetGateway", reflect.TypeOf((*MockInterface)(nil).DetachInternetGateway), ctx, vpcId, internetGatewayId)
 }
 
+// DisableTransitGatewayRouteTablePropagation mocks base method.
+func (m *MockInterface) DisableTransitGatewayRouteTablePropagation(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisableTransitGatewayRouteTablePropagation", ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DisableTransitGatewayRouteTablePropagation indicates an expected call of DisableTransitGatewayRouteTablePropagation.
+func (mr *MockInterfaceMockRecorder) DisableTransitGatewayRouteTablePropagation(ctx, transitGatewayRouteTableId, transitGatewayAttachmentId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableTransitGatewayRouteTablePropagation", reflect.TypeOf((*MockInterface)(nil).DisableTransitGatewayRouteTablePropagation), ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+}
+
+// DisassociateTransitGatewayRouteTable mocks base method.
+func (m *MockInterface) DisassociateTransitGatewayRouteTable(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisassociateTransitGatewayRouteTable", ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DisassociateTransitGatewayRouteTable indicates an expected call of DisassociateTransitGatewayRouteTable.
+func (mr *MockInterfaceMockRecorder) DisassociateTransitGatewayRouteTable(ctx, transitGatewayRouteTableId, transitGatewayAttachmentId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisassociateTransitGatewayRouteTable", reflect.TypeOf((*MockInterface)(nil).DisassociateTransitGatewayRouteTable), ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+}
+
 // EnableBucketVersioning mocks base method.
 func (m *MockInterface) EnableBucketVersioning(ctx context.Context, bucket string) error {
 	m.ctrl.T.Helper()
@@ -789,6 +960,20 @@ func (m *MockInterface) EnableBucketVersioning(ctx context.Context, bucket strin
 func (mr *MockInterfaceMockRecorder) EnableBucketVersioning(ctx, bucket any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableBucketVersioning", reflect.TypeOf((*MockInterface)(nil).EnableBucketVersioning), ctx, bucket)
+}
+
+// EnableTransitGatewayRouteTablePropagation mocks base method.
+func (m *MockInterface) EnableTransitGatewayRouteTablePropagation(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableTransitGatewayRouteTablePropagation", ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableTransitGatewayRouteTablePropagation indicates an expected call of EnableTransitGatewayRouteTablePropagation.
+func (mr *MockInterfaceMockRecorder) EnableTransitGatewayRouteTablePropagation(ctx, transitGatewayRouteTableId, transitGatewayAttachmentId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableTransitGatewayRouteTablePropagation", reflect.TypeOf((*MockInterface)(nil).EnableTransitGatewayRouteTablePropagation), ctx, transitGatewayRouteTableId, transitGatewayAttachmentId)
 }
 
 // FindDefaultSecurityGroupByVpcId mocks base method.
@@ -926,6 +1111,21 @@ func (mr *MockInterfaceMockRecorder) FindNATGatewaysByTags(ctx, tags any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindNATGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindNATGatewaysByTags), ctx, tags)
 }
 
+// FindRouteTablesByFilters mocks base method.
+func (m *MockInterface) FindRouteTablesByFilters(ctx context.Context, filters []types.Filter) ([]*client.RouteTable, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRouteTablesByFilters", ctx, filters)
+	ret0, _ := ret[0].([]*client.RouteTable)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRouteTablesByFilters indicates an expected call of FindRouteTablesByFilters.
+func (mr *MockInterfaceMockRecorder) FindRouteTablesByFilters(ctx, filters any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRouteTablesByFilters", reflect.TypeOf((*MockInterface)(nil).FindRouteTablesByFilters), ctx, filters)
+}
+
 // FindRouteTablesByTags mocks base method.
 func (m *MockInterface) FindRouteTablesByTags(ctx context.Context, tags client.Tags) ([]*client.RouteTable, error) {
 	m.ctrl.T.Helper()
@@ -971,6 +1171,66 @@ func (mr *MockInterfaceMockRecorder) FindSubnets(ctx, filters any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindSubnets", reflect.TypeOf((*MockInterface)(nil).FindSubnets), ctx, filters)
 }
 
+// FindTransitGatewayRouteTablesByTags mocks base method.
+func (m *MockInterface) FindTransitGatewayRouteTablesByTags(ctx context.Context, tags client.Tags) ([]*client.TransitGatewayRouteTableInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindTransitGatewayRouteTablesByTags", ctx, tags)
+	ret0, _ := ret[0].([]*client.TransitGatewayRouteTableInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindTransitGatewayRouteTablesByTags indicates an expected call of FindTransitGatewayRouteTablesByTags.
+func (mr *MockInterfaceMockRecorder) FindTransitGatewayRouteTablesByTags(ctx, tags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindTransitGatewayRouteTablesByTags", reflect.TypeOf((*MockInterface)(nil).FindTransitGatewayRouteTablesByTags), ctx, tags)
+}
+
+// FindTransitGatewayVPCAttachments mocks base method.
+func (m *MockInterface) FindTransitGatewayVPCAttachments(ctx context.Context, transitGatewayID, vpcID string) ([]*client.TransitGatewayVPCAttachment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindTransitGatewayVPCAttachments", ctx, transitGatewayID, vpcID)
+	ret0, _ := ret[0].([]*client.TransitGatewayVPCAttachment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindTransitGatewayVPCAttachments indicates an expected call of FindTransitGatewayVPCAttachments.
+func (mr *MockInterfaceMockRecorder) FindTransitGatewayVPCAttachments(ctx, transitGatewayID, vpcID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindTransitGatewayVPCAttachments", reflect.TypeOf((*MockInterface)(nil).FindTransitGatewayVPCAttachments), ctx, transitGatewayID, vpcID)
+}
+
+// FindTransitGatewayVPCAttachmentsByTags mocks base method.
+func (m *MockInterface) FindTransitGatewayVPCAttachmentsByTags(ctx context.Context, tags client.Tags) ([]*client.TransitGatewayVPCAttachment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindTransitGatewayVPCAttachmentsByTags", ctx, tags)
+	ret0, _ := ret[0].([]*client.TransitGatewayVPCAttachment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindTransitGatewayVPCAttachmentsByTags indicates an expected call of FindTransitGatewayVPCAttachmentsByTags.
+func (mr *MockInterfaceMockRecorder) FindTransitGatewayVPCAttachmentsByTags(ctx, tags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindTransitGatewayVPCAttachmentsByTags", reflect.TypeOf((*MockInterface)(nil).FindTransitGatewayVPCAttachmentsByTags), ctx, tags)
+}
+
+// FindTransitGatewaysByTags mocks base method.
+func (m *MockInterface) FindTransitGatewaysByTags(ctx context.Context, tags client.Tags) ([]*client.TransitGateway, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindTransitGatewaysByTags", ctx, tags)
+	ret0, _ := ret[0].([]*client.TransitGateway)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindTransitGatewaysByTags indicates an expected call of FindTransitGatewaysByTags.
+func (mr *MockInterfaceMockRecorder) FindTransitGatewaysByTags(ctx, tags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindTransitGatewaysByTags", reflect.TypeOf((*MockInterface)(nil).FindTransitGatewaysByTags), ctx, tags)
+}
+
 // FindVpcDhcpOptionsByTags mocks base method.
 func (m *MockInterface) FindVpcDhcpOptionsByTags(ctx context.Context, tags client.Tags) ([]*client.DhcpOptions, error) {
 	m.ctrl.T.Helper()
@@ -999,6 +1259,21 @@ func (m *MockInterface) FindVpcEndpoints(ctx context.Context, filters []types.Fi
 func (mr *MockInterfaceMockRecorder) FindVpcEndpoints(ctx, filters any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcEndpoints", reflect.TypeOf((*MockInterface)(nil).FindVpcEndpoints), ctx, filters)
+}
+
+// FindVpcsByFilters mocks base method.
+func (m *MockInterface) FindVpcsByFilters(ctx context.Context, filters []types.Filter) ([]*client.VPC, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindVpcsByFilters", ctx, filters)
+	ret0, _ := ret[0].([]*client.VPC)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindVpcsByFilters indicates an expected call of FindVpcsByFilters.
+func (mr *MockInterfaceMockRecorder) FindVpcsByFilters(ctx, filters any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindVpcsByFilters", reflect.TypeOf((*MockInterface)(nil).FindVpcsByFilters), ctx, filters)
 }
 
 // FindVpcsByTags mocks base method.
@@ -1361,6 +1636,66 @@ func (mr *MockInterfaceMockRecorder) GetSubnets(ctx, ids any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnets", reflect.TypeOf((*MockInterface)(nil).GetSubnets), ctx, ids)
 }
 
+// GetTransitGateway mocks base method.
+func (m *MockInterface) GetTransitGateway(ctx context.Context, id string) (*client.TransitGateway, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransitGateway", ctx, id)
+	ret0, _ := ret[0].(*client.TransitGateway)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransitGateway indicates an expected call of GetTransitGateway.
+func (mr *MockInterfaceMockRecorder) GetTransitGateway(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransitGateway", reflect.TypeOf((*MockInterface)(nil).GetTransitGateway), ctx, id)
+}
+
+// GetTransitGatewayAttachmentAssociation mocks base method.
+func (m *MockInterface) GetTransitGatewayAttachmentAssociation(ctx context.Context, transitGatewayAttachmentId string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransitGatewayAttachmentAssociation", ctx, transitGatewayAttachmentId)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransitGatewayAttachmentAssociation indicates an expected call of GetTransitGatewayAttachmentAssociation.
+func (mr *MockInterfaceMockRecorder) GetTransitGatewayAttachmentAssociation(ctx, transitGatewayAttachmentId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransitGatewayAttachmentAssociation", reflect.TypeOf((*MockInterface)(nil).GetTransitGatewayAttachmentAssociation), ctx, transitGatewayAttachmentId)
+}
+
+// GetTransitGatewayRouteTable mocks base method.
+func (m *MockInterface) GetTransitGatewayRouteTable(ctx context.Context, id string) (*client.TransitGatewayRouteTableInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransitGatewayRouteTable", ctx, id)
+	ret0, _ := ret[0].(*client.TransitGatewayRouteTableInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransitGatewayRouteTable indicates an expected call of GetTransitGatewayRouteTable.
+func (mr *MockInterfaceMockRecorder) GetTransitGatewayRouteTable(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransitGatewayRouteTable", reflect.TypeOf((*MockInterface)(nil).GetTransitGatewayRouteTable), ctx, id)
+}
+
+// GetTransitGatewayVPCAttachment mocks base method.
+func (m *MockInterface) GetTransitGatewayVPCAttachment(ctx context.Context, id string) (*client.TransitGatewayVPCAttachment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTransitGatewayVPCAttachment", ctx, id)
+	ret0, _ := ret[0].(*client.TransitGatewayVPCAttachment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransitGatewayVPCAttachment indicates an expected call of GetTransitGatewayVPCAttachment.
+func (mr *MockInterfaceMockRecorder) GetTransitGatewayVPCAttachment(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransitGatewayVPCAttachment", reflect.TypeOf((*MockInterface)(nil).GetTransitGatewayVPCAttachment), ctx, id)
+}
+
 // GetVPCAttribute mocks base method.
 func (m *MockInterface) GetVPCAttribute(ctx context.Context, vpcID string, attribute types.VpcAttributeName) (bool, error) {
 	m.ctrl.T.Helper()
@@ -1494,6 +1829,50 @@ func (m *MockInterface) ListKubernetesSecurityGroups(ctx context.Context, vpcID,
 func (mr *MockInterfaceMockRecorder) ListKubernetesSecurityGroups(ctx, vpcID, clusterName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKubernetesSecurityGroups", reflect.TypeOf((*MockInterface)(nil).ListKubernetesSecurityGroups), ctx, vpcID, clusterName)
+}
+
+// ListNLBs mocks base method.
+func (m *MockInterface) ListNLBs(ctx context.Context) ([]client.NLBInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListNLBs", ctx)
+	ret0, _ := ret[0].([]client.NLBInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListNLBs indicates an expected call of ListNLBs.
+func (mr *MockInterfaceMockRecorder) ListNLBs(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListNLBs", reflect.TypeOf((*MockInterface)(nil).ListNLBs), ctx)
+}
+
+// ListTransitGatewayVPCAttachments mocks base method.
+func (m *MockInterface) ListTransitGatewayVPCAttachments(ctx context.Context, transitGatewayId string) ([]*client.TransitGatewayVPCAttachment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTransitGatewayVPCAttachments", ctx, transitGatewayId)
+	ret0, _ := ret[0].([]*client.TransitGatewayVPCAttachment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListTransitGatewayVPCAttachments indicates an expected call of ListTransitGatewayVPCAttachments.
+func (mr *MockInterfaceMockRecorder) ListTransitGatewayVPCAttachments(ctx, transitGatewayId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTransitGatewayVPCAttachments", reflect.TypeOf((*MockInterface)(nil).ListTransitGatewayVPCAttachments), ctx, transitGatewayId)
+}
+
+// ModifyTransitGateway mocks base method.
+func (m *MockInterface) ModifyTransitGateway(ctx context.Context, id string, options *client.TransitGatewayCreateOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyTransitGateway", ctx, id, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ModifyTransitGateway indicates an expected call of ModifyTransitGateway.
+func (mr *MockInterfaceMockRecorder) ModifyTransitGateway(ctx, id, options any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyTransitGateway", reflect.TypeOf((*MockInterface)(nil).ModifyTransitGateway), ctx, id, options)
 }
 
 // PutIAMRolePolicy mocks base method.
@@ -1665,6 +2044,48 @@ func (m *MockInterface) WaitForNATGatewayAvailable(ctx context.Context, id strin
 func (mr *MockInterfaceMockRecorder) WaitForNATGatewayAvailable(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForNATGatewayAvailable", reflect.TypeOf((*MockInterface)(nil).WaitForNATGatewayAvailable), ctx, id)
+}
+
+// WaitForTransitGatewayAvailable mocks base method.
+func (m *MockInterface) WaitForTransitGatewayAvailable(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WaitForTransitGatewayAvailable", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WaitForTransitGatewayAvailable indicates an expected call of WaitForTransitGatewayAvailable.
+func (mr *MockInterfaceMockRecorder) WaitForTransitGatewayAvailable(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForTransitGatewayAvailable", reflect.TypeOf((*MockInterface)(nil).WaitForTransitGatewayAvailable), ctx, id)
+}
+
+// WaitForTransitGatewayVPCAttachmentAvailable mocks base method.
+func (m *MockInterface) WaitForTransitGatewayVPCAttachmentAvailable(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WaitForTransitGatewayVPCAttachmentAvailable", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WaitForTransitGatewayVPCAttachmentAvailable indicates an expected call of WaitForTransitGatewayVPCAttachmentAvailable.
+func (mr *MockInterfaceMockRecorder) WaitForTransitGatewayVPCAttachmentAvailable(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForTransitGatewayVPCAttachmentAvailable", reflect.TypeOf((*MockInterface)(nil).WaitForTransitGatewayVPCAttachmentAvailable), ctx, id)
+}
+
+// WaitForTransitGatewayVPCAttachmentDeleted mocks base method.
+func (m *MockInterface) WaitForTransitGatewayVPCAttachmentDeleted(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WaitForTransitGatewayVPCAttachmentDeleted", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WaitForTransitGatewayVPCAttachmentDeleted indicates an expected call of WaitForTransitGatewayVPCAttachmentDeleted.
+func (mr *MockInterfaceMockRecorder) WaitForTransitGatewayVPCAttachmentDeleted(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForTransitGatewayVPCAttachmentDeleted", reflect.TypeOf((*MockInterface)(nil).WaitForTransitGatewayVPCAttachmentDeleted), ctx, id)
 }
 
 // MockFactory is a mock of Factory interface.

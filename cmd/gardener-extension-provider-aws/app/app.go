@@ -44,7 +44,7 @@ import (
 	awsbastion "github.com/gardener/gardener-extension-provider-aws/pkg/controller/bastion"
 	awscontrolplane "github.com/gardener/gardener-extension-provider-aws/pkg/controller/controlplane"
 	awsdnsrecord "github.com/gardener/gardener-extension-provider-aws/pkg/controller/dnsrecord"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
+	awshealthcheck "github.com/gardener/gardener-extension-provider-aws/pkg/controller/healthcheck"
 	awsinfrastructure "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure"
 	awsworker "github.com/gardener/gardener-extension-provider-aws/pkg/controller/worker"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/features"
@@ -235,8 +235,8 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 
 			log.Info("Adding controllers to manager")
 			configFileOpts.Completed().ApplyETCDStorage(&awsseedprovider.DefaultAddOptions.ETCDStorage)
-			configFileOpts.Completed().ApplyHealthCheckConfig(&healthcheck.DefaultAddOptions.HealthCheckConfig)
-			healthCheckCtrlOpts.Completed().Apply(&healthcheck.DefaultAddOptions.Controller)
+			configFileOpts.Completed().ApplyHealthCheckConfig(&awshealthcheck.DefaultAddOptions.HealthCheckConfig)
+			healthCheckCtrlOpts.Completed().Apply(&awshealthcheck.DefaultAddOptions.Controller)
 			heartbeatCtrlOpts.Completed().Apply(&heartbeat.DefaultAddOptions)
 			backupBucketCtrlOpts.Completed().Apply(&awsbackupbucket.DefaultAddOptions.Controller)
 			backupEntryCtrlOpts.Completed().Apply(&awsbackupentry.DefaultAddOptions.Controller)
@@ -246,8 +246,9 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 			dnsRecordCtrlOpts.Completed().ApplyRateLimiter(&awsdnsrecord.DefaultAddOptions.RateLimiter)
 			infraCtrlOpts.Completed().Apply(&awsinfrastructure.DefaultAddOptions.Controller)
 			workerCtrlOpts.Completed().Apply(&awsworker.DefaultAddOptions.Controller)
-
+			awsinfrastructure.DefaultAddOptions.GardenCluster = gardenCluster
 			awsworker.DefaultAddOptions.GardenCluster = gardenCluster
+			awshealthcheck.GardenCluster = gardenCluster
 			applyGeneralOptions(generalOpts)
 			applyReconcileOptions(reconcileOpts)
 

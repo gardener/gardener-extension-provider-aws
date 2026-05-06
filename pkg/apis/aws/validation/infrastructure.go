@@ -6,6 +6,7 @@ package validation
 
 import (
 	"fmt"
+	"net"
 	"slices"
 	"strings"
 
@@ -171,6 +172,8 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 	}
 
 	allErrs = append(allErrs, ValidateIgnoreTags(field.NewPath("ignoreTags"), infra.IgnoreTags)...)
+	allErrs = append(allErrs, ValidateCustomRoutes(networksPath.Child("customRoutes"), infra.Networks.CustomRoutes)...)
+	allErrs = append(allErrs, ValidateShootTransitGateway(networksPath.Child("transitGateway"), infra.Networks.TransitGateway)...)
 
 	return allErrs
 }
@@ -209,6 +212,11 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Internal, oldZone.Internal, idxPath.Child("internal"))...)
 		allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones[i].Workers, oldZone.Workers, idxPath.Child("workers"))...)
 	}
+	// Transit gateway: all fields are mutable. Disabling or changing TGW config
+	// triggers cleanup via cleanupDisabledShootTransitGateway (shoot-level) or
+	// cleanupDisabledTransitGateway (seed-level) in the reconcile DAG.
+	// The new config is validated structurally by ValidateShootTransitGateway.
+
 	if oldConfig.DualStack != nil && oldConfig.DualStack.Enabled && (newConfig.DualStack == nil || !newConfig.DualStack.Enabled) {
 		dualStackPath := field.NewPath("dualStack.enabled")
 		allErrs = append(allErrs, field.Forbidden(dualStackPath, "field can't be changed from \"true\" to \"false\""))
@@ -304,5 +312,322 @@ func validatePrefixMatchesReservedPrefix(fldPath *field.Path, prefix string) fie
 			break
 		}
 	}
+	return allErrs
+}
+
+// ValidateCustomRoutes validates a list of CustomRoute entries.
+func ValidateCustomRoutes(fldPath *field.Path, routes []apisaws.CustomRoute) field.ErrorList {
+	allErrs := field.ErrorList{}
+	seenCIDRs := sets.New[string]()
+
+	for i, route := range routes {
+		idxPath := fldPath.Index(i)
+
+		// Exactly one destination must be specified.
+		destCount := 0
+		if route.DestinationCidrBlock != nil {
+			destCount++
+		}
+		if route.DestinationPrefixListId != nil {
+			destCount++
+		}
+		if destCount == 0 {
+			allErrs = append(allErrs, field.Required(idxPath, "must specify either destinationCidrBlock or destinationPrefixListId"))
+		} else if destCount > 1 {
+			allErrs = append(allErrs, field.Invalid(idxPath, route, "must specify exactly one destination (destinationCidrBlock or destinationPrefixListId)"))
+		}
+
+		// Exactly one target must be specified.
+		targetCount := 0
+		if route.TransitGatewayId != nil {
+			targetCount++
+		}
+		if route.VpcPeeringConnectionId != nil {
+			targetCount++
+		}
+		if route.NetworkInterfaceId != nil {
+			targetCount++
+		}
+		if targetCount == 0 {
+			allErrs = append(allErrs, field.Required(idxPath, "must specify a route target (transitGatewayId, vpcPeeringConnectionId, or networkInterfaceId)"))
+		} else if targetCount > 1 {
+			allErrs = append(allErrs, field.Invalid(idxPath, route, "must specify exactly one route target"))
+		}
+
+		// Validate CIDR format if specified.
+		if route.DestinationCidrBlock != nil {
+			if _, _, err := net.ParseCIDR(*route.DestinationCidrBlock); err != nil {
+				allErrs = append(allErrs, field.Invalid(idxPath.Child("destinationCidrBlock"), *route.DestinationCidrBlock, "must be a valid CIDR"))
+			}
+		}
+
+		// Reject 0.0.0.0/0 → anything (conflicts with NAT GW default route).
+		if route.DestinationCidrBlock != nil && *route.DestinationCidrBlock == "0.0.0.0/0" {
+			allErrs = append(allErrs, field.Invalid(idxPath.Child("destinationCidrBlock"), *route.DestinationCidrBlock, "cannot override default route (conflicts with NAT gateway)"))
+		}
+
+		// Check for duplicate CIDR destinations.
+		if route.DestinationCidrBlock != nil {
+			if seenCIDRs.Has(*route.DestinationCidrBlock) {
+				allErrs = append(allErrs, field.Duplicate(idxPath.Child("destinationCidrBlock"), *route.DestinationCidrBlock))
+			}
+			seenCIDRs.Insert(*route.DestinationCidrBlock)
+		}
+	}
+
+	return allErrs
+}
+
+// ValidateShootTransitGateway validates a shoot-level TransitGateway config.
+func ValidateShootTransitGateway(fldPath *field.Path, tgw *apisaws.TransitGateway) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if tgw == nil {
+		return allErrs
+	}
+
+	if !tgw.Enabled {
+		return allErrs
+	}
+
+	// Shoot-level TGW must be referenced (ID required).
+	if tgw.ID == nil {
+		allErrs = append(allErrs, field.Required(fldPath.Child("id"), "shoot-level transit gateway must specify an existing TGW id (auto-create is only supported at seed level)"))
+	}
+
+	// Validate isolationMode for shoot-level TGW.
+	mode := tgw.IsolationMode
+	if mode != "" && mode != "hub-spoke" && mode != "shared" {
+		allErrs = append(allErrs, field.NotSupported(fldPath.Child("isolationMode"), mode, []string{"hub-spoke", "shared"}))
+	}
+
+	// Shoot-level TGW route tables must be referenced (mode-dependent).
+	if mode == "shared" {
+		if tgw.RouteTableID == nil {
+			allErrs = append(allErrs, field.Required(fldPath.Child("routeTableId"), "shoot-level transit gateway in shared mode must specify a route table ID"))
+		}
+		if tgw.HubRouteTableID != nil {
+			allErrs = append(allErrs, field.Forbidden(fldPath.Child("hubRouteTableId"), "not allowed in shared isolation mode — use routeTableId"))
+		}
+		if tgw.SpokeRouteTableID != nil {
+			allErrs = append(allErrs, field.Forbidden(fldPath.Child("spokeRouteTableId"), "not allowed in shared isolation mode — use routeTableId"))
+		}
+	} else {
+		// hub-spoke mode (default)
+		if tgw.HubRouteTableID == nil {
+			allErrs = append(allErrs, field.Required(fldPath.Child("hubRouteTableId"), "shoot-level transit gateway must specify an existing hub route table ID"))
+		}
+		if tgw.SpokeRouteTableID == nil {
+			allErrs = append(allErrs, field.Required(fldPath.Child("spokeRouteTableId"), "shoot-level transit gateway must specify an existing spoke route table ID"))
+		}
+		if tgw.RouteTableID != nil {
+			allErrs = append(allErrs, field.Forbidden(fldPath.Child("routeTableId"), "not allowed in hub-spoke isolation mode — use hubRouteTableId/spokeRouteTableId"))
+		}
+	}
+
+	// CreateConfig is not valid for shoot-level TGW (only seed can auto-create).
+	if tgw.CreateConfig != nil {
+		allErrs = append(allErrs, field.Forbidden(fldPath.Child("createConfig"), "createConfig is only valid at the seed level"))
+	}
+
+	// GlobalVPCs are not valid for shoot-level TGW (only seed manages globalVPCs).
+	if len(tgw.GlobalVPCs) > 0 {
+		allErrs = append(allErrs, field.Forbidden(fldPath.Child("globalVPCs"), "globalVPCs are only valid at the seed level"))
+	}
+
+	return allErrs
+}
+
+// ValidateSeedProviderConfig validates a SeedProviderConfig.
+func ValidateSeedProviderConfig(config *apisaws.SeedProviderConfig) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if config == nil {
+		return allErrs
+	}
+
+	fldPath := field.NewPath("transitGateway")
+	if config.TransitGateway != nil && config.TransitGateway.Enabled {
+		tgw := config.TransitGateway
+
+		// Validate isolationMode and mode-specific field constraints.
+		mode := tgw.IsolationMode
+		if mode != "" && mode != "hub-spoke" && mode != "shared" {
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("isolationMode"), mode, []string{"hub-spoke", "shared"}))
+		}
+		if mode == "shared" {
+			// Hub/spoke RT IDs are allowed alongside shared mode for cross-RT propagation.
+			// When a managed seed VPC stays on the parent seed's spoke RT, child shoots
+			// on the shared RT must propagate to hub+spoke for return traffic routing.
+			if tgw.ID != nil && tgw.RouteTableID == nil {
+				allErrs = append(allErrs, field.Required(fldPath.Child("routeTableId"), "required for referenced TGW in shared mode"))
+			}
+		} else {
+			// hub-spoke mode (default)
+			if tgw.RouteTableID != nil {
+				allErrs = append(allErrs, field.Forbidden(fldPath.Child("routeTableId"), "not allowed in hub-spoke isolation mode — use hubRouteTableId/spokeRouteTableId"))
+			}
+		}
+
+		// Validate cross-account credential references.
+		if tgw.TransitGatewayCredentialsRef != nil {
+			allErrs = append(allErrs, validateCredentialsRef(tgw.TransitGatewayCredentialsRef, fldPath.Child("transitGatewayCredentialsRef"))...)
+		}
+		if tgw.SeedVPCCredentialsRef != nil {
+			allErrs = append(allErrs, validateCredentialsRef(tgw.SeedVPCCredentialsRef, fldPath.Child("seedVPCCredentialsRef"))...)
+		}
+
+		// Validate globalVPCs.
+		seenAttachmentIDs := sets.New[string]()
+		seenNames := sets.New[string]()
+		for i, gvpc := range tgw.GlobalVPCs {
+			gvpcPath := fldPath.Child("globalVPCs").Index(i)
+			if gvpc.Name == "" {
+				allErrs = append(allErrs, field.Required(gvpcPath.Child("name"), "globalVPC must have a name"))
+			} else if seenNames.Has(gvpc.Name) {
+				allErrs = append(allErrs, field.Duplicate(gvpcPath.Child("name"), gvpc.Name))
+			} else {
+				seenNames.Insert(gvpc.Name)
+			}
+			// Exactly one of attachmentId (referenced) or vpcId (managed) must be set.
+			hasAttachment := gvpc.AttachmentID != nil && *gvpc.AttachmentID != ""
+			hasVpcID := gvpc.VpcID != nil && *gvpc.VpcID != ""
+			if hasAttachment && hasVpcID {
+				allErrs = append(allErrs, field.Forbidden(gvpcPath, "exactly one of attachmentId or vpcId must be set, not both"))
+			} else if !hasAttachment && !hasVpcID {
+				allErrs = append(allErrs, field.Required(gvpcPath, "exactly one of attachmentId or vpcId must be set"))
+			}
+
+			// Referenced mode validation.
+			if hasAttachment {
+				if seenAttachmentIDs.Has(*gvpc.AttachmentID) {
+					allErrs = append(allErrs, field.Duplicate(gvpcPath.Child("attachmentId"), *gvpc.AttachmentID))
+				} else {
+					seenAttachmentIDs.Insert(*gvpc.AttachmentID)
+				}
+				if len(gvpc.SubnetIDs) > 0 {
+					allErrs = append(allErrs, field.Forbidden(gvpcPath.Child("subnetIds"), "subnetIds must not be set in referenced mode (attachmentId is set)"))
+				}
+			}
+
+			// Managed mode validation.
+			// SubnetIDs are optional when vpcId is set — auto-discovered from private subnets.
+			// No validation needed for hasVpcID — extension auto-discovers subnets if empty.
+
+			// CredentialsRef validation (optional, for cross-account).
+			if gvpc.CredentialsRef != nil {
+				allErrs = append(allErrs, validateCredentialsRef(gvpc.CredentialsRef, gvpcPath.Child("credentialsRef"))...)
+			}
+
+			// Validate CIDRs and check for overlaps with other globalVPCs.
+			for ci, cidr := range gvpc.CIDRs {
+				cidrPath := gvpcPath.Child("cidrs").Index(ci)
+				_, ipNet, err := net.ParseCIDR(cidr)
+				if err != nil {
+					allErrs = append(allErrs, field.Invalid(cidrPath, cidr, "must be a valid CIDR"))
+					continue
+				}
+				// Check for overlap with CIDRs from earlier globalVPCs.
+				for j := 0; j < i; j++ {
+					for _, otherCIDR := range tgw.GlobalVPCs[j].CIDRs {
+						_, otherNet, err := net.ParseCIDR(otherCIDR)
+						if err != nil {
+							continue // already reported above
+						}
+						if ipNet.Contains(otherNet.IP) || otherNet.Contains(ipNet.IP) {
+							allErrs = append(allErrs, field.Forbidden(cidrPath,
+								fmt.Sprintf("CIDR %s overlaps with %s from globalVPC %q", cidr, otherCIDR, tgw.GlobalVPCs[j].Name)))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Validate globalCustomRoutes.
+	allErrs = append(allErrs, ValidateCustomRoutes(field.NewPath("globalCustomRoutes"), config.GlobalCustomRoutes)...)
+
+	// Cross-validate: globalVPC CIDRs must not conflict with globalCustomRoutes destinations.
+	if config.TransitGateway != nil && config.TransitGateway.Enabled {
+		globalRouteCIDRs := sets.New[string]()
+		for _, r := range config.GlobalCustomRoutes {
+			if r.DestinationCidrBlock != nil {
+				globalRouteCIDRs.Insert(*r.DestinationCidrBlock)
+			}
+		}
+		for i, gvpc := range config.TransitGateway.GlobalVPCs {
+			for ci, cidr := range gvpc.CIDRs {
+				if globalRouteCIDRs.Has(cidr) {
+					allErrs = append(allErrs, field.Forbidden(
+						fldPath.Child("globalVPCs").Index(i).Child("cidrs").Index(ci),
+						fmt.Sprintf("CIDR %s conflicts with a globalCustomRoutes destination", cidr)))
+				}
+			}
+		}
+	}
+
+	return allErrs
+}
+
+// ValidateCustomRoutesAgainstGlobalRoutes checks that shoot-level customRoutes
+// don't conflict with seed-level globalCustomRoutes.
+// A conflict is any route with the same destination CIDR.
+func ValidateCustomRoutesAgainstGlobalRoutes(fldPath *field.Path, shootRoutes, globalRoutes []apisaws.CustomRoute) field.ErrorList {
+	allErrs := field.ErrorList{}
+	if len(shootRoutes) == 0 || len(globalRoutes) == 0 {
+		return allErrs
+	}
+
+	globalCIDRs := sets.New[string]()
+	globalPrefixLists := sets.New[string]()
+	for _, gr := range globalRoutes {
+		if gr.DestinationCidrBlock != nil {
+			globalCIDRs.Insert(*gr.DestinationCidrBlock)
+		}
+		if gr.DestinationPrefixListId != nil {
+			globalPrefixLists.Insert(*gr.DestinationPrefixListId)
+		}
+	}
+
+	for i, sr := range shootRoutes {
+		idxPath := fldPath.Index(i)
+		if sr.DestinationCidrBlock != nil && globalCIDRs.Has(*sr.DestinationCidrBlock) {
+			allErrs = append(allErrs, field.Forbidden(idxPath.Child("destinationCidrBlock"),
+				fmt.Sprintf("conflicts with seed-level globalCustomRoutes destination %s", *sr.DestinationCidrBlock)))
+		}
+		if sr.DestinationPrefixListId != nil && globalPrefixLists.Has(*sr.DestinationPrefixListId) {
+			allErrs = append(allErrs, field.Forbidden(idxPath.Child("destinationPrefixListId"),
+				fmt.Sprintf("conflicts with seed-level globalCustomRoutes prefix list %s", *sr.DestinationPrefixListId)))
+		}
+	}
+	return allErrs
+}
+
+// validateCredentialsRef validates a GlobalVPCCredentialsRef. Three modes:
+//  1. Secret only (name+namespace): static keys used directly.
+//  2. AssumeRole only (assumeRoleARN): shoot's own creds → sts:AssumeRole.
+//  3. Secret + AssumeRole (both): secret's keys → sts:AssumeRole.
+//
+// At least one of secret ref or assumeRoleARN must be set.
+// If secret ref is partially set (name without namespace), that's an error.
+func validateCredentialsRef(ref *apisaws.GlobalVPCCredentialsRef, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+
+	hasSecretRef := ref.Name != "" || ref.Namespace != ""
+	hasAssumeRole := ref.AssumeRoleARN != nil && *ref.AssumeRoleARN != ""
+
+	if hasSecretRef {
+		// Modes 1 and 3: secret ref requires both name and namespace.
+		if ref.Name == "" {
+			allErrs = append(allErrs, field.Required(fldPath.Child("name"), "secret name required when namespace is set"))
+		}
+		if ref.Namespace == "" {
+			allErrs = append(allErrs, field.Required(fldPath.Child("namespace"), "secret namespace required when name is set"))
+		}
+	} else if !hasAssumeRole {
+		// Neither mode: must have at least one.
+		allErrs = append(allErrs, field.Required(fldPath, "at least one of name/namespace (secret ref) or assumeRoleARN (STS assume role) must be set"))
+	}
+	// Mode 2 (assumeRoleARN only) and Mode 3 (both) are valid without additional checks.
+	// ExternalID is always optional.
+
 	return allErrs
 }

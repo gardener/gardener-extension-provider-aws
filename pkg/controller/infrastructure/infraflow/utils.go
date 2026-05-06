@@ -224,6 +224,17 @@ func isNATGatewayDeletingOrFailed(nat *awsclient.NATGateway) bool {
 	return strings.EqualFold(nat.State, string(ec2types.StateDeleting)) || strings.EqualFold(nat.State, string(ec2types.StateFailed))
 }
 
+// isAttachmentTerminal returns true if the TGW VPC attachment is in a terminal
+// state and should not be reused. AWS may return these from Get/Find calls
+// before fully purging them.
+func isAttachmentTerminal(state string) bool {
+	switch strings.ToLower(state) {
+	case "deleting", "deleted", "failed", "rejected", "rejecting", "failing":
+		return true
+	}
+	return false
+}
+
 func mmap[T any, R any](in []T, f func(t T) R) []R {
 	res := make([]R, 0, len(in))
 	for _, v := range in {
@@ -336,6 +347,22 @@ func BuildInfrastructureStatus(
 
 	if efsID != "" {
 		status.ElasticFileSystem.ID = efsID
+	}
+
+	// TGW status — populate from state if any TGW keys exist.
+	tgwID := state.Get(IdentifierTransitGatewayID)
+	tgwAttachment := state.Get(IdentifierTransitGatewayAttachment)
+	tgwHubRT := state.Get(IdentifierTransitGatewayHubRouteTable)
+	tgwSpokeRT := state.Get(IdentifierTransitGatewaySpokeRouteTable)
+	tgwShootAttachment := state.Get(IdentifierShootTransitGatewayAttachment)
+	if tgwID != nil || tgwAttachment != nil || tgwShootAttachment != nil || tgwHubRT != nil || tgwSpokeRT != nil {
+		status.TransitGateway = &awsv1alpha1.TransitGatewayStatus{
+			ID:                tgwID,
+			HubRouteTableID:   tgwHubRT,
+			SpokeRouteTableID: tgwSpokeRT,
+			AttachmentID:      tgwAttachment,
+			ShootAttachmentID: tgwShootAttachment,
+		}
 	}
 
 	return status

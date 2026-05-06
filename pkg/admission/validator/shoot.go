@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
+	apihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
@@ -111,6 +112,75 @@ func (s *shoot) validateShoot(ctx context.Context, shoot *core.Shoot) error {
 	}
 
 	allErrs = append(allErrs, awsvalidation.ValidateInfrastructureConfig(infraConfig, shoot.Spec.Networking.IPFamilies, shoot.Spec.Networking.Nodes, shoot.Spec.Networking.Pods, shoot.Spec.Networking.Services)...)
+
+	// Cross-validate against seed config (if seed is known).
+	// Only fetch seed config when needed: shoot has customRoutes, shoot-level TGW, or
+	// seed has TGW enabled (for CIDR overlap validation).
+	needsSeedConfig := len(infraConfig.Networks.CustomRoutes) > 0 ||
+		(infraConfig.Networks.TransitGateway != nil && infraConfig.Networks.TransitGateway.Enabled)
+	if shoot.Spec.SeedName != nil {
+		seed := &gardencorev1beta1.Seed{}
+		if err := s.client.Get(ctx, client.ObjectKey{Name: *shoot.Spec.SeedName}, seed); err == nil {
+			if seedConfig, err := apihelper.SeedProviderConfigFromSeed(seed); err == nil && seedConfig != nil {
+				// Seed has TGW — always need cross-validation for CIDR overlap.
+				if seedConfig.TransitGateway != nil && seedConfig.TransitGateway.Enabled {
+					needsSeedConfig = true
+				}
+
+				if needsSeedConfig {
+					// Check shoot customRoutes don't conflict with seed globalCustomRoutes.
+					if len(infraConfig.Networks.CustomRoutes) > 0 {
+						allErrs = append(allErrs, awsvalidation.ValidateCustomRoutesAgainstGlobalRoutes(
+							infraConfigPath.Child("networks", "customRoutes"),
+							infraConfig.Networks.CustomRoutes,
+							seedConfig.GlobalCustomRoutes,
+						)...)
+					}
+					// Check shoot TGW ID doesn't duplicate seed TGW ID.
+					if infraConfig.Networks.TransitGateway != nil && infraConfig.Networks.TransitGateway.Enabled &&
+						infraConfig.Networks.TransitGateway.ID != nil &&
+						seedConfig.TransitGateway != nil && seedConfig.TransitGateway.Enabled &&
+						seedConfig.TransitGateway.ID != nil &&
+						*infraConfig.Networks.TransitGateway.ID == *seedConfig.TransitGateway.ID {
+						allErrs = append(allErrs, field.Forbidden(
+							infraConfigPath.Child("networks", "transitGateway", "id"),
+							"shoot-level TGW ID must differ from seed-level TGW ID (same TGW is already attached by the seed)"))
+					}
+				}
+
+				// CIDR overlap validation: check shoot VPC CIDR against all reserved CIDRs
+				// in the TGW routing domain (other shoots, globalVPCs, seed nodes, runtime VPC).
+				// Only runs when the seed has TGW enabled.
+				if seedConfig.TransitGateway != nil && seedConfig.TransitGateway.Enabled &&
+					shoot.Spec.Networking != nil && shoot.Spec.Networking.Nodes != nil {
+					existingShoots := s.listShootNodesCIDRsOnSeed(ctx, *shoot.Spec.SeedName)
+					seedNodesCIDR := ""
+					if seed.Spec.Networks.Nodes != nil {
+						seedNodesCIDR = *seed.Spec.Networks.Nodes
+					}
+					// Look up the runtime VPC CIDR from the parent seed.
+					// The seed shoot runs on a parent seed.
+					// Find the parent by looking up which seed runs this seed's shoot.
+					runtimeVPCCIDR := s.lookupRuntimeVPCCIDR(ctx, *shoot.Spec.SeedName)
+					reserved := awsvalidation.BuildReservedCIDRs(
+						*shoot.Spec.SeedName, seedConfig, seedNodesCIDR,
+						runtimeVPCCIDR, existingShoots, shoot.Name,
+					)
+					// Phase 2: add reserved CIDRs from other TGW-enabled seeds.
+					reserved = append(reserved, s.buildCrossSeedReservedCIDRs(ctx, *shoot.Spec.SeedName, shoot.Name)...)
+					allErrs = append(allErrs, awsvalidation.ValidateShootCIDROverlap(
+						nwPath.Child("nodes"),
+						*shoot.Spec.Networking.Nodes,
+						shoot.Name,
+						infraConfig.Networks.CustomRoutes,
+						reserved,
+						seedConfig,
+					)...)
+				}
+			}
+		}
+		// If seed lookup fails, skip cross-validation — reconciler will catch conflicts.
+	}
 
 	// ControlPlaneConfig
 	if shoot.Spec.Provider.ControlPlaneConfig != nil {
@@ -300,4 +370,114 @@ func (s *shoot) validateDNS(ctx context.Context, shoot *core.Shoot) field.ErrorL
 	}
 
 	return allErrs
+}
+
+// lookupRuntimeVPCCIDR finds the runtime VPC CIDR by looking up the parent seed.
+// The managed seed is a shoot on a parent seed.
+// The parent seed's nodes CIDR is the runtime VPC CIDR.
+func (s *shoot) lookupRuntimeVPCCIDR(ctx context.Context, seedName string) string {
+	// Find the shoot that became this seed (shoot name = seed name).
+	seedShoot := &gardencorev1beta1.Shoot{}
+	if err := s.client.Get(ctx, client.ObjectKey{Namespace: "garden", Name: seedName}, seedShoot); err != nil {
+		return ""
+	}
+	if seedShoot.Spec.SeedName == nil {
+		return ""
+	}
+	// Get the parent seed's nodes CIDR.
+	parentSeed := &gardencorev1beta1.Seed{}
+	if err := s.client.Get(ctx, client.ObjectKey{Name: *seedShoot.Spec.SeedName}, parentSeed); err != nil {
+		return ""
+	}
+	if parentSeed.Spec.Networks.Nodes != nil {
+		return *parentSeed.Spec.Networks.Nodes
+	}
+	return ""
+}
+
+// listShootNodesCIDRsOnSeed returns a map of shootName -> nodesCIDR for all shoots
+// scheduled on the given seed. Uses field selector to filter server-side when available.
+func (s *shoot) listShootNodesCIDRsOnSeed(ctx context.Context, seedName string) map[string]string {
+	result := make(map[string]string)
+	shootList := &gardencorev1beta1.ShootList{}
+	// Use field selector to filter by seedName server-side (Gardener API supports this index).
+	if err := s.client.List(ctx, shootList, client.MatchingFields{"spec.seedName": seedName}); err != nil {
+		// Fallback: list all and filter client-side if field selector not supported.
+		if err := s.client.List(ctx, shootList); err != nil {
+			return result
+		}
+		for _, sh := range shootList.Items {
+			if sh.Spec.SeedName != nil && *sh.Spec.SeedName == seedName {
+				if sh.Spec.Networking != nil && sh.Spec.Networking.Nodes != nil {
+					result[sh.Name] = *sh.Spec.Networking.Nodes
+				}
+			}
+		}
+		return result
+	}
+	for _, sh := range shootList.Items {
+		if sh.Spec.Networking != nil && sh.Spec.Networking.Nodes != nil {
+			result[sh.Name] = *sh.Spec.Networking.Nodes
+		}
+	}
+	return result
+}
+
+// buildCrossSeedReservedCIDRs collects reserved CIDRs from ALL TGW-enabled seeds,
+// not just the target seed. This prevents CIDR overlaps when multiple seeds share
+// globalVPCs or TGW routing infrastructure.
+func (s *shoot) buildCrossSeedReservedCIDRs(ctx context.Context, targetSeedName, currentShootName string) []awsvalidation.ReservedCIDR {
+	var reserved []awsvalidation.ReservedCIDR
+
+	seedList := &gardencorev1beta1.SeedList{}
+	if err := s.client.List(ctx, seedList); err != nil {
+		return reserved
+	}
+
+	for _, seed := range seedList.Items {
+		if seed.Name == targetSeedName {
+			continue // Target seed is already handled by BuildReservedCIDRs.
+		}
+		seedConfig, err := apihelper.SeedProviderConfigFromSeed(&seed)
+		if err != nil || seedConfig == nil || seedConfig.TransitGateway == nil || !seedConfig.TransitGateway.Enabled {
+			continue // Not a TGW-enabled seed.
+		}
+
+		// Add this seed's node CIDR — but skip if this seed IS the current shoot
+		// (ManagedSeed shoots have the same name as their seed, and their VPC CIDR
+		// equals the seed's spec.networks.nodes).
+		if seed.Spec.Networks.Nodes != nil && seed.Name != currentShootName {
+			reserved = append(reserved, awsvalidation.ReservedCIDR{
+				CIDR:   *seed.Spec.Networks.Nodes,
+				Owner:  seed.Name,
+				Reason: "seed nodes (cross-seed)",
+			})
+		}
+
+		// Add this seed's globalVPC CIDRs.
+		for _, gvpc := range seedConfig.TransitGateway.GlobalVPCs {
+			for _, cidr := range gvpc.CIDRs {
+				reserved = append(reserved, awsvalidation.ReservedCIDR{
+					CIDR:   cidr,
+					Owner:  fmt.Sprintf("globalVPC %q on seed %s", gvpc.Name, seed.Name),
+					Reason: "globalVPC (cross-seed)",
+				})
+			}
+		}
+
+		// Add shoots on this seed.
+		existingShoots := s.listShootNodesCIDRsOnSeed(ctx, seed.Name)
+		for shootName, cidr := range existingShoots {
+			if shootName == currentShootName || cidr == "" {
+				continue
+			}
+			reserved = append(reserved, awsvalidation.ReservedCIDR{
+				CIDR:   cidr,
+				Owner:  fmt.Sprintf("shoot %q on seed %s", shootName, seed.Name),
+				Reason: "shoot VPC CIDR (cross-seed)",
+			})
+		}
+	}
+
+	return reserved
 }

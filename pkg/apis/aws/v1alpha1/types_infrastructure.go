@@ -68,6 +68,28 @@ type InfrastructureStatus struct {
 	VPC VPCStatus `json:"vpc"`
 	// ElasticFileSystem contains information about the created ElasticFileSystem.
 	ElasticFileSystem ElasticFileSystemStatus `json:"elasticFileSystem,omitempty"`
+	// TransitGateway contains information about the TGW resources used by this shoot.
+	// +optional
+	TransitGateway *TransitGatewayStatus `json:"transitGateway,omitempty"`
+}
+
+// TransitGatewayStatus contains information about TGW resources for a shoot.
+type TransitGatewayStatus struct {
+	// ID is the Transit Gateway ID (referenced or auto-created).
+	// +optional
+	ID *string `json:"id,omitempty"`
+	// HubRouteTableID is the hub TGW route table ID.
+	// +optional
+	HubRouteTableID *string `json:"hubRouteTableId,omitempty"`
+	// SpokeRouteTableID is the spoke TGW route table ID.
+	// +optional
+	SpokeRouteTableID *string `json:"spokeRouteTableId,omitempty"`
+	// AttachmentID is the seed-level TGW VPC attachment ID.
+	// +optional
+	AttachmentID *string `json:"attachmentId,omitempty"`
+	// ShootAttachmentID is the shoot-level TGW VPC attachment ID (if configured).
+	// +optional
+	ShootAttachmentID *string `json:"shootAttachmentId,omitempty"`
 }
 
 // Networks holds information about the Kubernetes and infrastructure networks.
@@ -76,6 +98,18 @@ type Networks struct {
 	VPC VPC `json:"vpc"`
 	// Zones belonging to the same region
 	Zones []Zone `json:"zones"`
+
+	// TransitGateway configures this shoot's own TGW connection, independent
+	// of the seed's platform TGW. This is additive — the shoot gets both
+	// the seed TGW attachment (if seed has one) and this shoot-level attachment.
+	// +optional
+	TransitGateway *TransitGateway `json:"transitGateway,omitempty"`
+
+	// CustomRoutes are additional routes added to this shoot's zone route tables.
+	// Merged with the seed's globalCustomRoutes (global applied first).
+	// Must not conflict with global routes — conflicts are rejected at validation.
+	// +optional
+	CustomRoutes []CustomRoute `json:"customRoutes,omitempty"`
 }
 
 // IgnoreTags holds information about ignored resource tags.

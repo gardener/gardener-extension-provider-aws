@@ -93,6 +93,7 @@ type Interface interface {
 	DeleteVpc(ctx context.Context, id string) error
 	GetVpc(ctx context.Context, id string) (*VPC, error)
 	FindVpcsByTags(ctx context.Context, tags Tags) ([]*VPC, error)
+	FindVpcsByFilters(ctx context.Context, filters []ec2types.Filter) ([]*VPC, error)
 
 	// Security groups
 	CreateSecurityGroup(ctx context.Context, sg *SecurityGroup) (*SecurityGroup, error)
@@ -127,9 +128,15 @@ type Interface interface {
 	CreateRouteTable(ctx context.Context, routeTable *RouteTable) (*RouteTable, error)
 	GetRouteTable(ctx context.Context, id string) (*RouteTable, error)
 	FindRouteTablesByTags(ctx context.Context, tags Tags) ([]*RouteTable, error)
+	FindRouteTablesByFilters(ctx context.Context, filters []ec2types.Filter) ([]*RouteTable, error)
 	DeleteRouteTable(ctx context.Context, id string) error
 	CreateRoute(ctx context.Context, routeTableId string, route *Route) error
 	DeleteRoute(ctx context.Context, routeTableId string, route *Route) error
+	// ReplaceRoute updates an existing route's target in a single AWS API call
+	// (atomic). Prefer over DeleteRoute+CreateRoute when changing the target of
+	// an existing route — Delete+Create has a brief routing gap that breaks
+	// connectivity during TGW switches; ReplaceRoute does not.
+	ReplaceRoute(ctx context.Context, routeTableId string, route *Route) error
 
 	// Subnets
 	CreateSubnet(ctx context.Context, subnet *Subnet, maxWaitDur time.Duration) (*Subnet, error)
@@ -195,6 +202,36 @@ type Interface interface {
 	CreateEC2Tags(ctx context.Context, resources []string, tags Tags) error
 	DeleteEC2Tags(ctx context.Context, resources []string, tags Tags) error
 
+	// Transit Gateway
+	CreateTransitGateway(ctx context.Context, tgw *TransitGateway) (*TransitGateway, error)
+	GetTransitGateway(ctx context.Context, id string) (*TransitGateway, error)
+	FindTransitGatewaysByTags(ctx context.Context, tags Tags) ([]*TransitGateway, error)
+	DeleteTransitGateway(ctx context.Context, id string) error
+	ModifyTransitGateway(ctx context.Context, id string, options *TransitGatewayCreateOptions) error
+	GetTransitGatewayRouteTable(ctx context.Context, id string) (*TransitGatewayRouteTableInfo, error)
+	FindTransitGatewayRouteTablesByTags(ctx context.Context, tags Tags) ([]*TransitGatewayRouteTableInfo, error)
+	CreateTransitGatewayRouteTable(ctx context.Context, transitGatewayId string, tags Tags) (*TransitGatewayRouteTableInfo, error)
+	DeleteTransitGatewayRouteTable(ctx context.Context, id string) error
+
+	// Transit Gateway VPC Attachments
+	CreateTransitGatewayVPCAttachment(ctx context.Context, attachment *TransitGatewayVPCAttachment) (*TransitGatewayVPCAttachment, error)
+	GetTransitGatewayVPCAttachment(ctx context.Context, id string) (*TransitGatewayVPCAttachment, error)
+	FindTransitGatewayVPCAttachmentsByTags(ctx context.Context, tags Tags) ([]*TransitGatewayVPCAttachment, error)
+	DeleteTransitGatewayVPCAttachment(ctx context.Context, id string) error
+	ListTransitGatewayVPCAttachments(ctx context.Context, transitGatewayId string) ([]*TransitGatewayVPCAttachment, error)
+
+	// Transit Gateway Route Table operations
+	GetTransitGatewayAttachmentAssociation(ctx context.Context, transitGatewayAttachmentId string) (string, error)
+	AssociateTransitGatewayRouteTable(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error
+	AssociateTransitGatewayRouteTableStrict(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error
+	DisassociateTransitGatewayRouteTable(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error
+	EnableTransitGatewayRouteTablePropagation(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error
+	DisableTransitGatewayRouteTablePropagation(ctx context.Context, transitGatewayRouteTableId, transitGatewayAttachmentId string) error
+	WaitForTransitGatewayAvailable(ctx context.Context, id string) error
+	WaitForTransitGatewayVPCAttachmentAvailable(ctx context.Context, id string) error
+	WaitForTransitGatewayVPCAttachmentDeleted(ctx context.Context, id string) error
+	FindTransitGatewayVPCAttachments(ctx context.Context, transitGatewayID, vpcID string) ([]*TransitGatewayVPCAttachment, error)
+
 	// Efs
 	GetFileSystem(ctx context.Context, fileSystemID string) (*ElasticFileSystem, error)
 	FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*ElasticFileSystem, error)
@@ -203,6 +240,19 @@ type Interface interface {
 	GetMountTargetsEfs(ctx context.Context, fileSystemID string) (*efs.DescribeMountTargetsOutput, error)
 	CreateMountTargetEfs(ctx context.Context, input MountTargetEFS) (string, error)
 	DeleteMountTargetEfs(ctx context.Context, mountTargetID string) error
+
+	// NLB (Network Load Balancer)
+	ListNLBs(ctx context.Context) ([]NLBInfo, error)
+	DeleteNLB(ctx context.Context, arn string) error
+}
+
+// NLBInfo contains metadata about a Network Load Balancer.
+type NLBInfo struct {
+	Name    string
+	ARN     string
+	Scheme  string // "internet-facing" or "internal"
+	VpcId   string
+	DNSName string
 }
 
 // Factory creates instances of Interface.
@@ -486,6 +536,10 @@ type Route struct {
 	NatGatewayId                *string
 	EgressOnlyInternetGatewayId *string
 	DestinationPrefixListId     *string
+	TransitGatewayId            *string
+	VpcPeeringConnectionId      *string
+	NetworkInterfaceId          *string
+	State                       *string // "active" or "blackhole"
 }
 
 // DestinationId returns the destination id of the route.
@@ -601,6 +655,58 @@ type MountTargetEFS struct {
 	SecurityGroupIDs []string
 	FileSystemID     string
 	IpAddressType    string
+}
+
+// TransitGatewayCreateOptions contains optional parameters for TGW creation.
+type TransitGatewayCreateOptions struct {
+	AmazonSideAsn               *int64
+	EnableDefaultAssociation    bool
+	EnableDefaultPropagation    bool
+	AutoAcceptSharedAttachments bool
+}
+
+// TransitGateway contains the relevant fields for an AWS Transit Gateway.
+type TransitGateway struct {
+	TransitGatewayId string
+	State            string
+	CreateOptions    *TransitGatewayCreateOptions
+	// DefaultRouteTablePropagation is the current value from TGW Options ("enable"/"disable").
+	DefaultRouteTablePropagation string
+	// DefaultRouteTableAssociation is the current value from TGW Options ("enable"/"disable").
+	DefaultRouteTableAssociation string
+	Tags
+}
+
+// TransitGatewayRouteTableInfo contains the relevant fields for a TGW route table.
+type TransitGatewayRouteTableInfo struct {
+	TransitGatewayRouteTableId string
+	TransitGatewayId           string
+	State                      string
+	Tags
+}
+
+// TransitGatewayVPCAttachment contains the relevant fields for a TGW VPC attachment.
+type TransitGatewayVPCAttachment struct {
+	TransitGatewayAttachmentId string
+	TransitGatewayId           string
+	VpcId                      string
+	SubnetIds                  []string
+	State                      string
+	Tags
+}
+
+// TransitGatewayRouteTableAssociation tracks an association between an attachment and a TGW route table.
+type TransitGatewayRouteTableAssociation struct {
+	TransitGatewayRouteTableId string
+	TransitGatewayAttachmentId string
+	State                      string
+}
+
+// TransitGatewayRouteTablePropagation tracks a propagation from an attachment to a TGW route table.
+type TransitGatewayRouteTablePropagation struct {
+	TransitGatewayRouteTableId string
+	TransitGatewayAttachmentId string
+	State                      string
 }
 
 // GetAWSAPIErrorCode return error code of AWS api error.

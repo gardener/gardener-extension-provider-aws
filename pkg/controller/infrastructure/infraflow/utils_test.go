@@ -9,8 +9,10 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/ptr"
 
+	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
 
 var _ = Describe("FindExisting", func() {
@@ -135,5 +137,59 @@ var _ = Describe("FindExisting", func() {
 				Expect(*res).To(Equal("baz-copy"))
 			})
 		})
+	})
+})
+
+var _ = Describe("BuildInfrastructureStatus", func() {
+	It("should not set TransitGateway when no TGW state keys exist", func() {
+		wb := shared.NewWhiteboard()
+		wb.Set(IdentifierVPC, "vpc-123")
+
+		status := BuildInfrastructureStatus(wb, nil)
+		Expect(status.TransitGateway).To(BeNil())
+	})
+
+	It("should populate TransitGateway when TGW ID exists in state", func() {
+		wb := shared.NewWhiteboard()
+		wb.Set(IdentifierVPC, "vpc-123")
+		wb.Set(IdentifierTransitGatewayID, "tgw-123")
+		wb.Set(IdentifierTransitGatewayHubRouteTable, "tgw-rtb-hub")
+		wb.Set(IdentifierTransitGatewaySpokeRouteTable, "tgw-rtb-spoke")
+		wb.Set(IdentifierTransitGatewayAttachment, "tgw-attach-1")
+
+		status := BuildInfrastructureStatus(wb, nil)
+		Expect(status.TransitGateway).NotTo(BeNil())
+		Expect(*status.TransitGateway.ID).To(Equal("tgw-123"))
+		Expect(*status.TransitGateway.HubRouteTableID).To(Equal("tgw-rtb-hub"))
+		Expect(*status.TransitGateway.SpokeRouteTableID).To(Equal("tgw-rtb-spoke"))
+		Expect(*status.TransitGateway.AttachmentID).To(Equal("tgw-attach-1"))
+		Expect(status.TransitGateway.ShootAttachmentID).To(BeNil())
+	})
+
+	It("should populate ShootAttachmentID when present", func() {
+		wb := shared.NewWhiteboard()
+		wb.Set(IdentifierVPC, "vpc-123")
+		wb.Set(IdentifierShootTransitGatewayAttachment, "tgw-attach-shoot")
+
+		status := BuildInfrastructureStatus(wb, nil)
+		Expect(status.TransitGateway).NotTo(BeNil())
+		Expect(*status.TransitGateway.ShootAttachmentID).To(Equal("tgw-attach-shoot"))
+	})
+
+	It("should populate TransitGateway when only route tables exist", func() {
+		wb := shared.NewWhiteboard()
+		wb.Set(IdentifierVPC, "vpc-123")
+		wb.Set(IdentifierTransitGatewayHubRouteTable, "tgw-rtb-hub")
+
+		status := BuildInfrastructureStatus(wb, nil)
+		Expect(status.TransitGateway).NotTo(BeNil())
+		Expect(*status.TransitGateway.HubRouteTableID).To(Equal("tgw-rtb-hub"))
+	})
+
+	It("should include correct TypeMeta", func() {
+		wb := shared.NewWhiteboard()
+		status := BuildInfrastructureStatus(wb, nil)
+		Expect(status.TypeMeta.APIVersion).To(Equal(awsv1alpha1.SchemeGroupVersion.String()))
+		Expect(status.TypeMeta.Kind).To(Equal("InfrastructureStatus"))
 	})
 })
