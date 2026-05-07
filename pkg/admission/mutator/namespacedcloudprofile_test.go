@@ -10,6 +10,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils/test"
 	. "github.com/gardener/gardener/pkg/utils/test/matchers"
 	. "github.com/onsi/ginkgo/v2"
@@ -225,6 +226,163 @@ var _ = Describe("NamespacedCloudProfile Mutator", func() {
 									Regions:      []api.RegionAMIMapping{{Name: "eu3", AMI: "ami-125"}},
 								}},
 							}),
+					}),
+				))
+			})
+		})
+
+		Describe("populate spec.machineImages capabilityFlavors from providerConfig", func() {
+			var parentCloudProfile *v1beta1.CloudProfile
+
+			BeforeEach(func() {
+				parentCloudProfile = &v1beta1.CloudProfile{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "parent-profile",
+					},
+					Spec: v1beta1.CloudProfileSpec{
+						MachineCapabilities: []v1beta1.CapabilityDefinition{
+							{Name: v1beta1constants.ArchitectureName, Values: []string{"amd64", "arm64"}},
+						},
+					},
+				}
+				namespacedCloudProfile.Spec.Parent = v1beta1.CloudProfileReference{
+					Name: "parent-profile",
+					Kind: v1beta1constants.CloudProfileReferenceKindCloudProfile,
+				}
+			})
+
+			It("should populate spec.machineImages capabilityFlavors from old format regions", func() {
+				Expect(fakeClient.Create(ctx, parentCloudProfile)).To(Succeed())
+
+				namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[{"name":"image-1","versions":[
+  {"version":"1.0","regions":[
+    {"name":"eu-west-1","ami":"ami-123","architecture":"amd64"},
+    {"name":"eu-west-1","ami":"ami-456","architecture":"arm64"}
+  ]}
+]}]
+}`)}
+				namespacedCloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
+					{
+						Name: "image-1",
+						Versions: []v1beta1.MachineImageVersion{
+							{ExpirableVersion: v1beta1.ExpirableVersion{Version: "1.0"}},
+						},
+					},
+				}
+
+				Expect(namespacedCloudProfileMutator.Mutate(ctx, namespacedCloudProfile, nil)).To(Succeed())
+
+				// Verify capabilityFlavors were populated on spec.machineImages
+				Expect(namespacedCloudProfile.Spec.MachineImages[0].Versions[0].CapabilityFlavors).To(ConsistOf(
+					v1beta1.MachineImageFlavor{Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"amd64"}}},
+					v1beta1.MachineImageFlavor{Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"arm64"}}},
+				))
+			})
+
+			It("should populate spec.machineImages capabilityFlavors from new format capabilityFlavors", func() {
+				Expect(fakeClient.Create(ctx, parentCloudProfile)).To(Succeed())
+
+				namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[{"name":"image-1","versions":[
+  {"version":"1.0","capabilityFlavors":[
+    {"capabilities":{"architecture":["amd64"]},"regions":[{"name":"eu-west-1","ami":"ami-123"}]},
+    {"capabilities":{"architecture":["arm64"]},"regions":[{"name":"eu-west-1","ami":"ami-456"}]}
+  ]}
+]}]
+}`)}
+				namespacedCloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
+					{
+						Name: "image-1",
+						Versions: []v1beta1.MachineImageVersion{
+							{ExpirableVersion: v1beta1.ExpirableVersion{Version: "1.0"}},
+						},
+					},
+				}
+
+				Expect(namespacedCloudProfileMutator.Mutate(ctx, namespacedCloudProfile, nil)).To(Succeed())
+
+				// Verify capabilityFlavors were populated on spec.machineImages
+				Expect(namespacedCloudProfile.Spec.MachineImages[0].Versions[0].CapabilityFlavors).To(ConsistOf(
+					v1beta1.MachineImageFlavor{Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"amd64"}}},
+					v1beta1.MachineImageFlavor{Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"arm64"}}},
+				))
+			})
+
+			It("should skip spec mutation when parent has no machineCapabilities", func() {
+				parentCloudProfile.Spec.MachineCapabilities = nil
+				Expect(fakeClient.Create(ctx, parentCloudProfile)).To(Succeed())
+
+				namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[{"name":"image-1","versions":[
+  {"version":"1.0","regions":[{"name":"eu-west-1","ami":"ami-123","architecture":"amd64"}]}
+]}]
+}`)}
+				namespacedCloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
+					{
+						Name: "image-1",
+						Versions: []v1beta1.MachineImageVersion{
+							{ExpirableVersion: v1beta1.ExpirableVersion{Version: "1.0"}},
+						},
+					},
+				}
+
+				Expect(namespacedCloudProfileMutator.Mutate(ctx, namespacedCloudProfile, nil)).To(Succeed())
+
+				// capabilityFlavors should NOT be populated
+				Expect(namespacedCloudProfile.Spec.MachineImages[0].Versions[0].CapabilityFlavors).To(BeNil())
+			})
+
+			It("should handle combined spec mutation and status merge", func() {
+				Expect(fakeClient.Create(ctx, parentCloudProfile)).To(Succeed())
+
+				namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[{"name":"image-1","versions":[
+  {"version":"1.1","regions":[{"name":"eu-west-1","ami":"ami-new","architecture":"amd64"}]}
+]}]
+}`)}
+				namespacedCloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
+					{
+						Name: "image-1",
+						Versions: []v1beta1.MachineImageVersion{
+							{ExpirableVersion: v1beta1.ExpirableVersion{Version: "1.1"}},
+						},
+					},
+				}
+				// Set up status so status merge also triggers
+				namespacedCloudProfile.Status.CloudProfileSpec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[{"name":"image-1","versions":[
+  {"version":"1.0","regions":[{"name":"eu-west-1","ami":"ami-old","architecture":"amd64"}]}
+]}]
+}`)}
+
+				Expect(namespacedCloudProfileMutator.Mutate(ctx, namespacedCloudProfile, nil)).To(Succeed())
+
+				// Verify spec mutation happened
+				Expect(namespacedCloudProfile.Spec.MachineImages[0].Versions[0].CapabilityFlavors).To(ConsistOf(
+					v1beta1.MachineImageFlavor{Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"amd64"}}},
+				))
+
+				// Verify status merge happened
+				mergedConfig, err := decodeCloudProfileConfig(decoder, namespacedCloudProfile.Status.CloudProfileSpec.ProviderConfig)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(mergedConfig.MachineImages).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("image-1"),
+						"Versions": ContainElements(
+							api.MachineImageVersion{Version: "1.0", Regions: []api.RegionAMIMapping{{Name: "eu-west-1", AMI: "ami-old", Architecture: ptr.To("amd64")}}},
+							api.MachineImageVersion{Version: "1.1", Regions: []api.RegionAMIMapping{{Name: "eu-west-1", AMI: "ami-new", Architecture: ptr.To("amd64")}}},
+						),
 					}),
 				))
 			})

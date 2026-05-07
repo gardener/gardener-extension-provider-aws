@@ -36,13 +36,13 @@ type namespacedCloudProfile struct {
 }
 
 // Mutate mutates the given NamespacedCloudProfile object.
-func (p *namespacedCloudProfile) Mutate(_ context.Context, newObj, _ client.Object) error {
+func (p *namespacedCloudProfile) Mutate(ctx context.Context, newObj, _ client.Object) error {
 	profile, ok := newObj.(*gardencorev1beta1.NamespacedCloudProfile)
 	if !ok {
 		return fmt.Errorf("wrong object type %T", newObj)
 	}
 
-	if shouldSkipMutation(profile) {
+	if profile.DeletionTimestamp != nil || profile.Spec.ProviderConfig == nil {
 		return nil
 	}
 
@@ -50,23 +50,52 @@ func (p *namespacedCloudProfile) Mutate(_ context.Context, newObj, _ client.Obje
 	if _, _, err := p.decoder.Decode(profile.Spec.ProviderConfig.Raw, nil, specConfig); err != nil {
 		return fmt.Errorf("could not decode providerConfig of namespacedCloudProfile spec for '%s': %w", profile.Name, err)
 	}
-	statusConfig := &v1alpha1.CloudProfileConfig{}
-	if _, _, err := p.decoder.Decode(profile.Status.CloudProfileSpec.ProviderConfig.Raw, nil, statusConfig); err != nil {
-		return fmt.Errorf("could not decode providerConfig of namespacedCloudProfile status for '%s': %w", profile.Name, err)
+
+	// Mutation 1: Populate capabilityFlavors on spec.machineImages (needs parent lookup)
+	if err := p.mutateSpecCapabilityFlavors(ctx, profile, specConfig); err != nil {
+		return err
 	}
 
-	// Merge spec config into status config without format transformation.
-	// Mixed format (old regions with architecture and new capabilityFlavors) is supported per version.
-	statusConfig.MachineImages = mergeMachineImages(specConfig.MachineImages, statusConfig.MachineImages)
+	// Mutation 2: Merge spec providerConfig into status (only when status is ready)
+	if shouldMergeStatus(profile) {
+		statusConfig := &v1alpha1.CloudProfileConfig{}
+		if _, _, err := p.decoder.Decode(profile.Status.CloudProfileSpec.ProviderConfig.Raw, nil, statusConfig); err != nil {
+			return fmt.Errorf("could not decode providerConfig of namespacedCloudProfile status for '%s': %w", profile.Name, err)
+		}
 
-	return p.updateProfileStatus(profile, statusConfig)
+		// Merge spec config into status config without format transformation.
+		// Mixed format (old regions with architecture and new capabilityFlavors) is supported per version.
+		statusConfig.MachineImages = mergeMachineImages(specConfig.MachineImages, statusConfig.MachineImages)
+
+		return p.updateProfileStatus(profile, statusConfig)
+	}
+
+	return nil
 }
 
-func shouldSkipMutation(profile *gardencorev1beta1.NamespacedCloudProfile) bool {
-	return profile.DeletionTimestamp != nil ||
-		profile.Generation != profile.Status.ObservedGeneration ||
-		profile.Spec.ProviderConfig == nil ||
-		profile.Status.CloudProfileSpec.ProviderConfig == nil
+// mutateSpecCapabilityFlavors populates capabilityFlavors on spec.machineImages from providerConfig.
+// This is needed so the Gardener core API server validation passes when machineCapabilities is defined.
+func (p *namespacedCloudProfile) mutateSpecCapabilityFlavors(ctx context.Context, profile *gardencorev1beta1.NamespacedCloudProfile, specConfig *v1alpha1.CloudProfileConfig) error {
+	if profile.Spec.Parent.Name == "" || len(profile.Spec.MachineImages) == 0 {
+		return nil
+	}
+
+	parentProfile := &gardencorev1beta1.CloudProfile{}
+	if err := p.client.Get(ctx, client.ObjectKey{Name: profile.Spec.Parent.Name}, parentProfile); err != nil {
+		return fmt.Errorf("could not get parent CloudProfile %q: %w", profile.Spec.Parent.Name, err)
+	}
+
+	if len(parentProfile.Spec.MachineCapabilities) == 0 {
+		return nil
+	}
+
+	mutateMachineImageCapabilityFlavors(profile.Spec.MachineImages, specConfig)
+	return nil
+}
+
+func shouldMergeStatus(profile *gardencorev1beta1.NamespacedCloudProfile) bool {
+	return profile.Generation == profile.Status.ObservedGeneration &&
+		profile.Status.CloudProfileSpec.ProviderConfig != nil
 }
 
 func (p *namespacedCloudProfile) updateProfileStatus(profile *gardencorev1beta1.NamespacedCloudProfile, config *v1alpha1.CloudProfileConfig) error {

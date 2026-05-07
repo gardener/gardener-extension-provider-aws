@@ -378,6 +378,38 @@ var _ = DescribeTableSubtree("NamespacedCloudProfile Validator", func(isCapabili
 
 			Expect(namespacedCloudProfileValidator.Validate(ctx, namespacedCloudProfile, nil)).To(Succeed())
 		})
+
+		It("should succeed for expirationDate-only override of a parent version without providerConfig entry", func() {
+			cloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
+				{Name: "ubuntu", Versions: []v1beta1.MachineImageVersion{
+					{ExpirableVersion: v1beta1.ExpirableVersion{Version: "22.04"}, Architectures: []string{"amd64"}},
+				}},
+			}
+			if isCapabilitiesCloudProfile {
+				cloudProfile.Spec.MachineImages[0].Versions[0].CapabilityFlavors = []v1beta1.MachineImageFlavor{
+					{Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"amd64"}}},
+				}
+			}
+			cloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[{"name":"ubuntu","versions":[{"version":"22.04","regions":[{"name":"eu1","ami":"ami-123"}]}]}]
+}`)}
+
+			// NCP overrides only the expirationDate, no providerConfig entry for ubuntu
+			namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig"
+}`)}
+			namespacedCloudProfile.Spec.MachineImages = []core.MachineImage{
+				{Name: "ubuntu", Versions: []core.MachineImageVersion{
+					{ExpirableVersion: core.ExpirableVersion{Version: "22.04", ExpirationDate: ptr.To(metav1.Now())}},
+				}},
+			}
+
+			Expect(fakeClient.Create(ctx, cloudProfile)).To(Succeed())
+			Expect(namespacedCloudProfileValidator.Validate(ctx, namespacedCloudProfile, nil)).To(Succeed())
+		})
 	})
 },
 	Entry("CloudProfile uses regions only", false),
@@ -568,6 +600,39 @@ var _ = Describe("NamespacedCloudProfile Validator Mixed Format", func() {
 				"Field":  Equal("spec.providerConfig.machineImages"),
 				"Detail": ContainSubstring("not defined in the NamespacedCloudProfile providerConfig"),
 			}))))
+		})
+
+		It("should succeed for expirationDate-only override of a parent version without providerConfig entry", func() {
+			cloudProfile.Spec.MachineImages = []v1beta1.MachineImage{
+				{Name: "ubuntu", Versions: []v1beta1.MachineImageVersion{
+					{
+						ExpirableVersion:  v1beta1.ExpirableVersion{Version: "22.04"},
+						Architectures:     []string{"amd64"},
+						CapabilityFlavors: []v1beta1.MachineImageFlavor{{Capabilities: v1beta1.Capabilities{v1beta1constants.ArchitectureName: []string{"amd64"}}}},
+					},
+				}},
+			}
+			cloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig",
+"machineImages":[{"name":"ubuntu","versions":[{"version":"22.04","capabilityFlavors":[
+  {"capabilities":{"architecture":["amd64"]},"regions":[{"name":"eu1","ami":"ami-123"}]}
+]}]}]
+}`)}
+
+			// NCP overrides only the expirationDate, no providerConfig entry for ubuntu
+			namespacedCloudProfile.Spec.ProviderConfig = &runtime.RawExtension{Raw: []byte(`{
+"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1",
+"kind":"CloudProfileConfig"
+}`)}
+			namespacedCloudProfile.Spec.MachineImages = []core.MachineImage{
+				{Name: "ubuntu", Versions: []core.MachineImageVersion{
+					{ExpirableVersion: core.ExpirableVersion{Version: "22.04", ExpirationDate: ptr.To(metav1.Now())}},
+				}},
+			}
+
+			Expect(fakeClient.Create(ctx, cloudProfile)).To(Succeed())
+			Expect(namespacedCloudProfileValidator.Validate(ctx, namespacedCloudProfile, nil)).To(Succeed())
 		})
 	})
 })
