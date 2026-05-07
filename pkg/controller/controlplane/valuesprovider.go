@@ -971,45 +971,33 @@ func isMutatingAdmissionPolicyEnabled(cluster *extensionscontroller.Cluster) boo
 		return false
 	}
 
-	// For K8s >= 1.34, MutatingAdmissionPolicy is beta (enabled by default) or GA (>= 1.36).
-	// For beta (>= 1.34 and < 1.36), users can explicitly disable the feature gate.
-	// For GA (>= 1.36), the feature gate is locked on and cannot be disabled.
-	if versionutils.ConstraintK8sGreaterEqual134.Check(k8sVersion) {
-		if constraintK8sGreaterEqual136.Check(k8sVersion) {
-			return true
-		}
-		// Beta: check if user explicitly disabled the feature gate
-		if cluster.Shoot.Spec.Kubernetes.KubeAPIServer != nil &&
-			cluster.Shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates != nil {
-			if enabled, ok := cluster.Shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates["MutatingAdmissionPolicy"]; ok && !enabled {
-				return false
-			}
-		}
+	// For K8s >= 1.36, MutatingAdmissionPolicy is GA (locked on, cannot be disabled).
+	if constraintK8sGreaterEqual136.Check(k8sVersion) {
 		return true
 	}
 
 	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer == nil {
 		return false
 	}
-
 	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates == nil {
 		return false
 	}
-
 	if enabled, ok := cluster.Shoot.Spec.Kubernetes.KubeAPIServer.FeatureGates["MutatingAdmissionPolicy"]; !ok || !enabled {
 		return false
 	}
-
 	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer.RuntimeConfig == nil {
 		return false
 	}
 
 	rc := cluster.Shoot.Spec.Kubernetes.KubeAPIServer.RuntimeConfig
-	if !rc["admissionregistration.k8s.io/v1alpha1"] && !rc["admissionregistration.k8s.io/v1beta1"] {
-		return false
+
+	// For K8s >= 1.34 and < 1.36, MutatingAdmissionPolicy is in beta but disabled by default.
+	// Users must explicitly enable the feature gate and opt in via RuntimeConfig.
+	if versionutils.ConstraintK8sGreaterEqual134.Check(k8sVersion) {
+		return rc["admissionregistration.k8s.io/v1beta1"]
 	}
 
-	return true
+	return rc["admissionregistration.k8s.io/v1alpha1"] || rc["admissionregistration.k8s.io/v1beta1"]
 }
 
 func mutatingAdmissionPolicyAPIVersion(cluster *extensionscontroller.Cluster) string {
