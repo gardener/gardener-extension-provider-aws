@@ -819,17 +819,27 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
 		})
 
-		It("should return true for K8s >= 1.34 without any feature gate or RuntimeConfig (beta)", func() {
+		It("should return false for K8s >= 1.34 and < 1.36 without any feature gate or RuntimeConfig (beta, disabled by default)", func() {
 			testCluster.Shoot.Spec.Kubernetes.Version = "1.34.0"
-			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
 		})
 
-		It("should return true for K8s >= 1.34 even without KubeAPIServer config (beta)", func() {
+		It("should return false for K8s 1.35 without KubeAPIServer config (beta, disabled by default)", func() {
 			testCluster.Shoot.Spec.Kubernetes.Version = "1.35.0"
-			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
 		})
 
-		It("should return false for K8s >= 1.34 and < 1.36 if feature gate is explicitly disabled (beta)", func() {
+		It("should return false for K8s >= 1.34 and < 1.36 if feature gate is not set", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.34.0"
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"SomeOtherGate": true},
+				},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return false for K8s >= 1.34 and < 1.36 if feature gate is explicitly disabled", func() {
 			testCluster.Shoot.Spec.Kubernetes.Version = "1.34.0"
 			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
 				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
@@ -839,14 +849,47 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
 		})
 
-		It("should return false for K8s 1.35 if feature gate is explicitly disabled (beta)", func() {
-			testCluster.Shoot.Spec.Kubernetes.Version = "1.35.0"
+		It("should return false for K8s >= 1.34 and < 1.36 if feature gate is enabled but RuntimeConfig is nil", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.34.0"
 			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
 				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
-					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": false},
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
 				},
 			}
 			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return false for K8s >= 1.34 and < 1.36 if feature gate is enabled but v1beta1 is not in RuntimeConfig", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.35.0"
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
+				},
+				RuntimeConfig: map[string]bool{"some.other/v1": true},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeFalse())
+		})
+
+		It("should return true for K8s >= 1.34 and < 1.36 if feature gate is enabled and v1beta1 is in RuntimeConfig", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.34.0"
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
+				},
+				RuntimeConfig: map[string]bool{"admissionregistration.k8s.io/v1beta1": true},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
+		})
+
+		It("should return true for K8s 1.35 if feature gate is enabled and v1beta1 is in RuntimeConfig", func() {
+			testCluster.Shoot.Spec.Kubernetes.Version = "1.35.0"
+			testCluster.Shoot.Spec.Kubernetes.KubeAPIServer = &gardencorev1beta1.KubeAPIServerConfig{
+				KubernetesConfig: gardencorev1beta1.KubernetesConfig{
+					FeatureGates: map[string]bool{"MutatingAdmissionPolicy": true},
+				},
+				RuntimeConfig: map[string]bool{"admissionregistration.k8s.io/v1beta1": true},
+			}
+			Expect(isMutatingAdmissionPolicyEnabled(testCluster)).To(BeTrue())
 		})
 
 		It("should return true for K8s >= 1.36 even if feature gate is explicitly disabled (GA, locked on)", func() {
