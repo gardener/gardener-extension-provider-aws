@@ -37,7 +37,7 @@ IT_LOGLEVEL := info
 IT_USE_EXISTING_CLUSTER := false # set to true if you want to use an existing cluster for backupbucket integration tests
 
 ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
-	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-$(shell date +%s)-dirty
+	EFFECTIVE_VERSION := $(EFFECTIVE_VERSION)-$(shell { git diff HEAD; git status --porcelain; } | sha256sum | cut -c1-8)-dirty
 endif
 
 #########################################
