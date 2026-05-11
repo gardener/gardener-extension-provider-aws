@@ -22,4 +22,4 @@ spec:
   resources:
     requests:
       memory: "1.5Gi"
-      cpu: "8"
+      cpu: "2"
