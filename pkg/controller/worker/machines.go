@@ -78,7 +78,7 @@ func (w *WorkerDelegate) DeployMachineClasses(ctx context.Context) error {
 		}
 	}
 
-	var secretsTaskFns = make([]flow.TaskFn, 0, len(w.machineClassSecretToMutateFuncMap))
+	secretsTaskFns := make([]flow.TaskFn, 0, len(w.machineClassSecretToMutateFuncMap))
 	for secret, mutateFn := range w.machineClassSecretToMutateFuncMap {
 		secretsTaskFns = append(secretsTaskFns, func(ctx context.Context) error {
 			if _, err := controllerutils.GetAndCreateOrMergePatch(ctx, w.client, secret, mutateFn); err != nil {
@@ -92,11 +92,11 @@ func (w *WorkerDelegate) DeployMachineClasses(ctx context.Context) error {
 		return err
 	}
 
-	var machineClassesTaskFns = make([]flow.TaskFn, 0, len(w.machineClassToMutateFuncMap))
+	machineClassesTaskFns := make([]flow.TaskFn, 0, len(w.machineClassToMutateFuncMap))
 	for machineClass, mutateFn := range w.machineClassToMutateFuncMap {
 		machineClassesTaskFns = append(machineClassesTaskFns, func(ctx context.Context) error {
 			if _, err := controllerutils.GetAndCreateOrMergePatch(ctx, w.client, machineClass, mutateFn); err != nil {
-				return fmt.Errorf("could not deploy MachineClass '%s':  %w", client.ObjectKeyFromObject(machineClass), err)
+				return fmt.Errorf("could not deploy MachineClass '%s': %w", client.ObjectKeyFromObject(machineClass), err)
 			}
 
 			return nil
@@ -270,13 +270,13 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 
 			if workerConfig.CapacityReservation != nil {
 				capacityReservationOpts := *workerConfig.CapacityReservation
-				capacityReserverationCfg := &awsmachineapi.AWSCapacityReservationTargetSpec{
+				capacityReservationCfg := &awsmachineapi.AWSCapacityReservationTargetSpec{
 					CapacityReservationPreference:       ptr.Deref(capacityReservationOpts.CapacityReservationPreference, ""),
 					CapacityReservationID:               capacityReservationOpts.CapacityReservationID,
 					CapacityReservationResourceGroupArn: capacityReservationOpts.CapacityReservationResourceGroupARN,
 				}
 
-				machineClassProviderSpec.CapacityReservationTarget = capacityReserverationCfg
+				machineClassProviderSpec.CapacityReservationTarget = capacityReservationCfg
 			}
 
 			var (

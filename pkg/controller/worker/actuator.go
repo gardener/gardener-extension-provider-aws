@@ -125,7 +125,7 @@ func NewWorkerDelegate(
 	}, nil
 }
 
-// GetMachineClasses returns the islice of machine classes contained inside the worker delegate.
+// GetMachineClasses returns the slice of machine classes contained inside the worker delegate.
 // Introduced for Unit-testing.
 func (w *WorkerDelegate) GetMachineClasses() ([]*machinev1alpha1.MachineClass, error) {
 	var machineClasses = make([]*machinev1alpha1.MachineClass, 0, len(w.machineClassToMutateFuncMap))
