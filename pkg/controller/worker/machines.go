@@ -31,7 +31,6 @@ import (
 	awsmachineapi "github.com/gardener/machine-controller-manager-provider-aws/pkg/aws/apis"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
@@ -230,18 +229,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				machineClassProviderSpec.KeyName = ptr.To(infrastructureStatus.EC2.KeyName)
 			}
 
-			nodeTemplate := &machinev1alpha1.NodeTemplate{
-				Architecture: ptr.To("amd64"),
-				Capacity: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					"GPU":                 resource.MustParse("0"),
-					corev1.ResourceMemory: resource.MustParse("16Gi"),
-				},
-				InstanceType: "m4.xlarge",
-				Region:       "eu-west-1",
-				Zone:         "eu-west-1a",
-			}
-
+			nodeTemplate := &machinev1alpha1.NodeTemplate{}
 			if pool.NodeTemplate != nil {
 				nodeTemplate.Capacity = pool.NodeTemplate.Capacity
 				nodeTemplate.VirtualCapacity = pool.NodeTemplate.VirtualCapacity
@@ -262,9 +250,12 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 
 			if cpuOptions := workerConfig.CpuOptions; cpuOptions != nil {
 				machineClassProviderSpec.CPUOptions = &awsmachineapi.CPUOptions{
-					AmdSevSnp:      cpuOptions.AmdSevSnp,
-					CoreCount:      cpuOptions.CoreCount,
-					ThreadsPerCore: cpuOptions.ThreadsPerCore,
+					AmdSevSnp: cpuOptions.AmdSevSnp,
+				}
+
+				if cpuOptions.CoreCount != nil && cpuOptions.ThreadsPerCore != nil {
+					machineClassProviderSpec.CPUOptions.CoreCount = cpuOptions.CoreCount
+					machineClassProviderSpec.CPUOptions.ThreadsPerCore = cpuOptions.ThreadsPerCore
 				}
 			}
 
