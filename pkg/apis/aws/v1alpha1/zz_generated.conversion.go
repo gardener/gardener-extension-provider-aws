@@ -709,6 +709,7 @@ func Convert_aws_IAMInstanceProfile_To_v1alpha1_IAMInstanceProfile(in *aws.IAMIn
 
 func autoConvert_v1alpha1_IPAMPool_To_aws_IPAMPool(in *IPAMPool, out *aws.IPAMPool, s conversion.Scope) error {
 	out.ID = (*string)(unsafe.Pointer(in.ID))
+	out.CidrBlock = (*string)(unsafe.Pointer(in.CidrBlock))
 	return nil
 }
 
@@ -719,6 +720,7 @@ func Convert_v1alpha1_IPAMPool_To_aws_IPAMPool(in *IPAMPool, out *aws.IPAMPool, 
 
 func autoConvert_aws_IPAMPool_To_v1alpha1_IPAMPool(in *aws.IPAMPool, out *IPAMPool, s conversion.Scope) error {
 	out.ID = (*string)(unsafe.Pointer(in.ID))
+	out.CidrBlock = (*string)(unsafe.Pointer(in.CidrBlock))
 	return nil
 }
 

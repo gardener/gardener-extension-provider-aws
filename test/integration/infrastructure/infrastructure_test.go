@@ -322,7 +322,7 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(scopeID).NotTo(BeEmpty(), "IPAM private default scope must be set")
 
 			By("creating IPAM pool")
-			ipamPoolID, err := integration.CreateIPv6IPAMPool(ctx, awsClient, *region, scopeID, namespace)
+			ipamPoolID, _, err := integration.CreateIPv6IPAMPool(ctx, awsClient, *region, scopeID, namespace)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func() {
 				if ipamPoolID != "" {
@@ -341,6 +341,53 @@ var _ = Describe("Infrastructure tests", func() {
 				ID: ptr.To(ipamPoolID),
 			}
 			Expect(err).NotTo(HaveOccurred())
+
+			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should successfully create and delete with IPv6 with IPAM pool and explicit CIDR", func() {
+			namespace, err := generateNamespaceName()
+			Expect(err).NotTo(HaveOccurred())
+
+			By("retrieve IPAM")
+			ipamID, scopeID, err := integration.GetIPAM(ctx, awsClient)
+			Expect(err).NotTo(HaveOccurred())
+			if ipamID == "" {
+				By("creating IPAM")
+				ipamID, scopeID, err = integration.CreateIPAM(ctx, awsClient, *region, namespace)
+				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(func() {
+					if ipamID != "" {
+						if cleanupErr := integration.DeleteIPAM(ctx, awsClient, ipamID); cleanupErr != nil {
+							Fail(fmt.Sprintf("failed to delete IPAM %s: %v", ipamID, cleanupErr))
+						}
+					}
+				})
+			}
+			Expect(scopeID).NotTo(BeEmpty(), "IPAM private default scope must be set")
+
+			By("creating IPAM pool")
+			ipamPoolID, ipamPoolCIDR, err := integration.CreateIPv6IPAMPool(ctx, awsClient, *region, scopeID, namespace)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				if ipamPoolID != "" {
+					if cleanupErr := integration.DeleteIPAMPool(ctx, awsClient, ipamPoolID); cleanupErr != nil {
+						Fail(fmt.Sprintf("failed to delete IPAM pool %s: %v", ipamPoolID, cleanupErr))
+					}
+				}
+			})
+			Expect(ipamPoolID).NotTo(BeEmpty())
+			Expect(ipamPoolCIDR).NotTo(BeEmpty())
+
+			providerConfig := newProviderConfigConfigureZones(awsv1alpha1.VPC{
+				CIDR:             ptr.To(vpcCIDR),
+				GatewayEndpoints: []string{s3GatewayEndpoint},
+			}, false)
+			providerConfig.Networks.VPC.Ipv6IpamPool = &awsv1alpha1.IPAMPool{
+				ID:        ptr.To(ipamPoolID),
+				CidrBlock: ptr.To(ipamPoolCIDR),
+			}
 
 			err = runTest(ctx, log, c, namespace, providerConfig, decoder, awsClient, []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6})
 			Expect(err).NotTo(HaveOccurred())
@@ -995,6 +1042,9 @@ func verifyCreation(
 	if providerConfig.DualStack.Enabled || isIPv6(ipFamilies) {
 		Expect(describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet).ToNot(BeNil())
 		ipv6CidrBlock = describeVpcsOutput.Vpcs[0].Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
+		if providerConfig.Networks.VPC.Ipv6IpamPool != nil && providerConfig.Networks.VPC.Ipv6IpamPool.CidrBlock != nil {
+			Expect(ipv6CidrBlock).To(PointTo(Equal(*providerConfig.Networks.VPC.Ipv6IpamPool.CidrBlock)))
+		}
 	}
 
 	// dhcp options + dhcp options attachment

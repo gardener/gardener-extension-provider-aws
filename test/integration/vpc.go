@@ -367,7 +367,8 @@ func DeleteIPAM(ctx context.Context, awsClient *awsclient.Client, id string) err
 }
 
 // CreateIPv6IPAMPool creates an IPv6 IPAM pool with tag 'purpose' and value 'integration-test'.
-func CreateIPv6IPAMPool(ctx context.Context, awsClient *awsclient.Client, region, privateScopeID, namespace string) (string, error) {
+// It returns the pool ID and the provisioned /56 CIDR block.
+func CreateIPv6IPAMPool(ctx context.Context, awsClient *awsclient.Client, region, privateScopeID, namespace string) (string, string, error) {
 	// Create new IPAM pool for integration tests
 	createResp, err := awsClient.EC2.CreateIpamPool(ctx, &ec2.CreateIpamPoolInput{
 		Description:   aws.String("aws-infrastructure-it-ipam-pool"),
@@ -381,7 +382,7 @@ func CreateIPv6IPAMPool(ctx context.Context, awsClient *awsclient.Client, region
 		}.ToTagSpecifications(ec2types.ResourceTypeIpamPool),
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	ipamPoolID := aws.ToString(createResp.IpamPool.IpamPoolId)
@@ -405,12 +406,12 @@ func CreateIPv6IPAMPool(ctx context.Context, awsClient *awsclient.Client, region
 		return false, nil
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	// Provision a CIDR to the IPAM pool
-	err = ipamProvisionIPv6CIDR(ctx, awsClient, ipamPoolID)
-	return ipamPoolID, err
+	// Provision a CIDR to the IPAM pool and return it
+	cidr, err := ipamProvisionIPv6CIDR(ctx, awsClient, ipamPoolID)
+	return ipamPoolID, cidr, err
 }
 
 // DeleteIPAMPool deletes an IPv6 IPAM pool with given id.
@@ -422,15 +423,16 @@ func DeleteIPAMPool(ctx context.Context, awsClient *awsclient.Client, id string)
 	return err
 }
 
-func ipamProvisionIPv6CIDR(ctx context.Context, awsClient *awsclient.Client, ipamPoolID string) error {
+func ipamProvisionIPv6CIDR(ctx context.Context, awsClient *awsclient.Client, ipamPoolID string) (string, error) {
 	_, err := awsClient.EC2.ProvisionIpamPoolCidr(ctx, &ec2.ProvisionIpamPoolCidrInput{
 		IpamPoolId:    aws.String(ipamPoolID),
 		NetmaskLength: aws.Int32(56),
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 
+	var provisionedCIDR string
 	ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	err = wait.PollUntilContextCancel(ctxTimeout, 5*time.Second, false, func(_ context.Context) (bool, error) {
@@ -445,6 +447,7 @@ func ipamProvisionIPv6CIDR(ctx context.Context, awsClient *awsclient.Client, ipa
 		}
 		switch out.IpamPoolCidrs[0].State {
 		case ec2types.IpamPoolCidrStateProvisioned:
+			provisionedCIDR = aws.ToString(out.IpamPoolCidrs[0].Cidr)
 			return true, nil
 		case ec2types.IpamPoolCidrStateFailedProvision:
 			return false, fmt.Errorf("IPAM pool CIDR provisioning failed for %s", *out.IpamPoolCidrs[0].Cidr)
@@ -452,5 +455,5 @@ func ipamProvisionIPv6CIDR(ctx context.Context, awsClient *awsclient.Client, ipa
 			return false, nil
 		}
 	})
-	return err
+	return provisionedCIDR, err
 }

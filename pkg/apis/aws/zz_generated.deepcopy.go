@@ -374,6 +374,11 @@ func (in *IPAMPool) DeepCopyInto(out *IPAMPool) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.CidrBlock != nil {
+		in, out := &in.CidrBlock, &out.CidrBlock
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

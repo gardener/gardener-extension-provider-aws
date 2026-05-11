@@ -799,6 +799,9 @@ func IsRetryableIPv6CIDRError(err error) bool {
 
 // CreateVpc creates a VPC resource.
 func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
+	if desired.Ipv6CidrBlock != nil && desired.Ipv6NetmaskLength != nil {
+		return nil, fmt.Errorf("ipv6CidrBlock and ipv6NetmaskLength are mutually exclusive")
+	}
 	input := &ec2.CreateVpcInput{
 		CidrBlock:                   aws.String(desired.CidrBlock),
 		AmazonProvidedIpv6CidrBlock: aws.Bool(desired.AssignGeneratedIPv6CidrBlock),
@@ -806,6 +809,7 @@ func (c *Client) CreateVpc(ctx context.Context, desired *VPC) (*VPC, error) {
 		InstanceTenancy:             desired.InstanceTenancy,
 		Ipv6IpamPoolId:              desired.Ipv6IpamPoolId,
 		Ipv6NetmaskLength:           desired.Ipv6NetmaskLength,
+		Ipv6CidrBlock:               desired.Ipv6CidrBlock,
 	}
 	output, err := c.EC2.CreateVpc(ctx, input)
 	if err != nil {

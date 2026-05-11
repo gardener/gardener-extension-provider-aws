@@ -177,10 +177,38 @@ provider:
 Requirements & notes:
 * The referenced pool must exist in the same AWS account & region as the shoot infrastructure.
 * The pool must be IPv6 and have available capacity for a /56 CIDR; otherwise VPC creation will fail.
-* Only the pool ID is used; the extension currently always requests an IPv6 netmask length of /56 (not configurable yet).
+* The extension always requests an IPv6 netmask length of /56 (not configurable yet).
 * Changing the pool after creation is not supported (VPC IPv6 CIDRs are immutable once associated).
 
 Use this option when you operate centralized IP address management and need deterministic allocation ranges across shoots.
+
+#### Pinning a Specific IPv6 CIDR
+
+When replacing a cluster, AWS Network Load Balancers derive their IPv6 addresses from the VPC's `/56` CIDR. If a new cluster gets a different `/56`, the NLB IPv6 addresses change and any DNS records, firewall rules, or client allowlists that reference those addresses will need to be updated.
+
+To keep NLB IPv6 addresses stable across cluster replacements, you can pin a specific `/56` block from the IPAM pool using the `infrastructureConfig.networks.vpc.ipv6IpamPool.cidrBlock` field. When the replacement cluster is provisioned with the same `/56` (once the previous cluster's VPC has been deleted and returned the block to the pool), the NLBs receive the same IPv6 addresses.
+
+Pinning the `/56` also makes pod egress IP ranges deterministic: in IPv6-only and dual-stack clusters, pods egress to the internet using addresses from the VPC's `/56` via the egress-only internet gateway, so external firewall rules or allowlists that reference pod source IPs by range remain valid across cluster replacements.
+
+```yaml
+provider:
+  type: aws
+  infrastructureConfig:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: InfrastructureConfig
+    networks:
+      vpc:
+        ipv6IpamPool:
+          id: ipam-pool-0123456789abcdef0
+          cidrBlock: "2600:1f13:abcd::/56"
+...
+```
+
+Requirements & notes:
+* `ipv6IpamPool.id` must also be set; `cidrBlock` cannot be used without it.
+* The CIDR must be a `/56` and must be available in the pool at the time of VPC creation.
+* This field is immutable once set.
+* If you use the `service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses` annotation to assign static IPv6 addresses to an NLB, note that those addresses are derived from the VPC's `/56` CIDR. If the underlying `/56` changes (e.g. when replacing a cluster without pinning), the previously assigned addresses will no longer be valid.
 
 ### Migration of IPv4-only Shoot Clusters to Dual-Stack
 

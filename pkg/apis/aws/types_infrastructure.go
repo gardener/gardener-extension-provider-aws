@@ -128,6 +128,10 @@ type VPC struct {
 type IPAMPool struct {
 	// ID is the IPAM pool id.
 	ID *string
+	// CidrBlock is an optional specific IPv6 CIDR block to request from the pool.
+	// When set, the VPC is created with this exact block instead of letting AWS pick one from the pool.
+	// Must be a /56 CIDR. This field is immutable once set.
+	CidrBlock *string
 }
 
 // VPCStatus contains information about a generated VPC or resources inside an existing VPC.

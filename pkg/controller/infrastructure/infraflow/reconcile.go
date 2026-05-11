@@ -209,7 +209,11 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		if c.config.Networks.VPC.Ipv6IpamPool != nil && c.config.Networks.VPC.Ipv6IpamPool.ID != nil {
 			desired.AssignGeneratedIPv6CidrBlock = false
 			desired.Ipv6IpamPoolId = c.config.Networks.VPC.Ipv6IpamPool.ID
-			desired.Ipv6NetmaskLength = ptr.To(int32(defaultIPv6NetmaskSize))
+			if c.config.Networks.VPC.Ipv6IpamPool.CidrBlock != nil {
+				desired.Ipv6CidrBlock = c.config.Networks.VPC.Ipv6IpamPool.CidrBlock
+			} else {
+				desired.Ipv6NetmaskLength = ptr.To[int32](defaultIPv6NetmaskSize)
+			}
 		} else {
 			desired.AssignGeneratedIPv6CidrBlock = true
 		}

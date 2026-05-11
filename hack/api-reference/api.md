@@ -682,6 +682,18 @@ string
 <p>ID is the IPAM pool id.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>cidrBlock</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CidrBlock is an optional specific IPv6 CIDR block to request from the pool.<br />When set, the VPC is created with this exact block instead of letting AWS pick one from the pool.<br />Must be a /56 CIDR. This field is immutable once set.</p>
+</td>
+</tr>
 
 </tbody>
 </table>
