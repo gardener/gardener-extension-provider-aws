@@ -568,5 +568,121 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				Expect(validate(wc)).To(BeEmpty())
 			})
 		})
+
+		Context("NetworkInterfaces validation", func() {
+			validate := func(wc *apisaws.WorkerConfig) field.ErrorList {
+				return ValidateWorkerConfig(wc, nil, nil, fldPath)
+			}
+
+			It("should reject invalid type value", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](0), Type: ptr.To("invalid-type")}}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeNotSupported), "Field": Equal("config.networkInterfaces[0].type")}))))
+			})
+
+			It("should reject efa-only as the first interface", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](0), Type: ptr.To("efa-only")}}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].type")}))))
+			})
+
+			It("should reject networkCardIndex and networkCardIndexRange together", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), NetworkCardIndexRange: &apisaws.IndexRange{From: 1, To: 3}, DeviceIndex: ptr.To[int64](0)}}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Detail": Equal("networkCardIndex and networkCardIndexRange are mutually exclusive")}))))
+			})
+
+			It("should reject negative networkCardIndex", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](-1), DeviceIndex: ptr.To[int64](0)}}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].networkCardIndex")}))))
+			})
+
+			It("should reject negative networkCardIndexRange.from", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndexRange: &apisaws.IndexRange{From: -1, To: 3}, DeviceIndexRange: &apisaws.IndexRange{From: 0, To: 4}}}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].networkCardIndexRange.from")}))))
+			})
+
+			It("should reject networkCardIndexRange from > to", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndexRange: &apisaws.IndexRange{From: 5, To: 1}}}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].networkCardIndexRange")}))))
+			})
+
+			It("should reject deviceIndex and deviceIndexRange together", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndexRange: &apisaws.IndexRange{From: 1, To: 3}, DeviceIndex: ptr.To[int64](1), DeviceIndexRange: &apisaws.IndexRange{From: 1, To: 3}}}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Detail": Equal("deviceIndex and deviceIndexRange are mutually exclusive")}))))
+			})
+
+			It("should reject negative deviceIndex", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](-1)}}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].deviceIndex")}))))
+			})
+
+			It("should reject deviceIndexRange without networkCardIndexRange", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndexRange: &apisaws.IndexRange{From: 0, To: 3}}}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeForbidden), "Field": Equal("config.networkInterfaces[0].deviceIndexRange")}))))
+			})
+
+			It("should reject mismatched range lengths", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndexRange: &apisaws.IndexRange{From: 1, To: 3}, DeviceIndexRange: &apisaws.IndexRange{From: 1, To: 5}}}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].deviceIndexRange"), "Detail": ContainSubstring("same length")}))))
+			})
+
+			It("should reject negative ipv6AddressCount", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](0), Type: ptr.To("efa"), Ipv6AddressCount: ptr.To[int64](-1)}}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].ipv6AddressCount")}))))
+			})
+
+			It("should accept valid config", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{
+					{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](0), Type: ptr.To("efa")},
+					{NetworkCardIndexRange: &apisaws.IndexRange{From: 1, To: 3}, DeviceIndexRange: &apisaws.IndexRange{From: 1, To: 3}, Type: ptr.To("efa-only")},
+				}}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+		})
+
+		Context("InstanceMarketOptions validation", func() {
+			validate := func(wc *apisaws.WorkerConfig) field.ErrorList {
+				return ValidateWorkerConfig(wc, nil, nil, fldPath)
+			}
+
+			It("should reject invalid marketType", func() {
+				wc := &apisaws.WorkerConfig{InstanceMarketOptions: &apisaws.InstanceMarketOptions{MarketType: "invalid"}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeNotSupported), "Field": Equal("config.instanceMarketOptions.marketType")}))))
+			})
+
+			It("should accept valid marketType", func() {
+				wc := &apisaws.WorkerConfig{InstanceMarketOptions: &apisaws.InstanceMarketOptions{MarketType: "capacity-block"}}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+		})
+
+		Context("Placement validation", func() {
+			validate := func(wc *apisaws.WorkerConfig) field.ErrorList {
+				return ValidateWorkerConfig(wc, nil, nil, fldPath)
+			}
+
+			It("should reject invalid tenancy", func() {
+				wc := &apisaws.WorkerConfig{Placement: &apisaws.Placement{Tenancy: ptr.To("invalid")}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeNotSupported), "Field": Equal("config.placement.tenancy")}))))
+			})
+
+			It("should reject invalid affinity", func() {
+				wc := &apisaws.WorkerConfig{Placement: &apisaws.Placement{Affinity: ptr.To("invalid")}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeNotSupported), "Field": Equal("config.placement.affinity")}))))
+			})
+
+			It("should reject hostId without tenancy host", func() {
+				wc := &apisaws.WorkerConfig{Placement: &apisaws.Placement{HostID: ptr.To("h-123")}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeForbidden), "Field": Equal("config.placement.hostId")}))))
+			})
+
+			It("should reject partitionNumber less than 1", func() {
+				wc := &apisaws.WorkerConfig{Placement: &apisaws.Placement{PartitionNumber: ptr.To[int64](0)}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.placement.partitionNumber")}))))
+			})
+
+			It("should accept valid placement", func() {
+				wc := &apisaws.WorkerConfig{Placement: &apisaws.Placement{GroupID: ptr.To("pg-123"), Tenancy: ptr.To("host"), HostID: ptr.To("h-123")}}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+		})
 	})
 })

@@ -808,6 +808,54 @@ ImmutableConfig represents the immutability configuration for a backup bucket.
 </table>
 
 
+<h3 id="indexrange">IndexRange
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#networkinterface">NetworkInterface</a>)
+</p>
+
+<p>
+IndexRange represents an inclusive range of integer indices.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>from</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<p>From is the start of the range (inclusive).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>to</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<p>To is the end of the range (inclusive).</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
 <h3 id="infrastructureconfig">InfrastructureConfig
 </h3>
 
@@ -1004,6 +1052,43 @@ InfrastructureStatus contains information about created infrastructure resources
 </td>
 <td>
 <p>ElasticFileSystem contains information about the created ElasticFileSystem.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="instancemarketoptions">InstanceMarketOptions
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#workerconfig">WorkerConfig</a>)
+</p>
+
+<p>
+InstanceMarketOptions configures the instance market type.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>marketType</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>MarketType is the market type for the instance.<br />Supported values: "spot", "capacity-block", "interruptible-capacity-reservation".</p>
 </td>
 </tr>
 
@@ -1407,6 +1492,176 @@ ModeType defines the type of object lock mode for immutability settings.
 </p>
 
 
+<h3 id="networkinterface">NetworkInterface
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#workerconfig">WorkerConfig</a>)
+</p>
+
+<p>
+NetworkInterface contains configuration for a network interface or range of network interfaces attached to VMs.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>networkCardIndex</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NetworkCardIndex is the index of the network card.<br />Mutually exclusive with NetworkCardIndexRange.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>networkCardIndexRange</code></br>
+<em>
+<a href="#indexrange">IndexRange</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NetworkCardIndexRange is the range of network card indices.<br />Mutually exclusive with NetworkCardIndex.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deviceIndex</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeviceIndex is the device index for the network interface attachment.<br />Mutually exclusive with DeviceIndexRange.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deviceIndexRange</code></br>
+<em>
+<a href="#indexrange">IndexRange</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeviceIndexRange is the range of device indices. Iterates in lockstep with NetworkCardIndexRange.<br />Must have the same length as NetworkCardIndexRange. Mutually exclusive with DeviceIndex.<br />Can only be specified when NetworkCardIndexRange is set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Type is the type of network interface.<br />Currently valid values for EC2 RunInstances: "interface", "efa", "efa-only".<br />See https://github.com/aws/aws-sdk-go-v2/blob/service/ec2/v1.279.0/service/ec2/types/types.go#L9181<br />If not specified, "interface" is used by default.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>description</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Description is a description for the network interface.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>subnetID</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SubnetID is the ID of the subnet to which the network interface should be attached.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>securityGroupIDs</code></br>
+<em>
+string array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SecurityGroupIDs is a list of security group IDs to associate with the network interface.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>associatePublicIPAddress</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AssociatePublicIPAddress indicates whether to associate a public IP address.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteOnTermination</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeleteOnTermination indicates whether the network interface should be deleted when the instance is terminated.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ipv6AddressCount</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Ipv6AddressCount is the number of IPv6 addresses to assign to the network interface.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>primaryIpv6</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PrimaryIpv6 indicates whether the first IPv6 address will be the primary IPv6 address.</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
 <h3 id="networks">Networks
 </h3>
 
@@ -1448,6 +1703,92 @@ Networks holds information about the Kubernetes and infrastructure networks.
 </td>
 <td>
 <p>Zones belonging to the same region</p>
+</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h3 id="placement">Placement
+</h3>
+
+
+<p>
+(<em>Appears on:</em><a href="#workerconfig">WorkerConfig</a>)
+</p>
+
+<p>
+Placement contains configuration for instance placement.
+</p>
+
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>
+<code>groupId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GroupID is the ID of the placement group for the instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tenancy</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Tenancy is the tenancy of the instance. Valid values: "default", "dedicated", "host".</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>hostId</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HostID is the ID of the Dedicated Host for the instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>partitionNumber</code></br>
+<em>
+integer
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PartitionNumber is the number of the partition the instance should launch in.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>affinity</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Affinity is the affinity setting for the instance on the Dedicated Host. Valid values: "default", "host".</p>
 </td>
 </tr>
 
@@ -2010,6 +2351,42 @@ WorkerConfig contains configuration settings for the worker nodes.
 </td>
 <td>
 <p>CapacityReservation contains configuration about the Capacity Reservation to use for the instance.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>networkInterfaces</code></br>
+<em>
+<a href="#networkinterface">NetworkInterface</a> array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NetworkInterfaces contains configuration for the network interfaces attached to VMs.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>placement</code></br>
+<em>
+<a href="#placement">Placement</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Placement contains configuration for instance placement (placement groups, tenancy, dedicated hosts).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>instanceMarketOptions</code></br>
+<em>
+<a href="#instancemarketoptions">InstanceMarketOptions</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>InstanceMarketOptions configures the instance market type.<br />If not specified, on-demand instances are launched.</p>
 </td>
 </tr>
 

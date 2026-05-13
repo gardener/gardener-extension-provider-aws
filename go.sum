@@ -929,8 +929,6 @@ github.com/gardener/gardener/pkg/apis v1.141.1 h1:yHlOnJ2Lo9i0ZNbhOg5kenXb7Ak6Cj
 github.com/gardener/gardener/pkg/apis v1.141.1/go.mod h1:D/FQAzo7GiD3R7TwuHUweU5FU3VYoD28HlbfGXfDe80=
 github.com/gardener/machine-controller-manager v0.62.0 h1:XZWjAsXlNVj3S7M0AXcLkhNDGRRNm3Tc6ZFlTPPy3sc=
 github.com/gardener/machine-controller-manager v0.62.0/go.mod h1:ICsymXK4VHm7NVr8Mpl6USvYcTZjUNSk6+XaVu/dd74=
-github.com/gardener/machine-controller-manager-provider-aws v0.27.3 h1:rT4x2NC1kdng5KSnpZRMhDOTF20AjNJXbyEH59CMhNg=
-github.com/gardener/machine-controller-manager-provider-aws v0.27.3/go.mod h1:k4en/QvXK0r2rRrLv0b9mz6K4VQejC0FGxXfrJUkqhQ=
 github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gkampitakis/ciinfo v0.3.2 h1:JcuOPk8ZU7nZQjdUhctuhQofk7BGHuIy0c9Ez8BNhXs=
@@ -1301,6 +1299,8 @@ github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCw
 github.com/shopspring/decimal v1.3.1/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
 github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
+github.com/shreyas-s-rao/machine-controller-manager-provider-aws v0.0.0-20260513155442-59705b2b0ae0 h1:BKxzuaMTj0j2zAuiyFrjpoWocrqR5Ba1LT75hCAiGz0=
+github.com/shreyas-s-rao/machine-controller-manager-provider-aws v0.0.0-20260513155442-59705b2b0ae0/go.mod h1:Pjk76E4BhDXcDmRJHrGcnlztyUr3g2VTWLaKLYozil8=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
 github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 h1:+jumHNA0Wrelhe64i8F6HNlS8pkoyMv5sreGx2Ry5Rw=

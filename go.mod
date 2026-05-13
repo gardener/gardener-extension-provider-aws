@@ -248,3 +248,6 @@ require (
 // Pin cloud.google.com/go to resolve ambiguous import issue
 // ref: https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/40319
 replace cloud.google.com/go => cloud.google.com/go v0.110.10
+
+// TODO: remove once https://github.com/gardener/machine-controller-manager-provider-aws/pull/247 is merged and MCM-provider-aws is released
+replace github.com/gardener/machine-controller-manager-provider-aws => github.com/shreyas-s-rao/machine-controller-manager-provider-aws v0.0.0-20260513155442-59705b2b0ae0

@@ -472,6 +472,118 @@ var _ = Describe("Shoot validator", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
+			It("should return err when worker providerConfig has invalid network interface config", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Provider.Workers = []core.Worker{
+					{
+						Name: "worker-1",
+						Volume: &core.Volume{
+							VolumeSize: "50Gi",
+							Type:       ptr.To(gp2type),
+						},
+						Zones: []string{"zone1"},
+						Machine: core.Machine{
+							Type:         machineType,
+							Architecture: architecture,
+						},
+						ProviderConfig: &runtime.RawExtension{
+							Raw: encode(&apisawsv1alpha1.WorkerConfig{
+								TypeMeta: metav1.TypeMeta{
+									APIVersion: apisawsv1alpha1.SchemeGroupVersion.String(),
+									Kind:       "WorkerConfig",
+								},
+								NetworkInterfaces: []apisawsv1alpha1.NetworkInterface{
+									{
+										NetworkCardIndex: ptr.To[int64](0),
+										DeviceIndex:      ptr.To[int64](0),
+										Type:             ptr.To("efa-only"),
+									},
+								},
+							}),
+						},
+					},
+				}
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("spec.provider.workers[0].providerConfig.networkInterfaces[0].type"),
+				}))))
+			})
+
+			It("should return err when worker providerConfig has invalid placement config", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Provider.Workers = []core.Worker{
+					{
+						Name: "worker-1",
+						Volume: &core.Volume{
+							VolumeSize: "50Gi",
+							Type:       ptr.To(gp2type),
+						},
+						Zones: []string{"zone1"},
+						Machine: core.Machine{
+							Type:         machineType,
+							Architecture: architecture,
+						},
+						ProviderConfig: &runtime.RawExtension{
+							Raw: encode(&apisawsv1alpha1.WorkerConfig{
+								TypeMeta: metav1.TypeMeta{
+									APIVersion: apisawsv1alpha1.SchemeGroupVersion.String(),
+									Kind:       "WorkerConfig",
+								},
+								Placement: &apisawsv1alpha1.Placement{
+									Tenancy: ptr.To("invalid"),
+								},
+							}),
+						},
+					},
+				}
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeNotSupported),
+					"Field": Equal("spec.provider.workers[0].providerConfig.placement.tenancy"),
+				}))))
+			})
+
+			It("should return err when worker providerConfig has invalid market options config", func() {
+				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
+
+				shoot.Spec.Provider.Workers = []core.Worker{
+					{
+						Name: "worker-1",
+						Volume: &core.Volume{
+							VolumeSize: "50Gi",
+							Type:       ptr.To(gp2type),
+						},
+						Zones: []string{"zone1"},
+						Machine: core.Machine{
+							Type:         machineType,
+							Architecture: architecture,
+						},
+						ProviderConfig: &runtime.RawExtension{
+							Raw: encode(&apisawsv1alpha1.WorkerConfig{
+								TypeMeta: metav1.TypeMeta{
+									APIVersion: apisawsv1alpha1.SchemeGroupVersion.String(),
+									Kind:       "WorkerConfig",
+								},
+								InstanceMarketOptions: &apisawsv1alpha1.InstanceMarketOptions{
+									MarketType: "invalid",
+								},
+							}),
+						},
+					},
+				}
+
+				err := shootValidator.Validate(ctx, shoot, nil)
+				Expect(err).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeNotSupported),
+					"Field": Equal("spec.provider.workers[0].providerConfig.instanceMarketOptions.marketType"),
+				}))))
+			})
+
 			It("should also work for CloudProfileName instead of CloudProfile reference in Shoot", func() {
 				shoot.Spec.CloudProfileName = ptr.To("aws")
 				shoot.Spec.CloudProfile = nil
