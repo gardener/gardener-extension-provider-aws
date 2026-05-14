@@ -1,4 +1,4 @@
-# [Gardener Extension for AWS provider](https://gardener.cloud)
+# Gardener Extension for AWS provider
 [![REUSE status](https://api.reuse.software/badge/github.com/gardener/gardener-extension-provider-aws)](https://api.reuse.software/info/github.com/gardener/gardener-extension-provider-aws)
 [![Build](https://github.com/gardener/gardener-extension-provider-aws/actions/workflows/head-update.yaml/badge.svg)](https://github.com/gardener/gardener-extension-provider-aws/actions/workflows/head-update.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gardener/gardener-extension-provider-aws)](https://goreportcard.com/report/github.com/gardener/gardener-extension-provider-aws)
