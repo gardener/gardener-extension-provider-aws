@@ -185,9 +185,7 @@ func validateZoneSubnetCIDRs(fldPath *field.Path, vpcCIDRs []string, zones []api
 			cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal")),
 		}
 		for _, subnetCIDR := range subnetCIDRs {
-			if !slices.ContainsFunc(parsedVPCCIDRs, func(vpcCIDR cidrvalidation.CIDR) bool {
-				return vpcCIDR.ValidateSubset(subnetCIDR) == nil
-			}) {
+			if !isSubnetContainedInAnyVPCCIDR(subnetCIDR, parsedVPCCIDRs) {
 				allErrs = append(allErrs, field.Invalid(
 					subnetCIDR.GetFieldPath(),
 					subnetCIDR.GetCIDR(),
@@ -197,6 +195,12 @@ func validateZoneSubnetCIDRs(fldPath *field.Path, vpcCIDRs []string, zones []api
 		}
 	}
 	return allErrs
+}
+
+func isSubnetContainedInAnyVPCCIDR(subnetCIDR cidrvalidation.CIDR, vpcCIDRs []cidrvalidation.CIDR) bool {
+	return slices.ContainsFunc(vpcCIDRs, func(vpcCIDR cidrvalidation.CIDR) bool {
+		return vpcCIDR.ValidateSubset(subnetCIDR) == nil
+	})
 }
 
 // validateEIP validates if the given elastic IP exists and can be associated by the Shoot's NAT gateway
