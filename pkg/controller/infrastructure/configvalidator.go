@@ -159,66 +159,42 @@ func (c *configValidator) validateVPC(
 		return allErrs
 	}
 
-	cidrsToConsider := []string{vpc.CidrBlock}
-	cidrsToConsider = append(cidrsToConsider, vpc.CidrBlockAssociationSet...)
+	vpcCIDRs := []string{vpc.CidrBlock}
+	vpcCIDRs = append(vpcCIDRs, vpc.CidrBlockAssociationSet...)
 
-	if len(cidrsToConsider) == 1 {
-		// Special case, use old behaviour (so we keep the pretty error message)
-		allErrs = append(allErrs, validateZoneSubnetCIDRs(fldPath, cidrsToConsider[0], infraConfig)...)
-	} else {
-		allErrs = append(allErrs, byoValidateZoneSubnetCIDRs(fldPath, cidrsToConsider, infraConfig.Networks.Zones)...)
-	}
+	allErrs = append(allErrs, validateZoneSubnetCIDRs(fldPath, vpcCIDRs, infraConfig.Networks.Zones)...)
 
 	return allErrs
 }
 
-func validateZoneSubnetCIDRs(fldPath *field.Path, cidr string, infraConfig apiaws.InfrastructureConfig) field.ErrorList {
-	allErrs := field.ErrorList{}
-	vpcCIDR := cidrvalidation.NewCIDR(cidr, fldPath.Child("vpc"))
-	for i, zones := range infraConfig.Networks.Zones {
-		zoneSubnetCIDRs := []cidrvalidation.CIDR{
-			cidrvalidation.NewCIDR(zones.Workers, fldPath.Child("zones").Index(i).Child("nodes")),
-			cidrvalidation.NewCIDR(zones.Public, fldPath.Child("zones").Index(i).Child("public")),
-			cidrvalidation.NewCIDR(zones.Internal, fldPath.Child("zones").Index(i).Child("internal")),
-		}
-		allErrs = append(allErrs, vpcCIDR.ValidateSubset(zoneSubnetCIDRs...)...)
-	}
-	return allErrs
-}
-
-// byoValidateZoneSubnetCIDRs validates that the provided CIDRs (assumed to be from a single VPC whose ID was provided
-// to be used) are set up in a way that it's conceivable that the shoot creation can succeed. It is checked
-// that for each subnet there is at least one CIDR present that is a superset of the subnet's CIDR.
-func byoValidateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []apiaws.Zone) field.ErrorList {
+// validateZoneSubnetCIDRs checks that each zone subnet (workers, public, internal) is contained
+// in at least one of the VPC's CIDR blocks.
+func validateZoneSubnetCIDRs(fldPath *field.Path, vpcCIDRs []string, zones []apiaws.Zone) field.ErrorList {
 	allErrs := field.ErrorList{}
 	zonesPath := fldPath.Child("zones")
 
-	vpcCIDRs := []cidrvalidation.CIDR{}
-	for _, cidr := range cidrs {
-		vpcCIDRs = append(vpcCIDRs, cidrvalidation.NewCIDR(cidr, fldPath.Child("vpc")))
-	}
-
-	validateSubnetFunc := func(subnetCIDR cidrvalidation.CIDR) {
-		if !slices.ContainsFunc(vpcCIDRs, func(vpcCIDR cidrvalidation.CIDR) bool {
-			return vpcCIDR.ValidateSubset(subnetCIDR) == nil
-		}) {
-			allErrs = append(allErrs, field.Invalid(
-				subnetCIDR.GetFieldPath(),
-				subnetCIDR.GetCIDR(),
-				"Subnet not contained in any of the associated CIDRs of the given VPC",
-			))
-		}
+	parsedVPCCIDRs := make([]cidrvalidation.CIDR, 0, len(vpcCIDRs))
+	for _, cidr := range vpcCIDRs {
+		parsedVPCCIDRs = append(parsedVPCCIDRs, cidrvalidation.NewCIDR(cidr, fldPath.Child("vpc")))
 	}
 
 	for i, zone := range zones {
-		ZoneWorkersCIDR := cidrvalidation.NewCIDR(zone.Workers, zonesPath.Index(i).Child("nodes"))
-		ZonePublicCIDR := cidrvalidation.NewCIDR(zone.Public, zonesPath.Index(i).Child("public"))
-		ZoneInternalCIDR := cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal"))
-
-		validateSubnetFunc(ZoneWorkersCIDR)
-		validateSubnetFunc(ZonePublicCIDR)
-		validateSubnetFunc(ZoneInternalCIDR)
-
+		subnetCIDRs := []cidrvalidation.CIDR{
+			cidrvalidation.NewCIDR(zone.Workers, zonesPath.Index(i).Child("nodes")),
+			cidrvalidation.NewCIDR(zone.Public, zonesPath.Index(i).Child("public")),
+			cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal")),
+		}
+		for _, subnetCIDR := range subnetCIDRs {
+			if !slices.ContainsFunc(parsedVPCCIDRs, func(vpcCIDR cidrvalidation.CIDR) bool {
+				return vpcCIDR.ValidateSubset(subnetCIDR) == nil
+			}) {
+				allErrs = append(allErrs, field.Invalid(
+					subnetCIDR.GetFieldPath(),
+					subnetCIDR.GetCIDR(),
+					"subnet CIDR is not contained in any of the VPC's associated CIDR blocks",
+				))
+			}
+		}
 	}
 	return allErrs
 }
