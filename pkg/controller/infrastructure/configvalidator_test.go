@@ -205,6 +205,74 @@ var _ = Describe("ConfigValidator", func() {
 				Expect(errorList).To(BeEmpty())
 			})
 
+			It("should succeed - Not all subnet CIDRs subset of VPC CIDR", func() {
+				infra.Spec.ProviderConfig.Raw = encode(&apisaws.InfrastructureConfig{
+					Networks: apisaws.Networks{
+						VPC: apisaws.VPC{
+							ID: ptr.To(vpcID),
+						},
+						Zones: []apisaws.Zone{
+							{
+								Workers:  "10.251.127.0/26",
+								Public:   "10.252.125.0/26",
+								Internal: "10.251.126.0/26",
+							},
+						},
+					},
+				})
+				expectValidVPCAttributes(ctx, awsClient, vpcID)
+				expectValidDHCPOptions(ctx, awsClient, vpcID, region)
+				awsClient.EXPECT().GetVpc(ctx, vpcID).Return(&awsclient.VPC{
+					CidrBlock:               "10.251.0.0/16",
+					CidrBlockAssociationSet: []string{"10.252.0.0/16"},
+				}, nil)
+
+				errorList := cv.Validate(ctx, infra)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should succeed - Not all subnet CIDRs subset of VPC CIDR in multi-zone case", func() {
+				infra.Spec.ProviderConfig.Raw = encode(&apisaws.InfrastructureConfig{
+					Networks: apisaws.Networks{
+						VPC: apisaws.VPC{
+							ID: ptr.To(vpcID),
+						},
+						Zones: []apisaws.Zone{
+							{
+								Workers:  "10.251.127.0/26",
+								Public:   "10.252.125.0/26",
+								Internal: "10.251.126.0/26",
+							},
+							{
+								Workers:  "10.254.128.0/26",
+								Public:   "10.254.129.0/26",
+								Internal: "10.255.130.0/26",
+							},
+							{
+								Workers:  "10.256.128.0/26",
+								Public:   "10.256.129.0/26",
+								Internal: "10.256.130.0/26",
+							},
+						},
+					},
+				})
+				expectValidVPCAttributes(ctx, awsClient, vpcID)
+				expectValidDHCPOptions(ctx, awsClient, vpcID, region)
+				awsClient.EXPECT().GetVpc(ctx, vpcID).Return(&awsclient.VPC{
+					CidrBlock: "10.251.0.0/16",
+					CidrBlockAssociationSet: []string{
+						"10.252.0.0/16",
+						"10.253.0.0/16",
+						"10.254.0.0/16",
+						"10.255.0.0/16",
+						"10.256.0.0/16",
+					},
+				}, nil)
+
+				errorList := cv.Validate(ctx, infra)
+				Expect(errorList).To(BeEmpty())
+			})
+
 			It("should fail - a subnet CIDR is not a subset of the VPC cidr", func() {
 				infra.Spec.ProviderConfig.Raw = encode(&apisaws.InfrastructureConfig{
 					Networks: apisaws.Networks{
@@ -228,13 +296,13 @@ var _ = Describe("ConfigValidator", func() {
 				errorList := cv.Validate(ctx, infra)
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("networking.nodes"), // workers -> nodes in validator
+					"Field": Equal("networks.zones[0].nodes"), // workers -> nodes in validator
 				}, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("networking.public"),
+					"Field": Equal("networks.zones[0].public"),
 				}, Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("networking.internal"),
+					"Field": Equal("networks.zones[0].internal"),
 				}))
 			})
 
@@ -293,9 +361,10 @@ var _ = Describe("ConfigValidator", func() {
 				errorList := cv.Validate(ctx, infra)
 				Expect(errorList).To(ConsistOfFields(Fields{
 					"Type":  Equal(field.ErrorTypeInvalid),
-					"Field": Equal("networking.nodes"),
+					"Field": Equal("networks.zones[1].nodes"),
 				}))
 			})
+
 		})
 	})
 

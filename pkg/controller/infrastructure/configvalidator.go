@@ -162,34 +162,15 @@ func (c *configValidator) validateVPC(
 	cidrsToConsider := []string{vpc.CidrBlock}
 	cidrsToConsider = append(cidrsToConsider, vpc.CidrBlockAssociationSet...)
 
-	if len(cidrsToConsider) == 1 {
-		// Special case, use old behaviour (so we keep the pretty error message)
-		allErrs = append(allErrs, validateZoneSubnetCIDRs(fldPath, cidrsToConsider[0], infraConfig)...)
-	} else {
-		allErrs = append(allErrs, byoValidateZoneSubnetCIDRs(fldPath, cidrsToConsider, infraConfig.Networks.Zones)...)
-	}
+	allErrs = append(allErrs, validateZoneSubnetCIDRs(fldPath, cidrsToConsider, infraConfig.Networks.Zones)...)
 
 	return allErrs
 }
 
-func validateZoneSubnetCIDRs(fldPath *field.Path, cidr string, infraConfig apiaws.InfrastructureConfig) field.ErrorList {
-	allErrs := field.ErrorList{}
-	vpcCIDR := cidrvalidation.NewCIDR(cidr, fldPath.Child("vpc"))
-	for i, zones := range infraConfig.Networks.Zones {
-		zoneSubnetCIDRs := []cidrvalidation.CIDR{
-			cidrvalidation.NewCIDR(zones.Workers, fldPath.Child("zones").Index(i).Child("nodes")),
-			cidrvalidation.NewCIDR(zones.Public, fldPath.Child("zones").Index(i).Child("public")),
-			cidrvalidation.NewCIDR(zones.Internal, fldPath.Child("zones").Index(i).Child("internal")),
-		}
-		allErrs = append(allErrs, vpcCIDR.ValidateSubset(zoneSubnetCIDRs...)...)
-	}
-	return allErrs
-}
-
-// byoValidateZoneSubnetCIDRs validates that the provided CIDRs (assumed to be from a single VPC whose ID was provided
-// to be used) are set up in a way that it's conceivable that the shoot creation can succeed. It is checked
+// ValidateZoneSubnetCIDRs validates that the provided CIDRs (assumed to be from a single VPC) are
+// set up in a way that it's conceivable that the shoot creation can succeed. It is checked
 // that for each subnet there is at least one CIDR present that is a superset of the subnet's CIDR.
-func byoValidateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []apiaws.Zone) field.ErrorList {
+func validateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []apiaws.Zone) field.ErrorList {
 	allErrs := field.ErrorList{}
 	zonesPath := fldPath.Child("zones")
 
@@ -198,27 +179,26 @@ func byoValidateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []api
 		vpcCIDRs = append(vpcCIDRs, cidrvalidation.NewCIDR(cidr, fldPath.Child("vpc")))
 	}
 
-	validateSubnetFunc := func(subnetCIDR cidrvalidation.CIDR) {
-		if !slices.ContainsFunc(vpcCIDRs, func(vpcCIDR cidrvalidation.CIDR) bool {
-			return vpcCIDR.ValidateSubset(subnetCIDR) == nil
-		}) {
-			allErrs = append(allErrs, field.Invalid(
-				subnetCIDR.GetFieldPath(),
-				subnetCIDR.GetCIDR(),
-				"Subnet not contained in any of the associated CIDRs of the given VPC",
-			))
-		}
+	isSubnetCIDRContainedInAnyCIDR := func(cidrsToCheck []cidrvalidation.CIDR, subnetCIDR cidrvalidation.CIDR) bool {
+		return slices.ContainsFunc(cidrsToCheck, func(vpcCIDR cidrvalidation.CIDR) bool {
+			return vpcCIDR.ValidateSubset(subnetCIDR).ToAggregate() == nil
+		})
 	}
 
 	for i, zone := range zones {
-		ZoneWorkersCIDR := cidrvalidation.NewCIDR(zone.Workers, zonesPath.Index(i).Child("nodes"))
-		ZonePublicCIDR := cidrvalidation.NewCIDR(zone.Public, zonesPath.Index(i).Child("public"))
-		ZoneInternalCIDR := cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal"))
-
-		validateSubnetFunc(ZoneWorkersCIDR)
-		validateSubnetFunc(ZonePublicCIDR)
-		validateSubnetFunc(ZoneInternalCIDR)
-
+		for _, subnetCIDR := range []cidrvalidation.CIDR{
+			cidrvalidation.NewCIDR(zone.Workers, zonesPath.Index(i).Child("nodes")),
+			cidrvalidation.NewCIDR(zone.Public, zonesPath.Index(i).Child("public")),
+			cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal")),
+		} {
+			if !isSubnetCIDRContainedInAnyCIDR(vpcCIDRs, subnetCIDR) {
+				allErrs = append(allErrs, field.Invalid(
+					subnetCIDR.GetFieldPath(),
+					subnetCIDR.GetCIDR(),
+					fmt.Sprintf("Subnet %q not contained in any of the associated CIDRs of the given VPC", subnetCIDR.GetFieldPath()),
+				))
+			}
+		}
 	}
 	return allErrs
 }
