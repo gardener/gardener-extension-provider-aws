@@ -9,7 +9,7 @@ spec:
     containerPolicies:
     - containerName: gardener-extension-provider-aws
       controlledValues: RequestsOnly
-      controlledResources: ["memory"]
+      controlledResources: ["memory", "cpu"]
     - containerName: '*'
       mode: "Off"
   targetRef:
