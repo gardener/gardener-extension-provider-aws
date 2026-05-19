@@ -579,6 +579,11 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeNotSupported), "Field": Equal("config.networkInterfaces[0].type")}))))
 			})
 
+			It("should reject empty type value (use nil to default to interface)", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](0), Type: ptr.To("")}}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeNotSupported), "Field": Equal("config.networkInterfaces[0].type")}))))
+			})
+
 			It("should reject efa-only as the first interface", func() {
 				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](0), Type: ptr.To("efa-only")}}}
 				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].type")}))))

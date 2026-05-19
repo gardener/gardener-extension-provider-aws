@@ -359,7 +359,6 @@ func validateCpuOptions(cpuOptions *apisaws.CpuOptions, fldPath *field.Path) fie
 }
 
 var validNetworkInterfaceTypes = []string{
-	"",
 	string(ec2types.NetworkInterfaceTypeInterface),
 	string(ec2types.NetworkInterfaceTypeEfa),
 	string(ec2types.NetworkInterfaceTypeEfaOnly),
@@ -384,7 +383,7 @@ func validateNetworkInterface(ni apisaws.NetworkInterface, fldPath *field.Path) 
 	var allErrs field.ErrorList
 
 	if ni.Type != nil && !slices.Contains(validNetworkInterfaceTypes, *ni.Type) {
-		allErrs = append(allErrs, field.NotSupported(fldPath.Child("type"), *ni.Type, validNetworkInterfaceTypes[1:]))
+		allErrs = append(allErrs, field.NotSupported(fldPath.Child("type"), *ni.Type, validNetworkInterfaceTypes))
 	}
 
 	if ni.NetworkCardIndex != nil && ni.NetworkCardIndexRange != nil {

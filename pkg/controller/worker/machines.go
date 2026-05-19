@@ -758,7 +758,7 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 	}
 
 	for _, ni := range workerConfig.NetworkInterfaces {
-		if ni.Type != nil {
+		if ni.Type != nil && *ni.Type != "" {
 			hashData = append(hashData, *ni.Type)
 		} else {
 			hashData = append(hashData, string(ec2types.NetworkInterfaceTypeInterface))
@@ -864,7 +864,7 @@ func buildSingleNI(ni awsapi.NetworkInterface, networkCardIndex, deviceIndex int
 		spec.SecurityGroupIDs = []string{defaultSecurityGroupID}
 	}
 
-	if ni.Type != nil {
+	if ni.Type != nil && *ni.Type != "" {
 		spec.InterfaceType = ni.Type
 	} else {
 		spec.InterfaceType = ptr.To(string(ec2types.NetworkInterfaceTypeInterface))
