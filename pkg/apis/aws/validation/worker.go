@@ -371,12 +371,34 @@ func validateNetworkInterfaces(networkInterfaces []apisaws.NetworkInterface, fld
 		allErrs = append(allErrs, validateNetworkInterface(ni, fldPath.Index(i))...)
 	}
 
-	if len(networkInterfaces) > 0 && networkInterfaces[0].Type != nil && *networkInterfaces[0].Type == string(ec2types.NetworkInterfaceTypeEfaOnly) {
-		allErrs = append(allErrs, field.Invalid(fldPath.Index(0).Child("type"), *networkInterfaces[0].Type,
-			"the first network interface must be of type \"interface\" or \"efa\", not \"efa-only\""))
+	for i, ni := range networkInterfaces {
+		if ni.Type != nil && *ni.Type == string(ec2types.NetworkInterfaceTypeEfaOnly) && coversPrimaryNIC(ni) {
+			allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("type"), *ni.Type,
+				"the primary network interface (networkCardIndex 0, deviceIndex 0) must be of type \"interface\" or \"efa\", not \"efa-only\""))
+		}
 	}
 
 	return allErrs
+}
+
+// coversPrimaryNIC reports whether the given NetworkInterface entry would produce a NIC at
+// networkCardIndex 0 and deviceIndex 0 (the primary NIC) once expanded by the worker controller.
+// Index fields default to 0 when nil. For range fields, only the iteration where both indices
+// are 0 is considered (ranges expand in lockstep).
+func coversPrimaryNIC(ni apisaws.NetworkInterface) bool {
+	if ni.NetworkCardIndexRange != nil && ni.NetworkCardIndexRange.From != 0 {
+		return false
+	}
+	if ni.NetworkCardIndex != nil && *ni.NetworkCardIndex != 0 {
+		return false
+	}
+	if ni.DeviceIndexRange != nil && ni.DeviceIndexRange.From != 0 {
+		return false
+	}
+	if ni.DeviceIndex != nil && *ni.DeviceIndex != 0 {
+		return false
+	}
+	return true
 }
 
 func validateNetworkInterface(ni apisaws.NetworkInterface, fldPath *field.Path) field.ErrorList {
