@@ -195,7 +195,7 @@ func validateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []apiaws
 				allErrs = append(allErrs, field.Invalid(
 					subnetCIDR.GetFieldPath(),
 					subnetCIDR.GetCIDR(),
-					fmt.Sprintf("Subnet %q not contained in any of the associated CIDRs of the given VPC", subnetCIDR.GetFieldPath()),
+					fmt.Sprintf("subnet CIDR %q is not contained in any of the VPC's associated CIDR blocks", subnetCIDR.GetCIDR()),
 				))
 			}
 		}
