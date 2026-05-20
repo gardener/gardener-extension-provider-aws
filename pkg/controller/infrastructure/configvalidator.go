@@ -70,7 +70,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	// Validate infrastructure config
 	if config.Networks.VPC.ID != nil {
 		logger.Info("Validating infrastructure networks.vpc.id")
-		allErrs = append(allErrs, c.validateVPC(ctx, field.NewPath("networks", "vpc", "id"),
+		allErrs = append(allErrs, c.validateVPC(ctx, field.NewPath("networks"),
 			awsClient, *config, *config.Networks.VPC.ID, infra.Spec.Region)...)
 	}
 
@@ -102,19 +102,21 @@ func (c *configValidator) validateVPC(
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
 
+	vpcIdPath := fldPath.Child("vpc", "id")
+
 	// Verify that the VPC exists and the enableDnsSupport and enableDnsHostnames VPC attributes are both true
 	for _, attribute := range []ec2types.VpcAttributeName{ec2types.VpcAttributeNameEnableDnsSupport, ec2types.VpcAttributeNameEnableDnsHostnames} {
 		value, err := awsClient.GetVPCAttribute(ctx, vpcID, attribute)
 		if err != nil {
 			if awsclient.IsNotFoundError(err) {
-				allErrs = append(allErrs, field.NotFound(fldPath, vpcID))
+				allErrs = append(allErrs, field.NotFound(vpcIdPath, vpcID))
 			} else {
-				allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get VPC attribute %s for VPC %s: %w", attribute, vpcID, err)))
+				allErrs = append(allErrs, field.InternalError(vpcIdPath, fmt.Errorf("could not get VPC attribute %s for VPC %s: %w", attribute, vpcID, err)))
 			}
 			return allErrs
 		}
 		if !value {
-			allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("VPC attribute %s must be set to true", attribute)))
+			allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, fmt.Sprintf("VPC attribute %s must be set to true", attribute)))
 		}
 	}
 
@@ -122,7 +124,7 @@ func (c *configValidator) validateVPC(
 	if dualStack {
 		_, err := awsClient.GetIPv6Cidr(ctx, vpcID)
 		if err != nil {
-			allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("VPC %s has no ipv6 CIDR", vpcID)))
+			allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, fmt.Sprintf("VPC %s has no ipv6 CIDR", vpcID)))
 			return allErrs
 		}
 	}
@@ -130,72 +132,73 @@ func (c *configValidator) validateVPC(
 	// Verify that there is an internet gateway attached to the VPC
 	internetGatewayID, err := awsClient.GetVPCInternetGateway(ctx, vpcID)
 	if err != nil {
-		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get internet gateway for VPC %s: %w", vpcID, err)))
+		allErrs = append(allErrs, field.InternalError(vpcIdPath, fmt.Errorf("could not get internet gateway for VPC %s: %w", vpcID, err)))
 		return allErrs
 	}
 	if internetGatewayID == "" {
-		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, "no attached internet gateway found"))
+		allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, "no attached internet gateway found"))
 	}
 
 	// Verify DHCP options
 	dhcpOptions, err := awsClient.GetDHCPOptions(ctx, vpcID)
 	if err != nil {
-		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get DHCP options for VPC %s: %w", vpcID, err)))
+		allErrs = append(allErrs, field.InternalError(vpcIdPath, fmt.Errorf("could not get DHCP options for VPC %s: %w", vpcID, err)))
 		return allErrs
 	}
 
 	if domainName, ok := dhcpOptions["domain-name"]; !ok {
-		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, "missing domain-name value in DHCP options used by the VPC"))
+		allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, "missing domain-name value in DHCP options used by the VPC"))
 	} else if (region == "us-east-1" && domainName != "ec2.internal") || (region != "us-east-1" && domainName != region+".compute.internal") {
-		allErrs = append(allErrs, field.Invalid(fldPath, vpcID, fmt.Sprintf("invalid domain-name specified in DHCP options used by VPC: %s", domainName)))
+		allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, fmt.Sprintf("invalid domain-name specified in DHCP options used by VPC: %s", domainName)))
 	}
 
 	// crosscheck subnet CIDRs are subset of VPC CIDR
 	vpc, err := awsClient.GetVpc(ctx, vpcID)
 	if err != nil {
-		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get CIDR block for VPC %s: %w", vpcID, err)))
+		allErrs = append(allErrs, field.InternalError(vpcIdPath, fmt.Errorf("could not get CIDR block for VPC %s: %w", vpcID, err)))
 		return allErrs
 	}
 
 	cidrsToConsider := []string{vpc.CidrBlock}
 	cidrsToConsider = append(cidrsToConsider, vpc.CidrBlockAssociationSet...)
 
-	networkingPath := field.NewPath("networking")
-
-	if len(cidrsToConsider) == 1 {
-		// Special case, use old behaviour (so we keep the pretty error message)
-		allErrs = append(allErrs, validateZoneSubnetCIDRs(networkingPath, cidrsToConsider[0], infraConfig)...)
-	} else {
-		// Only check if there is at least one valid cidr on the vpc that matches and return an error if there is not
-		haveValidCidr := slices.ContainsFunc(cidrsToConsider, func(cidr string) bool {
-			return validateZoneSubnetCIDRs(networkingPath, cidr, infraConfig).ToAggregate() == nil
-		})
-
-		if !haveValidCidr {
-			allErrs = append(
-				allErrs,
-				field.Invalid(
-					fldPath,
-					vpcID,
-					"provided VPC has no CIDR block matching the clusters configured networks. There must be a CIDR block that is a superset of all subnet ranges.",
-				),
-			)
-		}
-	}
+	allErrs = append(allErrs, validateZoneSubnetCIDRs(fldPath, cidrsToConsider, infraConfig.Networks.Zones)...)
 
 	return allErrs
 }
 
-func validateZoneSubnetCIDRs(fldPath *field.Path, cidr string, infraConfig apiaws.InfrastructureConfig) field.ErrorList {
+// ValidateZoneSubnetCIDRs validates that the provided CIDRs (assumed to be from a single VPC) are
+// set up in a way that it's conceivable that the shoot creation can succeed. It is checked
+// that for each subnet there is at least one CIDR present that is a superset of the subnet's CIDR.
+func validateZoneSubnetCIDRs(fldPath *field.Path, cidrs []string, zones []apiaws.Zone) field.ErrorList {
 	allErrs := field.ErrorList{}
-	vpcCIDR := cidrvalidation.NewCIDR(cidr, fldPath)
-	for _, zones := range infraConfig.Networks.Zones {
-		zoneSubnetCIDRs := []cidrvalidation.CIDR{
-			cidrvalidation.NewCIDR(zones.Workers, fldPath.Child("nodes")),
-			cidrvalidation.NewCIDR(zones.Public, fldPath.Child("public")),
-			cidrvalidation.NewCIDR(zones.Internal, fldPath.Child("internal")),
+	zonesPath := fldPath.Child("zones")
+
+	vpcCIDRs := []cidrvalidation.CIDR{}
+	for _, cidr := range cidrs {
+		vpcCIDRs = append(vpcCIDRs, cidrvalidation.NewCIDR(cidr, fldPath.Child("vpc")))
+	}
+
+	isSubnetCIDRContainedInAnyCIDR := func(cidrsToCheck []cidrvalidation.CIDR, subnetCIDR cidrvalidation.CIDR) bool {
+		return slices.ContainsFunc(cidrsToCheck, func(vpcCIDR cidrvalidation.CIDR) bool {
+			return vpcCIDR.ValidateSubset(subnetCIDR).ToAggregate() == nil
+		})
+	}
+
+	for i, zone := range zones {
+		for _, subnetCIDR := range []cidrvalidation.CIDR{
+			cidrvalidation.NewCIDR(zone.Workers, zonesPath.Index(i).Child("nodes")),
+			cidrvalidation.NewCIDR(zone.Public, zonesPath.Index(i).Child("public")),
+			cidrvalidation.NewCIDR(zone.Internal, zonesPath.Index(i).Child("internal")),
+		} {
+			if !isSubnetCIDRContainedInAnyCIDR(vpcCIDRs, subnetCIDR) {
+				allErrs = append(allErrs, field.Invalid(
+					subnetCIDR.GetFieldPath(),
+					subnetCIDR.GetCIDR(),
+					fmt.Sprintf("subnet CIDR %q is not contained in any of the VPC's associated CIDR blocks", subnetCIDR.GetCIDR()),
+				))
+			}
 		}
-		allErrs = append(allErrs, vpcCIDR.ValidateSubset(zoneSubnetCIDRs...)...)
 	}
 	return allErrs
 }
