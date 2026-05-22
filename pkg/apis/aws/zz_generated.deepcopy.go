@@ -812,11 +812,6 @@ func (in *NetworkInterface) DeepCopyInto(out *NetworkInterface) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.SecurityGroupIDs != nil {
-		in, out := &in.SecurityGroupIDs, &out.SecurityGroupIDs
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.AssociatePublicIPAddress != nil {
 		in, out := &in.AssociatePublicIPAddress, &out.AssociatePublicIPAddress
 		*out = new(bool)

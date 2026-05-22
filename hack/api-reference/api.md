@@ -1599,18 +1599,6 @@ string
 </tr>
 <tr>
 <td>
-<code>securityGroupIDs</code></br>
-<em>
-string array
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>SecurityGroupIDs is a list of security group IDs to associate with the network interface.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>associatePublicIPAddress</code></br>
 <em>
 boolean

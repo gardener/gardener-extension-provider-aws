@@ -191,8 +191,6 @@ type NetworkInterface struct {
 	Description *string
 	// SubnetID is the ID of the subnet to which the network interface should be attached.
 	SubnetID *string
-	// SecurityGroupIDs is a list of security group IDs to associate with the network interface.
-	SecurityGroupIDs []string
 	// AssociatePublicIPAddress indicates whether to associate a public IP address.
 	AssociatePublicIPAddress *bool
 	// DeleteOnTermination indicates whether the network interface should be deleted when the instance is terminated.

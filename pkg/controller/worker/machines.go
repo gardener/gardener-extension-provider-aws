@@ -778,7 +778,6 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 		if ni.SubnetID != nil {
 			hashData = append(hashData, *ni.SubnetID)
 		}
-		hashData = append(hashData, ni.SecurityGroupIDs...)
 	}
 
 	if workerConfig.Placement != nil {
@@ -858,11 +857,7 @@ func buildSingleNI(ni awsapi.NetworkInterface, networkCardIndex, deviceIndex int
 		spec.SubnetID = defaultSubnetID
 	}
 
-	if len(ni.SecurityGroupIDs) > 0 {
-		spec.SecurityGroupIDs = ni.SecurityGroupIDs
-	} else {
-		spec.SecurityGroupIDs = []string{defaultSecurityGroupID}
-	}
+	spec.SecurityGroupIDs = []string{defaultSecurityGroupID}
 
 	if ni.Type != nil && *ni.Type != "" {
 		spec.InterfaceType = ni.Type

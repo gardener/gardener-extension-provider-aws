@@ -214,9 +214,6 @@ type NetworkInterface struct {
 	// SubnetID is the ID of the subnet to which the network interface should be attached.
 	// +optional
 	SubnetID *string `json:"subnetID,omitempty"`
-	// SecurityGroupIDs is a list of security group IDs to associate with the network interface.
-	// +optional
-	SecurityGroupIDs []string `json:"securityGroupIDs,omitempty"`
 	// AssociatePublicIPAddress indicates whether to associate a public IP address.
 	// +optional
 	AssociatePublicIPAddress *bool `json:"associatePublicIPAddress,omitempty"`
