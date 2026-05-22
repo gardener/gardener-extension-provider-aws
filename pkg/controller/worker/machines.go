@@ -865,14 +865,9 @@ func buildSingleNI(ni awsapi.NetworkInterface, networkCardIndex, deviceIndex int
 		spec.InterfaceType = ptr.To(string(ec2types.NetworkInterfaceTypeInterface))
 	}
 
-	spec.AssociatePublicIPAddress = ni.AssociatePublicIPAddress
-	spec.DeleteOnTermination = ni.DeleteOnTermination
+	spec.AssociatePublicIPAddress = ptr.To(false)
+	spec.DeleteOnTermination = ptr.To(true)
 	spec.Description = ni.Description
-	spec.PrimaryIpv6 = ni.PrimaryIpv6
-
-	if ni.Ipv6AddressCount != nil {
-		spec.Ipv6AddressCount = ptr.To(int32(*ni.Ipv6AddressCount)) // #nosec: G115 -- validated to be <= math.MaxInt32
-	}
 
 	return spec
 }

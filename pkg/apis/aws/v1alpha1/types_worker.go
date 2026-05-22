@@ -214,18 +214,6 @@ type NetworkInterface struct {
 	// SubnetID is the ID of the subnet to which the network interface should be attached.
 	// +optional
 	SubnetID *string `json:"subnetID,omitempty"`
-	// AssociatePublicIPAddress indicates whether to associate a public IP address.
-	// +optional
-	AssociatePublicIPAddress *bool `json:"associatePublicIPAddress,omitempty"`
-	// DeleteOnTermination indicates whether the network interface should be deleted when the instance is terminated.
-	// +optional
-	DeleteOnTermination *bool `json:"deleteOnTermination,omitempty"`
-	// Ipv6AddressCount is the number of IPv6 addresses to assign to the network interface.
-	// +optional
-	Ipv6AddressCount *int64 `json:"ipv6AddressCount,omitempty"`
-	// PrimaryIpv6 indicates whether the first IPv6 address will be the primary IPv6 address.
-	// +optional
-	PrimaryIpv6 *bool `json:"primaryIpv6,omitempty"`
 }
 
 // IndexRange represents an inclusive range of integer indices.

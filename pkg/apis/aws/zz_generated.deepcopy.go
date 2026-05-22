@@ -812,26 +812,6 @@ func (in *NetworkInterface) DeepCopyInto(out *NetworkInterface) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.AssociatePublicIPAddress != nil {
-		in, out := &in.AssociatePublicIPAddress, &out.AssociatePublicIPAddress
-		*out = new(bool)
-		**out = **in
-	}
-	if in.DeleteOnTermination != nil {
-		in, out := &in.DeleteOnTermination, &out.DeleteOnTermination
-		*out = new(bool)
-		**out = **in
-	}
-	if in.Ipv6AddressCount != nil {
-		in, out := &in.Ipv6AddressCount, &out.Ipv6AddressCount
-		*out = new(int64)
-		**out = **in
-	}
-	if in.PrimaryIpv6 != nil {
-		in, out := &in.PrimaryIpv6, &out.PrimaryIpv6
-		*out = new(bool)
-		**out = **in
-	}
 	return
 }
 

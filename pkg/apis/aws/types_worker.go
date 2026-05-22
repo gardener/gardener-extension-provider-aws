@@ -191,14 +191,6 @@ type NetworkInterface struct {
 	Description *string
 	// SubnetID is the ID of the subnet to which the network interface should be attached.
 	SubnetID *string
-	// AssociatePublicIPAddress indicates whether to associate a public IP address.
-	AssociatePublicIPAddress *bool
-	// DeleteOnTermination indicates whether the network interface should be deleted when the instance is terminated.
-	DeleteOnTermination *bool
-	// Ipv6AddressCount is the number of IPv6 addresses to assign to the network interface.
-	Ipv6AddressCount *int64
-	// PrimaryIpv6 indicates whether the first IPv6 address will be the primary IPv6 address.
-	PrimaryIpv6 *bool
 }
 
 // IndexRange represents an inclusive range of integer indices.

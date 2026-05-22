@@ -467,14 +467,6 @@ func validateNetworkInterface(ni apisaws.NetworkInterface, fldPath *field.Path) 
 		}
 	}
 
-	if ni.Ipv6AddressCount != nil {
-		if *ni.Ipv6AddressCount < 0 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("ipv6AddressCount"), *ni.Ipv6AddressCount, "must be >= 0"))
-		} else if *ni.Ipv6AddressCount > math.MaxInt32 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("ipv6AddressCount"), *ni.Ipv6AddressCount, "must be <= 2147483647"))
-		}
-	}
-
 	return allErrs
 }
 

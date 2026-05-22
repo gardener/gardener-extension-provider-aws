@@ -1125,10 +1125,6 @@ func autoConvert_v1alpha1_NetworkInterface_To_aws_NetworkInterface(in *NetworkIn
 	out.Type = (*string)(unsafe.Pointer(in.Type))
 	out.Description = (*string)(unsafe.Pointer(in.Description))
 	out.SubnetID = (*string)(unsafe.Pointer(in.SubnetID))
-	out.AssociatePublicIPAddress = (*bool)(unsafe.Pointer(in.AssociatePublicIPAddress))
-	out.DeleteOnTermination = (*bool)(unsafe.Pointer(in.DeleteOnTermination))
-	out.Ipv6AddressCount = (*int64)(unsafe.Pointer(in.Ipv6AddressCount))
-	out.PrimaryIpv6 = (*bool)(unsafe.Pointer(in.PrimaryIpv6))
 	return nil
 }
 
@@ -1145,10 +1141,6 @@ func autoConvert_aws_NetworkInterface_To_v1alpha1_NetworkInterface(in *aws.Netwo
 	out.Type = (*string)(unsafe.Pointer(in.Type))
 	out.Description = (*string)(unsafe.Pointer(in.Description))
 	out.SubnetID = (*string)(unsafe.Pointer(in.SubnetID))
-	out.AssociatePublicIPAddress = (*bool)(unsafe.Pointer(in.AssociatePublicIPAddress))
-	out.DeleteOnTermination = (*bool)(unsafe.Pointer(in.DeleteOnTermination))
-	out.Ipv6AddressCount = (*int64)(unsafe.Pointer(in.Ipv6AddressCount))
-	out.PrimaryIpv6 = (*bool)(unsafe.Pointer(in.PrimaryIpv6))
 	return nil
 }
 

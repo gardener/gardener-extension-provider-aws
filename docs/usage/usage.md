@@ -905,8 +905,7 @@ This expands to 4 NICs total: one `efa` on card 0, and three `efa-only` NICs on 
 - `deviceIndex` / `deviceIndexRange`: position of the NIC in the attachment order on its card. The primary NIC must have `deviceIndex: 0`. `deviceIndexRange` requires `networkCardIndexRange` to be set, and both ranges must have the same length (they iterate in lockstep).
 - `type`: one of `interface` (default), `efa`, or `efa-only`. The first NIC (primary) cannot be `efa-only` because EFA-only NICs do not support IP addresses. If omitted, defaults to `interface`.
 - `subnetID`: subnet to attach the NIC to. Defaults to the worker pool's subnet if omitted.
-- `description`, `associatePublicIPAddress`, `deleteOnTermination`: passed through to AWS as-is.
-- `ipv6AddressCount`, `primaryIpv6`: configure IPv6 addresses on the NIC.
+- `description`: optional description for the network interface.
 
 For more details on EFA, see the [AWS EFA documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html).
 

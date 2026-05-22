@@ -671,11 +671,6 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].deviceIndexRange"), "Detail": ContainSubstring("same length")}))))
 			})
 
-			It("should reject negative ipv6AddressCount", func() {
-				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](0), Type: ptr.To("efa"), Ipv6AddressCount: ptr.To[int64](-1)}}}
-				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].ipv6AddressCount")}))))
-			})
-
 			It("should accept valid config", func() {
 				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{
 					{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: ptr.To[int64](0), Type: ptr.To("efa")},

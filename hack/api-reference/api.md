@@ -1597,54 +1597,6 @@ string
 <p>SubnetID is the ID of the subnet to which the network interface should be attached.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>associatePublicIPAddress</code></br>
-<em>
-boolean
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>AssociatePublicIPAddress indicates whether to associate a public IP address.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>deleteOnTermination</code></br>
-<em>
-boolean
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeleteOnTermination indicates whether the network interface should be deleted when the instance is terminated.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>ipv6AddressCount</code></br>
-<em>
-integer
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Ipv6AddressCount is the number of IPv6 addresses to assign to the network interface.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>primaryIpv6</code></br>
-<em>
-boolean
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PrimaryIpv6 indicates whether the first IPv6 address will be the primary IPv6 address.</p>
-</td>
-</tr>
 
 </tbody>
 </table>
