@@ -37,7 +37,7 @@ The following lists known compatibility issues of this extension controller with
 | AWS Extension | Gardener | Action | Notes |
 | ------------- | -------- | ------ | ----- |
 | `<= v1.15.0` | `> v1.10.0` | Please update the provider version to `> v1.15.0` or disable the feature gate `MountHostCADirectories` in the Gardenlet. | Applies if feature flag `MountHostCADirectories` in the Gardenlet is enabled. Shoots with CSI enabled (Kubernetes version >= 1.18) miss a mount to the directory `/etc/ssl` in the Shoot API Server. This can lead to not trusting external Root CAs when the API Server makes requests via webhooks or OIDC. |
-| `>= v1.70.0` | `< v1.135.0` | Please update Gardener to version `>= v1.135.0` | The shoot API field `shoot.spec.dns.providers[].secretName` has been deprecated in favor of `shoot.spec.dns.providers[].credentialsRef` which is available in Gardener `>= v1.135.0`, the provider extension is migrated to use the new field only in `v1.70.0`. |
+| `>= v1.71.0` | `< v1.135.0` | Please update Gardener to version `>= v1.135.0` | The shoot API field `shoot.spec.dns.providers[].secretName` has been deprecated in favor of `shoot.spec.dns.providers[].credentialsRef` which is available in Gardener `>= v1.135.0`, the provider extension is migrated to use the new field only in `v1.71.0`. |
 
 ----
 
