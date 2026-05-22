@@ -1120,8 +1120,7 @@ func Convert_aws_MachineImages_To_v1alpha1_MachineImages(in *aws.MachineImages, 
 func autoConvert_v1alpha1_NetworkInterface_To_aws_NetworkInterface(in *NetworkInterface, out *aws.NetworkInterface, s conversion.Scope) error {
 	out.NetworkCardIndex = (*int64)(unsafe.Pointer(in.NetworkCardIndex))
 	out.NetworkCardIndexRange = (*aws.IndexRange)(unsafe.Pointer(in.NetworkCardIndexRange))
-	out.DeviceIndex = (*int64)(unsafe.Pointer(in.DeviceIndex))
-	out.DeviceIndexRange = (*aws.IndexRange)(unsafe.Pointer(in.DeviceIndexRange))
+	out.DeviceIndex = in.DeviceIndex
 	out.Type = (*string)(unsafe.Pointer(in.Type))
 	out.Description = (*string)(unsafe.Pointer(in.Description))
 	out.SubnetID = (*string)(unsafe.Pointer(in.SubnetID))
@@ -1136,8 +1135,7 @@ func Convert_v1alpha1_NetworkInterface_To_aws_NetworkInterface(in *NetworkInterf
 func autoConvert_aws_NetworkInterface_To_v1alpha1_NetworkInterface(in *aws.NetworkInterface, out *NetworkInterface, s conversion.Scope) error {
 	out.NetworkCardIndex = (*int64)(unsafe.Pointer(in.NetworkCardIndex))
 	out.NetworkCardIndexRange = (*IndexRange)(unsafe.Pointer(in.NetworkCardIndexRange))
-	out.DeviceIndex = (*int64)(unsafe.Pointer(in.DeviceIndex))
-	out.DeviceIndexRange = (*IndexRange)(unsafe.Pointer(in.DeviceIndexRange))
+	out.DeviceIndex = in.DeviceIndex
 	out.Type = (*string)(unsafe.Pointer(in.Type))
 	out.Description = (*string)(unsafe.Pointer(in.Description))
 	out.SubnetID = (*string)(unsafe.Pointer(in.SubnetID))

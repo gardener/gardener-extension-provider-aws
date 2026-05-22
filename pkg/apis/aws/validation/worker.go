@@ -383,8 +383,8 @@ func validateNetworkInterfaces(networkInterfaces []apisaws.NetworkInterface, fld
 
 // coversPrimaryNIC reports whether the given NetworkInterface entry would produce a NIC at
 // networkCardIndex 0 and deviceIndex 0 (the primary NIC) once expanded by the worker controller.
-// Index fields default to 0 when nil. For range fields, only the iteration where both indices
-// are 0 is considered (ranges expand in lockstep).
+// NetworkCardIndex defaults to 0 when nil. DeviceIndex defaults to 0 (zero value of int64).
+// For NetworkCardIndexRange, only the iteration where networkCardIndex is 0 is considered.
 func coversPrimaryNIC(ni apisaws.NetworkInterface) bool {
 	if ni.NetworkCardIndexRange != nil && ni.NetworkCardIndexRange.From != 0 {
 		return false
@@ -392,10 +392,7 @@ func coversPrimaryNIC(ni apisaws.NetworkInterface) bool {
 	if ni.NetworkCardIndex != nil && *ni.NetworkCardIndex != 0 {
 		return false
 	}
-	if ni.DeviceIndexRange != nil && ni.DeviceIndexRange.From != 0 {
-		return false
-	}
-	if ni.DeviceIndex != nil && *ni.DeviceIndex != 0 {
+	if ni.DeviceIndex != 0 {
 		return false
 	}
 	return true
@@ -432,39 +429,10 @@ func validateNetworkInterface(ni apisaws.NetworkInterface, fldPath *field.Path) 
 		}
 	}
 
-	if ni.DeviceIndex != nil && ni.DeviceIndexRange != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, ni, "deviceIndex and deviceIndexRange are mutually exclusive"))
-	}
-
-	if ni.DeviceIndex != nil {
-		if *ni.DeviceIndex < 0 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndex"), *ni.DeviceIndex, "must be >= 0"))
-		} else if *ni.DeviceIndex > math.MaxInt32 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndex"), *ni.DeviceIndex, "must be <= 2147483647"))
-		}
-	}
-
-	if ni.DeviceIndexRange != nil {
-		if ni.NetworkCardIndexRange == nil {
-			allErrs = append(allErrs, field.Forbidden(fldPath.Child("deviceIndexRange"), "deviceIndexRange can only be specified when networkCardIndexRange is set"))
-		}
-		if ni.DeviceIndexRange.From < 0 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndexRange").Child("from"), ni.DeviceIndexRange.From, "must be >= 0"))
-		}
-		if ni.DeviceIndexRange.To > math.MaxInt32 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndexRange").Child("to"), ni.DeviceIndexRange.To, "must be <= 2147483647"))
-		}
-		if ni.DeviceIndexRange.From > ni.DeviceIndexRange.To {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndexRange"), ni.DeviceIndexRange, "from must be less than or equal to to"))
-		}
-		if ni.NetworkCardIndexRange != nil {
-			ncrLen := ni.NetworkCardIndexRange.To - ni.NetworkCardIndexRange.From
-			dirLen := ni.DeviceIndexRange.To - ni.DeviceIndexRange.From
-			if ncrLen != dirLen {
-				allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndexRange"), ni.DeviceIndexRange,
-					"deviceIndexRange must have the same length as networkCardIndexRange"))
-			}
-		}
+	if ni.DeviceIndex < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndex"), ni.DeviceIndex, "must be >= 0"))
+	} else if ni.DeviceIndex > math.MaxInt32 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndex"), ni.DeviceIndex, "must be <= 2147483647"))
 	}
 
 	return allErrs

@@ -1534,7 +1534,7 @@ integer
 </td>
 <td>
 <em>(Optional)</em>
-<p>NetworkCardIndexRange is the range of network card indices.<br />Mutually exclusive with NetworkCardIndex.</p>
+<p>NetworkCardIndexRange is the range of network card indices.<br />Mutually exclusive with NetworkCardIndex. When set, the same DeviceIndex is applied to every<br />network interface in the expanded range.</p>
 </td>
 </tr>
 <tr>
@@ -1546,19 +1546,7 @@ integer
 </td>
 <td>
 <em>(Optional)</em>
-<p>DeviceIndex is the device index for the network interface attachment.<br />Mutually exclusive with DeviceIndexRange.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>deviceIndexRange</code></br>
-<em>
-<a href="#indexrange">IndexRange</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeviceIndexRange is the range of device indices. Iterates in lockstep with NetworkCardIndexRange.<br />Must have the same length as NetworkCardIndexRange. Mutually exclusive with DeviceIndex.<br />Can only be specified when NetworkCardIndexRange is set.</p>
+<p>DeviceIndex is the device index for the network interface attachment. Defaults to 0 when unset.<br />When NetworkCardIndexRange is set, the same DeviceIndex value is applied to every network interface<br />in the expanded range.</p>
 </td>
 </tr>
 <tr>

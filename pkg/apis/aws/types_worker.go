@@ -173,15 +173,13 @@ type NetworkInterface struct {
 	// Mutually exclusive with NetworkCardIndexRange.
 	NetworkCardIndex *int64
 	// NetworkCardIndexRange is the range of network card indices for the network interface configuration.
-	// Mutually exclusive with NetworkCardIndex.
+	// Mutually exclusive with NetworkCardIndex. When set, the same DeviceIndex is applied to every
+	// network interface in the expanded range.
 	NetworkCardIndexRange *IndexRange
-	// DeviceIndex is the device index for the network interface attachment.
-	// Mutually exclusive with DeviceIndexRange.
-	DeviceIndex *int64
-	// DeviceIndexRange is the range of device indices. Iterates in lockstep with NetworkCardIndexRange.
-	// Must have the same length as NetworkCardIndexRange. Mutually exclusive with DeviceIndex.
-	// Can only be specified when NetworkCardIndexRange is set.
-	DeviceIndexRange *IndexRange
+	// DeviceIndex is the device index for the network interface attachment. Defaults to 0 when unset.
+	// When NetworkCardIndexRange is set, the same DeviceIndex value is applied to every network interface
+	// in the expanded range.
+	DeviceIndex int64
 	// Type is the type of network interface.
 	// Currently valid values for EC2 RunInstances: "interface", "efa", "efa-only".
 	// See https://github.com/aws/aws-sdk-go-v2/blob/service/ec2/v1.279.0/service/ec2/types/types.go#L9181

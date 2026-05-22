@@ -763,12 +763,7 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 		} else {
 			hashData = append(hashData, string(ec2types.NetworkInterfaceTypeInterface))
 		}
-		if ni.DeviceIndex != nil {
-			hashData = append(hashData, strconv.FormatInt(*ni.DeviceIndex, 10))
-		}
-		if ni.DeviceIndexRange != nil {
-			hashData = append(hashData, strconv.FormatInt(ni.DeviceIndexRange.From, 10), strconv.FormatInt(ni.DeviceIndexRange.To, 10))
-		}
+		hashData = append(hashData, strconv.FormatInt(ni.DeviceIndex, 10))
 		if ni.NetworkCardIndex != nil {
 			hashData = append(hashData, strconv.FormatInt(*ni.NetworkCardIndex, 10))
 		}
@@ -817,29 +812,15 @@ func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubne
 	var result []awsmachineapi.AWSNetworkInterfaceSpec
 	for _, ni := range workerConfig.NetworkInterfaces {
 		if ni.NetworkCardIndexRange != nil {
-			rangeLen := ni.NetworkCardIndexRange.To - ni.NetworkCardIndexRange.From + 1
-			for i := int64(0); i < rangeLen; i++ {
-				networkCardIndex := ni.NetworkCardIndexRange.From + i
-				var deviceIndex int64
-				if ni.DeviceIndexRange != nil {
-					deviceIndex = ni.DeviceIndexRange.From + i
-				} else if ni.DeviceIndex != nil {
-					deviceIndex = *ni.DeviceIndex
-				} else {
-					deviceIndex = networkCardIndex
-				}
-				result = append(result, buildSingleNI(ni, networkCardIndex, deviceIndex, defaultSubnetID, defaultSecurityGroupID))
+			for cardIndex := ni.NetworkCardIndexRange.From; cardIndex <= ni.NetworkCardIndexRange.To; cardIndex++ {
+				result = append(result, buildSingleNI(ni, cardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
 			}
 		} else {
 			var networkCardIndex int64
 			if ni.NetworkCardIndex != nil {
 				networkCardIndex = *ni.NetworkCardIndex
 			}
-			var deviceIndex int64
-			if ni.DeviceIndex != nil {
-				deviceIndex = *ni.DeviceIndex
-			}
-			result = append(result, buildSingleNI(ni, networkCardIndex, deviceIndex, defaultSubnetID, defaultSecurityGroupID))
+			result = append(result, buildSingleNI(ni, networkCardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
 		}
 	}
 	return result

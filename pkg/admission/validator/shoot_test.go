@@ -496,7 +496,6 @@ var _ = Describe("Shoot validator", func() {
 								NetworkInterfaces: []apisawsv1alpha1.NetworkInterface{
 									{
 										NetworkCardIndex: ptr.To[int64](0),
-										DeviceIndex:      ptr.To[int64](0),
 										Type:             ptr.To("efa-only"),
 									},
 								},

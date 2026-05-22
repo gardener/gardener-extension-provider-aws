@@ -867,11 +867,15 @@ The exact behaviour depends on the combination of the targeting and the reservat
 
 ## Network Interfaces
 
-The `networkInterfaces` field of `WorkerConfig` allows attaching multiple network interfaces (NICs) to each instance in a worker pool. The primary use case is **Elastic Fabric Adapter (EFA)** for high-bandwidth, low-latency RDMA networking on GPU and HPC instances (e.g. `p4d.24xlarge`, `p5.48xlarge`).
+The `networkInterfaces` field of `WorkerConfig` allows attaching multiple network interfaces (NICs) to each instance in a worker pool. The primary use case is **Elastic Fabric Adapter (EFA)** for high-bandwidth, low-latency RDMA networking on GPU and HPC instances (e.g. `p4d.24xlarge`, `p5.48xlarge`, `p6e-gb200.36xlarge`).
 
-### Multi-NIC EFA via index ranges
+The shape mirrors AWS's [recommended baseline configuration](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-acc-inst-types.html):
 
-Instances like `p4d.24xlarge` have multiple network cards (4 cards, 1 EFA per card). Instead of declaring each NIC manually, use `networkCardIndexRange` together with `deviceIndexRange` to expand into N NICs in lockstep. The example below configures 1 `efa` NIC (the primary) and 3 `efa-only` NICs (4 NICs total):
+- The primary NIC is at `networkCardIndex: 0, deviceIndex: 0` and uses `type: interface` (or `efa`). It cannot be `efa-only`.
+- For each additional network card, AWS recommends one EFA-only NIC at `deviceIndex: 0`.
+- Optionally, a secondary EFA-only NIC may be added on `networkCardIndex: 0, deviceIndex: 1` if card 0 supports EFA.
+
+### Example: P5/P5e (32 network cards) with one EFA-only NIC per card
 
 ```yaml
 spec:
@@ -879,35 +883,34 @@ spec:
     workers:
     - name: gpu-worker
       machine:
-        type: p4d.24xlarge
+        type: p5.48xlarge
       ...
       providerConfig:
         apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
         kind: WorkerConfig
         networkInterfaces:
         - networkCardIndex: 0
-          deviceIndex: 0
-          type: efa                    # primary NIC on card 0 (must be interface or efa)
-        - networkCardIndexRange:       # expands to NICs on cards 1..3
+          type: interface              # primary NIC (deviceIndex defaults to 0)
+        - networkCardIndex: 0
+          deviceIndex: 1
+          type: efa-only               # secondary EFA-only NIC on card 0
+        - networkCardIndexRange:       # expands to NICs on cards 1..31
             from: 1
-            to: 3
-          deviceIndexRange:            # expands to deviceIndex 1..3 in lockstep
-            from: 1
-            to: 3
-          type: efa-only               # EFA-only NICs (no IP, RDMA traffic only)
+            to: 31
+          type: efa-only               # deviceIndex defaults to 0 for every NIC in the range
 ```
 
-This expands to 4 NICs total: one `efa` on card 0, and three `efa-only` NICs on cards 1, 2, 3 (each with the matching device index).
+This expands to 33 NICs total: 1 primary `interface` on card 0 device 0, 1 `efa-only` on card 0 device 1, and 31 `efa-only` NICs on cards 1..31 (each at device 0).
 
 ### Field reference
 
-- `networkCardIndex` / `networkCardIndexRange`: index of the network card. Mutually exclusive. AWS instance types have a fixed number of cards; consult the [EC2 instance types page](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) for limits.
-- `deviceIndex` / `deviceIndexRange`: position of the NIC in the attachment order on its card. The primary NIC must have `deviceIndex: 0`. `deviceIndexRange` requires `networkCardIndexRange` to be set, and both ranges must have the same length (they iterate in lockstep).
-- `type`: one of `interface` (default), `efa`, or `efa-only`. The first NIC (primary) cannot be `efa-only` because EFA-only NICs do not support IP addresses. If omitted, defaults to `interface`.
+- `networkCardIndex` / `networkCardIndexRange`: index of the network card. Mutually exclusive. AWS instance types have a fixed number of cards; consult the [Network cards](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#network-cards) page for limits. AWS also restricts you to one EFA or EFA-only network interface per network card. When `networkCardIndexRange` is set, the same `deviceIndex` is applied to every NIC in the expanded range.
+- `deviceIndex`: device index for the NIC attachment. Defaults to `0` when unset. AWS recommends `0` for the primary NIC and for each EFA-only NIC on additional network cards, and `1` for any secondary NIC sharing a network card (e.g. an EFA-only on card 0 alongside the primary, or an extra ENA on a card that already hosts an EFA-only).
+- `type`: one of `interface` (default), `efa`, or `efa-only`. The primary NIC (`networkCardIndex: 0, deviceIndex: 0`) cannot be `efa-only` because EFA-only NICs do not support IP addresses. If omitted, defaults to `interface`.
 - `subnetID`: subnet to attach the NIC to. Defaults to the worker pool's subnet if omitted.
 - `description`: optional description for the network interface.
 
-For more details on EFA, see the [AWS EFA documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html).
+For more details on EFA, see the [AWS EFA documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html). For instance-specific recommended NIC layouts, see [Maximize network bandwidth on EC2 instances with multiple network cards](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-acc-inst-types.html).
 
 
 ## Placement

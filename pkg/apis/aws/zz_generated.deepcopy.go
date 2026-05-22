@@ -787,16 +787,6 @@ func (in *NetworkInterface) DeepCopyInto(out *NetworkInterface) {
 		*out = new(IndexRange)
 		**out = **in
 	}
-	if in.DeviceIndex != nil {
-		in, out := &in.DeviceIndex, &out.DeviceIndex
-		*out = new(int64)
-		**out = **in
-	}
-	if in.DeviceIndexRange != nil {
-		in, out := &in.DeviceIndexRange, &out.DeviceIndexRange
-		*out = new(IndexRange)
-		**out = **in
-	}
 	if in.Type != nil {
 		in, out := &in.Type, &out.Type
 		*out = new(string)
