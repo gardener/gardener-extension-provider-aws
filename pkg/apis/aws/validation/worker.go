@@ -6,6 +6,7 @@ package validation
 
 import (
 	"fmt"
+	"math"
 	"slices"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -151,6 +152,9 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 
 	allErrs = append(allErrs, validateInstanceMetadata(workerConfig.InstanceMetadataOptions, fldPath.Child("instanceMetadataOptions"))...)
 	allErrs = append(allErrs, validateCpuOptions(workerConfig.CpuOptions, fldPath.Child("cpuOptions"))...)
+	allErrs = append(allErrs, validateNetworkInterfaces(workerConfig.NetworkInterfaces, fldPath.Child("networkInterfaces"))...)
+	allErrs = append(allErrs, validatePlacement(workerConfig.Placement, fldPath.Child("placement"))...)
+	allErrs = append(allErrs, validateInstanceMarketOptions(workerConfig.InstanceMarketOptions, fldPath.Child("instanceMarketOptions"))...)
 
 	return allErrs
 }
@@ -349,6 +353,140 @@ func validateCpuOptions(cpuOptions *apisaws.CpuOptions, fldPath *field.Path) fie
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("threadsPerCore"), tpc,
 				"ThreadsPerCore must be 1 or 2"))
 		}
+	}
+
+	return allErrs
+}
+
+var validNetworkInterfaceTypes = []string{
+	string(ec2types.NetworkInterfaceTypeInterface),
+	string(ec2types.NetworkInterfaceTypeEfa),
+	string(ec2types.NetworkInterfaceTypeEfaOnly),
+}
+
+func validateNetworkInterfaces(networkInterfaces []apisaws.NetworkInterface, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+
+	for i, ni := range networkInterfaces {
+		allErrs = append(allErrs, validateNetworkInterface(ni, fldPath.Index(i))...)
+	}
+
+	for i, ni := range networkInterfaces {
+		if ni.Type != nil && *ni.Type == string(ec2types.NetworkInterfaceTypeEfaOnly) && coversPrimaryNIC(ni) {
+			allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("type"), *ni.Type,
+				"the primary network interface (networkCardIndex 0, deviceIndex 0) must be of type \"interface\" or \"efa\", not \"efa-only\""))
+		}
+	}
+
+	return allErrs
+}
+
+// coversPrimaryNIC reports whether the given NetworkInterface entry would produce a NIC at
+// networkCardIndex 0 and deviceIndex 0 (the primary NIC) once expanded by the worker controller.
+// NetworkCardIndex defaults to 0 when nil. DeviceIndex defaults to 0 (zero value of int64).
+// For NetworkCardIndexRange, only the iteration where networkCardIndex is 0 is considered.
+func coversPrimaryNIC(ni apisaws.NetworkInterface) bool {
+	if ni.NetworkCardIndexRange != nil && ni.NetworkCardIndexRange.From != 0 {
+		return false
+	}
+	if ni.NetworkCardIndex != nil && *ni.NetworkCardIndex != 0 {
+		return false
+	}
+	if ni.DeviceIndex != 0 {
+		return false
+	}
+	return true
+}
+
+func validateNetworkInterface(ni apisaws.NetworkInterface, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if ni.Type != nil && !slices.Contains(validNetworkInterfaceTypes, *ni.Type) {
+		allErrs = append(allErrs, field.NotSupported(fldPath.Child("type"), *ni.Type, validNetworkInterfaceTypes))
+	}
+
+	if ni.NetworkCardIndex != nil && ni.NetworkCardIndexRange != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath, ni, "networkCardIndex and networkCardIndexRange are mutually exclusive"))
+	}
+
+	if ni.NetworkCardIndex != nil {
+		if *ni.NetworkCardIndex < 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndex"), *ni.NetworkCardIndex, "must be >= 0"))
+		} else if *ni.NetworkCardIndex > math.MaxInt32 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndex"), *ni.NetworkCardIndex, "must be <= 2147483647"))
+		}
+	}
+
+	if ni.NetworkCardIndexRange != nil {
+		if ni.NetworkCardIndexRange.From < 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndexRange").Child("from"), ni.NetworkCardIndexRange.From, "must be >= 0"))
+		}
+		if ni.NetworkCardIndexRange.To > math.MaxInt32 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndexRange").Child("to"), ni.NetworkCardIndexRange.To, "must be <= 2147483647"))
+		}
+		if ni.NetworkCardIndexRange.From > ni.NetworkCardIndexRange.To {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndexRange"), ni.NetworkCardIndexRange, "from must be less than or equal to to"))
+		}
+	}
+
+	if ni.DeviceIndex < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndex"), ni.DeviceIndex, "must be >= 0"))
+	} else if ni.DeviceIndex > math.MaxInt32 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("deviceIndex"), ni.DeviceIndex, "must be <= 2147483647"))
+	}
+
+	return allErrs
+}
+
+func validatePlacement(placement *apisaws.Placement, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if placement == nil {
+		return allErrs
+	}
+
+	if placement.Tenancy != nil {
+		validTenancies := []string{"default", "dedicated", "host"}
+		if !slices.Contains(validTenancies, *placement.Tenancy) {
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("tenancy"), *placement.Tenancy, validTenancies))
+		}
+	}
+
+	if placement.Affinity != nil {
+		validAffinities := []string{"default", "host"}
+		if !slices.Contains(validAffinities, *placement.Affinity) {
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("affinity"), *placement.Affinity, validAffinities))
+		}
+	}
+
+	if placement.HostID != nil && (placement.Tenancy == nil || *placement.Tenancy != "host") {
+		allErrs = append(allErrs, field.Forbidden(fldPath.Child("hostId"), "hostId can only be set when tenancy is \"host\""))
+	}
+
+	if placement.PartitionNumber != nil {
+		if *placement.PartitionNumber < 1 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("partitionNumber"), *placement.PartitionNumber, "must be >= 1"))
+		} else if *placement.PartitionNumber > math.MaxInt32 {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("partitionNumber"), *placement.PartitionNumber, "must be <= 2147483647"))
+		}
+	}
+
+	return allErrs
+}
+
+func validateInstanceMarketOptions(opts *apisaws.InstanceMarketOptions, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	if opts == nil {
+		return allErrs
+	}
+
+	validMarketTypes := ec2types.MarketType("").Values()
+	validStrings := make([]string, len(validMarketTypes))
+	for i, v := range validMarketTypes {
+		validStrings[i] = string(v)
+	}
+
+	if !slices.Contains(validStrings, opts.MarketType) {
+		allErrs = append(allErrs, field.NotSupported(fldPath.Child("marketType"), opts.MarketType, validStrings))
 	}
 
 	return allErrs

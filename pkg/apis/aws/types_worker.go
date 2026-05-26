@@ -31,6 +31,13 @@ type WorkerConfig struct {
 	CpuOptions *CpuOptions
 	// CapacityReservation contains configuration about the Capacity Reservation to use for the instance.
 	CapacityReservation *CapacityReservation
+	// NetworkInterfaces contains configuration for the network interfaces attached to VMs.
+	NetworkInterfaces []NetworkInterface
+	// Placement contains configuration for instance placement (placement groups, tenancy, dedicated hosts).
+	Placement *Placement
+	// InstanceMarketOptions configures the instance market type.
+	// If not specified, on-demand instances are launched.
+	InstanceMarketOptions *InstanceMarketOptions
 }
 
 // Volume contains configuration for the root disks attached to VMs.
@@ -158,4 +165,57 @@ type CapacityReservation struct {
 	CapacityReservationID *string
 	// CapacityReservationResourceGroupARN is the ARN of the Capacity Reservation Group in which to look for a Capacity Reservation. Mutually exclusive with CapacityReservationID.
 	CapacityReservationResourceGroupARN *string
+}
+
+// NetworkInterface contains configuration for a network interface or range of network interfaces attached to VMs.
+type NetworkInterface struct {
+	// NetworkCardIndex is the index of the network card.
+	// Mutually exclusive with NetworkCardIndexRange.
+	NetworkCardIndex *int64
+	// NetworkCardIndexRange is the range of network card indices for the network interface configuration.
+	// Mutually exclusive with NetworkCardIndex. When set, the same DeviceIndex is applied to every
+	// network interface in the expanded range.
+	NetworkCardIndexRange *IndexRange
+	// DeviceIndex is the device index for the network interface attachment. Defaults to 0 when unset.
+	// When NetworkCardIndexRange is set, the same DeviceIndex value is applied to every network interface
+	// in the expanded range.
+	DeviceIndex int64
+	// Type is the type of network interface.
+	// Currently valid values for EC2 RunInstances: "interface", "efa", "efa-only".
+	// See https://github.com/aws/aws-sdk-go-v2/blob/service/ec2/v1.279.0/service/ec2/types/types.go#L9181
+	// If not specified, "interface" is used by default.
+	Type *string
+	// Description is a description for the network interface.
+	Description *string
+	// SubnetID is the ID of the subnet to which the network interface should be attached.
+	SubnetID *string
+}
+
+// IndexRange represents an inclusive range of integer indices.
+type IndexRange struct {
+	// From is the start of the range (inclusive).
+	From int64
+	// To is the end of the range (inclusive).
+	To int64
+}
+
+// Placement contains configuration for instance placement.
+type Placement struct {
+	// GroupID is the ID of the placement group for the instance.
+	GroupID *string
+	// Tenancy is the tenancy of the instance. Valid values: "default", "dedicated", "host".
+	Tenancy *string
+	// HostID is the ID of the Dedicated Host for the instance.
+	HostID *string
+	// PartitionNumber is the number of the partition the instance should launch in.
+	PartitionNumber *int64
+	// Affinity is the affinity setting for the instance on the Dedicated Host. Valid values: "default", "host".
+	Affinity *string
+}
+
+// InstanceMarketOptions configures the instance market type.
+type InstanceMarketOptions struct {
+	// MarketType is the market type for the instance.
+	// Supported values: "spot", "capacity-block", "interruptible-capacity-reservation".
+	MarketType string
 }

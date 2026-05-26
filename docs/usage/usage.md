@@ -865,6 +865,100 @@ The exact behaviour depends on the combination of the targeting and the reservat
 > Instances without any Capacity Reservation config will launch using `open` targeting. They will automatically fill up any matching Capacity Reservations with `open` instance eligibility as they appear.
 
 
+## Network Interfaces
+
+The `networkInterfaces` field of `WorkerConfig` allows attaching multiple network interfaces (NICs) to each instance in a worker pool. The primary use case is **Elastic Fabric Adapter (EFA)** for high-bandwidth, low-latency RDMA networking on GPU and HPC instances (e.g. `p4d.24xlarge`, `p5.48xlarge`, `p6e-gb200.36xlarge`).
+
+The shape mirrors AWS's [recommended baseline configuration](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-acc-inst-types.html):
+
+- The primary NIC is at `networkCardIndex: 0, deviceIndex: 0` and uses `type: interface` (or `efa`). It cannot be `efa-only`.
+- For each additional network card, AWS recommends one EFA-only NIC at `deviceIndex: 0`.
+- Optionally, a secondary EFA-only NIC may be added on `networkCardIndex: 0, deviceIndex: 1` if card 0 supports EFA.
+
+### Example: P5/P5e (32 network cards) with one EFA-only NIC per card
+
+```yaml
+spec:
+  provider:
+    workers:
+    - name: gpu-worker
+      machine:
+        type: p5.48xlarge
+      ...
+      providerConfig:
+        apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+        kind: WorkerConfig
+        networkInterfaces:
+        - networkCardIndex: 0
+          type: interface              # primary NIC (deviceIndex defaults to 0)
+        - networkCardIndex: 0
+          deviceIndex: 1
+          type: efa-only               # secondary EFA-only NIC on card 0
+        - networkCardIndexRange:       # expands to NICs on cards 1..31
+            from: 1
+            to: 31
+          type: efa-only               # deviceIndex defaults to 0 for every NIC in the range
+```
+
+This expands to 33 NICs total: 1 primary `interface` on card 0 device 0, 1 `efa-only` on card 0 device 1, and 31 `efa-only` NICs on cards 1..31 (each at device 0).
+
+### Field reference
+
+- `networkCardIndex` / `networkCardIndexRange`: index of the network card. Mutually exclusive. AWS instance types have a fixed number of cards; consult the [Network cards](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#network-cards) page for limits. AWS also restricts you to one EFA or EFA-only network interface per network card. When `networkCardIndexRange` is set, the same `deviceIndex` is applied to every NIC in the expanded range.
+- `deviceIndex`: device index for the NIC attachment. Defaults to `0` when unset. AWS recommends `0` for the primary NIC and for each EFA-only NIC on additional network cards, and `1` for any secondary NIC sharing a network card (e.g. an EFA-only on card 0 alongside the primary, or an extra ENA on a card that already hosts an EFA-only).
+- `type`: one of `interface` (default), `efa`, or `efa-only`. The primary NIC (`networkCardIndex: 0, deviceIndex: 0`) cannot be `efa-only` because EFA-only NICs do not support IP addresses. If omitted, defaults to `interface`.
+- `subnetID`: subnet to attach the NIC to. Defaults to the worker pool's subnet if omitted.
+- `description`: optional description for the network interface.
+
+For more details on EFA, see the [AWS EFA documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html). For instance-specific recommended NIC layouts, see [Maximize network bandwidth on EC2 instances with multiple network cards](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-acc-inst-types.html).
+
+
+## Placement
+
+The `placement` field configures EC2 instance placement options: placement groups (for low-latency clustering), tenancy, and dedicated hosts.
+
+```yaml
+providerConfig:
+  apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+  kind: WorkerConfig
+  placement:
+    groupId: pg-0123456789abcdef0    # cluster/spread/partition placement group
+    tenancy: default                 # <default | dedicated | host>
+    # hostId: h-0123456789abcdef0    # required when tenancy is "host"
+    # affinity: host                 # <default | host>, only valid with dedicated hosts
+    # partitionNumber: 1             # only valid with partition placement groups, must be >= 1
+```
+
+- `groupId`: ID of an existing [placement group](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html). For GPU clusters running NCCL or MPI, a `cluster` placement group reduces inter-node latency by co-locating instances on the same physical rack.
+- `tenancy`: `default` runs on shared hardware, `dedicated` ensures the hardware is not shared with other AWS accounts, and `host` launches the instance on a specific [Dedicated Host](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-overview.html).
+- `hostId`: ID of the Dedicated Host. Only valid when `tenancy: host`.
+- `affinity`: `host` ensures the instance is restarted on the same Dedicated Host after a stop/start cycle. Only valid with Dedicated Hosts.
+- `partitionNumber`: which partition (>= 1) to launch in. Only valid with [partition placement groups](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html#placement-groups-partition).
+
+
+## Instance Market Options
+
+The `instanceMarketOptions` field selects the EC2 [instance market type](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceMarketOptionsRequest.html). This is used for:
+
+- **ML capacity blocks**: pre-purchased GPU capacity for short-duration ML training (`capacity-block`). Required for instances launched against an active capacity block reservation. See [ML capacity blocks](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-blocks.html).
+- **Interruptible capacity reservations**: similar to capacity blocks, but for interruptible reservations.
+
+```yaml
+providerConfig:
+  apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+  kind: WorkerConfig
+  instanceMarketOptions:
+    marketType: capacity-block       # <capacity-block | interruptible-capacity-reservation | spot>
+  capacityReservation:
+    capacityReservationId: cr-0123456789abcdef0  # required for capacity-block
+```
+
+- `marketType`: one of `capacity-block`, `interruptible-capacity-reservation`, or `spot`. `capacity-block` and `interruptible-capacity-reservation` must be paired with a matching `capacityReservation.capacityReservationId` so the instance launches into the correct reservation. See the AWS [Spot Instances](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances.html) and [ML capacity blocks](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-blocks.html) docs for details.
+
+> [!Note]
+> Capacity blocks have a fixed start and end time. Workers in a pool with `marketType: capacity-block` will fail to launch outside the reservation window. Hibernate or scale down the pool when the block expires.
+
+
 ## CSI volume provisioners
 
 Every AWS shoot cluster will be deployed with the AWS EBS CSI driver.

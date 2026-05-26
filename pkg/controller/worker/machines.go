@@ -202,12 +202,7 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				MachineType:            pool.MachineType,
 				SrcAndDstChecksEnabled: ptr.To(false),
 				IAM:                    iamInstanceProfile,
-				NetworkInterfaces: []awsmachineapi.AWSNetworkInterfaceSpec{
-					{
-						SubnetID:         nodesSubnet.ID,
-						SecurityGroupIDs: []string{nodesSecurityGroup.ID},
-					},
-				},
+				NetworkInterfaces:      buildNetworkInterfacesTyped(workerConfig, nodesSubnet.ID, nodesSecurityGroup.ID),
 				Tags: utils.MergeStringMaps(
 					map[string]string{
 						fmt.Sprintf("kubernetes.io/cluster/%s", w.cluster.Shoot.Status.TechnicalID): "1",
@@ -221,8 +216,12 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 
 			networking := w.cluster.Shoot.Spec.Networking
 			if networking != nil && infraflow.ContainsIPv6(networking.IPFamilies) {
-				machineClassProviderSpec.NetworkInterfaces[0].Ipv6AddressCount = ptr.To[int32](1)
-				machineClassProviderSpec.NetworkInterfaces[0].Ipv6PrefixCount = ptr.To[int32](1)
+				if machineClassProviderSpec.NetworkInterfaces[0].Ipv6AddressCount == nil {
+					machineClassProviderSpec.NetworkInterfaces[0].Ipv6AddressCount = ptr.To[int32](1)
+				}
+				if machineClassProviderSpec.NetworkInterfaces[0].Ipv6PrefixCount == nil {
+					machineClassProviderSpec.NetworkInterfaces[0].Ipv6PrefixCount = ptr.To[int32](1)
+				}
 			}
 
 			if len(infrastructureStatus.EC2.KeyName) > 0 {
@@ -268,6 +267,22 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				}
 
 				machineClassProviderSpec.CapacityReservationTarget = capacityReservationCfg
+			}
+
+			if workerConfig.InstanceMarketOptions != nil {
+				machineClassProviderSpec.InstanceMarketOptions = &awsmachineapi.AWSInstanceMarketOptions{
+					MarketType: workerConfig.InstanceMarketOptions.MarketType,
+				}
+			}
+
+			if workerConfig.Placement != nil {
+				machineClassProviderSpec.Placement = &awsmachineapi.AWSPlacementSpec{
+					GroupID:         workerConfig.Placement.GroupID,
+					Tenancy:         workerConfig.Placement.Tenancy,
+					HostID:          workerConfig.Placement.HostID,
+					PartitionNumber: int64To32Ptr(workerConfig.Placement.PartitionNumber),
+					Affinity:        workerConfig.Placement.Affinity,
+				}
 			}
 
 			var (
@@ -737,5 +752,111 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 			hashData = append(hashData, *workerConfig.CapacityReservation.CapacityReservationResourceGroupARN)
 		}
 	}
+
+	if workerConfig.InstanceMarketOptions != nil {
+		hashData = append(hashData, workerConfig.InstanceMarketOptions.MarketType)
+	}
+
+	for _, ni := range workerConfig.NetworkInterfaces {
+		if ni.Type != nil && *ni.Type != "" {
+			hashData = append(hashData, *ni.Type)
+		} else {
+			hashData = append(hashData, string(ec2types.NetworkInterfaceTypeInterface))
+		}
+		hashData = append(hashData, strconv.FormatInt(ni.DeviceIndex, 10))
+		if ni.NetworkCardIndex != nil {
+			hashData = append(hashData, strconv.FormatInt(*ni.NetworkCardIndex, 10))
+		}
+		if ni.NetworkCardIndexRange != nil {
+			hashData = append(hashData, strconv.FormatInt(ni.NetworkCardIndexRange.From, 10), strconv.FormatInt(ni.NetworkCardIndexRange.To, 10))
+		}
+		if ni.SubnetID != nil {
+			hashData = append(hashData, *ni.SubnetID)
+		}
+	}
+
+	if workerConfig.Placement != nil {
+		if workerConfig.Placement.GroupID != nil {
+			hashData = append(hashData, *workerConfig.Placement.GroupID)
+		}
+		if workerConfig.Placement.Tenancy != nil {
+			hashData = append(hashData, *workerConfig.Placement.Tenancy)
+		}
+		if workerConfig.Placement.HostID != nil {
+			hashData = append(hashData, *workerConfig.Placement.HostID)
+		}
+		if workerConfig.Placement.PartitionNumber != nil {
+			hashData = append(hashData, strconv.FormatInt(*workerConfig.Placement.PartitionNumber, 10))
+		}
+		if workerConfig.Placement.Affinity != nil {
+			hashData = append(hashData, *workerConfig.Placement.Affinity)
+		}
+	}
+
 	return hashData
+}
+
+// buildNetworkInterfacesTyped builds the network interfaces slice for the MachineClass providerSpec.
+// If WorkerConfig specifies custom network interfaces, they are expanded (ranges -> explicit entries).
+// Otherwise, falls back to a single interface using the infrastructure subnet and security group.
+func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubnetID, defaultSecurityGroupID string) []awsmachineapi.AWSNetworkInterfaceSpec {
+	if len(workerConfig.NetworkInterfaces) == 0 {
+		return []awsmachineapi.AWSNetworkInterfaceSpec{
+			{
+				SubnetID:         defaultSubnetID,
+				SecurityGroupIDs: []string{defaultSecurityGroupID},
+			},
+		}
+	}
+
+	var result []awsmachineapi.AWSNetworkInterfaceSpec
+	for _, ni := range workerConfig.NetworkInterfaces {
+		if ni.NetworkCardIndexRange != nil {
+			for cardIndex := ni.NetworkCardIndexRange.From; cardIndex <= ni.NetworkCardIndexRange.To; cardIndex++ {
+				result = append(result, buildSingleNI(ni, cardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
+			}
+		} else {
+			var networkCardIndex int64
+			if ni.NetworkCardIndex != nil {
+				networkCardIndex = *ni.NetworkCardIndex
+			}
+			result = append(result, buildSingleNI(ni, networkCardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
+		}
+	}
+	return result
+}
+
+func buildSingleNI(ni awsapi.NetworkInterface, networkCardIndex, deviceIndex int64, defaultSubnetID, defaultSecurityGroupID string) awsmachineapi.AWSNetworkInterfaceSpec {
+	spec := awsmachineapi.AWSNetworkInterfaceSpec{
+		DeviceIndex:      ptr.To(int32(deviceIndex)),      // #nosec: G115 -- validated to be <= math.MaxInt32
+		NetworkCardIndex: ptr.To(int32(networkCardIndex)), // #nosec: G115 -- validated to be <= math.MaxInt32
+	}
+
+	if ni.SubnetID != nil {
+		spec.SubnetID = *ni.SubnetID
+	} else {
+		spec.SubnetID = defaultSubnetID
+	}
+
+	spec.SecurityGroupIDs = []string{defaultSecurityGroupID}
+
+	if ni.Type != nil && *ni.Type != "" {
+		spec.InterfaceType = ni.Type
+	} else {
+		spec.InterfaceType = ptr.To(string(ec2types.NetworkInterfaceTypeInterface))
+	}
+
+	spec.AssociatePublicIPAddress = ptr.To(false)
+	spec.DeleteOnTermination = ptr.To(true)
+	spec.Description = ni.Description
+
+	return spec
+}
+
+func int64To32Ptr(v *int64) *int32 {
+	if v == nil {
+		return nil
+	}
+	val := int32(*v) // #nosec: G115 -- validated to be <= math.MaxInt32
+	return &val
 }
