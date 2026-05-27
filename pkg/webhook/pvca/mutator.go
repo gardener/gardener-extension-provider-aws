@@ -29,6 +29,7 @@ func NewMutator(logger logr.Logger) extensionswebhook.Mutator {
 
 // Mutate mutates PersistentVolumeClaimAutoscaler resources by defaulting cooldownDuration.
 func (m *mutator) Mutate(_ context.Context, newObj, _ client.Object) error {
+	m.logger.Info("mutating PersistentVolumeClaimAutoscaler", "namespace", newObj.GetNamespace(), "name", newObj.GetName())
 	pvca, ok := newObj.(*pvcautoscalingv1alpha1.PersistentVolumeClaimAutoscaler)
 	if !ok {
 		return fmt.Errorf("could not mutate: object is not of type PersistentVolumeClaimAutoscaler")

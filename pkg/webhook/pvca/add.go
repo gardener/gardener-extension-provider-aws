@@ -11,8 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
 const (
@@ -46,7 +44,6 @@ func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebh
 	return &extensionswebhook.Webhook{
 		Name:              WebhookName,
 		Target:            extensionswebhook.TargetSeed,
-		Provider:          aws.Type,
 		Types:             types,
 		Webhook:           &admission.Webhook{Handler: handler, RecoverPanic: ptr.To(true)},
 		Path:              WebhookName,
