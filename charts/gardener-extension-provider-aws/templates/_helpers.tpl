@@ -65,7 +65,7 @@ true
 {{- define "disable.webhooks" -}}
 {{- $disableWebhooks := .Values.disableWebhooks -}}
 {{- if ne (include "seed.provider" . | trim) "aws" -}}
-{{- $disableWebhooks = append $disableWebhooks "shoot-pvca" -}}
+{{- $disableWebhooks = append $disableWebhooks "seed-pvca" -}}
 {{- end -}}
 {{- $disableWebhooks | uniq | join "," -}}
 {{- end -}}

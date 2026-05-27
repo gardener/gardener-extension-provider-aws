@@ -17,7 +17,7 @@ import (
 
 const (
 	// WebhookName is the name of the webhook.
-	WebhookName = "shoot-pvca"
+	WebhookName = "seed-pvca"
 )
 
 var (
@@ -30,7 +30,7 @@ type AddOptions struct{}
 
 // AddToManagerWithOptions creates a webhook with the given options and adds it to the manager.
 func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebhook.Webhook, error) {
-	logger := log.Log.WithName("aws-shoot-pvca-webhook")
+	logger := log.Log.WithName("aws-seed-pvca-webhook")
 	logger.Info("Adding webhook for PersistentVolumeClaimAutoscaler to manager")
 
 	if err := pvcautoscalingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
