@@ -1167,7 +1167,7 @@ roleARN: ""
 					}))))
 				})
 
-				It("should return error with InternalSecret type when credentials are invalid", func() {
+				It("should return error with InternalSecret type", func() {
 					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
@@ -1194,8 +1194,9 @@ roleARN: ""
 						Return(nil)
 
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeInvalid),
-						"Field": Equal("spec.dns.providers[0].credentialsRef"),
+						"Type":   Equal(field.ErrorTypeInvalid),
+						"Field":  Equal("spec.dns.providers[0].credentialsRef"),
+						"Detail": ContainSubstring("supported credentials types are Secret and WorkloadIdentity"),
 					}))))
 				})
 			})
