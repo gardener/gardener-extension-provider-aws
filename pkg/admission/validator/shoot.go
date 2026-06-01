@@ -267,8 +267,13 @@ func (s *shoot) validateDNS(ctx context.Context, shoot *core.Shoot) field.ErrorL
 				if err := ValidateSecret(creds, nil); err != nil {
 					allErrs = append(allErrs, field.Invalid(credentialsFldPath, p.CredentialsRef.String(), err.Error()))
 				}
+			case *gardencorev1beta1.InternalSecret:
+				secret := &corev1.Secret{Data: creds.Data}
+				if err := ValidateSecret(secret, nil); err != nil {
+					allErrs = append(allErrs, field.Invalid(credentialsFldPath, p.CredentialsRef.String(), err.Error()))
+				}
 			default:
-				allErrs = append(allErrs, field.Invalid(credentialsFldPath, p.CredentialsRef.String(), "supported credentials types are Secret and WorkloadIdentity"))
+				allErrs = append(allErrs, field.Invalid(credentialsFldPath, p.CredentialsRef.String(), "supported credentials types are Secret, InternalSecret, and WorkloadIdentity"))
 			}
 		}
 	}
