@@ -10,9 +10,11 @@ import (
 	"fmt"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/apis/security"
 	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -59,6 +61,17 @@ func (cb *credentialsBinding) Validate(ctx context.Context, newObj, oldObj clien
 			return err
 		}
 
+		return awsvalidation.ValidateCloudProviderSecret(secret, field.NewPath("secret")).ToAggregate()
+	case credentialsBinding.CredentialsRef.APIVersion == gardencorev1beta1.SchemeGroupVersion.String() && credentialsBinding.CredentialsRef.Kind == "InternalSecret":
+		internalSecret := &gardencorev1beta1.InternalSecret{}
+		if err := cb.apiReader.Get(ctx, credentialsKey, internalSecret); err != nil {
+			return err
+		}
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Namespace: internalSecret.Namespace, Name: internalSecret.Name},
+			Data:       internalSecret.Data,
+		}
 		return awsvalidation.ValidateCloudProviderSecret(secret, field.NewPath("secret")).ToAggregate()
 	case credentialsBinding.CredentialsRef.APIVersion == securityv1alpha1.SchemeGroupVersion.String() && credentialsBinding.CredentialsRef.Kind == "WorkloadIdentity":
 		workloadIdentity := &securityv1alpha1.WorkloadIdentity{}

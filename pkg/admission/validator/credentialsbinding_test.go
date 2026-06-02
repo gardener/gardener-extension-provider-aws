@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"github.com/gardener/gardener/pkg/apis/security"
 	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
 	testutils "github.com/gardener/gardener/pkg/utils/test"
@@ -41,6 +42,7 @@ var _ = Describe("CredentialsBinding validator", func() {
 
 			ctx                                = context.TODO()
 			credentialsBindingSecret           *security.CredentialsBinding
+			credentialsBindingInternalSecret   *security.CredentialsBinding
 			credentialsBindingWorkloadIdentity *security.CredentialsBinding
 
 			fakeErr = fmt.Errorf("fake err")
@@ -68,6 +70,14 @@ var _ = Describe("CredentialsBinding validator", func() {
 					Namespace:  namespace,
 					Kind:       "WorkloadIdentity",
 					APIVersion: "security.gardener.cloud/v1alpha1",
+				},
+			}
+			credentialsBindingInternalSecret = &security.CredentialsBinding{
+				CredentialsRef: corev1.ObjectReference{
+					Name:       name,
+					Namespace:  namespace,
+					Kind:       "InternalSecret",
+					APIVersion: "core.gardener.cloud/v1beta1",
 				},
 			}
 		})
@@ -127,6 +137,37 @@ var _ = Describe("CredentialsBinding validator", func() {
 			old := credentialsBindingSecret.DeepCopy()
 
 			Expect(credentialsBindingValidator.Validate(ctx, credentialsBindingSecret, old)).To(Succeed())
+		})
+
+		It("should return err if it fails to get the corresponding InternalSecret", func() {
+			apiReader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&gardencorev1beta1.InternalSecret{})).Return(fakeErr)
+
+			err := credentialsBindingValidator.Validate(ctx, credentialsBindingInternalSecret, nil)
+			Expect(err).To(MatchError(fakeErr))
+		})
+
+		It("should return err when the corresponding InternalSecret is not valid", func() {
+			internalSecret := &gardencorev1beta1.InternalSecret{Data: map[string][]byte{
+				aws.AccessKeyID:     []byte("AKIAIOSFODNN7EXAMPL_"),                     // 20 chars but has underscore
+				aws.SecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"), // exactly 40 chars, base64
+			}}
+			apiReader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&gardencorev1beta1.InternalSecret{})).
+				SetArg(2, *internalSecret)
+
+			err := credentialsBindingValidator.Validate(ctx, credentialsBindingInternalSecret, nil)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return nil when the corresponding InternalSecret is valid", func() {
+			internalSecret := &gardencorev1beta1.InternalSecret{Data: map[string][]byte{
+				aws.AccessKeyID:     []byte("AKIAIOSFODNN7EXAMPLE"),                     // exactly 20 chars, uppercase alphanumeric
+				aws.SecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"), // exactly 40 chars, base64
+			}}
+			apiReader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&gardencorev1beta1.InternalSecret{})).
+				SetArg(2, *internalSecret)
+
+			err := credentialsBindingValidator.Validate(ctx, credentialsBindingInternalSecret, nil)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should succeed when the corresponding WorkloadIdentity is valid", func() {
