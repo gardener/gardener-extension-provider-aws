@@ -142,6 +142,7 @@ type FlowContext struct {
 	updater       awsclient.Updater
 	commonTags    awsclient.Tags
 	networking    *v1beta1.Networking
+	hasEFAWorker  bool
 	*shared.BasicFlowContext
 }
 
@@ -157,6 +158,11 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		return nil, err
 	}
 
+	hasEFAWorker, err := helper.HasEFAWorkerPool(opts.Shoot.Spec.Provider.Workers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect EFA worker pools: %w", err)
+	}
+
 	flowContext := &FlowContext{
 		log:           opts.Log,
 		state:         whiteboard,
@@ -169,6 +175,7 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		runtimeClient: opts.RuntimeClient,
 		networking:    opts.Shoot.Spec.Networking,
 		shootUUID:     string(opts.Shoot.UID),
+		hasEFAWorker:  hasEFAWorker,
 	}
 	flowContext.commonTags = awsclient.Tags{
 		flowContext.tagKeyCluster(): TagValueCluster,

@@ -536,6 +536,73 @@ func (c *FlowContext) ensureMainRouteTable(ctx context.Context) error {
 	return nil
 }
 
+// computeNodesSecurityGroupBaseRules returns the base set of security group rules
+// for the worker security group: self-referencing ingress, NodePort ingress (TCP/UDP),
+// 0.0.0.0/0 egress (and IPv6 equivalents where applicable), plus a self-referencing
+// egress rule when at least one worker pool has an EFA-enabled network interface.
+//
+// EFA traffic uses the SRD protocol and is not matched by CIDR-based rules (those only
+// apply at the IP layer). EFA-enabled worker pools therefore require a self-referencing
+// egress rule on the worker security group, in addition to the 0.0.0.0/0 egress rule.
+// See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-start.html#efa-start-security.
+func (c *FlowContext) computeNodesSecurityGroupBaseRules() []*awsclient.SecurityGroupRule {
+	ipv4 := containsIPv4(c.getIpFamilies())
+	ipv6 := ContainsIPv6(c.getIpFamilies())
+
+	cidrV4 := func() []string {
+		if ipv4 {
+			return []string{allIPv4}
+		}
+		return nil
+	}
+	cidrV6 := func() []string {
+		if ipv6 {
+			return []string{allIPv6}
+		}
+		return nil
+	}
+
+	rules := []*awsclient.SecurityGroupRule{
+		{
+			Type:     awsclient.SecurityGroupRuleTypeIngress,
+			Protocol: "-1",
+			Self:     true,
+		},
+		{
+			Type:         awsclient.SecurityGroupRuleTypeIngress,
+			FromPort:     ptr.To[int32](30000),
+			ToPort:       ptr.To[int32](32767),
+			Protocol:     "tcp",
+			CidrBlocks:   cidrV4(),
+			CidrBlocksv6: cidrV6(),
+		},
+		{
+			Type:         awsclient.SecurityGroupRuleTypeIngress,
+			FromPort:     ptr.To[int32](30000),
+			ToPort:       ptr.To[int32](32767),
+			Protocol:     "udp",
+			CidrBlocks:   cidrV4(),
+			CidrBlocksv6: cidrV6(),
+		},
+		{
+			Type:         awsclient.SecurityGroupRuleTypeEgress,
+			Protocol:     "-1",
+			CidrBlocks:   cidrV4(),
+			CidrBlocksv6: cidrV6(),
+		},
+	}
+
+	if c.hasEFAWorker {
+		rules = append(rules, &awsclient.SecurityGroupRule{
+			Type:     awsclient.SecurityGroupRuleTypeEgress,
+			Protocol: "-1",
+			Self:     true,
+		})
+	}
+
+	return rules
+}
+
 func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	groupName := fmt.Sprintf("%s-nodes", c.namespace)
@@ -545,65 +612,7 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		GroupName:   groupName,
 		VpcId:       c.state.Get(IdentifierVPC),
 		Description: ptr.To("Security group for nodes"),
-		Rules: []*awsclient.SecurityGroupRule{
-			{
-				Type:     awsclient.SecurityGroupRuleTypeIngress,
-				Protocol: "-1",
-				Self:     true,
-			},
-			{
-				Type:     awsclient.SecurityGroupRuleTypeIngress,
-				FromPort: ptr.To[int32](30000),
-				ToPort:   ptr.To[int32](32767),
-				Protocol: "tcp",
-				CidrBlocks: func() []string {
-					if containsIPv4(c.getIpFamilies()) {
-						return []string{allIPv4}
-					}
-					return nil
-				}(),
-				CidrBlocksv6: func() []string {
-					if ContainsIPv6(c.getIpFamilies()) {
-						return []string{allIPv6}
-					}
-					return nil
-				}(),
-			},
-			{
-				Type:     awsclient.SecurityGroupRuleTypeIngress,
-				FromPort: ptr.To[int32](30000),
-				ToPort:   ptr.To[int32](32767),
-				Protocol: "udp",
-				CidrBlocks: func() []string {
-					if containsIPv4(c.getIpFamilies()) {
-						return []string{allIPv4}
-					}
-					return nil
-				}(),
-				CidrBlocksv6: func() []string {
-					if ContainsIPv6(c.getIpFamilies()) {
-						return []string{allIPv6}
-					}
-					return nil
-				}(),
-			},
-			{
-				Type:     awsclient.SecurityGroupRuleTypeEgress,
-				Protocol: "-1",
-				CidrBlocks: func() []string {
-					if containsIPv4(c.getIpFamilies()) {
-						return []string{allIPv4}
-					}
-					return nil
-				}(),
-				CidrBlocksv6: func() []string {
-					if ContainsIPv6(c.getIpFamilies()) {
-						return []string{allIPv6}
-					}
-					return nil
-				}(),
-			},
-		},
+		Rules:       c.computeNodesSecurityGroupBaseRules(),
 	}
 
 	// TODO: @hebelsan - remove processedZones after migration of shoots with duplicated zone name entries
