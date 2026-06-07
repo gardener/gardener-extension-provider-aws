@@ -30,7 +30,7 @@ images:
 - name: aws-load-balancer-controller
   sourceRepository: github.com/kubernetes-sigs/aws-load-balancer-controller
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v3.3.0
+  tag: v3.4.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -119,7 +119,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: registry.k8s.io/provider-aws/aws-ebs-csi-driver
-  tag: v1.60.1
+  tag: v1.61.1
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
