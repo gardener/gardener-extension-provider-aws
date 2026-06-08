@@ -21,7 +21,7 @@ webhooks:
   failurePolicy: Fail # provier-aws-specific: upstream uses config
   name: mpod.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   namespaceSelector:
     matchExpressions:
     {{ if .Values.webhookNamespaceSelectors }}
@@ -65,7 +65,7 @@ webhooks:
   failurePolicy: Fail
   name: mtargetgroupbinding.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   rules:
   - apiGroups:
     - elbv2.k8s.aws
@@ -99,7 +99,7 @@ webhooks:
   failurePolicy: Fail
   name: vingressclassparams.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   objectSelector:
     matchExpressions:
     - key: app.kubernetes.io/name
@@ -127,7 +127,7 @@ webhooks:
   failurePolicy: Fail
   name: vtargetgroupbinding.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   rules:
   - apiGroups:
     - elbv2.k8s.aws
@@ -150,7 +150,7 @@ webhooks:
   matchPolicy: Equivalent
   name: vingress.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   rules:
   - apiGroups:
     - networking.k8s.io
