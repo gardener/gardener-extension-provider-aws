@@ -22,6 +22,12 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - core.gardener.cloud
+  resources:
+  - internalsecrets
+  verbs:
+  - get
+- apiGroups:
   - ""
   resources:
   - namespaces
