@@ -9,8 +9,10 @@ import (
 	"errors"
 	"fmt"
 
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/util"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -162,6 +164,32 @@ func HasFlowState(status extensionsv1alpha1.InfrastructureStatus) (bool, error) 
 		Version: apiv1alpha1.SchemeGroupVersion.Version,
 		Kind:    "InfrastructureState",
 	}, nil
+}
+
+// HasEFAWorkerPool returns true if any worker pool in the given list has at least one
+// network interface configured with type "efa" or "efa-only" in its provider config.
+// EFA-enabled worker pools require a self-referencing security group egress rule on the
+// shoot's worker security group, since EFA's SRD traffic is not authorized by CIDR-based
+// rules; see https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-start.html#efa-start-security.
+func HasEFAWorkerPool(workers []gardencorev1beta1.Worker) (bool, error) {
+	for _, worker := range workers {
+		if worker.ProviderConfig == nil || worker.ProviderConfig.Raw == nil {
+			continue
+		}
+		workerConfig := &api.WorkerConfig{}
+		if _, _, err := lenientDecoder.Decode(worker.ProviderConfig.Raw, nil, workerConfig); err != nil {
+			return false, fmt.Errorf("could not decode providerConfig of worker pool %q: %w", worker.Name, err)
+		}
+		for _, ni := range workerConfig.NetworkInterfaces {
+			if ni.Type == nil {
+				continue
+			}
+			if *ni.Type == string(ec2types.NetworkInterfaceTypeEfa) || *ni.Type == string(ec2types.NetworkInterfaceTypeEfaOnly) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 // InfrastructureStateFromRaw extracts the state from the Infrastructure. If no state was available, it returns a "zero" value InfrastructureState object.

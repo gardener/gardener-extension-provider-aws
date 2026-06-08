@@ -5,6 +5,8 @@
 package helper_test
 
 import (
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -107,6 +109,104 @@ roleARN: role-arn
 			config, err := helper.WorkloadIdentityConfigFromRaw(raw)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(config.RoleARN).To(Equal("role-arn"))
+		})
+	})
+
+	Describe("HasEFAWorkerPool", func() {
+		newWorker := func(name string, providerConfig string) gardencorev1beta1.Worker {
+			worker := gardencorev1beta1.Worker{Name: name}
+			if providerConfig != "" {
+				worker.ProviderConfig = &runtime.RawExtension{Raw: []byte(providerConfig)}
+			}
+			return worker
+		}
+
+		It("should return false for nil workers", func() {
+			has, err := helper.HasEFAWorkerPool(nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(has).To(BeFalse())
+		})
+
+		It("should return false for workers without provider config", func() {
+			has, err := helper.HasEFAWorkerPool([]gardencorev1beta1.Worker{newWorker("pool-1", "")})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(has).To(BeFalse())
+		})
+
+		It("should return false for workers without networkInterfaces", func() {
+			has, err := helper.HasEFAWorkerPool([]gardencorev1beta1.Worker{
+				newWorker("pool-1", `apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkerConfig
+`),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(has).To(BeFalse())
+		})
+
+		It("should return false for workers with non-EFA networkInterfaces only", func() {
+			has, err := helper.HasEFAWorkerPool([]gardencorev1beta1.Worker{
+				newWorker("pool-1", `apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkerConfig
+networkInterfaces:
+- type: interface
+`),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(has).To(BeFalse())
+		})
+
+		It("should return true when at least one worker has an efa interface", func() {
+			has, err := helper.HasEFAWorkerPool([]gardencorev1beta1.Worker{
+				newWorker("pool-1", `apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkerConfig
+networkInterfaces:
+- type: interface
+`),
+				newWorker("pool-2", `apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkerConfig
+networkInterfaces:
+- type: efa
+`),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(has).To(BeTrue())
+		})
+
+		It("should return true when a worker has an efa-only interface", func() {
+			has, err := helper.HasEFAWorkerPool([]gardencorev1beta1.Worker{
+				newWorker("pool-1", `apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkerConfig
+networkInterfaces:
+- type: interface
+- type: efa-only
+`),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(has).To(BeTrue())
+		})
+
+		It("should match the AWS SDK constants for efa types", func() {
+			Expect(string(ec2types.NetworkInterfaceTypeEfa)).To(Equal("efa"))
+			Expect(string(ec2types.NetworkInterfaceTypeEfaOnly)).To(Equal("efa-only"))
+		})
+
+		It("should ignore network interfaces with nil type", func() {
+			workerConfig := `apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkerConfig
+networkInterfaces:
+- {}
+`
+			has, err := helper.HasEFAWorkerPool([]gardencorev1beta1.Worker{newWorker("pool-1", workerConfig)})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(has).To(BeFalse())
+		})
+
+		It("should return an error for invalid provider config", func() {
+			has, err := helper.HasEFAWorkerPool([]gardencorev1beta1.Worker{
+				newWorker("pool-1", `not yaml at all: [{`),
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(has).To(BeFalse())
 		})
 	})
 })
