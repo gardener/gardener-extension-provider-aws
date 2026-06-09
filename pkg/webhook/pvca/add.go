@@ -26,8 +26,8 @@ var (
 // AddOptions are options to apply when adding the AWS shoot webhook to the manager.
 type AddOptions struct{}
 
-// AddToManagerWithOptions creates a webhook with the given options and adds it to the manager.
-func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebhook.Webhook, error) {
+// AddToManager creates a webhook with the default options and adds it to the manager.
+func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	logger := log.Log.WithName("aws-seed-pvca-webhook")
 	logger.Info("Adding webhook for PersistentVolumeClaimAutoscaler to manager")
 
@@ -49,9 +49,4 @@ func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebh
 		Path:              WebhookName,
 		NamespaceSelector: nil,
 	}, nil
-}
-
-// AddToManager creates a webhook with the default options and adds it to the manager.
-func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
-	return AddToManagerWithOptions(mgr, DefaultAddOptions)
 }

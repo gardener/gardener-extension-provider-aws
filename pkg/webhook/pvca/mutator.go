@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// A volume can be modified up to four times within a rolling 24-hour period (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modify-volume.html)
 const minCooldownDuration = 6 * time.Hour
 
 type mutator struct {
@@ -29,7 +30,6 @@ func NewMutator(logger logr.Logger) extensionswebhook.Mutator {
 
 // Mutate mutates PersistentVolumeClaimAutoscaler resources by defaulting cooldownDuration.
 func (m *mutator) Mutate(_ context.Context, newObj, _ client.Object) error {
-	m.logger.Info("mutating PersistentVolumeClaimAutoscaler", "namespace", newObj.GetNamespace(), "name", newObj.GetName())
 	pvca, ok := newObj.(*pvcautoscalingv1alpha1.PersistentVolumeClaimAutoscaler)
 	if !ok {
 		return fmt.Errorf("could not mutate: object is not of type PersistentVolumeClaimAutoscaler")
