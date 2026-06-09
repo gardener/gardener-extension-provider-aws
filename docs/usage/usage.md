@@ -426,15 +426,89 @@ If enabled, it will add routes to the pod CIDRs for all nodes in the route table
 
 The `storage.managedDefaultClass` controls if the `default` storage / volume snapshot classes are marked as default by Gardener. Set it to `false` to [mark another storage / volume snapshot class as default](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) without Gardener overwriting this change. If unset, this field defaults to `true`.
 
+### Network Load Balancers (NLB)
+
+There are two controllers that can provision NLBs for `Service` resources of type `LoadBalancer`:
+
+- **Cloud Controller Manager (CCM)**: the default, always present. Handles any `LoadBalancer` Service that is not explicitly routed to the LBC. Provides basic NLB provisioning.
+- **AWS Load Balancer Controller (LBC)**: opt-in, deployed when `loadBalancerController.enabled` is `true`. Provides a richer feature set (dual-stack, proxy protocol, advanced health checks, security group management, etc.) and is the recommended path for new workloads.
+
+> [!NOTE]
+> Both controllers only support `instance` target mode in Gardener. The `ip` target mode — where the NLB targets pod IPs directly — requires pods to have routable VPC IPs, which is not the case in Gardener shoots that use an overlay network (the default).
+
+> [!WARNING]
+> When using NLBs as **internal** load balancers, add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false` regardless of which controller manages the NLB.
+> Without it, traffic routed by the NLB back to the originating instance causes the client IP and destination IP to be identical (hairpinning), which prevents the request from being processed.
+
+#### NLB via Cloud Controller Manager (CCM)
+
+A `Service` of type `LoadBalancer` without a `loadBalancerClass` is handled by the CCM by default. To explicitly request an NLB (rather than the default Classic Load Balancer), add the annotation `service.beta.kubernetes.io/aws-load-balancer-type: nlb`:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: default
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing # or "internal"
+spec:
+  type: LoadBalancer
+  selector:
+    app: my-app
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+```
+
+For more details see [AWS Cloud Provider - Service Controller](https://cloud-provider-aws.sigs.k8s.io/service_controller/).
+
+#### NLB via AWS Load Balancer Controller (LBC)
+
 If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/) should be deployed, set `loadBalancerController.enabled` to `true`.
-In this case,  it is assumed that an `IngressClass` named `alb` is created **by the user**.
+
+The LBC handles a `Service` when it is routed to it via one of the following three methods:
+
+1. **`spec.loadBalancerClass` (recommended)** — set `spec.loadBalancerClass: service.k8s.aws/nlb`. The CCM ignores Services with a `loadBalancerClass` it does not own.
+
+2. **Annotation `aws-load-balancer-type: external`** — the older annotation-based approach, equivalent to the above.
+
+3. **Automatic injection by Gardener (dual-stack clusters only)** — on IPv6-enabled shoots, a Gardener webhook automatically injects `aws-load-balancer-type: external` and the other required NLB annotations onto every new `LoadBalancer` Service, so all LBs go through the LBC without any user action.
+
+Example using the recommended `loadBalancerClass` approach:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: default
+  annotations:
+    # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance # target-type "ip" NOT supported in Gardener (see note above)
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing # or "internal"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: service.k8s.aws/nlb
+  selector:
+    app: my-app
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+```
+
+For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/nlb/).
+
+### ALB Ingress via AWS Load Balancer Controller (LBC)
+
+If the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/) should be deployed, set `loadBalancerController.enabled` to `true`.
+In this case, it is assumed that an `IngressClass` named `alb` is created **by the user**.
 You can overwrite the name by setting `loadBalancerController.ingressClassName`.
 **Please note**: currently only the "instance" mode (`alb.ingress.kubernetes.io/target-type: instance`) is supported.
-Also, For internet-facing ALBs, AWS requires at least 2 subnets in different Availability Zones in the same VPC.
-
-### Examples for `Ingress` and `Service` managed by the AWS Load Balancer Controller:
-
-0. Prerequisites
+Also, for internet-facing ALBs, AWS requires at least 2 subnets in different Availability Zones in the same VPC.
 
 Make sure you have created an `IngressClass`. For more details about parameters, please see [AWS Load Balancer Controller - IngressClass](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/ingress_class/)
 
@@ -447,8 +521,6 @@ spec:
   controller: ingress.k8s.aws/alb
 ```
 
-1. Ingress
-
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -458,7 +530,7 @@ metadata:
   annotations:
     # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/annotations/
     alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: instance # target-type "ip" NOT supported in Gardener
+    alb.ingress.kubernetes.io/target-type: instance # target-type "ip" NOT supported in Gardener (see note above)
 spec:
   ingressClassName: alb
   rules:
@@ -472,34 +544,8 @@ spec:
               port:
                 number: 80
 ```
-For more details see [AWS Load Balancer Documentation - Ingress Specification](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/spec/)
 
-2. Service of Type `LoadBalancer`
-
-This can be used to create a Network Load Balancer (NLB).
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  annotations:
-    # complete set of annotations: https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance # target-type "ip" NOT supported in Gardener
-    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-  name: ingress-nginx-controller
-  namespace: ingress-nginx
-  ...
-spec:
-  ...
-  type: LoadBalancer
-  loadBalancerClass: service.k8s.aws/nlb # mandatory to be managed by AWS Load Balancer Controller (otherwise the Cloud Controller Manager will act on it)
-```
-
-For more details see [AWS Load Balancer Documentation - Network Load Balancer](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/nlb/)
-
-> [!WARNING]
-> When using Network Load Balancers (NLB) as internal load balancers, it is crucial to add the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=false`.
-> Without this annotation, if a request is routed by the NLB to the same target instance from which it originated, the client IP and destination IP will be identical.
-> This situation, known as the hairpinning effect, will prevent the request from being processed.
+For more details see [AWS Load Balancer Documentation - Ingress Specification](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/spec/).
 
 ## `WorkerConfig`
 
