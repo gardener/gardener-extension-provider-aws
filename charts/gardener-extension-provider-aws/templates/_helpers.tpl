@@ -60,9 +60,15 @@ true
 {{- end }}
 {{- end -}}
 
+{{- define "persistentVolumeClaimAutoscaler.enabled" -}}
+{{- if and .Values.gardener.seed .Values.gardener.seed.spec.settings.persistentVolumeClaimAutoscaler .Values.gardener.seed.spec.settings.persistentVolumeClaimAutoscaler.enabled }}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "disable.webhooks" -}}
 {{- $disableWebhooks := .Values.disableWebhooks -}}
-{{- if ne (include "seed.provider" . ) "aws" -}}
+{{- if or (ne (include "seed.provider" . ) "aws") (ne (include "persistentVolumeClaimAutoscaler.enabled" . | trim ) "true") -}}
 {{- $disableWebhooks = append $disableWebhooks "seed-pvca" -}}
 {{- end -}}
 {{- $disableWebhooks | uniq | join "," -}}
