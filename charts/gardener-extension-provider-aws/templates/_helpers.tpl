@@ -49,11 +49,9 @@ true
 {{- end -}}
 
 {{- define "seed.provider" -}}
-  {{- if .Values.gardener.seed }}
-{{- .Values.gardener.seed.provider }}
-  {{- else -}}
-""
-  {{- end }}
+{{- if .Values.gardener.seed -}}
+{{- .Values.gardener.seed.provider -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "runtimeCluster.enabled" -}}
@@ -64,7 +62,7 @@ true
 
 {{- define "disable.webhooks" -}}
 {{- $disableWebhooks := .Values.disableWebhooks -}}
-{{- if ne (include "seed.provider" . | trim) "aws" -}}
+{{- if ne (include "seed.provider" . ) "aws" -}}
 {{- $disableWebhooks = append $disableWebhooks "seed-pvca" -}}
 {{- end -}}
 {{- $disableWebhooks | uniq | join "," -}}
