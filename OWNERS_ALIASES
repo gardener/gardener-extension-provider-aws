@@ -13,7 +13,7 @@ aliases:
   - kon-angelo
   - matthias-horne
   - wpross
-  gardener-reviewers-core:
+  gardener-core-reviewers: # reviewers of the gardener/gardener repo
   - acumino
   - ary1992
   - dimitar-kostadinov
@@ -30,11 +30,11 @@ aliases:
   - timebertt
   - timuthy
   - vitanovs
-  gardener-networking-reviewers:
+  gardener-networking-reviewers: # reviewers of the gardener/gardener-extension-networking-* repos
   - axel7born
   - DockToFuture
   - domdom82
-  machine-controller-manager-reviewers:
+  machine-controller-manager-reviewers: # reviewers of the gardener/machine-controller-manager repo
   - aaronfern
   - ashwani2k
   - elankath

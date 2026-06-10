@@ -2,8 +2,8 @@
 
 reviewers:
 - gardener-extension-provider-aws-reviewers
-- gardener-reviewers-core # reviewers of the gardener/gardener repo
-- gardener-networking-reviewers # reviewers of the gardener/gardener-extension-networking-* repos
-- machine-controller-manager-reviewers # reviewers of the gardener/machine-controller-manager repo
+- gardener-core-reviewers
+- gardener-networking-reviewers
+- machine-controller-manager-reviewers
 approvers:
 - gardener-extension-provider-aws-approvers
