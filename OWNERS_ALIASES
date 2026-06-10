@@ -13,3 +13,33 @@ aliases:
   - kon-angelo
   - matthias-horne
   - wpross
+  gardener-reviewers-core:
+  - acumino
+  - ary1992
+  - dimitar-kostadinov
+  - ialidzhikov
+  - Kostov6
+  - LucaBernstein
+  - marc1404
+  - oliver-goetz
+  - plkokanov
+  - RadaBDimitrova
+  - rfranzke
+  - ScheererJ
+  - shafeeqes
+  - timebertt
+  - timuthy
+  - vitanovs
+  gardener-networking-reviewers:
+  - axel7born
+  - DockToFuture
+  - domdom82
+  machine-controller-manager-reviewers:
+  - aaronfern
+  - ashwani2k
+  - elankath
+  - gagan16k
+  - takoverflow
+  - thiyyakat
+  - unmarshall
+  - r4mek
