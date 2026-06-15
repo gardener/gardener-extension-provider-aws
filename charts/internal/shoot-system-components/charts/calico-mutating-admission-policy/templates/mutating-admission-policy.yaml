@@ -7,9 +7,23 @@ metadata:
 spec:
   policyName: block-calico-network-unavailable
 ---
-# MutatingAdmissionPolicy to block Calico from setting the NetworkUnavailable condition on nodes.
-# This policy intercepts node/status updates from the calico-node service account and removes
-# any changes to the NetworkUnavailable condition, effectively preserving the existing condition.
+# MutatingAdmissionPolicy to prevent calico-node and aws-custom-route-controller
+# from flipping the NetworkUnavailable condition on nodes from False (or unset)
+# to True. Updates that keep NetworkUnavailable=True (heartbeat refreshes on a
+# genuinely network-unavailable node) and updates that set NetworkUnavailable=
+# False pass through unchanged.
+#
+# Rationale: during overlay disablement on a long-running cluster, the
+# aws-custom-route-controller restarts with an empty in-memory route cache and
+# patches every node it has not yet observed a VPC route for to
+# NetworkUnavailable=True, even though the routes already exist. This caused a
+# ~5 minute outage on a large shoot. By blocking only False/unset -> True
+# flips, we suppress the cold-start race while still preserving the route
+# controller's authority to keep a genuinely-broken node marked unavailable.
+#
+# TODO: long-term this should be replaced by a migration-phase-scoped policy
+# that is only deployed while the calico DS is being rolled, rather than
+# permanently active. See https://github.tools.sap/kubernetes-live/issues-live/issues/9754.
 apiVersion: admissionregistration.k8s.io/{{ .Values.apiVersion }}
 kind: MutatingAdmissionPolicy
 metadata:
@@ -24,14 +38,30 @@ spec:
       operations: ["UPDATE"]
       resources: ["nodes/status"]
   matchConditions:
-  # Only apply to requests from the calico-node service account
-  - name: is-calico-node
+  # Only apply to requests from the calico-node service account or the
+  # aws-custom-route-controller, which writes NetworkUnavailable=true on
+  # every node it has not yet observed a VPC route for during overlay
+  # disablement. NetworkUnavailable=false writes from these accounts are
+  # still allowed through (see the next match condition).
+  - name: is-calico-node-or-aws-custom-route-controller
     expression: >-
-      request.userInfo.username == "system:serviceaccount:kube-system:calico-node"
-  # Only apply if calico is trying to set/modify NetworkUnavailable condition
-  - name: has-network-unavailable-in-request
+      request.userInfo.username == "system:serviceaccount:kube-system:calico-node" ||
+      request.userInfo.username == "system:serviceaccount:kube-system:aws-custom-route-controller"
+  # Only intercept attempts to FLIP NetworkUnavailable from False (or unset)
+  # to True. This catches the cold-start race during overlay disablement
+  # without permanently silencing the route controller's authority over the
+  # condition: a node that is already correctly marked NetworkUnavailable=True
+  # stays that way (heartbeat refreshes pass through), and =False writes
+  # always pass through.
+  - name: flipping-networkunavailable-false-or-nil-to-true
     expression: >-
-      object.status.conditions.exists(c, c.type == 'NetworkUnavailable')
+      object.status.conditions.exists(c,
+        c.type == 'NetworkUnavailable' && c.status == 'True') &&
+      (
+        !has(oldObject.status) || !has(oldObject.status.conditions) ||
+        !oldObject.status.conditions.exists(c,
+          c.type == 'NetworkUnavailable' && c.status == 'True')
+      )
   variables:
   # Extract the current NetworkUnavailable condition from the old object (may be empty for new nodes)
   - name: oldNetworkUnavailableCondition
