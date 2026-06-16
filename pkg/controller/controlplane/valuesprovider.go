@@ -997,7 +997,8 @@ func isMutatingAdmissionPolicyEnabled(cluster *extensionscontroller.Cluster) boo
 		return rc["admissionregistration.k8s.io/v1beta1"]
 	}
 
-	return rc["admissionregistration.k8s.io/v1alpha1"] || rc["admissionregistration.k8s.io/v1beta1"]
+	// For K8s < 1.34, MutatingAdmissionPolicy is only available via v1alpha1.
+	return rc["admissionregistration.k8s.io/v1alpha1"]
 }
 
 func mutatingAdmissionPolicyAPIVersion(cluster *extensionscontroller.Cluster) string {
@@ -1013,13 +1014,6 @@ func mutatingAdmissionPolicyAPIVersion(cluster *extensionscontroller.Cluster) st
 
 	// For K8s >= 1.34, MutatingAdmissionPolicy is beta
 	if versionutils.ConstraintK8sGreaterEqual134.Check(k8sVersion) {
-		return "v1beta1"
-	}
-
-	// For older versions, prefer v1beta1 over v1alpha1 when explicitly enabled
-	if cluster.Shoot.Spec.Kubernetes.KubeAPIServer != nil &&
-		cluster.Shoot.Spec.Kubernetes.KubeAPIServer.RuntimeConfig != nil &&
-		cluster.Shoot.Spec.Kubernetes.KubeAPIServer.RuntimeConfig["admissionregistration.k8s.io/v1beta1"] {
 		return "v1beta1"
 	}
 
