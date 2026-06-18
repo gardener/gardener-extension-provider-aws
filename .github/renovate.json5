@@ -83,5 +83,11 @@
       ],
       enabled: false,
     },
+    // Disable Go toolchain updates in go.mod — managed via Dockerfile instead
+    {
+      matchManagers: ['gomod'],
+      matchPackageNames: ['go'],
+      enabled: false,
+    },
   ],
 }
