@@ -215,11 +215,11 @@ func ValidateWorkersAgainstCloudProfileOnUpdate(
 		if w.Name == "" || newWorker.Machine.Image != w.Machine.Image {
 			machineType := gardencorev1beta1helper.FindMachineTypeByName(machineTypes, newWorker.Machine.Type)
 			if machineType == nil {
-				allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("machine", "type"), w.Machine.Type, " not found in cloud profile"))
+				allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("machine", "type"), newWorker.Machine.Type, " not found in cloud profile"))
 				continue
 			}
 			// Normalize machine type capabilities to include architecture
-			machineTypeCapabilities := apisawshelper.NormalizeMachineTypeCapabilities(machineType.Capabilities, w.Machine.Architecture, normalizedCapabilityDefinitions)
+			machineTypeCapabilities := apisawshelper.NormalizeMachineTypeCapabilities(machineType.Capabilities, newWorker.Machine.Architecture, normalizedCapabilityDefinitions)
 
 			allErrs = append(allErrs, validateWorkerConfigAgainstCloudProfile(newWorker, region, awsCloudProfile, machineTypeCapabilities, normalizedCapabilityDefinitions, fldPath.Index(i))...)
 		}
