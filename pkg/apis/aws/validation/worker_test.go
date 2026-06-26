@@ -10,6 +10,8 @@ import (
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core"
+	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -715,5 +717,79 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				Expect(validate(wc)).To(BeEmpty())
 			})
 		})
+	})
+})
+
+var _ = Describe("#ValidateWorkersAgainstCloudProfileOnUpdate", func() {
+	const (
+		imageName    = "my-os"
+		imageVersion = "1.1.1"
+		region       = "some-region"
+		armMachine   = "arm-large"
+	)
+
+	// use arm64 machineType to ensure the image is not selected by defaulted architecture
+	machineTypes := []v1beta1.MachineType{{
+		Name:         armMachine,
+		Architecture: ptr.To(v1beta1constants.ArchitectureARM64),
+	}}
+
+	armWorker := func(name, version string) core.Worker {
+		return core.Worker{
+			Name: name,
+			Machine: core.Machine{
+				Type:         armMachine,
+				Architecture: ptr.To(v1beta1constants.ArchitectureARM64),
+				Image:        &core.ShootMachineImage{Name: imageName, Version: version},
+			},
+		}
+	}
+
+	cloudProfileWithAMI := func(arch string) *apisaws.CloudProfileConfig {
+		return &apisaws.CloudProfileConfig{
+			MachineImages: []apisaws.MachineImages{{
+				Name: imageName,
+				Versions: []apisaws.MachineImageVersion{{
+					Version: imageVersion,
+					Regions: []apisaws.RegionAMIMapping{
+						{Name: region, AMI: "ami-test", Architecture: ptr.To(arch)},
+					},
+				}},
+			}},
+		}
+	}
+
+	It("should accept a newly added arm64 worker that references an arm64-only image", func() {
+		errList := ValidateWorkersAgainstCloudProfileOnUpdate(
+			nil,
+			[]core.Worker{armWorker("new-arm", imageVersion)},
+			region,
+			cloudProfileWithAMI(v1beta1constants.ArchitectureARM64),
+			machineTypes,
+			nil,
+			field.NewPath("spec", "provider", "workers"),
+		)
+		Expect(errList).To(BeEmpty())
+	})
+
+	It("should reject a worker whose image is changed to one not supporting its architecture", func() {
+		oldWorkers := []core.Worker{armWorker("w0", "old-version")}
+		newWorkers := []core.Worker{armWorker("w0", imageVersion)}
+
+		errList := ValidateWorkersAgainstCloudProfileOnUpdate(
+			oldWorkers,
+			newWorkers,
+			region,
+			cloudProfileWithAMI(v1beta1constants.ArchitectureAMD64),
+			machineTypes,
+			nil,
+			field.NewPath("spec", "provider", "workers"),
+		)
+		Expect(errList).To(ConsistOf(
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeInvalid),
+				"Field": Equal("spec.provider.workers[0].machine.image"),
+			})),
+		))
 	})
 })
