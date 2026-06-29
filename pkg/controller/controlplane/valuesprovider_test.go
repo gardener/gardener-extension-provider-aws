@@ -19,11 +19,9 @@ import (
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
 	fakesecretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager/fake"
 	testutils "github.com/gardener/gardener/pkg/utils/test"
-	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
-	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,8 +42,7 @@ const (
 
 var _ = Describe("ValuesProvider", func() {
 	var (
-		ctrl         *gomock.Controller
-		c            *mockclient.MockClient
+		c            client.Client
 		mgr          *testutils.FakeManager
 		encoder      runtime.Encoder
 		ctx          context.Context
@@ -211,17 +208,13 @@ var _ = Describe("ValuesProvider", func() {
 		enabledTrue = map[string]interface{}{"enabled": true}
 		enabledFalse = map[string]interface{}{"enabled": false}
 
-		ctrl = gomock.NewController(GinkgoT())
-		c = mockclient.NewMockClient(ctrl)
+		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+		c = fakeclient.NewClientBuilder().WithScheme(scheme).Build()
 		mgr = &testutils.FakeManager{Client: c, Scheme: scheme}
 		vp = NewValuesProvider(mgr)
 
 		fakeClient = fakeclient.NewClientBuilder().Build()
 		fakeSecretsManager = fakesecretsmanager.New(fakeClient, namespace)
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	Describe("#GetConfigChartValues", func() {
@@ -338,7 +331,7 @@ var _ = Describe("ValuesProvider", func() {
 					Namespace: namespace,
 				},
 			}
-			c.EXPECT().Get(context.TODO(), client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret).Return(nil)
+			Expect(c.Create(context.TODO(), cloudProviderSecret)).To(Succeed())
 		})
 
 		It("should return correct control plane chart values", func() {
@@ -510,7 +503,7 @@ var _ = Describe("ValuesProvider", func() {
 					Namespace: namespace,
 				},
 			}
-			c.EXPECT().Get(context.TODO(), client.ObjectKeyFromObject(cloudProviderSecret), cloudProviderSecret).Return(nil)
+			Expect(c.Create(context.TODO(), cloudProviderSecret)).To(Succeed())
 		})
 
 		Context("shoot control plane chart values", func() {

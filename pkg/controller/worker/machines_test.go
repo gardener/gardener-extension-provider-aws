@@ -20,24 +20,21 @@ import (
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/gardener/gardener/pkg/utils"
-	"github.com/gardener/gardener/pkg/utils/test"
-	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	awsmachineapi "github.com/gardener/machine-controller-manager-provider-aws/pkg/aws/apis"
 	machinev1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -47,23 +44,6 @@ import (
 var ctx = context.TODO()
 
 var _ = Describe("Machines", func() {
-	var (
-		ctrl         *gomock.Controller
-		c            *mockclient.MockClient
-		statusWriter *mockclient.MockStatusWriter
-	)
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-
-		c = mockclient.NewMockClient(ctrl)
-		statusWriter = mockclient.NewMockStatusWriter(ctrl)
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	Context("WorkerDelegate", func() {
 		workerDelegate, _ := NewWorkerDelegate(nil, nil, nil, "", nil, nil)
 
@@ -151,6 +131,7 @@ var _ = Describe("Machines", func() {
 
 				shootVersionMajorMinor           string
 				shootVersion                     string
+				c                                client.Client
 				scheme                           *runtime.Scheme
 				decoder                          runtime.Decoder
 				clusterWithoutImages             *extensionscontroller.Cluster
@@ -442,6 +423,7 @@ var _ = Describe("Machines", func() {
 
 				w = &extensionsv1alpha1.Worker{
 					ObjectMeta: metav1.ObjectMeta{
+						Name:      "worker",
 						Namespace: namespace,
 					},
 					Spec: extensionsv1alpha1.WorkerSpec{
@@ -595,6 +577,10 @@ var _ = Describe("Machines", func() {
 				scheme = runtime.NewScheme()
 				_ = api.AddToScheme(scheme)
 				_ = apiv1alpha1.AddToScheme(scheme)
+				_ = corev1.AddToScheme(scheme)
+				_ = machinev1alpha1.AddToScheme(scheme)
+				_ = extensionsv1alpha1.AddToScheme(scheme)
+				c = fakeclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&extensionsv1alpha1.Worker{}).Build()
 				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 
 				additionalData := []string{strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted)}
@@ -606,12 +592,10 @@ var _ = Describe("Machines", func() {
 			})
 
 			expectedUserDataSecretRefRead := func() {
-				c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: userDataSecretName}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
-						secret.Data = map[string][]byte{userDataSecretDataKey: userData}
-						return nil
-					},
-				).AnyTimes()
+				Expect(c.Create(ctx, &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: userDataSecretName, Namespace: namespace},
+					Data:       map[string][]byte{userDataSecretDataKey: userData},
+				})).To(Succeed())
 			}
 
 			Describe("machine images", func() {
@@ -624,41 +608,21 @@ var _ = Describe("Machines", func() {
 
 				expectMachineClassesAndSecrets := func() {
 					for _, secret := range machineClassSecrets {
-						existing := &corev1.Secret{
+						Expect(c.Create(ctx, &corev1.Secret{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      secret.Name,
 								Namespace: secret.Namespace,
 							},
-						}
-
-						c.EXPECT().Get(gomock.Any(), client.ObjectKeyFromObject(secret), gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-							func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-								defer GinkgoRecover()
-
-								*obj = *existing
-								return nil
-							})
-
-						test.EXPECTPatch(gomock.Any(), c, secret, existing, types.MergePatchType)
+						})).To(Succeed())
 					}
 
 					for _, machineClass := range machineClasses {
-						existing := &machinev1alpha1.MachineClass{
+						Expect(c.Create(ctx, &machinev1alpha1.MachineClass{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      machineClass.Name,
 								Namespace: machineClass.Namespace,
 							},
-						}
-
-						c.EXPECT().Get(gomock.Any(), client.ObjectKeyFromObject(machineClass), gomock.AssignableToTypeOf(&machinev1alpha1.MachineClass{})).DoAndReturn(
-							func(_ context.Context, _ client.ObjectKey, obj *machinev1alpha1.MachineClass, _ ...client.GetOption) error {
-								defer GinkgoRecover()
-
-								*obj = *existing
-								return nil
-							})
-
-						test.EXPECTPatch(gomock.Any(), c, machineClass, existing, types.MergePatchType)
+						})).To(Succeed())
 					}
 				}
 
@@ -1041,12 +1005,14 @@ var _ = Describe("Machines", func() {
 							Name:         machineImageName,
 							Version:      machineImageVersion,
 							AMI:          machineImageAMI,
+							Architecture: ptr.To(archAMD),
 							Capabilities: capabilitiesAmd,
 						},
 						{
 							Name:         machineImageName,
 							Version:      machineImageVersion,
 							AMI:          machineImageAMI,
+							Architecture: ptr.To(archAMD),
 							Capabilities: capabilitiesArm,
 						},
 					}
@@ -1076,16 +1042,18 @@ var _ = Describe("Machines", func() {
 						MachineImages: machineImages,
 					}
 
-					workerWithExpectedImages := w.DeepCopy()
-					workerWithExpectedImages.Status.ProviderStatus = &runtime.RawExtension{
-						Object: expectedImages,
-					}
-
-					c.EXPECT().Status().Return(statusWriter)
-					statusWriter.EXPECT().Patch(ctx, workerWithExpectedImages, gomock.Any()).Return(nil)
+					Expect(c.Create(ctx, w)).To(Succeed())
 
 					err = workerDelegate.UpdateMachineImagesStatus(ctx)
 					Expect(err).NotTo(HaveOccurred())
+
+					updatedWorker := &extensionsv1alpha1.Worker{}
+					Expect(c.Get(ctx, client.ObjectKeyFromObject(w), updatedWorker)).To(Succeed())
+					Expect(updatedWorker.Status.ProviderStatus).NotTo(BeNil())
+					decodedStatus := &apiv1alpha1.WorkerStatus{}
+					_, _, decodeErr := decoder.Decode(updatedWorker.Status.ProviderStatus.Raw, nil, decodedStatus)
+					Expect(decodeErr).NotTo(HaveOccurred())
+					Expect(decodedStatus).To(Equal(expectedImages))
 
 					// Test WorkerDelegate.GenerateMachineDeployments()
 

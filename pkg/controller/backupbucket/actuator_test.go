@@ -14,7 +14,6 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	testutils "github.com/gardener/gardener/pkg/utils/test"
-	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -44,10 +44,8 @@ const (
 
 var _ = Describe("Actuator", func() {
 	var (
-		ctrl             *gomock.Controller
-		c                *mockclient.MockClient
+		c                client.Client
 		mgr              *testutils.FakeManager
-		sw               *mockclient.MockStatusWriter
 		a                backupbucket.Actuator
 		awsClientFactory *mockawsclient.MockFactory
 		awsClient        *mockawsclient.MockInterface
@@ -59,23 +57,18 @@ var _ = Describe("Actuator", func() {
 	)
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
 		scheme := runtime.NewScheme()
 
 		Expect(extensionsv1alpha1.AddToScheme(scheme)).To(Succeed())
 		Expect(apisawsv1alpha1.AddToScheme(scheme)).To(Succeed())
 		Expect(apisaws.AddToScheme(scheme)).To(Succeed())
+		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 
-		c = mockclient.NewMockClient(ctrl)
+		c = fakeclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&extensionsv1alpha1.BackupBucket{}).Build()
 		mgr = &testutils.FakeManager{Client: c}
-		c.EXPECT().Scheme().Return(scheme).MaxTimes(1)
 
-		sw = mockclient.NewMockStatusWriter(ctrl)
-		awsClientFactory = mockawsclient.NewMockFactory(ctrl)
-		awsClient = mockawsclient.NewMockInterface(ctrl)
-
-		c.EXPECT().Status().Return(sw).AnyTimes()
-		sw.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+		awsClientFactory = mockawsclient.NewMockFactory(gomock.NewController(GinkgoT()))
+		awsClient = mockawsclient.NewMockInterface(gomock.NewController(GinkgoT()))
 
 		ctx = context.Background()
 		logger = log.Log.WithName("test")
@@ -103,10 +96,6 @@ var _ = Describe("Actuator", func() {
 		a = NewActuator(mgr, awsClientFactory)
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	Describe("#Reconcile", func() {
 		var backupBucket *extensionsv1alpha1.BackupBucket
 
@@ -122,12 +111,7 @@ var _ = Describe("Actuator", func() {
 				},
 			}
 
-			c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					*obj = *secret
-					return nil
-				},
-			)
+			Expect(c.Create(ctx, secret)).To(Succeed())
 		})
 
 		Context("when creating aws client fails", func() {
@@ -472,12 +456,7 @@ var _ = Describe("Actuator", func() {
 				},
 			}
 
-			c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					*obj = *secret
-					return nil
-				},
-			)
+			Expect(c.Create(ctx, secret)).To(Succeed())
 		})
 
 		It("should return error if aws client creation fails", func() {

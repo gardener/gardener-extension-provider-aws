@@ -23,10 +23,8 @@ import (
 	imagevectorutils "github.com/gardener/gardener/pkg/utils/imagevector"
 	testutils "github.com/gardener/gardener/pkg/utils/test"
 	"github.com/gardener/gardener/pkg/utils/version"
-	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +33,7 @@ import (
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
@@ -55,9 +54,9 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("Ensurer", func() {
 	var (
-		ctrl *gomock.Controller
-		c    *mockclient.MockClient
-		ctx  = context.TODO()
+		c      client.Client
+		scheme *runtime.Scheme
+		ctx    = context.TODO()
 
 		dummyContext          = gcontext.NewGardenContext(nil, nil)
 		eContextK8s134        gcontext.GardenContext
@@ -70,8 +69,9 @@ var _ = Describe("Ensurer", func() {
 	)
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		c = mockclient.NewMockClient(ctrl)
+		scheme = runtime.NewScheme()
+		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+		c = fakeclient.NewClientBuilder().WithScheme(scheme).Build()
 
 		infraConfig = &v1alpha1.InfrastructureConfig{
 			TypeMeta: metav1.TypeMeta{
@@ -147,10 +147,6 @@ var _ = Describe("Ensurer", func() {
 				},
 			},
 		)
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	Describe("#EnsureKubeAPIServerDeployment", func() {
@@ -867,9 +863,7 @@ done
 					Namespace: deployment.Namespace,
 				},
 			}
-			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(secret), secret).DoAndReturn(func(_ context.Context, _ client.ObjectKey, _ runtime.Object, _ ...client.GetOption) error {
-				return nil
-			})
+			ensurer = NewEnsurer(logger, fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build())
 
 			Expect(deployment.Spec.Template.Spec.Containers).To(BeEmpty())
 			Expect(ensurer.EnsureMachineControllerManagerDeployment(context.TODO(), eContextK8s133, deployment, nil)).To(Succeed())
@@ -882,14 +876,12 @@ done
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cloudprovider",
 					Namespace: deployment.Namespace,
+					Labels: map[string]string{
+						"security.gardener.cloud/purpose": "workload-identity-token-requestor",
+					},
 				},
 			}
-			c.EXPECT().Get(ctx, client.ObjectKeyFromObject(secret), secret).DoAndReturn(func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-				obj.Labels = map[string]string{
-					"security.gardener.cloud/purpose": "workload-identity-token-requestor",
-				}
-				return nil
-			})
+			ensurer = NewEnsurer(logger, fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build())
 			Expect(deployment.Spec.Template.Spec.Containers).To(BeEmpty())
 			Expect(ensurer.EnsureMachineControllerManagerDeployment(context.TODO(), eContextK8s133, deployment, nil)).To(Succeed())
 			expectedContainer := machinecontrollermanager.ProviderSidecarContainer(shoot133, deployment.Namespace, "provider-aws", "foo:bar")
