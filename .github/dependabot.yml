@@ -10,38 +10,38 @@ updates:
     non-gardener-dependencies:
       applies-to: "version-updates"
       patterns:
-        - "*"
+      - "*"
       exclude-patterns:
-        - "github.com/gardener*"
-        - "github.com/aws/*"
+      - "github.com/gardener*"
+      - "github.com/aws/*"
     provider-sdk-dependencies:
       applies-to: "version-updates"
       patterns:
-        - "github.com/aws/*"
+      - "github.com/aws/*"
     gardener-dependencies:
       applies-to: "version-updates"
       patterns:
-        - "github.com/gardener/gardener"
-        - "github.com/gardener/gardener/*"
+      - "github.com/gardener/gardener"
+      - "github.com/gardener/gardener/*"
   ignore:
-    - dependency-name: "k8s.io/*"
-    - dependency-name: "sigs.k8s.io/*"
-    - dependency-name: "github.com/gardener/etcd-druid/*"
-    - dependency-name: "github.com/prometheus-operator/*"
+  - dependency-name: "k8s.io/*"
+  - dependency-name: "sigs.k8s.io/*"
+  - dependency-name: "github.com/gardener/etcd-druid/*"
+  - dependency-name: "github.com/prometheus-operator/*"
   labels:
-    - area/compliance
-    - kind/enhancement
+  - area/compliance
+  - kind/enhancement
 - package-ecosystem: "docker"
   directory: "/"
   schedule:
     interval: "weekly"
   labels:
-    - area/compliance
-    - kind/enhancement
+  - area/compliance
+  - kind/enhancement
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:
     interval: "weekly"
   labels:
-    - area/compliance
-    - kind/enhancement
+  - area/compliance
+  - kind/enhancement
