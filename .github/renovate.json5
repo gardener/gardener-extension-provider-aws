@@ -25,12 +25,12 @@
     {
       matchManagers: ['gomod'],
       matchPackageNames: [
-        '!github.com/gardener/*',
-        '!github.com/aws/*',
-        '!k8s.io/*',
-        '!sigs.k8s.io/*',
-        '!github.com/gardener/etcd-druid/*',
-        '!github.com/prometheus-operator/*',
+        '!github.com/gardener/**',
+        '!github.com/aws/**',
+        '!k8s.io/**',
+        '!sigs.k8s.io/**',
+        '!github.com/gardener/etcd-druid/**',
+        '!github.com/prometheus-operator/**',
       ],
       groupName: 'non-gardener-dependencies',
       matchUpdateTypes: ['minor', 'patch', 'digest'],
@@ -39,12 +39,12 @@
     {
       matchManagers: ['gomod'],
       matchPackageNames: [
-        '!github.com/gardener/*',
-        '!github.com/aws/*',
-        '!k8s.io/*',
-        '!sigs.k8s.io/*',
-        '!github.com/gardener/etcd-druid/*',
-        '!github.com/prometheus-operator/*',
+        '!github.com/gardener/**',
+        '!github.com/aws/**',
+        '!k8s.io/**',
+        '!sigs.k8s.io/**',
+        '!github.com/gardener/etcd-druid/**',
+        '!github.com/prometheus-operator/**',
       ],
       groupName: 'non-gardener-dependencies',
       matchUpdateTypes: ['major'],
@@ -52,14 +52,14 @@
     // gomod: aws provider SDK
     {
       matchManagers: ['gomod'],
-      matchPackageNames: ['github.com/aws/*'],
+      matchPackageNames: ['github.com/aws/**'],
       groupName: 'provider-sdk-dependencies',
       matchUpdateTypes: ['minor', 'patch', 'digest'],
       automerge: true,
     },
     {
       matchManagers: ['gomod'],
-      matchPackageNames: ['github.com/aws/*'],
+      matchPackageNames: ['github.com/aws/**'],
       groupName: 'provider-sdk-dependencies',
       matchUpdateTypes: ['major'],
     },
@@ -68,7 +68,7 @@
       matchManagers: ['gomod'],
       matchPackageNames: [
         'github.com/gardener/gardener',
-        'github.com/gardener/gardener/*',
+        'github.com/gardener/gardener/**',
       ],
       groupName: 'gardener-dependencies',
     },
@@ -76,10 +76,10 @@
     {
       matchManagers: ['gomod'],
       matchPackageNames: [
-        'k8s.io/*',
-        'sigs.k8s.io/*',
-        'github.com/gardener/etcd-druid/*',
-        'github.com/prometheus-operator/*',
+        'k8s.io/**',
+        'sigs.k8s.io/**',
+        'github.com/gardener/etcd-druid/**',
+        'github.com/prometheus-operator/**',
       ],
       enabled: false,
     },
