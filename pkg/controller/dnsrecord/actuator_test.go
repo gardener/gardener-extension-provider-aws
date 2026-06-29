@@ -14,15 +14,16 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	testutils "github.com/gardener/gardener/pkg/utils/test"
-	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
@@ -46,9 +47,8 @@ const (
 var _ = Describe("Actuator", func() {
 	var (
 		ctrl             *gomock.Controller
-		c                *mockclient.MockClient
+		c                client.Client
 		mgr              *testutils.FakeManager
-		sw               *mockclient.MockStatusWriter
 		awsClientFactory *mockawsclient.MockFactory
 		awsClient        *mockawsclient.MockInterface
 		ctx              context.Context
@@ -63,14 +63,15 @@ var _ = Describe("Actuator", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 
-		c = mockclient.NewMockClient(ctrl)
+		scheme := runtime.NewScheme()
+		Expect(extensionsv1alpha1.AddToScheme(scheme)).To(Succeed())
+		Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
+		c = fakeclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&extensionsv1alpha1.DNSRecord{}).Build()
 		mgr = &testutils.FakeManager{Client: c}
 
-		sw = mockclient.NewMockStatusWriter(ctrl)
 		awsClientFactory = mockawsclient.NewMockFactory(ctrl)
 		awsClient = mockawsclient.NewMockInterface(ctrl)
-
-		c.EXPECT().Status().Return(sw).AnyTimes()
 
 		ctx = context.TODO()
 		logger = log.Log.WithName("test")
@@ -122,35 +123,23 @@ var _ = Describe("Actuator", func() {
 		}
 	})
 
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
 	Describe("#Reconcile", func() {
 		BeforeEach(func() {
-			c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					*obj = *secret
-					return nil
-				},
-			)
+			Expect(c.Create(ctx, secret)).To(Succeed())
 			awsClientFactory.EXPECT().NewClient(authConfig).Return(awsClient, nil)
 		})
 
 		It("should reconcile the DNSRecord", func() {
 			awsClient.EXPECT().GetDNSHostedZones(ctx).Return(zones, nil)
 			awsClient.EXPECT().CreateOrUpdateDNSRecordSet(ctx, zone, domainName, string(extensionsv1alpha1.DNSRecordTypeA), []string{address}, int64(120), awsclient.IPStackIPv4).Return(nil)
-			sw.EXPECT().Patch(ctx, gomock.AssignableToTypeOf(&extensionsv1alpha1.DNSRecord{}), gomock.Any()).DoAndReturn(
-				func(_ context.Context, obj *extensionsv1alpha1.DNSRecord, _ client.Patch, _ ...client.PatchOption) error {
-					Expect(obj.Status).To(Equal(extensionsv1alpha1.DNSRecordStatus{
-						Zone: ptr.To(zone),
-					}))
-					return nil
-				},
-			)
 
+			Expect(c.Create(ctx, dns)).To(Succeed())
 			err := a.Reconcile(ctx, logger, dns, nil)
 			Expect(err).NotTo(HaveOccurred())
+
+			updated := &extensionsv1alpha1.DNSRecord{}
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(dns), updated)).To(Succeed())
+			Expect(updated.Status.Zone).To(Equal(ptr.To(zone)))
 		})
 
 		It("should fail if creating the DNS record set failed", func() {
@@ -207,12 +196,7 @@ var _ = Describe("Actuator", func() {
 
 	Describe("#Delete", func() {
 		BeforeEach(func() {
-			c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-				func(_ context.Context, _ client.ObjectKey, obj *corev1.Secret, _ ...client.GetOption) error {
-					*obj = *secret
-					return nil
-				},
-			)
+			Expect(c.Create(ctx, secret)).To(Succeed())
 			awsClientFactory.EXPECT().NewClient(authConfig).Return(awsClient, nil)
 
 		})

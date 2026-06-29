@@ -14,20 +14,17 @@ import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	securityv1alpha1 "github.com/gardener/gardener/pkg/apis/security/v1alpha1"
 	testutils "github.com/gardener/gardener/pkg/utils/test"
-	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"go.uber.org/mock/gomock"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/admission/validator"
 	apisaws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
@@ -42,40 +39,46 @@ var _ = Describe("Shoot validator", func() {
 		var (
 			shootValidator extensionswebhook.Validator
 
-			ctrl                   *gomock.Controller
 			mgr                    *testutils.FakeManager
-			c                      *mockclient.MockClient
-			reader                 *mockclient.MockReader
 			cloudProfile           *gardencorev1beta1.CloudProfile
 			namespacedCloudProfile *gardencorev1beta1.NamespacedCloudProfile
 			oldShoot               *core.Shoot
 			shoot                  *core.Shoot
 
-			ctx                       = context.Background()
-			cloudProfileKey           = client.ObjectKey{Name: "aws"}
-			namespacedCloudProfileKey = client.ObjectKey{Name: "aws-nscpfl", Namespace: namespace}
-			gp2type                   = string(apisaws.VolumeTypeGP2)
+			ctx     = context.Background()
+			gp2type = string(apisaws.VolumeTypeGP2)
 
 			regionName   = "us-west"
 			imageName    = "Foo"
 			imageVersion = "1.0.0"
 			architecture = ptr.To("analog")
 			machineType  = "large"
+
+			scheme *runtime.Scheme
 		)
 
-		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
+		// newValidator creates a fresh validator with clientObjects loaded into the
+		// main client and apiReaderObjects loaded into the API reader.
+		newValidator := func(clientObjects []client.Object, apiReaderObjects []client.Object) extensionswebhook.Validator {
+			cb := fakeclient.NewClientBuilder().WithScheme(scheme)
+			if len(clientObjects) > 0 {
+				cb = cb.WithObjects(clientObjects...)
+			}
+			rb := fakeclient.NewClientBuilder().WithScheme(scheme)
+			if len(apiReaderObjects) > 0 {
+				rb = rb.WithObjects(apiReaderObjects...)
+			}
+			mgr = &testutils.FakeManager{Scheme: scheme, Client: cb.Build(), APIReader: rb.Build()}
+			return validator.NewShootValidator(mgr)
+		}
 
-			scheme := runtime.NewScheme()
+		BeforeEach(func() {
+			scheme = runtime.NewScheme()
 			Expect(apisaws.AddToScheme(scheme)).To(Succeed())
 			Expect(apisawsv1alpha1.AddToScheme(scheme)).To(Succeed())
 			Expect(gardencorev1beta1.AddToScheme(scheme)).To(Succeed())
-
-			c = mockclient.NewMockClient(ctrl)
-			reader = mockclient.NewMockReader(ctrl)
-			mgr = &testutils.FakeManager{Scheme: scheme, Client: c, APIReader: reader}
-
-			shootValidator = validator.NewShootValidator(mgr)
+			Expect(corev1.AddToScheme(scheme)).To(Succeed())
+			Expect(securityv1alpha1.AddToScheme(scheme)).To(Succeed())
 
 			cloudProfile = &gardencorev1beta1.CloudProfile{
 				ObjectMeta: metav1.ObjectMeta{
@@ -130,7 +133,8 @@ var _ = Describe("Shoot validator", func() {
 
 			namespacedCloudProfile = &gardencorev1beta1.NamespacedCloudProfile{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "aws-nscpfl",
+					Name:      "aws-nscpfl",
+					Namespace: namespace,
 				},
 				Spec: gardencorev1beta1.NamespacedCloudProfileSpec{
 					Parent: gardencorev1beta1.CloudProfileReference{
@@ -203,6 +207,7 @@ var _ = Describe("Shoot validator", func() {
 			}
 
 			oldShoot = shoot.DeepCopy()
+			shootValidator = newValidator([]client.Object{cloudProfile}, nil)
 		})
 
 		Context("Shoot creation (old is nil)", func() {
@@ -212,7 +217,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when infrastructureConfig is nil", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.Provider.InfrastructureConfig = nil
 
 				err := shootValidator.Validate(ctx, shoot, nil)
@@ -223,7 +227,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when infrastructureConfig fails to be decoded", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{Raw: []byte("foo")}
 
 				err := shootValidator.Validate(ctx, shoot, nil)
@@ -234,8 +237,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when infrastructureConfig is invalid against CloudProfile", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{
 					Raw: encode(&apisawsv1alpha1.InfrastructureConfig{
 						TypeMeta: metav1.TypeMeta{
@@ -260,7 +261,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when worker image is not present in CloudConfiguration", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 				shoot.Spec.Provider.Workers[0].Machine = core.Machine{
 					Type: machineType,
 					Image: &core.ShootMachineImage{
@@ -278,8 +278,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when worker image is not present in CloudConfiguration on update", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				newShoot := shoot.DeepCopy()
 				newShoot.Spec.Provider.Workers[0].Machine = core.Machine{
 					Image: &core.ShootMachineImage{
@@ -298,8 +296,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should not err when old worker image is not present in CloudConfiguration on update", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				newShoot := shoot.DeepCopy()
 				shoot.Spec.Provider.Workers[0].Machine = core.Machine{
 					Type: machineType,
@@ -315,8 +311,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when networking is invalid", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Networking.Nodes = nil
 
 				err := shootValidator.Validate(ctx, shoot, nil)
@@ -327,8 +321,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should allow with IPv6-only networking", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
 					Raw: []byte(`{"overlay":{"enabled":false}}`),
 				}
@@ -339,8 +331,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should allow with dual-stack networking", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv6, core.IPFamilyIPv4}
 				shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
 					Raw: []byte(`{"overlay":{"enabled":false}}`),
@@ -351,8 +341,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should deny with dual-stack networking and overlay explicitly enabled", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv4, core.IPFamilyIPv6}
 				shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
 					Raw: []byte(`{"overlay":{"enabled":true}}`),
@@ -366,8 +354,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should deny with dual-stack networking and overlay implicitly enabled", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv4, core.IPFamilyIPv6}
 				shoot.Spec.Networking.ProviderConfig = &runtime.RawExtension{
 					Raw: []byte(`{}`),
@@ -381,8 +367,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when infrastructureConfig is invalid", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{
 					Raw: encode(&apisawsv1alpha1.InfrastructureConfig{
 						TypeMeta: metav1.TypeMeta{
@@ -410,8 +394,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when controlPlaneConfig fails to be decoded", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.ControlPlaneConfig = &runtime.RawExtension{Raw: []byte("foo")}
 
 				err := shootValidator.Validate(ctx, shoot, nil)
@@ -422,8 +404,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when worker's providerConfig fails to be decoded", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.Workers = []core.Worker{
 					{
 						Name:           "worker-1",
@@ -442,8 +422,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when worker is invalid", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.Workers = []core.Worker{
 					{
 						Name:   "worker-1",
@@ -466,15 +444,11 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should succeed for valid Shoot", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should return err when worker providerConfig has invalid network interface config", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.Workers = []core.Worker{
 					{
 						Name: "worker-1",
@@ -512,8 +486,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when worker providerConfig has invalid placement config", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.Workers = []core.Worker{
 					{
 						Name: "worker-1",
@@ -548,8 +520,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return err when worker providerConfig has invalid market options config", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.Workers = []core.Worker{
 					{
 						Name: "worker-1",
@@ -586,18 +556,17 @@ var _ = Describe("Shoot validator", func() {
 			It("should also work for CloudProfileName instead of CloudProfile reference in Shoot", func() {
 				shoot.Spec.CloudProfileName = ptr.To("aws")
 				shoot.Spec.CloudProfile = nil
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("should also work for NamespacedCloudProfile referenced from Shoot", func() {
+				shootValidator = newValidator([]client.Object{namespacedCloudProfile}, nil)
 				shoot.Spec.CloudProfile = &core.CloudProfileReference{
 					Kind: "NamespacedCloudProfile",
 					Name: "aws-nscpfl",
 				}
-				c.EXPECT().Get(ctx, namespacedCloudProfileKey, &gardencorev1beta1.NamespacedCloudProfile{}).SetArg(2, *namespacedCloudProfile)
 
 				err := shootValidator.Validate(ctx, shoot, nil)
 				Expect(err).NotTo(HaveOccurred())
@@ -606,8 +575,6 @@ var _ = Describe("Shoot validator", func() {
 
 		Context("shoot update validation", func() {
 			It("should return error if old InfrastructureConfig is nil", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				oldShoot.Spec.Provider.InfrastructureConfig = nil
 
 				err := shootValidator.Validate(ctx, shoot, oldShoot)
@@ -618,8 +585,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return error if old InfrastructureConfig fails to decode", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				oldShoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{Raw: []byte("invalid")}
 
 				err := shootValidator.Validate(ctx, shoot, oldShoot)
@@ -630,8 +595,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return error if InfrastructureConfig update is invalid", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.InfrastructureConfig = &runtime.RawExtension{
 					Raw: encode(&apisawsv1alpha1.InfrastructureConfig{
 						TypeMeta: metav1.TypeMeta{
@@ -673,8 +636,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return error if worker update is invalid", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.Workers[0].Zones = []string{"zone2"}
 
 				err := shootValidator.Validate(ctx, shoot, oldShoot)
@@ -686,8 +647,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should return error if worker update is invalid against CloudProfile", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.Workers[0].Machine.Image = &core.ShootMachineImage{
 					Name:    "Bar",
 					Version: imageVersion,
@@ -702,8 +661,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should not return error if worker update is invalid against CloudProfile is shoot has deletion timestamp", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				shoot.Spec.Provider.Workers[0].Machine.Image = &core.ShootMachineImage{
 					Name:    "Bar",
 					Version: imageVersion,
@@ -715,8 +672,6 @@ var _ = Describe("Shoot validator", func() {
 			})
 
 			It("should succeed for valid Shoot update", func() {
-				c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
-
 				err := shootValidator.Validate(ctx, shoot, oldShoot)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -725,7 +680,6 @@ var _ = Describe("Shoot validator", func() {
 		Context("Shoot with custom DNS provider", func() {
 			Context("primaryProvider", func() {
 				It("should skip validation for non-primary aws-dns provider", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -739,12 +693,10 @@ var _ = Describe("Shoot validator", func() {
 							},
 						},
 					}
-					// No reader.EXPECT() call - secret should not be fetched for non-primary provider
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(Succeed())
 				})
 
 				It("should skip validation for aws-dns provider with Primary=nil", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -758,12 +710,10 @@ var _ = Describe("Shoot validator", func() {
 							},
 						},
 					}
-					// No reader.EXPECT() call - secret should not be fetched when Primary is nil
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(Succeed())
 				})
 
 				It("should validate only primary provider when multiple aws-dns providers exist", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -795,7 +745,6 @@ var _ = Describe("Shoot validator", func() {
 							},
 						},
 					}
-					// Only the primary secret should be validated
 					validSecret := &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "primary-secret", Namespace: namespace},
 						Data: map[string][]byte{
@@ -803,16 +752,11 @@ var _ = Describe("Shoot validator", func() {
 							aws.DNSSecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"),
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "primary-secret"},
-						&corev1.Secret{}).
-						SetArg(2, *validSecret).
-						Return(nil)
-
+					shootValidator = newValidator([]client.Object{cloudProfile}, []client.Object{validSecret})
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(Succeed())
 				})
 
 				It("should validate primary provider even when mixed with other provider types", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -851,16 +795,11 @@ var _ = Describe("Shoot validator", func() {
 							aws.DNSSecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"),
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "aws-secret"},
-						&corev1.Secret{}).
-						SetArg(2, *validSecret).
-						Return(nil)
-
+					shootValidator = newValidator([]client.Object{cloudProfile}, []client.Object{validSecret})
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(Succeed())
 				})
 
 				It("should return error for invalid primary provider secret among multiple providers", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -890,11 +829,7 @@ var _ = Describe("Shoot validator", func() {
 							// Missing secretAccessKey
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "primary-secret"},
-						&corev1.Secret{}).
-						SetArg(2, *invalidSecret).
-						Return(nil)
-
+					shootValidator = newValidator([]client.Object{cloudProfile}, []client.Object{invalidSecret})
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
 						"Field":  Equal("spec.dns.providers[1].credentialsRef"),
@@ -903,7 +838,6 @@ var _ = Describe("Shoot validator", func() {
 				})
 
 				It("should succeed when no aws-dns providers have Primary=true", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -926,15 +860,12 @@ var _ = Describe("Shoot validator", func() {
 							},
 						},
 					}
-					// No reader.EXPECT() calls - no secrets should be validated
-
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(Succeed())
 				})
 			})
 
 			Context("credentialsRef", func() {
 				It("should return error when aws-dns provider has no credentialsRef", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{Type: ptr.To(aws.DNSType), Primary: ptr.To(true)}, // credentialsRef missing
@@ -949,7 +880,6 @@ var _ = Describe("Shoot validator", func() {
 				})
 
 				It("should return error when aws-dns provider Secret not found", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -963,10 +893,7 @@ var _ = Describe("Shoot validator", func() {
 							},
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-secret"},
-						&corev1.Secret{}).
-						Return(apierrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, "dns-secret"))
-
+					// no secret pre-loaded → NotFound
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":  Equal(field.ErrorTypeNotFound),
 						"Field": Equal("spec.dns.providers[0].credentialsRef"),
@@ -974,7 +901,6 @@ var _ = Describe("Shoot validator", func() {
 				})
 
 				It("should return error when aws-dns provider WorkloadIdentity not found", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -988,10 +914,7 @@ var _ = Describe("Shoot validator", func() {
 							},
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-workload-identity"},
-						&securityv1alpha1.WorkloadIdentity{}).
-						Return(apierrors.NewNotFound(schema.GroupResource{Resource: "workloadidentities"}, "dns-workload-identity"))
-
+					// no WorkloadIdentity pre-loaded → NotFound
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":  Equal(field.ErrorTypeNotFound),
 						"Field": Equal("spec.dns.providers[0].credentialsRef"),
@@ -999,7 +922,6 @@ var _ = Describe("Shoot validator", func() {
 				})
 
 				It("should succeed with valid aws-dns Secret", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -1020,16 +942,11 @@ var _ = Describe("Shoot validator", func() {
 							aws.DNSSecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"),
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-secret"},
-						&corev1.Secret{}).
-						SetArg(2, *validSecret).
-						Return(nil)
-
+					shootValidator = newValidator([]client.Object{cloudProfile}, []client.Object{validSecret})
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(Succeed())
 				})
 
 				It("should return error with invalid aws-dns Secret", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -1043,17 +960,13 @@ var _ = Describe("Shoot validator", func() {
 							},
 						},
 					}
-					validSecret := &corev1.Secret{
+					invalidSecret := &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{Name: "dns-secret", Namespace: namespace},
 						Data: map[string][]byte{
 							"foo": []byte("bar"),
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-secret"},
-						&corev1.Secret{}).
-						SetArg(2, *validSecret).
-						Return(nil)
-
+					shootValidator = newValidator([]client.Object{cloudProfile}, []client.Object{invalidSecret})
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":  Equal(field.ErrorTypeInvalid),
 						"Field": Equal("spec.dns.providers[0].credentialsRef"),
@@ -1065,7 +978,6 @@ var _ = Describe("Shoot validator", func() {
 				})
 
 				It("should succeed with valid aws-dns WorkloadIdentity", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -1085,25 +997,16 @@ var _ = Describe("Shoot validator", func() {
 							TargetSystem: securityv1alpha1.TargetSystem{
 								Type: "aws",
 								ProviderConfig: &runtime.RawExtension{
-									Raw: []byte(`
-apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-kind: WorkloadIdentityConfig
-roleARN: "foo"
-`),
+									Raw: []byte(`{"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1","kind":"WorkloadIdentityConfig","roleARN":"foo"}`),
 								},
 							},
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-workload-identity"},
-						&securityv1alpha1.WorkloadIdentity{}).
-						SetArg(2, *validWorkloadIdentity).
-						Return(nil)
-
+					shootValidator = newValidator([]client.Object{cloudProfile}, []client.Object{validWorkloadIdentity})
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(Succeed())
 				})
 
 				It("should return error with invalid aws-dns WorkloadIdentity", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -1117,26 +1020,18 @@ roleARN: "foo"
 							},
 						},
 					}
-					validWorkloadIdentity := &securityv1alpha1.WorkloadIdentity{
+					invalidWorkloadIdentity := &securityv1alpha1.WorkloadIdentity{
 						ObjectMeta: metav1.ObjectMeta{Name: "dns-workload-identity", Namespace: namespace},
 						Spec: securityv1alpha1.WorkloadIdentitySpec{
 							TargetSystem: securityv1alpha1.TargetSystem{
 								Type: "aws",
 								ProviderConfig: &runtime.RawExtension{
-									Raw: []byte(`
-apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
-kind: WorkloadIdentityConfig
-roleARN: ""
-`),
+									Raw: []byte(`{"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1","kind":"WorkloadIdentityConfig","roleARN":""}`),
 								},
 							},
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-workload-identity"},
-						&securityv1alpha1.WorkloadIdentity{}).
-						SetArg(2, *validWorkloadIdentity).
-						Return(nil)
-
+					shootValidator = newValidator([]client.Object{cloudProfile}, []client.Object{invalidWorkloadIdentity})
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
 						"Field":  Equal("spec.dns.providers[0].credentialsRef"),
@@ -1145,7 +1040,6 @@ roleARN: ""
 				})
 
 				It("should return error with unsupported credentials type", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -1168,7 +1062,6 @@ roleARN: ""
 				})
 
 				It("should return error with InternalSecret type", func() {
-					c.EXPECT().Get(ctx, cloudProfileKey, &gardencorev1beta1.CloudProfile{}).SetArg(2, *cloudProfile)
 					shoot.Spec.DNS = &core.DNS{
 						Providers: []core.DNSProvider{
 							{
@@ -1188,11 +1081,7 @@ roleARN: ""
 							"foo": []byte("bar"),
 						},
 					}
-					reader.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "dns-internal-secret-ref"},
-						&gardencorev1beta1.InternalSecret{}).
-						SetArg(2, *internalSecret).
-						Return(nil)
-
+					shootValidator = newValidator([]client.Object{cloudProfile}, []client.Object{internalSecret})
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
 						"Field":  Equal("spec.dns.providers[0].credentialsRef"),

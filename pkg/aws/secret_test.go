@@ -6,14 +6,13 @@ package aws_test
 
 import (
 	"context"
-	"errors"
 
-	mockclient "github.com/gardener/gardener/third_party/mock/controller-runtime/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -34,9 +33,6 @@ var _ = Describe("Secret", func() {
 
 	Describe("#GetCredentialsFromSecretRef", func() {
 		var (
-			ctrl *gomock.Controller
-			c    *mockclient.MockClient
-
 			ctx       = context.TODO()
 			namespace = "namespace"
 			name      = "name"
@@ -45,39 +41,32 @@ var _ = Describe("Secret", func() {
 				Name:      name,
 				Namespace: namespace,
 			}
+
+			scheme = runtime.NewScheme()
 		)
 
 		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
-
-			c = mockclient.NewMockClient(ctrl)
-		})
-
-		AfterEach(func() {
-			ctrl.Finish()
+			Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		})
 
 		It("should fail if the secret could not be read", func() {
-			fakeErr := errors.New("error")
-			c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).Return(fakeErr)
-
+			c := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
+			// secret does not exist → Get returns NotFound
 			credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false, "")
-
 			Expect(credentials).To(BeNil())
-			Expect(err).To(Equal(fakeErr))
+			Expect(err).To(HaveOccurred())
 		})
 
 		Context("DNS keys are not allowed", func() {
 			It("should return the correct credentials object if non-DNS keys are used", func() {
-				c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
-						secret.Data = map[string][]byte{
-							AccessKeyID:     accessKeyID,
-							SecretAccessKey: secretAccessKey,
-						}
-						return nil
+				s := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+					Data: map[string][]byte{
+						AccessKeyID:     accessKeyID,
+						SecretAccessKey: secretAccessKey,
 					},
-				)
+				}
+				c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(s).Build()
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false, "sample")
 
@@ -92,15 +81,14 @@ var _ = Describe("Secret", func() {
 			})
 
 			It("should fail if DNS keys are used", func() {
-				c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
-						secret.Data = map[string][]byte{
-							DNSAccessKeyID:     accessKeyID,
-							DNSSecretAccessKey: secretAccessKey,
-						}
-						return nil
+				s := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+					Data: map[string][]byte{
+						DNSAccessKeyID:     accessKeyID,
+						DNSSecretAccessKey: secretAccessKey,
 					},
-				)
+				}
+				c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(s).Build()
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, false, "")
 
@@ -111,16 +99,15 @@ var _ = Describe("Secret", func() {
 
 		Context("DNS keys are allowed", func() {
 			It("should return the correct credentials object if DNS keys are used", func() {
-				c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
-						secret.Data = map[string][]byte{
-							DNSAccessKeyID:     accessKeyID,
-							DNSSecretAccessKey: secretAccessKey,
-							DNSRegion:          region,
-						}
-						return nil
+				s := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+					Data: map[string][]byte{
+						DNSAccessKeyID:     accessKeyID,
+						DNSSecretAccessKey: secretAccessKey,
+						DNSRegion:          region,
 					},
-				)
+				}
+				c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(s).Build()
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true, "")
 
@@ -135,16 +122,15 @@ var _ = Describe("Secret", func() {
 			})
 
 			It("should return the correct credentials object if non-DNS keys are used", func() {
-				c.EXPECT().Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gomock.AssignableToTypeOf(&corev1.Secret{})).DoAndReturn(
-					func(_ context.Context, _ client.ObjectKey, secret *corev1.Secret, _ ...client.GetOption) error {
-						secret.Data = map[string][]byte{
-							AccessKeyID:     accessKeyID,
-							SecretAccessKey: secretAccessKey,
-							Region:          region,
-						}
-						return nil
+				s := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+					Data: map[string][]byte{
+						AccessKeyID:     accessKeyID,
+						SecretAccessKey: secretAccessKey,
+						Region:          region,
 					},
-				)
+				}
+				c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(s).Build()
 
 				credentials, err := GetCredentialsFromSecretRef(ctx, c, secretRef, true, "")
 
