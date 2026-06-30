@@ -89,5 +89,10 @@
       matchPackageNames: ['go'],
       enabled: false,
     },
+    // Disable Helm updates
+    {
+      matchManagers: ['helm-values', 'helmv3', 'helmfile', 'helm-requirements'],
+      enabled: false,
+    },
   ],
 }
