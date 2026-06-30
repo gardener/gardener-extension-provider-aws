@@ -35,7 +35,7 @@
       groupName: 'non-gardener-dependencies',
       matchUpdateTypes: ['minor', 'patch', 'digest'],
       automerge: true,
-      prTitle: 'Update non-gardener-dependencies',
+      commitMessageTopic: 'non-gardener-dependencies',
     },
     {
       matchManagers: ['gomod'],
@@ -49,7 +49,7 @@
       ],
       groupName: 'non-gardener-dependencies',
       matchUpdateTypes: ['major'],
-      prTitle: 'Update non-gardener-dependencies',
+      commitMessageTopic: 'non-gardener-dependencies',
     },
     // gomod: aws provider SDK
     {
@@ -58,14 +58,14 @@
       groupName: 'provider-sdk-dependencies',
       matchUpdateTypes: ['minor', 'patch', 'digest'],
       automerge: true,
-      prTitle: 'Update provider-sdk-dependencies',
+      commitMessageTopic: 'provider-sdk-dependencies',
     },
     {
       matchManagers: ['gomod'],
       matchPackageNames: ['github.com/aws/**'],
       groupName: 'provider-sdk-dependencies',
       matchUpdateTypes: ['major'],
-      prTitle: 'Update provider-sdk-dependencies',
+      commitMessageTopic: 'provider-sdk-dependencies',
     },
     // gomod: gardener dependencies — manual only
     {
@@ -75,7 +75,7 @@
         'github.com/gardener/gardener/**',
       ],
       groupName: 'gardener-dependencies',
-      prTitle: 'Update gardener/gardener to {{newVersion}}',
+      commitMessageTopic: 'gardener/gardener',
     },
     // Disable ignored packages from dependabot ignore list
     {
