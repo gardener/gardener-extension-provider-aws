@@ -91,7 +91,7 @@
     },
     // Disable Helm updates
     {
-      matchManagers: ['helm-values', 'helmv3', 'helmfile'],
+      matchManagers: ['helm-values', 'helmv3', 'helmfile', 'helm-requirements'],
       enabled: false,
     },
   ],
