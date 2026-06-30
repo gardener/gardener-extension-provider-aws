@@ -243,7 +243,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-// Pin cloud.google.com/go to resolve ambiguous import issue
-// ref: https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/40319
-replace cloud.google.com/go => cloud.google.com/go v0.123.0
