@@ -49,15 +49,27 @@ true
 {{- end -}}
 
 {{- define "seed.provider" -}}
-  {{- if .Values.gardener.seed }}
-{{- .Values.gardener.seed.provider }}
-  {{- else -}}
-""
-  {{- end }}
+{{- if .Values.gardener.seed -}}
+{{- .Values.gardener.seed.provider -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "runtimeCluster.enabled" -}}
 {{- if and .Values.gardener.runtimeCluster .Values.gardener.runtimeCluster.enabled }}
 true
 {{- end }}
+{{- end -}}
+
+{{- define "persistentVolumeClaimAutoscaler.enabled" -}}
+{{- if and .Values.gardener.seed .Values.gardener.seed.spec.settings.persistentVolumeClaimAutoscaler .Values.gardener.seed.spec.settings.persistentVolumeClaimAutoscaler.enabled }}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "disable.webhooks" -}}
+{{- $disableWebhooks := .Values.disableWebhooks -}}
+{{- if or (ne (include "seed.provider" . ) "aws") (ne (include "persistentVolumeClaimAutoscaler.enabled" . | trim ) "true") -}}
+{{- $disableWebhooks = append $disableWebhooks "seed-pvca" -}}
+{{- end -}}
+{{- $disableWebhooks | uniq | join "," -}}
 {{- end -}}
