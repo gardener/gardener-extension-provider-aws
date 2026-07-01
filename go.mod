@@ -23,7 +23,7 @@ require (
 	github.com/gardener/external-dns-management v0.43.0
 	github.com/gardener/gardener v1.145.0
 	github.com/gardener/gardener/pkg/apis v1.145.0
-	github.com/gardener/machine-controller-manager v0.62.0
+	github.com/gardener/machine-controller-manager v0.62.1
 	github.com/gardener/machine-controller-manager-provider-aws v0.28.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
