@@ -17,17 +17,17 @@ main-source:
 resources:
   # todo: resolve double-maintenance w/ charts/gardener-extension-provider-aws/templates/_images.tpl
   - name: alpine
-    version: '3.23.2'
+    version: '3.24.1'
     type: ociImage
     relation: external
     access:
       type: ociRegistry
-      imageReference: registry-1.docker.io/library/alpine:3.23.2
+      imageReference: registry-1.docker.io/library/alpine:3.24.1
   # todo: resolve double-maintenance w/ charts/gardener-extension-provider-aws/templates/_images.tpl
   - name: pause
-    version: '3.10'
+    version: '3.10.2'
     type: ociImage
     relation: external
     access:
       type: ociRegistry
-      imageReference: registry.k8s.io/pause:3.10
+      imageReference: registry.k8s.io/pause:3.10.2
