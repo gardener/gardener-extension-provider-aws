@@ -18,14 +18,6 @@ const (
 	WebhookName = "seed-pvca"
 )
 
-var (
-	// DefaultAddOptions are the default AddOptions for AddToManager.
-	DefaultAddOptions = AddOptions{}
-)
-
-// AddOptions are options to apply when adding the AWS shoot webhook to the manager.
-type AddOptions struct{}
-
 // AddToManager creates a webhook with the default options and adds it to the manager.
 func AddToManager(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 	logger := log.Log.WithName("aws-seed-pvca-webhook")
