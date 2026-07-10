@@ -759,17 +759,12 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	return nil
 }
 
-// hasCIDRs returns true if the security group rule has at least one IPv4 or IPv6 CIDR block.
-func hasCIDRs(rule *awsclient.SecurityGroupRule) bool {
-	return len(rule.CidrBlocks) > 0 || len(rule.CidrBlocksv6) > 0
-}
-
 func (c *FlowContext) ensureEgressCIDRs(ctx context.Context) error {
 	var egressIPs []string
-	filters := append(
-		awsclient.WithFilters().WithVpcId(*c.state.Get(IdentifierVPC)).Build(),
-		c.clusterTagKeyExistsFilter(),
-	)
+	filters := awsclient.WithFilters().
+		WithVpcId(*c.state.Get(IdentifierVPC)).
+		WithTagKeyExists(c.tagKeyCluster()).
+		Build()
 	nats, err := c.client.FindNATGateways(ctx, filters)
 	if err != nil {
 		return err
@@ -838,8 +833,16 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 			log.Info("using BYO public LB subnet", "zone", zone.Name, "subnetID", *zone.PublicSubnetID)
 
 			publicTags := awsclient.Tags{
-				c.tagKeyCluster():   TagValueClusterShared,
-				TagKeyRolePublicELB: TagValueELB,
+				c.tagKeyCluster(): TagValueClusterShared,
+			}
+			// Add role tag + marker only if the role tag is not already present
+			subnets, err := c.client.GetSubnets(ctx, []string{*zone.PublicSubnetID})
+			if err != nil {
+				return fmt.Errorf("failed to get BYO public subnet %s: %w", *zone.PublicSubnetID, err)
+			}
+			if len(subnets) > 0 && subnets[0].Tags[TagKeyRolePublicELB] == "" {
+				publicTags[TagKeyRolePublicELB] = TagValueELB
+				publicTags[TagKeyManagedByGardener] = TagKeyRolePublicELB
 			}
 			if err := c.client.CreateEC2Tags(ctx, []string{*zone.PublicSubnetID}, publicTags); err != nil {
 				return fmt.Errorf("failed to tag BYO public subnet %s: %w", *zone.PublicSubnetID, err)
@@ -852,8 +855,16 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 			log.Info("using BYO internal LB subnet", "zone", zone.Name, "subnetID", *zone.InternalSubnetID)
 
 			internalTags := awsclient.Tags{
-				c.tagKeyCluster():    TagValueClusterShared,
-				TagKeyRolePrivateELB: TagValueELB,
+				c.tagKeyCluster(): TagValueClusterShared,
+			}
+			// Add role tag + marker only if the role tag is not already present
+			subnets, err := c.client.GetSubnets(ctx, []string{*zone.InternalSubnetID})
+			if err != nil {
+				return fmt.Errorf("failed to get BYO internal subnet %s: %w", *zone.InternalSubnetID, err)
+			}
+			if len(subnets) > 0 && subnets[0].Tags[TagKeyRolePrivateELB] == "" {
+				internalTags[TagKeyRolePrivateELB] = TagValueELB
+				internalTags[TagKeyManagedByGardener] = TagKeyRolePrivateELB
 			}
 			if err := c.client.CreateEC2Tags(ctx, []string{*zone.InternalSubnetID}, internalTags); err != nil {
 				return fmt.Errorf("failed to tag BYO internal subnet %s: %w", *zone.InternalSubnetID, err)
@@ -977,13 +988,11 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 	}
 
 	// Discover public subnets (tagged kubernetes.io/role/elb=1 + cluster tag key exists)
-	publicFilters := append(
-		awsclient.WithFilters().
-			WithVpcId(*vpcID).
-			WithTags(awsclient.Tags{TagKeyRolePublicELB: TagValueELB}).
-			Build(),
-		c.clusterTagKeyExistsFilter(),
-	)
+	publicFilters := awsclient.WithFilters().
+		WithVpcId(*vpcID).
+		WithTags(awsclient.Tags{TagKeyRolePublicELB: TagValueELB}).
+		WithTagKeyExists(c.tagKeyCluster()).
+		Build()
 	publicSubnets, err := c.client.FindSubnets(ctx, publicFilters)
 	if err != nil {
 		return fmt.Errorf("failed to discover tagged public subnets: %w", err)
@@ -1017,13 +1026,11 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 	}
 
 	// Discover internal subnets (tagged kubernetes.io/role/internal-elb=1 + cluster tag key exists)
-	internalFilters := append(
-		awsclient.WithFilters().
-			WithVpcId(*vpcID).
-			WithTags(awsclient.Tags{TagKeyRolePrivateELB: TagValueELB}).
-			Build(),
-		c.clusterTagKeyExistsFilter(),
-	)
+	internalFilters := awsclient.WithFilters().
+		WithVpcId(*vpcID).
+		WithTags(awsclient.Tags{TagKeyRolePrivateELB: TagValueELB}).
+		WithTagKeyExists(c.tagKeyCluster()).
+		Build()
 	internalSubnets, err := c.client.FindSubnets(ctx, internalFilters)
 	if err != nil {
 		return fmt.Errorf("failed to discover tagged internal subnets: %w", err)
@@ -1441,8 +1448,13 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 		}
 
 		if key == IdentifierZoneSubnetWorkers {
-			// BYO subnets may not have IPv6 CIDR blocks.
 			if len(subnet.Ipv6CidrBlocks) == 0 {
+				// In BYO mode, worker subnets must have IPv6 CIDR blocks when IPv6 is enabled.
+				// The configvalidator should catch this, but enforce it here as a safety net.
+				if c.isBYOInfrastructure() {
+					return fmt.Errorf("BYO worker subnet %s has no IPv6 CIDR block but IPv6 is enabled; "+
+						"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool", subnet.SubnetId)
+				}
 				continue
 			}
 			cidr, err := cidrSubnet(subnet.Ipv6CidrBlocks[0], 108, 1)
@@ -1471,8 +1483,11 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 		}
 
 		if key == IdentifierZoneSubnetWorkers {
-			// BYO subnets may not have IPv6 CIDR blocks.
 			if len(subnet.Ipv6CidrBlocks) == 0 {
+				if c.isBYOInfrastructure() {
+					return fmt.Errorf("BYO worker subnet %s has no IPv6 CIDR block but IPv6 is enabled; "+
+						"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool", subnet.SubnetId)
+				}
 				continue
 			}
 			cidr, err := cidrSubnet(subnet.Ipv6CidrBlocks[0], 108, 1)
@@ -2427,8 +2442,9 @@ func (c *FlowContext) getSubnetZoneChild(zoneName string) Whiteboard {
 func (c *FlowContext) getSubnetKey(item *awsclient.Subnet) (string, string, error) {
 	zone := c.getZone(item)
 	// With IPv6 we don't have configuration for zone.Workers and zone.Internal.
-	// In that case, we get the subnetKey comparing the name tag.
-	if zone == nil || !containsIPv4(c.getIpFamilies()) {
+	// In BYO mode we also don't have CIDRs to match against, only subnet IDs.
+	// In that case, we get the subnetKey comparing the name tag or subnet ID from state.
+	if zone == nil || v1beta1.IsIPv6SingleStack(c.getIpFamilies()) || c.isBYOInfrastructure() {
 		// zone may have been deleted from spec, need to find subnetKey on other ways
 		zoneName := item.AvailabilityZone
 		if item.SubnetId != "" {

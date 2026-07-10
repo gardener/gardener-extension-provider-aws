@@ -35,6 +35,16 @@ func (f filterBuilder) WithTags(tags Tags) filterBuilder {
 	return f
 }
 
+// WithTagKeyExists adds a filter that matches resources having the specified tag key,
+// regardless of the tag's value.
+func (f filterBuilder) WithTagKeyExists(key string) filterBuilder {
+	f.filters = append(f.filters, ec2types.Filter{
+		Name:   aws.String("tag-key"),
+		Values: []string{key},
+	})
+	return f
+}
+
 // Build builds the filters and returns them.
 func (f filterBuilder) Build() []ec2types.Filter {
 	return f.filters

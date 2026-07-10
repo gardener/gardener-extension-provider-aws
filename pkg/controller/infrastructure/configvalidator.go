@@ -7,12 +7,15 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"net"
 	"slices"
 
 	awsSDK "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
+	v1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	"github.com/gardener/gardener/pkg/extensions"
 	cidrvalidation "github.com/gardener/gardener/pkg/utils/validation/cidr"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -62,6 +65,18 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 		return allErrs
 	}
 
+	// Determine whether IPv6 is required by reading the Shoot's ipFamilies from the Cluster resource.
+	// This covers both the legacy dualStack.enabled flag and the modern ipFamilies-based dual-stack.
+	requiresIPv6 := config.DualStack != nil && config.DualStack.Enabled
+	cluster, err := extensions.GetCluster(ctx, c.client, infra.Namespace)
+	if err != nil {
+		logger.Error(err, "could not read Cluster resource, falling back to legacy DualStack detection")
+	} else if cluster != nil && cluster.Shoot != nil && cluster.Shoot.Spec.Networking != nil {
+		if slices.Contains(cluster.Shoot.Spec.Networking.IPFamilies, v1beta1.IPFamilyIPv6) {
+			requiresIPv6 = true
+		}
+	}
+
 	awsClient, err := c.awsClientFactory.NewClient(*authConfig)
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not create AWS client: %+v", err)))
@@ -72,12 +87,18 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	if config.Networks.VPC.ID != nil {
 		logger.Info("Validating infrastructure networks.vpc.id")
 		allErrs = append(allErrs, c.validateVPC(ctx, field.NewPath("networks"),
-			awsClient, *config, *config.Networks.VPC.ID, infra.Spec.Region)...)
+			awsClient, *config, *config.Networks.VPC.ID, infra.Spec.Region, requiresIPv6)...)
+	}
+
+	// Extract node network CIDR for BYO subnet validation
+	var nodesCIDRs []string
+	if cluster != nil && cluster.Shoot != nil && cluster.Shoot.Spec.Networking != nil && cluster.Shoot.Spec.Networking.Nodes != nil {
+		nodesCIDRs = []string{*cluster.Shoot.Spec.Networking.Nodes}
 	}
 
 	// Validate BYO subnet IDs exist and are in the correct VPC/AZ
 	if config.Networks.VPC.ID != nil {
-		allErrs = append(allErrs, c.validateBYOSubnets(ctx, awsClient, config, *config.Networks.VPC.ID)...)
+		allErrs = append(allErrs, c.validateBYOSubnets(ctx, awsClient, config, *config.Networks.VPC.ID, requiresIPv6, nodesCIDRs)...)
 	}
 
 	// Validate BYO security group exists and is in the correct VPC
@@ -123,6 +144,7 @@ func (c *configValidator) validateVPC(
 	awsClient awsclient.Interface,
 	infraConfig apiaws.InfrastructureConfig,
 	vpcID, region string,
+	requiresIPv6 bool,
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
 
@@ -144,8 +166,7 @@ func (c *configValidator) validateVPC(
 		}
 	}
 
-	dualStack := infraConfig.DualStack != nil && infraConfig.DualStack.Enabled
-	if dualStack {
+	if requiresIPv6 {
 		_, err := awsClient.GetIPv6Cidr(ctx, vpcID)
 		if err != nil {
 			allErrs = append(allErrs, field.Invalid(vpcIdPath, vpcID, fmt.Sprintf("VPC %s has no ipv6 CIDR", vpcID)))
@@ -203,7 +224,8 @@ func (c *configValidator) validateVPC(
 }
 
 // validateBYOSubnets validates that referenced BYO subnet IDs exist and are in the correct VPC/AZ.
-func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsclient.Interface, config *apiaws.InfrastructureConfig, vpcID string) field.ErrorList {
+// When requiresIPv6 is true, it also validates IPv6-readiness of all BYO subnets.
+func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsclient.Interface, config *apiaws.InfrastructureConfig, vpcID string, requiresIPv6 bool, nodesCIDRs []string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	for i, zone := range config.Networks.Zones {
@@ -213,50 +235,64 @@ func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsc
 			continue
 		}
 
+		// Validate worker subnet
 		fldPath := zonePath.Child("workersSubnetID")
-		workerErrs := c.validateBYOSubnet(ctx, awsClient, zone.WorkersSubnetID, fldPath, vpcID, zone.Name)
+		workerSubnet, workerErrs := c.validateBYOSubnet(ctx, awsClient, zone.WorkersSubnetID, fldPath, vpcID, zone.Name)
 		allErrs = append(allErrs, workerErrs...)
-		if len(workerErrs) > 0 {
-			continue
-		}
-
-		// When DualStack/IPv6 is enabled, BYO worker subnets must have an IPv6 CIDR block
-		// from the VPC's IPv6 pool. Gardener uses this for CIDR reservations (services).
-		dualStack := config.DualStack != nil && config.DualStack.Enabled
-		if dualStack {
-			subnets, _ := awsClient.GetSubnets(ctx, []string{*zone.WorkersSubnetID})
-			if len(subnets) > 0 && len(subnets[0].Ipv6CidrBlocks) == 0 {
-				allErrs = append(allErrs, field.Invalid(fldPath, *zone.WorkersSubnetID,
-					"subnet has no IPv6 CIDR block but DualStack is enabled; "+
-						"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool"))
+		if len(workerErrs) == 0 && workerSubnet != nil {
+			if requiresIPv6 {
+				allErrs = append(allErrs, validateSubnetIPv6Readiness(workerSubnet, fldPath, *zone.WorkersSubnetID, true)...)
 			}
+			// Validate that the shoot's node network range fits inside the worker subnet CIDR.
+			allErrs = append(allErrs, validateNodesCIDRInSubnet(workerSubnet, fldPath, *zone.WorkersSubnetID, nodesCIDRs)...)
 		}
 
 		// Validate BYO public LB subnet
-		allErrs = append(allErrs, c.validateBYOSubnet(ctx, awsClient, zone.PublicSubnetID, zonePath.Child("publicSubnetID"), vpcID, zone.Name)...)
+		if zone.PublicSubnetID != nil {
+			pubPath := zonePath.Child("publicSubnetID")
+			pubSubnet, pubErrs := c.validateBYOSubnet(ctx, awsClient, zone.PublicSubnetID, pubPath, vpcID, zone.Name)
+			allErrs = append(allErrs, pubErrs...)
+			if len(pubErrs) == 0 && pubSubnet != nil {
+				if requiresIPv6 {
+					allErrs = append(allErrs, validateSubnetIPv6Readiness(pubSubnet, pubPath, *zone.PublicSubnetID, false)...)
+				}
+				allErrs = append(allErrs, validateLBSubnetNotIPv6Native(pubSubnet, pubPath, *zone.PublicSubnetID)...)
+			}
+		}
+
 		// Validate BYO internal LB subnet
-		allErrs = append(allErrs, c.validateBYOSubnet(ctx, awsClient, zone.InternalSubnetID, zonePath.Child("internalSubnetID"), vpcID, zone.Name)...)
+		if zone.InternalSubnetID != nil {
+			intPath := zonePath.Child("internalSubnetID")
+			intSubnet, intErrs := c.validateBYOSubnet(ctx, awsClient, zone.InternalSubnetID, intPath, vpcID, zone.Name)
+			allErrs = append(allErrs, intErrs...)
+			if len(intErrs) == 0 && intSubnet != nil {
+				if requiresIPv6 {
+					allErrs = append(allErrs, validateSubnetIPv6Readiness(intSubnet, intPath, *zone.InternalSubnetID, false)...)
+				}
+				allErrs = append(allErrs, validateLBSubnetNotIPv6Native(intSubnet, intPath, *zone.InternalSubnetID)...)
+			}
+		}
 	}
 
 	return allErrs
 }
 
-// validateBYOSubnet validates that a referenced BYO subnet ID exists and is in the correct VPC/AZ.
-func (c *configValidator) validateBYOSubnet(ctx context.Context, awsClient awsclient.Interface, subnetID *string, fldPath *field.Path, vpcID, expectedAZ string) field.ErrorList {
+// validateBYOSubnet validates existence, VPC, and AZ of a BYO subnet, returning the subnet for further checks.
+func (c *configValidator) validateBYOSubnet(ctx context.Context, awsClient awsclient.Interface, subnetID *string, fldPath *field.Path, vpcID, expectedAZ string) (*awsclient.Subnet, field.ErrorList) {
 	allErrs := field.ErrorList{}
 
 	if subnetID == nil {
-		return allErrs
+		return nil, allErrs
 	}
 
 	subnets, err := awsClient.GetSubnets(ctx, []string{*subnetID})
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(fldPath, fmt.Errorf("could not get subnet %s: %w", *subnetID, err)))
-		return allErrs
+		return nil, allErrs
 	}
 	if len(subnets) == 0 {
 		allErrs = append(allErrs, field.NotFound(fldPath, *subnetID))
-		return allErrs
+		return nil, allErrs
 	}
 	subnet := subnets[0]
 	if subnet.VpcId != nil && *subnet.VpcId != vpcID {
@@ -266,6 +302,86 @@ func (c *configValidator) validateBYOSubnet(ctx context.Context, awsClient awscl
 	if subnet.AvailabilityZone != expectedAZ {
 		allErrs = append(allErrs, field.Invalid(fldPath, *subnetID,
 			fmt.Sprintf("subnet is in availability zone %s, expected %s", subnet.AvailabilityZone, expectedAZ)))
+	}
+
+	return subnet, allErrs
+}
+
+// validateSubnetIPv6Readiness checks that a BYO subnet is properly configured for IPv6.
+func validateSubnetIPv6Readiness(subnet *awsclient.Subnet, fldPath *field.Path, subnetID string, isWorker bool) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if len(subnet.Ipv6CidrBlocks) == 0 {
+		if isWorker {
+			allErrs = append(allErrs, field.Invalid(fldPath, subnetID,
+				"worker subnet has no IPv6 CIDR block but IPv6 is enabled; "+
+					"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool"))
+		} else {
+			allErrs = append(allErrs, field.Invalid(fldPath, subnetID,
+				"load balancer subnet has no IPv6 CIDR block but IPv6 is enabled; "+
+					"LB subnets must have an IPv6 CIDR block for dual-stack load balancers"))
+		}
+		return allErrs
+	}
+
+	// Worker subnets must have AssignIpv6AddressOnCreation enabled so that
+	// EC2 instances automatically receive an IPv6 address at launch.
+	if isWorker && (subnet.AssignIpv6AddressOnCreation == nil || !*subnet.AssignIpv6AddressOnCreation) {
+		allErrs = append(allErrs, field.Invalid(fldPath, subnetID,
+			"worker subnet does not have AssignIpv6AddressOnCreation enabled; "+
+				"worker subnets must auto-assign IPv6 addresses so nodes get IPv6 at launch"))
+	}
+
+	return allErrs
+}
+
+// validateLBSubnetNotIPv6Native checks that LB subnets have an IPv4 CIDR (AWS NLBs/ALBs require IPv4).
+func validateLBSubnetNotIPv6Native(subnet *awsclient.Subnet, fldPath *field.Path, subnetID string) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if subnet.CidrBlock == "" || (subnet.Ipv6Native != nil && *subnet.Ipv6Native) {
+		allErrs = append(allErrs, field.Invalid(fldPath, subnetID,
+			"load balancer subnets must have an IPv4 CIDR block; "+
+				"AWS NLBs and ALBs cannot be deployed to IPv6-native subnets"))
+	}
+
+	return allErrs
+}
+
+// validateNodesCIDRInSubnet checks that each IPv4 node network CIDR is contained within the
+// worker subnet's IPv4 CIDR block. This ensures nodes will receive IPs from within the subnet range.
+func validateNodesCIDRInSubnet(subnet *awsclient.Subnet, fldPath *field.Path, subnetID string, nodesCIDRs []string) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if subnet.CidrBlock == "" || len(nodesCIDRs) == 0 {
+		return allErrs
+	}
+
+	_, subnetNet, err := net.ParseCIDR(subnet.CidrBlock)
+	if err != nil {
+		// Subnet CIDR is malformed — skip check, AWS would reject it anyway
+		return allErrs
+	}
+
+	for _, nodesCIDR := range nodesCIDRs {
+		nodesIP, nodesNet, err := net.ParseCIDR(nodesCIDR)
+		if err != nil {
+			continue
+		}
+		// Only check IPv4 node CIDRs against the IPv4 subnet CIDR
+		if nodesIP.To4() == nil {
+			continue
+		}
+
+		// The nodes CIDR must be fully contained within the subnet CIDR.
+		// Check: subnet contains the first IP of nodes range AND the subnet prefix is shorter or equal.
+		subnetOnes, _ := subnetNet.Mask.Size()
+		nodesOnes, _ := nodesNet.Mask.Size()
+		if !subnetNet.Contains(nodesIP) || nodesOnes < subnetOnes {
+			allErrs = append(allErrs, field.Invalid(fldPath, subnetID,
+				fmt.Sprintf("shoot nodes CIDR %s is not contained within worker subnet CIDR %s",
+					nodesCIDR, subnet.CidrBlock)))
+		}
 	}
 
 	return allErrs

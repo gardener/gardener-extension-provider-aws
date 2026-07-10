@@ -157,6 +157,38 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 				"elasticFileSystem.id is required in BYO mode (workersSubnetID); "+
 					"Gardener does not create EFS file systems or mount targets in BYO mode"))
 		}
+
+		// In BYO mode, validate cross-zone consistency: if any zone specifies publicSubnetID
+		// or internalSubnetID, all zones must specify the same field. A partial configuration
+		// (some zones with LB subnets, others without) is likely a misconfiguration.
+		if hasBYO && len(infra.Networks.Zones) > 1 {
+			hasAnyPublic := false
+			hasAnyInternal := false
+			for _, zone := range infra.Networks.Zones {
+				if zone.PublicSubnetID != nil {
+					hasAnyPublic = true
+				}
+				if zone.InternalSubnetID != nil {
+					hasAnyInternal = true
+				}
+			}
+			if hasAnyPublic {
+				for i, zone := range infra.Networks.Zones {
+					if zone.WorkersSubnetID != nil && zone.PublicSubnetID == nil {
+						allErrs = append(allErrs, field.Required(networksPath.Child("zones").Index(i).Child("publicSubnetID"),
+							"all BYO zones must specify publicSubnetID when any zone has it"))
+					}
+				}
+			}
+			if hasAnyInternal {
+				for i, zone := range infra.Networks.Zones {
+					if zone.WorkersSubnetID != nil && zone.InternalSubnetID == nil {
+						allErrs = append(allErrs, field.Required(networksPath.Child("zones").Index(i).Child("internalSubnetID"),
+							"all BYO zones must specify internalSubnetID when any zone has it"))
+					}
+				}
+			}
+		}
 	}
 
 	for i, zone := range infra.Networks.Zones {
@@ -385,7 +417,7 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 	allErrs = append(allErrs, apivalidation.ValidateImmutableField(
 		newConfig.Networks.NodesSecurityGroupID,
 		oldConfig.Networks.NodesSecurityGroupID,
-		field.NewPath("networks.nodesSecurityGroupID"),
+		field.NewPath("networks").Child("nodesSecurityGroupID"),
 	)...)
 
 	var (

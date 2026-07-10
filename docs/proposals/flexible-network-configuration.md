@@ -767,7 +767,21 @@ If `workersSubnetID` is provided, the extension will discover the IPv6 CIDR bloc
 
 ### What happens if LB subnets are not tagged?
 
-If no `publicSubnetID`/`internalSubnetID` are provided and no subnets are pre-tagged, the CCM/LBC will not find subnets for load balancers. NLB/CLB Services will fail to provision. The CCM service controller may be disabled entirely if no tagged subnets are discovered during infrastructure reconciliation. Using explicit IDs is recommended — Gardener handles all tagging automatically.
+If no `publicSubnetID`/`internalSubnetID` are provided and no subnets are pre-tagged, the CCM/LBC will not find subnets for load balancers. NLB/CLB Services will fail to provision. The CCM service controller will be disabled entirely if no tagged subnets are discovered during infrastructure reconciliation.
+
+### Can I use pre-tagged subnets without specifying publicSubnetID/internalSubnetID?
+
+Yes. If your subnets already have **both** of the following tags, Gardener will discover them automatically during infrastructure reconciliation:
+
+1. The role tag: `kubernetes.io/role/elb=1` (for public) or `kubernetes.io/role/internal-elb=1` (for internal)
+2. The cluster tag: `kubernetes.io/cluster/<shoot-namespace>=shared` (or `owned`)
+
+Gardener discovers these subnets and includes them in the infrastructure status so the CCM and AWS Load Balancer Controller can use them. No explicit `publicSubnetID`/`internalSubnetID` is required in the zone config.
+
+However, using explicit IDs is recommended because:
+- Gardener handles all tagging automatically (including the cluster tag)
+- Ambiguity detection prevents multiple subnets per AZ from causing fragile CCM behavior
+- The configuration is declarative and visible in the shoot spec
 
 ### Does `nodesSecurityGroupID` replace Gardener's SG or add to it?
 

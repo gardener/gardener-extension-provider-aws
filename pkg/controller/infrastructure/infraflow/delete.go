@@ -318,6 +318,10 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 	if c.isBYOInfrastructure() {
 		child := c.state.GetChild(ChildIdZones)
 		clusterTag := awsclient.Tags{c.tagKeyCluster(): TagValueClusterShared}
+		clusterAndMarkerTags := awsclient.Tags{
+			c.tagKeyCluster():   TagValueClusterShared,
+			TagKeyManagedByGardener: "",
+		}
 		untaggedRouteTables := sets.New[string]()
 		for _, zoneKey := range child.GetChildrenKeys() {
 			zoneChild := child.GetChild(zoneKey)
@@ -327,16 +331,16 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 					return fmt.Errorf("failed to remove cluster tag from BYO subnet %s: %w", *subnetID, err)
 				}
 			}
-			// Remove cluster tag from BYO public LB subnets (leave kubernetes.io/role/elb intact)
+			// Remove cluster tag and marker from BYO public LB subnets
 			if subnetID := zoneChild.Get(IdentifierZoneSubnetPublic); subnetID != nil {
-				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
-					return fmt.Errorf("failed to remove cluster tag from BYO public subnet %s: %w", *subnetID, err)
+				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterAndMarkerTags); err != nil {
+					return fmt.Errorf("failed to remove tags from BYO public subnet %s: %w", *subnetID, err)
 				}
 			}
-			// Remove cluster tag from BYO internal LB subnets (leave kubernetes.io/role/internal-elb intact)
+			// Remove cluster tag and marker from BYO internal LB subnets
 			if subnetID := zoneChild.Get(IdentifierZoneSubnetPrivate); subnetID != nil {
-				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterTag); err != nil {
-					return fmt.Errorf("failed to remove cluster tag from BYO internal subnet %s: %w", *subnetID, err)
+				if err := c.client.DeleteEC2Tags(ctx, []string{*subnetID}, clusterAndMarkerTags); err != nil {
+					return fmt.Errorf("failed to remove tags from BYO internal subnet %s: %w", *subnetID, err)
 				}
 			}
 			// Remove cluster tag from BYO route tables (deduplicate since multiple zones may share one)
