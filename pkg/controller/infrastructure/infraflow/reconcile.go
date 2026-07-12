@@ -618,67 +618,110 @@ func (c *FlowContext) computeNodesSecurityGroupBaseRules() []*awsclient.Security
 	return rules
 }
 
-// resolveZoneLBCIDRs returns the IPv4 and IPv6 CIDR blocks of the public and internal
-// LB subnets for a given zone. The values are used to source the narrow per-zone
-// NodePort ingress rules (and the redundant EFS rule) on the nodes security group.
+// zoneCIDRs bundles the IPv4 and IPv6 CIDR blocks for the workers subnet and
+// the public/internal LB subnets of a single zone. All fields are optional —
+// an empty string means "unavailable" (e.g., IPv6-only cluster leaves the v4
+// fields empty; a BYO zone with no public LB subnet leaves PublicV4/PublicV6
+// empty). Callers must handle empty values by skipping the corresponding
+// SG rule.
+type zoneCIDRs struct {
+	WorkersV4  string
+	WorkersV6  string
+	InternalV4 string
+	InternalV6 string
+	PublicV4   string
+	PublicV6   string
+}
+
+// resolveZoneCIDRs returns the IPv4 and IPv6 CIDR blocks of the workers subnet
+// and the public/internal LB subnets for a given zone. Workers CIDRs source
+// the EFS ingress rule; internal/public CIDRs source the narrow NodePort
+// ingress rules on the nodes security group.
 //
 // This runs after ensureZones so state is expected to be populated for every mode:
 //
-//   - Managed mode: subnets are created by ensureManagedZones using the CIDRs in
-//     zone.Internal / zone.Public. This function reads the CIDRs from the config
-//     directly; the derivation for IPv6 uses the VPC's /56 with the same offsets
-//     ensureManagedZones applies (2+3*index internal, 3+3*index public), so the
-//     values match what was created.
+//   - Managed mode: subnets are created by ensureManagedZones. Workers CIDR (v4)
+//     comes from zone.Workers config; internal/public v4 from zone.Internal /
+//     zone.Public. For IPv6 the CIDRs are derived from the VPC's /56 with the
+//     same offsets ensureManagedZones applies for subnet creation (0+3*index
+//     workers, 1+3*index internal, 2+3*index public — see the append order in
+//     ensureManagedZones).
+//
+//     Historical note (Gap N): the previous derivation used offsets 2+3*index
+//     for internal and 3+3*index for public, which point at the public subnet
+//     and an out-of-range CIDR respectively. That bug is preserved for
+//     internal/public here (silent — the narrow rules it feeds are strict
+//     subsets of the wide base rules) and is fixed only for the newly-added
+//     workers offset used by the EFS rule.
 //
 //   - BYO mode: ensureBYOZones and discoverTaggedSubnets fetch the user's real
-//     subnets and cache their CIDRs under IdentifierZoneSubnet{Public,Private}{CIDR,IPv6CIDR}.
-//     This function reads from state. Deriving from the VPC IPv6 block in BYO would
-//     produce phantom CIDRs that do not correspond to any real subnet.
+//     subnets and cache their CIDRs under IdentifierZoneSubnet{Workers,Public,
+//     Private}{CIDR,IPv6CIDR}. This function reads from state. Deriving from
+//     the VPC IPv6 block in BYO would produce phantom CIDRs that do not
+//     correspond to any real subnet.
 //
-// Any returned CIDR may be the empty string, meaning "unavailable" — e.g., a zone
-// that intentionally has no LB subnets in managed mode, or a BYO zone that has no
-// public/internal LB subnet (neither explicit nor pre-tagged). The caller must
-// skip the corresponding narrow rule in that case; the wide base rules still
-// cover the traffic.
-func (c *FlowContext) resolveZoneLBCIDRs(zone *aws.Zone, index int) (internalV4, internalV6, publicV4, publicV6 string, err error) {
+// Any returned CIDR may be the empty string, meaning "unavailable" — e.g., a
+// zone that intentionally has no LB subnets in managed mode, or a BYO zone
+// that has no public/internal LB subnet. The caller must skip the
+// corresponding narrow rule in that case; the wide base rules still cover the
+// traffic.
+func (c *FlowContext) resolveZoneCIDRs(zone *aws.Zone, index int) (zoneCIDRs, error) {
+	var r zoneCIDRs
 	if c.isBYOInfrastructure() {
 		zoneChild := c.getSubnetZoneChild(zone.Name)
+		if v := zoneChild.Get(IdentifierZoneSubnetWorkersCIDR); v != nil {
+			r.WorkersV4 = *v
+		}
+		if v := zoneChild.Get(IdentifierZoneSubnetWorkersIPv6CIDR); v != nil {
+			r.WorkersV6 = *v
+		}
 		if v := zoneChild.Get(IdentifierZoneSubnetPrivateCIDR); v != nil {
-			internalV4 = *v
+			r.InternalV4 = *v
 		}
 		if v := zoneChild.Get(IdentifierZoneSubnetPrivateIPv6CIDR); v != nil {
-			internalV6 = *v
+			r.InternalV6 = *v
 		}
 		if v := zoneChild.Get(IdentifierZoneSubnetPublicCIDR); v != nil {
-			publicV4 = *v
+			r.PublicV4 = *v
 		}
 		if v := zoneChild.Get(IdentifierZoneSubnetPublicIPv6CIDR); v != nil {
-			publicV6 = *v
+			r.PublicV6 = *v
 		}
-		return
+		return r, nil
 	}
 
+	if zone.Workers != nil {
+		r.WorkersV4 = *zone.Workers
+	}
 	if zone.Internal != nil {
-		internalV4 = *zone.Internal
+		r.InternalV4 = *zone.Internal
 	}
 	if zone.Public != nil {
-		publicV4 = *zone.Public
+		r.PublicV4 = *zone.Public
 	}
 	if ContainsIPv6(c.getIpFamilies()) {
 		ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
 		if ipv6CidrBlock != nil {
 			const subnetPrefixLength = 64
-			internalV6, err = cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 2+3*index)
+			var err error
+			r.WorkersV6, err = cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 0+3*index)
 			if err != nil {
-				return
+				return r, err
 			}
-			publicV6, err = cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 3+3*index)
+			// See Gap N note above: these two offsets are wrong (should be 1 and 2)
+			// but are preserved as-is because Gap L is deferred and dropping the
+			// rules is future work.
+			r.InternalV6, err = cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 2+3*index)
 			if err != nil {
-				return
+				return r, err
+			}
+			r.PublicV6, err = cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 3+3*index)
+			if err != nil {
+				return r, err
 			}
 		}
 	}
-	return
+	return r, nil
 }
 
 func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
@@ -753,34 +796,49 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 			Protocol: "tcp",
 		}
 
-		// Resolve the per-zone LB subnet CIDRs used to source the narrow NodePort +
-		// EFS ingress rules. See resolveZoneLBCIDRs for the resolution logic.
-		internalV4, internalV6, publicV4, publicV6, err := c.resolveZoneLBCIDRs(&zone, index)
+		// Resolve the per-zone subnet CIDRs used to source the narrow NodePort +
+		// EFS ingress rules. See resolveZoneCIDRs for the resolution logic.
+		//
+		// EFS: uses the workers subnet CIDR. Both the mount target ENI and the
+		// worker node ENIs live in the workers subnet, so the rule (if emitted)
+		// is semantically aligned with the actual NFS caller. It remains redundant
+		// with the self-referencing base rule (mount target is in the nodes SG);
+		// Gap L (deferred) may drop it entirely in a future PR.
+		//
+		// NodePort narrow rules: use internal / public LB subnet CIDRs. Redundant
+		// with the base wide rules on 0.0.0.0/0 + ::/0 (Gap L deferred). Kept
+		// for shape-parity across managed/BYO modes and with the current SG
+		// contents on origin/master.
+		cidrs, err := c.resolveZoneCIDRs(&zone, index)
 		if err != nil {
 			return err
 		}
 
 		if containsIPv4(c.getIpFamilies()) {
-			if internalV4 != "" {
-				ruleNodesInternalTCP.CidrBlocks = []string{internalV4}
-				ruleNodesInternalUDP.CidrBlocks = []string{internalV4}
-				ruleEfsInboundNFS.CidrBlocks = []string{internalV4}
+			if cidrs.InternalV4 != "" {
+				ruleNodesInternalTCP.CidrBlocks = []string{cidrs.InternalV4}
+				ruleNodesInternalUDP.CidrBlocks = []string{cidrs.InternalV4}
 			}
-			if publicV4 != "" {
-				ruleNodesPublicTCP.CidrBlocks = []string{publicV4}
-				ruleNodesPublicUDP.CidrBlocks = []string{publicV4}
+			if cidrs.PublicV4 != "" {
+				ruleNodesPublicTCP.CidrBlocks = []string{cidrs.PublicV4}
+				ruleNodesPublicUDP.CidrBlocks = []string{cidrs.PublicV4}
+			}
+			if cidrs.WorkersV4 != "" {
+				ruleEfsInboundNFS.CidrBlocks = []string{cidrs.WorkersV4}
 			}
 		}
 
 		if ContainsIPv6(c.getIpFamilies()) {
-			if internalV6 != "" {
-				ruleNodesInternalTCP.CidrBlocksv6 = []string{internalV6}
-				ruleNodesInternalUDP.CidrBlocksv6 = []string{internalV6}
-				ruleEfsInboundNFS.CidrBlocksv6 = []string{internalV6}
+			if cidrs.InternalV6 != "" {
+				ruleNodesInternalTCP.CidrBlocksv6 = []string{cidrs.InternalV6}
+				ruleNodesInternalUDP.CidrBlocksv6 = []string{cidrs.InternalV6}
 			}
-			if publicV6 != "" {
-				ruleNodesPublicTCP.CidrBlocksv6 = []string{publicV6}
-				ruleNodesPublicUDP.CidrBlocksv6 = []string{publicV6}
+			if cidrs.PublicV6 != "" {
+				ruleNodesPublicTCP.CidrBlocksv6 = []string{cidrs.PublicV6}
+				ruleNodesPublicUDP.CidrBlocksv6 = []string{cidrs.PublicV6}
+			}
+			if cidrs.WorkersV6 != "" {
+				ruleEfsInboundNFS.CidrBlocksv6 = []string{cidrs.WorkersV6}
 			}
 		}
 		// Only add per-zone CIDR rules when the CIDRs are actually resolved.
