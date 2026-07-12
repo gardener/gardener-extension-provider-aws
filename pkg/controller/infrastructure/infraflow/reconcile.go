@@ -1702,10 +1702,10 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 
 		if key == IdentifierZoneSubnetWorkers {
 			if len(subnet.Ipv6CidrBlocks) == 0 {
-				if c.isBYOInfrastructure() {
-					return fmt.Errorf("BYO worker subnet %s has no IPv6 CIDR block but IPv6 is enabled; "+
-						"the subnet must have an IPv6 CIDR block from the VPC's IPv6 pool", subnet.SubnetId)
-				}
+				// Managed mode only: the first loop already errored out on any
+				// BYO worker subnet without an IPv6 CIDR, so this branch is
+				// only reachable for managed subnets that (for whatever reason)
+				// have no IPv6 CIDR yet. Skip and try the next subnet.
 				continue
 			}
 			cidr, err := cidrSubnet(subnet.Ipv6CidrBlocks[0], 108, 1)
