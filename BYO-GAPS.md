@@ -26,17 +26,26 @@ reviewable. Current planned order:
 
 1. **Gap A (Shape 2)** — reorder graph, cache subnet CIDRs in state, SG
    builder reads state. Closes Gaps A, B, K. Reduces Gap C to a no-op.
-2. **Gap F step 1** — change EFS rule's CIDR source to workers subnet in both
-   modes. Depends on step 1 for BYO state availability.
-3. **Gap L + Gap F step 2** — drop all narrow per-zone rules (NodePort + EFS).
-   Rely on wide base rules and self-referencing rule.
-4. **Doc-1 through Doc-4** — proposal corrections and additions.
-5. Individual review-thread items (Threads 1, 2, 5, 6, 8, 9, 10, 13) — order
-   flexible, mostly independent.
-6. Validator hardening (Gaps D, E, I, J) — order flexible, some may fold
+   [Implemented on `byo-subnet3`.]
+2. **Gap F step 1** — change EFS rule's CIDR source to workers subnet in
+   both modes. Depends on Gap A Shape 2 for BYO state availability.
+   [Implemented on `byo-subnet3`.]
+3. **Doc-1 through Doc-4** — proposal corrections and additions.
+4. Individual review-thread items (Threads 1, 2, 5, 6, 8, 9, 10, 13) —
+   order flexible, mostly independent.
+5. Validator hardening (Gaps D, E, I, J) — order flexible, some may fold
    into a single commit.
-7. Test coverage (Gap H) — should ideally accompany Gap A but can also land
+6. Test coverage (Gap H) — should ideally accompany Gap A but can also land
    later.
+
+Deferred (not planned in this PR):
+
+- **Gap L** — drop the redundant narrow per-zone rules. Deferred because
+  it breaks parity with the SG contents of existing managed clusters on
+  `origin/master`; revisit if there is a concrete need to slim the SG.
+- **Gap N** — managed-mode IPv6 offsets for internal/public LB rules are
+  wrong. Silent bug (rules are redundant with base wide rules); accepted
+  as-is with explicit code comments.
 
 Each commit corresponds to exactly one gap unless the doc note says
 otherwise. Agents should update the corresponding entry's `Status` to
@@ -61,6 +70,7 @@ otherwise. Agents should update the corresponding entry's `Status` to
   - [Gap K — Spurious dependency: `ensureZones` requires `ensureNodesSecurityGroup`](#gap-k--spurious-dependency-ensurezones-requires-ensurenodessecuritygroup)
   - [Gap L — Narrow per-zone NodePort SG rules are redundant with the base wide rules](#gap-l--narrow-per-zone-nodeport-sg-rules-are-redundant-with-the-base-wide-rules)
   - [Gap M — Test-style inconsistency in `pkg/controller/infrastructure/infraflow`](#gap-m--test-style-inconsistency-in-pkgcontrollerinfrastructureinfraflow)
+  - [Gap N — Managed-mode IPv6 offsets for internal/public LB narrow rules are wrong](#gap-n--managed-mode-ipv6-offsets-for-internalpublic-lb-narrow-rules-are-wrong)
 - [Review threads still open](#review-threads-still-open)
   - [Thread 1 — Removed state deletion in `deleteNATGateway`](#thread-1--removed-state-deletion-in-deletenatgateway)
   - [Thread 2 — Wrong field path in `nodesSecurityGroupID` immutability error](#thread-2--wrong-field-path-in-nodessecuritygroupid-immutability-error)
@@ -358,38 +368,30 @@ dead rule.
    Still redundant with the self-referencing base rule, so no functional
    change — but the emitted rule is no longer misleading.
 
-2. **Drop the rule entirely (managed and BYO).** Cleanest. Relies on the
-   self-referencing base rule as the TODO at `reconcile.go:675-678` already
-   suggests. Simpler code, smaller rule set.
+2. **Drop the rule entirely (managed and BYO).** Cleanest end state.
+   Superseded / subsumed by Gap L. Currently deferred because Gap L breaks
+   parity with the existing SG contents on `origin/master` for managed
+   clusters — see Gap L for rationale.
 
 3. **Leave as-is.** Preserves history; keeps a rule with a source CIDR that
    corresponds to no NFS caller.
 
-Option 1 is the smallest-blast-radius stepping stone: the rule still exists
-(so any external tooling that expected to see an EFS rule keeps working),
-but its content becomes semantically correct. Option 2 is the correct end
-state.
-
 ### Decision
 
-Two-step:
-
-1. As part of the **workers-subnet-CIDR fix commit** (separate from Gap A
-   Shape 2): change `ruleEfsInboundNFS` to source from the workers subnet
-   CIDR in both managed and BYO modes. Depends on Gap A Shape 2 landing
-   first so BYO has the workers CIDR in state.
-2. As part of the **Gap L follow-up** (drop redundant narrow rules): drop
-   `ruleEfsInboundNFS` entirely alongside the redundant NodePort per-zone
-   rules.
+Adopt **Option 1**. Change `ruleEfsInboundNFS` to source from the workers
+subnet CIDR in both managed and BYO modes. Depends on Gap A Shape 2 for
+BYO state availability. Full drop (Option 2) is deferred with Gap L.
 
 ### Status
 
-`pending` — sequenced after Gap A Shape 2.
+`implemented` on `byo-subnet3`.
+
+**Resolved by**: `721d1c42` — *Point EFS SG ingress rule at workers subnet CIDR, not internal LB subnet (Gap F step 1)*.
 
 ### Follow-ups
 
-- Regression test asserting the SG rule set includes the workers-CIDR EFS
-  rule after step 1, then excludes it entirely after step 2.
+- Gap L (deferred): if we later revisit and decide to drop the narrow
+  rules including EFS, this rule goes away entirely.
 
 ---
 
@@ -619,20 +621,32 @@ patterns. Option 1 is a mechanical cleanup that reflects current reality.
 
 ### Decision
 
-Option 1 as a follow-up commit after Gap A Shape 2. Drop the entire
-per-zone rule block (`reconcile.go:641-728`, minus the EFS rule handled by
-Gap F) in both modes. Rely on the base wide rules.
+**Deferred.** Dropping the narrow rules would break parity with the SG
+contents of existing managed clusters running today's `origin/master`.
+Anyone auditing / counting SG rules would see 4-5 rules per zone disappear
+on the first reconcile after the change. Functionally zero-impact
+(base wide rules cover NodePort; self-ref covers EFS), but observably
+different in a way that's hard to communicate and risky to ship without
+external coordination.
+
+Revisit only when there is an explicit reason to slim the SG (e.g.,
+approaching the AWS 60-rule-per-SG default, or a compliance review flags
+redundant rules as an issue).
 
 ### Status
 
-`pending` — sequenced after Gap A Shape 2 and Gap F step 1.
+`deferred`. Depends on parity requirements being relaxed.
 
 ### Follow-ups
 
-- Test updates: any test that asserts the SG contains narrow per-zone rules
-  needs updating. Check `pkg/controller/infrastructure/infraflow/nodes_security_group_internal_test.go` and integration tests.
-- Consider whether Option 2 (tightening base rules) is worth a follow-up
-  proposal. Deferred; not this PR.
+- If revisited, the change is one commit: delete the narrow-rule block in
+  `ensureNodesSecurityGroup` (`reconcile.go` around lines 686-728), delete
+  `resolveZoneCIDRs`, and delete the BYO subnet CIDR state caching if no
+  future consumer materializes (currently only the SG builder reads
+  those state keys). Regression tests: update
+  `nodes_security_group_internal_test.go` and delete
+  `reconcile_resolve_cidrs_test.go`.
+- Would also resolve Gap N (managed IPv6 offset bug) as a side effect.
 
 ---
 
@@ -702,6 +716,70 @@ lands. Not urgent; both styles compile and run today.
   for IPv6-only workers the rule at index 3 is the (nil-v4, ::/0-v6) egress
   rule, so the assertion still holds. No fix needed on rewrite — just be
   careful when transcribing.
+
+---
+
+## Gap N — Managed-mode IPv6 offsets for internal/public LB narrow rules are wrong
+
+### Statement
+
+The SG rule builder derives internal/public IPv6 CIDRs from the VPC's /56 using
+offsets `2+3*index` (internal) and `3+3*index` (public). The managed subnet
+creation code (`ensureManagedZones`) uses **different** offsets — `0+3*index`
+for workers, `1+3*index` for internal, `2+3*index` for public. So on a managed
+dual-stack cluster:
+
+- The "internal LB" narrow SG rule references the CIDR of the **public** subnet (offset `2+3*index`, which is actually where the public subnet lives).
+- The "public LB" narrow SG rule references a CIDR that is **out of range** for this zone (offset `3+3*index`, which corresponds to the next zone's workers subnet, or doesn't exist for the last zone).
+
+This is a pre-existing bug on `origin/master` (predates PR#1741). Was preserved
+verbatim in `resolveZoneLBCIDRs` when the SG code was refactored under Gap A
+Shape 2 — my `derivedInternalV6Idx0` test constant literally asserts the buggy
+value.
+
+### Evidence
+
+- `pkg/controller/infrastructure/infraflow/reconcile.go:1249-1305` — managed subnet creation. The loop at line 1253 computes `subnetCIDRs[i]` at offset `i+3*index` for i=0,1,2. Then the append order (line 1271) is workers, private, public. Then the assign loop (line 1300) writes `subnetCIDRs[i]` to `desired[i+3*index].Ipv6CidrBlocks`. Net: workers = offset 0, private = offset 1, public = offset 2.
+- `pkg/controller/infrastructure/infraflow/reconcile.go:670-678` — `resolveZoneLBCIDRs` uses `internalV6 = cidrSubnet(*ipv6CidrBlock, 64, 2+3*index)` (should be 1) and `publicV6 = cidrSubnet(*ipv6CidrBlock, 64, 3+3*index)` (should be 2).
+- `pkg/controller/infrastructure/infraflow/reconcile_resolve_lb_cidrs_test.go` — the test constants `derivedInternalV6Idx0` and `derivedPublicV6Idx0` encode the buggy offsets. Any fix must also update the test expectations.
+
+### Impact
+
+Silent. The narrow LB rules are strict subsets of the wide base rules (Gap L),
+so the emitted rules point at wrong CIDRs that no traffic flows through. Base
+rules cover the actual NLB traffic on `::/0` NodePort ingress. Only observable
+effect: the emitted SG has bogus rule entries.
+
+### Options considered
+
+1. **Fix the offsets in `resolveZoneLBCIDRs`** (`2+3*index` → `1+3*index` for internal, `3+3*index` → `2+3*index` for public). Update the two test constants. Small mechanical change.
+2. **Do nothing.** Gap L is scheduled to drop the narrow LB rules entirely, at which point the offsets don't matter. Fixing them just to delete the code shortly after is wasted motion.
+
+### Decision
+
+Adopt **Option 2 (do nothing)** for now. The bug is silent and Gap L
+would eliminate the code that contains it — but Gap L is now `deferred`.
+Left in place with explicit code comments in `resolveZoneCIDRs` and the
+test suite so anyone reading the offsets understands they're preserved
+knowingly. Test constants `derivedInternalV6Idx0` and `derivedPublicV6Idx0`
+encode the buggy values with `Gap N` comments.
+
+### Status
+
+`accepted-as-silent-bug` — no fix planned in this PR. The observable
+impact is zero (rules point at wrong CIDRs but no traffic flows through
+them; wide base rules cover the actual traffic). Promoting to `pending`
+requires a concrete reason to fix the offsets ahead of Gap L.
+
+### Follow-ups
+
+- If Gap L is later un-deferred, Gap N gets fixed automatically (rules
+  deleted).
+- If a security review flags "rules with wrong source CIDRs" as an issue,
+  fix the offsets: `2+3*index -> 1+3*index` for internal,
+  `3+3*index -> 2+3*index` for public. Update test constants
+  `derivedInternalV6Idx0 -> 2001:db8:1234:5601::/64` and
+  `derivedPublicV6Idx0 -> 2001:db8:1234:5602::/64`.
 
 ---
 
