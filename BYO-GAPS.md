@@ -825,11 +825,14 @@ The field path should be `field.NewPath("networks").Child("nodesSecurityGroupID"
 
 ### Decision
 
-`pending` — trivial typo fix. Apply verbatim.
+Resolved by commit `e1b874cc` (*Address review: dual-stack pre-flight, getSubnetKey BYO fix, validation improvements*) which changed
+`field.NewPath("networks.nodesSecurityGroupID")` to
+`field.NewPath("networks").Child("nodesSecurityGroupID")` at
+`pkg/apis/aws/validation/infrastructure.go:420`.
 
 ### Status
 
-`pending`.
+`resolved`. Needs a reply on the GitHub thread to close the loop.
 
 ---
 
@@ -847,12 +850,13 @@ present.
 
 ### Decision
 
-`pending` — either delete the usage-doc duplicate, or repurpose it as a
-short user-facing entry point that links to the proposal.
+Resolved by commit `e1b874cc`. The duplicate file
+`docs/usage/flexible-network-configuration.md` was deleted; the content
+now lives only in `docs/proposals/flexible-network-configuration.md`.
 
 ### Status
 
-`pending`.
+`resolved`. Needs a reply on the GitHub thread to close the loop.
 
 ---
 
@@ -870,11 +874,12 @@ Add `disableServiceController: false` default in the CCM chart's
 
 ### Decision
 
-`pending` — verify current `values.yaml`, add the default if missing.
+Resolved by commit `e1b874cc`. `disableServiceController: false` is now
+declared in `charts/internal/seed-controlplane/charts/cloud-controller-manager/values.yaml:8`.
 
 ### Status
 
-`pending`.
+`resolved`. Needs a reply on the GitHub thread to close the loop.
 
 ---
 
@@ -894,12 +899,15 @@ first loop already errored.
 
 ### Decision
 
-`pending` — remove the second BYO-error branch after confirming there is no
-edge case where the first loop returns without emitting the error.
+Resolved by commit `0e68128a` (*Remove dead BYO error branch in
+ensureSubnetCidrReservation second loop*). The BYO-error branch in the
+second loop was removed; a comment was added explaining that the first
+loop already handles the BYO-with-missing-IPv6 case, so this branch was
+unreachable.
 
 ### Status
 
-`pending`.
+`resolved`. Needs a reply on the GitHub thread to close the loop.
 
 ---
 
@@ -978,13 +986,13 @@ usage guide is sufficient; the hard validator check was rejected.
 
 ### Decision
 
-`pending` — add a doc note in `docs/usage/flexible-network-configuration.md`
-(or its successor, depending on Thread 5 resolution) recommending >=8 free
-IPs per LB subnet, citing the ALB-C default.
+Resolved by commit `e1b874cc`. The 8-IPs-per-LB-subnet recommendation is
+now in the proposal at `docs/proposals/flexible-network-configuration.md`
+(lines 307 and 625).
 
 ### Status
 
-`pending`.
+`resolved`. Needs a reply on the GitHub thread to close the loop.
 
 ---
 
@@ -1113,18 +1121,18 @@ reflects the state of `byo-subnet3` as read on 2026-07-12.
 | # | Reviewer | Date | File:line | Topic | Status on branch |
 |---|---|---|---|---|---|
 | 1 | hebelsan | 2026-04-20 | reconcile.go:1356 | Removed state deletion | not addressed |
-| 2 | hebelsan | 2026-04-20 | validation/infrastructure.go:365 | Wrong field path | not addressed |
+| 2 | hebelsan | 2026-04-20 | validation/infrastructure.go:365 | Wrong field path | resolved by `e1b874cc` — reply owed |
 | 3 | hebelsan | 2026-04-20 | reconcile.go:750 | `hasCIDRs` placement | addressed (utils.go:364) |
 | 4 | hebelsan | 2026-04-20 | context.go:299 | Filter builder API | addressed (client/filter.go, reconcile.go:994) |
-| 5 | hebelsan | 2026-04-21 | docs/usage/flexible-network-configuration.md | Duplicate doc | not addressed |
-| 6 | hebelsan | 2026-04-22 | ccm chart deployment.yaml:49 | Missing values.yaml default | not addressed |
+| 5 | hebelsan | 2026-04-21 | docs/usage/flexible-network-configuration.md | Duplicate doc | resolved by `e1b874cc` (file deleted) — reply owed |
+| 6 | hebelsan | 2026-04-22 | ccm chart deployment.yaml:49 | Missing values.yaml default | resolved by `e1b874cc` — reply owed |
 | 7 | hebelsan | 2026-04-22 | reconcile.go:1433 | Silent `continue` in `ensureSubnetCidrReservation` | addressed (BYO error branch added) |
-| 8 | hebelsan | 2026-04-22 | reconcile.go:1462 | Redundant second check | partial — dead branch remains |
+| 8 | hebelsan | 2026-04-22 | reconcile.go:1462 | Redundant second check | resolved by `0e68128a` — reply owed |
 | 9 | hebelsan | 2026-04-24 | valuesprovider.go:659 | Pre-tagged subnets disable service controller | addressed (discoverTaggedSubnets) — no thread reply yet |
 | 10 | hebelsan | 2026-04-24 | validation/infrastructure.go | Mixed zone LB config | not addressed |
 | 11 | hebelsan | 2026-04-24 | example/30-infrastructure.yaml:66 | Auto-tag lifecycle | addressed (TagKeyManagedByGardener marker) |
 | 12 | hebelsan | 2026-04-24 | configvalidator.go:268 | Shoot-level dual-stack validation | addressed (`requiresIPv6` from `ipFamilies`) |
-| 13 | hebelsan | 2026-04-27 | configvalidator.go (file) | Prerequisite checks (DNS, node CIDR, 8 IPs, NAT/TGW/VPCE) | partial — DNS + node CIDR addressed; 8 IPs deferred to doc; NAT/TGW/VPCE deferred |
+| 13 | hebelsan | 2026-04-27 | configvalidator.go (file) | Prerequisite checks (DNS, node CIDR, 8 IPs, NAT/TGW/VPCE) | resolved by `e1b874cc` — DNS + node CIDR implemented; 8-IP doc note added to proposal; NAT/TGW/VPCE deferred with mutual agreement — reply owed |
 
 Alex's fix PR `kon-angelo/gardener-extension-provider-aws#1` ("Fix: subnet
 key retrieval for BYO mode") is superseded by commit `e1b874cc` on this
