@@ -324,6 +324,19 @@ func validateSubnetIPv6Readiness(subnet *awsclient.Subnet, fldPath *field.Path, 
 		return allErrs
 	}
 
+	// A subnet with multiple IPv6 CIDR associations is ambiguous — downstream code
+	// (state caching, SG rule derivation, EFS mount target selection) reads
+	// Ipv6CidrBlocks[0], which is not deterministic across restarts and not
+	// necessarily the CIDR the user intended. Require exactly one association.
+	// This matches the ambiguity-detection philosophy already applied to LB
+	// subnet discovery (see discoverTaggedSubnets).
+	if len(subnet.Ipv6CidrBlocks) > 1 {
+		allErrs = append(allErrs, field.Invalid(fldPath, subnetID,
+			fmt.Sprintf("subnet has %d IPv6 CIDR associations (%v); Gardener requires exactly one to avoid non-deterministic CIDR selection. Remove the extra associations from the subnet.",
+				len(subnet.Ipv6CidrBlocks), subnet.Ipv6CidrBlocks)))
+		return allErrs
+	}
+
 	// Worker subnets must have AssignIpv6AddressOnCreation enabled so that
 	// EC2 instances automatically receive an IPv6 address at launch.
 	if isWorker && (subnet.AssignIpv6AddressOnCreation == nil || !*subnet.AssignIpv6AddressOnCreation) {
