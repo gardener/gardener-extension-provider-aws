@@ -270,26 +270,38 @@ feature adds a BYO-relevant consumer that needs the value.
 
 ### Statement
 
-`validateLBSubnetNotIPv6Native` at `configvalidator.go:342` treats a subnet
-as IPv6-native when `subnet.CidrBlock == ""` OR `Ipv6Native == true`. The
-first predicate is redundant with the second in normal EC2 responses and
-could false-positive on edge SDK responses where the field is left unset.
+Initial claim (retracted): `validateLBSubnetNotIPv6Native` at
+`configvalidator.go:342` treats a subnet as IPv6-native when
+`subnet.CidrBlock == ""` OR `Ipv6Native == true`. The initial claim was
+that the first predicate was redundant and could false-positive.
 
 ### Evidence
 
-- `pkg/controller/infrastructure/configvalidator.go:338-349`
-
-### Options considered
-
-1. Use `Ipv6Native` alone: `if subnet.Ipv6Native != nil && *subnet.Ipv6Native`.
+- `pkg/controller/infrastructure/configvalidator.go:338-349` — the check
+- `pkg/aws/client/client.go:2661-2689` — `fromSubnet` mapping shows
+  `CidrBlock` is only set when AWS returns non-nil non-empty, and
+  `Ipv6Native` uses `trueOrNil` (nil unless `true`).
 
 ### Decision
 
-`pending` — small hardening; agreed direction is Option 1 but low priority.
+**Not a bug.** Re-reading the code, the two predicates are **defensive
+complementary checks**, not a redundancy:
+
+- `Ipv6Native == true` catches subnets explicitly marked as IPv6-native by AWS.
+- `CidrBlock == ""` catches subnets with no IPv4 CIDR regardless of how AWS categorizes them.
+
+Both mean "cannot host an ALB/NLB" and rejecting them is correct. There
+is no realistic false-positive path: `s.CidrBlock` is only left empty
+when the AWS response has no IPv4 CIDR, in which case rejection is
+warranted.
 
 ### Status
 
-`pending`.
+`not-a-bug`. Current code is correct and robust.
+
+### Follow-ups
+
+None.
 
 ---
 

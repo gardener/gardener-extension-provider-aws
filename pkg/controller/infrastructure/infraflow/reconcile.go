@@ -1659,6 +1659,15 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 		return err
 	}
 
+	// Prefer a previously-recorded service CIDR if one is in state. This stabilizes
+	// the value across reconciles: if AWS iteration order flips (or someone
+	// manually creates a matching reservation on another subnet), we still pick
+	// the same worker subnet whose expected /108 equals the value in state.
+	// Without this, a state-recorded service CIDR from an earlier reconcile could
+	// silently flip to a different value on the next reconcile — a breaking
+	// change to a running cluster's Services network.
+	existingServiceCIDR := c.state.Get(IdentifierServiceCIDR)
+
 	for _, subnet := range subnets {
 		_, key, err := c.getSubnetKey(subnet)
 		if err != nil {
@@ -1678,6 +1687,13 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 			cidr, err := cidrSubnet(subnet.Ipv6CidrBlocks[0], 108, 1)
 			if err != nil {
 				return err
+			}
+
+			// If state already fixes the service CIDR, only accept a match on the
+			// subnet whose expected /108 equals that value. Skip other subnets even
+			// if they happen to have a reservation.
+			if existingServiceCIDR != nil && *existingServiceCIDR != cidr {
+				continue
 			}
 
 			currentCidrs, err := c.client.GetIPv6CIDRReservations(ctx, subnet)

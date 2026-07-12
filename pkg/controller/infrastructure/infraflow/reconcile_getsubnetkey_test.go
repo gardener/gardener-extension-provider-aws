@@ -128,5 +128,24 @@ var _ = Describe("getSubnetKey", func() {
 			ipv6Only, ipv6Zones, nil,
 			&awsclient.Subnet{SubnetId: "subnet-unknown", AvailabilityZone: zoneName},
 			"", true),
+
+		// Contract test (Gap G): BYO with empty state must error. The caller
+		// contract is that ensureBYOZones populates zone state before any code
+		// path that calls getSubnetKey. Verify a regression in that ordering
+		// (e.g., someone moves getSubnetKey earlier in the graph) is caught by
+		// this test. Both `stateSubnets: nil` and no name tags => nothing to
+		// match against => error.
+		Entry("BYO workers subnet with empty state returns error (state-write-first contract)",
+			dualStack, byoZones, nil,
+			&awsclient.Subnet{SubnetId: "subnet-workers", AvailabilityZone: zoneName},
+			"", true),
+		Entry("BYO public subnet with empty state returns error",
+			dualStack, byoZones, nil,
+			&awsclient.Subnet{SubnetId: "subnet-public", AvailabilityZone: zoneName},
+			"", true),
+		Entry("BYO internal subnet with empty state returns error",
+			dualStack, byoZones, nil,
+			&awsclient.Subnet{SubnetId: "subnet-internal", AvailabilityZone: zoneName},
+			"", true),
 	)
 })
