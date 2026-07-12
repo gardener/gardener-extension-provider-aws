@@ -22,35 +22,53 @@ at the bottom).
 ## Commit sequencing
 
 Gaps are addressed in separate commits to keep each change surgical and
-reviewable. Current planned order:
+reviewable.
+
+Landed on `byo-subnet3`:
 
 1. **Gap A (Shape 2)** — reorder graph, cache subnet CIDRs in state, SG
    builder reads state. Closes Gaps A, B, K. Reduces Gap C to a no-op.
-   [Implemented on `byo-subnet3`.]
 2. **Gap F step 1** — change EFS rule's CIDR source to workers subnet in
-   both modes. Depends on Gap A Shape 2 for BYO state availability.
-   [Implemented on `byo-subnet3`.]
-3. **Doc-1 through Doc-4** — proposal corrections and additions.
-4. Individual review-thread items (Threads 1, 2, 5, 6, 8, 9, 10, 13) —
-   order flexible, mostly independent.
-5. Validator hardening (Gaps D, E, I, J) — order flexible, some may fold
-   into a single commit.
-6. Test coverage (Gap H) — should ideally accompany Gap A but can also land
-   later.
+   both modes.
+3. **Thread 8** — remove dead BYO error branch in
+   `ensureSubnetCidrReservation` second loop.
+4. **Thread 1** — restore `child.Delete(IdentifierZoneNATGateway)` after
+   NAT deletion.
+5. **Gap E + Gap G + Gap H (partial)** — stabilize service CIDR across
+   reconciles; pin `getSubnetKey` state-write-first contract with unit
+   tests; add `CreateDualStackSubnetInZone` integration helper.
+6. **Gap J** — reject BYO subnets with multiple IPv6 CIDR associations.
 
 Deferred (not planned in this PR):
 
-- **Gap L** — drop the redundant narrow per-zone rules. Deferred because
-  it breaks parity with the SG contents of existing managed clusters on
-  `origin/master`; revisit if there is a concrete need to slim the SG.
+- **Gap L** — drop the redundant narrow per-zone rules. Would break
+  parity with SG contents of existing managed clusters.
 - **Gap N** — managed-mode IPv6 offsets for internal/public LB rules are
-  wrong. Silent bug (rules are redundant with base wide rules); accepted
-  as-is with explicit code comments.
+  wrong. Silent bug; kept in place with explicit comments.
+
+Retracted as not-a-bug:
+
+- **Gap D** — `CidrBlock == ""` and `Ipv6Native == true` are defensive
+  complementary checks, not redundant.
+- **Gap I** — a `::/0` route is not mandatory for BYO+IPv6 (specific
+  prefixes, NAT64, hub-and-spoke are all legitimate); validating would
+  violate the BYO principle "user manages routing". Requirement stays a
+  documentation concern.
+
+Pending (not addressed in this PR):
+
+- **Doc-1 through Doc-4** — proposal corrections and additions.
+- **Alex thread replies** — per user direction, no GitHub replies were
+  posted for the already-resolved threads.
+- **Gap M** — convert `nodes_security_group_internal_test.go` to ginkgo
+  (style-only follow-up).
+- **Gap H (full)** — reconcile-level integration test for BYO+dual-stack.
+  Helper is in place; test still needs to be written (requires AWS
+  credentials to run).
 
 Each commit corresponds to exactly one gap unless the doc note says
-otherwise. Agents should update the corresponding entry's `Status` to
-`implemented` when the commit lands, and record the commit SHA under a new
-`Resolved by` line.
+otherwise. Agents should update the corresponding entry's `Status` when
+the commit lands, and record the commit SHA under a `Resolved by` line.
 
 ---
 
@@ -487,31 +505,51 @@ follow-up.
 
 ### Statement
 
-For BYO+IPv6, worker nodes need IPv6 egress — either an egress-only IGW
-route (private) or a full IGW route (public). If the user's route table
-lacks a `::/0` route, nodes have no IPv6 egress. The current configvalidator
-verifies IPv4 route tables but not the IPv6 default route.
+Initial claim (retracted): "For BYO+IPv6, worker nodes need IPv6 egress —
+either an egress-only IGW route (private) or a full IGW route (public).
+If the user's route table lacks a `::/0` route, nodes have no IPv6 egress.
+The current configvalidator verifies IPv4 route tables but not the IPv6
+default route."
 
 ### Evidence
 
 - `pkg/controller/infrastructure/configvalidator.go` — no `::/0` route check
-- Contrast with `reconcile.go:1770-1780` — managed mode explicitly adds
-  `DestinationIpv6CidrBlock: ::/0` routes it creates
-
-### Options considered
-
-1. Add a validator check that, when IPv6 is enabled and the mode is BYO,
-   inspects the route table associated with each worker subnet and asserts
-   a `::/0` route exists.
+- BYO principle documented in the proposal: "In BYO mode, Gardener does
+  **not** create any route tables, NAT gateways, or Internet Gateways.
+  The user is fully responsible for all routing."
+  (`docs/proposals/flexible-network-configuration.md:504`).
 
 ### Decision
 
-`pending` — Option 1 preferred. Requires a new AWS API call
-(`DescribeRouteTables` filtered by subnet association).
+**Not-a-bug / over-engineered.** A `::/0` route is the *standard* way to
+provide IPv6 egress but is not the only way. Legitimate BYO
+configurations may use:
+
+- Specific-prefix routes only (to seed API server, container registries,
+  AWS VPC endpoints)
+- NAT64 setups routing `64:ff9b::/96` at a NAT64 gateway
+- Hub-and-spoke via TGW/peering where the local table routes by specific
+  prefix, not `::/0`
+
+Gardener does not validate a `0.0.0.0/0` route for the IPv4 case either;
+the BYO principle is "user manages routing". Symmetric behavior for
+IPv6 = don't validate. Requirement stays a documentation concern.
+
+A validator check would produce false positives for the legitimate
+configurations above and violate the BYO principle. Retracted before
+committing.
 
 ### Status
 
-`pending`.
+`not-a-bug`. Requirement should be captured in user-facing documentation
+(usage guide or proposal FAQ), not enforced by the configvalidator.
+
+### Follow-ups
+
+- Consider adding a note to `docs/proposals/flexible-network-configuration.md`
+  or a usage guide that IPv6 egress is the user's responsibility in BYO mode
+  and that `::/0` via egress-only IGW / IGW is the simplest option; other
+  routing shapes are equally valid.
 
 ---
 
@@ -539,13 +577,25 @@ predictable for the user.
 
 ### Decision
 
-`pending` — Option 1 preferred; simplest and matches the ambiguity-detection
-philosophy already applied to LB subnets (Gap A's discovery path in
-`discoverTaggedSubnets`).
+**Option 1** implemented. Added an explicit check in
+`validateSubnetIPv6Readiness` that errors when a BYO subnet has more than
+one IPv6 CIDR association, listing the discovered CIDRs and asking the
+user to remove the extras. The check is guarded by `requiresIPv6` in the
+caller, so IPv4-only clusters are unaffected.
 
 ### Status
 
-`pending`.
+`resolved` by commit `8d743663`.
+
+### Follow-ups
+
+- Future extension: instead of hard-rejecting multiple IPv6 associations,
+  disambiguate by matching against the shoot's networking spec
+  (`shoot.spec.networking.nodes` / `.pods` / `.services`, or the
+  `ipFamilies` order). If exactly one subnet IPv6 CIDR contains the
+  shoot-declared node/pod network, pick that one; otherwise still error.
+  Reasonable enhancement when a use case for multi-IPv6-CIDR BYO subnets
+  emerges — until then, Option 1's hard reject is the safer default.
 
 ---
 
