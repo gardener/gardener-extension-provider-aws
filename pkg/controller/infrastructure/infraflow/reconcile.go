@@ -1932,6 +1932,12 @@ func (c *FlowContext) deleteNATGateway(zoneName string) flow.TaskFn {
 				return err
 			}
 		}
+		// Clear the state key so subsequent retries hit the short-circuit at the top
+		// of this function and so the invariant "if IdentifierZoneNATGateway is set,
+		// the NAT gateway exists in AWS" holds. Sibling delete functions
+		// (deleteSubnet, deleteElasticIP, deletePrivateRoutingTable) follow the same
+		// pattern. Was accidentally removed by f60d1612 (a tag-conventions commit).
+		child.Delete(IdentifierZoneNATGateway)
 
 		return nil
 	}
