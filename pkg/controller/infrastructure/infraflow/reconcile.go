@@ -95,17 +95,24 @@ func (c *FlowContext) buildReconcileGraph() *flow.Graph {
 		c.ensureMainRouteTable,
 		DoIf(needsMainRouteTable), Timeout(defaultTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureDefaultSecurityGroup, ensureInternetGateway, ensureEgressOnlyInternetGateway))
 
-	ensureNodesSecurityGroup := c.AddTask(g, "ensure nodes security group",
-		c.ensureNodesSecurityGroup,
-		Timeout(defaultTimeout), Dependencies(ensureVpc))
-
 	ensureZones := c.AddTask(g, "ensure zones resources",
 		c.ensureZones,
-		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureNodesSecurityGroup, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
+		Timeout(defaultLongTimeout), Dependencies(ensureVpc, ensureVpcIPv6CidrBloc, ensureMainRouteTable))
+
+	// ensureNodesSecurityGroup runs after ensureZones so that the SG rule builder can
+	// read per-zone subnet CIDRs (workers, public, internal — v4 and v6) from state.
+	// In managed mode ensureManagedZones creates the subnets at CIDRs already present
+	// in the shoot config; in BYO mode ensureBYOZones and discoverTaggedSubnets fetch
+	// the user's subnets and cache their CIDRs under IdentifierZoneSubnet{Workers,
+	// Public,Private}{CIDR,IPv6CIDR}. Either way, state carries the CIDRs the SG
+	// builder needs before this task runs.
+	ensureNodesSecurityGroup := c.AddTask(g, "ensure nodes security group",
+		c.ensureNodesSecurityGroup,
+		Timeout(defaultTimeout), Dependencies(ensureVpc, ensureZones))
 
 	_ = c.AddTask(g, "ensure efs file system",
 		c.ensureEfs,
-		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout), Dependencies(ensureZones))
+		DoIf(c.isCsiEfsEnabled()), Timeout(defaultTimeout), Dependencies(ensureNodesSecurityGroup))
 
 	_ = c.AddTask(g, "ensure subnet cidr reservation",
 		c.ensureSubnetCidrReservation,
@@ -611,6 +618,69 @@ func (c *FlowContext) computeNodesSecurityGroupBaseRules() []*awsclient.Security
 	return rules
 }
 
+// resolveZoneLBCIDRs returns the IPv4 and IPv6 CIDR blocks of the public and internal
+// LB subnets for a given zone. The values are used to source the narrow per-zone
+// NodePort ingress rules (and the redundant EFS rule) on the nodes security group.
+//
+// This runs after ensureZones so state is expected to be populated for every mode:
+//
+//   - Managed mode: subnets are created by ensureManagedZones using the CIDRs in
+//     zone.Internal / zone.Public. This function reads the CIDRs from the config
+//     directly; the derivation for IPv6 uses the VPC's /56 with the same offsets
+//     ensureManagedZones applies (2+3*index internal, 3+3*index public), so the
+//     values match what was created.
+//
+//   - BYO mode: ensureBYOZones and discoverTaggedSubnets fetch the user's real
+//     subnets and cache their CIDRs under IdentifierZoneSubnet{Public,Private}{CIDR,IPv6CIDR}.
+//     This function reads from state. Deriving from the VPC IPv6 block in BYO would
+//     produce phantom CIDRs that do not correspond to any real subnet.
+//
+// Any returned CIDR may be the empty string, meaning "unavailable" — e.g., a zone
+// that intentionally has no LB subnets in managed mode, or a BYO zone that has no
+// public/internal LB subnet (neither explicit nor pre-tagged). The caller must
+// skip the corresponding narrow rule in that case; the wide base rules still
+// cover the traffic.
+func (c *FlowContext) resolveZoneLBCIDRs(zone *aws.Zone, index int) (internalV4, internalV6, publicV4, publicV6 string, err error) {
+	if c.isBYOInfrastructure() {
+		zoneChild := c.getSubnetZoneChild(zone.Name)
+		if v := zoneChild.Get(IdentifierZoneSubnetPrivateCIDR); v != nil {
+			internalV4 = *v
+		}
+		if v := zoneChild.Get(IdentifierZoneSubnetPrivateIPv6CIDR); v != nil {
+			internalV6 = *v
+		}
+		if v := zoneChild.Get(IdentifierZoneSubnetPublicCIDR); v != nil {
+			publicV4 = *v
+		}
+		if v := zoneChild.Get(IdentifierZoneSubnetPublicIPv6CIDR); v != nil {
+			publicV6 = *v
+		}
+		return
+	}
+
+	if zone.Internal != nil {
+		internalV4 = *zone.Internal
+	}
+	if zone.Public != nil {
+		publicV4 = *zone.Public
+	}
+	if ContainsIPv6(c.getIpFamilies()) {
+		ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
+		if ipv6CidrBlock != nil {
+			const subnetPrefixLength = 64
+			internalV6, err = cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 2+3*index)
+			if err != nil {
+				return
+			}
+			publicV6, err = cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 3+3*index)
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
 func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 	// If user provides their own security group, use it directly.
 	// TODO: Open question — should nodesSecurityGroupID be allowed without workersSubnetID?
@@ -683,40 +753,40 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 			Protocol: "tcp",
 		}
 
+		// Resolve the per-zone LB subnet CIDRs used to source the narrow NodePort +
+		// EFS ingress rules. See resolveZoneLBCIDRs for the resolution logic.
+		internalV4, internalV6, publicV4, publicV6, err := c.resolveZoneLBCIDRs(&zone, index)
+		if err != nil {
+			return err
+		}
+
 		if containsIPv4(c.getIpFamilies()) {
-			if zone.Internal != nil {
-				ruleNodesInternalTCP.CidrBlocks = []string{*zone.Internal}
-				ruleNodesInternalUDP.CidrBlocks = []string{*zone.Internal}
-				ruleEfsInboundNFS.CidrBlocks = []string{*zone.Internal}
+			if internalV4 != "" {
+				ruleNodesInternalTCP.CidrBlocks = []string{internalV4}
+				ruleNodesInternalUDP.CidrBlocks = []string{internalV4}
+				ruleEfsInboundNFS.CidrBlocks = []string{internalV4}
 			}
-			if zone.Public != nil {
-				ruleNodesPublicTCP.CidrBlocks = []string{*zone.Public}
-				ruleNodesPublicUDP.CidrBlocks = []string{*zone.Public}
+			if publicV4 != "" {
+				ruleNodesPublicTCP.CidrBlocks = []string{publicV4}
+				ruleNodesPublicUDP.CidrBlocks = []string{publicV4}
 			}
 		}
 
 		if ContainsIPv6(c.getIpFamilies()) {
-			ipv6CidrBlock := c.state.Get(IdentifierVpcIPv6CidrBlock)
-			if ipv6CidrBlock != nil {
-				subnetPrefixLength := 64
-				internalSubnetCidrIPv6, err := cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 2+3*index)
-				if err != nil {
-					return err
-				}
-				publicSubnetCidrIPv6, err := cidrSubnet(*ipv6CidrBlock, subnetPrefixLength, 3+3*index)
-				if err != nil {
-					return err
-				}
-				ruleNodesInternalTCP.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
-				ruleNodesInternalUDP.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
-				ruleEfsInboundNFS.CidrBlocksv6 = []string{internalSubnetCidrIPv6}
-				ruleNodesPublicTCP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
-				ruleNodesPublicUDP.CidrBlocksv6 = []string{publicSubnetCidrIPv6}
+			if internalV6 != "" {
+				ruleNodesInternalTCP.CidrBlocksv6 = []string{internalV6}
+				ruleNodesInternalUDP.CidrBlocksv6 = []string{internalV6}
+				ruleEfsInboundNFS.CidrBlocksv6 = []string{internalV6}
+			}
+			if publicV6 != "" {
+				ruleNodesPublicTCP.CidrBlocksv6 = []string{publicV6}
+				ruleNodesPublicUDP.CidrBlocksv6 = []string{publicV6}
 			}
 		}
-		// Only add per-zone CIDR rules when the CIDRs are actually configured.
-		// In BYO mode, internal/public CIDRs may be empty — the base rules (self-referencing,
-		// NodePort from 0.0.0.0/0, all-egress) still provide adequate security.
+		// Only add per-zone CIDR rules when the CIDRs are actually resolved.
+		// A zone with no LB subnets (or a mode/config combination where the LB
+		// CIDR is not known) simply relies on the wide base rules (self-referencing,
+		// NodePort from 0.0.0.0/0 and ::/0, all-egress).
 		if hasCIDRs(ruleNodesInternalTCP) || hasCIDRs(ruleNodesInternalUDP) {
 			desired.Rules = append(desired.Rules, ruleNodesInternalTCP, ruleNodesInternalUDP)
 		}
@@ -791,9 +861,25 @@ func (c *FlowContext) ensureZones(ctx context.Context) error {
 // It also discovers existing tagged public and internal subnets in the VPC so they
 // can be reported in InfrastructureStatus for the CCM config and other consumers.
 // No subnets, NAT gateways, route tables, or elastic IPs are created.
+//
+// For each explicitly-referenced BYO subnet (workers, public, internal), this task
+// also caches the subnet's IPv4 and IPv6 CIDR blocks in per-zone state under
+// IdentifierZoneSubnet{Workers,Public,Private}{CIDR,IPv6CIDR}. Downstream tasks
+// (ensureNodesSecurityGroup, EFS rule builder) read those state keys to source
+// per-zone SG rule CIDRs from real subnet data instead of derived-from-VPC math.
+// The discovery path (discoverTaggedSubnets) caches CIDRs for pre-tagged LB
+// subnets that were not named in config.
 func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	log.Info("using BYO worker subnets")
+
+	// Batch-fetch every BYO subnet the user named. One AWS call is used both for
+	// the tag-management logic below and for CIDR caching, avoiding N-per-zone
+	// GetSubnets calls.
+	subnetsByID, err := c.fetchBYOSubnets(ctx)
+	if err != nil {
+		return err
+	}
 
 	var workerSubnetIDs []string
 	subnetToZone := map[string]string{} // subnetID -> zoneName
@@ -811,6 +897,7 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 
 		if zone.WorkersSubnetID != nil {
 			child.Set(IdentifierZoneSubnetWorkers, *zone.WorkersSubnetID)
+			cacheBYOSubnetCIDRs(child, subnetsByID[*zone.WorkersSubnetID], byoSubnetPurposeWorkers)
 			log.Info("using BYO workers subnet", "zone", zone.Name, "subnetID", *zone.WorkersSubnetID)
 
 			// Auto-tag the BYO subnet with the cluster tag (value "shared") so the CCM/LBC
@@ -830,17 +917,15 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 		// Tag and store BYO public LB subnet (for CCM/LBC discovery)
 		if zone.PublicSubnetID != nil {
 			child.Set(IdentifierZoneSubnetPublic, *zone.PublicSubnetID)
+			cacheBYOSubnetCIDRs(child, subnetsByID[*zone.PublicSubnetID], byoSubnetPurposePublic)
 			log.Info("using BYO public LB subnet", "zone", zone.Name, "subnetID", *zone.PublicSubnetID)
 
 			publicTags := awsclient.Tags{
 				c.tagKeyCluster(): TagValueClusterShared,
 			}
-			// Add role tag + marker only if the role tag is not already present
-			subnets, err := c.client.GetSubnets(ctx, []string{*zone.PublicSubnetID})
-			if err != nil {
-				return fmt.Errorf("failed to get BYO public subnet %s: %w", *zone.PublicSubnetID, err)
-			}
-			if len(subnets) > 0 && subnets[0].Tags[TagKeyRolePublicELB] == "" {
+			// Add role tag + marker only if the role tag is not already present.
+			// The subnet was fetched by fetchBYOSubnets; reuse that Tags map.
+			if s := subnetsByID[*zone.PublicSubnetID]; s != nil && s.Tags[TagKeyRolePublicELB] == "" {
 				publicTags[TagKeyRolePublicELB] = TagValueELB
 				publicTags[TagKeyManagedByGardener] = TagKeyRolePublicELB
 			}
@@ -852,17 +937,13 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 		// Tag and store BYO internal LB subnet (for CCM/LBC discovery)
 		if zone.InternalSubnetID != nil {
 			child.Set(IdentifierZoneSubnetPrivate, *zone.InternalSubnetID)
+			cacheBYOSubnetCIDRs(child, subnetsByID[*zone.InternalSubnetID], byoSubnetPurposeInternal)
 			log.Info("using BYO internal LB subnet", "zone", zone.Name, "subnetID", *zone.InternalSubnetID)
 
 			internalTags := awsclient.Tags{
 				c.tagKeyCluster(): TagValueClusterShared,
 			}
-			// Add role tag + marker only if the role tag is not already present
-			subnets, err := c.client.GetSubnets(ctx, []string{*zone.InternalSubnetID})
-			if err != nil {
-				return fmt.Errorf("failed to get BYO internal subnet %s: %w", *zone.InternalSubnetID, err)
-			}
-			if len(subnets) > 0 && subnets[0].Tags[TagKeyRolePrivateELB] == "" {
+			if s := subnetsByID[*zone.InternalSubnetID]; s != nil && s.Tags[TagKeyRolePrivateELB] == "" {
 				internalTags[TagKeyRolePrivateELB] = TagValueELB
 				internalTags[TagKeyManagedByGardener] = TagKeyRolePrivateELB
 			}
@@ -881,12 +962,83 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 
 	// Discover existing tagged subnets in the VPC for InfrastructureStatus.
 	// The CCM config needs at least one public or internal subnet for initialization.
+	// This also caches CIDRs for discovered LB subnets so the SG builder has
+	// full state parity between the explicit-ID and pre-tagged-discovery variants.
 	if err := c.discoverTaggedSubnets(ctx); err != nil {
 		return err
 	}
 
 	// Persist state so BYO subnet IDs are available for status reporting
 	return c.PersistState(ctx)
+}
+
+// byoSubnetPurpose enumerates the roles a BYO subnet can play in a zone.
+type byoSubnetPurpose int
+
+const (
+	byoSubnetPurposeWorkers byoSubnetPurpose = iota
+	byoSubnetPurposePublic
+	byoSubnetPurposeInternal
+)
+
+// fetchBYOSubnets fetches every subnet whose ID is explicitly referenced in the
+// shoot config (workers, public, internal per zone) in a single GetSubnets call
+// and returns them keyed by subnet ID. Duplicate IDs across zones are naturally
+// deduplicated by the map.
+func (c *FlowContext) fetchBYOSubnets(ctx context.Context) (map[string]*awsclient.Subnet, error) {
+	idSet := sets.New[string]()
+	for _, zone := range c.config.Networks.Zones {
+		if zone.WorkersSubnetID != nil {
+			idSet.Insert(*zone.WorkersSubnetID)
+		}
+		if zone.PublicSubnetID != nil {
+			idSet.Insert(*zone.PublicSubnetID)
+		}
+		if zone.InternalSubnetID != nil {
+			idSet.Insert(*zone.InternalSubnetID)
+		}
+	}
+	if idSet.Len() == 0 {
+		return map[string]*awsclient.Subnet{}, nil
+	}
+
+	ids := idSet.UnsortedList()
+	subnets, err := c.client.GetSubnets(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch BYO subnets: %w", err)
+	}
+	result := make(map[string]*awsclient.Subnet, len(subnets))
+	for _, s := range subnets {
+		result[s.SubnetId] = s
+	}
+	return result, nil
+}
+
+// cacheBYOSubnetCIDRs writes the IPv4 and IPv6 CIDR blocks of a fetched BYO subnet
+// to the zone-level state under the appropriate keys for the given purpose.
+// A nil subnet (not returned by GetSubnets) is silently skipped so that missing
+// data does not overwrite whatever is currently in state.
+func cacheBYOSubnetCIDRs(zoneChild Whiteboard, subnet *awsclient.Subnet, purpose byoSubnetPurpose) {
+	if subnet == nil {
+		return
+	}
+	var cidrKey, ipv6CidrKey string
+	switch purpose {
+	case byoSubnetPurposeWorkers:
+		cidrKey, ipv6CidrKey = IdentifierZoneSubnetWorkersCIDR, IdentifierZoneSubnetWorkersIPv6CIDR
+	case byoSubnetPurposePublic:
+		cidrKey, ipv6CidrKey = IdentifierZoneSubnetPublicCIDR, IdentifierZoneSubnetPublicIPv6CIDR
+	case byoSubnetPurposeInternal:
+		cidrKey, ipv6CidrKey = IdentifierZoneSubnetPrivateCIDR, IdentifierZoneSubnetPrivateIPv6CIDR
+	default:
+		return
+	}
+	if subnet.CidrBlock != "" {
+		zoneChild.Set(cidrKey, subnet.CidrBlock)
+	}
+	if len(subnet.Ipv6CidrBlocks) > 0 {
+		zoneChild.Set(ipv6CidrKey, subnet.Ipv6CidrBlocks[0])
+	}
 }
 
 // tagBYORouteTables discovers the route tables associated with BYO worker subnets
@@ -997,10 +1149,13 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to discover tagged public subnets: %w", err)
 	}
-	// Group discovered public subnets by AZ to detect ambiguity
+	// Group discovered public subnets by AZ to detect ambiguity; also index by ID
+	// so we can look up the full Subnet object (CIDR blocks) for state caching.
 	publicByAZ := map[string][]string{} // az -> []subnetID
+	publicByID := map[string]*awsclient.Subnet{}
 	for _, subnet := range publicSubnets {
 		publicByAZ[subnet.AvailabilityZone] = append(publicByAZ[subnet.AvailabilityZone], subnet.SubnetId)
+		publicByID[subnet.SubnetId] = subnet
 	}
 	for az, subnetIDs := range publicByAZ {
 		if len(subnetIDs) > 1 {
@@ -1010,6 +1165,7 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 				az, subnetIDs)
 		}
 		subnetID := subnetIDs[0]
+		child := c.getSubnetZoneChild(az)
 		// If an explicit public subnet ID was provided for this AZ, validate it matches
 		if expectedID, ok := explicitPublic[az]; ok {
 			if subnetID != expectedID {
@@ -1017,11 +1173,11 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 					"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/elb=1",
 					subnetID, az, expectedID)
 			}
-			// Already stored by ensureBYOZones, skip overwriting
+			// ID and CIDRs already stored by ensureBYOZones.
 			continue
 		}
-		child := c.getSubnetZoneChild(az)
 		child.Set(IdentifierZoneSubnetPublic, subnetID)
+		cacheBYOSubnetCIDRs(child, publicByID[subnetID], byoSubnetPurposePublic)
 		log.Info("discovered tagged public subnet", "zone", az, "subnetID", subnetID)
 	}
 
@@ -1035,10 +1191,13 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to discover tagged internal subnets: %w", err)
 	}
-	// Group discovered internal subnets by AZ to detect ambiguity
+	// Group discovered internal subnets by AZ to detect ambiguity; also index by ID
+	// so we can look up the full Subnet object (CIDR blocks) for state caching.
 	internalByAZ := map[string][]string{} // az -> []subnetID
+	internalByID := map[string]*awsclient.Subnet{}
 	for _, subnet := range internalSubnets {
 		internalByAZ[subnet.AvailabilityZone] = append(internalByAZ[subnet.AvailabilityZone], subnet.SubnetId)
+		internalByID[subnet.SubnetId] = subnet
 	}
 	for az, subnetIDs := range internalByAZ {
 		if len(subnetIDs) > 1 {
@@ -1048,6 +1207,7 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 				az, subnetIDs)
 		}
 		subnetID := subnetIDs[0]
+		child := c.getSubnetZoneChild(az)
 		// If an explicit internal subnet ID was provided for this AZ, validate it matches
 		if expectedID, ok := explicitInternal[az]; ok {
 			if subnetID != expectedID {
@@ -1055,11 +1215,11 @@ func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
 					"ensure no other subnets in this AZ have both the cluster tag and kubernetes.io/role/internal-elb=1",
 					subnetID, az, expectedID)
 			}
-			// Already stored by ensureBYOZones, skip overwriting
+			// ID and CIDRs already stored by ensureBYOZones.
 			continue
 		}
-		child := c.getSubnetZoneChild(az)
 		child.Set(IdentifierZoneSubnetPrivate, subnetID)
+		cacheBYOSubnetCIDRs(child, internalByID[subnetID], byoSubnetPurposeInternal)
 		log.Info("discovered tagged internal subnet", "zone", az, "subnetID", subnetID)
 	}
 

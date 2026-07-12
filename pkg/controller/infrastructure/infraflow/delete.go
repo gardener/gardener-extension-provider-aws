@@ -319,7 +319,7 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 		child := c.state.GetChild(ChildIdZones)
 		clusterTag := awsclient.Tags{c.tagKeyCluster(): TagValueClusterShared}
 		clusterAndMarkerTags := awsclient.Tags{
-			c.tagKeyCluster():   TagValueClusterShared,
+			c.tagKeyCluster():       TagValueClusterShared,
 			TagKeyManagedByGardener: "",
 		}
 		untaggedRouteTables := sets.New[string]()
