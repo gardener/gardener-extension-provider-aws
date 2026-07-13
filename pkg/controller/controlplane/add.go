@@ -16,6 +16,7 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gardener/gardener-extension-provider-aws/imagevector"
@@ -48,6 +49,14 @@ type AddOptions struct {
 // AddToManagerWithOptions adds a controller with the given Options to the given manager.
 // The opts.Reconciler is being set with a newly instantiated actuator.
 func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddOptions) error {
+	classes := slices.DeleteFunc(opts.ExtensionClasses, func(class extensionsv1alpha1.ExtensionClass) bool {
+		return !supportedExtensionClasses.Has(class)
+	})
+	if len(classes) == 0 {
+		log.Log.Info("No supported extension classes left after filtering, skipping controlplane controller registration")
+		return nil
+	}
+
 	genericActuator, err := genericactuator.NewActuator(mgr, aws.Name,
 		secretConfigsFunc, shootAccessSecretsFunc,
 		configChart, controlPlaneChart, controlPlaneShootChart, controlPlaneShootCRDsChart, storageClassChart,
@@ -59,10 +68,6 @@ func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddO
 
 	// Wrap the generic actuator with our custom actuator for cleanup logic
 	wrappedActuator := NewActuator(mgr, genericActuator)
-
-	classes := slices.DeleteFunc(opts.ExtensionClasses, func(class extensionsv1alpha1.ExtensionClass) bool {
-		return !supportedExtensionClasses.Has(class)
-	})
 
 	return controlplane.Add(mgr, controlplane.AddArgs{
 		Actuator:          wrappedActuator,

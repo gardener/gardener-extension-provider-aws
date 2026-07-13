@@ -45,6 +45,10 @@ func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddO
 	classes := slices.DeleteFunc(opts.ExtensionClasses, func(class extensionsv1alpha1.ExtensionClass) bool {
 		return !supportedExtensionClasses.Has(class)
 	})
+	if len(classes) == 0 {
+		log.Log.Info("No supported extension classes left after filtering, skipping infrastructure controller registration")
+		return nil
+	}
 
 	return infrastructure.Add(mgr, infrastructure.AddArgs{
 		Actuator:          NewActuator(mgr),
