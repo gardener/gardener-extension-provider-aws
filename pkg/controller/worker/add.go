@@ -6,12 +6,14 @@ package worker
 
 import (
 	"context"
+	"slices"
 
 	"github.com/gardener/gardener/extensions/pkg/controller/worker"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	machinescheme "github.com/gardener/machine-controller-manager/pkg/client/clientset/versioned/scheme"
 	apiextensionsscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -22,6 +24,10 @@ import (
 var (
 	// DefaultAddOptions are the default AddOptions for AddToManager.
 	DefaultAddOptions = AddOptions{}
+
+	// supportedExtensionClasses are the extension classes supported by the worker controller.
+	// https://github.com/gardener/gardener/blob/1cccf45631183f178378cde41aa831437b10253e/pkg/provider-local/controller/worker/add.go#L27-L28
+	supportedExtensionClasses = sets.New(extensionsv1alpha1.ExtensionClassShoot)
 )
 
 // AddOptions are options to apply when adding the AWS worker controller to the manager.
@@ -49,12 +55,16 @@ func AddToManagerWithOptions(ctx context.Context, mgr manager.Manager, opts AddO
 		return err
 	}
 
+	classes := slices.DeleteFunc(opts.ExtensionClasses, func(class extensionsv1alpha1.ExtensionClass) bool {
+		return !supportedExtensionClasses.Has(class)
+	})
+
 	return worker.Add(ctx, mgr, worker.AddArgs{
 		Actuator:               NewActuator(mgr, opts.GardenCluster),
 		ControllerOptions:      opts.Controller,
 		Predicates:             worker.DefaultPredicates(ctx, mgr, opts.IgnoreOperationAnnotation),
 		Type:                   aws.Type,
-		ExtensionClasses:       opts.ExtensionClasses,
+		ExtensionClasses:       classes,
 		SelfHostedShootCluster: opts.SelfHostedShootCluster,
 	})
 }
