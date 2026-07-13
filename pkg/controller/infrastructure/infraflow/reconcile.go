@@ -188,6 +188,10 @@ func (c *FlowContext) getIpFamilies() []v1beta1.IPFamily {
 	return []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
 }
 
+func (c *FlowContext) isIPv6Enabled() bool {
+	return (c.config.DualStack != nil && c.config.DualStack.Enabled) || ContainsIPv6(c.getIpFamilies())
+}
+
 func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	log.Info("using managed VPC")
@@ -205,7 +209,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		InstanceTenancy:    instanceTenancy,
 	}
 
-	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || ContainsIPv6(c.getIpFamilies()) {
+	if c.isIPv6Enabled() {
 		if c.config.Networks.VPC.Ipv6IpamPool != nil && c.config.Networks.VPC.Ipv6IpamPool.ID != nil {
 			desired.AssignGeneratedIPv6CidrBlock = false
 			desired.Ipv6IpamPoolId = c.config.Networks.VPC.Ipv6IpamPool.ID
@@ -258,7 +262,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
-	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || ContainsIPv6(c.getIpFamilies()) {
+	if c.isIPv6Enabled() {
 		vpcID := *c.state.Get(IdentifierVPC) // guaranteed to be set because of ensureVPC dependency
 		ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, vpcID)
 		if err != nil {
@@ -324,7 +328,7 @@ func (c *FlowContext) validateVpc(ctx context.Context, item *awsclient.VPC) erro
 				k, strings.Join(v, ","), strings.Join(options.DhcpConfigurations[k], ","))
 		}
 	}
-	if (ContainsIPv6(c.getIpFamilies()) || (c.config.DualStack != nil && c.config.DualStack.Enabled)) && item.IPv6CidrBlock == "" {
+	if c.isIPv6Enabled() && item.IPv6CidrBlock == "" {
 		return fmt.Errorf("VPC has no ipv6 CIDR")
 	}
 	return nil

@@ -8,7 +8,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"k8s.io/utils/ptr"
 
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	mockawsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client/mock"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
@@ -76,41 +78,143 @@ var _ = Describe("#calcNextIPv6CidrBlock", func() {
 })
 
 var _ = Describe("#FlowContext", func() {
+	type dualStackMode int
+	const (
+		dualStackViaFamilies dualStackMode = iota
+		dualStackViaInfraConfig
+	)
+	type ipamCIDRMode int
+	const (
+		withoutCIDR ipamCIDRMode = iota
+		withCIDR
+	)
 	var (
-		tags    awsclient.Tags
+		ipv4Cidr string
+		ipv6Cidr string
+		// AWS API objects
+		tags            awsclient.Tags
+		dhcpOptions     *awsclient.DhcpOptions
+		vpc             *awsclient.VPC
+		internetGateway *awsclient.InternetGateway
+		egressGateway   *awsclient.EgressOnlyInternetGateway
+		ipv6IPAMPoolId  string
+		// Mocks and helpers
 		ctrl    *gomock.Controller
 		client  *mockawsclient.MockInterface
 		updater *mockawsclient.MockUpdater
 		ctx     context.Context
-		c       *FlowContext
+		// Object under test
+		c *FlowContext
+
+		setupIPv4Only  func()
+		setupIPv6Only  func()
+		setupDualStack func(mode dualStackMode)
+		setupIPAMPool  func(mode ipamCIDRMode)
 	)
 	BeforeEach(func() {
+		ipv4Cidr = "10.11.0.0/16"
+		ipv6Cidr = "2001:db8:1234:56::/56"
+
 		tags = awsclient.Tags{
 			"kubernetes.io/cluster/shoot--myproject--mycluster": "1",
 			"Name": "shoot--myproject--mycluster",
 		}
+
+		dhcpOptions = &awsclient.DhcpOptions{
+			DhcpOptionsId: "dopt-084807a4d953f0424",
+			Tags:          tags,
+			DhcpConfigurations: map[string][]string{
+				"domain-name":         {"eu-central-1.compute.internal"},
+				"domain-name-servers": {"AmazonProvidedDNS"},
+			},
+		}
+
+		// Default VPC for testing, setup as dual stack with IPv6 CIDR block assigned by AWS
+		vpc = &awsclient.VPC{
+			VpcId:                        "vpc-0a1b2c3d4e5f6g7h8",
+			Tags:                         tags,
+			CidrBlock:                    ipv4Cidr,
+			IPv6CidrBlock:                ipv6Cidr,
+			EnableDnsSupport:             true,
+			EnableDnsHostnames:           true,
+			AssignGeneratedIPv6CidrBlock: true,
+			DhcpOptionsId:                &dhcpOptions.DhcpOptionsId,
+			InstanceTenancy:              "default",
+		}
+
+		internetGateway = &awsclient.InternetGateway{
+			Tags:              tags,
+			InternetGatewayId: "igw-0a1b2c3d4e5f6g7h8",
+			VpcId:             &vpc.VpcId,
+		}
+
+		egressGateway = &awsclient.EgressOnlyInternetGateway{
+			Tags:                        tags,
+			EgressOnlyInternetGatewayId: "eigw-0a1b2c3d4e5f6g7h8",
+			VpcId:                       &vpc.VpcId,
+		}
+
+		ipv6IPAMPoolId = "ipam-pool-0a1b2c3d4e5f6g7h8"
+
 		ctrl = gomock.NewController(GinkgoT())
 		client = mockawsclient.NewMockInterface(ctrl)
-
-		// We don't want to test the updater here, so we just mock it to always return false and no error.
 		updater = mockawsclient.NewMockUpdater(ctrl)
-		updater.EXPECT().UpdateVpc(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
-		updater.EXPECT().UpdateSecurityGroup(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
-		updater.EXPECT().UpdateRouteTable(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
-		updater.EXPECT().UpdateSubnet(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
-		updater.EXPECT().UpdateIAMInstanceProfile(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
-		updater.EXPECT().UpdateIAMRole(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
-		updater.EXPECT().UpdateEC2Tags(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
 
 		ctx = context.TODO()
+
 		c = &FlowContext{
-			state: shared.NewWhiteboard(),
+			state:      shared.NewWhiteboard(),
+			commonTags: tags,
 			infraSpec: ext.InfrastructureSpec{
 				Region: "eu-central-1",
 			},
-			commonTags: tags,
-			client:     client,
-			updater:    updater,
+			config: &aws.InfrastructureConfig{
+				DualStack: &aws.DualStack{
+					Enabled: false,
+				},
+				Networks: aws.Networks{
+					VPC: aws.VPC{
+						CIDR: &ipv4Cidr,
+					},
+				},
+			},
+			networking: &core.Networking{
+				IPFamilies: []core.IPFamily{core.IPFamilyIPv4, core.IPFamilyIPv6},
+			},
+			client:  client,
+			updater: updater,
+		}
+		setupIPv4Only = func() {
+			c.networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv4}
+			vpc.AssignGeneratedIPv6CidrBlock = false
+			vpc.IPv6CidrBlock = ""
+		}
+		setupIPv6Only = func() {
+			c.networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv6}
+			vpc.AssignGeneratedIPv6CidrBlock = true
+		}
+		setupDualStack = func(mode dualStackMode) {
+			if mode == dualStackViaInfraConfig {
+				c.networking = nil
+				c.config.DualStack.Enabled = true
+			} else {
+				c.networking.IPFamilies = []core.IPFamily{core.IPFamilyIPv4, core.IPFamilyIPv6}
+			}
+			vpc.AssignGeneratedIPv6CidrBlock = true
+		}
+		setupIPAMPool = func(mode ipamCIDRMode) {
+			c.config.Networks.VPC.Ipv6IpamPool = &aws.IPAMPool{
+				ID: &ipv6IPAMPoolId,
+			}
+			if mode == withCIDR {
+				c.config.Networks.VPC.Ipv6IpamPool.CidrBlock = &ipv6Cidr
+				vpc.Ipv6CidrBlock = &ipv6Cidr
+			} else {
+				c.config.Networks.VPC.Ipv6IpamPool.CidrBlock = nil
+				vpc.Ipv6NetmaskLength = ptr.To[int32](defaultIPv6NetmaskSize)
+			}
+			vpc.Ipv6IpamPoolId = &ipv6IPAMPoolId
+			vpc.AssignGeneratedIPv6CidrBlock = false
 		}
 	})
 	Describe("#getIPFamilies", func() {
@@ -122,59 +226,311 @@ var _ = Describe("#FlowContext", func() {
 			Expect(families).To(ContainElement(core.IPFamilyIPv4))
 		})
 	})
-	Context("DHCP Options", func() {
-		var (
-			dhcpOptionsId     string
-			dhcpOptions       *awsclient.DhcpOptions
-			dhcpOptionsWithId *awsclient.DhcpOptions
-		)
+	Describe("#getDesiredDhcpOptions", func() {
+		It("should set the correct domain name for us-east-1", func() {
+			c.infraSpec.Region = "us-east-1"
+			dhcpOptions.DhcpOptionsId = ""
+			dhcpOptions.DhcpConfigurations["domain-name"] = []string{"ec2.internal"}
+			desiredDhcpOptions := c.getDesiredDhcpOptions()
+			Expect(desiredDhcpOptions).To(Equal(dhcpOptions))
+		})
+		It("should set the correct domain name for other regions", func() {
+			dhcpOptions.DhcpOptionsId = ""
+			desiredDhcpOptions := c.getDesiredDhcpOptions()
+			Expect(desiredDhcpOptions).To(Equal(dhcpOptions))
+		})
+	})
+	Describe("#ensureDhcpOptions", func() {
+		It("should create new DHCP options if none exist", func() {
+			dhcpOptionsArg := &awsclient.DhcpOptions{}
+			*dhcpOptionsArg = *dhcpOptions
+			dhcpOptionsArg.DhcpOptionsId = ""
+			client.EXPECT().FindVpcDhcpOptionsByTags(ctx, tags).Return(nil, nil).Times(1)
+			client.EXPECT().CreateVpcDhcpOptions(ctx, dhcpOptionsArg).Return(dhcpOptions, nil).Times(1)
+			err := c.ensureDhcpOptions(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptions.DhcpOptionsId))
+		})
+		It("should use existing DHCP options if they can be found by tags", func() {
+			client.EXPECT().FindVpcDhcpOptionsByTags(ctx, tags).Return([]*awsclient.DhcpOptions{dhcpOptions}, nil).Times(1)
+			updater.EXPECT().UpdateEC2Tags(ctx, dhcpOptions.DhcpOptionsId, c.commonTags, dhcpOptions.Tags).Return(false, nil).Times(1)
+			err := c.ensureDhcpOptions(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptions.DhcpOptionsId))
+		})
+		It("should use existing DHCP options if they can be found by ID", func() {
+			client.EXPECT().GetVpcDhcpOptions(ctx, dhcpOptions.DhcpOptionsId).Return(dhcpOptions, nil).Times(1)
+			updater.EXPECT().UpdateEC2Tags(ctx, dhcpOptions.DhcpOptionsId, c.commonTags, dhcpOptions.Tags).Return(false, nil).Times(1)
+			c.state.Set(IdentifierDHCPOptions, dhcpOptions.DhcpOptionsId)
+			err := c.ensureDhcpOptions(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptions.DhcpOptionsId))
+		})
+	})
+	DescribeTableSubtree("#ensureVpc",
+		func(setup func(), checkDesiredVpc func(*awsclient.VPC)) {
+			BeforeEach(func() {
+				setup()
+			})
+			It("should create a new VPC if none exists", func() {
+				vpcArg := &awsclient.VPC{}
+				*vpcArg = *vpc
+				vpcArg.VpcId = ""
+				vpcArg.IPv6CidrBlock = ""
+				c.state.Set(IdentifierDHCPOptions, dhcpOptions.DhcpOptionsId) // When creating a new VPC, the DHCP options id is read from the state
+				client.EXPECT().FindVpcsByTags(ctx, tags).Return(nil, nil).Times(1)
+				client.EXPECT().CreateVpc(ctx, vpcArg).Return(vpc, nil).Times(1)
+				updater.EXPECT().UpdateVpc(ctx, gomock.Any(), vpc).DoAndReturn(
+					func(_ context.Context, desired, _ *awsclient.VPC) (bool, error) {
+						checkDesiredVpc(desired)
+						return true, nil
+					}).Times(1)
+				err := c.ensureVpc(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(c.state.Get(IdentifierVPC)).To(Not(BeNil()))
+				Expect(*c.state.Get(IdentifierVPC)).To(Equal(vpc.VpcId))
+			})
+			It("should use an existing VPC if it can be found by tags", func() {
+				c.state.Set(IdentifierDHCPOptions, dhcpOptions.DhcpOptionsId)
+				client.EXPECT().FindVpcsByTags(ctx, tags).Return([]*awsclient.VPC{vpc}, nil).Times(1)
+				updater.EXPECT().UpdateVpc(ctx, gomock.Any(), vpc).DoAndReturn(
+					func(_ context.Context, desired, _ *awsclient.VPC) (bool, error) {
+						checkDesiredVpc(desired)
+						return true, nil
+					}).Times(1)
+				err := c.ensureVpc(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(c.state.Get(IdentifierVPC)).To(Not(BeNil()))
+				Expect(*c.state.Get(IdentifierVPC)).To(Equal(vpc.VpcId))
+				if c.isIPv6Enabled() {
+					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
+					Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(vpc.IPv6CidrBlock))
+				} else {
+					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(BeNil())
+				}
+			})
+			It("should use an existing VPC if it can be found by ID", func() {
+				c.state.Set(IdentifierVPC, vpc.VpcId)
+				client.EXPECT().GetVpc(ctx, vpc.VpcId).Return(vpc, nil).Times(1)
+				updater.EXPECT().UpdateVpc(ctx, gomock.Any(), vpc).DoAndReturn(
+					func(_ context.Context, desired, _ *awsclient.VPC) (bool, error) {
+						checkDesiredVpc(desired)
+						return true, nil
+					}).Times(1)
+				err := c.ensureVpc(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(c.state.Get(IdentifierVPC)).To(Not(BeNil()))
+				Expect(*c.state.Get(IdentifierVPC)).To(Equal(vpc.VpcId))
+				if c.isIPv6Enabled() {
+					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
+					Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(vpc.IPv6CidrBlock))
+				} else {
+					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(BeNil())
+				}
+			})
+			It("should use an existing VPC if can be found by ID passed via the provider config", func() {
+				c.config.Networks.VPC.ID = &vpc.VpcId
+				client.EXPECT().GetVpc(ctx, vpc.VpcId).Return(vpc, nil).Times(1)
+				client.EXPECT().GetVpcDhcpOptions(ctx, dhcpOptions.DhcpOptionsId).Return(dhcpOptions, nil).Times(1)
+				client.EXPECT().FindInternetGatewayByVPC(ctx, vpc.VpcId).Return(internetGateway, nil).Times(1)
+				if ContainsIPv6(c.getIpFamilies()) {
+					client.EXPECT().FindEgressOnlyInternetGatewayByVPC(ctx, vpc.VpcId).Return(egressGateway, nil).Times(1)
+				}
+				err := c.ensureVpc(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(c.state.Get(IdentifierVPC)).To(Not(BeNil()))
+				Expect(*c.state.Get(IdentifierVPC)).To(Equal(vpc.VpcId))
+				Expect(c.state.Get(IdentifierInternetGateway)).To(Not(BeNil()))
+				Expect(*c.state.Get(IdentifierInternetGateway)).To(Equal(internetGateway.InternetGatewayId))
+			})
+		},
+		Entry("IPv4 only",
+			func() {
+				setupIPv4Only()
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
+				Expect(desired.Ipv6CidrBlock).To(BeNil())
+				Expect(desired.Ipv6IpamPoolId).To(BeNil())
+			},
+		),
+		Entry("IPv6 only",
+			func() {
+				setupIPv6Only()
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeTrue())
+				Expect(desired.Ipv6CidrBlock).To(BeNil())
+				Expect(desired.Ipv6IpamPoolId).To(BeNil())
+			},
+		),
+		Entry("IPv6 only with IPv6 IPAM Pool",
+			func() {
+				setupIPv6Only()
+				setupIPAMPool(withoutCIDR)
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
+				Expect(desired.Ipv6CidrBlock).To(BeNil())
+				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
+				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6NetmaskLength).ToNot(BeNil())
+				Expect(*desired.Ipv6NetmaskLength).To(Equal(int32(defaultIPv6NetmaskSize)))
+			},
+		),
+		Entry("IPv6 only with IPv6 IPAM Pool and preconfigured CIDR",
+			func() {
+				setupIPv6Only()
+				setupIPAMPool(withCIDR)
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
+				Expect(desired.Ipv6CidrBlock).ToNot(BeNil())
+				Expect(*desired.Ipv6CidrBlock).To(Equal(ipv6Cidr))
+				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
+				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6NetmaskLength).To(BeNil())
+			},
+		),
+		Entry("DualStack via IPFamilies",
+			func() {
+				setupDualStack(dualStackViaFamilies)
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeTrue())
+				Expect(desired.Ipv6CidrBlock).To(BeNil())
+				Expect(desired.Ipv6IpamPoolId).To(BeNil())
+			},
+		),
+		Entry("DualStack via IPFamilies with IPv6 IPAM Pool",
+			func() {
+				setupDualStack(dualStackViaFamilies)
+				setupIPAMPool(withoutCIDR)
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
+				Expect(desired.Ipv6CidrBlock).To(BeNil())
+				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
+				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6NetmaskLength).ToNot(BeNil())
+				Expect(*desired.Ipv6NetmaskLength).To(Equal(int32(defaultIPv6NetmaskSize)))
+			},
+		),
+		Entry("DualStack via IPFamilies with IPv6 IPAM Pool and preconfigured CIDR",
+			func() {
+				setupDualStack(dualStackViaFamilies)
+				setupIPAMPool(withCIDR)
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
+				Expect(desired.Ipv6CidrBlock).ToNot(BeNil())
+				Expect(*desired.Ipv6CidrBlock).To(Equal(ipv6Cidr))
+				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
+				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6NetmaskLength).To(BeNil())
+			},
+		),
+		Entry("DualStack via InfrastructureConfig",
+			func() {
+				setupDualStack(dualStackViaInfraConfig)
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeTrue())
+				Expect(desired.Ipv6CidrBlock).To(BeNil())
+				Expect(desired.Ipv6IpamPoolId).To(BeNil())
+			},
+		),
+		Entry("DualStack via InfrastructureConfig with IPv6 IPAM Pool",
+			func() {
+				setupDualStack(dualStackViaInfraConfig)
+				setupIPAMPool(withoutCIDR)
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
+				Expect(desired.Ipv6CidrBlock).To(BeNil())
+				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
+				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6NetmaskLength).ToNot(BeNil())
+				Expect(*desired.Ipv6NetmaskLength).To(Equal(int32(defaultIPv6NetmaskSize)))
+			},
+		),
+		Entry("DualStack via InfrastructureConfig with IPv6 IPAM Pool and preconfigured CIDR",
+			func() {
+				setupDualStack(dualStackViaInfraConfig)
+				setupIPAMPool(withCIDR)
+			},
+			func(desired *awsclient.VPC) {
+				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
+				Expect(desired.Ipv6CidrBlock).ToNot(BeNil())
+				Expect(*desired.Ipv6CidrBlock).To(Equal(ipv6Cidr))
+				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
+				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6NetmaskLength).To(BeNil())
+			},
+		),
+	)
+	Describe("#ensureVpcIPv6CidrBlock", func() {
 		BeforeEach(func() {
-			dhcpOptions = &awsclient.DhcpOptions{
-				Tags: tags,
-				DhcpConfigurations: map[string][]string{
-					"domain-name":         {"eu-central-1.compute.internal"},
-					"domain-name-servers": {"AmazonProvidedDNS"},
+			c.state.Set(IdentifierVPC, vpc.VpcId)
+		})
+		It("should do nothing if the cluster is IPv4 only", func() {
+			setupIPv4Only()
+			err := c.ensureVpcIPv6CidrBlock(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(BeNil())
+		})
+		It("should wait for an IPv6 CIDR block if the cluster isIPv6 only", func() {
+			setupIPv6Only()
+			client.EXPECT().WaitForIPv6Cidr(ctx, vpc.VpcId).Return(ipv6Cidr, nil).Times(1)
+			err := c.ensureVpcIPv6CidrBlock(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
+			Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(ipv6Cidr))
+		})
+		It("should wait for an IPv6 CIDR block if the cluster is dual-stack configured via IPFamilies", func() {
+			setupDualStack(dualStackViaFamilies)
+			client.EXPECT().WaitForIPv6Cidr(ctx, vpc.VpcId).Return(ipv6Cidr, nil).Times(1)
+			err := c.ensureVpcIPv6CidrBlock(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
+			Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(ipv6Cidr))
+		})
+		It("should wait for an IPv6 CIDR block if the cluster is dual-stack configured via InfrastructureConfig", func() {
+			setupDualStack(dualStackViaInfraConfig)
+			client.EXPECT().WaitForIPv6Cidr(ctx, vpc.VpcId).Return(ipv6Cidr, nil).Times(1)
+			err := c.ensureVpcIPv6CidrBlock(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
+			Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(ipv6Cidr))
+		})
+	})
+	Describe("#ensureDefaultSecurityGroup", func() {
+		It("should remove all rules from the default security group", func() {
+			// sample default security group with one rule
+			defaultSG := &awsclient.SecurityGroup{
+				GroupId: "sg-0a1b2c3d4e5f6g7h8",
+				Rules: []*awsclient.SecurityGroupRule{
+					{
+						Protocol:   "tcp",
+						FromPort:   ptr.To[int32](22),
+						ToPort:     ptr.To[int32](22),
+						CidrBlocks: []string{"0.0.0.0/0"},
+					},
 				},
 			}
-			dhcpOptionsId = "dopt-084807a4d953f0424"
-			dhcpOptionsWithId = &awsclient.DhcpOptions{}
-			*dhcpOptionsWithId = *dhcpOptions
-			dhcpOptionsWithId.DhcpOptionsId = dhcpOptionsId
-		})
-		Describe("#getDesiredDhcpOptions", func() {
-			It("should set the correct domain name for us-east-1", func() {
-				c.infraSpec.Region = "us-east-1"
-				expectedDhcpOptions := dhcpOptions
-				expectedDhcpOptions.DhcpConfigurations["domain-name"] = []string{"ec2.internal"}
-				desiredDhcpOptions := c.getDesiredDhcpOptions()
-				Expect(desiredDhcpOptions).To(Equal(expectedDhcpOptions))
-			})
-			It("should set the correct domain name for other regions", func() {
-				desiredDhcpOptions := c.getDesiredDhcpOptions()
-				Expect(desiredDhcpOptions).To(Equal(dhcpOptions))
-			})
-		})
-		Describe("#ensureDhcpOptions", func() {
-			It("should create new DHCP options if none exist", func() {
-				client.EXPECT().FindVpcDhcpOptionsByTags(ctx, tags).Return(nil, nil).Times(1)
-				client.EXPECT().CreateVpcDhcpOptions(ctx, dhcpOptions).Return(dhcpOptionsWithId, nil).Times(1)
-				err := c.ensureDhcpOptions(ctx)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptionsId))
-			})
-			It("should use existing DHCP options if they can be found by tags", func() {
-				client.EXPECT().FindVpcDhcpOptionsByTags(ctx, tags).Return([]*awsclient.DhcpOptions{dhcpOptionsWithId}, nil).Times(1)
-				err := c.ensureDhcpOptions(ctx)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptionsId))
-			})
-			It("should use existing DHCP options if they can be found by ID", func() {
-				client.EXPECT().GetVpcDhcpOptions(ctx, dhcpOptionsId).Return(dhcpOptionsWithId, nil).Times(1)
-				c.state.Set(IdentifierDHCPOptions, dhcpOptionsId)
-				err := c.ensureDhcpOptions(ctx)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptionsId))
-			})
+			c.state.Set(IdentifierVPC, vpc.VpcId)
+			client.EXPECT().FindDefaultSecurityGroupByVpcId(ctx, vpc.VpcId).Return(defaultSG, nil).Times(1)
+			updater.EXPECT().UpdateSecurityGroup(ctx, gomock.Any(), defaultSG).
+				DoAndReturn(func(_ context.Context, desired, _ *awsclient.SecurityGroup) (bool, error) {
+					Expect(desired).NotTo(BeNil())
+					Expect(desired.GroupId).To(Equal(defaultSG.GroupId))
+					Expect(desired.Rules).To(BeEmpty())
+					return true, nil
+				}).Times(1)
+			err := c.ensureDefaultSecurityGroup(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c.state.Get(IdentifierDefaultSecurityGroup)).To(Not(BeNil()))
+			Expect(*c.state.Get(IdentifierDefaultSecurityGroup)).To(Equal(defaultSG.GroupId))
 		})
 	})
 })
