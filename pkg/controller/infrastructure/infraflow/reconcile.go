@@ -2151,6 +2151,11 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 		return "", fmt.Errorf("invalid new prefix length")
 	}
 
+	var maxIndex uint64 = 1<<(newPrefixLength-maskSize) - 1
+	if index < 0 || uint64(index) > maxIndex {
+		return "", fmt.Errorf("index out of range")
+	}
+
 	// #nosec: G115
 	offset := big.NewInt(0).Mul(big.NewInt(int64(index)), big.NewInt(0).Lsh(big.NewInt(1), uint(addrSize-newPrefixLength)))
 	subnetIP := net.IP(big.NewInt(0).Add(big.NewInt(0).SetBytes(baseIP), offset).Bytes())

@@ -55,6 +55,20 @@ var _ = Describe("#cidrSubnet", func() {
 		_, err = cidrSubnet("2001:db8:500::/40", 39, 0)
 		Expect(err).To(HaveOccurred())
 	})
+	It("should return an error when the subnet index is negative", func() {
+		_, err := cidrSubnet("10.0.0.0/16", 24, -1)
+		Expect(err).To(HaveOccurred())
+		_, err = cidrSubnet("2001:db8:500::/40", 60, -1)
+		Expect(err).To(HaveOccurred())
+	})
+	It("should return an error when the IPv4 subnet index is out of range", func() {
+		_, err := cidrSubnet("10.0.0.0/16", 24, 256)
+		Expect(err).To(HaveOccurred())
+	})
+	It("should return an error when the IPv6 subnet index is out of range", func() {
+		_, err := cidrSubnet("2001:db8:500::/40", 60, 0x100000)
+		Expect(err).To(HaveOccurred())
+	})
 })
 
 var _ = Describe("#calcNextIPv6CidrBlock", func() {
