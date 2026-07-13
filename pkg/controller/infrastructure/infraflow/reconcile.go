@@ -2162,9 +2162,12 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 // This is used to avoid subnet conflicts when creating IPv6 subnets.
 // Returns an error if the maximum index (255) is reached or the input CIDR is invalid.
 func calcNextIPv6CidrBlock(currentSubnetCIDR string) (string, error) {
-	ip, _, err := net.ParseCIDR(currentSubnetCIDR)
+	ip, ipNet, err := net.ParseCIDR(currentSubnetCIDR)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse CIDR: %v", err)
+	}
+	if _, addrSize := ipNet.Mask.Size(); addrSize != 128 {
+		return "", fmt.Errorf("input CIDR is not IPv6")
 	}
 
 	currentIndex := int(ip[7])

@@ -76,6 +76,10 @@ var _ = Describe("#calcNextIPv6CidrBlock", func() {
 		_, err := calcNextIPv6CidrBlock("invalid-cidr")
 		Expect(err).To(HaveOccurred())
 	})
+	It("Should return an error when the input CIDR is not IPv6", func() {
+		_, err := calcNextIPv6CidrBlock("10.0.0.0/16")
+		Expect(err).To(HaveOccurred())
+	})
 })
 
 var _ = Describe("#FlowContext", func() {
