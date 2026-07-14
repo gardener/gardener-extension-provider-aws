@@ -2,6 +2,7 @@ package infraflow
 
 import (
 	"context"
+	"fmt"
 
 	core "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	ext "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
@@ -533,4 +534,106 @@ var _ = Describe("#FlowContext", func() {
 			Expect(*c.state.Get(IdentifierDefaultSecurityGroup)).To(Equal(defaultSG.GroupId))
 		})
 	})
+	DescribeTable("#computeNodesSecurityGroupBaseRules",
+		func(setup func()) {
+			setup()
+			rules := c.computeNodesSecurityGroupBaseRules()
+			Expect(rules).ToNot(BeNil())
+			// helper functions
+			v4Cidrs := func() []string {
+				if containsIPv4(c.getIpFamilies()) {
+					return []string{"0.0.0.0/0"}
+				} else {
+					return nil
+				}
+			}
+			v6Cidrs := func() []string {
+				if ContainsIPv6(c.getIpFamilies()) {
+					return []string{"::/0"}
+				} else {
+					return nil
+				}
+			}
+			// checks whether a rule is present and if so, nils it (to prevent double counting)
+			checkRule := func(expected awsclient.SecurityGroupRule) {
+				for i, rule := range rules {
+					if rule != nil {
+						if ok, _ := Equal(expected).Match(*rule); ok {
+							rules[i] = nil
+							return
+						}
+					}
+				}
+				Fail(fmt.Sprintf("expected rule not found: %+v", expected))
+			}
+
+			// The rules should always contain a self-referencing ingress rule
+			checkRule(awsclient.SecurityGroupRule{
+				Type:     awsclient.SecurityGroupRuleTypeIngress,
+				Protocol: "-1",
+				Self:     true,
+			})
+
+			// The rules should always allow ingress to the service port range from all IPs for tcp and udp
+			checkRule(awsclient.SecurityGroupRule{
+				Type:         awsclient.SecurityGroupRuleTypeIngress,
+				Protocol:     "tcp",
+				FromPort:     ptr.To[int32](nodePortMin),
+				ToPort:       ptr.To[int32](nodePortMax),
+				CidrBlocks:   v4Cidrs(),
+				CidrBlocksv6: v6Cidrs(),
+			})
+			checkRule(awsclient.SecurityGroupRule{
+				Type:         awsclient.SecurityGroupRuleTypeIngress,
+				Protocol:     "udp",
+				FromPort:     ptr.To[int32](nodePortMin),
+				ToPort:       ptr.To[int32](nodePortMax),
+				CidrBlocks:   v4Cidrs(),
+				CidrBlocksv6: v6Cidrs(),
+			})
+			// The nodes are allowed to talk to the world via all IP protocols
+			checkRule(awsclient.SecurityGroupRule{
+				Type:         awsclient.SecurityGroupRuleTypeEgress,
+				Protocol:     "-1",
+				CidrBlocks:   v4Cidrs(),
+				CidrBlocksv6: v6Cidrs(),
+			})
+			if c.hasEFAWorker {
+				// Allow outgoing SRD traffic for EFA workers within the same security group
+				checkRule(awsclient.SecurityGroupRule{
+					Type:     awsclient.SecurityGroupRuleTypeEgress,
+					Protocol: "-1",
+					Self:     true,
+				})
+			}
+			// Don't let additional rules slip in unnoticed
+			var unchecked []*awsclient.SecurityGroupRule
+			for _, r := range rules {
+				if r != nil {
+					unchecked = append(unchecked, r)
+				}
+			}
+			Expect(unchecked).To(BeEmpty())
+		},
+		Entry("IPv4 only, no EFA", func() { setupIPv4Only() }),
+		Entry("IPv6 only, no EFA", func() { setupIPv6Only() }),
+		Entry("DualStack via IPFamilies, no EFA", func() { setupDualStack(dualStackViaFamilies) }),
+		Entry("DualStack via InfrastructureConfig, no EFA", func() { setupDualStack(dualStackViaInfraConfig) }),
+		Entry("IPv4 only, with EFA", func() {
+			setupIPv4Only()
+			c.hasEFAWorker = true
+		}),
+		Entry("IPv6 only, with EFA", func() {
+			setupIPv6Only()
+			c.hasEFAWorker = true
+		}),
+		Entry("DualStack via IPFamilies, with EFA", func() {
+			setupDualStack(dualStackViaFamilies)
+			c.hasEFAWorker = true
+		}),
+		Entry("DualStack via InfrastructureConfig, with EFA", func() {
+			setupDualStack(dualStackViaInfraConfig)
+			c.hasEFAWorker = true
+		}),
+	)
 })

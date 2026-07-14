@@ -36,6 +36,9 @@ const (
 	allIPv6                = "::/0"
 	nat64Prefix            = "64:ff9b::/96"
 	defaultIPv6NetmaskSize = 56
+	nodePortMin            = 30000
+	nodePortMax            = 32767
+	nfsPort                = 2049
 )
 
 // Reconcile creates and runs the flow to reconcile the AWS infrastructure.
@@ -574,16 +577,16 @@ func (c *FlowContext) computeNodesSecurityGroupBaseRules() []*awsclient.Security
 		},
 		{
 			Type:         awsclient.SecurityGroupRuleTypeIngress,
-			FromPort:     ptr.To[int32](30000),
-			ToPort:       ptr.To[int32](32767),
+			FromPort:     ptr.To[int32](nodePortMin),
+			ToPort:       ptr.To[int32](nodePortMax),
 			Protocol:     "tcp",
 			CidrBlocks:   cidrV4(),
 			CidrBlocksv6: cidrV6(),
 		},
 		{
 			Type:         awsclient.SecurityGroupRuleTypeIngress,
-			FromPort:     ptr.To[int32](30000),
-			ToPort:       ptr.To[int32](32767),
+			FromPort:     ptr.To[int32](nodePortMin),
+			ToPort:       ptr.To[int32](nodePortMax),
 			Protocol:     "udp",
 			CidrBlocks:   cidrV4(),
 			CidrBlocksv6: cidrV6(),
@@ -629,36 +632,36 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 
 		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](30000),
-			ToPort:   ptr.To[int32](32767),
+			FromPort: ptr.To[int32](nodePortMin),
+			ToPort:   ptr.To[int32](nodePortMax),
 			Protocol: "tcp",
 		}
 
 		ruleNodesInternalUDP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](30000),
-			ToPort:   ptr.To[int32](32767),
+			FromPort: ptr.To[int32](nodePortMin),
+			ToPort:   ptr.To[int32](nodePortMax),
 			Protocol: "udp",
 		}
 
 		ruleNodesPublicTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](30000),
-			ToPort:   ptr.To[int32](32767),
+			FromPort: ptr.To[int32](nodePortMin),
+			ToPort:   ptr.To[int32](nodePortMax),
 			Protocol: "tcp",
 		}
 
 		ruleNodesPublicUDP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](30000),
-			ToPort:   ptr.To[int32](32767),
+			FromPort: ptr.To[int32](nodePortMin),
+			ToPort:   ptr.To[int32](nodePortMax),
 			Protocol: "udp",
 		}
 
 		ruleEfsInboundNFS := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](2049),
-			ToPort:   ptr.To[int32](2049),
+			FromPort: ptr.To[int32](nfsPort),
+			ToPort:   ptr.To[int32](nfsPort),
 			Protocol: "tcp",
 		}
 
