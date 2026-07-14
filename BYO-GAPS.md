@@ -38,6 +38,7 @@ Landed on `byo-subnet3`:
    reconciles; pin `getSubnetKey` state-write-first contract with unit
    tests; add `CreateDualStackSubnetInZone` integration helper.
 6. **Gap J** — reject BYO subnets with multiple IPv6 CIDR associations.
+7. **Gap E** — sort subnets by ID in `ensureSubnetCidrReservation` for deterministic selection when state is lost.
 
 Deferred (not planned in this PR):
 
@@ -348,12 +349,19 @@ first one it walks without warning.
 
 ### Decision
 
-`pending` — Option 1 preferred for BYO consistency. Low probability of hitting
-in practice.
+Sort `subnets` by subnet ID immediately after `collectExistingSubnets`, before
+either loop. Subnet IDs are stable AWS-assigned identifiers that never change,
+so sorting gives a deterministic, reproducible selection order regardless of
+what AWS returns. The state anchor (line 1695) makes the sort irrelevant on
+normal reconciles; it only matters when state is absent and multiple subnets
+already have reservations — exactly the edge case Gap E describes.
 
 ### Status
 
-`pending`.
+`implemented` on `byo-subnet3`.
+
+**Resolved by**: sort `subnets` by `SubnetId` in `ensureSubnetCidrReservation`
+(`reconcile.go`, after `collectExistingSubnets`).
 
 ---
 

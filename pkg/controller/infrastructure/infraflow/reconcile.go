@@ -1659,6 +1659,12 @@ func (c *FlowContext) ensureSubnetCidrReservation(ctx context.Context) error {
 		return err
 	}
 
+	// Sort by subnet ID so that if state is lost the same subnet is always chosen,
+	// regardless of AWS iteration order.
+	slices.SortFunc(subnets, func(a, b *awsclient.Subnet) int {
+		return strings.Compare(a.SubnetId, b.SubnetId)
+	})
+
 	// Prefer a previously-recorded service CIDR if one is in state. This stabilizes
 	// the value across reconciles: if AWS iteration order flips (or someone
 	// manually creates a matching reservation on another subnet), we still pick
