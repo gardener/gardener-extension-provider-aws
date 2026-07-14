@@ -212,9 +212,9 @@ var _ = Describe("ConfigValidator", func() {
 						},
 						Zones: []apisaws.Zone{
 							{
-								Workers:  "10.251.127.0/26",
-								Public:   "10.252.125.0/26",
-								Internal: "10.251.126.0/26",
+								Workers:  ptr.To("10.251.127.0/26"),
+								Public:   ptr.To("10.252.125.0/26"),
+								Internal: ptr.To("10.251.126.0/26"),
 							},
 						},
 					},
@@ -238,19 +238,19 @@ var _ = Describe("ConfigValidator", func() {
 						},
 						Zones: []apisaws.Zone{
 							{
-								Workers:  "10.251.127.0/26",
-								Public:   "10.252.125.0/26",
-								Internal: "10.251.126.0/26",
+								Workers:  ptr.To("10.251.127.0/26"),
+								Public:   ptr.To("10.252.125.0/26"),
+								Internal: ptr.To("10.251.126.0/26"),
 							},
 							{
-								Workers:  "10.254.128.0/26",
-								Public:   "10.254.129.0/26",
-								Internal: "10.255.130.0/26",
+								Workers:  ptr.To("10.254.128.0/26"),
+								Public:   ptr.To("10.254.129.0/26"),
+								Internal: ptr.To("10.255.130.0/26"),
 							},
 							{
-								Workers:  "10.256.128.0/26",
-								Public:   "10.256.129.0/26",
-								Internal: "10.256.130.0/26",
+								Workers:  ptr.To("10.256.128.0/26"),
+								Public:   ptr.To("10.256.129.0/26"),
+								Internal: ptr.To("10.256.130.0/26"),
 							},
 						},
 					},
