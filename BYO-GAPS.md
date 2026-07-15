@@ -51,6 +51,8 @@ Retracted as not-a-bug:
 
 - **Gap D** — `CidrBlock == ""` and `Ipv6Native == true` are defensive
   complementary checks, not redundant.
+- **Gap G** — contract tests already present in `reconcile_getsubnetkey_test.go`
+  (lines 138–149); invariant was already pinned before this pass.
 - **Gap I** — a `::/0` route is not mandatory for BYO+IPv6 (specific
   prefixes, NAT64, hub-and-spoke are all legitimate); validating would
   violate the BYO principle "user manages routing". Requirement stays a
@@ -459,13 +461,17 @@ reordering could regress silently.
 
 ### Decision
 
-`pending` — Option 1 is small and worth doing; Option 2 is a rewrite that
-Alex's fix PR (`kon-angelo/gardener-extension-provider-aws#1`) already
-partially addressed. Prefer 1.
+Option 1 implemented. Three `Entry` specs at the bottom of
+`reconcile_getsubnetkey_test.go` (lines 138–149) cover BYO dual-stack with
+empty state for each subnet purpose (workers, public, internal). They assert
+that `getSubnetKey` returns an error when state has not been populated,
+documenting the invariant that `ensureBYOZones` must run before any caller
+of `getSubnetKey` in BYO mode.
 
 ### Status
 
-`pending`.
+`implemented` on `byo-subnet3` — contract tests already present in
+`reconcile_getsubnetkey_test.go`.
 
 ---
 
@@ -768,12 +774,14 @@ converging on ginkgo here is the natural direction.
 
 ### Decision
 
-`pending` — Option 1 preferred. Small follow-up commit after Gap A Shape 2
-lands. Not urgent; both styles compile and run today.
+Option 1 implemented. Rewrote `nodes_security_group_internal_test.go` as four
+`It` blocks under `Describe("computeNodesSecurityGroupBaseRules")`. All
+assertions preserved verbatim; `testing` import dropped; `NewWithT(t)` calls
+replaced with top-level `Expect`.
 
 ### Status
 
-`pending`.
+`implemented` on `byo-subnet3`.
 
 ### Follow-ups
 
