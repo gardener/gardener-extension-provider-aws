@@ -39,6 +39,7 @@ Landed on `byo-subnet3`:
    tests; add `CreateDualStackSubnetInZone` integration helper.
 6. **Gap J** — reject BYO subnets with multiple IPv6 CIDR associations.
 7. **Gap E** — sort subnets by ID in `ensureSubnetCidrReservation` for deterministic selection when state is lost.
+8. **Doc-1 through Doc-4** — proposal corrections and additions (CCM function name, NLBSecurityGroupMode, NodePort CIDR tightening scope, hybrid SG+BYO subsection).
 
 Deferred (not planned in this PR):
 
@@ -60,7 +61,6 @@ Retracted as not-a-bug:
 
 Pending (not addressed in this PR):
 
-- **Doc-1 through Doc-4** — proposal corrections and additions.
 - **Alex thread replies** — per user direction, no GitHub replies were
   posted for the already-resolved threads.
 - **Gap M** — convert `nodes_security_group_internal_test.go` to ginkgo
@@ -1117,11 +1117,12 @@ the naming is wrong.
 
 ### Decision
 
-`pending` — correct the function names in the proposal.
+Corrected. The real function name is `updateInstanceSecurityGroupsForNLB`
+(plural "Groups", no "Traffic" suffix).
 
 ### Status
 
-`pending`.
+`implemented` on `byo-subnet3`.
 
 ---
 
@@ -1144,11 +1145,13 @@ knob so future changes to CCM config are made with full context.
 
 ### Decision
 
-`pending` — add a short paragraph to the proposal's CCM-config section.
+`implemented` — added a paragraph to point 3 of the Full Replacement Model
+section explaining that `NLBSecurityGroupMode` is left unset (unmanaged default)
+and what that means.
 
 ### Status
 
-`pending`.
+`implemented` on `byo-subnet3`.
 
 ---
 
@@ -1170,13 +1173,13 @@ exist.
 
 ### Decision
 
-`pending` — reword the "or LB subnet CIDRs" clause to make clear it applies
-only to user-owned SGs. Optionally add a follow-up hook for a future feature
-that would discover BYO LB subnet CIDRs if a stronger use case emerges.
+`implemented` — reworded the table rows to `0.0.0.0/0 (or your LB subnet CIDRs)`
+and added a clarifying note to the NodePort callout that the tighter option
+applies only when the user provides their own SG, not when Gardener manages it.
 
 ### Status
 
-`pending`.
+`implemented` on `byo-subnet3`.
 
 ---
 
@@ -1199,14 +1202,14 @@ this looks like an oversight rather than a design choice.
 
 ### Decision
 
-`pending` — add a short subsection to the proposal describing the hybrid
-case (Gardener-managed SG + BYO subnets), stating that per-zone LB-CIDR
-narrowing rules are intentionally skipped and users wanting tighter
-NodePort sources should use `nodesSecurityGroupID`.
+`implemented` — added a "Hybrid: Gardener-Managed SG with BYO Subnets"
+subsection after the Additive Model section documenting the rule shape,
+the absence of `DisableSecurityGroupIngress`, the authoritative reconcile
+behaviour, and the NodePort-tightening limitation.
 
 ### Status
 
-`pending`.
+`implemented` on `byo-subnet3`.
 
 ---
 
