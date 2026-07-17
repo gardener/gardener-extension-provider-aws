@@ -13,5 +13,5 @@ import (
 
 func TestPVCA(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Shoot PVCA Webhook Suite")
+	RunSpecs(t, "Seed PVCA Webhook Suite")
 }

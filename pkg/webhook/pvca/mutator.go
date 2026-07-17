@@ -23,7 +23,7 @@ type mutator struct {
 	logger logr.Logger
 }
 
-// NewMutator creates a new Mutator that mutates resources in the shoot cluster.
+// NewMutator creates a new Mutator
 func NewMutator(logger logr.Logger) extensionswebhook.Mutator {
 	return &mutator{logger: logger}
 }
