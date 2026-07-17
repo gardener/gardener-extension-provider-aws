@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
@@ -46,6 +44,10 @@ const (
 	TagValueClusterShared = "shared"
 	// TagValueELB is the tag value for the ELB tag keys
 	TagValueELB = "1"
+	// TagKeyManagedByGardener marks a tag that was added by Gardener (not pre-existing).
+	// Used to track whether role tags (elb/internal-elb) were added by Gardener during reconcile
+	// so they can optionally be cleaned up on delete.
+	TagKeyManagedByGardener = "gardener.cloud/managed-tag"
 
 	// IdentifierVPC is the key for the VPC id
 	IdentifierVPC = "VPC"
@@ -67,6 +69,27 @@ const (
 	IdentifierZoneSubnetPublic = "SubnetPublicUtility"
 	// IdentifierZoneSubnetPrivate is the key for the id of the private utility subnet
 	IdentifierZoneSubnetPrivate = "SubnetPrivateUtility"
+	// IdentifierZoneSubnetWorkersCIDR is the key for the IPv4 CIDR block of the workers subnet.
+	// Populated by ensureBYOZones in BYO mode so downstream tasks (nodes SG builder, EFS
+	// rule builder, route table validation) can reference the real subnet CIDR without
+	// additional AWS calls. Empty for IPv6-only subnets. Not populated in managed mode
+	// (config carries the CIDR).
+	IdentifierZoneSubnetWorkersCIDR = "SubnetWorkersCIDR"
+	// IdentifierZoneSubnetWorkersIPv6CIDR is the key for the IPv6 CIDR block of the workers subnet.
+	// Populated by ensureBYOZones in BYO mode. Empty for IPv4-only subnets.
+	IdentifierZoneSubnetWorkersIPv6CIDR = "SubnetWorkersIPv6CIDR"
+	// IdentifierZoneSubnetPublicCIDR is the key for the IPv4 CIDR block of the public LB subnet.
+	// Populated by ensureBYOZones (explicit `zone.PublicSubnetID` path) and by
+	// discoverTaggedSubnets (pre-tagged discovery path).
+	IdentifierZoneSubnetPublicCIDR = "SubnetPublicUtilityCIDR"
+	// IdentifierZoneSubnetPublicIPv6CIDR is the key for the IPv6 CIDR block of the public LB subnet.
+	IdentifierZoneSubnetPublicIPv6CIDR = "SubnetPublicUtilityIPv6CIDR"
+	// IdentifierZoneSubnetPrivateCIDR is the key for the IPv4 CIDR block of the internal LB subnet.
+	// Populated by ensureBYOZones (explicit `zone.InternalSubnetID` path) and by
+	// discoverTaggedSubnets (pre-tagged discovery path).
+	IdentifierZoneSubnetPrivateCIDR = "SubnetPrivateUtilityCIDR"
+	// IdentifierZoneSubnetPrivateIPv6CIDR is the key for the IPv6 CIDR block of the internal LB subnet.
+	IdentifierZoneSubnetPrivateIPv6CIDR = "SubnetPrivateUtilityIPv6CIDR"
 	// IdentifierZoneSuffix is the key for the suffix used for a zone
 	IdentifierZoneSuffix = "Suffix"
 	// IdentifierManagedZoneNATGWElasticIP is the key for the allocationID of the gardener managed NAT gateway elastic IP
@@ -298,16 +321,6 @@ func (c *FlowContext) tagKeyCluster() string {
 // Accepts both the legacy value ("1") and the standard value ("owned").
 func isOwnedClusterResource(tagValue string) bool {
 	return tagValue == TagValueCluster || tagValue == TagValueClusterOwned
-}
-
-// clusterTagKeyExistsFilter returns an EC2 filter that matches resources having the cluster
-// tag key regardless of value. Used for discovery where we want to find all resources
-// associated with this cluster (owned, shared, or legacy).
-func (c *FlowContext) clusterTagKeyExistsFilter() ec2types.Filter {
-	return ec2types.Filter{
-		Name:   aws.String("tag-key"),
-		Values: []string{c.tagKeyCluster()},
-	}
 }
 
 func (c *FlowContext) clusterTags() awsclient.Tags {
