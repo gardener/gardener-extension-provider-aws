@@ -1240,6 +1240,965 @@ branch.
 
 ---
 
+# Pre-merge test scenarios
+
+## T1 — Managed mode IPv4 (regression baseline)
+
+No BYO fields. Expected: VPC, subnets, SG, NAT GW, IGW all created by
+Gardener. Verifies existing managed-mode clusters are not broken by this PR.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t1-managed-ipv4
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          cidr: 10.180.0.0/16
+        zones:
+        - name: eu-west-1a
+          workers: 10.180.0.0/19
+          public: 10.180.32.0/20
+          internal: 10.180.48.0/20
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t1
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T2 — Managed mode dual-stack (regression baseline)
+
+Same as T1 but with `ipFamilies: [IPv4, IPv6]`. Expected: IPv6 CIDR block
+associated with VPC and subnets; `/108` service CIDR reservation created on
+the worker subnet.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t2-managed-ds
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          cidr: 10.180.0.0/16
+        zones:
+        - name: eu-west-1a
+          workers: 10.180.0.0/19
+          public: 10.180.32.0/20
+          internal: 10.180.48.0/20
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t2
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+    ipFamilies:
+    - IPv4
+    - IPv6
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T3 — BYO full replacement: workers + LB subnets + BYO SG
+
+The canonical BYO scenario. Gardener tags the subnets but creates nothing.
+Expected: no VPC/subnet/SG/NAT resources created; cluster tags added to BYO
+subnets; `infraStatus.VPC.Subnets` populated; service controller enabled.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: test-byo-full
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: vpc-0a505268b4eb6b992
+        nodesSecurityGroupID: sg-0363704da788859a6
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: subnet-08d39a8417f63b266
+          publicSubnetID: subnet-04c69738e600ab28f
+          internalSubnetID: subnet-0769ddd7e067e26a4
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t3
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T4 — BYO hybrid: workers + LB subnets, Gardener-managed SG
+
+User brings subnets; Gardener creates and manages the nodes SG.
+Expected: SG created with base rules + narrow per-zone NodePort rules
+sourced from real BYO subnet CIDRs; `DisableSecurityGroupIngress` NOT set.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: test-byo-hybrid
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-eu-west-1a>
+          publicSubnetID: <subnet-public-eu-west-1a>
+          internalSubnetID: <subnet-internal-eu-west-1a>
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t4
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T5 — BYO workers only (no LB subnets, Gardener-managed SG)
+
+Workers subnet only; no LB subnets. Expected: SG created with base rules
+only (no narrow per-zone rules); service controller disabled in CCM config.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t5-byo-workers
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-eu-west-1a>
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t5
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T6 — BYO + pre-tagged LB subnets (no explicit LB subnet IDs)
+
+Workers subnet provided; LB subnets pre-tagged in AWS (not named in config).
+Expected: `discoverTaggedSubnets` finds them; `infraStatus.VPC.Subnets`
+populated; service controller enabled; SG narrow rules sourced from
+discovered CIDRs.
+
+Pre-tag the LB subnets in AWS before creating the shoot:
+```
+kubernetes.io/cluster/shoot--garden-remote--t6-byo-tagged = shared
+kubernetes.io/role/elb = 1          # on the public LB subnet
+kubernetes.io/role/internal-elb = 1 # on the internal LB subnet
+```
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t6-byo-tagged
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-eu-west-1a>
+          # no publicSubnetID / internalSubnetID — discovery via tags
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t6
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T7 — BYO + dual-stack (IPv4+IPv6), single zone
+
+Workers subnet has both IPv4 and IPv6 CIDRs. Expected:
+`ensureSubnetCidrReservation` creates a `/108` reservation on the worker
+subnet; `infraStatus` carries the service CIDR; SG rules contain both v4
+and v6 CIDRs in per-zone rules.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t7-byo-ds
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id-with-ipv6>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-dualstack-eu-west-1a>   # must have an IPv6 CIDR block
+          publicSubnetID: <subnet-public-dualstack-eu-west-1a>
+          internalSubnetID: <subnet-internal-dualstack-eu-west-1a>
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t7
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+    ipFamilies:
+    - IPv4
+    - IPv6
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T8 — BYO + dual-stack, two zones (Gap E determinism)
+
+Same as T7 but two zones. Verifies that the `/108` reservation is created
+on exactly one worker subnet (the one with the lexicographically smallest
+subnet ID after the Gap E sort) and the second zone's worker subnet gets no
+conflicting reservation.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t8-byo-ds-mz
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id-with-ipv6>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-dualstack-eu-west-1a>
+          publicSubnetID: <subnet-public-dualstack-eu-west-1a>
+          internalSubnetID: <subnet-internal-dualstack-eu-west-1a>
+        - name: eu-west-1b
+          workersSubnetID: <subnet-workers-dualstack-eu-west-1b>
+          publicSubnetID: <subnet-public-dualstack-eu-west-1b>
+          internalSubnetID: <subnet-internal-dualstack-eu-west-1b>
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t8
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      - eu-west-1b
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+    ipFamilies:
+    - IPv4
+    - IPv6
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T9 — BYO + IPv6-only (single-stack)
+
+Workers subnet is IPv6-native (no IPv4 CIDR). Expected: no IPv4 SG rules
+emitted; `/108` reservation created; no IPv4 EFS NFS rule.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t9-byo-ipv6
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id-with-ipv6>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-ipv6native-eu-west-1a>  # Ipv6Native=true, no IPv4 CIDR
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t9
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    type: calico
+    ipFamilies:
+    - IPv6
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T10 — BYO + EFS enabled (Gap F fix)
+
+Same topology as T4 but with EFS enabled. Expected: EFS NFS TCP 2049
+ingress rule sourced from the workers subnet CIDR (not the internal LB
+subnet CIDR — this is the Gap F fix).
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: test-byo-efs
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      elasticFileSystem:
+        enabled: true
+        id: <efs-fs-id>
+      networks:
+        vpc:
+          id: <vpc-id>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-eu-west-1a>
+          publicSubnetID: <subnet-public-eu-west-1a>
+          internalSubnetID: <subnet-internal-eu-west-1a>
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t10
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T11 — BYO full replacement, three zones
+
+Three zones each with workers + public + internal. Verifies cross-zone LB
+uniformity check passes and narrow per-zone SG rules are emitted for all
+three zones.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t11-byo-mz
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id>
+        nodesSecurityGroupID: <sg-nodes-id>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-eu-west-1a>
+          publicSubnetID: <subnet-public-eu-west-1a>
+          internalSubnetID: <subnet-internal-eu-west-1a>
+        - name: eu-west-1b
+          workersSubnetID: <subnet-workers-eu-west-1b>
+          publicSubnetID: <subnet-public-eu-west-1b>
+          internalSubnetID: <subnet-internal-eu-west-1b>
+        - name: eu-west-1c
+          workersSubnetID: <subnet-workers-eu-west-1c>
+          publicSubnetID: <subnet-public-eu-west-1c>
+          internalSubnetID: <subnet-internal-eu-west-1c>
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t11
+      minimum: 1
+      maximum: 3
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      - eu-west-1b
+      - eu-west-1c
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T12 — Rejection: mixed-zone LB config
+
+Zone A has `publicSubnetID`, zone B does not. Expected: admission webhook
+rejects the shoot with a `field.Required` error pointing at zone B's
+missing `publicSubnetID`. Shoot creation should fail immediately.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t12-byo-mz-rej
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-eu-west-1a>
+          publicSubnetID: <subnet-public-eu-west-1a>   # present
+        - name: eu-west-1b
+          workersSubnetID: <subnet-workers-eu-west-1b>
+          # publicSubnetID intentionally absent → rejected
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t12
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      - eu-west-1b
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## T13 — Rejection: multiple IPv6 CIDRs on BYO worker subnet (Gap J)
+
+BYO worker subnet has two IPv6 CIDR associations. Expected: config
+validator rejects with an error listing both CIDRs and asking the user to
+remove the extras. Shoot reconciliation should fail at the configvalidator
+step.
+
+Preparation: associate a second IPv6 CIDR block with
+`<subnet-workers-eu-west-1a>` in AWS before creating the shoot.
+
+```yaml
+kind: Shoot
+apiVersion: core.gardener.cloud/v1beta1
+metadata:
+  name: t13-ipv6-rej
+  namespace: garden-remote
+spec:
+  provider:
+    type: aws
+    infrastructureConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: InfrastructureConfig
+      networks:
+        vpc:
+          id: <vpc-id-with-ipv6>
+        zones:
+        - name: eu-west-1a
+          workersSubnetID: <subnet-workers-with-two-ipv6-cidrs>
+    controlPlaneConfig:
+      apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+      kind: ControlPlaneConfig
+    workers:
+    - name: worker-t13
+      minimum: 1
+      maximum: 2
+      maxSurge: 1
+      machine:
+        type: m5.large
+        image:
+          name: gardenlinux
+        architecture: amd64
+      zones:
+      - eu-west-1a
+      cri:
+        name: containerd
+      volume:
+        type: gp3
+        size: 50Gi
+  networking:
+    nodes: 10.180.0.0/16
+    type: calico
+    ipFamilies:
+    - IPv4
+    - IPv6
+  kubernetes:
+    version: 1.35.5
+  cloudProfile:
+    name: aws
+    kind: CloudProfile
+  credentialsBindingName: shoot-operator-aws-team
+  purpose: evaluation
+  region: eu-west-1
+  seedName: remote
+  maintenance:
+    autoUpdate:
+      kubernetesVersion: true
+      machineImageVersion: true
+    timeWindow:
+      begin: 040000+0200
+      end: 050000+0200
+```
+
+---
+
+## Summary table
+
+| ID  | Mode | IPv6 | Zones | SG | LB subnets | Expected outcome |
+|-----|------|------|-------|----|------------|-----------------|
+| T1  | Managed | No | 1 | Gardener | Managed | Regression baseline — all resources created |
+| T2  | Managed | Dual-stack | 1 | Gardener | Managed | `/108` reservation created |
+| T3  | BYO full | No | 1 | BYO | Explicit | Nothing created; tags added; svc-ctrl enabled |
+| T4  | BYO hybrid | No | 1 | Gardener | Explicit | SG created with real CIDR narrow rules |
+| T5  | BYO hybrid | No | 1 | Gardener | None | SG created with base rules only; svc-ctrl disabled |
+| T6  | BYO hybrid | No | 1 | Gardener | Pre-tagged | Discovery populates status; svc-ctrl enabled |
+| T7  | BYO hybrid | Dual-stack | 1 | Gardener | Explicit | `/108` reservation; v4+v6 SG rules |
+| T8  | BYO hybrid | Dual-stack | 2 | Gardener | Explicit | Single `/108` on lowest-ID worker subnet |
+| T9  | BYO hybrid | IPv6-only | 1 | Gardener | None | IPv6-only SG rules; no IPv4 rules |
+| T10 | BYO hybrid | No | 1 | Gardener | Explicit | EFS rule sources workers CIDR |
+| T11 | BYO full | No | 3 | BYO | Explicit | All 3 zones tagged; per-zone rules for all |
+| T12 | BYO hybrid | No | 2 | Gardener | Mixed | **Rejected** — mixed-zone LB consistency |
+| T13 | BYO hybrid | Dual-stack | 1 | Gardener | None | **Rejected** — multiple IPv6 CIDRs on subnet |
+
+---
+
 # Glossary
 
 - **BYO**: Bring Your Own — user provides existing AWS infrastructure
