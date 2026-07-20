@@ -1174,7 +1174,7 @@ func verifyBYOCreation(
 		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String("tag:" + kubernetesClusterTagPrefix + infra.Namespace),
-				Values: []string{"1"},
+				Values: []string{"owned"},
 			},
 		},
 	})
@@ -1190,7 +1190,7 @@ func verifyBYOCreation(
 			},
 			{
 				Name:   awssdk.String("tag:" + kubernetesClusterTagPrefix + infra.Namespace),
-				Values: []string{"1"},
+				Values: []string{"owned"},
 			},
 		},
 	})
@@ -1418,7 +1418,7 @@ func verifyCreation(
 		kubernetesTagFilter = []ec2types.Filter{
 			{
 				Name:   awssdk.String("tag:" + kubernetesClusterTagPrefix + infra.Namespace),
-				Values: []string{"1"},
+				Values: []string{"owned"},
 			},
 		}
 		vpcIDFilter = []ec2types.Filter{
@@ -1431,7 +1431,7 @@ func verifyCreation(
 		defaultTags = []ec2types.Tag{
 			{
 				Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-				Value: awssdk.String("1"),
+				Value: awssdk.String("owned"),
 			},
 			{
 				Key:   awssdk.String("Name"),
@@ -1497,7 +1497,7 @@ func verifyCreation(
 	Expect(describeVpcEndpointsOutput.VpcEndpoints[0].Tags).To(ConsistOf([]ec2types.Tag{
 		{
 			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-			Value: awssdk.String("1"),
+			Value: awssdk.String("owned"),
 		},
 		{
 			Key:   awssdk.String("Name"),
@@ -1623,7 +1623,7 @@ func verifyCreation(
 			Expect(securityGroup.Tags).To(ConsistOf([]ec2types.Tag{
 				{
 					Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-					Value: awssdk.String("1"),
+					Value: awssdk.String("owned"),
 				},
 				{
 					Key:   awssdk.String("Name"),
@@ -1673,7 +1673,7 @@ func verifyCreation(
 				Expect(subnet.Tags).To(ContainElements(
 					ec2types.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-						Value: awssdk.String("1"),
+						Value: awssdk.String("owned"),
 					},
 					ec2types.Tag{
 						Key:   awssdk.String("Name"),
@@ -1710,7 +1710,7 @@ func verifyCreation(
 					},
 					ec2types.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-						Value: awssdk.String("1"),
+						Value: awssdk.String("owned"),
 					},
 					ec2types.Tag{
 						Key:   awssdk.String("Name"),
@@ -1737,7 +1737,7 @@ func verifyCreation(
 					},
 					ec2types.Tag{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-						Value: awssdk.String("1"),
+						Value: awssdk.String("owned"),
 					},
 					ec2types.Tag{
 						Key:   awssdk.String("Name"),
@@ -1761,7 +1761,7 @@ func verifyCreation(
 	Expect(describeAddressesOutput.Addresses[0].Tags).To(ConsistOf([]ec2types.Tag{
 		{
 			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-			Value: awssdk.String("1"),
+			Value: awssdk.String("owned"),
 		},
 		{
 			Key:   awssdk.String("Name"),
@@ -1787,7 +1787,7 @@ func verifyCreation(
 	Expect(describeNatGatewaysOutput.NatGateways[0].Tags).To(ConsistOf([]ec2types.Tag{
 		{
 			Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-			Value: awssdk.String("1"),
+			Value: awssdk.String("owned"),
 		},
 		{
 			Key:   awssdk.String("Name"),
@@ -1978,7 +1978,7 @@ func verifyCreation(
 				Expect(routeTable.Tags).To(ConsistOf([]ec2types.Tag{
 					{
 						Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-						Value: awssdk.String("1"),
+						Value: awssdk.String("owned"),
 					},
 					{
 						Key:   awssdk.String("Name"),
