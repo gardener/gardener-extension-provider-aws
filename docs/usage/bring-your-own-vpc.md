@@ -134,3 +134,20 @@ provider:
           publicSubnetID: subnet-yyyyyyyyyyyyyyyy  # optional
           internalSubnetID: subnet-zzzzzzzzzzzzzz  # optional
 ```
+
+## LB Subnet Discovery via Tags
+
+Instead of specifying `publicSubnetID` and `internalSubnetID` explicitly, you can let Gardener discover your load balancer subnets by tagging them. During infrastructure reconciliation, Gardener searches the VPC for subnets carrying the appropriate role tags and the cluster tag, then stores the discovered subnet IDs in `infraStatus` and uses their CIDRs to configure security group rules.
+
+The required tags are:
+
+| Tag key | Value | Subnet |
+|---|---|---|
+| `kubernetes.io/cluster/<technical-shoot-name>` | `shared` | both public and internal |
+| `kubernetes.io/role/elb` | `1` | public LB subnet |
+| `kubernetes.io/role/internal-elb` | `1` | internal LB subnet |
+
+The technical shoot name follows the pattern `shoot--<project>--<shoot-name>`, which is also the seed namespace the shoot runs in (e.g. `shoot--remote--my-shoot`).
+
+> [!WARNING]
+> **The AWS console silently hides leading and trailing whitespace in tag keys and values.** A tag key entered as ` kubernetes.io/role/elb` (with a leading space) looks identical to `kubernetes.io/role/elb` in the console, but the underlying API stores the space and the discovery filter will not match it.
