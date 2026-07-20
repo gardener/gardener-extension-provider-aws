@@ -49,6 +49,20 @@ The following examples cover the case where you want to bring your own subnets, 
    - Route: `0.0.0.0/0` → your Internet Gateway.
    - Add subnet associations for your public subnets.
 
+Reference your existing resources in the shoot's `infrastructureConfig`:
+
+```yaml
+networks:
+  vpc:
+    id: vpc-xxxxxxxx
+  nodesSecurityGroupID: sg-xxxxxxxxxxxxxxxx   # optional
+  zones:
+    - name: eu-central-1a
+      workersSubnetID: subnet-xxxxxxxxxxxxxxxx
+      publicSubnetID: subnet-yyyyyyyyyyyyyyyy  # optional
+      internalSubnetID: subnet-zzzzzzzzzzzzzz  # optional
+```
+
 ### IPv6-only Cluster
 
 1. Create a VPC with an IPv6 CIDR block and enable **DNS resolution** and **DNS hostnames**.
@@ -67,6 +81,28 @@ The following examples cover the case where you want to bring your own subnets, 
    - **Outbound**: All traffic to `::/0`.
 8. Create a NAT Gateway and attach it to your VPC.
 
+Reference your existing resources in the shoot's `infrastructureConfig` and set `ipFamilies` to `IPv6`:
+
+```yaml
+networking:
+  ipFamilies:
+    - IPv6
+provider:
+  type: aws
+  infrastructureConfig:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: InfrastructureConfig
+    networks:
+      vpc:
+        id: vpc-xxxxxxxx
+      nodesSecurityGroupID: sg-xxxxxxxxxxxxxxxx   # optional
+      zones:
+        - name: eu-central-1a
+          workersSubnetID: subnet-xxxxxxxxxxxxxxxx
+          publicSubnetID: subnet-yyyyyyyyyyyyyyyy  # optional
+          internalSubnetID: subnet-zzzzzzzzzzzzzz  # optional
+```
+
 ### Dual-Stack Cluster
 
 Same as [IPv6-only](#ipv6-only-cluster) with the following differences:
@@ -75,3 +111,26 @@ Same as [IPv6-only](#ipv6-only-cluster) with the following differences:
 2. No DNS64 is needed for the worker subnet since nodes have IPv4 and can reach IPv4 endpoints directly.
 3. The worker route table needs an additional route: `0.0.0.0/0` → NAT Gateway (for IPv4 egress).
 4. If a security group is created, it needs an additional outbound rule: All traffic to `0.0.0.0/0`.
+
+The shoot config is the same as the IPv6-only example above, but with `ipFamilies` set to both `IPv4` and `IPv6`:
+
+```yaml
+networking:
+  ipFamilies:
+    - IPv4
+    - IPv6
+provider:
+  type: aws
+  infrastructureConfig:
+    apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+    kind: InfrastructureConfig
+    networks:
+      vpc:
+        id: vpc-xxxxxxxx
+      nodesSecurityGroupID: sg-xxxxxxxxxxxxxxxx   # optional
+      zones:
+        - name: eu-central-1a
+          workersSubnetID: subnet-xxxxxxxxxxxxxxxx
+          publicSubnetID: subnet-yyyyyyyyyyyyyyyy  # optional
+          internalSubnetID: subnet-zzzzzzzzzzzzzz  # optional
+```
