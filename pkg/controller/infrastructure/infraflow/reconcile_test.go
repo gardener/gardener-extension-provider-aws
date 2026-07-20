@@ -222,9 +222,7 @@ var _ = Describe("#FlowContext", func() {
 		It("should return IPv4 when networking is not set", func() {
 			c.networking = nil
 			families := c.getIpFamilies()
-			Expect(families).ToNot(BeNil())
-			Expect(families).To(HaveLen(1))
-			Expect(families).To(ContainElement(core.IPFamilyIPv4))
+			Expect(families).To(ConsistOf(core.IPFamilyIPv4))
 		})
 	})
 	Describe("#getDesiredDhcpOptions", func() {
@@ -250,14 +248,14 @@ var _ = Describe("#FlowContext", func() {
 			client.EXPECT().CreateVpcDhcpOptions(ctx, dhcpOptionsArg).Return(dhcpOptions, nil).Times(1)
 			err := c.ensureDhcpOptions(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptions.DhcpOptionsId))
+			Expect(c.state.Get(IdentifierDHCPOptions)).To(HaveValue(Equal(dhcpOptions.DhcpOptionsId)))
 		})
 		It("should use existing DHCP options if they can be found by tags", func() {
 			client.EXPECT().FindVpcDhcpOptionsByTags(ctx, tags).Return([]*awsclient.DhcpOptions{dhcpOptions}, nil).Times(1)
 			updater.EXPECT().UpdateEC2Tags(ctx, dhcpOptions.DhcpOptionsId, c.commonTags, dhcpOptions.Tags).Return(false, nil).Times(1)
 			err := c.ensureDhcpOptions(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptions.DhcpOptionsId))
+			Expect(c.state.Get(IdentifierDHCPOptions)).To(HaveValue(Equal(dhcpOptions.DhcpOptionsId)))
 		})
 		It("should use existing DHCP options if they can be found by ID", func() {
 			client.EXPECT().GetVpcDhcpOptions(ctx, dhcpOptions.DhcpOptionsId).Return(dhcpOptions, nil).Times(1)
@@ -265,7 +263,7 @@ var _ = Describe("#FlowContext", func() {
 			c.state.Set(IdentifierDHCPOptions, dhcpOptions.DhcpOptionsId)
 			err := c.ensureDhcpOptions(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*c.state.Get(IdentifierDHCPOptions)).To(Equal(dhcpOptions.DhcpOptionsId))
+			Expect(c.state.Get(IdentifierDHCPOptions)).To(HaveValue(Equal(dhcpOptions.DhcpOptionsId)))
 		})
 	})
 	DescribeTableSubtree("#ensureVpc",
@@ -288,8 +286,7 @@ var _ = Describe("#FlowContext", func() {
 					}).Times(1)
 				err := c.ensureVpc(ctx)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(c.state.Get(IdentifierVPC)).To(Not(BeNil()))
-				Expect(*c.state.Get(IdentifierVPC)).To(Equal(vpc.VpcId))
+				Expect(c.state.Get(IdentifierVPC)).To(HaveValue(Equal(vpc.VpcId)))
 			})
 			It("should use an existing VPC if it can be found by tags", func() {
 				c.state.Set(IdentifierDHCPOptions, dhcpOptions.DhcpOptionsId)
@@ -301,11 +298,9 @@ var _ = Describe("#FlowContext", func() {
 					}).Times(1)
 				err := c.ensureVpc(ctx)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(c.state.Get(IdentifierVPC)).To(Not(BeNil()))
-				Expect(*c.state.Get(IdentifierVPC)).To(Equal(vpc.VpcId))
+				Expect(c.state.Get(IdentifierVPC)).To(HaveValue(Equal(vpc.VpcId)))
 				if c.isIPv6Enabled() {
-					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
-					Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(vpc.IPv6CidrBlock))
+					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(HaveValue(Equal(vpc.IPv6CidrBlock)))
 				} else {
 					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(BeNil())
 				}
@@ -320,11 +315,9 @@ var _ = Describe("#FlowContext", func() {
 					}).Times(1)
 				err := c.ensureVpc(ctx)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(c.state.Get(IdentifierVPC)).To(Not(BeNil()))
-				Expect(*c.state.Get(IdentifierVPC)).To(Equal(vpc.VpcId))
+				Expect(c.state.Get(IdentifierVPC)).To(HaveValue(Equal(vpc.VpcId)))
 				if c.isIPv6Enabled() {
-					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
-					Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(vpc.IPv6CidrBlock))
+					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(HaveValue(Equal(vpc.IPv6CidrBlock)))
 				} else {
 					Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(BeNil())
 				}
@@ -339,10 +332,8 @@ var _ = Describe("#FlowContext", func() {
 				}
 				err := c.ensureVpc(ctx)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(c.state.Get(IdentifierVPC)).To(Not(BeNil()))
-				Expect(*c.state.Get(IdentifierVPC)).To(Equal(vpc.VpcId))
-				Expect(c.state.Get(IdentifierInternetGateway)).To(Not(BeNil()))
-				Expect(*c.state.Get(IdentifierInternetGateway)).To(Equal(internetGateway.InternetGatewayId))
+				Expect(c.state.Get(IdentifierVPC)).To(HaveValue(Equal(vpc.VpcId)))
+				Expect(c.state.Get(IdentifierInternetGateway)).To(HaveValue(Equal(internetGateway.InternetGatewayId)))
 			})
 		},
 		Entry("IPv4 only",
@@ -373,10 +364,8 @@ var _ = Describe("#FlowContext", func() {
 			func(desired *awsclient.VPC) {
 				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
 				Expect(desired.Ipv6CidrBlock).To(BeNil())
-				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
-				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
-				Expect(desired.Ipv6NetmaskLength).ToNot(BeNil())
-				Expect(*desired.Ipv6NetmaskLength).To(Equal(int32(defaultIPv6NetmaskSize)))
+				Expect(desired.Ipv6IpamPoolId).To(HaveValue(Equal(ipv6IPAMPoolId)))
+				Expect(desired.Ipv6NetmaskLength).To(HaveValue(Equal(int32(defaultIPv6NetmaskSize))))
 			},
 		),
 		Entry("IPv6 only with IPv6 IPAM Pool and preconfigured CIDR",
@@ -386,10 +375,8 @@ var _ = Describe("#FlowContext", func() {
 			},
 			func(desired *awsclient.VPC) {
 				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
-				Expect(desired.Ipv6CidrBlock).ToNot(BeNil())
-				Expect(*desired.Ipv6CidrBlock).To(Equal(ipv6Cidr))
-				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
-				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6CidrBlock).To(HaveValue(Equal(ipv6Cidr)))
+				Expect(desired.Ipv6IpamPoolId).To(HaveValue(Equal(ipv6IPAMPoolId)))
 				Expect(desired.Ipv6NetmaskLength).To(BeNil())
 			},
 		),
@@ -411,10 +398,8 @@ var _ = Describe("#FlowContext", func() {
 			func(desired *awsclient.VPC) {
 				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
 				Expect(desired.Ipv6CidrBlock).To(BeNil())
-				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
-				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
-				Expect(desired.Ipv6NetmaskLength).ToNot(BeNil())
-				Expect(*desired.Ipv6NetmaskLength).To(Equal(int32(defaultIPv6NetmaskSize)))
+				Expect(desired.Ipv6IpamPoolId).To(HaveValue(Equal(ipv6IPAMPoolId)))
+				Expect(desired.Ipv6NetmaskLength).To(HaveValue(Equal(int32(defaultIPv6NetmaskSize))))
 			},
 		),
 		Entry("DualStack via IPFamilies with IPv6 IPAM Pool and preconfigured CIDR",
@@ -424,10 +409,8 @@ var _ = Describe("#FlowContext", func() {
 			},
 			func(desired *awsclient.VPC) {
 				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
-				Expect(desired.Ipv6CidrBlock).ToNot(BeNil())
-				Expect(*desired.Ipv6CidrBlock).To(Equal(ipv6Cidr))
-				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
-				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6CidrBlock).To(HaveValue(Equal(ipv6Cidr)))
+				Expect(desired.Ipv6IpamPoolId).To(HaveValue(Equal(ipv6IPAMPoolId)))
 				Expect(desired.Ipv6NetmaskLength).To(BeNil())
 			},
 		),
@@ -449,10 +432,8 @@ var _ = Describe("#FlowContext", func() {
 			func(desired *awsclient.VPC) {
 				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
 				Expect(desired.Ipv6CidrBlock).To(BeNil())
-				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
-				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
-				Expect(desired.Ipv6NetmaskLength).ToNot(BeNil())
-				Expect(*desired.Ipv6NetmaskLength).To(Equal(int32(defaultIPv6NetmaskSize)))
+				Expect(desired.Ipv6IpamPoolId).To(HaveValue(Equal(ipv6IPAMPoolId)))
+				Expect(desired.Ipv6NetmaskLength).To(HaveValue(Equal(int32(defaultIPv6NetmaskSize))))
 			},
 		),
 		Entry("DualStack via InfrastructureConfig with IPv6 IPAM Pool and preconfigured CIDR",
@@ -462,10 +443,8 @@ var _ = Describe("#FlowContext", func() {
 			},
 			func(desired *awsclient.VPC) {
 				Expect(desired.AssignGeneratedIPv6CidrBlock).To(BeFalse())
-				Expect(desired.Ipv6CidrBlock).ToNot(BeNil())
-				Expect(*desired.Ipv6CidrBlock).To(Equal(ipv6Cidr))
-				Expect(desired.Ipv6IpamPoolId).ToNot(BeNil())
-				Expect(*desired.Ipv6IpamPoolId).To(Equal(ipv6IPAMPoolId))
+				Expect(desired.Ipv6CidrBlock).To(HaveValue(Equal(ipv6Cidr)))
+				Expect(desired.Ipv6IpamPoolId).To(HaveValue(Equal(ipv6IPAMPoolId)))
 				Expect(desired.Ipv6NetmaskLength).To(BeNil())
 			},
 		),
@@ -485,24 +464,21 @@ var _ = Describe("#FlowContext", func() {
 			client.EXPECT().WaitForIPv6Cidr(ctx, vpc.VpcId).Return(ipv6Cidr, nil).Times(1)
 			err := c.ensureVpcIPv6CidrBlock(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
-			Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(ipv6Cidr))
+			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(HaveValue(Equal(ipv6Cidr)))
 		})
 		It("should wait for an IPv6 CIDR block if the cluster is dual-stack configured via IPFamilies", func() {
 			setupDualStack(dualStackViaFamilies)
 			client.EXPECT().WaitForIPv6Cidr(ctx, vpc.VpcId).Return(ipv6Cidr, nil).Times(1)
 			err := c.ensureVpcIPv6CidrBlock(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
-			Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(ipv6Cidr))
+			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(HaveValue(Equal(ipv6Cidr)))
 		})
 		It("should wait for an IPv6 CIDR block if the cluster is dual-stack configured via InfrastructureConfig", func() {
 			setupDualStack(dualStackViaInfraConfig)
 			client.EXPECT().WaitForIPv6Cidr(ctx, vpc.VpcId).Return(ipv6Cidr, nil).Times(1)
 			err := c.ensureVpcIPv6CidrBlock(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Not(BeNil()))
-			Expect(*c.state.Get(IdentifierVpcIPv6CidrBlock)).To(Equal(ipv6Cidr))
+			Expect(c.state.Get(IdentifierVpcIPv6CidrBlock)).To(HaveValue(Equal(ipv6Cidr)))
 		})
 	})
 	Describe("#ensureDefaultSecurityGroup", func() {
@@ -530,8 +506,7 @@ var _ = Describe("#FlowContext", func() {
 				}).Times(1)
 			err := c.ensureDefaultSecurityGroup(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(c.state.Get(IdentifierDefaultSecurityGroup)).To(Not(BeNil()))
-			Expect(*c.state.Get(IdentifierDefaultSecurityGroup)).To(Equal(defaultSG.GroupId))
+			Expect(c.state.Get(IdentifierDefaultSecurityGroup)).To(HaveValue(Equal(defaultSG.GroupId)))
 		})
 	})
 	DescribeTable("#computeNodesSecurityGroupBaseRules",
