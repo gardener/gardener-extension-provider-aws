@@ -1593,7 +1593,7 @@ func verifyCreation(
 						IpProtocol: awssdk.String("tcp"),
 						IpRanges: []ec2types.IpRange{
 							{
-								CidrIp: awssdk.String(internalCIDR),
+								CidrIp: awssdk.String(workersCIDR),
 							},
 						},
 						ToPort: awssdk.Int32(2049),
