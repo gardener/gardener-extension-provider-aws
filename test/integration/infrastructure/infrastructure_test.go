@@ -564,45 +564,45 @@ var _ = Describe("Infrastructure tests", func() {
 			Expect(vpcID).NotTo(BeEmpty())
 			Expect(igwID).NotTo(BeEmpty())
 
-			framework.AddCleanupAction(func() {
+			framework.AddCleanupAction(sync.OnceFunc(func() {
 				Expect(integration.DestroyVPC(ctx, log, awsClient, vpcID)).To(Succeed())
-			})
+			}))
 
 			By("create BYO worker subnet")
 			workerSubnetID, err := integration.CreateSubnetInZone(ctx, log, awsClient, vpcID, "10.250.0.0/19", "byo-workers", availabilityZone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(workerSubnetID).NotTo(BeEmpty())
 
-			framework.AddCleanupAction(func() {
+			framework.AddCleanupAction(sync.OnceFunc(func() {
 				Expect(integration.DestroySubnet(ctx, log, awsClient, workerSubnetID)).To(Succeed())
-			})
+			}))
 
 			By("create BYO public LB subnet")
 			publicLBSubnetID, err := integration.CreateSubnetInZone(ctx, log, awsClient, vpcID, "10.250.48.0/20", "byo-public-lb", availabilityZone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(publicLBSubnetID).NotTo(BeEmpty())
 
-			framework.AddCleanupAction(func() {
+			framework.AddCleanupAction(sync.OnceFunc(func() {
 				Expect(integration.DestroySubnet(ctx, log, awsClient, publicLBSubnetID)).To(Succeed())
-			})
+			}))
 
 			By("create BYO internal LB subnet")
 			internalLBSubnetID, err := integration.CreateSubnetInZone(ctx, log, awsClient, vpcID, "10.250.112.0/22", "byo-internal-lb", availabilityZone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(internalLBSubnetID).NotTo(BeEmpty())
 
-			framework.AddCleanupAction(func() {
+			framework.AddCleanupAction(sync.OnceFunc(func() {
 				Expect(integration.DestroySubnet(ctx, log, awsClient, internalLBSubnetID)).To(Succeed())
-			})
+			}))
 
 			By("create BYO nodes security group")
 			sgID, err := integration.CreateSecurityGroup(ctx, awsClient, "byo-nodes-sg", vpcID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(sgID).NotTo(BeEmpty())
 
-			framework.AddCleanupAction(func() {
+			framework.AddCleanupAction(sync.OnceFunc(func() {
 				Expect(integration.DestroySecurityGroup(ctx, log, awsClient, sgID)).To(Succeed())
-			})
+			}))
 
 			By("create BYO infrastructure config")
 			providerConfig := &awsv1alpha1.InfrastructureConfig{
