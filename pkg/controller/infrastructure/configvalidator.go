@@ -91,14 +91,14 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 	}
 
 	// Extract node network CIDR for BYO subnet validation
-	var nodesCIDRs []string
+	var nodesCIDR string
 	if cluster != nil && cluster.Shoot != nil && cluster.Shoot.Spec.Networking != nil && cluster.Shoot.Spec.Networking.Nodes != nil {
-		nodesCIDRs = []string{*cluster.Shoot.Spec.Networking.Nodes}
+		nodesCIDR = *cluster.Shoot.Spec.Networking.Nodes
 	}
 
 	// Validate BYO subnet IDs exist and are in the correct VPC/AZ
 	if config.Networks.VPC.ID != nil {
-		allErrs = append(allErrs, c.validateBYOSubnets(ctx, awsClient, config, *config.Networks.VPC.ID, requiresIPv6, nodesCIDRs)...)
+		allErrs = append(allErrs, c.validateBYOSubnets(ctx, awsClient, config, *config.Networks.VPC.ID, requiresIPv6, nodesCIDR)...)
 	}
 
 	// Validate BYO security group exists and is in the correct VPC
@@ -225,7 +225,7 @@ func (c *configValidator) validateVPC(
 
 // validateBYOSubnets validates that referenced BYO subnet IDs exist and are in the correct VPC/AZ.
 // When requiresIPv6 is true, it also validates IPv6-readiness of all BYO subnets.
-func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsclient.Interface, config *apiaws.InfrastructureConfig, vpcID string, requiresIPv6 bool, nodesCIDRs []string) field.ErrorList {
+func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsclient.Interface, config *apiaws.InfrastructureConfig, vpcID string, requiresIPv6 bool, nodesCIDR string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	for i, zone := range config.Networks.Zones {
@@ -244,7 +244,7 @@ func (c *configValidator) validateBYOSubnets(ctx context.Context, awsClient awsc
 				allErrs = append(allErrs, validateSubnetIPv6Readiness(workerSubnet, fldPath, *zone.WorkersSubnetID, true)...)
 			}
 			// Validate that the shoot's node network range fits inside the worker subnet CIDR.
-			allErrs = append(allErrs, validateNodesCIDRInSubnet(workerSubnet, fldPath, *zone.WorkersSubnetID, nodesCIDRs)...)
+			allErrs = append(allErrs, validateNodesCIDRInSubnet(workerSubnet, fldPath, *zone.WorkersSubnetID, nodesCIDR)...)
 		}
 
 		// Validate BYO public LB subnet
@@ -361,40 +361,38 @@ func validateLBSubnetNotIPv6Native(subnet *awsclient.Subnet, fldPath *field.Path
 	return allErrs
 }
 
-// validateNodesCIDRInSubnet checks that each IPv4 node network CIDR is contained within the
-// worker subnet's IPv4 CIDR block. This ensures nodes will receive IPs from within the subnet range.
-func validateNodesCIDRInSubnet(subnet *awsclient.Subnet, fldPath *field.Path, subnetID string, nodesCIDRs []string) field.ErrorList {
+// validateNodesCIDRInSubnet checks that the worker subnet's IPv4 CIDR is a subset of the shoot's
+// nodes CIDR. This mirrors the managed-mode invariant: worker CIDRs must be carved out of the nodes CIDR.
+func validateNodesCIDRInSubnet(subnet *awsclient.Subnet, fldPath *field.Path, subnetID string, nodesCIDR string) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if subnet.CidrBlock == "" || len(nodesCIDRs) == 0 {
+	if subnet.CidrBlock == "" || nodesCIDR == "" {
 		return allErrs
 	}
 
-	_, subnetNet, err := net.ParseCIDR(subnet.CidrBlock)
+	subnetIP, subnetNet, err := net.ParseCIDR(subnet.CidrBlock)
 	if err != nil {
 		// Subnet CIDR is malformed — skip check, AWS would reject it anyway
 		return allErrs
 	}
+	// Only check IPv4 subnet CIDRs
+	if subnetIP.To4() == nil {
+		return allErrs
+	}
 
-	for _, nodesCIDR := range nodesCIDRs {
-		nodesIP, nodesNet, err := net.ParseCIDR(nodesCIDR)
-		if err != nil {
-			continue
-		}
-		// Only check IPv4 node CIDRs against the IPv4 subnet CIDR
-		if nodesIP.To4() == nil {
-			continue
-		}
+	_, nodesNet, err := net.ParseCIDR(nodesCIDR)
+	if err != nil {
+		return allErrs
+	}
 
-		// The nodes CIDR must be fully contained within the subnet CIDR.
-		// Check: subnet contains the first IP of nodes range AND the subnet prefix is shorter or equal.
-		subnetOnes, _ := subnetNet.Mask.Size()
-		nodesOnes, _ := nodesNet.Mask.Size()
-		if !subnetNet.Contains(nodesIP) || nodesOnes < subnetOnes {
-			allErrs = append(allErrs, field.Invalid(fldPath, subnetID,
-				fmt.Sprintf("shoot nodes CIDR %s is not contained within worker subnet CIDR %s",
-					nodesCIDR, subnet.CidrBlock)))
-		}
+	// The worker subnet CIDR must be fully contained within the nodes CIDR.
+	// Check: nodes network contains the first IP of the subnet AND the nodes prefix is shorter or equal.
+	subnetOnes, _ := subnetNet.Mask.Size()
+	nodesOnes, _ := nodesNet.Mask.Size()
+	if !nodesNet.Contains(subnetIP) || subnetOnes < nodesOnes {
+		allErrs = append(allErrs, field.Invalid(fldPath, subnetID,
+			fmt.Sprintf("worker subnet CIDR %s is not contained within shoot nodes CIDR %s",
+				subnet.CidrBlock, nodesCIDR)))
 	}
 
 	return allErrs
