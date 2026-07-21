@@ -69,17 +69,17 @@ networks:
 2. Create an Egress-Only Internet Gateway for the VPC.
 3. Create worker subnets with IPv6 CIDR blocks and **DNS64** enabled.
    Optionally create subnets with IPv6 CIDR blocks for internal and public load balancers. These subnets still need some IPv4 addresses since AWS Load Balancers require IPv4.
-4. Create a private route table for workers (and optionally for internal load balancers) with:
+4. Create a NAT Gateway and attach it to your VPC.
+5. Create a private route table for workers (and optionally for internal load balancers) with:
    - Route: `::/0` → the Egress-Only Internet Gateway.
    - Route: `64:ff9b::/96` → the NAT Gateway (for NAT64).
-5. Optionally create an Internet Gateway and attach it to the VPC (required if you want public load balancers).
-6. Optionally create a public route table for public load balancers with:
+6. Optionally create an Internet Gateway and attach it to the VPC (required if you want public load balancers).
+7. Optionally create a public route table for public load balancers with:
    - Route: `::/0` → the Internet Gateway.
    - Route: `0.0.0.0/0` → the Internet Gateway.
-7. Optionally create a security group with:
+8. Optionally create a security group with:
    - **Inbound**: All traffic from itself (select "Custom" and paste the security group ID — you may need to save first and edit again to self-reference).
    - **Outbound**: All traffic to `::/0`.
-8. Create a NAT Gateway and attach it to your VPC.
 
 Reference your existing resources in the shoot's `infrastructureConfig` and set `ipFamilies` to `IPv6`:
 
