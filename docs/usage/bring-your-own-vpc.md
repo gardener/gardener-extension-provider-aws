@@ -67,7 +67,7 @@ networks:
 
 1. Create a VPC with an IPv6 CIDR block and enable **DNS resolution** and **DNS hostnames**.
 2. Create an Egress-Only Internet Gateway for the VPC.
-3. Create worker subnets with IPv6 CIDR blocks and **DNS64** enabled.
+3. Create worker subnets with IPv6 CIDR blocks, **DNS64** and **Enable auto-assign IPv6 address** enabled.
    Optionally create subnets with IPv6 CIDR blocks for internal and public load balancers. These subnets still need some IPv4 addresses since AWS Load Balancers require IPv4.
 4. Create a NAT Gateway and attach it to your VPC.
 5. Create a private route table for workers (and optionally for internal load balancers) with:
