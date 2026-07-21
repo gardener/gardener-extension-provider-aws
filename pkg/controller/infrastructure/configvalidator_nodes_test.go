@@ -46,6 +46,7 @@ var _ = Describe("validateNodesCIDRInSubnet", func() {
 		Entry("empty nodes CIDR (no check)", "10.0.0.0/24", "", false),
 		Entry("IPv6 subnet CIDR is skipped", "2001:db8::/48", "10.0.0.0/16", false),
 		Entry("empty subnet CIDR (IPv6-native, skip check)", "", "10.0.0.0/24", false),
+		Entry("IPv4 subnet CIDR against IPv6 nodes CIDR (skip check)", "10.0.0.0/28", "2a05:d018:800:9d00::/56", false),
 	)
 })
 

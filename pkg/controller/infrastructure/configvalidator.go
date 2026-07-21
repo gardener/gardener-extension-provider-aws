@@ -380,8 +380,13 @@ func validateNodesCIDRInSubnet(subnet *awsclient.Subnet, fldPath *field.Path, su
 		return allErrs
 	}
 
-	_, nodesNet, err := net.ParseCIDR(nodesCIDR)
+	nodesIP, nodesNet, err := net.ParseCIDR(nodesCIDR)
 	if err != nil {
+		return allErrs
+	}
+	// Skip check when nodes CIDR is IPv6 — an IPv6-native subnet may have a small IPv4 CIDR
+	// for AWS service traffic that does not need to fall within the IPv6 nodes range.
+	if nodesIP.To4() == nil {
 		return allErrs
 	}
 
