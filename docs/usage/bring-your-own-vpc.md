@@ -73,10 +73,12 @@ networks:
 5. Create a private route table for workers (and optionally for internal load balancers) with:
    - Route: `::/0` → the Egress-Only Internet Gateway.
    - Route: `64:ff9b::/96` → the NAT Gateway (for NAT64).
+   - Add subnet associations for your worker subnet (and optionally internal subnets).
 6. Optionally create an Internet Gateway and attach it to the VPC (required if you want public load balancers).
 7. Optionally create a public route table for public load balancers with:
    - Route: `::/0` → the Internet Gateway.
    - Route: `0.0.0.0/0` → the Internet Gateway.
+   - Add subnet associations for your public subnets.
 8. Optionally create a security group with:
    - **Inbound**: All traffic from itself (select "Custom" and paste the security group ID — you may need to save first and edit again to self-reference).
    - **Outbound**: All traffic to `::/0`.
