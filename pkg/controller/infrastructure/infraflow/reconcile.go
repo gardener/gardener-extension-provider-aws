@@ -36,6 +36,9 @@ const (
 	allIPv6                = "::/0"
 	nat64Prefix            = "64:ff9b::/96"
 	defaultIPv6NetmaskSize = 56
+	nodePortMin            = 30000
+	nodePortMax            = 32767
+	nfsPort                = 2049
 )
 
 // Reconcile creates and runs the flow to reconcile the AWS infrastructure.
@@ -198,6 +201,10 @@ func (c *FlowContext) getIpFamilies() []v1beta1.IPFamily {
 	return []v1beta1.IPFamily{v1beta1.IPFamilyIPv4}
 }
 
+func (c *FlowContext) isIPv6Enabled() bool {
+	return (c.config.DualStack != nil && c.config.DualStack.Enabled) || ContainsIPv6(c.getIpFamilies())
+}
+
 func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	log.Info("using managed VPC")
@@ -215,7 +222,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 		InstanceTenancy:    instanceTenancy,
 	}
 
-	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || ContainsIPv6(c.getIpFamilies()) {
+	if c.isIPv6Enabled() {
 		if c.config.Networks.VPC.Ipv6IpamPool != nil && c.config.Networks.VPC.Ipv6IpamPool.ID != nil {
 			desired.AssignGeneratedIPv6CidrBlock = false
 			desired.Ipv6IpamPoolId = c.config.Networks.VPC.Ipv6IpamPool.ID
@@ -268,7 +275,7 @@ func (c *FlowContext) ensureManagedVpc(ctx context.Context) error {
 }
 
 func (c *FlowContext) ensureVpcIPv6CidrBlock(ctx context.Context) error {
-	if (c.config.DualStack != nil && c.config.DualStack.Enabled) || ContainsIPv6(c.getIpFamilies()) {
+	if c.isIPv6Enabled() {
 		vpcID := *c.state.Get(IdentifierVPC) // guaranteed to be set because of ensureVPC dependency
 		ipv6CidrBlock, err := c.client.WaitForIPv6Cidr(ctx, vpcID)
 		if err != nil {
@@ -339,7 +346,7 @@ func (c *FlowContext) validateVpc(ctx context.Context, item *awsclient.VPC) erro
 				k, strings.Join(v, ","), strings.Join(options.DhcpConfigurations[k], ","))
 		}
 	}
-	if (ContainsIPv6(c.getIpFamilies()) || (c.config.DualStack != nil && c.config.DualStack.Enabled)) && item.IPv6CidrBlock == "" {
+	if c.isIPv6Enabled() && item.IPv6CidrBlock == "" {
 		return fmt.Errorf("VPC has no ipv6 CIDR")
 	}
 	return nil
@@ -585,16 +592,16 @@ func (c *FlowContext) computeNodesSecurityGroupBaseRules() []*awsclient.Security
 		},
 		{
 			Type:         awsclient.SecurityGroupRuleTypeIngress,
-			FromPort:     ptr.To[int32](30000),
-			ToPort:       ptr.To[int32](32767),
+			FromPort:     ptr.To[int32](nodePortMin),
+			ToPort:       ptr.To[int32](nodePortMax),
 			Protocol:     "tcp",
 			CidrBlocks:   cidrV4(),
 			CidrBlocksv6: cidrV6(),
 		},
 		{
 			Type:         awsclient.SecurityGroupRuleTypeIngress,
-			FromPort:     ptr.To[int32](30000),
-			ToPort:       ptr.To[int32](32767),
+			FromPort:     ptr.To[int32](nodePortMin),
+			ToPort:       ptr.To[int32](nodePortMax),
 			Protocol:     "udp",
 			CidrBlocks:   cidrV4(),
 			CidrBlocksv6: cidrV6(),
@@ -759,29 +766,29 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 
 		ruleNodesInternalTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](30000),
-			ToPort:   ptr.To[int32](32767),
+			FromPort: ptr.To[int32](nodePortMin),
+			ToPort:   ptr.To[int32](nodePortMax),
 			Protocol: "tcp",
 		}
 
 		ruleNodesInternalUDP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](30000),
-			ToPort:   ptr.To[int32](32767),
+			FromPort: ptr.To[int32](nodePortMin),
+			ToPort:   ptr.To[int32](nodePortMax),
 			Protocol: "udp",
 		}
 
 		ruleNodesPublicTCP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](30000),
-			ToPort:   ptr.To[int32](32767),
+			FromPort: ptr.To[int32](nodePortMin),
+			ToPort:   ptr.To[int32](nodePortMax),
 			Protocol: "tcp",
 		}
 
 		ruleNodesPublicUDP := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](30000),
-			ToPort:   ptr.To[int32](32767),
+			FromPort: ptr.To[int32](nodePortMin),
+			ToPort:   ptr.To[int32](nodePortMax),
 			Protocol: "udp",
 		}
 
@@ -791,8 +798,8 @@ func (c *FlowContext) ensureNodesSecurityGroup(ctx context.Context) error {
 		// between SG members, making this CIDR-based rule redundant. Consider removing it.
 		ruleEfsInboundNFS := &awsclient.SecurityGroupRule{
 			Type:     awsclient.SecurityGroupRuleTypeIngress,
-			FromPort: ptr.To[int32](2049),
-			ToPort:   ptr.To[int32](2049),
+			FromPort: ptr.To[int32](nfsPort),
+			ToPort:   ptr.To[int32](nfsPort),
 			Protocol: "tcp",
 		}
 
@@ -2775,6 +2782,11 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 		return "", fmt.Errorf("invalid new prefix length")
 	}
 
+	var maxIndex uint64 = 1<<(newPrefixLength-maskSize) - 1
+	if index < 0 || uint64(index) > maxIndex {
+		return "", fmt.Errorf("index out of range")
+	}
+
 	// #nosec: G115
 	offset := big.NewInt(0).Mul(big.NewInt(int64(index)), big.NewInt(0).Lsh(big.NewInt(1), uint(addrSize-newPrefixLength)))
 	subnetIP := net.IP(big.NewInt(0).Add(big.NewInt(0).SetBytes(baseIP), offset).Bytes())
@@ -2786,9 +2798,12 @@ func cidrSubnet(baseCIDR string, newPrefixLength int, index int) (string, error)
 // This is used to avoid subnet conflicts when creating IPv6 subnets.
 // Returns an error if the maximum index (255) is reached or the input CIDR is invalid.
 func calcNextIPv6CidrBlock(currentSubnetCIDR string) (string, error) {
-	ip, _, err := net.ParseCIDR(currentSubnetCIDR)
+	ip, ipNet, err := net.ParseCIDR(currentSubnetCIDR)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse CIDR: %v", err)
+	}
+	if _, addrSize := ipNet.Mask.Size(); addrSize != 128 {
+		return "", fmt.Errorf("input CIDR is not IPv6")
 	}
 
 	currentIndex := int(ip[7])
