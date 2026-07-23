@@ -33,10 +33,21 @@ const (
 	TagKeyRolePublicELB = "kubernetes.io/role/elb"
 	// TagKeyRolePrivateELB is the tag key for the internal ELB
 	TagKeyRolePrivateELB = "kubernetes.io/role/internal-elb"
-	// TagValueCluster is the tag value for the cluster tag
+	// TagValueCluster is the legacy tag value for the cluster tag (kept for backwards compatibility).
+	// Treated as equivalent to TagValueClusterOwned in Gardener's ownership checks.
 	TagValueCluster = "1"
+	// TagValueClusterOwned indicates the resource is owned by this cluster and can be deleted on cleanup.
+	// Aligns with the AWS convention used by the CCM's hasClusterTagOwned check.
+	TagValueClusterOwned = "owned"
+	// TagValueClusterShared indicates the resource is used by this cluster but not owned by it.
+	// BYO resources are tagged with this value. No controller should delete shared resources.
+	TagValueClusterShared = "shared"
 	// TagValueELB is the tag value for the ELB tag keys
 	TagValueELB = "1"
+	// TagKeyManagedByGardener marks a tag that was added by Gardener (not pre-existing).
+	// Used to track whether role tags (elb/internal-elb) were added by Gardener during reconcile
+	// so they can optionally be cleaned up on delete.
+	TagKeyManagedByGardener = "gardener.cloud/managed-tag"
 
 	// IdentifierVPC is the key for the VPC id
 	IdentifierVPC = "VPC"
@@ -58,6 +69,27 @@ const (
 	IdentifierZoneSubnetPublic = "SubnetPublicUtility"
 	// IdentifierZoneSubnetPrivate is the key for the id of the private utility subnet
 	IdentifierZoneSubnetPrivate = "SubnetPrivateUtility"
+	// IdentifierZoneSubnetWorkersCIDR is the key for the IPv4 CIDR block of the workers subnet.
+	// Populated by ensureBYOZones in BYO mode so downstream tasks (nodes SG builder, EFS
+	// rule builder, route table validation) can reference the real subnet CIDR without
+	// additional AWS calls. Empty for IPv6-only subnets. Not populated in managed mode
+	// (config carries the CIDR).
+	IdentifierZoneSubnetWorkersCIDR = "SubnetWorkersCIDR"
+	// IdentifierZoneSubnetWorkersIPv6CIDR is the key for the IPv6 CIDR block of the workers subnet.
+	// Populated by ensureBYOZones in BYO mode. Empty for IPv4-only subnets.
+	IdentifierZoneSubnetWorkersIPv6CIDR = "SubnetWorkersIPv6CIDR"
+	// IdentifierZoneSubnetPublicCIDR is the key for the IPv4 CIDR block of the public LB subnet.
+	// Populated by ensureBYOZones (explicit `zone.PublicSubnetID` path) and by
+	// discoverTaggedSubnets (pre-tagged discovery path).
+	IdentifierZoneSubnetPublicCIDR = "SubnetPublicUtilityCIDR"
+	// IdentifierZoneSubnetPublicIPv6CIDR is the key for the IPv6 CIDR block of the public LB subnet.
+	IdentifierZoneSubnetPublicIPv6CIDR = "SubnetPublicUtilityIPv6CIDR"
+	// IdentifierZoneSubnetPrivateCIDR is the key for the IPv4 CIDR block of the internal LB subnet.
+	// Populated by ensureBYOZones (explicit `zone.InternalSubnetID` path) and by
+	// discoverTaggedSubnets (pre-tagged discovery path).
+	IdentifierZoneSubnetPrivateCIDR = "SubnetPrivateUtilityCIDR"
+	// IdentifierZoneSubnetPrivateIPv6CIDR is the key for the IPv6 CIDR block of the internal LB subnet.
+	IdentifierZoneSubnetPrivateIPv6CIDR = "SubnetPrivateUtilityIPv6CIDR"
 	// IdentifierZoneSuffix is the key for the suffix used for a zone
 	IdentifierZoneSuffix = "Suffix"
 	// IdentifierManagedZoneNATGWElasticIP is the key for the allocationID of the gardener managed NAT gateway elastic IP
@@ -178,7 +210,7 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		hasEFAWorker:  hasEFAWorker,
 	}
 	flowContext.commonTags = awsclient.Tags{
-		flowContext.tagKeyCluster(): TagValueCluster,
+		flowContext.tagKeyCluster(): TagValueClusterOwned,
 		TagKeyName:                  opts.Infrastructure.Namespace,
 	}
 	return flowContext, nil
@@ -285,9 +317,15 @@ func (c *FlowContext) tagKeyCluster() string {
 	return fmt.Sprintf(TagKeyClusterTemplate, c.namespace)
 }
 
+// isOwnedClusterResource checks if a resource's cluster tag value indicates ownership.
+// Accepts both the legacy value ("1") and the standard value ("owned").
+func isOwnedClusterResource(tagValue string) bool {
+	return tagValue == TagValueCluster || tagValue == TagValueClusterOwned
+}
+
 func (c *FlowContext) clusterTags() awsclient.Tags {
 	tags := awsclient.Tags{}
-	tags[c.tagKeyCluster()] = TagValueCluster
+	tags[c.tagKeyCluster()] = TagValueClusterOwned
 	return tags
 }
 
@@ -323,6 +361,27 @@ func (c *FlowContext) zoneSuffixHelpers(zoneName string) *ZoneSuffixHelper {
 
 func (c *FlowContext) isCsiEfsEnabled() bool {
 	return c.config != nil && c.config.ElasticFileSystem != nil && c.config.ElasticFileSystem.Enabled
+}
+
+// isBYOInfrastructure returns true if all zones use WorkersSubnetID (BYO mode).
+// Validation ensures all zones use the same approach, so checking the first zone suffices.
+func (c *FlowContext) isBYOInfrastructure() bool {
+	return len(c.config.Networks.Zones) > 0 && c.config.Networks.Zones[0].WorkersSubnetID != nil
+}
+
+// hasManagedPublicSubnets returns true if at least one zone has a Public CIDR (Gardener-managed).
+func (c *FlowContext) hasManagedPublicSubnets() bool {
+	for _, zone := range c.config.Networks.Zones {
+		if zone.Public != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// isBYOSecurityGroup returns true if the user has provided a NodesSecurityGroupID.
+func (c *FlowContext) isBYOSecurityGroup() bool {
+	return c.config.Networks.NodesSecurityGroupID != nil
 }
 
 // ZoneSuffixHelper provides methods to create suffices for various resources

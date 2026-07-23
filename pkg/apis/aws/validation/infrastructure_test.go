@@ -36,9 +36,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 		awsZone2 = apisaws.Zone{
 			Name:     zone2,
-			Internal: "10.250.4.0/24",
-			Public:   "10.250.5.0/24",
-			Workers:  "10.250.6.0/24",
+			Internal: ptr.To("10.250.4.0/24"),
+			Public:   ptr.To("10.250.5.0/24"),
+			Workers:  ptr.To("10.250.6.0/24"),
 		}
 		familyIPv4 = []core.IPFamily{core.IPFamilyIPv4}
 	)
@@ -56,9 +56,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				Zones: []apisaws.Zone{
 					{
 						Name:     zone,
-						Internal: "10.250.1.0/24",
-						Public:   "10.250.2.0/24",
-						Workers:  "10.250.3.0/24",
+						Internal: ptr.To("10.250.1.0/24"),
+						Public:   ptr.To("10.250.2.0/24"),
+						Workers:  ptr.To("10.250.3.0/24"),
 					},
 				},
 			},
@@ -236,6 +236,27 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 					Expect(errorList).To(BeEmpty())
 				})
+
+				It("should forbid gateway endpoints in BYO mode", func() {
+					infrastructureConfig.Networks.VPC = apisaws.VPC{
+						ID:               ptr.To("vpc-1234567890abcdef0"),
+						GatewayEndpoints: []string{"s3", "dynamodb"},
+					}
+					infrastructureConfig.Networks.Zones = []apisaws.Zone{
+						{
+							Name:            zone,
+							WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						},
+					}
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).NotTo(BeEmpty())
+					Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeForbidden),
+						"Field":  Equal("networks.vpc.gatewayEndpoints"),
+						"Detail": ContainSubstring("not supported in BYO mode"),
+					}))))
+				})
 			})
 		})
 
@@ -297,7 +318,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid invalid internal CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Internal = invalidCIDR
+					infrastructureConfig.Networks.Zones[0].Internal = &invalidCIDR
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -309,7 +330,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid invalid public CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Public = invalidCIDR
+					infrastructureConfig.Networks.Zones[0].Public = &invalidCIDR
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -321,7 +342,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid invalid workers CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Workers = invalidCIDR
+					infrastructureConfig.Networks.Zones[0].Workers = &invalidCIDR
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -333,7 +354,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid internal CIDR which is not in VPC CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Internal = "1.1.1.1/32"
+					infrastructureConfig.Networks.Zones[0].Internal = ptr.To("1.1.1.1/32")
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -345,7 +366,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid public CIDR which is not in VPC CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Public = "1.1.1.1/32"
+					infrastructureConfig.Networks.Zones[0].Public = ptr.To("1.1.1.1/32")
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -357,7 +378,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})
 
 				It("should forbid workers CIDR which are not in VPC and Nodes CIDR", func() {
-					infrastructureConfig.Networks.Zones[0].Workers = "1.1.1.1/32"
+					infrastructureConfig.Networks.Zones[0].Workers = ptr.To("1.1.1.1/32")
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 
@@ -396,9 +417,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 				It("should forbid VPC CIDRs to overlap with other VPC CIDRs", func() {
 					overlappingCIDR := "10.250.0.1/32"
-					infrastructureConfig.Networks.Zones[0].Internal = overlappingCIDR
-					infrastructureConfig.Networks.Zones[0].Public = overlappingCIDR
-					infrastructureConfig.Networks.Zones[0].Workers = overlappingCIDR
+					infrastructureConfig.Networks.Zones[0].Internal = &overlappingCIDR
+					infrastructureConfig.Networks.Zones[0].Public = &overlappingCIDR
+					infrastructureConfig.Networks.Zones[0].Workers = &overlappingCIDR
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &overlappingCIDR, &pods, &services)
 
@@ -419,9 +440,9 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 				It("should forbid non canonical CIDRs", func() {
 					vpcCIDR := "10.0.0.3/8"
-					infrastructureConfig.Networks.Zones[0].Public = "10.250.2.7/24"
-					infrastructureConfig.Networks.Zones[0].Internal = "10.250.1.6/24"
-					infrastructureConfig.Networks.Zones[0].Workers = "10.250.3.8/24"
+					infrastructureConfig.Networks.Zones[0].Public = ptr.To("10.250.2.7/24")
+					infrastructureConfig.Networks.Zones[0].Internal = ptr.To("10.250.1.6/24")
+					infrastructureConfig.Networks.Zones[0].Workers = ptr.To("10.250.3.8/24")
 					infrastructureConfig.Networks.VPC = apisaws.VPC{CIDR: &vpcCIDR}
 
 					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
@@ -475,6 +496,325 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				infrastructureConfig.Networks.Zones[1].ElasticIPAllocationID = ptr.To("eipalloc-654321")
 				errorList = ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
+			})
+		})
+
+		Context("WorkersSubnetID (BYO)", func() {
+			It("should allow a valid BYO configuration", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.NodesSecurityGroupID = ptr.To("sg-1234567890abcdef0")
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow a valid BYO configuration with multiple zones", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.NodesSecurityGroupID = ptr.To("sg-1234567890abcdef0")
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+					{
+						Name:            zone2,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should forbid internal CIDR when workersSubnetID is set", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						Internal:        ptr.To("10.250.1.0/24"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeForbidden),
+					"Field":  Equal("networks.zones[0].internal"),
+					"Detail": ContainSubstring("internal CIDR is forbidden when workersSubnetID is set"),
+				}))
+			})
+
+			It("should forbid public CIDR when workersSubnetID is set", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						Public:          ptr.To("10.250.2.0/24"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeForbidden),
+					"Field":  Equal("networks.zones[0].public"),
+					"Detail": ContainSubstring("public CIDR is forbidden when workersSubnetID is set"),
+				}))
+			})
+
+			It("should forbid both internal and public CIDRs when workersSubnetID is set", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						Internal:        ptr.To("10.250.1.0/24"),
+						Public:          ptr.To("10.250.2.0/24"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(HaveLen(2))
+				Expect(errorList).To(ConsistOfFields(
+					Fields{
+						"Type":   Equal(field.ErrorTypeForbidden),
+						"Field":  Equal("networks.zones[0].internal"),
+						"Detail": ContainSubstring("internal CIDR is forbidden when workersSubnetID is set"),
+					},
+					Fields{
+						"Type":   Equal(field.ErrorTypeForbidden),
+						"Field":  Equal("networks.zones[0].public"),
+						"Detail": ContainSubstring("public CIDR is forbidden when workersSubnetID is set"),
+					},
+				))
+			})
+
+			It("should forbid mixing BYO and managed zones", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+					{
+						Name:     zone2,
+						Workers:  ptr.To("10.250.6.0/24"),
+						Internal: ptr.To("10.250.4.0/24"),
+						Public:   ptr.To("10.250.5.0/24"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).NotTo(BeEmpty())
+				Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeForbidden),
+					"Field":  Equal("networks.zones"),
+					"Detail": ContainSubstring("all zones must use the same approach"),
+				}))))
+			})
+
+			It("should forbid workersSubnetID without VPC ID", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{CIDR: &vpcCIDR}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).NotTo(BeEmpty())
+				Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeForbidden),
+					"Field":  Equal("networks.zones[0].workersSubnetID"),
+					"Detail": ContainSubstring("VPC.ID"),
+				}))))
+			})
+
+			It("should forbid specifying both workers CIDR and workersSubnetID", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						Workers:         ptr.To("10.250.3.0/24"),
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).NotTo(BeEmpty())
+				Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0].workers"),
+				}))))
+			})
+
+			It("should forbid duplicate subnet IDs across zones", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+					{
+						Name:            zone2,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).NotTo(BeEmpty())
+				Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeDuplicate),
+					"Field": Equal("networks.zones[1].workersSubnetID"),
+				}))))
+			})
+		})
+
+		Context("EFS in BYO mode", func() {
+			It("should forbid EFS enabled without ID in BYO mode", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
+					Enabled: true,
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeRequired),
+					"Field":  Equal("elasticFileSystem.id"),
+					"Detail": ContainSubstring("required in BYO mode"),
+				}))
+			})
+
+			It("should allow EFS enabled with ID in BYO mode", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.NodesSecurityGroupID = ptr.To("sg-1234567890abcdef0")
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
+					Enabled: true,
+					ID:      ptr.To("fs-1234567890abcdef0"),
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow EFS enabled without ID in managed mode", func() {
+				infrastructureConfig.ElasticFileSystem = &apisaws.ElasticFileSystemConfig{
+					Enabled: true,
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+		})
+
+		Context("BYO LB subnet IDs", func() {
+			It("should allow publicSubnetID and internalSubnetID in BYO mode", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:             zone,
+						WorkersSubnetID:  ptr.To("subnet-0676786f3e288044c"),
+						PublicSubnetID:   ptr.To("subnet-0676786f3e288044d"),
+						InternalSubnetID: ptr.To("subnet-0676786f3e288044e"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow only publicSubnetID without internalSubnetID", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						PublicSubnetID:  ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should forbid publicSubnetID in managed mode", func() {
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:           zone,
+						Workers:        ptr.To("10.250.0.0/19"),
+						Internal:       ptr.To("10.250.112.0/22"),
+						Public:         ptr.To("10.250.96.0/22"),
+						PublicSubnetID: ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeForbidden),
+					"Field":  Equal("networks.zones[0].publicSubnetID"),
+					"Detail": ContainSubstring("only allowed when workersSubnetID is set"),
+				}))
+			})
+
+			It("should forbid internalSubnetID in managed mode", func() {
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:             zone,
+						Workers:          ptr.To("10.250.0.0/19"),
+						Internal:         ptr.To("10.250.112.0/22"),
+						Public:           ptr.To("10.250.96.0/22"),
+						InternalSubnetID: ptr.To("subnet-0676786f3e288044e"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeForbidden),
+					"Field":  Equal("networks.zones[0].internalSubnetID"),
+					"Detail": ContainSubstring("only allowed when workersSubnetID is set"),
+				}))
+			})
+
+			It("should forbid duplicate publicSubnetID across zones", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						PublicSubnetID:  ptr.To("subnet-0676786f3e288044d"),
+					},
+					{
+						Name:            zone2,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044e"),
+						PublicSubnetID:  ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).NotTo(BeEmpty())
+				Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeDuplicate),
+					"Field": Equal("networks.zones[1].publicSubnetID"),
+				}))))
 			})
 		})
 
@@ -749,6 +1089,61 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Type":  Equal(field.ErrorTypeInvalid),
 					"Field": Equal("elasticFileSystem"),
 				}))))
+			})
+		})
+
+		Context("BYO LB subnet ID updates", func() {
+			It("should forbid changing publicSubnetID once set", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						PublicSubnetID:  ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.Networks.Zones[0].PublicSubnetID = ptr.To("subnet-0676786f3e288044e")
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0].publicSubnetID"),
+				}))))
+			})
+
+			It("should forbid changing internalSubnetID once set", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:             zone,
+						WorkersSubnetID:  ptr.To("subnet-0676786f3e288044c"),
+						InternalSubnetID: ptr.To("subnet-0676786f3e288044d"),
+					},
+				}
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.Networks.Zones[0].InternalSubnetID = ptr.To("subnet-0676786f3e288044e")
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("networks.zones[0].internalSubnetID"),
+				}))))
+			})
+
+			It("should allow adding publicSubnetID to existing BYO zone", func() {
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+				newInfraConfig := infrastructureConfig.DeepCopy()
+				newInfraConfig.Networks.Zones[0].PublicSubnetID = ptr.To("subnet-0676786f3e288044d")
+
+				errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfraConfig)
+				Expect(errorList).To(BeEmpty())
 			})
 		})
 	})

@@ -32,6 +32,10 @@ var (
 	TagKeyRegex = `^[\w +\-=\.:/@]+$`
 	// CapacityReservationIDRegex matches IDs of Capacity Reservations, e.g. cr-1234abcd56example
 	CapacityReservationIDRegex = `^cr-[a-z0-9]+$`
+	// SubnetIDRegex matches e.g. subnet-0676786f3e288044c
+	SubnetIDRegex = `^subnet-[a-z0-9]+$`
+	// SecurityGroupIDRegex matches e.g. sg-0676786f3e288044c
+	SecurityGroupIDRegex = `^sg-[a-z0-9]+$`
 	// CapacityReservationGroupRegex matches resource-group ARNs, e.g. arn:aws:resource-groups:eu-west-2:123456789012:group/example-cr-group
 	CapacityReservationGroupRegex = `^arn:[\w-]+:resource-groups:[\w+=,.@\-\/:]+$`
 	// AccessKeyIDRegex matches AWS Access Key IDs, e.g. AKIAIOSFODNN7EXAMPLE
@@ -56,6 +60,8 @@ var (
 	validateTagKey                   = combineValidationFuncs(regex(TagKeyRegex), notEmpty, maxLength(128))
 	validateCapacityReservationID    = combineValidationFuncs(regex(CapacityReservationIDRegex), notEmpty, maxLength(255))
 	validateCapacityReservationGroup = combineValidationFuncs(regex(CapacityReservationGroupRegex), notEmpty, maxLength(255))
+	validateSubnetID                 = combineValidationFuncs(regex(SubnetIDRegex), notEmpty, maxLength(255))
+	validateSecurityGroupID          = combineValidationFuncs(regex(SecurityGroupIDRegex), notEmpty, maxLength(255))
 	validateAccessKeyID              = hideSensitiveValue(combineValidationFuncs(regex(AccessKeyIDRegex), minLength(20), maxLength(20)))
 	validateSecretAccessKey          = hideSensitiveValue(combineValidationFuncs(regex(SecretAccessKeyRegex), minLength(40), maxLength(40)))
 	validateRegion                   = combineValidationFuncs(regex(RegionRegex), maxLength(32))
