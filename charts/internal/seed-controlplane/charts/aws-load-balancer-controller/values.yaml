@@ -10,7 +10,7 @@ images:
 vpa:
   enabled: true
   updatePolicy:
-    updateMode: "Recreate"
+    updateMode: "InPlaceOrRecreate"
 
 imagePullSecrets: []
 nameOverride: "aws-load-balancer-controller"
