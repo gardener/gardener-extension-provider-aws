@@ -183,7 +183,7 @@ var _ = Describe("CredentialsBinding validator", func() {
 					TargetSystem: securityv1alpha1.TargetSystem{
 						Type: "aws",
 						ProviderConfig: &runtime.RawExtension{
-							Raw: []byte(`{"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1","kind":"WorkloadIdentityConfig","roleARN":"foo"}`),
+							Raw: []byte(`{"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1","kind":"WorkloadIdentityConfig","roleARN":"arn:aws:iam::123456789012:role/my-role"}`),
 						},
 					},
 				},

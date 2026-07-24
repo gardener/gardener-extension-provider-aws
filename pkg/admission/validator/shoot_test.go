@@ -997,7 +997,7 @@ var _ = Describe("Shoot validator", func() {
 							TargetSystem: securityv1alpha1.TargetSystem{
 								Type: "aws",
 								ProviderConfig: &runtime.RawExtension{
-									Raw: []byte(`{"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1","kind":"WorkloadIdentityConfig","roleARN":"foo"}`),
+									Raw: []byte(`{"apiVersion":"aws.provider.extensions.gardener.cloud/v1alpha1","kind":"WorkloadIdentityConfig","roleARN":"arn:aws:iam::123456789012:role/my-role"}`),
 								},
 							},
 						},
@@ -1035,7 +1035,7 @@ var _ = Describe("Shoot validator", func() {
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
 						"Field":  Equal("spec.dns.providers[0].credentialsRef"),
-						"Detail": ContainSubstring("roleARN is required"),
+						"Detail": ContainSubstring("cannot be empty"),
 					}))))
 				})
 

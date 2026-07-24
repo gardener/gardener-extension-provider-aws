@@ -13,10 +13,7 @@ import (
 // ValidateWorkloadIdentityConfig checks whether the given workload identity configuration contains expected fields and values.
 func ValidateWorkloadIdentityConfig(config *apisaws.WorkloadIdentityConfig, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
-
-	if len(config.RoleARN) == 0 {
-		allErrs = append(allErrs, field.Required(fldPath.Child("roleARN"), "roleARN is required"))
-	}
+	allErrs = append(allErrs, validateRoleARN(config.RoleARN, fldPath.Child("roleARN"))...)
 
 	return allErrs
 }
