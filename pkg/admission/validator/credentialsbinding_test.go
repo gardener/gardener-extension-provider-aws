@@ -182,7 +182,7 @@ var _ = Describe("CredentialsBinding validator", func() {
 									Raw: []byte(`
 apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: WorkloadIdentityConfig
-roleARN: "foo"
+roleARN: "arn:aws:iam::123456789012:role/my-role"
 `),
 								},
 							},

@@ -45,6 +45,17 @@ var (
 	// see https://docs.aws.amazon.com/general/latest/gr/rande.html
 	// and https://aws.amazon.com/de/blogs/aws/opening-the-aws-european-sovereign-cloud/ (section "Some technical details")
 	RegionRegex = `^[a-z-]+-\d+$`
+	// RoleARNRegex matches AWS IAM role ARNs, e.g. arn:aws:iam::123456789012:role/path/to/role-name
+	// The ARN format is arn:<partition>:iam::<account-id>:role/<optional-path>/<role-name> where:
+	//   - <partition> is one of the AWS partitions, e.g. aws, aws-cn, aws-us-gov, aws-iso
+	//   - the region segment is always empty because IAM is a global service
+	//   - <account-id> is the 12-digit AWS account ID
+	//   - the resource is a role/ followed by an optional path and the role name consisting of
+	//     the characters [a-zA-Z0-9+=,.@_-] as documented in
+	//     https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html
+	//
+	// see https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
+	RoleARNRegex = `^arn:aws[a-z0-9-]*:iam::\d{12}:role(/[\w+=,.@-]+)*/[\w+=,.@-]+$`
 
 	validateK8sResourceName          = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                    = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))
@@ -59,6 +70,7 @@ var (
 	validateAccessKeyID              = hideSensitiveValue(combineValidationFuncs(regex(AccessKeyIDRegex), minLength(20), maxLength(20)))
 	validateSecretAccessKey          = hideSensitiveValue(combineValidationFuncs(regex(SecretAccessKeyRegex), minLength(40), maxLength(40)))
 	validateRegion                   = combineValidationFuncs(regex(RegionRegex), maxLength(32))
+	validateRoleARN                  = combineValidationFuncs(regex(RoleARNRegex), notEmpty)
 )
 
 type validateFunc[T any] func(T, *field.Path) field.ErrorList
