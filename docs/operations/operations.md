@@ -88,7 +88,7 @@ spec:
     - version: 2135.6.0
       capabilityFlavors:
       - architecture: [amd64]
-      # otherCapability: [otherValue, ...] 
+      # otherCapability: [otherValue, ...]
       - architecture: [arm64]
       # otherCapability: [otherValue, ...]
   machineTypes:
