@@ -14,7 +14,8 @@ const (
 	// nodes to set network interface MTU to 1460.
 	// This feature gate is used to phase out MTU customization. It will be switched to
 	// default false in a future version and eventually removed along with all related code.
-	// alpha: v1.69 (default=true)
+	// alpha: 	v1.69 (default=true)
+	// beta: 	v1.73 (default=false)
 	MTUCustomizer featuregate.Feature = "MTUCustomizer"
 )
 
@@ -22,7 +23,7 @@ const (
 var FeatureGate featuregate.MutableFeatureGate = featuregate.NewFeatureGate()
 
 var featureGates = map[featuregate.Feature]featuregate.FeatureSpec{
-	MTUCustomizer: {Default: true, PreRelease: featuregate.Alpha},
+	MTUCustomizer: {Default: false, PreRelease: featuregate.Beta},
 }
 
 // RegisterFeatureGates registers the feature gates of the provider-aws extension.
