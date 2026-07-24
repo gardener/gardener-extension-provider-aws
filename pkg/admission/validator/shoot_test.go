@@ -1067,7 +1067,7 @@ var _ = Describe("Shoot validator", func() {
 									Raw: []byte(`
 apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: WorkloadIdentityConfig
-roleARN: "foo"
+roleARN: "arn:aws:iam::123456789012:role/my-role"
 `),
 								},
 							},
@@ -1119,7 +1119,7 @@ roleARN: ""
 					Expect(shootValidator.Validate(ctx, shoot, nil)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(field.ErrorTypeInvalid),
 						"Field":  Equal("spec.dns.providers[0].credentialsRef"),
-						"Detail": ContainSubstring("roleARN is required"),
+						"Detail": ContainSubstring("cannot be empty"),
 					}))))
 				})
 
