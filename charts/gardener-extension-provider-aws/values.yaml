@@ -91,7 +91,7 @@ config:
 #     backup:
 #       schedule: "0 */1 * * *"
   featureGates:
-    MTUCustomizer: true
+    MTUCustomizer: false
 
 gardener:
   version: ""
