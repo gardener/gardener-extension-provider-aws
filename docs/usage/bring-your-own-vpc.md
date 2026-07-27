@@ -150,6 +150,9 @@ Gardener tags your worker route tables with the cluster tag (`kubernetes.io/clus
 - **Pod CIDRs must not conflict with existing routes.** Ensure your shoot's pod CIDR does not overlap with routes already present in your worker route tables.
 - **Avoid shared route tables.** If your worker subnets share a route table with other subnets outside the cluster, pod CIDR routes will be written into that shared table and may affect traffic in the broader VPC.
 
+> [!WARNING]
+> When a shoot is deleted, Gardener removes the cluster tag from your BYO route tables but does **not** delete the pod CIDR routes that were written into them. Any routes whose target ENI has since been terminated will become blackhole entries in your route table. You must clean these up manually after shoot deletion by removing all routes with destinations within the shoot's pod CIDR.
+
 ### IPv4-only cluster, overlay enabled
 
 The custom route controller is not deployed. Pod-to-pod routing is handled entirely by the CNI via encapsulation (e.g. VXLAN). Gardener skips tagging the worker route tables, so they remain completely untouched.
