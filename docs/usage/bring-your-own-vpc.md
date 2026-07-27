@@ -137,6 +137,31 @@ provider:
           internalSubnetID: subnet-zzzzzzzzzzzzzz  # optional
 ```
 
+## Overlay Networking and Route Tables
+
+When using BYO subnets, the overlay networking setting and IP family together determine what Gardener does with your worker route tables.
+
+### IPv4-only cluster, overlay disabled (default)
+
+Gardener tags your worker route tables with the cluster tag (`kubernetes.io/cluster/<technical-shoot-name>=shared`) so the [aws-custom-route-controller](https://github.com/gardener/aws-custom-route-controller) can find them. The controller then programs one route per worker node (`<node-pod-cidr> → <node-ENI>`).
+
+- **Route entries are written into your tables.** These entries are managed by the controller — added when nodes join, removed when nodes leave. Do not manually manage these entries.
+- **The 500-entry default limit applies to your existing tables.** Each worker node consumes one route entry. Account for pre-existing entries when sizing your cluster. The default AWS quota is 500 routes per route table (hard limit: 1000).
+- **Pod CIDRs must not conflict with existing routes.** Ensure your shoot's pod CIDR does not overlap with routes already present in your worker route tables.
+- **Avoid shared route tables.** If your worker subnets share a route table with other subnets outside the cluster, pod CIDR routes will be written into that shared table and may affect traffic in the broader VPC.
+
+### IPv4-only cluster, overlay enabled
+
+The custom route controller is not deployed. Pod-to-pod routing is handled entirely by the CNI via encapsulation (e.g. VXLAN). Gardener skips tagging the worker route tables, so they remain completely untouched.
+
+### Dual-stack cluster (IPv4 + IPv6)
+
+Overlay must be disabled (enforced by validation). Gardener tags the worker route tables with the cluster tag so the custom route controller can program IPv4 pod CIDR routes, the same as the IPv4-only overlay-disabled case above. The IPv6 pod addresses are routed natively via ENI prefix delegation and do not require route table entries.
+
+### IPv6-only cluster
+
+Overlay must be disabled (enforced by validation). The custom route controller is not deployed — IPv6 pod routing is handled natively by the VPC via ENI prefix delegation and no pod CIDR routes are written into your route tables. Gardener does not tag the worker route tables, so they remain completely untouched.
+
 ## LB Subnet Discovery via Tags
 
 Instead of specifying `publicSubnetID` and `internalSubnetID` explicitly, you can let Gardener discover your load balancer subnets by tagging them. During infrastructure reconciliation, Gardener searches the VPC for subnets carrying the appropriate role tags and the cluster tag, then stores the discovered subnet IDs in `infraStatus` and uses their CIDRs to configure security group rules.
