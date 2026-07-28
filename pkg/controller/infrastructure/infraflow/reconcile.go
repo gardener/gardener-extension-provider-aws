@@ -27,6 +27,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	. "github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
+	networkingutils "github.com/gardener/gardener-extension-provider-aws/pkg/utils/networking"
 )
 
 const (
@@ -1021,8 +1022,18 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 	// Discover and tag route tables associated with BYO worker subnets so the
 	// aws-custom-route-controller can find them. The controller looks for route tables
 	// with the tag kubernetes.io/cluster/<clusterName> (any value).
-	if err := c.tagBYORouteTables(ctx, workerSubnetIDs, subnetToZone); err != nil {
-		return err
+	// Only tag when the custom route controller will actually be deployed:
+	// - overlay disabled (controller is deployed)
+	// - not IPv6-only (controller is scaled to 0 for IPv6-only; dual-stack still needs it for IPv4 pod CIDRs)
+	overlayEnabled, err := networkingutils.IsOverlayEnabled(c.networking)
+	if err != nil {
+		return fmt.Errorf("failed to determine overlay networking mode: %w", err)
+	}
+	ipv6Only := len(c.getIpFamilies()) == 1 && ContainsIPv6(c.getIpFamilies())
+	if !overlayEnabled && !ipv6Only {
+		if err := c.tagBYORouteTables(ctx, workerSubnetIDs, subnetToZone); err != nil {
+			return err
+		}
 	}
 
 	// Discover existing tagged subnets in the VPC for InfrastructureStatus.
