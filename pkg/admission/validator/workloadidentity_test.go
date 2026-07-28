@@ -34,7 +34,7 @@ var _ = Describe("WorkloadIdentity validator", func() {
 							Raw: []byte(`
 apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: WorkloadIdentityConfig
-roleARN: "foo"
+roleARN: "arn:aws:iam::123456789012:role/my-role"
 `),
 						},
 					},
@@ -57,7 +57,7 @@ roleARN: "foo"
 			newWorkloadIdentity.Spec.TargetSystem.ProviderConfig.Raw = []byte(`
 apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
 kind: WorkloadIdentityConfig
-roleARN: "foo"
+roleARN: "arn:aws:iam::123456789012:role/my-role"
 `)
 			Expect(workloadIdentityValidator.Validate(ctx, newWorkloadIdentity, workloadIdentity)).To(Succeed())
 		})
