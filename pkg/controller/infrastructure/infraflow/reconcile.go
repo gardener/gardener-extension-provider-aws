@@ -966,15 +966,25 @@ func (c *FlowContext) ensureBYOZones(ctx context.Context) error {
 			cacheBYOSubnetCIDRs(child, subnetsByID[*zone.WorkersSubnetID], byoSubnetPurposeWorkers)
 			log.Info("using BYO workers subnet", "zone", zone.Name, "subnetID", *zone.WorkersSubnetID)
 
-			// Auto-tag the BYO subnet with the cluster tag (value "shared") so the CCM/LBC
-			// can discover it. This follows the EKS pattern: user provides subnet IDs,
-			// the platform auto-tags them with the cluster association.
-			byoTags := awsclient.Tags{
-				c.tagKeyCluster(): TagValueClusterShared,
-			}
-			if err := c.client.CreateEC2Tags(ctx, []string{*zone.WorkersSubnetID}, byoTags); err != nil {
-				return fmt.Errorf("failed to tag BYO workers subnet %s: %w", *zone.WorkersSubnetID, err)
-			}
+			// Deliberately do NOT add kubernetes.io/cluster/<name>=shared on the workers
+			// subnet here. The cloud-provider-aws CCM's LoadBalancer subnet discovery
+			// (findELBSubnets) treats any cluster-tagged subnet as an eligible LB
+			// placement target, falling back to lexicographic subnet-ID order when no
+			// role-tagged subnet is available in an AZ. Since kubernetes/kubernetes#97431
+			// the CCM also considers untagged subnets that don't belong to another
+			// cluster (see kubernetes/cloud-provider-aws#1248, closed "not planned").
+			//
+			// If Gardener auto-tagged the workers subnet, then in a BYO shoot with no
+			// LB subnets in a given AZ the CCM would silently place internal LBs
+			// (NAT-routed reachability passes) in the workers subnet — a footgun.
+			// It also creates cross-shoot discovery collisions when two shoots share
+			// a workers subnet and one of them pre-tags it for the reuse-as-internal-LB
+			// pattern.
+			//
+			// When the workers subnet IS also referenced as an LB subnet
+			// (InternalSubnetID == WorkersSubnetID or PublicSubnetID == WorkersSubnetID),
+			// the cluster tag is written below in the LB-tagging paths — that's the
+			// only legitimate case where the workers subnet should carry it.
 
 			workerSubnetIDs = append(workerSubnetIDs, *zone.WorkersSubnetID)
 			subnetToZone[*zone.WorkersSubnetID] = zone.Name
@@ -1197,6 +1207,15 @@ func (c *FlowContext) subnetHasExplicitRouteTable(routeTables []*awsclient.Route
 // for the same AZ (e.g., due to lexicographic ordering of multiple tagged subnets), an error
 // is returned to prevent the CCM from picking a different subnet than intended.
 func (c *FlowContext) discoverTaggedSubnets(ctx context.Context) error {
+	// TODO(uniformity): after discovery, verify LB subnet coverage across all
+	// shoot zones — either every AZ has both public and internal role-tagged
+	// subnets, or none do. Currently, partial-zone tagging (e.g. only zone-1
+	// LB subnets tagged in a 3-zone cluster) is silently accepted: valuesprovider
+	// keeps the CCM service controller enabled because FindSubnetForPurpose returns
+	// zone-1's LB, but LoadBalancer Services placed in zones 2/3 fail at runtime.
+	// This is symmetric to the explicit-ID cross-zone uniformity check in
+	// pkg/apis/aws/validation/infrastructure.go:161-190, just enforced at reconcile
+	// time because tags live on AWS and are invisible to admission validation.
 	log := LogFromContext(ctx)
 	vpcID := c.state.Get(IdentifierVPC)
 	if vpcID == nil {

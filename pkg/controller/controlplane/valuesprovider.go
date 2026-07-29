@@ -657,6 +657,14 @@ func getCCMChartValues(
 	// Disable the CCM service controller when no public or internal subnets are available.
 	// Without LB subnets, the service controller cannot create load balancers and would
 	// error on every type: LoadBalancer Service. The CCM is still needed for node lifecycle.
+	//
+	// TODO(sc-disabled-event): when this branch fires, the shoot ends up with the CCM
+	// service controller silently stopped. LoadBalancer Services created by users stay
+	// <pending> forever with no Status.loadBalancer, no events, and no diagnostics. The
+	// extension should emit a Warning Event (or a Condition on the Service, or a status
+	// message on Shoot) explaining that LB reconciliation is disabled due to missing
+	// public/internal subnets. Without this, operators have no in-cluster signal for
+	// why LBs are not being created.
 	_, hasPublic := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposePublic)
 	_, hasInternal := helper.FindSubnetForPurpose(infraStatus.VPC.Subnets, apisaws.PurposeInternal)
 	if hasPublic != nil && hasInternal != nil {

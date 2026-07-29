@@ -100,11 +100,16 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		}
 		// Gateway endpoints require route table associations to function. In BYO mode, Gardener
 		// does not manage route tables, so endpoints cannot be associated and would be non-functional.
-		if len(infra.Networks.Zones) > 0 && infra.Networks.Zones[0].WorkersSubnetID != nil {
-			allErrs = append(allErrs, field.Forbidden(epsPath,
-				"gatewayEndpoints are not supported in BYO mode (workersSubnetID); "+
-					"VPC gateway endpoints require route table associations that Gardener cannot manage in BYO mode; "+
-					"create and manage VPC endpoints independently"))
+		// Reject if any zone has WorkersSubnetID set — cross-zone uniformity is enforced elsewhere,
+		// but check every zone here to fail cleanly regardless of ordering.
+		for _, zone := range infra.Networks.Zones {
+			if zone.WorkersSubnetID != nil {
+				allErrs = append(allErrs, field.Forbidden(epsPath,
+					"gatewayEndpoints are not supported in BYO mode (workersSubnetID); "+
+						"VPC gateway endpoints require route table associations that Gardener cannot manage in BYO mode; "+
+						"create and manage VPC endpoints independently"))
+				break
+			}
 		}
 	}
 
@@ -124,7 +129,19 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		cidrs                            = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones)*3)
 		workerCIDRs                      = make([]cidrvalidation.CIDR, 0, len(infra.Networks.Zones))
 		referencedElasticIPAllocationIDs []string
-		referencedSubnetIDs              = sets.New[string]()
+		// referencedWorkerSubnetIDs tracks WorkersSubnetID values across zones — same
+		// worker subnet in two zones is forbidden. A subnet lives in exactly one AZ,
+		// so cross-zone reuse would fail AWS validation anyway.
+		referencedWorkerSubnetIDs = sets.New[string]()
+		// referencedLBSubnetIDs tracks Public/InternalSubnetID values across zones —
+		// same LB subnet used in two zones is forbidden. Within a single zone, public
+		// and internal must be different subnets (route-table incompatibility: public
+		// requires IGW route, internal requires NAT).
+		//
+		// Workers subnet is deliberately NOT tracked against LB subnets: the reuse
+		// pattern (WorkersSubnetID == InternalSubnetID) is a supported deployment
+		// where a single private subnet plays both roles.
+		referencedLBSubnetIDs = sets.New[string]()
 	)
 
 	// Validate that all zones use the same approach: either all BYO (workersSubnetID) or all managed (workers CIDR).
@@ -205,7 +222,7 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		allErrs = append(allErrs, validateZoneSubnetSpec(
 			zonePath, "workers", "workersSubnetID",
 			hasWorkersCIDR, hasWorkersSubnetID, zone.WorkersSubnetID,
-			idProvided, &referencedSubnetIDs,
+			idProvided, &referencedWorkerSubnetIDs,
 		)...)
 
 		// When using BYO worker subnets, internal and public CIDRs are forbidden.
@@ -220,18 +237,27 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 					"public CIDR is forbidden when workersSubnetID is set; in BYO mode all subnets must be user-managed and LB subnets are discovered via tags"))
 			}
 
-			// Validate optional BYO LB subnet IDs
+			// Validate optional BYO LB subnet IDs. Within this zone, publicSubnetID
+			// must differ from internalSubnetID (route-table incompatibility). Across
+			// zones, each LB subnet ID must be unique. Overlap with WorkersSubnetID in
+			// the same zone is permitted (reuse pattern).
+			zoneLBSubnetIDs := sets.New[string]()
 			if zone.PublicSubnetID != nil {
 				allErrs = append(allErrs, validateSubnetIDField(
 					zonePath.Child("publicSubnetID"), zone.PublicSubnetID,
-					idProvided, &referencedSubnetIDs,
+					idProvided, &referencedLBSubnetIDs,
 				)...)
+				zoneLBSubnetIDs.Insert(*zone.PublicSubnetID)
 			}
 			if zone.InternalSubnetID != nil {
 				allErrs = append(allErrs, validateSubnetIDField(
 					zonePath.Child("internalSubnetID"), zone.InternalSubnetID,
-					idProvided, &referencedSubnetIDs,
+					idProvided, &referencedLBSubnetIDs,
 				)...)
+				if zoneLBSubnetIDs.Has(*zone.InternalSubnetID) {
+					allErrs = append(allErrs, field.Invalid(zonePath.Child("internalSubnetID"), *zone.InternalSubnetID,
+						"internalSubnetID must differ from publicSubnetID in the same zone (public subnet must be IGW-routed, internal must be NAT-routed)"))
+				}
 			}
 		} else {
 			// PublicSubnetID and InternalSubnetID are only allowed in BYO mode
