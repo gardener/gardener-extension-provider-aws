@@ -100,11 +100,16 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		}
 		// Gateway endpoints require route table associations to function. In BYO mode, Gardener
 		// does not manage route tables, so endpoints cannot be associated and would be non-functional.
-		if len(infra.Networks.Zones) > 0 && infra.Networks.Zones[0].WorkersSubnetID != nil {
-			allErrs = append(allErrs, field.Forbidden(epsPath,
-				"gatewayEndpoints are not supported in BYO mode (workersSubnetID); "+
-					"VPC gateway endpoints require route table associations that Gardener cannot manage in BYO mode; "+
-					"create and manage VPC endpoints independently"))
+		// Reject if any zone has WorkersSubnetID set — cross-zone uniformity is enforced elsewhere,
+		// but check every zone here to fail cleanly regardless of ordering.
+		for _, zone := range infra.Networks.Zones {
+			if zone.WorkersSubnetID != nil {
+				allErrs = append(allErrs, field.Forbidden(epsPath,
+					"gatewayEndpoints are not supported in BYO mode (workersSubnetID); "+
+						"VPC gateway endpoints require route table associations that Gardener cannot manage in BYO mode; "+
+						"create and manage VPC endpoints independently"))
+				break
+			}
 		}
 	}
 

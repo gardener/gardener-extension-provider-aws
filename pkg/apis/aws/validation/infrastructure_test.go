@@ -257,6 +257,30 @@ var _ = Describe("InfrastructureConfig validation", func() {
 						"Detail": ContainSubstring("not supported in BYO mode"),
 					}))))
 				})
+
+				It("should forbid gateway endpoints in multi-zone BYO mode (all zones BYO)", func() {
+					infrastructureConfig.Networks.VPC = apisaws.VPC{
+						ID:               ptr.To("vpc-1234567890abcdef0"),
+						GatewayEndpoints: []string{"s3"},
+					}
+					infrastructureConfig.Networks.Zones = []apisaws.Zone{
+						{
+							Name:            zone,
+							WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						},
+						{
+							Name:            zone2,
+							WorkersSubnetID: ptr.To("subnet-0676786f3e288044d"),
+						},
+					}
+
+					errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+					Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(field.ErrorTypeForbidden),
+						"Field":  Equal("networks.vpc.gatewayEndpoints"),
+						"Detail": ContainSubstring("not supported in BYO mode"),
+					}))))
+				})
 			})
 		})
 
