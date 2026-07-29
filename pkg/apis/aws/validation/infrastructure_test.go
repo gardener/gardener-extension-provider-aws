@@ -840,6 +840,61 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Field": Equal("networks.zones[1].publicSubnetID"),
 				}))))
 			})
+
+			It("should allow workersSubnetID == internalSubnetID (reuse pattern)", func() {
+				// This is the "reuse workers subnet as internal LB" pattern: the same
+				// private subnet plays both roles. Documented as supported.
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:             zone,
+						WorkersSubnetID:  ptr.To("subnet-0676786f3e288044c"),
+						InternalSubnetID: ptr.To("subnet-0676786f3e288044c"), // same subnet
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should allow workersSubnetID == publicSubnetID (theoretical reuse)", func() {
+				// Uncommon in practice (workers subnets are usually NAT-routed and
+				// wouldn't accept public LB traffic) but validation-wise the same
+				// principle applies: workers can overlap with either LB role.
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:            zone,
+						WorkersSubnetID: ptr.To("subnet-0676786f3e288044c"),
+						PublicSubnetID:  ptr.To("subnet-0676786f3e288044c"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should forbid publicSubnetID == internalSubnetID within the same zone", func() {
+				// A single subnet cannot simultaneously be a public LB target (IGW route)
+				// and an internal LB target (NAT route) — the route table dictates one or
+				// the other. This is the one same-zone overlap we still reject.
+				infrastructureConfig.Networks.VPC = apisaws.VPC{ID: ptr.To("vpc-1234567890abcdef0")}
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:             zone,
+						WorkersSubnetID:  ptr.To("subnet-0676786f3e288044c"),
+						PublicSubnetID:   ptr.To("subnet-0676786f3e288044d"),
+						InternalSubnetID: ptr.To("subnet-0676786f3e288044d"), // same as public
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("networks.zones[0].internalSubnetID"),
+					"Detail": ContainSubstring("must differ from publicSubnetID"),
+				}))))
+			})
 		})
 
 		Context("ignoreTags", func() {
