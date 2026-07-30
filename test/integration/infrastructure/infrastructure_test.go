@@ -1226,17 +1226,6 @@ func verifyBYOCreation(
 		ID:      byoSecurityGroupID,
 	}))
 
-	// Worker subnet should be tagged with the cluster tag (value=shared for BYO)
-	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
-		SubnetIds: []string{byoWorkerSubnetID},
-	})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(describeSubnetsOutput.Subnets).To(HaveLen(1))
-	Expect(describeSubnetsOutput.Subnets[0].Tags).To(ContainElement(ec2types.Tag{
-		Key:   awssdk.String(kubernetesClusterTagPrefix + infra.Namespace),
-		Value: awssdk.String("shared"),
-	}))
-
 	// Public LB subnet should be tagged with cluster tag AND role tag by Gardener
 	describePublicSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
 		SubnetIds: []string{byoPublicSubnetID},
@@ -1337,13 +1326,10 @@ func verifyBYODeletion(
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeVpcsOutput.Vpcs).To(HaveLen(1))
 
-	// BYO worker subnet should still exist, cluster tag removed
+	// BYO worker subnet should still exist (cluster tag was never applied)
 	describeSubnetsOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{byoWorkerSubnetID}})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(describeSubnetsOutput.Subnets).To(HaveLen(1))
-	for _, tag := range describeSubnetsOutput.Subnets[0].Tags {
-		Expect(*tag.Key).NotTo(Equal(clusterTagKey), "cluster tag should be removed from BYO worker subnet on deletion")
-	}
 
 	// BYO public LB subnet should still exist, cluster tag removed, role tag preserved
 	describePublicOutput, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{byoPublicSubnetID}})
@@ -1534,14 +1520,6 @@ func verifyBYOMultiZoneCreation(
 	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{Purpose: awsv1alpha1.PurposeNodes, ID: workerSubnetB, Zone: zoneB}))
 	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{Purpose: awsv1alpha1.PurposePublic, ID: preTaggedPublicSubnetB, Zone: zoneB}))
 	Expect(infraStatus.VPC.Subnets).To(ContainElement(awsv1alpha1.Subnet{Purpose: awsv1alpha1.PurposeInternal, ID: preTaggedInternalSubnetB, Zone: zoneB}))
-
-	// All worker subnets must carry the cluster tag
-	for _, subnetID := range []string{workerSubnetA, workerSubnetB} {
-		out, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{subnetID}})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(out.Subnets).To(HaveLen(1))
-		Expect(out.Subnets[0].Tags).To(ContainElement(clusterTag), "worker subnet %s should have cluster tag", subnetID)
-	}
 
 	// Zone A explicit LB subnets: cluster tag + role tag
 	publicAOut, err := awsClient.EC2.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{SubnetIds: []string{publicSubnetA}})
