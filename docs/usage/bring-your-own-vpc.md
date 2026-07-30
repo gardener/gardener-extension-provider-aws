@@ -181,3 +181,71 @@ The technical shoot name follows the pattern `shoot--<project>--<shoot-name>`, w
 
 > [!WARNING]
 > **The AWS console silently hides leading and trailing whitespace in tag keys and values.** A tag key entered as ` kubernetes.io/role/elb` (with a leading space) looks identical to `kubernetes.io/role/elb` in the console, but the underlying API stores the space and the discovery filter will not match it.
+
+## Load Balancer Subnet Selection by CCM and ALB Controller
+
+Even after Gardener has stored subnet IDs in `infraStatus`, the two in-cluster controllers that actually provision load balancers — the **Cloud Controller Manager (CCM)** and the **AWS Load Balancer Controller (ALB controller)** — perform their own independent subnet discovery at the time a Service or Ingress is created.
+This means that subnets you have **not** configured in the shoot spec can still be selected.
+The most dangerous configuration is a partial one: if you configure only a public or only an internal load balancer subnet, the other type will be discovered from the VPC without any explicit guidance, and an arbitrary subnet may be selected without any visible indication.
+
+### Cloud Controller Manager (CCM)
+
+The CCM provisions Classic ELBs and NLBs for `Service` objects of type `LoadBalancer`.
+
+**Internal vs. public load balancers**
+
+The load balancer type is controlled by the Service annotation:
+
+```
+service.beta.kubernetes.io/aws-load-balancer-internal: "true"   # internal (private)
+# annotation absent or set to "false"                           # public (internet-facing)
+```
+
+**Subnet discovery**
+
+If the Service carries the annotation `service.beta.kubernetes.io/aws-load-balancer-subnets`, the CCM uses exactly those subnets (by ID or name tag). Otherwise it performs auto-discovery:
+
+1. It queries **all subnets in the VPC** and filters by the cluster tag `kubernetes.io/cluster/<cluster-name>` (subnets without any cluster tag are also included as fallback candidates).
+2. For each Availability Zone it selects **one subnet** using the following priority:
+   - Subnet tagged `kubernetes.io/role/elb` (for public LBs) or `kubernetes.io/role/internal-elb` (for internal LBs).
+   - If tied, prefer the subnet with the cluster tag.
+   - If still tied, choose the subnet with the lexicographically smaller ID.
+3. For **public** load balancers the CCM additionally filters out private subnets — it inspects the subnet's route table and skips any subnet that has no route to an Internet Gateway.
+
+> [!WARNING]
+> If you only configure an `internalSubnetID` in the shoot spec (or only tag an internal-ELB subnet), the CCM still performs VPC-wide discovery for **public** load balancers. It will select any subnet in the VPC that has a route to an Internet Gateway and carries the `kubernetes.io/role/elb` tag — or, if no role-tagged subnet exists, any public subnet at all. This can cause the CCM to use subnets that you never referenced in the shoot spec.
+
+**Avoiding unexpected subnet selection**
+
+- Tag every subnet you want the CCM to use for public load balancers with `kubernetes.io/role/elb` (value `1`) and the cluster tag `kubernetes.io/cluster/<cluster-name>` (value `shared`). If you provide the subnet ID via `publicSubnetID` in the shoot spec, Gardener applies these tags automatically during infrastructure reconciliation.
+- Tag every subnet you want the CCM to use for internal load balancers with `kubernetes.io/role/internal-elb` and the cluster tag. Likewise, providing the subnet ID via `internalSubnetID` causes Gardener to apply these tags automatically.
+- Removing both tags from a subnet is **not** sufficient to exclude it: the CCM treats subnets with no `kubernetes.io/cluster/*` prefix tag at all as valid candidates, so an entirely untagged subnet can still be selected. The role tags and cluster tag only affect the tie-breaking priority within an AZ, not whether the subnet is considered in the first place.
+- If neither `publicSubnetID` nor `internalSubnetID` is configured in any zone, Gardener disables the CCM service controller entirely (`--controllers=*,-service`). In this case `Service` objects of type `LoadBalancer` will remain in `<pending>` state with no events or diagnostics.
+
+### AWS Load Balancer Controller (ALB Controller)
+
+The ALB controller provisions ALBs and NLBs for `Ingress` objects and for Services annotated with `service.beta.kubernetes.io/aws-load-balancer-type: external`.
+
+**Explicit vs. auto-discovery**
+
+Like the CCM, the ALB controller first checks for an explicit subnet specification:
+- Annotation `alb.ingress.kubernetes.io/subnets` (Ingress) or `service.beta.kubernetes.io/aws-load-balancer-subnets` (Service).
+- `IngressClassParams.spec.loadBalancerSubnets` or `IngressClassParams.spec.subnets.tags`.
+
+If none of these are present, it falls back to **auto-discovery**:
+
+1. It queries all subnets in the VPC and looks for those tagged `kubernetes.io/role/elb` (internet-facing) or `kubernetes.io/role/internal-elb` (internal).
+2. If **no** role-tagged subnets exist anywhere in the VPC, it falls back to selecting subnets by their actual reachability (public or private) based on route table analysis.
+3. From the role-tagged (or reachability-discovered) candidates, subnets tagged for a **different** cluster (`kubernetes.io/cluster/<other-name>`) are excluded.
+4. From the eligible candidates it keeps only subnets with at least 8 available IP addresses.
+5. Finally, it selects **one subnet per Availability Zone**, preferring the subnet with the current cluster tag; ties are broken lexicographically by subnet ID.
+
+> [!WARNING]
+> The ALB controller performs VPC-wide subnet discovery regardless of what is configured in the shoot spec. If role tags exist on subnets you did not intend to expose, the ALB controller will use them. If no role tags exist at all, the controller may fall back to selecting subnets purely by internet reachability, which can produce surprising results.
+
+**Avoiding unexpected subnet selection**
+
+- Tag subnets intended for internet-facing ALBs with `kubernetes.io/role/elb` (value `1`) and `kubernetes.io/cluster/<cluster-name>` (value `shared` or `owned`).
+- Tag subnets intended for internal ALBs with `kubernetes.io/role/internal-elb` and the cluster tag.
+- Do **not** tag subnets with role tags unless you want them selected for load balancers.
+- The ALB controller is **disabled by default**. It must be explicitly enabled by setting `loadBalancerController.enabled: true` in the shoot's `providerConfig`. If it is not enabled, none of the subnet discovery described above applies.
