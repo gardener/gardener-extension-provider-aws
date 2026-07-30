@@ -12,12 +12,16 @@ import (
 	extensionswebhook "github.com/gardener/gardener/extensions/pkg/webhook"
 	pvcautoscalingv1alpha1 "github.com/gardener/pvc-autoscaler/api/autoscaling/v1alpha1"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // A volume can be modified up to four times within a rolling 24-hour period (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modify-volume.html)
 const minCooldownDuration = 6 * time.Hour
+
+// minStepAbsolute is the minimum absolute change in capacity enforced during scaling.
+var minStepAbsolute = resource.MustParse("5Gi")
 
 type mutator struct {
 	logger logr.Logger
@@ -41,6 +45,11 @@ func (m *mutator) Mutate(_ context.Context, newObj, _ client.Object) error {
 		if pvca.Spec.VolumePolicies[i].ScaleUp != nil &&
 			(pvca.Spec.VolumePolicies[i].ScaleUp.CooldownDuration == nil || pvca.Spec.VolumePolicies[i].ScaleUp.CooldownDuration.Duration < minCooldownDuration) {
 			pvca.Spec.VolumePolicies[i].ScaleUp.CooldownDuration = &metav1.Duration{Duration: minCooldownDuration}
+		}
+		if pvca.Spec.VolumePolicies[i].ScaleUp != nil &&
+			(pvca.Spec.VolumePolicies[i].ScaleUp.MinStepAbsolute == nil || pvca.Spec.VolumePolicies[i].ScaleUp.MinStepAbsolute.Cmp(minStepAbsolute) < 0) {
+			step := minStepAbsolute.DeepCopy()
+			pvca.Spec.VolumePolicies[i].ScaleUp.MinStepAbsolute = &step
 		}
 	}
 
