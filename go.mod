@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/efs v1.44.2
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.36.2
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.58.3
-	github.com/aws/aws-sdk-go-v2/service/iam v1.56.2
+	github.com/aws/aws-sdk-go-v2/service/iam v1.57.0
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.65.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.2
