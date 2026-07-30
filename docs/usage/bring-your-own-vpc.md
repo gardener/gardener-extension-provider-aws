@@ -139,7 +139,7 @@ provider:
 
 ## Overlay Networking and Route Tables
 
-When using BYO subnets, the overlay networking setting and IP family together determine what Gardener does with your worker route tables.
+When using BYO subnets, the overlay networking setting and IP family together determine what Gardener does with your worker route tables. The overlay setting defaults to disabled via a mutating webhook when using calico or cilium as the network plugin.
 
 ### IPv4-only cluster, overlay disabled (default)
 

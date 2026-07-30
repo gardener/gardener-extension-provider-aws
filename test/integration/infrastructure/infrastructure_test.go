@@ -1430,6 +1430,9 @@ func runBYOMultiZoneTest(
 		Spec: gardencorev1beta1.ShootSpec{
 			Networking: &gardencorev1beta1.Networking{
 				IPFamilies: []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv4},
+				// Disable overlay so the aws-custom-route-controller is deployed and
+				// tagBYORouteTables runs, tagging worker subnet route tables with the cluster tag.
+				ProviderConfig: &runtime.RawExtension{Raw: []byte(`{"overlay":{"enabled":false}}`)},
 			},
 		},
 	})
