@@ -14,6 +14,7 @@ import (
 	"github.com/gardener/gardener/test/testmachinery/extensions/generator"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -75,9 +76,9 @@ func main() {
 			Zones: []v1alpha1.Zone{
 				{
 					Name:     cfg.zone,
-					Internal: cfg.networkInternalCidr,
-					Public:   cfg.networkPublicCidr,
-					Workers:  cfg.networkWorkerCidr,
+					Internal: ptr.To(cfg.networkInternalCidr),
+					Public:   ptr.To(cfg.networkPublicCidr),
+					Workers:  ptr.To(cfg.networkWorkerCidr),
 				},
 			},
 		},

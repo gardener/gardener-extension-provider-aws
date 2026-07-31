@@ -123,7 +123,7 @@ var _ = Describe("ConfigValidator", func() {
 			}, Fields{
 				"Type":   Equal(field.ErrorTypeInvalid),
 				"Field":  Equal("networks.vpc.id"),
-				"Detail": Equal("no attached internet gateway found"),
+				"Detail": Equal("no attached internet gateway found (required when Gardener manages public subnets)"),
 			}))
 		})
 
@@ -187,9 +187,9 @@ var _ = Describe("ConfigValidator", func() {
 						},
 						Zones: []apisaws.Zone{
 							{
-								Workers:  "10.251.127.0/26",
-								Public:   "10.251.125.0/26",
-								Internal: "10.251.126.0/26",
+								Workers:  ptr.To("10.251.127.0/26"),
+								Public:   ptr.To("10.251.125.0/26"),
+								Internal: ptr.To("10.251.126.0/26"),
 							},
 						},
 					},
@@ -212,9 +212,9 @@ var _ = Describe("ConfigValidator", func() {
 						},
 						Zones: []apisaws.Zone{
 							{
-								Workers:  "10.251.127.0/26",
-								Public:   "10.252.125.0/26",
-								Internal: "10.251.126.0/26",
+								Workers:  ptr.To("10.251.127.0/26"),
+								Public:   ptr.To("10.252.125.0/26"),
+								Internal: ptr.To("10.251.126.0/26"),
 							},
 						},
 					},
@@ -238,19 +238,19 @@ var _ = Describe("ConfigValidator", func() {
 						},
 						Zones: []apisaws.Zone{
 							{
-								Workers:  "10.251.127.0/26",
-								Public:   "10.252.125.0/26",
-								Internal: "10.251.126.0/26",
+								Workers:  ptr.To("10.251.127.0/26"),
+								Public:   ptr.To("10.252.125.0/26"),
+								Internal: ptr.To("10.251.126.0/26"),
 							},
 							{
-								Workers:  "10.254.128.0/26",
-								Public:   "10.254.129.0/26",
-								Internal: "10.255.130.0/26",
+								Workers:  ptr.To("10.254.128.0/26"),
+								Public:   ptr.To("10.254.129.0/26"),
+								Internal: ptr.To("10.255.130.0/26"),
 							},
 							{
-								Workers:  "10.256.128.0/26",
-								Public:   "10.256.129.0/26",
-								Internal: "10.256.130.0/26",
+								Workers:  ptr.To("10.256.128.0/26"),
+								Public:   ptr.To("10.256.129.0/26"),
+								Internal: ptr.To("10.256.130.0/26"),
 							},
 						},
 					},
@@ -281,9 +281,9 @@ var _ = Describe("ConfigValidator", func() {
 						Zones: []apisaws.Zone{
 							{
 								// outside the VPC CIDR on purpose
-								Workers:  "192.168.0.0/24",
-								Public:   "10.252.125.0/26",
-								Internal: "10.250.126.0/26",
+								Workers:  ptr.To("192.168.0.0/24"),
+								Public:   ptr.To("10.252.125.0/26"),
+								Internal: ptr.To("10.250.126.0/26"),
 							},
 						},
 					},
@@ -313,14 +313,14 @@ var _ = Describe("ConfigValidator", func() {
 						},
 						Zones: []apisaws.Zone{
 							{
-								Workers:  "10.251.125.0/26",
-								Public:   "10.251.126.0/26",
-								Internal: "10.251.127.0/26",
+								Workers:  ptr.To("10.251.125.0/26"),
+								Public:   ptr.To("10.251.126.0/26"),
+								Internal: ptr.To("10.251.127.0/26"),
 							},
 							{
-								Workers:  "10.251.128.0/26",
-								Public:   "10.251.129.0/26",
-								Internal: "10.251.130.0/26",
+								Workers:  ptr.To("10.251.128.0/26"),
+								Public:   ptr.To("10.251.129.0/26"),
+								Internal: ptr.To("10.251.130.0/26"),
 							},
 						},
 					},
@@ -341,14 +341,14 @@ var _ = Describe("ConfigValidator", func() {
 						},
 						Zones: []apisaws.Zone{
 							{
-								Workers:  "10.251.125.0/26",
-								Public:   "10.251.126.0/26",
-								Internal: "10.251.127.0/26",
+								Workers:  ptr.To("10.251.125.0/26"),
+								Public:   ptr.To("10.251.126.0/26"),
+								Internal: ptr.To("10.251.127.0/26"),
 							},
 							{
-								Workers:  "192.168.0.0/24", // outside the VPC CIDR
-								Public:   "10.251.129.0/26",
-								Internal: "10.251.130.0/26",
+								Workers:  ptr.To("192.168.0.0/24"), // outside the VPC CIDR
+								Public:   ptr.To("10.251.129.0/26"),
+								Internal: ptr.To("10.251.130.0/26"),
 							},
 						},
 					},
@@ -494,7 +494,16 @@ func baseInfra(region string, vpcID *string) *extensionsv1alpha1.Infrastructure 
 			DefaultSpec: extensionsv1alpha1.DefaultSpec{
 				Type: aws.Type,
 				ProviderConfig: &runtime.RawExtension{Raw: encode(&apisaws.InfrastructureConfig{
-					Networks: apisaws.Networks{VPC: apisaws.VPC{ID: vpcID}},
+					Networks: apisaws.Networks{
+						VPC: apisaws.VPC{ID: vpcID},
+						Zones: []apisaws.Zone{
+							{
+								Workers:  ptr.To("10.250.0.0/19"),
+								Internal: ptr.To("10.250.32.0/20"),
+								Public:   ptr.To("10.250.48.0/20"),
+							},
+						},
+					},
 				})},
 			},
 			Region:    region,

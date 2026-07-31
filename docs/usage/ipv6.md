@@ -157,6 +157,8 @@ To create an IPv6 shoot cluster or a dual-stack shoot within your own Virtual Pr
 ![bring your own vpc](./images/bring-your-own-vpc.png)
 An egress-only internet gateway is required for outbound internet traffic (IPv6) from the instances within your VPC. Please create one egress-only internet gateway and attach it to the VPC. Please also make sure that the VPC has an attached internet gateway and the following attributes set: `enableDnsHostnames` and `enableDnsSupport` as described under [usage](usage.md#infrastructureConfig).
 
+See [AWS Infrastructure Setup for Bring-Your-Own VPC](bring-your-own-vpc.md) for step-by-step instructions.
+
 ### Configuring a Custom IPv6 IPAM Pool
 
 By default, AWS will assign an Amazon-provided IPv6 CIDR block to a newly created VPC for IPv6 / dual-stack shoot clusters. If you want to control from which pool the VPC IPv6 CIDR is allocated (for example to ensure consistent addressing across multiple clusters or accounts), you can reference an existing AWS IPAM pool via the `infrastructureConfig.networks.vpc.ipv6IpamPool` field.

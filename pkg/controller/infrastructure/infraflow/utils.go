@@ -288,6 +288,8 @@ func BuildInfrastructureStatus(
 					purpose = awsapi.PurposePublic
 				case IdentifierZoneSubnetWorkers:
 					purpose = awsapi.PurposeNodes
+				case IdentifierZoneSubnetPrivate:
+					purpose = awsapi.PurposeInternal
 				default:
 					continue
 				}
@@ -356,4 +358,9 @@ func hasRouteTableAssociationInState(getAssociationID func(string) *string, spec
 		}
 	}
 	return false
+}
+
+// hasCIDRs returns true if the security group rule has at least one IPv4 or IPv6 CIDR block.
+func hasCIDRs(rule *awsclient.SecurityGroupRule) bool {
+	return len(rule.CidrBlocks) > 0 || len(rule.CidrBlocksv6) > 0
 }

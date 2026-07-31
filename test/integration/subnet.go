@@ -19,7 +19,25 @@ import (
 
 // CreateSubnet creates a new subnet and waits for it to become available.
 func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string, cidr string, name string) (string, error) {
-	output, err := awsClient.EC2.CreateSubnet(ctx, &ec2.CreateSubnetInput{
+	return CreateSubnetInZone(ctx, log, awsClient, vpcID, cidr, name, "")
+}
+
+// CreateSubnetInZone creates a new subnet in a specific availability zone and waits for it to become available.
+// If availabilityZone is empty, AWS picks the default AZ.
+func CreateSubnetInZone(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string, cidr string, name string, availabilityZone string) (string, error) {
+	return createSubnet(ctx, log, awsClient, vpcID, cidr, "", name, availabilityZone, false)
+}
+
+// CreateDualStackSubnetInZone creates a new subnet with both an IPv4 CIDR and an IPv6 CIDR, in a specific availability
+// zone, and waits for it to become available. The IPv6 CIDR must be a valid /64 within the VPC's /56 IPv6 pool. If
+// assignIpv6OnCreation is true, the subnet is configured to auto-assign IPv6 addresses to instances at launch — used
+// for workers subnets in BYO+IPv6 scenarios.
+func CreateDualStackSubnetInZone(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string, cidr string, ipv6Cidr string, name string, availabilityZone string, assignIpv6OnCreation bool) (string, error) {
+	return createSubnet(ctx, log, awsClient, vpcID, cidr, ipv6Cidr, name, availabilityZone, assignIpv6OnCreation)
+}
+
+func createSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Client, vpcID string, cidr string, ipv6Cidr string, name string, availabilityZone string, assignIpv6OnCreation bool) (string, error) {
+	input := &ec2.CreateSubnetInput{
 		CidrBlock: aws.String(cidr),
 		VpcId:     aws.String(vpcID),
 		TagSpecifications: []ec2types.TagSpecification{
@@ -33,7 +51,15 @@ func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Cli
 				},
 			},
 		},
-	})
+	}
+	if availabilityZone != "" {
+		input.AvailabilityZone = aws.String(availabilityZone)
+	}
+	if ipv6Cidr != "" {
+		input.Ipv6CidrBlock = aws.String(ipv6Cidr)
+	}
+
+	output, err := awsClient.EC2.CreateSubnet(ctx, input)
 	if err != nil {
 		return "", err
 	}
@@ -58,6 +84,15 @@ func CreateSubnet(ctx context.Context, log logr.Logger, awsClient *awsclient.Cli
 		return true, nil
 	}); err != nil {
 		return "", err
+	}
+
+	if assignIpv6OnCreation {
+		if _, err := awsClient.EC2.ModifySubnetAttribute(ctx, &ec2.ModifySubnetAttributeInput{
+			SubnetId:                    subnetID,
+			AssignIpv6AddressOnCreation: &ec2types.AttributeBooleanValue{Value: aws.Bool(true)},
+		}); err != nil {
+			return "", err
+		}
 	}
 
 	return *subnetID, nil
