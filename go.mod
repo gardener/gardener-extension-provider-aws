@@ -9,11 +9,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.34
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.33
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.318.1
-	github.com/aws/aws-sdk-go-v2/service/efs v1.44.2
+	github.com/aws/aws-sdk-go-v2/service/efs v1.44.3
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.36.3
-	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.58.3
-	github.com/aws/aws-sdk-go-v2/service/iam v1.57.0
-	github.com/aws/aws-sdk-go-v2/service/route53 v1.65.4
+	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.58.4
+	github.com/aws/aws-sdk-go-v2/service/iam v1.57.1
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.65.5
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.3
 	github.com/aws/smithy-go v1.27.6
