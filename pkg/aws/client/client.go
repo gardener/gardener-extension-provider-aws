@@ -241,8 +241,8 @@ func (c *Client) GetElasticIPsAssociationIDForAllocationIDs(ctx context.Context,
 func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.Set[string], error) {
 	describeAddressesInput := &ec2.DescribeNatGatewaysInput{
 		Filter: []ec2types.Filter{{
-			Name:   aws.String(fmt.Sprintf("tag:kubernetes.io/cluster/%s", shootNamespace)),
-			Values: []string{"1"},
+			Name:   aws.String("tag-key"),
+			Values: []string{fmt.Sprintf("kubernetes.io/cluster/%s", shootNamespace)},
 		}},
 	}
 
@@ -263,8 +263,11 @@ func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNames
 
 		// add all allocation IDS for the addresses for this NAT Gateway
 		// these are the allocation IDS which identify the associated EIP
+		// private NAT gateways have no AllocationId — skip nil to avoid panic
 		for _, address := range natGateway.NatGatewayAddresses {
-			result.Insert(*address.AllocationId)
+			if address.AllocationId != nil {
+				result.Insert(*address.AllocationId)
+			}
 		}
 	}
 
