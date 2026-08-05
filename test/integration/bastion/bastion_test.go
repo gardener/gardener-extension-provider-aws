@@ -504,7 +504,7 @@ func newCluster(name string, amiID string) (*extensionsv1alpha1.Cluster, *contro
 				Object: cloudProfile,
 				Raw:    cloudProfileJSON,
 			},
-			Seed: runtime.RawExtension{
+			Seed: &runtime.RawExtension{
 				Raw: []byte("{}"),
 			},
 			Shoot: runtime.RawExtension{
