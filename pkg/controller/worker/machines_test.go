@@ -584,9 +584,9 @@ var _ = Describe("Machines", func() {
 				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 
 				additionalData := []string{strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted)}
-				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalData, additionalData, nil)
-				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
-				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil, nil)
+				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalData, nil)
+				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
+				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, clusterWithoutImages)
 			})
@@ -1083,7 +1083,7 @@ var _ = Describe("Machines", func() {
 
 				Context("using workerConfig.iamInstanceProfile", func() {
 					modifyExpectedMachineClasses := func(expectedIamInstanceProfile awsmachineapi.AWSIAMProfileSpec) {
-						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
+						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						machineClassProviderSpecs[2].IAM = expectedIamInstanceProfile
@@ -1207,10 +1207,10 @@ var _ = Describe("Machines", func() {
 					w2PoolHashDataV2, err := ComputeAdditionalHashDataV2(w2.Spec.Pools[0], w2Config)
 					Expect(err).ToNot(HaveOccurred())
 
-					w1Hash, err := worker.WorkerPoolHash(w1.Spec.Pools[0], cluster, nil, w1PoolHashDataV2, ComputeAdditionalHashDataInPlace(w1.Spec.Pools[0]))
+					w1Hash, err := worker.WorkerPoolHash(w1.Spec.Pools[0], cluster, w1PoolHashDataV2, ComputeAdditionalHashDataInPlace(w1.Spec.Pools[0]))
 					Expect(err).ToNot(HaveOccurred())
 
-					w2Hash, err := worker.WorkerPoolHash(w2.Spec.Pools[0], cluster, nil, w2PoolHashDataV2, ComputeAdditionalHashDataInPlace(w2.Spec.Pools[0]))
+					w2Hash, err := worker.WorkerPoolHash(w2.Spec.Pools[0], cluster, w2PoolHashDataV2, ComputeAdditionalHashDataInPlace(w2.Spec.Pools[0]))
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(w1Hash).To(Equal(w2Hash), fmt.Sprintf("w1Def: %q, w2Def:%q, w1Hash: %q, w2Hash: %q", w1Def, w2Def, w1Hash, w2Hash))
