@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -107,6 +106,8 @@ var _ = Describe("Machines", func() {
 				maxUnavailablePool2 intstr.IntOrString
 
 				namePool3 string
+
+				nodeAgentSecretName string
 
 				subnetZone1 string
 				subnetZone2 string
@@ -215,6 +216,8 @@ var _ = Describe("Machines", func() {
 				maxUnavailablePool2 = intstr.FromInt(15)
 
 				namePool3 = "pool-3"
+
+				nodeAgentSecretName = "node-agent-secret"
 
 				subnetZone1 = "subnet-acbd1234"
 				subnetZone2 = "subnet-4321dbca"
@@ -504,7 +507,8 @@ var _ = Describe("Machines", func() {
 									zone1,
 									zone2,
 								},
-								Labels: labels,
+								Labels:              labels,
+								NodeAgentSecretName: &nodeAgentSecretName,
 							},
 							{
 								Name:           namePool2,
@@ -535,8 +539,9 @@ var _ = Describe("Machines", func() {
 									zone1,
 									zone2,
 								},
-								Labels:         labels,
-								UpdateStrategy: ptr.To(gardencorev1beta1.AutoInPlaceUpdate),
+								Labels:              labels,
+								UpdateStrategy:      ptr.To(gardencorev1beta1.AutoInPlaceUpdate),
+								NodeAgentSecretName: &nodeAgentSecretName,
 							},
 							{
 								Name:           namePool3,
@@ -567,8 +572,9 @@ var _ = Describe("Machines", func() {
 									zone1,
 									zone2,
 								},
-								Labels:         labels,
-								UpdateStrategy: ptr.To(gardencorev1beta1.ManualInPlaceUpdate),
+								Labels:              labels,
+								UpdateStrategy:      ptr.To(gardencorev1beta1.ManualInPlaceUpdate),
+								NodeAgentSecretName: &nodeAgentSecretName,
 							},
 						},
 					},
@@ -583,8 +589,30 @@ var _ = Describe("Machines", func() {
 				c = fakeclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&extensionsv1alpha1.Worker{}).Build()
 				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 
-				additionalData := []string{strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted)}
-				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalData, nil)
+				additionalDataPool1, _ := ComputeAdditionalHashDataV2(w.Spec.Pools[0], &api.WorkerConfig{
+					Volume: &api.Volume{
+						IOPS:       &volumeIOPS,
+						Throughput: &volumeThroughput,
+					},
+					DataVolumes: []api.DataVolume{
+						{
+							Name: dataVolume1Name,
+							Volume: api.Volume{
+								IOPS:       &dataVolume1IOPS,
+								Throughput: &dataVolume1Throughput,
+							},
+						},
+						{
+							Name:       dataVolume2Name,
+							SnapshotID: &dataVolume2SnapshotID,
+						},
+					},
+					CapacityReservation: &api.CapacityReservation{
+						CapacityReservationPreference:       ptr.To(capacityReservationPreference),
+						CapacityReservationResourceGroupARN: ptr.To(capacityReservationResourceGroupARN),
+					},
+				})
+				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalDataPool1, nil)
 				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
 				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil)
 
