@@ -263,8 +263,11 @@ func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNames
 
 		// add all allocation IDS for the addresses for this NAT Gateway
 		// these are the allocation IDS which identify the associated EIP
+		// private NAT gateways have no AllocationId — skip nil to avoid panic
 		for _, address := range natGateway.NatGatewayAddresses {
-			result.Insert(*address.AllocationId)
+			if address.AllocationId != nil {
+				result.Insert(*address.AllocationId)
+			}
 		}
 	}
 
