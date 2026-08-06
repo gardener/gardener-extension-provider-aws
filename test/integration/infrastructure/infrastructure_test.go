@@ -808,7 +808,7 @@ var _ = Describe("Infrastructure tests", func() {
 				},
 				Spec: extensionsv1alpha1.ClusterSpec{
 					CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
-					Seed:         runtime.RawExtension{Raw: []byte("{}")},
+					Seed:         &runtime.RawExtension{Raw: []byte("{}")},
 					Shoot:        runtime.RawExtension{Raw: []byte("{}")},
 				},
 			}
@@ -915,7 +915,7 @@ func runTest(ctx context.Context, log logr.Logger, c client.Client, namespaceNam
 		},
 		Spec: extensionsv1alpha1.ClusterSpec{
 			CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
-			Seed:         runtime.RawExtension{Raw: []byte("{}")},
+			Seed:         &runtime.RawExtension{Raw: []byte("{}")},
 			Shoot:        runtime.RawExtension{Raw: shootRaw},
 		},
 	}
@@ -1115,7 +1115,7 @@ func runBYOTest(ctx context.Context, log logr.Logger, c client.Client, namespace
 		},
 		Spec: extensionsv1alpha1.ClusterSpec{
 			CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
-			Seed:         runtime.RawExtension{Raw: []byte("{}")},
+			Seed:         &runtime.RawExtension{Raw: []byte("{}")},
 			Shoot:        runtime.RawExtension{Raw: shootRaw},
 		},
 	}
@@ -1440,7 +1440,7 @@ func runBYOMultiZoneTest(
 		ObjectMeta: metav1.ObjectMeta{Name: namespaceName},
 		Spec: extensionsv1alpha1.ClusterSpec{
 			CloudProfile: runtime.RawExtension{Raw: []byte("{}")},
-			Seed:         runtime.RawExtension{Raw: []byte("{}")},
+			Seed:         &runtime.RawExtension{Raw: []byte("{}")},
 			Shoot:        runtime.RawExtension{Raw: shootRaw},
 		},
 	}

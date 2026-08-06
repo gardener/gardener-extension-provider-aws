@@ -464,7 +464,7 @@ func (w *WorkerDelegate) generateWorkerPoolHash(pool extensionsv1alpha1.WorkerPo
 	if err != nil {
 		return "", err
 	}
-	return worker.WorkerPoolHash(pool, w.cluster, ComputeAdditionalHashDataV1(pool), v2HashData, ComputeAdditionalHashDataInPlace(pool))
+	return worker.WorkerPoolHash(pool, w.cluster, v2HashData, ComputeAdditionalHashDataInPlace(pool))
 }
 
 func computeEBSForVolume(volume extensionsv1alpha1.Volume) (awsmachineapi.AWSEbsBlockDeviceSpec, error) {

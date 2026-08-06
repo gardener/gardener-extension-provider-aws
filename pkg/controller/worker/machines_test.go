@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -107,6 +106,8 @@ var _ = Describe("Machines", func() {
 				maxUnavailablePool2 intstr.IntOrString
 
 				namePool3 string
+
+				nodeAgentSecretName string
 
 				subnetZone1 string
 				subnetZone2 string
@@ -215,6 +216,8 @@ var _ = Describe("Machines", func() {
 				maxUnavailablePool2 = intstr.FromInt(15)
 
 				namePool3 = "pool-3"
+
+				nodeAgentSecretName = "node-agent-secret"
 
 				subnetZone1 = "subnet-acbd1234"
 				subnetZone2 = "subnet-4321dbca"
@@ -504,7 +507,8 @@ var _ = Describe("Machines", func() {
 									zone1,
 									zone2,
 								},
-								Labels: labels,
+								Labels:              labels,
+								NodeAgentSecretName: &nodeAgentSecretName,
 							},
 							{
 								Name:           namePool2,
@@ -535,8 +539,9 @@ var _ = Describe("Machines", func() {
 									zone1,
 									zone2,
 								},
-								Labels:         labels,
-								UpdateStrategy: ptr.To(gardencorev1beta1.AutoInPlaceUpdate),
+								Labels:              labels,
+								UpdateStrategy:      ptr.To(gardencorev1beta1.AutoInPlaceUpdate),
+								NodeAgentSecretName: &nodeAgentSecretName,
 							},
 							{
 								Name:           namePool3,
@@ -567,8 +572,9 @@ var _ = Describe("Machines", func() {
 									zone1,
 									zone2,
 								},
-								Labels:         labels,
-								UpdateStrategy: ptr.To(gardencorev1beta1.ManualInPlaceUpdate),
+								Labels:              labels,
+								UpdateStrategy:      ptr.To(gardencorev1beta1.ManualInPlaceUpdate),
+								NodeAgentSecretName: &nodeAgentSecretName,
 							},
 						},
 					},
@@ -583,10 +589,32 @@ var _ = Describe("Machines", func() {
 				c = fakeclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&extensionsv1alpha1.Worker{}).Build()
 				decoder = serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDecoder()
 
-				additionalData := []string{strconv.FormatBool(volumeEncrypted), fmt.Sprintf("%dGi", dataVolume1Size), dataVolume1Type, strconv.FormatBool(dataVolume1Encrypted), fmt.Sprintf("%dGi", dataVolume2Size), dataVolume2Type, strconv.FormatBool(dataVolume2Encrypted)}
-				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalData, additionalData, nil)
-				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
-				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil, nil)
+				additionalDataPool1, _ := ComputeAdditionalHashDataV2(w.Spec.Pools[0], &api.WorkerConfig{
+					Volume: &api.Volume{
+						IOPS:       &volumeIOPS,
+						Throughput: &volumeThroughput,
+					},
+					DataVolumes: []api.DataVolume{
+						{
+							Name: dataVolume1Name,
+							Volume: api.Volume{
+								IOPS:       &dataVolume1IOPS,
+								Throughput: &dataVolume1Throughput,
+							},
+						},
+						{
+							Name:       dataVolume2Name,
+							SnapshotID: &dataVolume2SnapshotID,
+						},
+					},
+					CapacityReservation: &api.CapacityReservation{
+						CapacityReservationPreference:       ptr.To(capacityReservationPreference),
+						CapacityReservationResourceGroupARN: ptr.To(capacityReservationResourceGroupARN),
+					},
+				})
+				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster, additionalDataPool1, nil)
+				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
+				workerPoolHash3, _ = worker.WorkerPoolHash(w.Spec.Pools[2], cluster, nil, nil)
 
 				workerDelegate, _ = NewWorkerDelegate(c, decoder, scheme, "", w, clusterWithoutImages)
 			})
@@ -1083,7 +1111,7 @@ var _ = Describe("Machines", func() {
 
 				Context("using workerConfig.iamInstanceProfile", func() {
 					modifyExpectedMachineClasses := func(expectedIamInstanceProfile awsmachineapi.AWSIAMProfileSpec) {
-						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil, nil)
+						newHash, err := worker.WorkerPoolHash(w.Spec.Pools[1], cluster, nil, nil)
 						Expect(err).NotTo(HaveOccurred())
 
 						machineClassProviderSpecs[2].IAM = expectedIamInstanceProfile
@@ -1207,10 +1235,10 @@ var _ = Describe("Machines", func() {
 					w2PoolHashDataV2, err := ComputeAdditionalHashDataV2(w2.Spec.Pools[0], w2Config)
 					Expect(err).ToNot(HaveOccurred())
 
-					w1Hash, err := worker.WorkerPoolHash(w1.Spec.Pools[0], cluster, nil, w1PoolHashDataV2, ComputeAdditionalHashDataInPlace(w1.Spec.Pools[0]))
+					w1Hash, err := worker.WorkerPoolHash(w1.Spec.Pools[0], cluster, w1PoolHashDataV2, ComputeAdditionalHashDataInPlace(w1.Spec.Pools[0]))
 					Expect(err).ToNot(HaveOccurred())
 
-					w2Hash, err := worker.WorkerPoolHash(w2.Spec.Pools[0], cluster, nil, w2PoolHashDataV2, ComputeAdditionalHashDataInPlace(w2.Spec.Pools[0]))
+					w2Hash, err := worker.WorkerPoolHash(w2.Spec.Pools[0], cluster, w2PoolHashDataV2, ComputeAdditionalHashDataInPlace(w2.Spec.Pools[0]))
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(w1Hash).To(Equal(w2Hash), fmt.Sprintf("w1Def: %q, w2Def:%q, w1Hash: %q, w2Hash: %q", w1Def, w2Def, w1Hash, w2Hash))
