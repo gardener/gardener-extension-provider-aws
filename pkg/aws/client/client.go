@@ -257,6 +257,9 @@ func (c *Client) GetNATGatewayAddressAllocations(ctx context.Context, shootNames
 	}
 
 	for _, natGateway := range describeNatGatewaysOutput.NatGateways {
+		if natGateway.State == ec2types.NatGatewayStateDeleted {
+			continue
+		}
 		if len(natGateway.NatGatewayAddresses) == 0 {
 			continue
 		}
