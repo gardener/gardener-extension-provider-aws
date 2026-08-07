@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.65.6
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.107.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.4
-	github.com/aws/smithy-go v1.27.6
+	github.com/aws/smithy-go v1.27.7
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/gardener/etcd-druid/api v0.37.1
 	github.com/gardener/external-dns-management v0.46.0
