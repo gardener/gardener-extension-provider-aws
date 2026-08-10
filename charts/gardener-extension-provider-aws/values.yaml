@@ -88,10 +88,10 @@ config:
       encrypted: true
       parameters:
         type: gp3
-#     backup:
-#       schedule: "0 */1 * * *"
+  #     backup:
+  #       schedule: "0 */1 * * *"
   featureGates:
-    MTUCustomizer: true
+    MTUCustomizer: false
 
 gardener:
   version: ""
@@ -113,6 +113,6 @@ gardener:
 #   format: json # text | json - omitting defaults to "json"
 
 usablePorts:
-- 8080  # metrics
+- 8080 # metrics
 - 10250 # webhook server
-- 8081  # healthcheck
+- 8081 # healthcheck
