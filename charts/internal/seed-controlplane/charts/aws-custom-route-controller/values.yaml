@@ -18,7 +18,7 @@ region: region
 vpa:
   enabled: true
   updatePolicy:
-    updateMode: "Recreate"
+    updateMode: "InPlaceOrRecreate"
 
 resources:
   requests:
