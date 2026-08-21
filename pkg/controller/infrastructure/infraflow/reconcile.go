@@ -1796,13 +1796,18 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 				if err != nil {
 					return err
 				}
-				// If still in use, leave state intact and retry on the next reconcile.
-				if ip == nil || ip.AssociationID != nil {
+				switch {
+				case ip == nil:
+					// The old managed EIP no longer exists; nothing to delete.
+					// Fall through to clear the stale state below.
+				case ip.AssociationID != nil:
+					// Still associated (in use); leave state intact and retry on the next reconcile.
 					return nil
-				}
-				log.Info("deleting unused managed elastic IP found in state", "id", *id)
-				if err = c.deleteElasticIpWithWait(ctx, ip); err != nil {
-					return err
+				default:
+					log.Info("deleting unused managed elastic IP found in state", "id", *id)
+					if err = c.deleteElasticIpWithWait(ctx, ip); err != nil {
+						return err
+					}
 				}
 			}
 			// Either IDs match (user adopted this EIP) or the old managed EIP was just deleted above.

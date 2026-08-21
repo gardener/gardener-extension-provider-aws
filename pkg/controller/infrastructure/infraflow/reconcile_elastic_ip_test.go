@@ -77,6 +77,18 @@ var _ = Describe("#ensureElasticIP", func() {
 			// State entry is NOT cleared: the EIP is still in use and will be retried on next reconcile.
 			Expect(getManagedEIPState()).To(HaveValue(Equal(managedEIP)))
 		})
+
+		It("should clear state if the old managed EIP no longer exists", func() {
+			setManagedEIP(managedEIP)
+
+			// The old EIP was already released out-of-band; GetElasticIP returns (nil, nil).
+			f.client.EXPECT().GetElasticIP(f.ctx, managedEIP).Return(nil, nil).Times(1)
+
+			Expect(f.c.ensureElasticIP(zone(ptr.To(differentEIP)))(f.ctx)).To(Succeed())
+
+			// Nothing to delete, but the stale state entry must be cleared.
+			Expect(getManagedEIPState()).To(BeNil())
+		})
 	})
 
 	Describe("no managed EIP in state, user provides BYO EIP", func() {
