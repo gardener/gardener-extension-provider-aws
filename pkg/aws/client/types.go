@@ -179,6 +179,10 @@ type Interface interface {
 	GetIAMRole(ctx context.Context, roleName string) (*IAMRole, error)
 	DeleteIAMRole(ctx context.Context, roleName string) error
 	UpdateAssumeRolePolicy(ctx context.Context, roleName, assumeRolePolicy string) error
+	ListAttachedIAMRolePolicies(ctx context.Context, roleName string) ([]string, error)
+	DetachIAMRolePolicy(ctx context.Context, roleName, policyARN string) error
+	ListIAMRolePolicies(ctx context.Context, roleName string) ([]string, error)
+	ListIAMInstanceProfilesForRole(ctx context.Context, roleName string) ([]string, error)
 
 	// IAM Instance Profile
 	CreateIAMInstanceProfile(ctx context.Context, profile *IAMInstanceProfile) (*IAMInstanceProfile, error)

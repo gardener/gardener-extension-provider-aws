@@ -26,6 +26,13 @@ const (
 	// enabled.
 	LegacyXFS = "aws.provider.extensions.gardener.cloud/legacy-xfs"
 
+	// ForceDetachRolePolicies is the key for an annotation on a Shoot object. If set to "true", the infrastructure
+	// deletion flow detaches all managed policies still attached to the nodes IAM role, deletes remaining inline
+	// policies on it, and removes remaining instance-profile associations before deleting the role. Policies
+	// themselves are never deleted. This allows shoot deletion to succeed when policies were attached to the nodes
+	// role out-of-band (e.g. by account-governance automation). It only affects deletion, never reconciliation.
+	ForceDetachRolePolicies = "aws.provider.extensions.gardener.cloud/force-detach-role-policies"
+
 	// CloudControllerManagerImageName is the name of the cloud-controller-manager image.
 	CloudControllerManagerImageName = "cloud-controller-manager"
 	// AWSCustomRouteControllerImageName is the name of the aws-custom-route-controller image.

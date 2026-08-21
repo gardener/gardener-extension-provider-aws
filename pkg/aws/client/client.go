@@ -2352,6 +2352,81 @@ func (c *Client) DeleteIAMRolePolicy(ctx context.Context, policyName, roleName s
 	return ignoreNotFound(err)
 }
 
+// ListAttachedIAMRolePolicies lists the ARNs of all managed policies attached to the given IAM role.
+// Returns an empty list if the role is not found.
+func (c *Client) ListAttachedIAMRolePolicies(ctx context.Context, roleName string) ([]string, error) {
+	var policyARNs []string
+	input := &iam.ListAttachedRolePoliciesInput{
+		RoleName: aws.String(roleName),
+	}
+	for {
+		output, err := c.IAM.ListAttachedRolePolicies(ctx, input)
+		if err != nil {
+			return nil, ignoreNotFound(err)
+		}
+		for _, policy := range output.AttachedPolicies {
+			policyARNs = append(policyARNs, aws.ToString(policy.PolicyArn))
+		}
+		if !output.IsTruncated {
+			return policyARNs, nil
+		}
+		input.Marker = output.Marker
+	}
+}
+
+// DetachIAMRolePolicy detaches a managed policy from an IAM role. The policy itself is not deleted.
+// Returns nil if the role or the attachment is not found.
+func (c *Client) DetachIAMRolePolicy(ctx context.Context, roleName, policyARN string) error {
+	input := &iam.DetachRolePolicyInput{
+		RoleName:  aws.String(roleName),
+		PolicyArn: aws.String(policyARN),
+	}
+	_, err := c.IAM.DetachRolePolicy(ctx, input)
+	return ignoreNotFound(err)
+}
+
+// ListIAMRolePolicies lists the names of all inline policies of the given IAM role.
+// Returns an empty list if the role is not found.
+func (c *Client) ListIAMRolePolicies(ctx context.Context, roleName string) ([]string, error) {
+	var policyNames []string
+	input := &iam.ListRolePoliciesInput{
+		RoleName: aws.String(roleName),
+	}
+	for {
+		output, err := c.IAM.ListRolePolicies(ctx, input)
+		if err != nil {
+			return nil, ignoreNotFound(err)
+		}
+		policyNames = append(policyNames, output.PolicyNames...)
+		if !output.IsTruncated {
+			return policyNames, nil
+		}
+		input.Marker = output.Marker
+	}
+}
+
+// ListIAMInstanceProfilesForRole lists the names of all instance profiles the given IAM role is added to.
+// Returns an empty list if the role is not found.
+func (c *Client) ListIAMInstanceProfilesForRole(ctx context.Context, roleName string) ([]string, error) {
+	var profileNames []string
+	input := &iam.ListInstanceProfilesForRoleInput{
+		RoleName: aws.String(roleName),
+	}
+	for {
+		output, err := c.IAM.ListInstanceProfilesForRole(ctx, input)
+		if err != nil {
+			return nil, ignoreNotFound(err)
+		}
+		for _, profile := range output.InstanceProfiles {
+			profileNames = append(profileNames, aws.ToString(profile.InstanceProfileName))
+		}
+		if !output.IsTruncated {
+			return profileNames, nil
+		}
+		input.Marker = output.Marker
+	}
+}
+
 // GetFileSystem retrieve information about an efs file system by its ID
 // Returns nil if the file system is not found
 func (c *Client) GetFileSystem(ctx context.Context, fileSystemID string) (*ElasticFileSystem, error) {
