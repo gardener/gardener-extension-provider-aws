@@ -134,7 +134,7 @@ images:
 - name: csi-driver
   sourceRepository: github.com/kubernetes-sigs/aws-ebs-csi-driver
   repository: registry.k8s.io/provider-aws/aws-ebs-csi-driver
-  tag: v1.63.1
+  tag: v1.64.0
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -148,7 +148,7 @@ images:
 - name: csi-driver-efs
   sourceRepository: github.com/kubernetes-sigs/aws-efs-csi-driver
   repository: public.ecr.aws/efs-csi-driver/amazon/aws-efs-csi-driver
-  tag: v3.4.1
+  tag: v3.4.2
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
