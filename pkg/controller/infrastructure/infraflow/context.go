@@ -20,6 +20,7 @@ import (
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow/shared"
 )
@@ -175,6 +176,9 @@ type FlowContext struct {
 	commonTags    awsclient.Tags
 	networking    *v1beta1.Networking
 	hasEFAWorker  bool
+	// forceDetachRolePolicies enables cleanup of out-of-band attachments on the nodes IAM role during deletion.
+	// It is derived from the aws.ForceDetachRolePolicies shoot annotation and is never evaluated on reconciliation.
+	forceDetachRolePolicies bool
 	*shared.BasicFlowContext
 }
 
@@ -208,6 +212,8 @@ func NewFlowContext(opts Opts) (*FlowContext, error) {
 		networking:    opts.Shoot.Spec.Networking,
 		shootUUID:     string(opts.Shoot.UID),
 		hasEFAWorker:  hasEFAWorker,
+
+		forceDetachRolePolicies: strings.EqualFold(opts.Shoot.Annotations[aws.ForceDetachRolePolicies], "true"),
 	}
 	flowContext.commonTags = awsclient.Tags{
 		flowContext.tagKeyCluster(): TagValueClusterOwned,

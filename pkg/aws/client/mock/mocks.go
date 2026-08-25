@@ -764,6 +764,20 @@ func (mr *MockInterfaceMockRecorder) DeleteVpcEndpointRouteTableAssociation(ctx,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcEndpointRouteTableAssociation", reflect.TypeOf((*MockInterface)(nil).DeleteVpcEndpointRouteTableAssociation), ctx, routeTableId, vpcEndpointId)
 }
 
+// DetachIAMRolePolicy mocks base method.
+func (m *MockInterface) DetachIAMRolePolicy(ctx context.Context, roleName, policyARN string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DetachIAMRolePolicy", ctx, roleName, policyARN)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DetachIAMRolePolicy indicates an expected call of DetachIAMRolePolicy.
+func (mr *MockInterfaceMockRecorder) DetachIAMRolePolicy(ctx, roleName, policyARN any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetachIAMRolePolicy", reflect.TypeOf((*MockInterface)(nil).DetachIAMRolePolicy), ctx, roleName, policyARN)
+}
+
 // DetachInternetGateway mocks base method.
 func (m *MockInterface) DetachInternetGateway(ctx context.Context, vpcId, internetGatewayId string) error {
 	m.ctrl.T.Helper()
@@ -1465,6 +1479,51 @@ func (m *MockInterface) ImportKeyPair(ctx context.Context, keyName string, publi
 func (mr *MockInterfaceMockRecorder) ImportKeyPair(ctx, keyName, publicKey, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportKeyPair", reflect.TypeOf((*MockInterface)(nil).ImportKeyPair), ctx, keyName, publicKey, tags)
+}
+
+// ListAttachedIAMRolePolicies mocks base method.
+func (m *MockInterface) ListAttachedIAMRolePolicies(ctx context.Context, roleName string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAttachedIAMRolePolicies", ctx, roleName)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAttachedIAMRolePolicies indicates an expected call of ListAttachedIAMRolePolicies.
+func (mr *MockInterfaceMockRecorder) ListAttachedIAMRolePolicies(ctx, roleName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAttachedIAMRolePolicies", reflect.TypeOf((*MockInterface)(nil).ListAttachedIAMRolePolicies), ctx, roleName)
+}
+
+// ListIAMInstanceProfilesForRole mocks base method.
+func (m *MockInterface) ListIAMInstanceProfilesForRole(ctx context.Context, roleName string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListIAMInstanceProfilesForRole", ctx, roleName)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListIAMInstanceProfilesForRole indicates an expected call of ListIAMInstanceProfilesForRole.
+func (mr *MockInterfaceMockRecorder) ListIAMInstanceProfilesForRole(ctx, roleName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListIAMInstanceProfilesForRole", reflect.TypeOf((*MockInterface)(nil).ListIAMInstanceProfilesForRole), ctx, roleName)
+}
+
+// ListIAMRolePolicies mocks base method.
+func (m *MockInterface) ListIAMRolePolicies(ctx context.Context, roleName string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListIAMRolePolicies", ctx, roleName)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListIAMRolePolicies indicates an expected call of ListIAMRolePolicies.
+func (mr *MockInterfaceMockRecorder) ListIAMRolePolicies(ctx, roleName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListIAMRolePolicies", reflect.TypeOf((*MockInterface)(nil).ListIAMRolePolicies), ctx, roleName)
 }
 
 // ListKubernetesELBs mocks base method.

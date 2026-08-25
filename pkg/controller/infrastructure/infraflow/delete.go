@@ -12,6 +12,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/util"
 	"github.com/gardener/gardener/pkg/utils/flow"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 	awsclient "github.com/gardener/gardener-extension-provider-aws/pkg/aws/client"
@@ -59,9 +60,13 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 		c.deleteIAMInstanceProfile,
 		Timeout(defaultTimeout), Dependencies(deleteIAMRolePolicy))
 
+	forceCleanupIAMRoleAttachments := c.AddTask(g, "force-cleanup out-of-band IAM role attachments",
+		c.forceCleanupIAMRoleAttachments,
+		DoIf(c.forceDetachRolePolicies), Timeout(defaultTimeout), Dependencies(deleteIAMInstanceProfile, deleteIAMRolePolicy))
+
 	_ = c.AddTask(g, "delete IAM role",
 		c.deleteIAMRole,
-		Timeout(defaultTimeout), Dependencies(deleteIAMInstanceProfile, deleteIAMRolePolicy))
+		Timeout(defaultTimeout), Dependencies(deleteIAMInstanceProfile, deleteIAMRolePolicy, forceCleanupIAMRoleAttachments))
 
 	deleteZones := c.AddTask(g, "delete zones resources",
 		c.deleteZones,
@@ -372,6 +377,69 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 	if err := f.Run(ctx, flow.Opts{Log: c.log}); err != nil {
 		return flow.Causes(err)
 	}
+	return nil
+}
+
+// forceCleanupIAMRoleAttachments removes all remaining attachments from the nodes IAM role so that the
+// subsequent DeleteRole call cannot fail with a DeleteConflict caused by policies attached out-of-band
+// (e.g. by account-governance automation). Managed policies are only detached, never deleted; inline
+// policies are role-owned and therefore deleted; remaining instance-profile associations are removed.
+// Only runs if enabled via the aws.ForceDetachRolePolicies shoot annotation, and only during deletion.
+// If the role's ARN was recorded in the flow state, it must match the live role - this prevents acting
+// on an identically named role of another cluster, e.g. when two Gardener installations share a cloud
+// account.
+func (c *FlowContext) forceCleanupIAMRoleAttachments(ctx context.Context) error {
+	if c.state.Get(NameIAMRole) == nil {
+		return nil
+	}
+
+	log := LogFromContext(ctx)
+	roleName := fmt.Sprintf("%s-nodes", c.namespace)
+
+	role, err := c.client.GetIAMRole(ctx, roleName)
+	if err != nil {
+		return err
+	}
+	if role == nil {
+		return nil
+	}
+	if storedARN := ptr.Deref(c.state.Get(ARNIAMRole), ""); storedARN != "" && storedARN != role.ARN {
+		return fmt.Errorf("refusing to clean up attachments of IAM role %q: its ARN %q does not match the ARN %q recorded in the infrastructure state", roleName, role.ARN, storedARN)
+	}
+
+	policyARNs, err := c.client.ListAttachedIAMRolePolicies(ctx, roleName)
+	if err != nil {
+		return err
+	}
+	for _, policyARN := range policyARNs {
+		log.Info("force-detaching managed policy from role", "RoleName", roleName, "PolicyARN", policyARN)
+		if err := c.client.DetachIAMRolePolicy(ctx, roleName, policyARN); err != nil {
+			return err
+		}
+	}
+
+	policyNames, err := c.client.ListIAMRolePolicies(ctx, roleName)
+	if err != nil {
+		return err
+	}
+	for _, policyName := range policyNames {
+		log.Info("deleting remaining inline policy of role", "RoleName", roleName, "PolicyName", policyName)
+		if err := c.client.DeleteIAMRolePolicy(ctx, policyName, roleName); err != nil {
+			return err
+		}
+	}
+
+	profileNames, err := c.client.ListIAMInstanceProfilesForRole(ctx, roleName)
+	if err != nil {
+		return err
+	}
+	for _, profileName := range profileNames {
+		log.Info("removing role from remaining instance profile", "RoleName", roleName, "InstanceProfileName", profileName)
+		if err := c.client.RemoveRoleFromIAMInstanceProfile(ctx, profileName, roleName); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
