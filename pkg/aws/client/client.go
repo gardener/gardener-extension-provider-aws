@@ -1733,6 +1733,7 @@ func (c *Client) CreateSubnet(ctx context.Context, subnet *Subnet, maxWaitDur ti
 		func(o *ec2.SubnetAvailableWaiterOptions) {
 			o.MinDelay = 5 * time.Second  // Optional; defaults to 15s if not set
 			o.MaxDelay = 60 * time.Second // Optional; defaults to 120s if not set
+			o.Retryable = subnetAvailableRetryable
 		})
 	if err != nil {
 		return nil, fmt.Errorf("subnet %s did not become available: %w", *output.Subnet.SubnetId, err)
@@ -2657,6 +2658,28 @@ func ignoreNotFound(err error) error {
 		return nil
 	}
 	return err
+}
+
+// subnetAvailableRetryable is a custom retryable function for SubnetAvailableWaiter that
+// treats InvalidSubnetID.NotFound as a transient error. EC2 eventual consistency means a
+// subnet may not be immediately visible via DescribeSubnets after CreateSubnet returns.
+func subnetAvailableRetryable(_ context.Context, _ *ec2.DescribeSubnetsInput, output *ec2.DescribeSubnetsOutput, err error) (bool, error) {
+	if err == nil {
+		for _, subnet := range output.Subnets {
+			if subnet.State != ec2types.SubnetStateAvailable {
+				return true, nil
+			}
+		}
+		if len(output.Subnets) > 0 {
+			return false, nil
+		}
+		return true, nil
+	}
+
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok && apiErr.ErrorCode() == "InvalidSubnetID.NotFound" {
+		return true, nil
+	}
+	return false, err
 }
 
 func ignoreAlreadyAssociated(err error) error {
