@@ -136,4 +136,65 @@ var _ = Describe("Mutator", func() {
 		Expect(pvca.Spec.VolumePolicies[0].ScaleUp.CooldownDuration).ToNot(BeNil())
 		Expect(pvca.Spec.VolumePolicies[0].ScaleUp.CooldownDuration.Duration).To(Equal(8 * time.Hour))
 	})
+
+	It("should default minStepAbsolute to 5Gi when missing", func() {
+		pvca := &pvcautoscalingv1alpha1.PersistentVolumeClaimAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{Name: "example", Namespace: "default"},
+			Spec: pvcautoscalingv1alpha1.PersistentVolumeClaimAutoscalerSpec{
+				VolumePolicies: []pvcautoscalingv1alpha1.VolumePolicy{
+					{
+						MaxCapacity: resource.MustParse("10Gi"),
+						ScaleUp:     &pvcautoscalingv1alpha1.ScalingRules{},
+					},
+				},
+			},
+		}
+
+		err := mutator.Mutate(context.Background(), pvca, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(pvca.Spec.VolumePolicies).To(HaveLen(1))
+		Expect(pvca.Spec.VolumePolicies[0].ScaleUp.MinStepAbsolute).ToNot(BeNil())
+		Expect(pvca.Spec.VolumePolicies[0].ScaleUp.MinStepAbsolute.Cmp(resource.MustParse("5Gi"))).To(Equal(0))
+	})
+
+	It("should overwrite minStepAbsolute when smaller than 5Gi", func() {
+		existing := resource.MustParse("1Gi")
+		pvca := &pvcautoscalingv1alpha1.PersistentVolumeClaimAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{Name: "example", Namespace: "default"},
+			Spec: pvcautoscalingv1alpha1.PersistentVolumeClaimAutoscalerSpec{
+				VolumePolicies: []pvcautoscalingv1alpha1.VolumePolicy{
+					{
+						MaxCapacity: resource.MustParse("10Gi"),
+						ScaleUp:     &pvcautoscalingv1alpha1.ScalingRules{MinStepAbsolute: &existing},
+					},
+				},
+			},
+		}
+
+		err := mutator.Mutate(context.Background(), pvca, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(pvca.Spec.VolumePolicies[0].ScaleUp.MinStepAbsolute.Cmp(resource.MustParse("5Gi"))).To(Equal(0))
+	})
+
+	It("should keep minStepAbsolute when already at least 5Gi", func() {
+		existing := resource.MustParse("10Gi")
+		pvca := &pvcautoscalingv1alpha1.PersistentVolumeClaimAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{Name: "example", Namespace: "default"},
+			Spec: pvcautoscalingv1alpha1.PersistentVolumeClaimAutoscalerSpec{
+				VolumePolicies: []pvcautoscalingv1alpha1.VolumePolicy{
+					{
+						MaxCapacity: resource.MustParse("20Gi"),
+						ScaleUp:     &pvcautoscalingv1alpha1.ScalingRules{MinStepAbsolute: &existing},
+					},
+				},
+			},
+		}
+
+		err := mutator.Mutate(context.Background(), pvca, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(pvca.Spec.VolumePolicies[0].ScaleUp.MinStepAbsolute.Cmp(resource.MustParse("10Gi"))).To(Equal(0))
+	})
 })
