@@ -6,14 +6,14 @@ go 1.26.5
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/aws/aws-sdk-go-v2 v1.45.0
-	github.com/aws/aws-sdk-go-v2/config v1.32.40
+	github.com/aws/aws-sdk-go-v2/config v1.33.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.0
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.324.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.325.0
 	github.com/aws/aws-sdk-go-v2/service/efs v1.46.0
-	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.37.0
+	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.38.0
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.60.0
-	github.com/aws/aws-sdk-go-v2/service/iam v1.60.0
-	github.com/aws/aws-sdk-go-v2/service/route53 v1.66.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.61.0
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.67.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.109.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.47.0
 	github.com/aws/smithy-go v1.28.1
