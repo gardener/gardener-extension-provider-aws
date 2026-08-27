@@ -1790,22 +1790,26 @@ func (c *FlowContext) ensureElasticIP(zone *aws.Zone) flow.TaskFn {
 		child := c.getSubnetZoneChild(zone.Name)
 		id := child.Get(IdentifierManagedZoneNATGWElasticIP)
 		if zone.ElasticIPAllocationID != nil {
-			// check if we need to clean up gardener managed IP, after user switched from managed to unmanaged
 			if id != nil && *id != *zone.ElasticIPAllocationID {
+				// User switched to a different EIP; try to clean up the old gardener-managed one.
 				ip, err := c.client.GetElasticIP(ctx, *id)
 				if err != nil {
 					return err
 				}
-				// make sure that the EIP is not in use
-				if ip != nil && ip.AssociationID == nil {
+				if ip != nil && ip.AssociationID != nil {
+					// Still associated (in use); leave state intact and retry on the next reconcile.
+					return nil
+				}
+				if ip != nil {
 					log.Info("deleting unused managed elastic IP found in state", "id", *id)
-					err = c.deleteElasticIpWithWait(ctx, ip)
-					if err != nil {
+					if err = c.deleteElasticIpWithWait(ctx, ip); err != nil {
 						return err
 					}
-					child.Delete(IdentifierManagedZoneNATGWElasticIP)
 				}
 			}
+			// Either IDs match (user adopted this EIP) or the old managed EIP was just deleted above.
+			// Clear managed state so the delete flow does not release it on shoot deletion.
+			child.Delete(IdentifierManagedZoneNATGWElasticIP)
 			return nil
 		}
 		desired := &awsclient.ElasticIP{
