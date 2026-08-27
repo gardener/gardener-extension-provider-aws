@@ -48,7 +48,7 @@ func (m *mutator) Mutate(_ context.Context, newObj, _ client.Object) error {
 		}
 		if pvca.Spec.VolumePolicies[i].ScaleUp != nil &&
 			(pvca.Spec.VolumePolicies[i].ScaleUp.MinStepAbsolute == nil || pvca.Spec.VolumePolicies[i].ScaleUp.MinStepAbsolute.Cmp(minStepAbsolute) < 0) {
-			pvca.Spec.VolumePolicies[i].ScaleUp.MinStepAbsolute = &minStepAbsolute
+			pvca.Spec.VolumePolicies[i].ScaleUp.MinStepAbsolute = new(minStepAbsolute.DeepCopy())
 		}
 	}
 
