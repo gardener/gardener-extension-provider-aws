@@ -77,6 +77,7 @@ spec:
 {{- else }}
         - --disable-controllers={{ .Values.disableControllers | join "," }}
         - --disable-webhooks={{ include "disable.webhooks" . }}
+        - --extension-classes=seed,shoot
 {{- end }}
         - --metrics-bind-address=:{{ tpl .Values.metricsPort . }}
         - --health-bind-address=:{{ tpl .Values.healthPort . }}
