@@ -2448,26 +2448,48 @@ func (c *Client) GetFileSystem(ctx context.Context, fileSystemID string) (*Elast
 func (c *Client) FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*ElasticFileSystem, error) {
 	var result []*ElasticFileSystem
 
-	output, err := c.EFS.DescribeFileSystems(ctx, &efs.DescribeFileSystemsInput{})
-	if err != nil {
-		return nil, ignoreNotFound(err)
-	}
-
-	for _, fs := range output.FileSystems {
-		tagsResp, err := c.EFS.ListTagsForResource(ctx, &efs.ListTagsForResourceInput{
-			ResourceId: fs.FileSystemId,
-		})
+	describeInput := &efs.DescribeFileSystemsInput{}
+	for {
+		output, err := c.EFS.DescribeFileSystems(ctx, describeInput)
 		if err != nil {
-			c.Logger.Info("could not get tags for fs %s: %v", ptr.Deref(fs.FileSystemId, ""), err)
-			continue
+			return nil, ignoreNotFound(err)
 		}
 
-		if tags.ContainEfsTags(tagsResp.Tags) {
-			result = append(result, fromElasticFileSystem(fs))
+		for _, fs := range output.FileSystems {
+			fsTags, err := c.listFileSystemTags(ctx, fs.FileSystemId)
+			if err != nil {
+				return nil, fmt.Errorf("could not get tags for file system %s: %w", ptr.Deref(fs.FileSystemId, ""), err)
+			}
+
+			if tags.ContainEfsTags(fsTags) {
+				result = append(result, fromElasticFileSystem(fs))
+			}
 		}
+
+		if output.NextMarker == nil {
+			return result, nil
+		}
+		describeInput.Marker = output.NextMarker
 	}
+}
 
-	return result, nil
+// listFileSystemTags lists all tags of the given EFS resource, following pagination.
+func (c *Client) listFileSystemTags(ctx context.Context, resourceID *string) ([]efstypes.Tag, error) {
+	var tags []efstypes.Tag
+	input := &efs.ListTagsForResourceInput{
+		ResourceId: resourceID,
+	}
+	for {
+		output, err := c.EFS.ListTagsForResource(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		tags = append(tags, output.Tags...)
+		if output.NextToken == nil {
+			return tags, nil
+		}
+		input.NextToken = output.NextToken
+	}
 }
 
 // CreateFileSystem creates an efs file system
