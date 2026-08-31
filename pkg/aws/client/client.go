@@ -2382,8 +2382,7 @@ func (c *Client) FindFileSystemsByTags(ctx context.Context, tags Tags) ([]*Elast
 		for _, fs := range output.FileSystems {
 			fsTags, err := c.listFileSystemTags(ctx, fs.FileSystemId)
 			if err != nil {
-				c.Logger.Info("could not get tags for fs %s: %v", ptr.Deref(fs.FileSystemId, ""), err)
-				continue
+				return nil, fmt.Errorf("could not get tags for file system %s: %w", ptr.Deref(fs.FileSystemId, ""), err)
 			}
 
 			if tags.ContainEfsTags(fsTags) {
