@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -312,13 +313,13 @@ func applyGeneralOptions(generalOpts *controllercmd.GeneralOptions) {
 
 	awsworker.DefaultAddOptions.SelfHostedShootCluster = config.SelfHostedShootCluster
 
-	awsinfrastructure.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
-	awscontrolplane.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
-	awsworker.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
-	awsbastion.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
-	awsbackupbucket.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
-	awsbackupentry.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
-	awsdnsrecord.DefaultAddOptions.ExtensionClasses = config.ExtensionClasses
+	awsinfrastructure.DefaultAddOptions.ExtensionClasses = slices.Clone(config.ExtensionClasses)
+	awscontrolplane.DefaultAddOptions.ExtensionClasses = slices.Clone(config.ExtensionClasses)
+	awsworker.DefaultAddOptions.ExtensionClasses = slices.Clone(config.ExtensionClasses)
+	awsbastion.DefaultAddOptions.ExtensionClasses = slices.Clone(config.ExtensionClasses)
+	awsbackupbucket.DefaultAddOptions.ExtensionClasses = slices.Clone(config.ExtensionClasses)
+	awsbackupentry.DefaultAddOptions.ExtensionClasses = slices.Clone(config.ExtensionClasses)
+	awsdnsrecord.DefaultAddOptions.ExtensionClasses = slices.Clone(config.ExtensionClasses)
 }
 
 // TODO (kon-angelo): Remove after the release of version 1.68.0
