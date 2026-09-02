@@ -18,11 +18,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.47.1
 	github.com/aws/smithy-go v1.28.1
 	github.com/coreos/go-systemd/v22 v22.7.0
-	github.com/gardener/etcd-druid/api v0.38.1
+	github.com/gardener/etcd-druid/api v0.38.2
 	github.com/gardener/external-dns-management v0.49.0
-	github.com/gardener/gardener v1.150.0
-	github.com/gardener/gardener/hack/tools v1.150.0
-	github.com/gardener/gardener/pkg/apis v1.150.0
+	github.com/gardener/gardener v1.150.1
+	github.com/gardener/gardener/hack/tools v1.150.1
+	github.com/gardener/gardener/pkg/apis v1.150.1
 	github.com/gardener/machine-controller-manager v0.62.1
 	github.com/gardener/machine-controller-manager-provider-aws v0.28.1
 	github.com/gardener/pvc-autoscaler v0.3.0
