@@ -20,9 +20,9 @@ require (
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/gardener/etcd-druid/api v0.38.2
 	github.com/gardener/external-dns-management v0.51.1
-	github.com/gardener/gardener v1.151.1
-	github.com/gardener/gardener/hack/tools v1.151.1
-	github.com/gardener/gardener/pkg/apis v1.151.1
+	github.com/gardener/gardener v1.152.0
+	github.com/gardener/gardener/hack/tools v1.152.0
+	github.com/gardener/gardener/pkg/apis v1.152.0
 	github.com/gardener/machine-controller-manager v0.62.1
 	github.com/gardener/machine-controller-manager-provider-aws v0.28.1
 	github.com/gardener/pvc-autoscaler v0.3.1
@@ -62,7 +62,7 @@ require (
 	github.com/VictoriaMetrics/metrics v1.44.0 // indirect
 	github.com/VictoriaMetrics/metricsql v0.87.3 // indirect
 	github.com/VictoriaMetrics/operator/api v0.74.1 // indirect
-	github.com/andybalholm/brotli v1.2.3 // indirect
+	github.com/andybalholm/brotli v1.2.4 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
@@ -219,13 +219,13 @@ require (
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/tools v0.50.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
@@ -235,7 +235,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v4 v4.2.4 // indirect
-	istio.io/api v1.29.7 // indirect
+	istio.io/api v1.29.8 // indirect
 	istio.io/client-go v1.29.2 // indirect
 	k8s.io/apiserver v0.36.4 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
