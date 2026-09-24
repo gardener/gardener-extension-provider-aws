@@ -344,14 +344,20 @@ var _ = Describe("#FlowContext", func() {
 				c.config.Networks.VPC.ID = &vpc.VpcId
 				client.EXPECT().GetVpc(ctx, vpc.VpcId).Return(vpc, nil).Times(1)
 				client.EXPECT().GetVpcDhcpOptions(ctx, dhcpOptions.DhcpOptionsId).Return(dhcpOptions, nil).Times(1)
-				client.EXPECT().FindInternetGatewayByVPC(ctx, vpc.VpcId).Return(internetGateway, nil).Times(1)
+				if c.hasManagedPublicSubnets() {
+					client.EXPECT().FindInternetGatewayByVPC(ctx, vpc.VpcId).Return(internetGateway, nil).Times(1)
+				}
 				if ContainsIPv6(c.getIpFamilies()) {
 					client.EXPECT().FindEgressOnlyInternetGatewayByVPC(ctx, vpc.VpcId).Return(egressGateway, nil).Times(1)
 				}
 				err := c.ensureVpc(ctx)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(c.state.Get(IdentifierVPC)).To(HaveValue(Equal(vpc.VpcId)))
-				Expect(c.state.Get(IdentifierInternetGateway)).To(HaveValue(Equal(internetGateway.InternetGatewayId)))
+				if c.hasManagedPublicSubnets() {
+					Expect(c.state.Get(IdentifierInternetGateway)).To(HaveValue(Equal(internetGateway.InternetGatewayId)))
+				} else {
+					Expect(c.state.Get(IdentifierInternetGateway)).To(BeNil())
+				}
 			})
 		},
 		Entry("IPv4 only",
