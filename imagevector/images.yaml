@@ -101,7 +101,6 @@ images:
       availability_requirement: low
     signing: false
   targetVersion: 1.35.x
-# max-supported-k8s
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
@@ -116,7 +115,23 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: '>= 1.36'
+  targetVersion: 1.36.x
+# max-supported-k8s
+- name: cloud-controller-manager
+  sourceRepository: github.com/kubernetes/cloud-provider-aws
+  repository: registry.k8s.io/provider-aws/cloud-controller-manager
+  tag: v1.37.0
+  labels:
+  - name: gardener.cloud/cve-categorisation
+    value:
+      network_exposure: protected
+      authentication_enforced: false
+      user_interaction: gardener-operator
+      confidentiality_requirement: high
+      integrity_requirement: high
+      availability_requirement: low
+    signing: false
+  targetVersion: '>= 1.37'
 - name: csi-attacher
   sourceRepository: github.com/kubernetes-csi/external-attacher
   repository: registry.k8s.io/sig-storage/csi-attacher
@@ -361,7 +376,22 @@ images:
       integrity_requirement: high
       availability_requirement: low
     signing: false
-  targetVersion: '>= 1.36'
+  targetVersion: '1.36.x'
+- name: ecr-credential-provider
+  sourceRepository: github.com/gardener/ecr-credential-provider
+  repository: europe-docker.pkg.dev/gardener-project/releases/gardener/extensions/ecr-credential-provider
+  tag: v1.37.0
+  labels:
+  - name: gardener.cloud/cve-categorisation
+    value:
+      network_exposure: protected
+      authentication_enforced: false
+      user_interaction: end-user
+      confidentiality_requirement: high
+      integrity_requirement: high
+      availability_requirement: low
+    signing: false
+  targetVersion: '>= 1.37'
 - name: machine-controller-manager-provider-aws
   sourceRepository: github.com/gardener/machine-controller-manager-provider-aws
   repository: europe-docker.pkg.dev/gardener-project/releases/gardener/machine-controller-manager-provider-aws
