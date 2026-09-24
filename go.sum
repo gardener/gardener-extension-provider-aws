@@ -203,8 +203,8 @@ github.com/gardener/gardener/hack/tools v1.152.0 h1:M5h6DNXCdDqk2O6ims/6cZwWSNsD
 github.com/gardener/gardener/hack/tools v1.152.0/go.mod h1:Hxa9V6uHZkX4D2saNvTAp5/8eYjgUEW88AsrosXo7+Y=
 github.com/gardener/gardener/pkg/apis v1.152.0 h1:d7E4IiW9iwInqYjxe+/DqksBM586jDF8pL69iJpLnhU=
 github.com/gardener/gardener/pkg/apis v1.152.0/go.mod h1:2MoOSd0E01pkMjEFWnvz61MHu/OJjDfo496cDPk/aYA=
-github.com/gardener/machine-controller-manager v0.62.1 h1:TQ4Qs9aaYTqSkqFownIaEAvnrYoNpBMcp7ZMYVEgUWM=
-github.com/gardener/machine-controller-manager v0.62.1/go.mod h1:ICsymXK4VHm7NVr8Mpl6USvYcTZjUNSk6+XaVu/dd74=
+github.com/gardener/machine-controller-manager v0.63.0 h1:0mfZiop6jStdfQhsMYyTdRxyfx3rJBsXYifFZlxw6wM=
+github.com/gardener/machine-controller-manager v0.63.0/go.mod h1:MU2Cyrwvh+jYYvRUGxUMx8LNmFUvGog01YHlpsCiRrM=
 github.com/gardener/machine-controller-manager-provider-aws v0.28.1 h1:bV4ED+LiD83zXKFgIiP2JaG60Ha5u8SM11rE3h9hjao=
 github.com/gardener/machine-controller-manager-provider-aws v0.28.1/go.mod h1:MCut/rf+vnvJAx9LByFzvTKfGoUVIgVm1RCg/rzFN3Q=
 github.com/gardener/pvc-autoscaler v0.3.1 h1:XMapVWBh0wrJk9Ac8WCIj6Ze7RH0FB1gP8q9XbpcyxI=
