@@ -41,6 +41,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			Workers:  ptr.To("10.250.6.0/24"),
 		}
 		familyIPv4 = []core.IPFamily{core.IPFamilyIPv4}
+		familyIPv6 = []core.IPFamily{core.IPFamilyIPv6}
 	)
 
 	BeforeEach(func() {
@@ -978,6 +979,39 @@ var _ = Describe("InfrastructureConfig validation", func() {
 
 				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
 				Expect(errorList).To(BeEmpty())
+			})
+		})
+
+		Context("IPv6", func() {
+			It("should allow a zone without workers CIDR or workersSubnetID for a pure IPv6 shoot", func() {
+				// Mirrors the documented IPv6-only manifest (docs/usage/ipv6.md): public/internal
+				// IPv4 CIDRs are set (load balancers still need IPv4), but the workers subnet is
+				// omitted — in IPv6-only mode its range is derived from the AWS-assigned IPv6 block.
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name:     zone,
+						Internal: ptr.To("10.250.1.0/24"),
+						Public:   ptr.To("10.250.2.0/24"),
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv6, &nodes, nil, nil)
+				Expect(errorList).To(BeEmpty())
+			})
+
+			It("should still require workers CIDR or workersSubnetID for an IPv4 shoot", func() {
+				infrastructureConfig.Networks.Zones = []apisaws.Zone{
+					{
+						Name: zone,
+					},
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, familyIPv4, &nodes, &pods, &services)
+				Expect(errorList).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeRequired),
+					"Field":  Equal("networks.zones[0]"),
+					"Detail": ContainSubstring("must specify either workers (CIDR) or workersSubnetID"),
+				}))))
 			})
 		})
 

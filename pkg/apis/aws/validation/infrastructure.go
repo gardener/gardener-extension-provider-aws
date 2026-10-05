@@ -144,6 +144,11 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		referencedLBSubnetIDs = sets.New[string]()
 	)
 
+	// A worker subnet (either a managed CIDR or a BYO workersSubnetID) is only required for IPv4
+	// shoots. Pure IPv6 shoots do not carry an IPv4 workers CIDR, and demanding one would reject
+	// otherwise valid clusters (and block status updates on already-existing ones).
+	workersSubnetRequired := ipFamilies == nil || slices.Contains(ipFamilies, core.IPFamilyIPv4)
+
 	// Validate that all zones use the same approach: either all BYO (workersSubnetID) or all managed (workers CIDR).
 	// Mixed setups are forbidden because Gardener-managed zones require an Internet Gateway (for public
 	// subnets and NAT gateways), while BYO zones typically don't, creating conflicting infrastructure requirements.
@@ -162,7 +167,7 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 			allErrs = append(allErrs, field.Forbidden(networksPath.Child("zones"),
 				"all zones must use the same approach: either all workersSubnetID (BYO) or all workers CIDR (Gardener-managed); mixing is not allowed"))
 		}
-		if !hasBYO && !hasManaged {
+		if !hasBYO && !hasManaged && workersSubnetRequired {
 			allErrs = append(allErrs, field.Required(networksPath.Child("zones"),
 				"each zone must specify either workers (CIDR) or workersSubnetID"))
 		}
@@ -219,10 +224,11 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 		hasPublicCIDR := zone.Public != nil
 
 		// Validate workers: exactly one of Workers CIDR or WorkersSubnetID must be provided
+		// (for IPv4 shoots). Pure IPv6 shoots legitimately carry neither.
 		allErrs = append(allErrs, validateZoneSubnetSpec(
 			zonePath, "workers", "workersSubnetID",
 			hasWorkersCIDR, hasWorkersSubnetID, zone.WorkersSubnetID,
-			idProvided, &referencedWorkerSubnetIDs,
+			idProvided, workersSubnetRequired, &referencedWorkerSubnetIDs,
 		)...)
 
 		// When using BYO worker subnets, internal and public CIDRs are forbidden.
@@ -368,13 +374,15 @@ func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, ipFamilie
 func validateZoneSubnetSpec(
 	zonePath *field.Path, cidrFieldName, subnetIDFieldName string,
 	hasCIDR, hasSubnetID bool, subnetID *string,
-	vpcIDProvided bool, referencedSubnetIDs *sets.Set[string],
+	vpcIDProvided, required bool, referencedSubnetIDs *sets.Set[string],
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if !hasCIDR && !hasSubnetID {
-		allErrs = append(allErrs, field.Required(zonePath,
-			fmt.Sprintf("must specify either %s (CIDR) or %s", cidrFieldName, subnetIDFieldName)))
+		if required {
+			allErrs = append(allErrs, field.Required(zonePath,
+				fmt.Sprintf("must specify either %s (CIDR) or %s", cidrFieldName, subnetIDFieldName)))
+		}
 		return allErrs
 	}
 
