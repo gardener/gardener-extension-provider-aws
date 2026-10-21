@@ -656,6 +656,69 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].networkCardIndexRange")}))))
 			})
 
+			It("should reject networkCardIndex above the maximum", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](256)}}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].networkCardIndex")}))))
+			})
+
+			It("should reject networkCardIndexRange.to above the maximum", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndexRange: &apisaws.IndexRange{From: 0, To: 256}}}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].networkCardIndexRange.to")}))))
+			})
+
+			It("should reject an unbounded networkCardIndexRange.to", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndexRange: &apisaws.IndexRange{From: 0, To: 2000000000}}}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].networkCardIndexRange.to")}))))
+			})
+
+			It("should reject two identical networkCardIndexRange entries (same expanded pairs)", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{
+					{NetworkCardIndexRange: &apisaws.IndexRange{From: 0, To: 1}},
+					{NetworkCardIndexRange: &apisaws.IndexRange{From: 0, To: 1}},
+				}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[1]")}))))
+			})
+
+			It("should reject overlapping networkCardIndexRange entries", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{
+					{NetworkCardIndexRange: &apisaws.IndexRange{From: 0, To: 3}},
+					{NetworkCardIndexRange: &apisaws.IndexRange{From: 2, To: 5}},
+				}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[1]")}))))
+			})
+
+			It("should reject a scalar networkCardIndex colliding with a range entry (same deviceIndex)", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{
+					{NetworkCardIndexRange: &apisaws.IndexRange{From: 0, To: 3}},
+					{NetworkCardIndex: ptr.To[int64](2)},
+				}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[1]")}))))
+			})
+
+			It("should reject two entries both defaulting to networkCardIndex 0, deviceIndex 0", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{
+					{Type: ptr.To("interface")},
+					{Type: ptr.To("interface")},
+				}}
+				Expect(validate(wc)).To(ContainElement(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[1]")}))))
+			})
+
+			It("should accept colliding networkCardIndex when deviceIndex differs", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{
+					{NetworkCardIndex: ptr.To[int64](0), Type: ptr.To("interface")},
+					{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: 1, Type: ptr.To("efa-only")},
+				}}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
+			It("should accept adjacent (non-overlapping) networkCardIndexRange entries", func() {
+				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{
+					{NetworkCardIndexRange: &apisaws.IndexRange{From: 0, To: 1}, Type: ptr.To("interface")},
+					{NetworkCardIndexRange: &apisaws.IndexRange{From: 2, To: 3}, Type: ptr.To("efa-only")},
+				}}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
 			It("should reject negative deviceIndex", func() {
 				wc := &apisaws.WorkerConfig{NetworkInterfaces: []apisaws.NetworkInterface{{NetworkCardIndex: ptr.To[int64](0), DeviceIndex: -1}}}
 				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.networkInterfaces[0].deviceIndex")}))))
