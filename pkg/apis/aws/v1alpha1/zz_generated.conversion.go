@@ -13,7 +13,6 @@ import (
 	unsafe "unsafe"
 
 	aws "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
-	v1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -480,9 +479,7 @@ func Convert_aws_BackupBucketConfig_To_v1alpha1_BackupBucketConfig(in *aws.Backu
 }
 
 func autoConvert_v1alpha1_CapacityReservation_To_aws_CapacityReservation(in *CapacityReservation, out *aws.CapacityReservation, s conversion.Scope) error {
-	out.CapacityReservationPreference = (*string)(unsafe.Pointer(in.CapacityReservationPreference))
-	out.CapacityReservationID = (*string)(unsafe.Pointer(in.CapacityReservationID))
-	out.CapacityReservationResourceGroupARN = (*string)(unsafe.Pointer(in.CapacityReservationResourceGroupARN))
+	*out = *(*aws.CapacityReservation)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -492,9 +489,7 @@ func Convert_v1alpha1_CapacityReservation_To_aws_CapacityReservation(in *Capacit
 }
 
 func autoConvert_aws_CapacityReservation_To_v1alpha1_CapacityReservation(in *aws.CapacityReservation, out *CapacityReservation, s conversion.Scope) error {
-	out.CapacityReservationPreference = (*string)(unsafe.Pointer(in.CapacityReservationPreference))
-	out.CapacityReservationID = (*string)(unsafe.Pointer(in.CapacityReservationID))
-	out.CapacityReservationResourceGroupARN = (*string)(unsafe.Pointer(in.CapacityReservationResourceGroupARN))
+	*out = *(*CapacityReservation)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -504,8 +499,7 @@ func Convert_aws_CapacityReservation_To_v1alpha1_CapacityReservation(in *aws.Cap
 }
 
 func autoConvert_v1alpha1_CloudControllerManagerConfig_To_aws_CloudControllerManagerConfig(in *CloudControllerManagerConfig, out *aws.CloudControllerManagerConfig, s conversion.Scope) error {
-	out.FeatureGates = *(*map[string]bool)(unsafe.Pointer(&in.FeatureGates))
-	out.UseCustomRouteController = (*bool)(unsafe.Pointer(in.UseCustomRouteController))
+	*out = *(*aws.CloudControllerManagerConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -515,8 +509,7 @@ func Convert_v1alpha1_CloudControllerManagerConfig_To_aws_CloudControllerManager
 }
 
 func autoConvert_aws_CloudControllerManagerConfig_To_v1alpha1_CloudControllerManagerConfig(in *aws.CloudControllerManagerConfig, out *CloudControllerManagerConfig, s conversion.Scope) error {
-	out.FeatureGates = *(*map[string]bool)(unsafe.Pointer(&in.FeatureGates))
-	out.UseCustomRouteController = (*bool)(unsafe.Pointer(in.UseCustomRouteController))
+	*out = *(*CloudControllerManagerConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -570,9 +563,7 @@ func Convert_aws_ControlPlaneConfig_To_v1alpha1_ControlPlaneConfig(in *aws.Contr
 }
 
 func autoConvert_v1alpha1_CpuOptions_To_aws_CpuOptions(in *CpuOptions, out *aws.CpuOptions, s conversion.Scope) error {
-	out.CoreCount = (*int32)(unsafe.Pointer(in.CoreCount))
-	out.ThreadsPerCore = (*int32)(unsafe.Pointer(in.ThreadsPerCore))
-	out.AmdSevSnp = (*string)(unsafe.Pointer(in.AmdSevSnp))
+	*out = *(*aws.CpuOptions)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -582,9 +573,7 @@ func Convert_v1alpha1_CpuOptions_To_aws_CpuOptions(in *CpuOptions, out *aws.CpuO
 }
 
 func autoConvert_aws_CpuOptions_To_v1alpha1_CpuOptions(in *aws.CpuOptions, out *CpuOptions, s conversion.Scope) error {
-	out.CoreCount = (*int32)(unsafe.Pointer(in.CoreCount))
-	out.ThreadsPerCore = (*int32)(unsafe.Pointer(in.ThreadsPerCore))
-	out.AmdSevSnp = (*string)(unsafe.Pointer(in.AmdSevSnp))
+	*out = *(*CpuOptions)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -594,11 +583,7 @@ func Convert_aws_CpuOptions_To_v1alpha1_CpuOptions(in *aws.CpuOptions, out *CpuO
 }
 
 func autoConvert_v1alpha1_DataVolume_To_aws_DataVolume(in *DataVolume, out *aws.DataVolume, s conversion.Scope) error {
-	out.Name = in.Name
-	if err := Convert_v1alpha1_Volume_To_aws_Volume(&in.Volume, &out.Volume, s); err != nil {
-		return err
-	}
-	out.SnapshotID = (*string)(unsafe.Pointer(in.SnapshotID))
+	*out = *(*aws.DataVolume)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -608,11 +593,7 @@ func Convert_v1alpha1_DataVolume_To_aws_DataVolume(in *DataVolume, out *aws.Data
 }
 
 func autoConvert_aws_DataVolume_To_v1alpha1_DataVolume(in *aws.DataVolume, out *DataVolume, s conversion.Scope) error {
-	out.Name = in.Name
-	if err := Convert_aws_Volume_To_v1alpha1_Volume(&in.Volume, &out.Volume, s); err != nil {
-		return err
-	}
-	out.SnapshotID = (*string)(unsafe.Pointer(in.SnapshotID))
+	*out = *(*DataVolume)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -622,7 +603,7 @@ func Convert_aws_DataVolume_To_v1alpha1_DataVolume(in *aws.DataVolume, out *Data
 }
 
 func autoConvert_v1alpha1_DualStack_To_aws_DualStack(in *DualStack, out *aws.DualStack, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	*out = *(*aws.DualStack)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -632,7 +613,7 @@ func Convert_v1alpha1_DualStack_To_aws_DualStack(in *DualStack, out *aws.DualSta
 }
 
 func autoConvert_aws_DualStack_To_v1alpha1_DualStack(in *aws.DualStack, out *DualStack, s conversion.Scope) error {
-	out.Enabled = in.Enabled
+	*out = *(*DualStack)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -642,7 +623,7 @@ func Convert_aws_DualStack_To_v1alpha1_DualStack(in *aws.DualStack, out *DualSta
 }
 
 func autoConvert_v1alpha1_EC2_To_aws_EC2(in *EC2, out *aws.EC2, s conversion.Scope) error {
-	out.KeyName = in.KeyName
+	*out = *(*aws.EC2)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -652,7 +633,7 @@ func Convert_v1alpha1_EC2_To_aws_EC2(in *EC2, out *aws.EC2, s conversion.Scope) 
 }
 
 func autoConvert_aws_EC2_To_v1alpha1_EC2(in *aws.EC2, out *EC2, s conversion.Scope) error {
-	out.KeyName = in.KeyName
+	*out = *(*EC2)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -662,8 +643,7 @@ func Convert_aws_EC2_To_v1alpha1_EC2(in *aws.EC2, out *EC2, s conversion.Scope) 
 }
 
 func autoConvert_v1alpha1_ElasticFileSystemConfig_To_aws_ElasticFileSystemConfig(in *ElasticFileSystemConfig, out *aws.ElasticFileSystemConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
-	out.ID = (*string)(unsafe.Pointer(in.ID))
+	*out = *(*aws.ElasticFileSystemConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -673,8 +653,7 @@ func Convert_v1alpha1_ElasticFileSystemConfig_To_aws_ElasticFileSystemConfig(in 
 }
 
 func autoConvert_aws_ElasticFileSystemConfig_To_v1alpha1_ElasticFileSystemConfig(in *aws.ElasticFileSystemConfig, out *ElasticFileSystemConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
-	out.ID = (*string)(unsafe.Pointer(in.ID))
+	*out = *(*ElasticFileSystemConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -684,7 +663,7 @@ func Convert_aws_ElasticFileSystemConfig_To_v1alpha1_ElasticFileSystemConfig(in 
 }
 
 func autoConvert_v1alpha1_ElasticFileSystemStatus_To_aws_ElasticFileSystemStatus(in *ElasticFileSystemStatus, out *aws.ElasticFileSystemStatus, s conversion.Scope) error {
-	out.ID = in.ID
+	*out = *(*aws.ElasticFileSystemStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -694,7 +673,7 @@ func Convert_v1alpha1_ElasticFileSystemStatus_To_aws_ElasticFileSystemStatus(in 
 }
 
 func autoConvert_aws_ElasticFileSystemStatus_To_v1alpha1_ElasticFileSystemStatus(in *aws.ElasticFileSystemStatus, out *ElasticFileSystemStatus, s conversion.Scope) error {
-	out.ID = in.ID
+	*out = *(*ElasticFileSystemStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -704,8 +683,7 @@ func Convert_aws_ElasticFileSystemStatus_To_v1alpha1_ElasticFileSystemStatus(in 
 }
 
 func autoConvert_v1alpha1_IAM_To_aws_IAM(in *IAM, out *aws.IAM, s conversion.Scope) error {
-	out.InstanceProfiles = *(*[]aws.InstanceProfile)(unsafe.Pointer(&in.InstanceProfiles))
-	out.Roles = *(*[]aws.Role)(unsafe.Pointer(&in.Roles))
+	*out = *(*aws.IAM)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -715,8 +693,7 @@ func Convert_v1alpha1_IAM_To_aws_IAM(in *IAM, out *aws.IAM, s conversion.Scope) 
 }
 
 func autoConvert_aws_IAM_To_v1alpha1_IAM(in *aws.IAM, out *IAM, s conversion.Scope) error {
-	out.InstanceProfiles = *(*[]InstanceProfile)(unsafe.Pointer(&in.InstanceProfiles))
-	out.Roles = *(*[]Role)(unsafe.Pointer(&in.Roles))
+	*out = *(*IAM)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -726,8 +703,7 @@ func Convert_aws_IAM_To_v1alpha1_IAM(in *aws.IAM, out *IAM, s conversion.Scope) 
 }
 
 func autoConvert_v1alpha1_IAMInstanceProfile_To_aws_IAMInstanceProfile(in *IAMInstanceProfile, out *aws.IAMInstanceProfile, s conversion.Scope) error {
-	out.Name = (*string)(unsafe.Pointer(in.Name))
-	out.ARN = (*string)(unsafe.Pointer(in.ARN))
+	*out = *(*aws.IAMInstanceProfile)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -737,8 +713,7 @@ func Convert_v1alpha1_IAMInstanceProfile_To_aws_IAMInstanceProfile(in *IAMInstan
 }
 
 func autoConvert_aws_IAMInstanceProfile_To_v1alpha1_IAMInstanceProfile(in *aws.IAMInstanceProfile, out *IAMInstanceProfile, s conversion.Scope) error {
-	out.Name = (*string)(unsafe.Pointer(in.Name))
-	out.ARN = (*string)(unsafe.Pointer(in.ARN))
+	*out = *(*IAMInstanceProfile)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -748,8 +723,7 @@ func Convert_aws_IAMInstanceProfile_To_v1alpha1_IAMInstanceProfile(in *aws.IAMIn
 }
 
 func autoConvert_v1alpha1_IPAMPool_To_aws_IPAMPool(in *IPAMPool, out *aws.IPAMPool, s conversion.Scope) error {
-	out.ID = (*string)(unsafe.Pointer(in.ID))
-	out.CidrBlock = (*string)(unsafe.Pointer(in.CidrBlock))
+	*out = *(*aws.IPAMPool)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -759,8 +733,7 @@ func Convert_v1alpha1_IPAMPool_To_aws_IPAMPool(in *IPAMPool, out *aws.IPAMPool, 
 }
 
 func autoConvert_aws_IPAMPool_To_v1alpha1_IPAMPool(in *aws.IPAMPool, out *IPAMPool, s conversion.Scope) error {
-	out.ID = (*string)(unsafe.Pointer(in.ID))
-	out.CidrBlock = (*string)(unsafe.Pointer(in.CidrBlock))
+	*out = *(*IPAMPool)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -770,8 +743,7 @@ func Convert_aws_IPAMPool_To_v1alpha1_IPAMPool(in *aws.IPAMPool, out *IPAMPool, 
 }
 
 func autoConvert_v1alpha1_IgnoreTags_To_aws_IgnoreTags(in *IgnoreTags, out *aws.IgnoreTags, s conversion.Scope) error {
-	out.Keys = *(*[]string)(unsafe.Pointer(&in.Keys))
-	out.KeyPrefixes = *(*[]string)(unsafe.Pointer(&in.KeyPrefixes))
+	*out = *(*aws.IgnoreTags)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -781,8 +753,7 @@ func Convert_v1alpha1_IgnoreTags_To_aws_IgnoreTags(in *IgnoreTags, out *aws.Igno
 }
 
 func autoConvert_aws_IgnoreTags_To_v1alpha1_IgnoreTags(in *aws.IgnoreTags, out *IgnoreTags, s conversion.Scope) error {
-	out.Keys = *(*[]string)(unsafe.Pointer(&in.Keys))
-	out.KeyPrefixes = *(*[]string)(unsafe.Pointer(&in.KeyPrefixes))
+	*out = *(*IgnoreTags)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -792,9 +763,7 @@ func Convert_aws_IgnoreTags_To_v1alpha1_IgnoreTags(in *aws.IgnoreTags, out *Igno
 }
 
 func autoConvert_v1alpha1_ImmutableConfig_To_aws_ImmutableConfig(in *ImmutableConfig, out *aws.ImmutableConfig, s conversion.Scope) error {
-	out.RetentionType = aws.RetentionType(in.RetentionType)
-	out.RetentionPeriod = in.RetentionPeriod
-	out.Mode = aws.ModeType(in.Mode)
+	*out = *(*aws.ImmutableConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -804,9 +773,7 @@ func Convert_v1alpha1_ImmutableConfig_To_aws_ImmutableConfig(in *ImmutableConfig
 }
 
 func autoConvert_aws_ImmutableConfig_To_v1alpha1_ImmutableConfig(in *aws.ImmutableConfig, out *ImmutableConfig, s conversion.Scope) error {
-	out.RetentionType = RetentionType(in.RetentionType)
-	out.RetentionPeriod = in.RetentionPeriod
-	out.Mode = ModeType(in.Mode)
+	*out = *(*ImmutableConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -816,8 +783,7 @@ func Convert_aws_ImmutableConfig_To_v1alpha1_ImmutableConfig(in *aws.ImmutableCo
 }
 
 func autoConvert_v1alpha1_IndexRange_To_aws_IndexRange(in *IndexRange, out *aws.IndexRange, s conversion.Scope) error {
-	out.From = in.From
-	out.To = in.To
+	*out = *(*aws.IndexRange)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -827,8 +793,7 @@ func Convert_v1alpha1_IndexRange_To_aws_IndexRange(in *IndexRange, out *aws.Inde
 }
 
 func autoConvert_aws_IndexRange_To_v1alpha1_IndexRange(in *aws.IndexRange, out *IndexRange, s conversion.Scope) error {
-	out.From = in.From
-	out.To = in.To
+	*out = *(*IndexRange)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -936,7 +901,7 @@ func Convert_aws_InfrastructureStatus_To_v1alpha1_InfrastructureStatus(in *aws.I
 }
 
 func autoConvert_v1alpha1_InstanceMarketOptions_To_aws_InstanceMarketOptions(in *InstanceMarketOptions, out *aws.InstanceMarketOptions, s conversion.Scope) error {
-	out.MarketType = in.MarketType
+	*out = *(*aws.InstanceMarketOptions)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -946,7 +911,7 @@ func Convert_v1alpha1_InstanceMarketOptions_To_aws_InstanceMarketOptions(in *Ins
 }
 
 func autoConvert_aws_InstanceMarketOptions_To_v1alpha1_InstanceMarketOptions(in *aws.InstanceMarketOptions, out *InstanceMarketOptions, s conversion.Scope) error {
-	out.MarketType = in.MarketType
+	*out = *(*InstanceMarketOptions)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -956,8 +921,7 @@ func Convert_aws_InstanceMarketOptions_To_v1alpha1_InstanceMarketOptions(in *aws
 }
 
 func autoConvert_v1alpha1_InstanceMetadataOptions_To_aws_InstanceMetadataOptions(in *InstanceMetadataOptions, out *aws.InstanceMetadataOptions, s conversion.Scope) error {
-	out.HTTPTokens = (*aws.HTTPTokensValue)(unsafe.Pointer(in.HTTPTokens))
-	out.HTTPPutResponseHopLimit = (*int32)(unsafe.Pointer(in.HTTPPutResponseHopLimit))
+	*out = *(*aws.InstanceMetadataOptions)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -967,8 +931,7 @@ func Convert_v1alpha1_InstanceMetadataOptions_To_aws_InstanceMetadataOptions(in 
 }
 
 func autoConvert_aws_InstanceMetadataOptions_To_v1alpha1_InstanceMetadataOptions(in *aws.InstanceMetadataOptions, out *InstanceMetadataOptions, s conversion.Scope) error {
-	out.HTTPTokens = (*HTTPTokensValue)(unsafe.Pointer(in.HTTPTokens))
-	out.HTTPPutResponseHopLimit = (*int32)(unsafe.Pointer(in.HTTPPutResponseHopLimit))
+	*out = *(*InstanceMetadataOptions)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -978,8 +941,7 @@ func Convert_aws_InstanceMetadataOptions_To_v1alpha1_InstanceMetadataOptions(in 
 }
 
 func autoConvert_v1alpha1_InstanceProfile_To_aws_InstanceProfile(in *InstanceProfile, out *aws.InstanceProfile, s conversion.Scope) error {
-	out.Purpose = in.Purpose
-	out.Name = in.Name
+	*out = *(*aws.InstanceProfile)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -989,8 +951,7 @@ func Convert_v1alpha1_InstanceProfile_To_aws_InstanceProfile(in *InstanceProfile
 }
 
 func autoConvert_aws_InstanceProfile_To_v1alpha1_InstanceProfile(in *aws.InstanceProfile, out *InstanceProfile, s conversion.Scope) error {
-	out.Purpose = in.Purpose
-	out.Name = in.Name
+	*out = *(*InstanceProfile)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1000,8 +961,7 @@ func Convert_aws_InstanceProfile_To_v1alpha1_InstanceProfile(in *aws.InstancePro
 }
 
 func autoConvert_v1alpha1_LoadBalancerControllerConfig_To_aws_LoadBalancerControllerConfig(in *LoadBalancerControllerConfig, out *aws.LoadBalancerControllerConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
-	out.IngressClassName = (*string)(unsafe.Pointer(in.IngressClassName))
+	*out = *(*aws.LoadBalancerControllerConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1011,8 +971,7 @@ func Convert_v1alpha1_LoadBalancerControllerConfig_To_aws_LoadBalancerController
 }
 
 func autoConvert_aws_LoadBalancerControllerConfig_To_v1alpha1_LoadBalancerControllerConfig(in *aws.LoadBalancerControllerConfig, out *LoadBalancerControllerConfig, s conversion.Scope) error {
-	out.Enabled = in.Enabled
-	out.IngressClassName = (*string)(unsafe.Pointer(in.IngressClassName))
+	*out = *(*LoadBalancerControllerConfig)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1022,11 +981,7 @@ func Convert_aws_LoadBalancerControllerConfig_To_v1alpha1_LoadBalancerController
 }
 
 func autoConvert_v1alpha1_MachineImage_To_aws_MachineImage(in *MachineImage, out *aws.MachineImage, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Version = in.Version
-	out.AMI = in.AMI
-	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
-	out.Capabilities = *(*v1beta1.Capabilities)(unsafe.Pointer(&in.Capabilities))
+	*out = *(*aws.MachineImage)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1036,11 +991,7 @@ func Convert_v1alpha1_MachineImage_To_aws_MachineImage(in *MachineImage, out *aw
 }
 
 func autoConvert_aws_MachineImage_To_v1alpha1_MachineImage(in *aws.MachineImage, out *MachineImage, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Version = in.Version
-	out.AMI = in.AMI
-	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
-	out.Capabilities = *(*v1beta1.Capabilities)(unsafe.Pointer(&in.Capabilities))
+	*out = *(*MachineImage)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1050,8 +1001,7 @@ func Convert_aws_MachineImage_To_v1alpha1_MachineImage(in *aws.MachineImage, out
 }
 
 func autoConvert_v1alpha1_MachineImageFlavor_To_aws_MachineImageFlavor(in *MachineImageFlavor, out *aws.MachineImageFlavor, s conversion.Scope) error {
-	out.Regions = *(*[]aws.RegionAMIMapping)(unsafe.Pointer(&in.Regions))
-	out.Capabilities = *(*v1beta1.Capabilities)(unsafe.Pointer(&in.Capabilities))
+	*out = *(*aws.MachineImageFlavor)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1061,8 +1011,7 @@ func Convert_v1alpha1_MachineImageFlavor_To_aws_MachineImageFlavor(in *MachineIm
 }
 
 func autoConvert_aws_MachineImageFlavor_To_v1alpha1_MachineImageFlavor(in *aws.MachineImageFlavor, out *MachineImageFlavor, s conversion.Scope) error {
-	out.Regions = *(*[]RegionAMIMapping)(unsafe.Pointer(&in.Regions))
-	out.Capabilities = *(*v1beta1.Capabilities)(unsafe.Pointer(&in.Capabilities))
+	*out = *(*MachineImageFlavor)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1072,9 +1021,7 @@ func Convert_aws_MachineImageFlavor_To_v1alpha1_MachineImageFlavor(in *aws.Machi
 }
 
 func autoConvert_v1alpha1_MachineImageVersion_To_aws_MachineImageVersion(in *MachineImageVersion, out *aws.MachineImageVersion, s conversion.Scope) error {
-	out.Version = in.Version
-	out.Regions = *(*[]aws.RegionAMIMapping)(unsafe.Pointer(&in.Regions))
-	out.CapabilityFlavors = *(*[]aws.MachineImageFlavor)(unsafe.Pointer(&in.CapabilityFlavors))
+	*out = *(*aws.MachineImageVersion)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1084,9 +1031,7 @@ func Convert_v1alpha1_MachineImageVersion_To_aws_MachineImageVersion(in *Machine
 }
 
 func autoConvert_aws_MachineImageVersion_To_v1alpha1_MachineImageVersion(in *aws.MachineImageVersion, out *MachineImageVersion, s conversion.Scope) error {
-	out.Version = in.Version
-	out.Regions = *(*[]RegionAMIMapping)(unsafe.Pointer(&in.Regions))
-	out.CapabilityFlavors = *(*[]MachineImageFlavor)(unsafe.Pointer(&in.CapabilityFlavors))
+	*out = *(*MachineImageVersion)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1096,8 +1041,7 @@ func Convert_aws_MachineImageVersion_To_v1alpha1_MachineImageVersion(in *aws.Mac
 }
 
 func autoConvert_v1alpha1_MachineImages_To_aws_MachineImages(in *MachineImages, out *aws.MachineImages, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Versions = *(*[]aws.MachineImageVersion)(unsafe.Pointer(&in.Versions))
+	*out = *(*aws.MachineImages)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1107,8 +1051,7 @@ func Convert_v1alpha1_MachineImages_To_aws_MachineImages(in *MachineImages, out 
 }
 
 func autoConvert_aws_MachineImages_To_v1alpha1_MachineImages(in *aws.MachineImages, out *MachineImages, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Versions = *(*[]MachineImageVersion)(unsafe.Pointer(&in.Versions))
+	*out = *(*MachineImages)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1118,12 +1061,7 @@ func Convert_aws_MachineImages_To_v1alpha1_MachineImages(in *aws.MachineImages, 
 }
 
 func autoConvert_v1alpha1_NetworkInterface_To_aws_NetworkInterface(in *NetworkInterface, out *aws.NetworkInterface, s conversion.Scope) error {
-	out.NetworkCardIndex = (*int64)(unsafe.Pointer(in.NetworkCardIndex))
-	out.NetworkCardIndexRange = (*aws.IndexRange)(unsafe.Pointer(in.NetworkCardIndexRange))
-	out.DeviceIndex = in.DeviceIndex
-	out.Type = (*string)(unsafe.Pointer(in.Type))
-	out.Description = (*string)(unsafe.Pointer(in.Description))
-	out.SubnetID = (*string)(unsafe.Pointer(in.SubnetID))
+	*out = *(*aws.NetworkInterface)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1133,12 +1071,7 @@ func Convert_v1alpha1_NetworkInterface_To_aws_NetworkInterface(in *NetworkInterf
 }
 
 func autoConvert_aws_NetworkInterface_To_v1alpha1_NetworkInterface(in *aws.NetworkInterface, out *NetworkInterface, s conversion.Scope) error {
-	out.NetworkCardIndex = (*int64)(unsafe.Pointer(in.NetworkCardIndex))
-	out.NetworkCardIndexRange = (*IndexRange)(unsafe.Pointer(in.NetworkCardIndexRange))
-	out.DeviceIndex = in.DeviceIndex
-	out.Type = (*string)(unsafe.Pointer(in.Type))
-	out.Description = (*string)(unsafe.Pointer(in.Description))
-	out.SubnetID = (*string)(unsafe.Pointer(in.SubnetID))
+	*out = *(*NetworkInterface)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1148,11 +1081,7 @@ func Convert_aws_NetworkInterface_To_v1alpha1_NetworkInterface(in *aws.NetworkIn
 }
 
 func autoConvert_v1alpha1_Networks_To_aws_Networks(in *Networks, out *aws.Networks, s conversion.Scope) error {
-	if err := Convert_v1alpha1_VPC_To_aws_VPC(&in.VPC, &out.VPC, s); err != nil {
-		return err
-	}
-	out.Zones = *(*[]aws.Zone)(unsafe.Pointer(&in.Zones))
-	out.NodesSecurityGroupID = (*string)(unsafe.Pointer(in.NodesSecurityGroupID))
+	*out = *(*aws.Networks)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1162,11 +1091,7 @@ func Convert_v1alpha1_Networks_To_aws_Networks(in *Networks, out *aws.Networks, 
 }
 
 func autoConvert_aws_Networks_To_v1alpha1_Networks(in *aws.Networks, out *Networks, s conversion.Scope) error {
-	if err := Convert_aws_VPC_To_v1alpha1_VPC(&in.VPC, &out.VPC, s); err != nil {
-		return err
-	}
-	out.Zones = *(*[]Zone)(unsafe.Pointer(&in.Zones))
-	out.NodesSecurityGroupID = (*string)(unsafe.Pointer(in.NodesSecurityGroupID))
+	*out = *(*Networks)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1176,11 +1101,7 @@ func Convert_aws_Networks_To_v1alpha1_Networks(in *aws.Networks, out *Networks, 
 }
 
 func autoConvert_v1alpha1_Placement_To_aws_Placement(in *Placement, out *aws.Placement, s conversion.Scope) error {
-	out.GroupID = (*string)(unsafe.Pointer(in.GroupID))
-	out.Tenancy = (*string)(unsafe.Pointer(in.Tenancy))
-	out.HostID = (*string)(unsafe.Pointer(in.HostID))
-	out.PartitionNumber = (*int64)(unsafe.Pointer(in.PartitionNumber))
-	out.Affinity = (*string)(unsafe.Pointer(in.Affinity))
+	*out = *(*aws.Placement)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1190,11 +1111,7 @@ func Convert_v1alpha1_Placement_To_aws_Placement(in *Placement, out *aws.Placeme
 }
 
 func autoConvert_aws_Placement_To_v1alpha1_Placement(in *aws.Placement, out *Placement, s conversion.Scope) error {
-	out.GroupID = (*string)(unsafe.Pointer(in.GroupID))
-	out.Tenancy = (*string)(unsafe.Pointer(in.Tenancy))
-	out.HostID = (*string)(unsafe.Pointer(in.HostID))
-	out.PartitionNumber = (*int64)(unsafe.Pointer(in.PartitionNumber))
-	out.Affinity = (*string)(unsafe.Pointer(in.Affinity))
+	*out = *(*Placement)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1204,9 +1121,7 @@ func Convert_aws_Placement_To_v1alpha1_Placement(in *aws.Placement, out *Placeme
 }
 
 func autoConvert_v1alpha1_RegionAMIMapping_To_aws_RegionAMIMapping(in *RegionAMIMapping, out *aws.RegionAMIMapping, s conversion.Scope) error {
-	out.Name = in.Name
-	out.AMI = in.AMI
-	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
+	*out = *(*aws.RegionAMIMapping)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1216,9 +1131,7 @@ func Convert_v1alpha1_RegionAMIMapping_To_aws_RegionAMIMapping(in *RegionAMIMapp
 }
 
 func autoConvert_aws_RegionAMIMapping_To_v1alpha1_RegionAMIMapping(in *aws.RegionAMIMapping, out *RegionAMIMapping, s conversion.Scope) error {
-	out.Name = in.Name
-	out.AMI = in.AMI
-	out.Architecture = (*string)(unsafe.Pointer(in.Architecture))
+	*out = *(*RegionAMIMapping)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1228,8 +1141,7 @@ func Convert_aws_RegionAMIMapping_To_v1alpha1_RegionAMIMapping(in *aws.RegionAMI
 }
 
 func autoConvert_v1alpha1_Role_To_aws_Role(in *Role, out *aws.Role, s conversion.Scope) error {
-	out.Purpose = in.Purpose
-	out.ARN = in.ARN
+	*out = *(*aws.Role)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1239,8 +1151,7 @@ func Convert_v1alpha1_Role_To_aws_Role(in *Role, out *aws.Role, s conversion.Sco
 }
 
 func autoConvert_aws_Role_To_v1alpha1_Role(in *aws.Role, out *Role, s conversion.Scope) error {
-	out.Purpose = in.Purpose
-	out.ARN = in.ARN
+	*out = *(*Role)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1250,8 +1161,7 @@ func Convert_aws_Role_To_v1alpha1_Role(in *aws.Role, out *Role, s conversion.Sco
 }
 
 func autoConvert_v1alpha1_SecurityGroup_To_aws_SecurityGroup(in *SecurityGroup, out *aws.SecurityGroup, s conversion.Scope) error {
-	out.Purpose = in.Purpose
-	out.ID = in.ID
+	*out = *(*aws.SecurityGroup)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1261,8 +1171,7 @@ func Convert_v1alpha1_SecurityGroup_To_aws_SecurityGroup(in *SecurityGroup, out 
 }
 
 func autoConvert_aws_SecurityGroup_To_v1alpha1_SecurityGroup(in *aws.SecurityGroup, out *SecurityGroup, s conversion.Scope) error {
-	out.Purpose = in.Purpose
-	out.ID = in.ID
+	*out = *(*SecurityGroup)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1272,7 +1181,7 @@ func Convert_aws_SecurityGroup_To_v1alpha1_SecurityGroup(in *aws.SecurityGroup, 
 }
 
 func autoConvert_v1alpha1_Storage_To_aws_Storage(in *Storage, out *aws.Storage, s conversion.Scope) error {
-	out.ManagedDefaultClass = (*bool)(unsafe.Pointer(in.ManagedDefaultClass))
+	*out = *(*aws.Storage)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1282,7 +1191,7 @@ func Convert_v1alpha1_Storage_To_aws_Storage(in *Storage, out *aws.Storage, s co
 }
 
 func autoConvert_aws_Storage_To_v1alpha1_Storage(in *aws.Storage, out *Storage, s conversion.Scope) error {
-	out.ManagedDefaultClass = (*bool)(unsafe.Pointer(in.ManagedDefaultClass))
+	*out = *(*Storage)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1292,9 +1201,7 @@ func Convert_aws_Storage_To_v1alpha1_Storage(in *aws.Storage, out *Storage, s co
 }
 
 func autoConvert_v1alpha1_Subnet_To_aws_Subnet(in *Subnet, out *aws.Subnet, s conversion.Scope) error {
-	out.Purpose = in.Purpose
-	out.ID = in.ID
-	out.Zone = in.Zone
+	*out = *(*aws.Subnet)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1304,9 +1211,7 @@ func Convert_v1alpha1_Subnet_To_aws_Subnet(in *Subnet, out *aws.Subnet, s conver
 }
 
 func autoConvert_aws_Subnet_To_v1alpha1_Subnet(in *aws.Subnet, out *Subnet, s conversion.Scope) error {
-	out.Purpose = in.Purpose
-	out.ID = in.ID
-	out.Zone = in.Zone
+	*out = *(*Subnet)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1316,10 +1221,7 @@ func Convert_aws_Subnet_To_v1alpha1_Subnet(in *aws.Subnet, out *Subnet, s conver
 }
 
 func autoConvert_v1alpha1_VPC_To_aws_VPC(in *VPC, out *aws.VPC, s conversion.Scope) error {
-	out.ID = (*string)(unsafe.Pointer(in.ID))
-	out.CIDR = (*string)(unsafe.Pointer(in.CIDR))
-	out.GatewayEndpoints = *(*[]string)(unsafe.Pointer(&in.GatewayEndpoints))
-	out.Ipv6IpamPool = (*aws.IPAMPool)(unsafe.Pointer(in.Ipv6IpamPool))
+	*out = *(*aws.VPC)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1329,10 +1231,7 @@ func Convert_v1alpha1_VPC_To_aws_VPC(in *VPC, out *aws.VPC, s conversion.Scope) 
 }
 
 func autoConvert_aws_VPC_To_v1alpha1_VPC(in *aws.VPC, out *VPC, s conversion.Scope) error {
-	out.ID = (*string)(unsafe.Pointer(in.ID))
-	out.CIDR = (*string)(unsafe.Pointer(in.CIDR))
-	out.GatewayEndpoints = *(*[]string)(unsafe.Pointer(&in.GatewayEndpoints))
-	out.Ipv6IpamPool = (*IPAMPool)(unsafe.Pointer(in.Ipv6IpamPool))
+	*out = *(*VPC)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1342,9 +1241,7 @@ func Convert_aws_VPC_To_v1alpha1_VPC(in *aws.VPC, out *VPC, s conversion.Scope) 
 }
 
 func autoConvert_v1alpha1_VPCStatus_To_aws_VPCStatus(in *VPCStatus, out *aws.VPCStatus, s conversion.Scope) error {
-	out.ID = in.ID
-	out.Subnets = *(*[]aws.Subnet)(unsafe.Pointer(&in.Subnets))
-	out.SecurityGroups = *(*[]aws.SecurityGroup)(unsafe.Pointer(&in.SecurityGroups))
+	*out = *(*aws.VPCStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1354,9 +1251,7 @@ func Convert_v1alpha1_VPCStatus_To_aws_VPCStatus(in *VPCStatus, out *aws.VPCStat
 }
 
 func autoConvert_aws_VPCStatus_To_v1alpha1_VPCStatus(in *aws.VPCStatus, out *VPCStatus, s conversion.Scope) error {
-	out.ID = in.ID
-	out.Subnets = *(*[]Subnet)(unsafe.Pointer(&in.Subnets))
-	out.SecurityGroups = *(*[]SecurityGroup)(unsafe.Pointer(&in.SecurityGroups))
+	*out = *(*VPCStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1366,8 +1261,7 @@ func Convert_aws_VPCStatus_To_v1alpha1_VPCStatus(in *aws.VPCStatus, out *VPCStat
 }
 
 func autoConvert_v1alpha1_Volume_To_aws_Volume(in *Volume, out *aws.Volume, s conversion.Scope) error {
-	out.IOPS = (*int32)(unsafe.Pointer(in.IOPS))
-	out.Throughput = (*int32)(unsafe.Pointer(in.Throughput))
+	*out = *(*aws.Volume)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1377,8 +1271,7 @@ func Convert_v1alpha1_Volume_To_aws_Volume(in *Volume, out *aws.Volume, s conver
 }
 
 func autoConvert_aws_Volume_To_v1alpha1_Volume(in *aws.Volume, out *Volume, s conversion.Scope) error {
-	out.IOPS = (*int32)(unsafe.Pointer(in.IOPS))
-	out.Throughput = (*int32)(unsafe.Pointer(in.Throughput))
+	*out = *(*Volume)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1466,14 +1359,7 @@ func Convert_aws_WorkloadIdentityConfig_To_v1alpha1_WorkloadIdentityConfig(in *a
 }
 
 func autoConvert_v1alpha1_Zone_To_aws_Zone(in *Zone, out *aws.Zone, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Internal = (*string)(unsafe.Pointer(in.Internal))
-	out.Public = (*string)(unsafe.Pointer(in.Public))
-	out.Workers = (*string)(unsafe.Pointer(in.Workers))
-	out.WorkersSubnetID = (*string)(unsafe.Pointer(in.WorkersSubnetID))
-	out.PublicSubnetID = (*string)(unsafe.Pointer(in.PublicSubnetID))
-	out.InternalSubnetID = (*string)(unsafe.Pointer(in.InternalSubnetID))
-	out.ElasticIPAllocationID = (*string)(unsafe.Pointer(in.ElasticIPAllocationID))
+	*out = *(*aws.Zone)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -1483,14 +1369,7 @@ func Convert_v1alpha1_Zone_To_aws_Zone(in *Zone, out *aws.Zone, s conversion.Sco
 }
 
 func autoConvert_aws_Zone_To_v1alpha1_Zone(in *aws.Zone, out *Zone, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Internal = (*string)(unsafe.Pointer(in.Internal))
-	out.Public = (*string)(unsafe.Pointer(in.Public))
-	out.Workers = (*string)(unsafe.Pointer(in.Workers))
-	out.WorkersSubnetID = (*string)(unsafe.Pointer(in.WorkersSubnetID))
-	out.PublicSubnetID = (*string)(unsafe.Pointer(in.PublicSubnetID))
-	out.InternalSubnetID = (*string)(unsafe.Pointer(in.InternalSubnetID))
-	out.ElasticIPAllocationID = (*string)(unsafe.Pointer(in.ElasticIPAllocationID))
+	*out = *(*Zone)(unsafe.Pointer(in))
 	return nil
 }
 
