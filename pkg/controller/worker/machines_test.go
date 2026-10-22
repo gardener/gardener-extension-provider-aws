@@ -1570,6 +1570,12 @@ var _ = Describe("Machines", func() {
 						}
 						Expect(got).To(Equal(want))
 
+						// Changing amdSevSnp should produce a different hash.
+						workerConfig.CpuOptions.AmdSevSnp = ptr.To("enabled")
+						gotWithSevSnp, err := ComputeAdditionalHashDataV2(pool, &workerConfig)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(gotWithSevSnp).To(Equal(append(want, "amdSevSnp=enabled")))
+
 						// Now add some virtual resources to workerConfig.NodeTemplate.VirtualCapacity
 						// This should not change the hash data.
 						virtualResourceName := corev1.ResourceName("subdomain.domain.com/virtual-resource-name")
@@ -1581,7 +1587,7 @@ var _ = Describe("Machines", func() {
 
 						got, err = ComputeAdditionalHashDataV2(pool, &workerConfig)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(got).To(Equal(want))
+						Expect(got).To(Equal(append(want, "amdSevSnp=enabled")))
 					})
 				})
 
