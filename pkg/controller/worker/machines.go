@@ -744,6 +744,9 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 		if workerConfig.CpuOptions.ThreadsPerCore != nil {
 			hashData = append(hashData, strconv.FormatInt(int64(*workerConfig.CpuOptions.ThreadsPerCore), 10))
 		}
+		if workerConfig.CpuOptions.AmdSevSnp != nil {
+			hashData = append(hashData, "amdSevSnp="+*workerConfig.CpuOptions.AmdSevSnp)
+		}
 	}
 
 	if workerConfig.CapacityReservation != nil {
