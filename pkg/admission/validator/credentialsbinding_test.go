@@ -28,8 +28,9 @@ import (
 var _ = Describe("CredentialsBinding validator", func() {
 	Describe("#Validate", func() {
 		const (
-			namespace = "garden-dev"
-			name      = "my-provider-account"
+			namespace                 = "garden-dev"
+			name                      = "my-provider-account"
+			extensionProviderLabelKey = "provider.extensions.gardener.cloud/aws"
 		)
 
 		var (
@@ -137,10 +138,25 @@ var _ = Describe("CredentialsBinding validator", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should return nil when the CredentialsBinding did not change", func() {
-			v := newValidator()
+		It("should revalidate the referenced credentials when the provider label is introduced", func() {
 			old := credentialsBindingSecret.DeepCopy()
-			Expect(v.Validate(ctx, credentialsBindingSecret, old)).To(Succeed())
+			credentialsBindingSecret.Labels = map[string]string{extensionProviderLabelKey: "true"}
+			v := newValidator(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+				Data: map[string][]byte{
+					aws.AccessKeyID:     []byte("AKIAIOSFODNN7EXAMPL_"),                     // invalid
+					aws.SecretAccessKey: []byte("wJalrXUtnFEMI/K7MDEN+/=PxRfiCYEXAMPLEKEY"), // exactly 40 chars, base64
+				},
+			})
+
+			Expect(v.Validate(ctx, credentialsBindingSecret, old)).To(HaveOccurred())
+		})
+
+		It("should skip validation when the CredentialsBinding was previously validated", func() {
+			credentialsBindingSecret.Labels = map[string]string{extensionProviderLabelKey: "true"}
+			v := newValidator()
+
+			Expect(v.Validate(ctx, credentialsBindingSecret, credentialsBindingSecret.DeepCopy())).To(Succeed())
 		})
 
 		It("should return err if it fails to get the corresponding InternalSecret", func() {

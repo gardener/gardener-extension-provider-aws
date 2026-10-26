@@ -42,8 +42,10 @@ func ValidateSecret(newObj, oldObj client.Object) error {
 			return fmt.Errorf("wrong object type %T for old object", oldObj)
 		}
 
-		if equality.Semantic.DeepEqual(secret.Data, oldSecret.Data) {
-			return nil
+		if oldSecret.Labels[shootProviderLabel] == "true" {
+			if equality.Semantic.DeepEqual(secret.Data, oldSecret.Data) {
+				return nil
+			}
 		}
 	}
 
