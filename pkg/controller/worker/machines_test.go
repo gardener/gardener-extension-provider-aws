@@ -1570,7 +1570,7 @@ var _ = Describe("Machines", func() {
 						}
 						Expect(got).To(Equal(want))
 
-						// Changing amdSevSnp should produce a different hash.
+						// Changing amdSevSnp should produce different hash data.
 						workerConfig.CpuOptions.AmdSevSnp = ptr.To("enabled")
 						gotWithSevSnp, err := ComputeAdditionalHashDataV2(pool, &workerConfig)
 						Expect(err).NotTo(HaveOccurred())
