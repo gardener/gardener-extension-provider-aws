@@ -27,5 +27,12 @@ func (a *actuator) Delete(ctx context.Context, _ logr.Logger, bb *extensionsv1al
 		return util.DetermineError(err, helper.KnownCodes)
 	}
 
-	return util.DetermineError(awsClient.DeleteBucketIfExists(ctx, bb.Name), helper.KnownCodes)
+	// Resolve the AWS account ID of the configured credentials and pass it as ExpectedBucketOwner so
+	// the deletion is rejected if the bucket belongs to a different AWS account.
+	expectedBucketOwner, err := awsClient.GetAccountID(ctx)
+	if err != nil {
+		return util.DetermineError(fmt.Errorf("could not determine AWS account ID: %w", err), helper.KnownCodes)
+	}
+
+	return util.DetermineError(awsClient.DeleteBucketIfExists(ctx, bb.Name, expectedBucketOwner), helper.KnownCodes)
 }
