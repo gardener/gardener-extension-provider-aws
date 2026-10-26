@@ -79,6 +79,13 @@ var (
 	validateRoleARN                  = combineValidationFuncs(regex(RoleARNRegex), notEmpty)
 )
 
+// ValidateRegion validates that the given AWS region name matches the expected format. It is exported
+// for use at mutation sinks (e.g. the cloudprovider webhook) that interpolate the region into
+// generated configuration files and must reject values carrying INI metacharacters or newlines.
+func ValidateRegion(region string, fldPath *field.Path) field.ErrorList {
+	return validateRegion(region, fldPath)
+}
+
 type validateFunc[T any] func(T, *field.Path) field.ErrorList
 
 // hideSensitiveValue wraps a validation function to hide the actual value in error messages
