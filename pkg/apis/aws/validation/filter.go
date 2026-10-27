@@ -54,12 +54,13 @@ var (
 	//   - <partition> is one of the AWS partitions, e.g. aws, aws-cn, aws-us-gov, aws-iso
 	//   - the region segment is always empty because IAM is a global service
 	//   - <account-id> is the 12-digit AWS account ID
-	//   - the resource is a role/ followed by an optional path and the role name consisting of
-	//     the characters [a-zA-Z0-9+=,.@_-] as documented in
-	//     https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html
+	//   - path segments allow any printable ASCII character !-~ as documented in
+	//     https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html (Path parameter)
+	//   - the role name is restricted to [a-zA-Z0-9+=,.@_-] as documented in
+	//     https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html (RoleName parameter)
 	//
 	// see https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
-	RoleARNRegex = `^arn:aws[a-z0-9-]*:iam::\d{12}:role(/[\w+=,.@-]+)*/[\w+=,.@-]+$`
+	RoleARNRegex = `^arn:aws[a-z0-9-]*:iam::\d{12}:role(/[\x21-\x7E]+)*/[\w+=,.@-]+$`
 
 	validateK8sResourceName          = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                    = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))

@@ -87,6 +87,7 @@ func (e *ensurer) EnsureCloudProviderSecret(ctx context.Context, gctx gcontext.G
 		string(newSecret.Data[aws.SecretAccessKey]),
 		cluster.Shoot.Spec.Region,
 		field.NewPath("secret", "data"),
+		field.NewPath("shoot", "spec", "region"),
 	); len(errs) > 0 {
 		return fmt.Errorf("invalid cloudprovider secret: %w", errs.ToAggregate())
 	}

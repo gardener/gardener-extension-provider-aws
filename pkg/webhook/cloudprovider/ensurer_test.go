@@ -101,14 +101,32 @@ region=eu-west-1`),
 		})
 
 		It("should reject access key id containing newlines", func() {
-			secret.Data[aws.AccessKeyID] = []byte("AKIATEST\nextra_key=value\nanother_key=value")
+			// Exactly 20 chars (correct length) but contains LF — must be caught by charset check, not length check.
+			secret.Data[aws.AccessKeyID] = []byte("AKIAIOSFODNN7\nXXXXXX")
+			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
+			Expect(err).To(MatchError(ContainSubstring("invalid cloudprovider secret")))
+			Expect(secret.Data).NotTo(HaveKey(aws.SharedCredentialsFile))
+		})
+
+		It("should reject access key id containing carriage returns", func() {
+			// Exactly 20 chars (correct length) but contains CR — must be caught by charset check, not length check.
+			secret.Data[aws.AccessKeyID] = []byte("AKIAIOSFODNN7\rXXXXXX")
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 			Expect(err).To(MatchError(ContainSubstring("invalid cloudprovider secret")))
 			Expect(secret.Data).NotTo(HaveKey(aws.SharedCredentialsFile))
 		})
 
 		It("should reject secret access key containing newlines", func() {
-			secret.Data[aws.SecretAccessKey] = []byte("secret\n[section]\nsome_key=some_value")
+			// Exactly 40 chars (correct length) but contains LF — must be caught by charset check, not length check.
+			secret.Data[aws.SecretAccessKey] = []byte("wJalrXUtnFEMIK7MDENGbPxRfiCYE\nEXAMPLEKEY")
+			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
+			Expect(err).To(MatchError(ContainSubstring("invalid cloudprovider secret")))
+			Expect(secret.Data).NotTo(HaveKey(aws.SharedCredentialsFile))
+		})
+
+		It("should reject secret access key containing carriage returns", func() {
+			// Exactly 40 chars (correct length) but contains CR — must be caught by charset check, not length check.
+			secret.Data[aws.SecretAccessKey] = []byte("wJalrXUtnFEMIK7MDENGbPxRfiCYE\rEXAMPLEKEY")
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 			Expect(err).To(MatchError(ContainSubstring("invalid cloudprovider secret")))
 			Expect(secret.Data).NotTo(HaveKey(aws.SharedCredentialsFile))
@@ -126,6 +144,28 @@ region=eu-west-1`),
 			)
 			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
 			Expect(err).To(MatchError(ContainSubstring("invalid cloudprovider secret")))
+			Expect(secret.Data).NotTo(HaveKey(aws.SharedCredentialsFile))
+		})
+
+		It("should reject a region containing newlines in the workload identity path", func() {
+			secret.Data = map[string][]byte{
+				"config": []byte(`
+apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: WorkloadIdentityConfig
+roleARN: "arn:aws:iam::123456789012:role/foo"
+`)}
+			secret.Labels = map[string]string{"workloadidentity.security.gardener.cloud/provider": "aws"}
+			gctx = gcontext.NewInternalGardenContext(
+				&extensionscontroller.Cluster{
+					Shoot: &gardencorev1beta1.Shoot{
+						Spec: gardencorev1beta1.ShootSpec{
+							Region: "eu-west-1\n[default]\ncredential_process=malicious",
+						},
+					},
+				},
+			)
+			err := ensurer.EnsureCloudProviderSecret(ctx, gctx, secret, nil)
+			Expect(err).To(MatchError(ContainSubstring("invalid region for cloudprovider secret")))
 			Expect(secret.Data).NotTo(HaveKey(aws.SharedCredentialsFile))
 		})
 

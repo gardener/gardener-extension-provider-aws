@@ -63,6 +63,9 @@ var _ = Describe("Secret validator", func() {
 		})
 
 		It("should skip validation for unchanged data that was previously validated", func() {
+			// Use an invalid access key so this test only succeeds via the early-return skip path,
+			// not because the data happens to be valid.
+			secret.Data[aws.AccessKeyID] = []byte("AKIAIOSFODNN7EXAMPL_") // invalid
 			secret.Labels = map[string]string{shootProviderLabelKey: "true"}
 			oldSecret = secret.DeepCopy()
 
