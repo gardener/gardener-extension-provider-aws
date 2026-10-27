@@ -132,9 +132,8 @@ var _ = Describe("Actuator", func() {
 				}
 			})
 
-			It("should return error", func() {
+			It("should return error without resolving the account ID", func() {
 				awsClientFactory.EXPECT().NewClient(authConfig).Return(awsClient, nil)
-				awsClient.EXPECT().GetAccountID(ctx).Return(accountID, nil)
 
 				err := a.Reconcile(ctx, logger, backupBucket)
 				Expect(err).Should(HaveOccurred())

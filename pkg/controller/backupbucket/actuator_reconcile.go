@@ -45,19 +45,19 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 		return util.DetermineError(err, helper.KnownCodes)
 	}
 
-	// Resolve the AWS account ID of the configured credentials. It is passed as ExpectedBucketOwner on
-	// every S3 call so that operations are rejected if the bucket belongs to a different AWS account.
-	expectedBucketOwner, err := awsClient.GetAccountID(ctx)
-	if err != nil {
-		return util.DetermineError(fmt.Errorf("could not determine AWS account ID: %w", err), helper.KnownCodes)
-	}
-
 	var backupbucketConfig *apisaws.BackupBucketConfig
 	if bb.Spec.ProviderConfig != nil {
 		backupbucketConfig, err = helper.DecodeBackupBucketConfig(serializer.NewCodecFactory(a.client.Scheme(), serializer.EnableStrict).UniversalDecoder(), bb.Spec.ProviderConfig)
 		if err != nil {
 			return util.DetermineError(fmt.Errorf("failed to decode provider config: %w", err), helper.KnownCodes)
 		}
+	}
+
+	// Resolve the AWS account ID of the configured credentials. It is passed as ExpectedBucketOwner on
+	// every S3 call so that operations are rejected if the bucket belongs to a different AWS account.
+	expectedBucketOwner, err := awsClient.GetAccountID(ctx)
+	if err != nil {
+		return util.DetermineError(fmt.Errorf("could not determine AWS account ID: %w", err), helper.KnownCodes)
 	}
 
 	// If immutability settings are provided then "isObjectLockRequired" will get set to `true`.
