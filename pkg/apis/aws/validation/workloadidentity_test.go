@@ -42,6 +42,8 @@ var _ = Describe("#ValidateWorkloadIdentityConfig", func() {
 		Entry("gov cloud partition", "arn:aws-us-gov:iam::123456789012:role/my-role"),
 		Entry("eusc partition", "arn:aws-eusc:iam::123456789012:role/my-role"),
 		Entry("iso partition", "arn:aws-iso:iam::123456789012:role/my-role"),
+		Entry("path with punctuation characters", "arn:aws:iam::123456789012:role/team!prod/my-role"),
+		Entry("path with multiple special chars", "arn:aws:iam::123456789012:role/org#dept(eng)/my-role"),
 	)
 
 	DescribeTable("should reject invalid IAM role ARNs",
@@ -52,7 +54,7 @@ var _ = Describe("#ValidateWorkloadIdentityConfig", func() {
 				Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("providerConfig.roleARN"),
-					"Detail": Equal("does not match expected regex ^arn:aws[a-z0-9-]*:iam::\\d{12}:role(/[\\w+=,.@-]+)*/[\\w+=,.@-]+$"),
+					"Detail": Equal("does not match expected regex ^arn:aws[a-z0-9-]*:iam::\\d{12}:role(/[!-~]+)*/[\\w+=,.@-]+$"),
 				},
 			))
 		},
@@ -101,7 +103,7 @@ var _ = Describe("#ValidateWorkloadIdentityConfig", func() {
 			Fields{
 				"Type":   Equal(field.ErrorTypeInvalid),
 				"Field":  Equal("providerConfig.roleARN"),
-				"Detail": Equal("does not match expected regex ^arn:aws[a-z0-9-]*:iam::\\d{12}:role(/[\\w+=,.@-]+)*/[\\w+=,.@-]+$"),
+				"Detail": Equal("does not match expected regex ^arn:aws[a-z0-9-]*:iam::\\d{12}:role(/[!-~]+)*/[\\w+=,.@-]+$"),
 			},
 		))
 	})

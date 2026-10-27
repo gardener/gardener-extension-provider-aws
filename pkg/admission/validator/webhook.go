@@ -20,6 +20,9 @@ const (
 	Name = "validator"
 	// SecretsValidatorName is the name of the secrets validator.
 	SecretsValidatorName = "secrets." + Name
+
+	extensionProviderLabel = "provider.extensions.gardener.cloud/aws"
+	shootProviderLabel     = "provider.shoot.gardener.cloud/aws"
 )
 
 var logger = log.Log.WithName("aws-validator-webhook")
@@ -43,7 +46,7 @@ func New(mgr manager.Manager) (*extensionswebhook.Webhook, error) {
 		},
 		Target: extensionswebhook.TargetSeed,
 		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"provider.extensions.gardener.cloud/aws": "true"},
+			MatchLabels: map[string]string{extensionProviderLabel: "true"},
 		},
 	})
 }
@@ -60,7 +63,7 @@ func NewSecretsWebhook(mgr manager.Manager) (*extensionswebhook.Webhook, error) 
 		},
 		Target: extensionswebhook.TargetSeed,
 		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"provider.shoot.gardener.cloud/aws": "true"},
+			MatchLabels: map[string]string{shootProviderLabel: "true"},
 		},
 	})
 }

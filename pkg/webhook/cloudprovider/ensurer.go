@@ -14,8 +14,10 @@ import (
 	securityv1alpha1constants "github.com/gardener/gardener/pkg/apis/security/v1alpha1/constants"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
@@ -47,6 +49,17 @@ func (e *ensurer) EnsureCloudProviderSecret(ctx context.Context, gctx gcontext.G
 			return fmt.Errorf("could not decode 'config' as WorkloadIdentityConfig: %w", err)
 		}
 
+		// Validate the decoded config at this sink before interpolating any of its values into the
+		// shared credentials file. Garden-side admission is defense in depth only; this is the trust
+		// boundary where the INI file is produced, so values that could introduce new INI directives
+		// (e.g. role_arn carrying CR/LF) must be rejected here as well.
+		if errs := validation.ValidateWorkloadIdentityConfig(workloadIdentityConfig, field.NewPath("config")); len(errs) > 0 {
+			return fmt.Errorf("invalid WorkloadIdentityConfig in cloudprovider secret: %w", errs.ToAggregate())
+		}
+		if errs := validation.ValidateRegion(cluster.Shoot.Spec.Region, field.NewPath("shoot", "spec", "region")); len(errs) > 0 {
+			return fmt.Errorf("invalid region for cloudprovider secret: %w", errs.ToAggregate())
+		}
+
 		newSecret.Data[aws.RoleARN] = []byte(workloadIdentityConfig.RoleARN)
 		newSecret.Data[aws.WorkloadIdentityTokenFileKey] = []byte(aws.WorkloadIdentityMountPath + "/token")
 		newSecret.Data[aws.SharedCredentialsFile] = []byte("[default]\n" +
@@ -62,6 +75,21 @@ func (e *ensurer) EnsureCloudProviderSecret(ctx context.Context, gctx gcontext.G
 	}
 	if _, ok := newSecret.Data[aws.SecretAccessKey]; !ok {
 		return fmt.Errorf("could not mutate cloudprovider secret as %q field is missing", aws.SecretAccessKey)
+	}
+
+	// Validate the credential values at this sink before interpolating them into the shared
+	// credentials file. The charset/length checks reject newlines and INI metacharacters so tenant
+	// bytes cannot introduce new directives or sections (e.g. an injected source_profile chaining to
+	// credential_process). Garden-side admission runs the same checks but is bypassable, so enforce
+	// here at the trust boundary where the file is produced.
+	if errs := validation.ValidateCloudProviderCredentialValues(
+		string(newSecret.Data[aws.AccessKeyID]),
+		string(newSecret.Data[aws.SecretAccessKey]),
+		cluster.Shoot.Spec.Region,
+		field.NewPath("secret", "data"),
+		field.NewPath("shoot", "spec", "region"),
+	); len(errs) > 0 {
+		return fmt.Errorf("invalid cloudprovider secret: %w", errs.ToAggregate())
 	}
 
 	e.logger.V(5).Info("mutate cloudprovider secret", "namespace", newSecret.Namespace, "name", newSecret.Name)

@@ -46,6 +46,24 @@ func ValidateCloudProviderSecret(secret *corev1.Secret, fldPath *field.Path) fie
 	return allErrs
 }
 
+// ValidateCloudProviderCredentialValues validates the individual credential values (access key ID,
+// secret access key and region) that get interpolated into the synthesized AWS shared-credentials
+// file. Unlike ValidateCloudProviderSecret it does not enforce the set of allowed data keys, so it
+// is safe to call at the mutation sink where the secret may already carry derived keys such as
+// credentialsFile. The charset checks reject CR/LF and INI metacharacters, preventing tenant bytes
+// from introducing new directives or sections (e.g. an injected source_profile chaining to
+// credential_process). regionFldPath is used for region errors so callers can point to the correct
+// resource (e.g. shoot.spec.region rather than secret.data[region]).
+func ValidateCloudProviderCredentialValues(accessKeyID, secretAccessKey, region string, fldPath *field.Path, regionFldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	allErrs = append(allErrs, validateAccessKeyID(accessKeyID, fldPath.Key(aws.AccessKeyID))...)
+	allErrs = append(allErrs, validateSecretAccessKey(secretAccessKey, fldPath.Key(aws.SecretAccessKey))...)
+	if len(region) > 0 {
+		allErrs = append(allErrs, validateRegion(region, regionFldPath)...)
+	}
+	return allErrs
+}
+
 // validateNoDuplicateKey checks if both standard and DNS-specific keys exist
 func validateNoDuplicateKey(data map[string][]byte, dataPath *field.Path, secretRef, standardKey, dnsKey string) field.ErrorList {
 	_, hasStandard := data[standardKey]
