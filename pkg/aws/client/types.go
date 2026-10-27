@@ -58,14 +58,14 @@ type Interface interface {
 	GetNATGatewayAddressAllocations(ctx context.Context, shootNamespace string) (sets.Set[string], error)
 
 	// S3 wrappers
-	CreateBucket(ctx context.Context, bucket, region string, objectLockEnabled bool) error
-	GetBucketVersioningStatus(ctx context.Context, bucket string) (*s3.GetBucketVersioningOutput, error)
-	EnableBucketVersioning(ctx context.Context, bucket string) error
-	GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error)
-	UpdateObjectLockConfiguration(ctx context.Context, bucket string, mode apisaws.ModeType, days int32) error
-	RemoveObjectLockConfiguration(ctx context.Context, bucket string) error
-	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error
-	DeleteBucketIfExists(ctx context.Context, bucket string) error
+	CreateBucket(ctx context.Context, bucket, region, expectedBucketOwner string, objectLockEnabled bool) error
+	GetBucketVersioningStatus(ctx context.Context, bucket, expectedBucketOwner string) (*s3.GetBucketVersioningOutput, error)
+	EnableBucketVersioning(ctx context.Context, bucket, expectedBucketOwner string) error
+	GetObjectLockConfiguration(ctx context.Context, bucket, expectedBucketOwner string) (*s3.GetObjectLockConfigurationOutput, error)
+	UpdateObjectLockConfiguration(ctx context.Context, bucket, expectedBucketOwner string, mode apisaws.ModeType, days int32) error
+	RemoveObjectLockConfiguration(ctx context.Context, bucket, expectedBucketOwner string) error
+	DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix, expectedBucketOwner string) error
+	DeleteBucketIfExists(ctx context.Context, bucket, expectedBucketOwner string) error
 
 	// Route53 wrappers
 	GetDNSHostedZones(ctx context.Context) (map[string]string, error)

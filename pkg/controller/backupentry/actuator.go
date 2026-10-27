@@ -49,8 +49,16 @@ func (a *actuator) Delete(ctx context.Context, _ logr.Logger, be *extensionsv1al
 	if err != nil {
 		return util.DetermineError(err, helper.KnownCodes)
 	}
+
+	// Resolve the AWS account ID of the configured credentials and pass it as ExpectedBucketOwner so
+	// object deletions are rejected if the bucket belongs to a different AWS account.
+	expectedBucketOwner, err := awsClient.GetAccountID(ctx)
+	if err != nil {
+		return util.DetermineError(fmt.Errorf("could not determine AWS account ID: %w", err), helper.KnownCodes)
+	}
+
 	entryName := strings.TrimPrefix(be.Name, v1beta1constants.BackupSourcePrefix+"-")
-	return util.DetermineError(awsClient.DeleteObjectsWithPrefix(ctx, be.Spec.BucketName, fmt.Sprintf("%s/", entryName)), helper.KnownCodes)
+	return util.DetermineError(awsClient.DeleteObjectsWithPrefix(ctx, be.Spec.BucketName, fmt.Sprintf("%s/", entryName), expectedBucketOwner), helper.KnownCodes)
 }
 
 func (a *actuator) injectWorkloadIdentityData(ctx context.Context, be *extensionsv1alpha1.BackupEntry, data map[string][]byte) error {

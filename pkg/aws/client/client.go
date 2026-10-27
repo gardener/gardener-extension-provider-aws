@@ -340,11 +340,21 @@ func (c *Client) GetDHCPOptions(ctx context.Context, vpcID string) (map[string]s
 	return result, nil
 }
 
+// expectedBucketOwnerPtr maps an account ID to the S3 ExpectedBucketOwner field: empty skips the
+// ownership check, a non-empty value causes S3 to return 403 if the bucket belongs to a different account.
+func expectedBucketOwnerPtr(expectedBucketOwner string) *string {
+	if expectedBucketOwner == "" {
+		return nil
+	}
+	return aws.String(expectedBucketOwner)
+}
+
 // DeleteObjectsWithPrefix deletes the s3 objects with the specific <prefix> from <bucket>. If it does not exist,
 // no error is returned.
-func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix string) error {
+func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix, expectedBucketOwner string) error {
 	bucketVersioningStatus, err := c.S3.GetBucketVersioning(ctx, &s3.GetBucketVersioningInput{
-		Bucket: aws.String(bucket),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
 	})
 	if err != nil {
 		switch GetAWSAPIErrorCode(err) {
@@ -357,13 +367,13 @@ func (c *Client) DeleteObjectsWithPrefix(ctx context.Context, bucket, prefix str
 
 	if bucketVersioningStatus != nil && bucketVersioningStatus.Status == s3types.BucketVersioningStatusEnabled {
 		// object versioning is found to be enabled on the bucket
-		return deleteVersionedObjectsWithPrefix(ctx, c.S3, bucket, prefix)
+		return deleteVersionedObjectsWithPrefix(ctx, c.S3, bucket, prefix, expectedBucketOwner)
 	}
-	return deleteObjectsWithPrefix(ctx, c.S3, bucket, prefix)
+	return deleteObjectsWithPrefix(ctx, c.S3, bucket, prefix, expectedBucketOwner)
 }
 
 // CreateBucket creates the s3 bucket with name <bucket> in <region>.
-func (c *Client) CreateBucket(ctx context.Context, bucket, region string, objectLockEnabled bool) error {
+func (c *Client) CreateBucket(ctx context.Context, bucket, region, expectedBucketOwner string, objectLockEnabled bool) error {
 	createBucketInput := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 		ACL:    s3types.BucketCannedACLPrivate,
@@ -383,14 +393,24 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, object
 			bae *s3types.BucketAlreadyExists
 			bao *s3types.BucketAlreadyOwnedByYou
 		)
-		if !errors.As(err, &bae) && !errors.As(err, &bao) {
+		// BucketAlreadyOwnedByYou: we already own it (benign, re-apply hardening below).
+		// BucketAlreadyExists: the bucket is owned by a different account — reject it.
+		// CreateBucket does not support ExpectedBucketOwner, so this error is the only ownership
+		// signal available at creation time.
+		if !errors.As(err, &bao) {
+			if errors.As(err, &bae) {
+				return fmt.Errorf("bucket %q already exists and is owned by another AWS account: %w", bucket, err)
+			}
 			return err
 		}
 	}
 
+	ownerPtr := expectedBucketOwnerPtr(expectedBucketOwner)
+
 	// Enable default server side encryption using AES256 algorithm. Key will be managed by S3
 	if _, err := c.S3.PutBucketEncryption(ctx, &s3.PutBucketEncryptionInput{
-		Bucket: aws.String(bucket),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: ownerPtr,
 		ServerSideEncryptionConfiguration: &s3types.ServerSideEncryptionConfiguration{
 			Rules: []s3types.ServerSideEncryptionRule{
 				{
@@ -406,7 +426,8 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, object
 
 	// Block public access to the bucket
 	if _, err := c.S3.PutPublicAccessBlock(ctx, &s3.PutPublicAccessBlockInput{
-		Bucket: aws.String(bucket),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: ownerPtr,
 		PublicAccessBlockConfiguration: &s3types.PublicAccessBlockConfiguration{
 			BlockPublicAcls:       aws.Bool(true),
 			BlockPublicPolicy:     aws.Bool(true),
@@ -460,15 +481,17 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, object
 	}
 
 	if _, err := c.S3.PutBucketPolicy(ctx, &s3.PutBucketPolicyInput{
-		Bucket: aws.String(bucket),
-		Policy: aws.String(string(bucketPolicyJSON)),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: ownerPtr,
+		Policy:              aws.String(string(bucketPolicyJSON)),
 	}); err != nil {
 		return err
 	}
 
 	// Set lifecycle rule to purge incomplete multipart upload orphaned because of force shutdown or rescheduling or networking issue with etcd-backup-restore.
 	putBucketLifecycleConfigurationInput := &s3.PutBucketLifecycleConfigurationInput{
-		Bucket: aws.String(bucket),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: ownerPtr,
 		LifecycleConfiguration: &s3types.BucketLifecycleConfiguration{
 			Rules: []s3types.LifecycleRule{
 				{
@@ -494,18 +517,21 @@ func (c *Client) CreateBucket(ctx context.Context, bucket, region string, object
 
 // DeleteBucketIfExists deletes the s3 bucket with name <bucket>. If it does not exist,
 // no error is returned.
-func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error {
-	if _, err := c.S3.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: aws.String(bucket)}); err != nil {
+func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket, expectedBucketOwner string) error {
+	if _, err := c.S3.DeleteBucket(ctx, &s3.DeleteBucketInput{
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
+	}); err != nil {
 		apiErrCode := GetAWSAPIErrorCode(err)
 		switch apiErrCode {
 		case NoSuchBucket, PermanentRedirect:
 			// No action required: either the bucket doesn't exist or it exists in a different region and wasn't created.
 			return nil
 		case BucketNotEmpty:
-			if err := c.DeleteObjectsWithPrefix(ctx, bucket, ""); err != nil {
+			if err := c.DeleteObjectsWithPrefix(ctx, bucket, "", expectedBucketOwner); err != nil {
 				return err
 			}
-			return c.DeleteBucketIfExists(ctx, bucket)
+			return c.DeleteBucketIfExists(ctx, bucket, expectedBucketOwner)
 		default:
 			return err
 		}
@@ -514,18 +540,20 @@ func (c *Client) DeleteBucketIfExists(ctx context.Context, bucket string) error 
 }
 
 // GetBucketVersioningStatus is wrapper for S3's API GetBucketVersioning to get bucket versioning status
-func (c *Client) GetBucketVersioningStatus(ctx context.Context, bucket string) (*s3.GetBucketVersioningOutput, error) {
+func (c *Client) GetBucketVersioningStatus(ctx context.Context, bucket, expectedBucketOwner string) (*s3.GetBucketVersioningOutput, error) {
 	bucketVersioningStatus, err := c.S3.GetBucketVersioning(ctx, &s3.GetBucketVersioningInput{
-		Bucket: aws.String(bucket),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
 	})
 
 	return bucketVersioningStatus, err
 }
 
 // EnableBucketVersioning enables the versioning on the given bucket.
-func (c *Client) EnableBucketVersioning(ctx context.Context, bucket string) error {
+func (c *Client) EnableBucketVersioning(ctx context.Context, bucket, expectedBucketOwner string) error {
 	input := &s3.PutBucketVersioningInput{
-		Bucket: aws.String(bucket),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
 		VersioningConfiguration: &s3types.VersioningConfiguration{
 			Status: s3types.BucketVersioningStatusEnabled,
 		},
@@ -538,18 +566,20 @@ func (c *Client) EnableBucketVersioning(ctx context.Context, bucket string) erro
 }
 
 // GetObjectLockConfiguration is wrapper for S3's API GetObjectLockConfiguration to get object lock settings.
-func (c *Client) GetObjectLockConfiguration(ctx context.Context, bucket string) (*s3.GetObjectLockConfigurationOutput, error) {
+func (c *Client) GetObjectLockConfiguration(ctx context.Context, bucket, expectedBucketOwner string) (*s3.GetObjectLockConfigurationOutput, error) {
 	objectConfig, err := c.S3.GetObjectLockConfiguration(ctx, &s3.GetObjectLockConfigurationInput{
-		Bucket: aws.String(bucket),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
 	})
 
 	return objectConfig, err
 }
 
 // UpdateObjectLockConfiguration updates the object lock configuration on the bucket.
-func (c *Client) UpdateObjectLockConfiguration(ctx context.Context, bucket string, mode apisaws.ModeType, days int32) error {
+func (c *Client) UpdateObjectLockConfiguration(ctx context.Context, bucket, expectedBucketOwner string, mode apisaws.ModeType, days int32) error {
 	input := &s3.PutObjectLockConfigurationInput{
-		Bucket: &bucket,
+		Bucket:              &bucket,
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
 		ObjectLockConfiguration: &s3types.ObjectLockConfiguration{
 			ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
 			Rule: &s3types.ObjectLockRule{
@@ -570,9 +600,10 @@ func (c *Client) UpdateObjectLockConfiguration(ctx context.Context, bucket strin
 
 // RemoveObjectLockConfiguration removes the object lock configuration rules from bucket.
 // Note: Object lock can't be disabled in S3, only object lock configuration rules can be removed from bucket.
-func (c *Client) RemoveObjectLockConfiguration(ctx context.Context, bucket string) error {
+func (c *Client) RemoveObjectLockConfiguration(ctx context.Context, bucket, expectedBucketOwner string) error {
 	input := &s3.PutObjectLockConfigurationInput{
-		Bucket: &bucket,
+		Bucket:              &bucket,
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
 		ObjectLockConfiguration: &s3types.ObjectLockConfiguration{
 			ObjectLockEnabled: s3types.ObjectLockEnabledEnabled,
 		},
@@ -2929,10 +2960,12 @@ func GetBucketRetentiontMode(mode apisaws.ModeType) s3types.ObjectLockRetentionM
 }
 
 // deleteObjectsWithPrefix deletes all objects present in a bucket(object versioning is not enabled) for a given prefix.
-func deleteObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, prefix string) error {
+func deleteObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, prefix, expectedBucketOwner string) error {
+	ownerPtr := expectedBucketOwnerPtr(expectedBucketOwner)
 	input := &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucket),
-		Prefix: aws.String(prefix),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: ownerPtr,
+		Prefix:              aws.String(prefix),
 	}
 
 	paginator := s3.NewListObjectsV2Paginator(&s3client, input)
@@ -2948,7 +2981,8 @@ func deleteObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, pr
 		}
 		if len(objectIDs) != 0 {
 			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-				Bucket: aws.String(bucket),
+				Bucket:              aws.String(bucket),
+				ExpectedBucketOwner: ownerPtr,
 				Delete: &s3types.Delete{
 					Objects: objectIDs,
 					Quiet:   aws.Bool(true),
@@ -2966,10 +3000,12 @@ func deleteObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, pr
 }
 
 // deleteVersionedObjectsWithPrefix tries to delete all versioned objects and delete markers(if any) present inside the object versioned enabled bucket for a given prefix.
-func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, prefix string) error {
+func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, prefix, expectedBucketOwner string) error {
+	ownerPtr := expectedBucketOwnerPtr(expectedBucketOwner)
 	input := &s3.ListObjectVersionsInput{
-		Bucket: aws.String(bucket),
-		Prefix: aws.String(prefix),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: ownerPtr,
+		Prefix:              aws.String(prefix),
 	}
 
 	paginator := s3.NewListObjectVersionsPaginator(&s3client, input)
@@ -3003,7 +3039,8 @@ func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, b
 		// Delete all the objects(versioned and non-versioned) present in bucket.
 		if len(objectIDs) != 0 {
 			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-				Bucket: aws.String(bucket),
+				Bucket:              aws.String(bucket),
+				ExpectedBucketOwner: ownerPtr,
 				Delete: &s3types.Delete{
 					Objects: objectIDs,
 					Quiet:   aws.Bool(true),
@@ -3020,7 +3057,8 @@ func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, b
 		// Delete all the delete markers present(if any) in bucket.
 		if len(deleteMarkerIDs) != 0 {
 			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-				Bucket: aws.String(bucket),
+				Bucket:              aws.String(bucket),
+				ExpectedBucketOwner: ownerPtr,
 				Delete: &s3types.Delete{
 					Objects: deleteMarkerIDs,
 					Quiet:   aws.Bool(true),
@@ -3035,17 +3073,17 @@ func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, b
 		}
 	}
 
-	if isObjectPresent, err := addTagToObjectsIfPresent(ctx, &s3client, input); err != nil {
+	if isObjectPresent, err := addTagToObjectsIfPresent(ctx, &s3client, input, expectedBucketOwner); err != nil {
 		return err
 	} else if isObjectPresent {
 		// add the lifecycle policies to bucket to purge the remaining snapshot objects present in the prefix.
-		return toGCobjectsAddLifeCyclePolicyObjects(ctx, &s3client, bucket)
+		return toGCobjectsAddLifeCyclePolicyObjects(ctx, &s3client, bucket, expectedBucketOwner)
 	}
 
 	return nil
 }
 
-func addTagToObjectsIfPresent(ctx context.Context, s3client *s3.Client, input *s3.ListObjectVersionsInput) (bool, error) {
+func addTagToObjectsIfPresent(ctx context.Context, s3client *s3.Client, input *s3.ListObjectVersionsInput, expectedBucketOwner string) (bool, error) {
 	paginator := s3.NewListObjectVersionsPaginator(s3client, input)
 
 	isObjectPresent := false
@@ -3059,7 +3097,7 @@ func addTagToObjectsIfPresent(ctx context.Context, s3client *s3.Client, input *s
 		for _, object := range page.Versions {
 			isObjectPresent = true
 			// if object present in the prefix then tagged those object
-			if err := setObjectTag(ctx, s3client, *input.Bucket, *object.Key, *object.VersionId, S3ObjectMarkedForDeletionTagKey, "true"); err != nil {
+			if err := setObjectTag(ctx, s3client, *input.Bucket, *object.Key, *object.VersionId, S3ObjectMarkedForDeletionTagKey, "true", expectedBucketOwner); err != nil {
 				return isObjectPresent, err
 			}
 		}
@@ -3073,9 +3111,10 @@ func addTagToObjectsIfPresent(ctx context.Context, s3client *s3.Client, input *s
 
 // To know more about working of Lifecycle in versioning enabled S3 bucket, please refer here:
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-expire-general-considerations.html
-func toGCobjectsAddLifeCyclePolicyObjects(ctx context.Context, s3Client *s3.Client, bucket string) error {
+func toGCobjectsAddLifeCyclePolicyObjects(ctx context.Context, s3Client *s3.Client, bucket, expectedBucketOwner string) error {
 	putBucketLifecycleConfigurationInput1 := &s3.PutBucketLifecycleConfigurationInput{
-		Bucket: aws.String(bucket),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
 		LifecycleConfiguration: &s3types.BucketLifecycleConfiguration{
 			Rules: []s3types.LifecycleRule{
 				{
@@ -3125,10 +3164,11 @@ func toGCobjectsAddLifeCyclePolicyObjects(ctx context.Context, s3Client *s3.Clie
 }
 
 // setObjectTag set the tag to an object specified by <key> and <versionID> in <bucket>.
-func setObjectTag(ctx context.Context, s3Client *s3.Client, bucket, key, verionID, tagKey, tagValue string) error {
+func setObjectTag(ctx context.Context, s3Client *s3.Client, bucket, key, verionID, tagKey, tagValue, expectedBucketOwner string) error {
 	input := s3.PutObjectTaggingInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
+		Bucket:              aws.String(bucket),
+		ExpectedBucketOwner: expectedBucketOwnerPtr(expectedBucketOwner),
+		Key:                 aws.String(key),
 		Tagging: &s3types.Tagging{
 			TagSet: []s3types.Tag{
 				{
