@@ -60,7 +60,7 @@ var (
 	//     https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html (RoleName parameter)
 	//
 	// see https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
-	RoleARNRegex = `^arn:aws[a-z0-9-]*:iam::\d{12}:role(/[\x21-\x7E]+)*/[\w+=,.@-]+$`
+	RoleARNRegex = `^arn:aws[a-z0-9-]*:iam::\d{12}:role(/[!-~]+)*/[\w+=,.@-]+$`
 
 	validateK8sResourceName          = combineValidationFuncs(regex(k8sResourceNameRegex), notEmpty, maxLength(253))
 	validateVpcID                    = combineValidationFuncs(regex(VpcIDRegex), notEmpty, maxLength(255))

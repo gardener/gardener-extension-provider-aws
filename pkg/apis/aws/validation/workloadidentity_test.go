@@ -54,7 +54,7 @@ var _ = Describe("#ValidateWorkloadIdentityConfig", func() {
 				Fields{
 					"Type":   Equal(field.ErrorTypeInvalid),
 					"Field":  Equal("providerConfig.roleARN"),
-					"Detail": Equal("does not match expected regex ^arn:aws[a-z0-9-]*:iam::\\d{12}:role(/[\\x21-\\x7E]+)*/[\\w+=,.@-]+$"),
+					"Detail": Equal("does not match expected regex ^arn:aws[a-z0-9-]*:iam::\\d{12}:role(/[!-~]+)*/[\\w+=,.@-]+$"),
 				},
 			))
 		},
@@ -103,7 +103,7 @@ var _ = Describe("#ValidateWorkloadIdentityConfig", func() {
 			Fields{
 				"Type":   Equal(field.ErrorTypeInvalid),
 				"Field":  Equal("providerConfig.roleARN"),
-				"Detail": Equal("does not match expected regex ^arn:aws[a-z0-9-]*:iam::\\d{12}:role(/[\\x21-\\x7E]+)*/[\\w+=,.@-]+$"),
+				"Detail": Equal("does not match expected regex ^arn:aws[a-z0-9-]*:iam::\\d{12}:role(/[!-~]+)*/[\\w+=,.@-]+$"),
 			},
 		))
 	})
