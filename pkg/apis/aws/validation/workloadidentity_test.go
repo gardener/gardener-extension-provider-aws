@@ -69,6 +69,20 @@ var _ = Describe("#ValidateWorkloadIdentityConfig", func() {
 		Entry("missing role name and slash", "arn:aws:iam::123456789012:role"),
 		Entry("trailing whitespace", "arn:aws:iam::123456789012:role/my-role "),
 		Entry("invalid character in role name", "arn:aws:iam::123456789012:role/my-role*"),
+		// Guard against multiline / control-character injection: Go's regexp anchors ^ and $
+		// to the start/end of the whole text (not per line) unless the (?m) flag is set, so a
+		// valid ARN followed by a newline and arbitrary content must be rejected.
+		Entry("trailing line feed", "arn:aws:iam::123456789012:role/my-role\n"),
+		Entry("trailing carriage return", "arn:aws:iam::123456789012:role/my-role\r"),
+		Entry("trailing carriage return line feed", "arn:aws:iam::123456789012:role/my-role\r\n"),
+		Entry("leading line feed", "\narn:aws:iam::123456789012:role/my-role"),
+		Entry("line feed injecting extra content", "arn:aws:iam::123456789012:role/my-role\nmalicious: true"),
+		Entry("carriage return line feed injecting extra content", "arn:aws:iam::123456789012:role/my-role\r\nkind: Malicious"),
+		Entry("valid ARN preceded by arbitrary content and line feed", "foo\narn:aws:iam::123456789012:role/my-role"),
+		Entry("line feed within the role name", "arn:aws:iam::123456789012:role/my\nrole"),
+		Entry("carriage return within the role name", "arn:aws:iam::123456789012:role/my\rrole"),
+		Entry("tab within the role name", "arn:aws:iam::123456789012:role/my\trole"),
+		Entry("null byte within the role name", "arn:aws:iam::123456789012:role/my\x00role"),
 	)
 
 	It("should contain all expected validation errors when roleARN is empty", func() {
