@@ -1608,32 +1608,23 @@ var _ = Describe("Machines", func() {
 			var (
 				workerConfig *api.WorkerConfig
 				networking   *gardencorev1beta1.Networking
-				cluster      *extensionscontroller.Cluster
 			)
+
 			BeforeEach(func() {
-				cluster = &extensionscontroller.Cluster{
-					Shoot: &gardencorev1beta1.Shoot{
-						Spec: gardencorev1beta1.ShootSpec{
-							Kubernetes: gardencorev1beta1.Kubernetes{
-								Version: "1.34.0",
-							},
-						},
-					},
-				}
 				workerConfig = &api.WorkerConfig{
 					InstanceMetadataOptions: nil,
 				}
 				networking = &gardencorev1beta1.Networking{}
 			})
-			It("should calculate correct IMDS for k8s >=1.32", func() {
-				cluster.Shoot.Spec.Kubernetes.Version = "1.32.0"
 
+			It("should calculate correct IMDS defaults", func() {
 				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(res).NotTo(BeNil())
 				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(2))))
 				Expect(res.HTTPTokens).To(Equal("required"))
 			})
+
 			It("should calculate correct IMDS with user options", func() {
 				workerConfig.InstanceMetadataOptions = &api.InstanceMetadataOptions{
 					HTTPTokens:              ptr.To(api.HTTPTokensRequired),
@@ -1657,6 +1648,7 @@ var _ = Describe("Machines", func() {
 		})
 
 	})
+
 	DescribeTable("EnsureUniformMachineImages", func(capabilityDefinitions []gardencorev1beta1.CapabilityDefinition, expectedImages []api.MachineImage) {
 		machineImages := []api.MachineImage{
 			// images with capability sets
