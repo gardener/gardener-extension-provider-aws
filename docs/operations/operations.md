@@ -336,7 +336,7 @@ If in-place-updates are enabled for a worker-pool, then updates to the fields th
 
 ## Profiling
 
-The controller exposes a [pprof](https://pkg.go.dev/net/http/pprof) endpoint on port `8082` for runtime profiling. It is not exposed via any Service and is only reachable via `kubectl port-forward`.
+The controller exposes a [pprof](https://pkg.go.dev/net/http/pprof) endpoint on `127.0.0.1:8082` for runtime profiling. It binds to localhost only and is reachable exclusively via `kubectl port-forward`.
 
 To take a heap or goroutine snapshot from a running pod:
 
