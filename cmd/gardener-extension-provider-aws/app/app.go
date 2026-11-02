@@ -185,7 +185,7 @@ func NewControllerManagerCommand(ctx context.Context) *cobra.Command {
 					},
 				},
 			}
-			mopts.PprofBindAddress = ":8082"
+			mopts.PprofBindAddress = "127.0.0.1:8082"
 			mgr, err := manager.New(restOpts.Completed().Config, mopts)
 			if err != nil {
 				return fmt.Errorf("could not instantiate manager: %w", err)
