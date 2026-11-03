@@ -364,6 +364,17 @@ var validNetworkInterfaceTypes = []string{
 	string(ec2types.NetworkInterfaceTypeEfaOnly),
 }
 
+// maxNetworkCardIndex is the highest network card index accepted for a network interface configuration.
+// EC2 instances currently support at most 16 network cards (indices 0-15); this bound is deliberately set
+// well above that to leave room for future EC2 limits while staying small enough that expanding a
+// networkCardIndexRange can never allocate more than a handful of interface structs (unbounded-allocation DoS).
+const maxNetworkCardIndex = 255
+
+// MaxNetworkInterfaces is the maximum number of network interfaces that a worker pool may expand to.
+// Validation enforces this limit so that configurations exceeding it are rejected at admission time.
+// The worker controller imports this constant as its own backstop, so the two values stay in sync.
+const MaxNetworkInterfaces = 1024
+
 func validateNetworkInterfaces(networkInterfaces []apisaws.NetworkInterface, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -375,6 +386,59 @@ func validateNetworkInterfaces(networkInterfaces []apisaws.NetworkInterface, fld
 		if ni.Type != nil && *ni.Type == string(ec2types.NetworkInterfaceTypeEfaOnly) && coversPrimaryNIC(ni) {
 			allErrs = append(allErrs, field.Invalid(fldPath.Index(i).Child("type"), *ni.Type,
 				"the primary network interface (networkCardIndex 0, deviceIndex 0) must be of type \"interface\" or \"efa\", not \"efa-only\""))
+		}
+	}
+
+	allErrs = append(allErrs, validateNetworkInterfacesUnique(networkInterfaces, fldPath)...)
+
+	return allErrs
+}
+
+// validateNetworkInterfacesUnique rejects entries that expand to the same (networkCardIndex, deviceIndex)
+// pair, since AWS allows only one NIC per card+device slot, and rejects configurations that expand to more
+// than MaxNetworkInterfaces total. Out-of-bounds ranges are skipped (reported elsewhere), keeping the
+// enumeration bounded by maxNetworkCardIndex.
+func validateNetworkInterfacesUnique(networkInterfaces []apisaws.NetworkInterface, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+
+	type cardDevice struct {
+		card, device int64
+	}
+	seen := sets.New[cardDevice]()
+	total := 0
+
+	for i, ni := range networkInterfaces {
+		var cards []int64
+		switch {
+		case ni.NetworkCardIndexRange != nil:
+			if ni.NetworkCardIndexRange.From < 0 || ni.NetworkCardIndexRange.To > maxNetworkCardIndex || ni.NetworkCardIndexRange.From > ni.NetworkCardIndexRange.To {
+				// out of bounds: already reported by validateNetworkInterface, skip to keep this check bounded
+				continue
+			}
+			for c := ni.NetworkCardIndexRange.From; c <= ni.NetworkCardIndexRange.To; c++ {
+				cards = append(cards, c)
+			}
+		case ni.NetworkCardIndex != nil:
+			cards = []int64{*ni.NetworkCardIndex}
+		default:
+			cards = []int64{0}
+		}
+
+		total += len(cards)
+		if total > MaxNetworkInterfaces {
+			allErrs = append(allErrs, field.Invalid(fldPath, networkInterfaces,
+				fmt.Sprintf("network interface configuration expands to more than %d interfaces, which is not supported", MaxNetworkInterfaces)))
+			return allErrs
+		}
+
+		for _, c := range cards {
+			key := cardDevice{card: c, device: ni.DeviceIndex}
+			if seen.Has(key) {
+				allErrs = append(allErrs, field.Invalid(fldPath.Index(i), ni,
+					fmt.Sprintf("network interface resolves to networkCardIndex %d and deviceIndex %d, which is already used by another network interface", c, ni.DeviceIndex)))
+				break
+			}
+			seen.Insert(key)
 		}
 	}
 
@@ -412,8 +476,8 @@ func validateNetworkInterface(ni apisaws.NetworkInterface, fldPath *field.Path) 
 	if ni.NetworkCardIndex != nil {
 		if *ni.NetworkCardIndex < 0 {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndex"), *ni.NetworkCardIndex, "must be >= 0"))
-		} else if *ni.NetworkCardIndex > math.MaxInt32 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndex"), *ni.NetworkCardIndex, "must be <= 2147483647"))
+		} else if *ni.NetworkCardIndex > maxNetworkCardIndex {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndex"), *ni.NetworkCardIndex, fmt.Sprintf("must be <= %d", maxNetworkCardIndex)))
 		}
 	}
 
@@ -421,8 +485,8 @@ func validateNetworkInterface(ni apisaws.NetworkInterface, fldPath *field.Path) 
 		if ni.NetworkCardIndexRange.From < 0 {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndexRange").Child("from"), ni.NetworkCardIndexRange.From, "must be >= 0"))
 		}
-		if ni.NetworkCardIndexRange.To > math.MaxInt32 {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndexRange").Child("to"), ni.NetworkCardIndexRange.To, "must be <= 2147483647"))
+		if ni.NetworkCardIndexRange.To > maxNetworkCardIndex {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndexRange").Child("to"), ni.NetworkCardIndexRange.To, fmt.Sprintf("must be <= %d", maxNetworkCardIndex)))
 		}
 		if ni.NetworkCardIndexRange.From > ni.NetworkCardIndexRange.To {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("networkCardIndexRange"), ni.NetworkCardIndexRange, "from must be less than or equal to to"))
