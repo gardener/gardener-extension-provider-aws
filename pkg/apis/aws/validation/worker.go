@@ -370,6 +370,11 @@ var validNetworkInterfaceTypes = []string{
 // networkCardIndexRange can never allocate more than a handful of interface structs (unbounded-allocation DoS).
 const maxNetworkCardIndex = 255
 
+// MaxNetworkInterfaces is the maximum number of network interfaces that a worker pool may expand to.
+// Validation enforces this limit so that configurations exceeding it are rejected at admission time.
+// The worker controller imports this constant as its own backstop, so the two values stay in sync.
+const MaxNetworkInterfaces = 1024
+
 func validateNetworkInterfaces(networkInterfaces []apisaws.NetworkInterface, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -390,8 +395,9 @@ func validateNetworkInterfaces(networkInterfaces []apisaws.NetworkInterface, fld
 }
 
 // validateNetworkInterfacesUnique rejects entries that expand to the same (networkCardIndex, deviceIndex)
-// pair, since AWS allows only one NIC per card+device slot. Out-of-bounds ranges are skipped (reported
-// elsewhere), keeping the enumeration bounded by maxNetworkCardIndex.
+// pair, since AWS allows only one NIC per card+device slot, and rejects configurations that expand to more
+// than MaxNetworkInterfaces total. Out-of-bounds ranges are skipped (reported elsewhere), keeping the
+// enumeration bounded by maxNetworkCardIndex.
 func validateNetworkInterfacesUnique(networkInterfaces []apisaws.NetworkInterface, fldPath *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -399,6 +405,7 @@ func validateNetworkInterfacesUnique(networkInterfaces []apisaws.NetworkInterfac
 		card, device int64
 	}
 	seen := sets.New[cardDevice]()
+	total := 0
 
 	for i, ni := range networkInterfaces {
 		var cards []int64
@@ -415,6 +422,13 @@ func validateNetworkInterfacesUnique(networkInterfaces []apisaws.NetworkInterfac
 			cards = []int64{*ni.NetworkCardIndex}
 		default:
 			cards = []int64{0}
+		}
+
+		total += len(cards)
+		if total > MaxNetworkInterfaces {
+			allErrs = append(allErrs, field.Invalid(fldPath, networkInterfaces,
+				fmt.Sprintf("network interface configuration expands to more than %d interfaces, which is not supported", MaxNetworkInterfaces)))
+			return allErrs
 		}
 
 		for _, c := range cards {
