@@ -39,6 +39,7 @@ import (
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 )
 
@@ -196,13 +197,18 @@ func (w *WorkerDelegate) generateMachineConfig(ctx context.Context) error {
 				return err
 			}
 
+			networkInterfaces, err := buildNetworkInterfacesTyped(workerConfig, nodesSubnet.ID, nodesSecurityGroup.ID)
+			if err != nil {
+				return err
+			}
+
 			machineClassProviderSpec := &awsmachineapi.AWSProviderSpec{
 				AMI:                    machineImage.AMI,
 				Region:                 w.worker.Spec.Region,
 				MachineType:            pool.MachineType,
 				SrcAndDstChecksEnabled: ptr.To(false),
 				IAM:                    iamInstanceProfile,
-				NetworkInterfaces:      buildNetworkInterfacesTyped(workerConfig, nodesSubnet.ID, nodesSecurityGroup.ID),
+				NetworkInterfaces:      networkInterfaces,
 				Tags: utils.MergeStringMaps(
 					map[string]string{
 						fmt.Sprintf("kubernetes.io/cluster/%s", w.cluster.Shoot.Status.TechnicalID): "1",
@@ -807,23 +813,29 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 // buildNetworkInterfacesTyped builds the network interfaces slice for the MachineClass providerSpec.
 // If WorkerConfig specifies custom network interfaces, they are expanded (ranges -> explicit entries).
 // Otherwise, falls back to a single interface using the infrastructure subnet and security group.
-func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubnetID, defaultSecurityGroupID string) []awsmachineapi.AWSNetworkInterfaceSpec {
+func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubnetID, defaultSecurityGroupID string) ([]awsmachineapi.AWSNetworkInterfaceSpec, error) {
 	if len(workerConfig.NetworkInterfaces) == 0 {
 		return []awsmachineapi.AWSNetworkInterfaceSpec{
 			{
 				SubnetID:         defaultSubnetID,
 				SecurityGroupIDs: []string{defaultSecurityGroupID},
 			},
-		}
+		}, nil
 	}
 
 	var result []awsmachineapi.AWSNetworkInterfaceSpec
 	for _, ni := range workerConfig.NetworkInterfaces {
 		if ni.NetworkCardIndexRange != nil {
 			for cardIndex := ni.NetworkCardIndexRange.From; cardIndex <= ni.NetworkCardIndexRange.To; cardIndex++ {
+				if len(result) >= awsvalidation.MaxNetworkInterfaces {
+					return nil, fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", awsvalidation.MaxNetworkInterfaces)
+				}
 				result = append(result, buildSingleNI(ni, cardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
 			}
 		} else {
+			if len(result) >= awsvalidation.MaxNetworkInterfaces {
+				return nil, fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", awsvalidation.MaxNetworkInterfaces)
+			}
 			var networkCardIndex int64
 			if ni.NetworkCardIndex != nil {
 				networkCardIndex = *ni.NetworkCardIndex
@@ -831,7 +843,7 @@ func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubne
 			result = append(result, buildSingleNI(ni, networkCardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
 		}
 	}
-	return result
+	return result, nil
 }
 
 func buildSingleNI(ni awsapi.NetworkInterface, networkCardIndex, deviceIndex int64, defaultSubnetID, defaultSecurityGroupID string) awsmachineapi.AWSNetworkInterfaceSpec {
