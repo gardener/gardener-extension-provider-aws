@@ -39,6 +39,7 @@ import (
 
 	awsapi "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	awsapihelper "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
+	awsvalidation "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/validation"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/controller/infrastructure/infraflow"
 )
 
@@ -809,12 +810,6 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 	return hashData
 }
 
-// maxNetworkInterfaces is a crash-stop backstop on range expansion in buildNetworkInterfacesTyped.
-// The real limit is enforced by admission validation; this only needs to be small enough that an
-// object bypassing the webhook can't expand into enough structs to OOM the shared extension
-// controller, so it is set generously above the validation ceiling rather than tracking it exactly.
-const maxNetworkInterfaces = 1024
-
 // buildNetworkInterfacesTyped builds the network interfaces slice for the MachineClass providerSpec.
 // If WorkerConfig specifies custom network interfaces, they are expanded (ranges -> explicit entries).
 // Otherwise, falls back to a single interface using the infrastructure subnet and security group.
@@ -832,14 +827,14 @@ func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubne
 	for _, ni := range workerConfig.NetworkInterfaces {
 		if ni.NetworkCardIndexRange != nil {
 			for cardIndex := ni.NetworkCardIndexRange.From; cardIndex <= ni.NetworkCardIndexRange.To; cardIndex++ {
-				if len(result) >= maxNetworkInterfaces {
-					return nil, fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", maxNetworkInterfaces)
+				if len(result) >= awsvalidation.MaxNetworkInterfaces {
+					return nil, fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", awsvalidation.MaxNetworkInterfaces)
 				}
 				result = append(result, buildSingleNI(ni, cardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
 			}
 		} else {
-			if len(result) >= maxNetworkInterfaces {
-				return nil, fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", maxNetworkInterfaces)
+			if len(result) >= awsvalidation.MaxNetworkInterfaces {
+				return nil, fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", awsvalidation.MaxNetworkInterfaces)
 			}
 			var networkCardIndex int64
 			if ni.NetworkCardIndex != nil {
