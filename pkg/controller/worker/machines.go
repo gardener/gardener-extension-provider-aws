@@ -828,13 +828,19 @@ func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubne
 		if ni.NetworkCardIndexRange != nil {
 			for cardIndex := ni.NetworkCardIndexRange.From; cardIndex <= ni.NetworkCardIndexRange.To; cardIndex++ {
 				if len(result) >= awsvalidation.MaxNetworkInterfaces {
-					return nil, fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", awsvalidation.MaxNetworkInterfaces)
+					return nil, gardencorev1beta1helper.NewErrorWithCodes(
+						fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", awsvalidation.MaxNetworkInterfaces),
+						gardencorev1beta1.ErrorConfigurationProblem,
+					)
 				}
 				result = append(result, buildSingleNI(ni, cardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
 			}
 		} else {
 			if len(result) >= awsvalidation.MaxNetworkInterfaces {
-				return nil, fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", awsvalidation.MaxNetworkInterfaces)
+				return nil, gardencorev1beta1helper.NewErrorWithCodes(
+					fmt.Errorf("network interface configuration expands to more than %d interfaces, which is not supported", awsvalidation.MaxNetworkInterfaces),
+					gardencorev1beta1.ErrorConfigurationProblem,
+				)
 			}
 			var networkCardIndex int64
 			if ni.NetworkCardIndex != nil {
