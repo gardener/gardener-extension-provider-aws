@@ -49,6 +49,9 @@ const (
 	// Used to track whether role tags (elb/internal-elb) were added by Gardener during reconcile
 	// so they can optionally be cleaned up on delete.
 	TagKeyManagedByGardener = "gardener.cloud/managed-tag"
+	// TagKeyShootUID is the tag key used to record the shoot UID on IAM resources.
+	// It is used to verify ownership before adopting a same-named resource.
+	TagKeyShootUID = "gardener.cloud/shoot-uid"
 
 	// IdentifierVPC is the key for the VPC id
 	IdentifierVPC = "VPC"
@@ -119,6 +122,8 @@ const (
 	NameIAMRolePolicy = "IAMRolePolicyName"
 	// NameKeyPair is the key for the name of the EC2 key pair resource
 	NameKeyPair = "KeyPair"
+	// IDKeyPair is the key for the ID of the EC2 key pair resource
+	IDKeyPair = "KeyPairID"
 	// ARNIAMRole is the key for the ARN of the IAM role
 	ARNIAMRole = "IAMRoleARN"
 	// KeyPairFingerprint is the key to store the fingerprint of the key pair

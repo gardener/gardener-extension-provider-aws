@@ -1271,6 +1271,21 @@ func (mr *MockInterfaceMockRecorder) GetKeyPair(ctx, keyName any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKeyPair", reflect.TypeOf((*MockInterface)(nil).GetKeyPair), ctx, keyName)
 }
 
+// GetKeyPairByID mocks base method.
+func (m *MockInterface) GetKeyPairByID(ctx context.Context, keyPairID string) (*client.KeyPairInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetKeyPairByID", ctx, keyPairID)
+	ret0, _ := ret[0].(*client.KeyPairInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetKeyPairByID indicates an expected call of GetKeyPairByID.
+func (mr *MockInterfaceMockRecorder) GetKeyPairByID(ctx, keyPairID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKeyPairByID", reflect.TypeOf((*MockInterface)(nil).GetKeyPairByID), ctx, keyPairID)
+}
+
 // GetMountTargetsEfs mocks base method.
 func (m *MockInterface) GetMountTargetsEfs(ctx context.Context, fileSystemID string) (*efs.DescribeMountTargetsOutput, error) {
 	m.ctrl.T.Helper()
@@ -1625,6 +1640,34 @@ func (m *MockInterface) RevokeSecurityGroupRules(ctx context.Context, id string,
 func (mr *MockInterfaceMockRecorder) RevokeSecurityGroupRules(ctx, id, rules any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecurityGroupRules", reflect.TypeOf((*MockInterface)(nil).RevokeSecurityGroupRules), ctx, id, rules)
+}
+
+// TagIAMInstanceProfile mocks base method.
+func (m *MockInterface) TagIAMInstanceProfile(ctx context.Context, profileName string, tags client.Tags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TagIAMInstanceProfile", ctx, profileName, tags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TagIAMInstanceProfile indicates an expected call of TagIAMInstanceProfile.
+func (mr *MockInterfaceMockRecorder) TagIAMInstanceProfile(ctx, profileName, tags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagIAMInstanceProfile", reflect.TypeOf((*MockInterface)(nil).TagIAMInstanceProfile), ctx, profileName, tags)
+}
+
+// TagIAMRole mocks base method.
+func (m *MockInterface) TagIAMRole(ctx context.Context, roleName string, tags client.Tags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TagIAMRole", ctx, roleName, tags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TagIAMRole indicates an expected call of TagIAMRole.
+func (mr *MockInterfaceMockRecorder) TagIAMRole(ctx, roleName, tags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagIAMRole", reflect.TypeOf((*MockInterface)(nil).TagIAMRole), ctx, roleName, tags)
 }
 
 // UpdateAmazonProvidedIPv6CidrBlock mocks base method.

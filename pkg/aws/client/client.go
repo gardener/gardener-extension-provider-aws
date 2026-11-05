@@ -2144,6 +2144,7 @@ func (c *Client) ImportKeyPair(ctx context.Context, keyName string, publicKey []
 	}
 	return &KeyPairInfo{
 		Tags:           FromTags(output.Tags),
+		KeyPairId:      aws.ToString(output.KeyPairId),
 		KeyName:        aws.ToString(output.KeyName),
 		KeyFingerprint: aws.ToString(output.KeyFingerprint),
 	}, nil
@@ -2152,6 +2153,13 @@ func (c *Client) ImportKeyPair(ctx context.Context, keyName string, publicKey []
 // GetKeyPair gets a EC2 key pair by its key name.
 func (c *Client) GetKeyPair(ctx context.Context, keyName string) (*KeyPairInfo, error) {
 	input := &ec2.DescribeKeyPairsInput{KeyNames: []string{keyName}}
+	output, err := c.describeKeyPairs(ctx, input)
+	return single(output, err)
+}
+
+// GetKeyPairByID gets an EC2 key pair by its key pair ID.
+func (c *Client) GetKeyPairByID(ctx context.Context, keyPairID string) (*KeyPairInfo, error) {
+	input := &ec2.DescribeKeyPairsInput{KeyPairIds: []string{keyPairID}}
 	output, err := c.describeKeyPairs(ctx, input)
 	return single(output, err)
 }
@@ -2240,6 +2248,7 @@ func (c *Client) CreateIAMRole(ctx context.Context, role *IAMRole) (*IAMRole, er
 		AssumeRolePolicyDocument: aws.String(role.AssumeRolePolicyDocument),
 		Path:                     aws.String(role.Path),
 		RoleName:                 aws.String(role.RoleName),
+		Tags:                     role.ToIAMTags(),
 	}
 	output, err := c.IAM.CreateRole(ctx, input)
 	if err != nil {
@@ -2270,6 +2279,16 @@ func (c *Client) DeleteIAMRole(ctx context.Context, roleName string) error {
 	return ignoreNotFound(err)
 }
 
+// TagIAMRole adds or overwrites tags on an IAM role.
+func (c *Client) TagIAMRole(ctx context.Context, roleName string, tags Tags) error {
+	input := &iam.TagRoleInput{
+		RoleName: aws.String(roleName),
+		Tags:     tags.ToIAMTags(),
+	}
+	_, err := c.IAM.TagRole(ctx, input)
+	return err
+}
+
 // UpdateAssumeRolePolicy updates the assumeRolePolicy of an IAM role.
 func (c *Client) UpdateAssumeRolePolicy(ctx context.Context, roleName, assumeRolePolicy string) error {
 	input := &iam.UpdateAssumeRolePolicyInput{
@@ -2285,6 +2304,7 @@ func (c *Client) CreateIAMInstanceProfile(ctx context.Context, profile *IAMInsta
 	input := &iam.CreateInstanceProfileInput{
 		InstanceProfileName: aws.String(profile.InstanceProfileName),
 		Path:                aws.String(profile.Path),
+		Tags:                profile.ToIAMTags(),
 	}
 	output, err := c.IAM.CreateInstanceProfile(ctx, input)
 	if err != nil {
@@ -2343,6 +2363,16 @@ func (c *Client) DeleteIAMInstanceProfile(ctx context.Context, profileName strin
 	}
 	_, err := c.IAM.DeleteInstanceProfile(ctx, input)
 	return ignoreNotFound(err)
+}
+
+// TagIAMInstanceProfile adds or overwrites tags on an IAM instance profile.
+func (c *Client) TagIAMInstanceProfile(ctx context.Context, profileName string, tags Tags) error {
+	input := &iam.TagInstanceProfileInput{
+		InstanceProfileName: aws.String(profileName),
+		Tags:                tags.ToIAMTags(),
+	}
+	_, err := c.IAM.TagInstanceProfile(ctx, input)
+	return err
 }
 
 // PutIAMRolePolicy creates or updates an IAM role policy.
@@ -2876,6 +2906,7 @@ func fromNatGateway(item *ec2types.NatGateway) *NATGateway {
 func fromKeyPairInfo(item ec2types.KeyPairInfo) *KeyPairInfo {
 	return &KeyPairInfo{
 		Tags:           FromTags(item.Tags),
+		KeyPairId:      aws.ToString(item.KeyPairId),
 		KeyName:        aws.ToString(item.KeyName),
 		KeyFingerprint: aws.ToString(item.KeyFingerprint),
 	}
@@ -2883,6 +2914,7 @@ func fromKeyPairInfo(item ec2types.KeyPairInfo) *KeyPairInfo {
 
 func fromIAMRole(item *iamtypes.Role) *IAMRole {
 	role := &IAMRole{
+		Tags:                     FromIAMTags(item.Tags),
 		RoleId:                   aws.ToString(item.RoleId),
 		RoleName:                 aws.ToString(item.RoleName),
 		Path:                     aws.ToString(item.Path),
@@ -2906,6 +2938,7 @@ func fromIAMInstanceProfile(item *iamtypes.InstanceProfile) *IAMInstanceProfile 
 		break
 	}
 	return &IAMInstanceProfile{
+		Tags:                FromIAMTags(item.Tags),
 		InstanceProfileId:   aws.ToString(item.InstanceProfileId),
 		InstanceProfileName: aws.ToString(item.InstanceProfileName),
 		Path:                aws.ToString(item.Path),

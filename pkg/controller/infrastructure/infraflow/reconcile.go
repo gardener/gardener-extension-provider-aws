@@ -2331,6 +2331,7 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	desired := &awsclient.IAMRole{
+		Tags:     awsclient.Tags{TagKeyShootUID: c.shootUUID},
 		RoleName: fmt.Sprintf("%s-nodes", c.namespace),
 		Path:     "/",
 		AssumeRolePolicyDocument: `{
@@ -2352,6 +2353,16 @@ func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
 	}
 
 	if current != nil {
+		if uid := current.Tags[TagKeyShootUID]; uid != "" && uid != c.shootUUID {
+			return fmt.Errorf("refusing to adopt IAM role %q: its shoot UID tag %q does not match this shoot's UID %q", current.RoleName, uid, c.shootUUID)
+		}
+		// TODO: remove in a future release once all existing shoots have the UID tag written.
+		// Retrofit UID tag for pre-existing roles that predate this ownership check.
+		if current.Tags[TagKeyShootUID] == "" {
+			if err := c.client.TagIAMRole(ctx, current.RoleName, awsclient.Tags{TagKeyShootUID: c.shootUUID}); err != nil {
+				return err
+			}
+		}
 		c.state.Set(NameIAMRole, current.RoleName)
 		c.state.Set(ARNIAMRole, current.ARN)
 		if _, err := c.updater.UpdateIAMRole(ctx, desired, current); err != nil {
@@ -2373,6 +2384,7 @@ func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
 func (c *FlowContext) ensureIAMInstanceProfile(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	desired := &awsclient.IAMInstanceProfile{
+		Tags:                awsclient.Tags{TagKeyShootUID: c.shootUUID},
 		InstanceProfileName: fmt.Sprintf("%s-nodes", c.namespace),
 		Path:                "/",
 		RoleName:            fmt.Sprintf("%s-nodes", c.namespace),
@@ -2383,6 +2395,16 @@ func (c *FlowContext) ensureIAMInstanceProfile(ctx context.Context) error {
 	}
 
 	if current != nil {
+		if uid := current.Tags[TagKeyShootUID]; uid != "" && uid != c.shootUUID {
+			return fmt.Errorf("refusing to adopt IAM instance profile %q: its shoot UID tag %q does not match this shoot's UID %q", current.InstanceProfileName, uid, c.shootUUID)
+		}
+		// TODO: remove in a future release once all existing shoots have the UID tag written.
+		// Retrofit UID tag for pre-existing profiles that predate this ownership check.
+		if current.Tags[TagKeyShootUID] == "" {
+			if err := c.client.TagIAMInstanceProfile(ctx, current.InstanceProfileName, awsclient.Tags{TagKeyShootUID: c.shootUUID}); err != nil {
+				return err
+			}
+		}
 		c.state.Set(NameIAMInstanceProfile, current.InstanceProfileName)
 		if _, err := c.updater.UpdateIAMInstanceProfile(ctx, desired, current); err != nil {
 			return err
@@ -2497,7 +2519,15 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 		Tags:    c.commonTags,
 		KeyName: fmt.Sprintf("%s-ssh-publickey", c.namespace),
 	}
-	current, err := c.client.GetKeyPair(ctx, desired.KeyName)
+
+	// Look up by ID when available to avoid acting on a same-named keypair from another cluster.
+	var current *awsclient.KeyPairInfo
+	var err error
+	if storedID := ptr.Deref(c.state.Get(IDKeyPair), ""); storedID != "" {
+		current, err = c.client.GetKeyPairByID(ctx, storedID)
+	} else {
+		current, err = c.client.GetKeyPair(ctx, desired.KeyName)
+	}
 	if err != nil {
 		return err
 	}
@@ -2529,7 +2559,11 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 	}
 
 	if current != nil {
-		c.state.Set(NameKeyPair, desired.KeyName)
+		c.state.Set(NameKeyPair, current.KeyName)
+		// Persist ID so future reconciles and deletes use ID-based lookup instead of name.
+		if current.KeyPairId != "" {
+			c.state.Set(IDKeyPair, current.KeyPairId)
+		}
 	} else {
 		log.Info("creating")
 		info, err := c.client.ImportKeyPair(ctx, desired.KeyName, c.infraSpec.SSHPublicKey, c.commonTags)
@@ -2537,6 +2571,7 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 			return err
 		}
 		c.state.Set(NameKeyPair, info.KeyName)
+		c.state.Set(IDKeyPair, info.KeyPairId)
 		c.state.Set(KeyPairFingerprint, info.KeyFingerprint)
 		c.state.Set(KeyPairSpecFingerprint, specFingerprint)
 	}
