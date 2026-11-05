@@ -582,18 +582,18 @@ func (mr *MockInterfaceMockRecorder) DeleteInternetGateway(ctx, id any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInternetGateway", reflect.TypeOf((*MockInterface)(nil).DeleteInternetGateway), ctx, id)
 }
 
-// DeleteKeyPair mocks base method.
-func (m *MockInterface) DeleteKeyPair(ctx context.Context, keyName string) error {
+// DeleteKeyPairByID mocks base method.
+func (m *MockInterface) DeleteKeyPairByID(ctx context.Context, keyPairID string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteKeyPair", ctx, keyName)
+	ret := m.ctrl.Call(m, "DeleteKeyPairByID", ctx, keyPairID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteKeyPair indicates an expected call of DeleteKeyPair.
-func (mr *MockInterfaceMockRecorder) DeleteKeyPair(ctx, keyName any) *gomock.Call {
+// DeleteKeyPairByID indicates an expected call of DeleteKeyPairByID.
+func (mr *MockInterfaceMockRecorder) DeleteKeyPairByID(ctx, keyPairID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKeyPair", reflect.TypeOf((*MockInterface)(nil).DeleteKeyPair), ctx, keyName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKeyPairByID", reflect.TypeOf((*MockInterface)(nil).DeleteKeyPairByID), ctx, keyPairID)
 }
 
 // DeleteMountTargetEfs mocks base method.

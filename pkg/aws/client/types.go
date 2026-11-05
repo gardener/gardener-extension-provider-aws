@@ -173,7 +173,7 @@ type Interface interface {
 	ImportKeyPair(ctx context.Context, keyName string, publicKey []byte, tags Tags) (*KeyPairInfo, error)
 	GetKeyPair(ctx context.Context, keyName string) (*KeyPairInfo, error)
 	GetKeyPairByID(ctx context.Context, keyPairID string) (*KeyPairInfo, error)
-	DeleteKeyPair(ctx context.Context, keyName string) error
+	DeleteKeyPairByID(ctx context.Context, keyPairID string) error
 
 	// IAM Role
 	CreateIAMRole(ctx context.Context, role *IAMRole) (*IAMRole, error)

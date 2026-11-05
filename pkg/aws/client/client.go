@@ -2176,11 +2176,11 @@ func (c *Client) describeKeyPairs(ctx context.Context, input *ec2.DescribeKeyPai
 	return pairs, nil
 }
 
-// DeleteKeyPair deletes an EC2 key pair given by the key name.
+// DeleteKeyPairByID deletes an EC2 key pair given by the key pair ID.
 // Returns nil if resource is not found.
-func (c *Client) DeleteKeyPair(ctx context.Context, keyName string) error {
+func (c *Client) DeleteKeyPairByID(ctx context.Context, keyPairID string) error {
 	input := &ec2.DeleteKeyPairInput{
-		KeyName: aws.String(keyName),
+		KeyPairId: aws.String(keyPairID),
 	}
 	_, err := c.EC2.DeleteKeyPair(ctx, input)
 	return ignoreNotFound(err)

@@ -552,8 +552,8 @@ func (c *FlowContext) deleteKeyPair(ctx context.Context) error {
 		return nil
 	}
 
-	log.Info("deleting...", "KeyName", kp.KeyName)
-	if err := c.client.DeleteKeyPair(ctx, kp.KeyName); err != nil {
+	log.Info("deleting...", "KeyPairId", kp.KeyPairId, "KeyName", kp.KeyName)
+	if err := c.client.DeleteKeyPairByID(ctx, kp.KeyPairId); err != nil {
 		return err
 	}
 	c.state.Delete(NameKeyPair)

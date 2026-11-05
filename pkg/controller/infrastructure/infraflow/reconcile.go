@@ -2541,7 +2541,7 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 		// check for foreign key replacement
 		if fingerprint := c.state.Get(KeyPairFingerprint); fingerprint == nil || *fingerprint != current.KeyFingerprint {
 			log.Info("deleting as modified by unknown")
-			if err := c.client.DeleteKeyPair(ctx, current.KeyName); err != nil {
+			if err := c.client.DeleteKeyPairByID(ctx, current.KeyPairId); err != nil {
 				return err
 			}
 			current = nil
@@ -2551,7 +2551,7 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 		// check for key replacement in spec
 		if fingerprint := c.state.Get(KeyPairSpecFingerprint); fingerprint == nil || *fingerprint != specFingerprint {
 			log.Info("deleting as replaced in spec")
-			if err := c.client.DeleteKeyPair(ctx, current.KeyName); err != nil {
+			if err := c.client.DeleteKeyPairByID(ctx, current.KeyPairId); err != nil {
 				return err
 			}
 			current = nil
