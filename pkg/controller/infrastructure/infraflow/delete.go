@@ -447,9 +447,19 @@ func (c *FlowContext) deleteIAMRole(ctx context.Context) error {
 	if c.state.Get(NameIAMRole) == nil {
 		return nil
 	}
-
 	log := LogFromContext(ctx)
 	roleName := fmt.Sprintf("%s-nodes", c.namespace)
+	role, err := c.client.GetIAMRole(ctx, roleName)
+	if err != nil {
+		return err
+	}
+	if role == nil {
+		c.state.Delete(NameIAMRole)
+		return nil
+	}
+	if uid := role.Tags[TagKeyShootUID]; uid != "" && uid != c.shootUUID {
+		return fmt.Errorf("refusing to delete IAM role %q: shoot UID tag %q does not match this shoot's UID %q", roleName, uid, c.shootUUID)
+	}
 	log.Info("deleting...", "RoleName", roleName)
 	if err := c.client.DeleteIAMRole(ctx, roleName); err != nil {
 		return err
@@ -464,6 +474,17 @@ func (c *FlowContext) deleteIAMInstanceProfile(ctx context.Context) error {
 	}
 	log := LogFromContext(ctx)
 	instanceProfileName := fmt.Sprintf("%s-nodes", c.namespace)
+	profile, err := c.client.GetIAMInstanceProfile(ctx, instanceProfileName)
+	if err != nil {
+		return err
+	}
+	if profile == nil {
+		c.state.Delete(NameIAMInstanceProfile)
+		return nil
+	}
+	if uid := profile.Tags[TagKeyShootUID]; uid != "" && uid != c.shootUUID {
+		return fmt.Errorf("refusing to delete IAM instance profile %q: shoot UID tag %q does not match this shoot's UID %q", instanceProfileName, uid, c.shootUUID)
+	}
 	log.Info("deleting...", "InstanceProfileName", instanceProfileName)
 	if err := c.client.DeleteIAMInstanceProfile(ctx, instanceProfileName); err != nil {
 		return err
@@ -479,6 +500,17 @@ func (c *FlowContext) deleteIAMRolePolicy(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	policyName := fmt.Sprintf("%s-nodes", c.namespace)
 	roleName := fmt.Sprintf("%s-nodes", c.namespace)
+	role, err := c.client.GetIAMRole(ctx, roleName)
+	if err != nil {
+		return err
+	}
+	if role == nil {
+		c.state.Delete(NameIAMRolePolicy)
+		return nil
+	}
+	if uid := role.Tags[TagKeyShootUID]; uid != "" && uid != c.shootUUID {
+		return fmt.Errorf("refusing to delete IAM role policy %q: shoot UID tag %q does not match this shoot's UID %q", roleName, uid, c.shootUUID)
+	}
 	log.Info("removing from profile...")
 	if err := c.client.RemoveRoleFromIAMInstanceProfile(ctx, policyName, roleName); err != nil {
 		return err
@@ -497,8 +529,31 @@ func (c *FlowContext) deleteKeyPair(ctx context.Context) error {
 	}
 	log := LogFromContext(ctx)
 	keyName := fmt.Sprintf("%s-ssh-publickey", c.namespace)
-	log.Info("deleting...", "KeyName", keyName)
-	if err := c.client.DeleteKeyPair(ctx, keyName); err != nil {
+
+	// Look up by ID when available to avoid acting on a same-named keypair from another cluster.
+	var kp *awsclient.KeyPairInfo
+	var err error
+	if storedID := ptr.Deref(c.state.Get(IDKeyPair), ""); storedID != "" {
+		kp, err = c.client.GetKeyPairByID(ctx, storedID)
+	} else if storedFingerprint := ptr.Deref(c.state.Get(KeyPairFingerprint), ""); storedFingerprint != "" {
+		kp, err = c.client.GetKeyPair(ctx, keyName)
+		if err != nil {
+			return err
+		}
+		if kp != nil && storedFingerprint != kp.KeyFingerprint {
+			return fmt.Errorf("refusing to delete key pair %q: its fingerprint %q does not match the fingerprint %q recorded in the infrastructure state", keyName, kp.KeyFingerprint, storedFingerprint)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	if kp == nil {
+		c.state.Delete(NameKeyPair)
+		return nil
+	}
+
+	log.Info("deleting...", "KeyPairId", kp.KeyPairId, "KeyName", kp.KeyName)
+	if err := c.client.DeleteKeyPairByID(ctx, kp.KeyPairId); err != nil {
 		return err
 	}
 	c.state.Delete(NameKeyPair)

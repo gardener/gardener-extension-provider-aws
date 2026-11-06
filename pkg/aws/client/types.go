@@ -172,12 +172,14 @@ type Interface interface {
 	// Key pairs
 	ImportKeyPair(ctx context.Context, keyName string, publicKey []byte, tags Tags) (*KeyPairInfo, error)
 	GetKeyPair(ctx context.Context, keyName string) (*KeyPairInfo, error)
-	DeleteKeyPair(ctx context.Context, keyName string) error
+	GetKeyPairByID(ctx context.Context, keyPairID string) (*KeyPairInfo, error)
+	DeleteKeyPairByID(ctx context.Context, keyPairID string) error
 
 	// IAM Role
 	CreateIAMRole(ctx context.Context, role *IAMRole) (*IAMRole, error)
 	GetIAMRole(ctx context.Context, roleName string) (*IAMRole, error)
 	DeleteIAMRole(ctx context.Context, roleName string) error
+	TagIAMRole(ctx context.Context, roleName string, tags Tags) error
 	UpdateAssumeRolePolicy(ctx context.Context, roleName, assumeRolePolicy string) error
 	ListAttachedIAMRolePolicies(ctx context.Context, roleName string) ([]string, error)
 	DetachIAMRolePolicy(ctx context.Context, roleName, policyARN string) error
@@ -188,6 +190,7 @@ type Interface interface {
 	CreateIAMInstanceProfile(ctx context.Context, profile *IAMInstanceProfile) (*IAMInstanceProfile, error)
 	GetIAMInstanceProfile(ctx context.Context, profileName string) (*IAMInstanceProfile, error)
 	DeleteIAMInstanceProfile(ctx context.Context, profileName string) error
+	TagIAMInstanceProfile(ctx context.Context, profileName string, tags Tags) error
 	AddRoleToIAMInstanceProfile(ctx context.Context, profileName, roleName string) error
 	RemoveRoleFromIAMInstanceProfile(ctx context.Context, profileName, roleName string) error
 
@@ -565,12 +568,14 @@ type NATGateway struct {
 // KeyPairInfo contains the relevant fields for an EC2 key pair.
 type KeyPairInfo struct {
 	Tags
+	KeyPairId      string
 	KeyName        string
 	KeyFingerprint string
 }
 
 // IAMRole contains the relevant fields for an IAM role resource.
 type IAMRole struct {
+	Tags
 	RoleId                   string
 	RoleName                 string
 	Path                     string
@@ -580,6 +585,7 @@ type IAMRole struct {
 
 // IAMInstanceProfile contains the relevant fields for an IAM instance profile resource.
 type IAMInstanceProfile struct {
+	Tags
 	InstanceProfileId   string
 	InstanceProfileName string
 	Path                string

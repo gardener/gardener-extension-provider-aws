@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
 // Tags is map of string key to string values. Duplicate keys are not supported in AWS.
@@ -116,4 +117,22 @@ func (tags Tags) Clone() Tags {
 		cp[k] = v
 	}
 	return cp
+}
+
+// ToIAMTags exports the tags map as an IAM Tag array.
+func (tags Tags) ToIAMTags() []iamtypes.Tag {
+	var cp []iamtypes.Tag
+	for k, v := range tags {
+		cp = append(cp, iamtypes.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+	return cp
+}
+
+// FromIAMTags creates a Tags map from the given IAM tag array.
+func FromIAMTags(iamTags []iamtypes.Tag) Tags {
+	tags := Tags{}
+	for _, t := range iamTags {
+		tags[aws.ToString(t.Key)] = aws.ToString(t.Value)
+	}
+	return tags
 }
