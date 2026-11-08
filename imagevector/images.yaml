@@ -74,7 +74,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: v1.34.3
+  tag: v1.34.4
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -89,7 +89,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: v1.35.2
+  tag: v1.35.3
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -104,7 +104,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: v1.36.1
+  tag: v1.36.2
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -120,7 +120,7 @@ images:
 - name: cloud-controller-manager
   sourceRepository: github.com/kubernetes/cloud-provider-aws
   repository: registry.k8s.io/provider-aws/cloud-controller-manager
-  tag: v1.37.0
+  tag: v1.37.1
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
@@ -163,7 +163,7 @@ images:
 - name: csi-driver-efs
   sourceRepository: github.com/kubernetes-sigs/aws-efs-csi-driver
   repository: public.ecr.aws/efs-csi-driver/amazon/aws-efs-csi-driver
-  tag: v3.5.3
+  tag: v3.5.4
   labels:
   - name: gardener.cloud/cve-categorisation
     value:
