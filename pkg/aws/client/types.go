@@ -183,6 +183,9 @@ type Interface interface {
 	DetachIAMRolePolicy(ctx context.Context, roleName, policyARN string) error
 	ListIAMRolePolicies(ctx context.Context, roleName string) ([]string, error)
 	ListIAMInstanceProfilesForRole(ctx context.Context, roleName string) ([]string, error)
+	TagIAMRole(ctx context.Context, roleName string, tags Tags) error
+	UntagIAMRole(ctx context.Context, roleName string, tagKeys []string) error
+	GetIAMRoleTags(ctx context.Context, roleName string) (Tags, error)
 
 	// IAM Instance Profile
 	CreateIAMInstanceProfile(ctx context.Context, profile *IAMInstanceProfile) (*IAMInstanceProfile, error)
@@ -190,6 +193,9 @@ type Interface interface {
 	DeleteIAMInstanceProfile(ctx context.Context, profileName string) error
 	AddRoleToIAMInstanceProfile(ctx context.Context, profileName, roleName string) error
 	RemoveRoleFromIAMInstanceProfile(ctx context.Context, profileName, roleName string) error
+	TagIAMInstanceProfile(ctx context.Context, profileName string, tags Tags) error
+	UntagIAMInstanceProfile(ctx context.Context, profileName string, tagKeys []string) error
+	GetIAMInstanceProfileTags(ctx context.Context, profileName string) (Tags, error)
 
 	// IAM Role Policy
 	PutIAMRolePolicy(ctx context.Context, policy *IAMRolePolicy) error
@@ -576,6 +582,7 @@ type IAMRole struct {
 	Path                     string
 	AssumeRolePolicyDocument string
 	ARN                      string
+	Tags                     Tags
 }
 
 // IAMInstanceProfile contains the relevant fields for an IAM instance profile resource.
@@ -584,6 +591,7 @@ type IAMInstanceProfile struct {
 	InstanceProfileName string
 	Path                string
 	RoleName            string
+	Tags                Tags
 }
 
 // IAMRolePolicy contains the relevant fields for an IAM role policy resource.

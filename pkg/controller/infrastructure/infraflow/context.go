@@ -121,6 +121,13 @@ const (
 	NameKeyPair = "KeyPair"
 	// ARNIAMRole is the key for the ARN of the IAM role
 	ARNIAMRole = "IAMRoleARN"
+	// LegacyNameIAMRole is the key for the old namespace-scoped IAM role name, kept during migration
+	LegacyNameIAMRole = "LegacyIAMRoleName"
+	// LegacyNameIAMInstanceProfile is the key for the old namespace-scoped instance profile name, kept during migration
+	LegacyNameIAMInstanceProfile = "LegacyIAMInstanceProfileName"
+	// TagKeyShootUID is the tag key prefix used to record shoot UIDs on shared IAM resources.
+	// The full tag key is TagKeyShootUID+shootUID and the value is "1".
+	TagKeyShootUID = "gardener.cloud/shoot-uid/"
 	// KeyPairFingerprint is the key to store the fingerprint of the key pair
 	KeyPairFingerprint = "KeyPairFingerprint"
 	// KeyPairSpecFingerprint is the key to store the fingerprint of the public key from the spec
@@ -388,6 +395,14 @@ func (c *FlowContext) hasManagedPublicSubnets() bool {
 // isBYOSecurityGroup returns true if the user has provided a NodesSecurityGroupID.
 func (c *FlowContext) isBYOSecurityGroup() bool {
 	return c.config.Networks.NodesSecurityGroupID != nil
+}
+
+func (c *FlowContext) iamNodesRoleName() string {
+	return fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID)
+}
+
+func (c *FlowContext) legacyIAMNodesRoleName() string {
+	return fmt.Sprintf("%s-nodes", c.namespace)
 }
 
 // ZoneSuffixHelper provides methods to create suffices for various resources
