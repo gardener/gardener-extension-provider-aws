@@ -2493,9 +2493,12 @@ func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 
 func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 	log := LogFromContext(ctx)
+	// Existing shoots retain their legacy name to avoid a MachineClass update (which would trigger a node roll).
+	// New shoots use a shoot-scoped name to prevent collisions when two shoots share the same namespace and credentials.
+	keyName := ptr.Deref(c.state.Get(NameKeyPair), fmt.Sprintf("%s-%s-ssh-publickey", c.namespace, c.shootUUID))
 	desired := &awsclient.KeyPairInfo{
 		Tags:    c.commonTags,
-		KeyName: fmt.Sprintf("%s-ssh-publickey", c.namespace),
+		KeyName: keyName,
 	}
 	current, err := c.client.GetKeyPair(ctx, desired.KeyName)
 	if err != nil {
