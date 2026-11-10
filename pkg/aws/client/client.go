@@ -2459,90 +2459,6 @@ func (c *Client) ListIAMInstanceProfilesForRole(ctx context.Context, roleName st
 	}
 }
 
-// TagIAMRole adds or overwrites tags on an IAM role.
-func (c *Client) TagIAMRole(ctx context.Context, roleName string, tags Tags) error {
-	iamTags := make([]iamtypes.Tag, 0, len(tags))
-	for k, v := range tags {
-		iamTags = append(iamTags, iamtypes.Tag{Key: aws.String(k), Value: aws.String(v)})
-	}
-	_, err := c.IAM.TagRole(ctx, &iam.TagRoleInput{
-		RoleName: aws.String(roleName),
-		Tags:     iamTags,
-	})
-	return err
-}
-
-// UntagIAMRole removes tags with the given keys from an IAM role.
-func (c *Client) UntagIAMRole(ctx context.Context, roleName string, tagKeys []string) error {
-	_, err := c.IAM.UntagRole(ctx, &iam.UntagRoleInput{
-		RoleName: aws.String(roleName),
-		TagKeys:  tagKeys,
-	})
-	return ignoreNotFound(err)
-}
-
-// GetIAMRoleTags returns all tags attached to an IAM role.
-// Returns nil if the role is not found.
-func (c *Client) GetIAMRoleTags(ctx context.Context, roleName string) (Tags, error) {
-	result := Tags{}
-	input := &iam.ListRoleTagsInput{RoleName: aws.String(roleName)}
-	for {
-		output, err := c.IAM.ListRoleTags(ctx, input)
-		if err != nil {
-			return nil, ignoreNotFound(err)
-		}
-		for _, t := range output.Tags {
-			result[aws.ToString(t.Key)] = aws.ToString(t.Value)
-		}
-		if !output.IsTruncated {
-			return result, nil
-		}
-		input.Marker = output.Marker
-	}
-}
-
-// TagIAMInstanceProfile adds or overwrites tags on an IAM instance profile.
-func (c *Client) TagIAMInstanceProfile(ctx context.Context, profileName string, tags Tags) error {
-	iamTags := make([]iamtypes.Tag, 0, len(tags))
-	for k, v := range tags {
-		iamTags = append(iamTags, iamtypes.Tag{Key: aws.String(k), Value: aws.String(v)})
-	}
-	_, err := c.IAM.TagInstanceProfile(ctx, &iam.TagInstanceProfileInput{
-		InstanceProfileName: aws.String(profileName),
-		Tags:                iamTags,
-	})
-	return err
-}
-
-// UntagIAMInstanceProfile removes tags with the given keys from an IAM instance profile.
-func (c *Client) UntagIAMInstanceProfile(ctx context.Context, profileName string, tagKeys []string) error {
-	_, err := c.IAM.UntagInstanceProfile(ctx, &iam.UntagInstanceProfileInput{
-		InstanceProfileName: aws.String(profileName),
-		TagKeys:             tagKeys,
-	})
-	return ignoreNotFound(err)
-}
-
-// GetIAMInstanceProfileTags returns all tags attached to an IAM instance profile.
-// Returns nil if the profile is not found.
-func (c *Client) GetIAMInstanceProfileTags(ctx context.Context, profileName string) (Tags, error) {
-	result := Tags{}
-	input := &iam.ListInstanceProfileTagsInput{InstanceProfileName: aws.String(profileName)}
-	for {
-		output, err := c.IAM.ListInstanceProfileTags(ctx, input)
-		if err != nil {
-			return nil, ignoreNotFound(err)
-		}
-		for _, t := range output.Tags {
-			result[aws.ToString(t.Key)] = aws.ToString(t.Value)
-		}
-		if !output.IsTruncated {
-			return result, nil
-		}
-		input.Marker = output.Marker
-	}
-}
-
 // GetFileSystem retrieve information about an efs file system by its ID
 // Returns nil if the file system is not found
 func (c *Client) GetFileSystem(ctx context.Context, fileSystemID string) (*ElasticFileSystem, error) {
@@ -2980,11 +2896,6 @@ func fromIAMRole(item *iamtypes.Role) *IAMRole {
 			role.AssumeRolePolicyDocument = decoded
 		}
 	}
-	tags := Tags{}
-	for _, t := range item.Tags {
-		tags[aws.ToString(t.Key)] = aws.ToString(t.Value)
-	}
-	role.Tags = tags
 	return role
 }
 
@@ -2994,16 +2905,11 @@ func fromIAMInstanceProfile(item *iamtypes.InstanceProfile) *IAMInstanceProfile 
 		roleName = aws.ToString(role.RoleName)
 		break
 	}
-	tags := Tags{}
-	for _, t := range item.Tags {
-		tags[aws.ToString(t.Key)] = aws.ToString(t.Value)
-	}
 	return &IAMInstanceProfile{
 		InstanceProfileId:   aws.ToString(item.InstanceProfileId),
 		InstanceProfileName: aws.ToString(item.InstanceProfileName),
 		Path:                aws.ToString(item.Path),
 		RoleName:            roleName,
-		Tags:                tags,
 	}
 }
 

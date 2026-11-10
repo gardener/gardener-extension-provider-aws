@@ -7,7 +7,6 @@ package infraflow
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gardener/gardener/extensions/pkg/util"
@@ -65,17 +64,9 @@ func (c *FlowContext) buildDeleteGraph() *flow.Graph {
 		c.forceCleanupIAMRoleAttachments,
 		DoIf(c.forceDetachRolePolicies), Timeout(defaultTimeout), Dependencies(deleteIAMInstanceProfile, deleteIAMRolePolicy))
 
-	deleteIAMRole := c.AddTask(g, "delete IAM role",
+	_ = c.AddTask(g, "delete IAM role",
 		c.deleteIAMRole,
 		Timeout(defaultTimeout), Dependencies(deleteIAMInstanceProfile, deleteIAMRolePolicy, forceCleanupIAMRoleAttachments))
-
-	_ = c.AddTask(g, "delete legacy IAM instance profile",
-		c.deleteLegacyIAMInstanceProfile,
-		Timeout(defaultTimeout), Dependencies(deleteIAMRole))
-
-	_ = c.AddTask(g, "delete legacy IAM role",
-		c.deleteLegacyIAMRole,
-		Timeout(defaultTimeout), Dependencies(deleteIAMRole))
 
 	deleteZones := c.AddTask(g, "delete zones resources",
 		c.deleteZones,
@@ -395,12 +386,12 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 // policies are role-owned and therefore deleted; remaining instance-profile associations are removed.
 // Only runs if enabled via the aws.ForceDetachRolePolicies shoot annotation, and only during deletion.
 func (c *FlowContext) forceCleanupIAMRoleAttachments(ctx context.Context) error {
-	if c.state.Get(NameIAMRole) == nil {
+	roleName := ptr.Deref(c.state.Get(NameIAMRole), "")
+	if roleName == "" {
 		return nil
 	}
 
 	log := LogFromContext(ctx)
-	roleName := c.iamNodesRoleName()
 
 	role, err := c.client.GetIAMRole(ctx, roleName)
 	if err != nil {
@@ -450,12 +441,11 @@ func (c *FlowContext) forceCleanupIAMRoleAttachments(ctx context.Context) error 
 }
 
 func (c *FlowContext) deleteIAMRole(ctx context.Context) error {
-	if c.state.Get(NameIAMRole) == nil {
+	roleName := ptr.Deref(c.state.Get(NameIAMRole), "")
+	if roleName == "" {
 		return nil
 	}
-
 	log := LogFromContext(ctx)
-	roleName := c.iamNodesRoleName()
 	log.Info("deleting...", "RoleName", roleName)
 	if err := c.client.DeleteIAMRole(ctx, roleName); err != nil {
 		return err
@@ -466,11 +456,11 @@ func (c *FlowContext) deleteIAMRole(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteIAMInstanceProfile(ctx context.Context) error {
-	if c.state.Get(NameIAMInstanceProfile) == nil {
+	instanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
+	if instanceProfileName == "" {
 		return nil
 	}
 	log := LogFromContext(ctx)
-	instanceProfileName := c.iamNodesRoleName()
 	log.Info("deleting...", "InstanceProfileName", instanceProfileName)
 	if err := c.client.DeleteIAMInstanceProfile(ctx, instanceProfileName); err != nil {
 		return err
@@ -480,13 +470,13 @@ func (c *FlowContext) deleteIAMInstanceProfile(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteIAMRolePolicy(ctx context.Context) error {
-	if c.state.Get(NameIAMRolePolicy) == nil {
+	policyName := ptr.Deref(c.state.Get(NameIAMRolePolicy), "")
+	if policyName == "" {
 		return nil
 	}
 	log := LogFromContext(ctx)
-	instanceProfileName := c.iamNodesRoleName()
-	roleName := c.iamNodesRoleName()
-	policyName := c.iamNodesRoleName()
+	roleName := ptr.Deref(c.state.Get(NameIAMRole), policyName)
+	instanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), policyName)
 	log.Info("removing from profile...")
 	if err := c.client.RemoveRoleFromIAMInstanceProfile(ctx, instanceProfileName, roleName); err != nil {
 		return err
@@ -497,87 +487,6 @@ func (c *FlowContext) deleteIAMRolePolicy(ctx context.Context) error {
 	}
 	c.state.Delete(NameIAMRolePolicy)
 	return nil
-}
-
-// deleteLegacyIAMInstanceProfile removes the old namespace-scoped instance profile if present in state.
-// If other shoots are still tagged on the legacy profile it only removes this shoot's UID tag.
-func (c *FlowContext) deleteLegacyIAMInstanceProfile(ctx context.Context) error {
-	legacyInstanceProfileName := ptr.Deref(c.state.Get(LegacyNameIAMInstanceProfile), "")
-	if legacyInstanceProfileName == "" {
-		return nil
-	}
-	log := LogFromContext(ctx)
-
-	tags, err := c.client.GetIAMInstanceProfileTags(ctx, legacyInstanceProfileName)
-	if err != nil {
-		return err
-	}
-	if iamResourceHasOtherOwners(tags, c.shootUUID) {
-		log.Info("legacy IAM instance profile is still used by other shoots; removing own UID tag", "InstanceProfileName", legacyInstanceProfileName)
-		if err := c.client.UntagIAMInstanceProfile(ctx, legacyInstanceProfileName, []string{TagKeyShootUID + c.shootUUID}); err != nil {
-			return err
-		}
-		c.state.Delete(LegacyNameIAMInstanceProfile)
-		return nil
-	}
-
-	legacyRoleName := ptr.Deref(c.state.Get(LegacyNameIAMRole), "")
-	log.Info("deleting legacy IAM instance profile", "InstanceProfileName", legacyInstanceProfileName)
-	if err := c.client.RemoveRoleFromIAMInstanceProfile(ctx, legacyInstanceProfileName, legacyRoleName); err != nil {
-		return err
-	}
-	if err := c.client.DeleteIAMInstanceProfile(ctx, legacyInstanceProfileName); err != nil {
-		return err
-	}
-	c.state.Delete(LegacyNameIAMInstanceProfile)
-	return nil
-}
-
-// deleteLegacyIAMRole removes the old namespace-scoped IAM role if present in state.
-// If other shoots are still tagged on the legacy role it only removes this shoot's UID tag.
-func (c *FlowContext) deleteLegacyIAMRole(ctx context.Context) error {
-	legacyRoleName := ptr.Deref(c.state.Get(LegacyNameIAMRole), "")
-	if legacyRoleName == "" {
-		return nil
-	}
-	legacyPolicyName := legacyRoleName
-	log := LogFromContext(ctx)
-
-	tags, err := c.client.GetIAMRoleTags(ctx, legacyRoleName)
-	if err != nil {
-		return err
-	}
-	if iamResourceHasOtherOwners(tags, c.shootUUID) {
-		log.Info("legacy IAM role is still used by other shoots; removing own UID tag", "RoleName", legacyRoleName)
-		if err := c.client.UntagIAMRole(ctx, legacyRoleName, []string{TagKeyShootUID + c.shootUUID}); err != nil {
-			return err
-		}
-		c.state.Delete(LegacyNameIAMRole)
-		return nil
-	}
-
-	log.Info("deleting legacy IAM role", "RoleName", legacyRoleName)
-	if err := c.client.DeleteIAMRolePolicy(ctx, legacyPolicyName, legacyRoleName); err != nil {
-		return err
-	}
-	if err := c.client.DeleteIAMRole(ctx, legacyRoleName); err != nil {
-		return err
-	}
-	c.state.Delete(LegacyNameIAMRole)
-	return nil
-}
-
-// iamResourceHasOtherOwners returns true when the IAM resource has shoot-UID tags for
-// shoots other than the one being deleted. Each shoot registers itself with a tag key
-// of TagKeyShootUID+shootUID and value "1".
-func iamResourceHasOtherOwners(tags awsclient.Tags, ownUID string) bool {
-	ownKey := TagKeyShootUID + ownUID
-	for key := range tags {
-		if strings.HasPrefix(key, TagKeyShootUID) && key != ownKey {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *FlowContext) deleteKeyPair(ctx context.Context) error {

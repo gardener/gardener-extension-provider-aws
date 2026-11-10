@@ -2330,67 +2330,29 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 
 func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
 	log := LogFromContext(ctx)
-	newName := c.iamNodesRoleName()
-
-	currentStateName := ptr.Deref(c.state.Get(NameIAMRole), "")
-	if currentStateName == newName {
-		// Already migrated – normal idempotent update path.
-		desired := c.newIAMRoleDesired(newName)
-		current, err := c.client.GetIAMRole(ctx, newName)
-		if err != nil {
-			return err
-		}
-		if current != nil {
-			c.state.Set(NameIAMRole, current.RoleName)
-			c.state.Set(ARNIAMRole, current.ARN)
-			if _, err := c.updater.UpdateIAMRole(ctx, desired, current); err != nil {
-				return err
-			}
-		} else {
-			log.Info("creating...")
-			created, err := c.client.CreateIAMRole(ctx, desired)
-			if err != nil {
-				return err
-			}
-			c.state.Set(NameIAMRole, created.RoleName)
-			c.state.Set(ARNIAMRole, created.ARN)
-		}
-		return nil
-	}
-
-	// State is absent (new shoot) or points to the legacy name (existing shoot pre-migration).
-	// In both cases create the new UID-scoped role. For existing shoots also record the legacy
-	// name so the delete path can clean it up.
-	desired := c.newIAMRoleDesired(newName)
-	newRole, err := c.client.GetIAMRole(ctx, newName)
+	// Existing shoots retain their legacy name to avoid disruption.
+	// New shoots use a shoot-scoped name to prevent collisions when two shoots share the same namespace and credentials.
+	name := ptr.Deref(c.state.Get(NameIAMRole), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID))
+	desired := c.newIAMRoleDesired(name)
+	current, err := c.client.GetIAMRole(ctx, name)
 	if err != nil {
 		return err
 	}
-	if newRole == nil {
-		log.Info("creating new UID-scoped IAM role", "RoleName", newName)
-		newRole, err = c.client.CreateIAMRole(ctx, desired)
-		if err != nil {
+	if current != nil {
+		c.state.Set(NameIAMRole, current.RoleName)
+		c.state.Set(ARNIAMRole, current.ARN)
+		if _, err := c.updater.UpdateIAMRole(ctx, desired, current); err != nil {
 			return err
 		}
 	} else {
-		if _, err := c.updater.UpdateIAMRole(ctx, desired, newRole); err != nil {
+		log.Info("creating...")
+		created, err := c.client.CreateIAMRole(ctx, desired)
+		if err != nil {
 			return err
 		}
+		c.state.Set(NameIAMRole, created.RoleName)
+		c.state.Set(ARNIAMRole, created.ARN)
 	}
-
-	// For existing shoots migrating from the legacy name: record the old name and tag it
-	// so the delete path knows this shoot is still referencing it (other shoots may not
-	// have migrated yet and could be tagged on it too).
-	if currentStateName == c.legacyIAMNodesRoleName() {
-		oldName := currentStateName
-		c.state.Set(LegacyNameIAMRole, oldName)
-		if err := c.client.TagIAMRole(ctx, oldName, awsclient.Tags{TagKeyShootUID + c.shootUUID: "1"}); err != nil {
-			return err
-		}
-	}
-
-	c.state.Set(NameIAMRole, newRole.RoleName)
-	c.state.Set(ARNIAMRole, newRole.ARN)
 	return nil
 }
 
@@ -2415,73 +2377,34 @@ func (c *FlowContext) newIAMRoleDesired(roleName string) *awsclient.IAMRole {
 
 func (c *FlowContext) ensureIAMInstanceProfile(ctx context.Context) error {
 	log := LogFromContext(ctx)
-	newName := c.iamNodesRoleName()
-
-	currentStateName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
-	if currentStateName == newName {
-		// Already migrated – normal idempotent update path.
-		desired := &awsclient.IAMInstanceProfile{
-			InstanceProfileName: newName,
-			Path:                "/",
-			RoleName:            newName,
-		}
-		current, err := c.client.GetIAMInstanceProfile(ctx, newName)
-		if err != nil {
-			return err
-		}
-		if current != nil {
-			c.state.Set(NameIAMInstanceProfile, current.InstanceProfileName)
-			if _, err := c.updater.UpdateIAMInstanceProfile(ctx, desired, current); err != nil {
-				return err
-			}
-		} else {
-			log.Info("creating...")
-			created, err := c.client.CreateIAMInstanceProfile(ctx, desired)
-			if err != nil {
-				return err
-			}
-			c.state.Set(NameIAMInstanceProfile, created.InstanceProfileName)
-			if _, err := c.updater.UpdateIAMInstanceProfile(ctx, desired, created); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	// State is absent (new shoot) or points to the legacy name (existing shoot pre-migration).
+	// Existing shoots retain their legacy name to avoid disruption.
+	// New shoots use a shoot-scoped name to prevent collisions when two shoots share the same namespace and credentials.
+	name := ptr.Deref(c.state.Get(NameIAMInstanceProfile), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID))
 	desired := &awsclient.IAMInstanceProfile{
-		InstanceProfileName: newName,
+		InstanceProfileName: name,
 		Path:                "/",
-		RoleName:            newName,
+		RoleName:            ptr.Deref(c.state.Get(NameIAMRole), name),
 	}
-	newProfile, err := c.client.GetIAMInstanceProfile(ctx, newName)
+	current, err := c.client.GetIAMInstanceProfile(ctx, name)
 	if err != nil {
 		return err
 	}
-	if newProfile == nil {
-		log.Info("creating new UID-scoped IAM instance profile", "InstanceProfileName", newName)
-		newProfile, err = c.client.CreateIAMInstanceProfile(ctx, desired)
-		if err != nil {
-			return err
-		}
-		if _, err := c.updater.UpdateIAMInstanceProfile(ctx, desired, newProfile); err != nil {
+	if current != nil {
+		c.state.Set(NameIAMInstanceProfile, current.InstanceProfileName)
+		if _, err := c.updater.UpdateIAMInstanceProfile(ctx, desired, current); err != nil {
 			return err
 		}
 	} else {
-		if _, err := c.updater.UpdateIAMInstanceProfile(ctx, desired, newProfile); err != nil {
+		log.Info("creating...")
+		created, err := c.client.CreateIAMInstanceProfile(ctx, desired)
+		if err != nil {
+			return err
+		}
+		c.state.Set(NameIAMInstanceProfile, created.InstanceProfileName)
+		if _, err := c.updater.UpdateIAMInstanceProfile(ctx, desired, created); err != nil {
 			return err
 		}
 	}
-
-	if currentStateName == c.legacyIAMNodesRoleName() {
-		oldName := currentStateName
-		c.state.Set(LegacyNameIAMInstanceProfile, oldName)
-		if err := c.client.TagIAMInstanceProfile(ctx, oldName, awsclient.Tags{TagKeyShootUID + c.shootUUID: "1"}); err != nil {
-			return err
-		}
-	}
-
-	c.state.Set(NameIAMInstanceProfile, newProfile.InstanceProfileName)
 	return nil
 }
 
@@ -2545,7 +2468,7 @@ func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 		return fmt.Errorf("executing policyDocument template failed: %s", err)
 	}
 
-	name := c.iamNodesRoleName()
+	name := ptr.Deref(c.state.Get(NameIAMRole), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID))
 	desired := &awsclient.IAMRolePolicy{
 		PolicyName:     name,
 		RoleName:       name,

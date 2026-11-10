@@ -81,7 +81,7 @@ var _ = Describe("forceCleanupIAMRoleAttachments", func() {
 		Expect(c.forceCleanupIAMRoleAttachments(ctx)).To(Succeed())
 	})
 
-	It("should proceed if no ARN is recorded in the flow state", func() {
+	It("should proceed without the ARN check if no ARN is recorded in the flow state", func() {
 		client.EXPECT().GetIAMRole(ctx, roleName).Return(&awsclient.IAMRole{RoleName: roleName, ARN: roleARN}, nil)
 		client.EXPECT().ListAttachedIAMRolePolicies(ctx, roleName).Return(nil, nil)
 		client.EXPECT().ListIAMRolePolicies(ctx, roleName).Return(nil, nil)
