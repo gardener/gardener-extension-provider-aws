@@ -2495,6 +2495,7 @@ func (c *FlowContext) ensureKeyPair(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	// Existing shoots retain their legacy name to avoid a MachineClass update (which would trigger a node roll).
 	// New shoots use a shoot-scoped name to prevent collisions when two shoots share the same namespace and credentials.
+	// EC2 key pair names allow up to 255 chars, so the full UUID is used (namespace ≤ 30 + "-" + 36 + "-ssh-publickey" = 81 chars).
 	keyName := ptr.Deref(c.state.Get(NameKeyPair), fmt.Sprintf("%s-%s-ssh-publickey", c.namespace, c.shootUUID))
 	desired := &awsclient.KeyPairInfo{
 		Tags:    c.commonTags,
