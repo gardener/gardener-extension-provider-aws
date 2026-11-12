@@ -2980,19 +2980,24 @@ func deleteObjectsWithPrefix(ctx context.Context, s3client s3.Client, bucket, pr
 			objectIDs = append(objectIDs, identifier)
 		}
 		if len(objectIDs) != 0 {
-			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			deleteOutput, err := s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 				Bucket:              aws.String(bucket),
 				ExpectedBucketOwner: ownerPtr,
 				Delete: &s3types.Delete{
 					Objects: objectIDs,
 					Quiet:   aws.Bool(true),
 				},
-			}); err != nil {
+			})
+			if err != nil {
 				var nsk *s3types.NoSuchKey
 				if errors.As(err, &nsk) {
 					return nil
 				}
 				return err
+			}
+			if len(deleteOutput.Errors) > 0 {
+				e := deleteOutput.Errors[0]
+				return fmt.Errorf("failed to delete object %s (code: %s): %s", aws.ToString(e.Key), aws.ToString(e.Code), aws.ToString(e.Message))
 			}
 		}
 	}
@@ -3038,37 +3043,47 @@ func deleteVersionedObjectsWithPrefix(ctx context.Context, s3client s3.Client, b
 
 		// Delete all the objects(versioned and non-versioned) present in bucket.
 		if len(objectIDs) != 0 {
-			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			deleteOutput, err := s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 				Bucket:              aws.String(bucket),
 				ExpectedBucketOwner: ownerPtr,
 				Delete: &s3types.Delete{
 					Objects: objectIDs,
 					Quiet:   aws.Bool(true),
 				},
-			}); err != nil {
+			})
+			if err != nil {
 				var nsk *s3types.NoSuchKey
 				if errors.As(err, &nsk) {
 					return nil
 				}
 				return err
 			}
+			if len(deleteOutput.Errors) > 0 {
+				e := deleteOutput.Errors[0]
+				return fmt.Errorf("failed to delete object %s (code: %s): %s", aws.ToString(e.Key), aws.ToString(e.Code), aws.ToString(e.Message))
+			}
 		}
 
 		// Delete all the delete markers present(if any) in bucket.
 		if len(deleteMarkerIDs) != 0 {
-			if _, err = s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			deleteOutput, err := s3client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 				Bucket:              aws.String(bucket),
 				ExpectedBucketOwner: ownerPtr,
 				Delete: &s3types.Delete{
 					Objects: deleteMarkerIDs,
 					Quiet:   aws.Bool(true),
 				},
-			}); err != nil {
+			})
+			if err != nil {
 				var nsk *s3types.NoSuchKey
 				if errors.As(err, &nsk) {
 					return nil
 				}
 				return err
+			}
+			if len(deleteOutput.Errors) > 0 {
+				e := deleteOutput.Errors[0]
+				return fmt.Errorf("failed to delete object %s (code: %s): %s", aws.ToString(e.Key), aws.ToString(e.Code), aws.ToString(e.Message))
 			}
 		}
 	}
