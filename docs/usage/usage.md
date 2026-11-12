@@ -1067,7 +1067,7 @@ To let such deletions succeed without manual intervention, the shoot can be anno
 aws.provider.extensions.gardener.cloud/force-detach-role-policies: "true"
 ```
 
-With this annotation set, the infrastructure deletion flow cleans up all remaining attachments of the nodes IAM role right before deleting it:
+With this annotation set, the infrastructure reconciler cleans up all remaining attachments of the nodes IAM role right before deleting it:
 
 - all still-attached managed policies are **detached** (the policies themselves, and their attachments to any other role, are never touched),
 - remaining inline policies of the role are deleted (inline policies are owned by the role by definition),
@@ -1092,11 +1092,9 @@ This extension supports `gardener/gardener`'s `WorkerPoolKubernetesVersion` feat
 
 This extension supports `gardener/gardener`'s `ShootCARotation` and `ShootSARotation` feature gates since `gardener-extension-provider-aws@v1.36`.
 
-## Flow Infrastructure Reconciler
+## Infrastructure Reconciliation
 
-The extension manages infrastructure using the native AWS Go SDK through the flow reconciler. Its state is stored in the Infrastructure resource's `status.state` field.
-
-The flow reconciler has been the only implementation since v1.68.0.
+The infrastructure reconciler manages AWS resources using the native AWS Go SDK. Its state is stored in the Infrastructure resource's `status.state` field.
 
 Migration from legacy Terraform state is no longer supported. Shoots still using Terraform state must first be reconciled with an extension version from v1.68 through v1.76 to migrate their state before upgrading to v1.77 or later.
 
