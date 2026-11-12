@@ -8,11 +8,14 @@ import (
 	"context"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
+	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
+
+	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
 )
 
-// Migrate is a no-op because the flow reconciler stores its state on the Infrastructure resource.
-func (a *actuator) Migrate(_ context.Context, _ logr.Logger, _ *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	return nil
+// Migrate removes legacy Terraformer artifacts so that they cannot block deletion of the source shoot namespace.
+func (a *actuator) Migrate(ctx context.Context, _ logr.Logger, infra *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+	return util.DetermineError(a.cleanupTerraformerResources(ctx, infra), helper.KnownCodes)
 }
