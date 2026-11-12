@@ -2332,7 +2332,10 @@ func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	// Existing shoots retain their legacy name to avoid disruption.
 	// New shoots use a shoot-scoped name to prevent collisions when two shoots share the same namespace and credentials.
-	name := ptr.Deref(c.state.Get(NameIAMRole), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID))
+	// Only the first 8 chars of the UUID are used: namespace is at most 30 chars ("shoot--<project>--<shoot>"
+	// where project+shoot ≤ 21), giving 30 + "-" + 8 + "-nodes" = 45 chars — within the IAM 64-char limit.
+	// A UUID has full entropy throughout, so 8 hex chars (32 bits) are sufficient to make collisions negligible.
+	name := ptr.Deref(c.state.Get(NameIAMRole), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID[:8]))
 	desired := c.newIAMRoleDesired(name)
 	current, err := c.client.GetIAMRole(ctx, name)
 	if err != nil {
@@ -2379,7 +2382,7 @@ func (c *FlowContext) ensureIAMInstanceProfile(ctx context.Context) error {
 	log := LogFromContext(ctx)
 	// Existing shoots retain their legacy name to avoid disruption.
 	// New shoots use a shoot-scoped name to prevent collisions when two shoots share the same namespace and credentials.
-	name := ptr.Deref(c.state.Get(NameIAMInstanceProfile), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID))
+	name := ptr.Deref(c.state.Get(NameIAMInstanceProfile), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID[:8]))
 	desired := &awsclient.IAMInstanceProfile{
 		InstanceProfileName: name,
 		Path:                "/",
@@ -2468,7 +2471,7 @@ func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 		return fmt.Errorf("executing policyDocument template failed: %s", err)
 	}
 
-	name := ptr.Deref(c.state.Get(NameIAMRole), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID))
+	name := ptr.Deref(c.state.Get(NameIAMRole), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID[:8]))
 	desired := &awsclient.IAMRolePolicy{
 		PolicyName:     name,
 		RoleName:       name,
