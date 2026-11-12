@@ -1095,17 +1095,11 @@ This extension supports `gardener/gardener`'s `ShootCARotation` and `ShootSARota
 
 ## Flow Infrastructure Reconciler
 
-The extension offers two different reconciler implementations for the infrastructure resource:
-- terraform-based
-- native Go SDK based (dubbed the "flow"-based implementation)
+The extension manages infrastructure using the native AWS Go SDK through the flow reconciler. Its state is stored in the Infrastructure resource's `status.state` field.
 
-The default implementation currently is the terraform reconciler which uses the `https://github.com/gardener/terraformer` as the backend for managing the shoot's infrastructure.
+The flow reconciler has been the only implementation since v1.68.0. The `aws.provider.extensions.gardener.cloud/use-flow` annotation is no longer needed.
 
-The "flow" implementation is a newer implementation that is trying to solve issues we faced with managing terraform infrastructure on Kubernetes. The goal is to have more control over the reconciliation process and be able to perform fine-grained tuning over it. The implementation is completely backwards-compatible and offers a migration route from the legacy terraformer implementation.
-
-For most users there will be no noticeable difference. However for certain use-cases, users may notice a slight deviation from the previous behavior. For example, with flow-based infrastructure users may be able to perform certain modifications to infrastructure resources without having them reconciled back by terraform. Operations that would degrade the shoot infrastructure are still expected to be reverted back.
-
-For the time-being, to take advantage of the flow reconciler users have to "opt-in" by annotating the shoot manifest with: `aws.provider.extensions.gardener.cloud/use-flow="true"`. For existing shoots with this annotation, the migration will take place on the next infrastructure reconciliation (on maintenance window or if other infrastructure changes are requested). The migration is not revertible.
+Migration from legacy Terraform state is no longer supported. Shoots still using Terraform state must first be reconciled with an extension version from v1.68 through v1.76 to migrate their state before upgrading to v1.77 or later.
 
 ## Route table entries limit
 
