@@ -1020,7 +1020,6 @@ End-users might want to update their custom `StorageClass`es to the new `ebs.csi
 
 
 To deploy the efs-csi-driver add the `elasticFileSystem` section in your infrastructureConfig like in this [example](#example-shoot-manifest-one-availability-zone).
-This feature is only available for shoots with [flow reconciler](#flow-infrastructure-reconciler).
 Currently, both the controller deployment and the node daemonset will be deployed into the shoot cluster.
 The necessary IAM privileges will be added to the node instance profile, allowing the driver to access them via the EC2 Metadata Service.
 You can also use an existing elastic file system by specifying the `id` field in the `elasticFileSystem` section.
@@ -1097,7 +1096,7 @@ This extension supports `gardener/gardener`'s `ShootCARotation` and `ShootSARota
 
 The extension manages infrastructure using the native AWS Go SDK through the flow reconciler. Its state is stored in the Infrastructure resource's `status.state` field.
 
-The flow reconciler has been the only implementation since v1.68.0. The `aws.provider.extensions.gardener.cloud/use-flow` annotation is no longer needed.
+The flow reconciler has been the only implementation since v1.68.0.
 
 Migration from legacy Terraform state is no longer supported. Shoots still using Terraform state must first be reconciled with an extension version from v1.68 through v1.76 to migrate their state before upgrading to v1.77 or later.
 
