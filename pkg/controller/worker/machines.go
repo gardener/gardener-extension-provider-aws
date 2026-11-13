@@ -632,7 +632,7 @@ func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig, networkin
 	}
 
 	if workerConfig == nil || workerConfig.InstanceMetadataOptions == nil {
-		instanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To[int32](2)
+		instanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To[int32](1)
 		instanceMetadataOptions.HTTPTokens = string(awsapi.HTTPTokensRequired)
 
 		return instanceMetadataOptions, nil
