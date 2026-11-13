@@ -490,13 +490,13 @@ func (c *FlowContext) deleteIAMRolePolicy(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteKeyPair(ctx context.Context) error {
-	if c.state.Get(NameKeyPair) == nil {
+	keyName := c.state.Get(NameKeyPair)
+	if keyName == nil {
 		return nil
 	}
 	log := LogFromContext(ctx)
-	keyName := fmt.Sprintf("%s-ssh-publickey", c.namespace)
-	log.Info("deleting...", "KeyName", keyName)
-	if err := c.client.DeleteKeyPair(ctx, keyName); err != nil {
+	log.Info("deleting...", "KeyName", *keyName)
+	if err := c.client.DeleteKeyPair(ctx, *keyName); err != nil {
 		return err
 	}
 	c.state.Delete(NameKeyPair)
