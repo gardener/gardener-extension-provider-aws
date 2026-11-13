@@ -19,7 +19,8 @@ import (
 var _ = Describe("forceCleanupIAMRoleAttachments", func() {
 	const (
 		namespace = "shoot--myproject--mycluster"
-		roleName  = namespace + "-nodes"
+		shootUID  = "abc-123-def"
+		roleName  = namespace + "-" + shootUID + "-nodes"
 		roleARN   = "arn:aws:iam::123456789012:role/" + roleName
 	)
 
@@ -37,6 +38,7 @@ var _ = Describe("forceCleanupIAMRoleAttachments", func() {
 		c = &FlowContext{
 			state:     shared.NewWhiteboard(),
 			namespace: namespace,
+			shootUUID: shootUID,
 			client:    client,
 		}
 		c.state.Set(NameIAMRole, roleName)

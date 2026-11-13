@@ -385,16 +385,13 @@ func (c *FlowContext) deleteZones(ctx context.Context) error {
 // (e.g. by account-governance automation). Managed policies are only detached, never deleted; inline
 // policies are role-owned and therefore deleted; remaining instance-profile associations are removed.
 // Only runs if enabled via the aws.ForceDetachRolePolicies shoot annotation, and only during deletion.
-// If the role's ARN was recorded in the flow state, it must match the live role - this prevents acting
-// on an identically named role of another cluster, e.g. when two Gardener installations share a cloud
-// account.
 func (c *FlowContext) forceCleanupIAMRoleAttachments(ctx context.Context) error {
-	if c.state.Get(NameIAMRole) == nil {
+	roleName := ptr.Deref(c.state.Get(NameIAMRole), "")
+	if roleName == "" {
 		return nil
 	}
 
 	log := LogFromContext(ctx)
-	roleName := fmt.Sprintf("%s-nodes", c.namespace)
 
 	role, err := c.client.GetIAMRole(ctx, roleName)
 	if err != nil {
@@ -444,26 +441,26 @@ func (c *FlowContext) forceCleanupIAMRoleAttachments(ctx context.Context) error 
 }
 
 func (c *FlowContext) deleteIAMRole(ctx context.Context) error {
-	if c.state.Get(NameIAMRole) == nil {
+	roleName := ptr.Deref(c.state.Get(NameIAMRole), "")
+	if roleName == "" {
 		return nil
 	}
-
 	log := LogFromContext(ctx)
-	roleName := fmt.Sprintf("%s-nodes", c.namespace)
 	log.Info("deleting...", "RoleName", roleName)
 	if err := c.client.DeleteIAMRole(ctx, roleName); err != nil {
 		return err
 	}
 	c.state.Delete(NameIAMRole)
+	c.state.Delete(ARNIAMRole)
 	return nil
 }
 
 func (c *FlowContext) deleteIAMInstanceProfile(ctx context.Context) error {
-	if c.state.Get(NameIAMInstanceProfile) == nil {
+	instanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), "")
+	if instanceProfileName == "" {
 		return nil
 	}
 	log := LogFromContext(ctx)
-	instanceProfileName := fmt.Sprintf("%s-nodes", c.namespace)
 	log.Info("deleting...", "InstanceProfileName", instanceProfileName)
 	if err := c.client.DeleteIAMInstanceProfile(ctx, instanceProfileName); err != nil {
 		return err
@@ -473,14 +470,15 @@ func (c *FlowContext) deleteIAMInstanceProfile(ctx context.Context) error {
 }
 
 func (c *FlowContext) deleteIAMRolePolicy(ctx context.Context) error {
-	if c.state.Get(NameIAMRolePolicy) == nil {
+	policyName := ptr.Deref(c.state.Get(NameIAMRolePolicy), "")
+	if policyName == "" {
 		return nil
 	}
 	log := LogFromContext(ctx)
-	policyName := fmt.Sprintf("%s-nodes", c.namespace)
-	roleName := fmt.Sprintf("%s-nodes", c.namespace)
+	roleName := ptr.Deref(c.state.Get(NameIAMRole), policyName)
+	instanceProfileName := ptr.Deref(c.state.Get(NameIAMInstanceProfile), policyName)
 	log.Info("removing from profile...")
-	if err := c.client.RemoveRoleFromIAMInstanceProfile(ctx, policyName, roleName); err != nil {
+	if err := c.client.RemoveRoleFromIAMInstanceProfile(ctx, instanceProfileName, roleName); err != nil {
 		return err
 	}
 	log.Info("deleting...", "PolicyName", policyName, "RoleName", roleName)

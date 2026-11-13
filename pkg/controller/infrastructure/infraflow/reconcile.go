@@ -2330,27 +2330,17 @@ func (c *FlowContext) deleteZoneRoutingTableAssociation(ctx context.Context, zon
 
 func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
 	log := LogFromContext(ctx)
-	desired := &awsclient.IAMRole{
-		RoleName: fmt.Sprintf("%s-nodes", c.namespace),
-		Path:     "/",
-		AssumeRolePolicyDocument: `{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}`,
-	}
-	current, err := c.client.GetIAMRole(ctx, desired.RoleName)
+	// Existing shoots retain their legacy name to avoid disruption.
+	// New shoots use a shoot-scoped name to prevent collisions when two shoots share the same namespace and credentials.
+	// Only the first 8 chars of the UUID are used: namespace is at most 30 chars ("shoot--<project>--<shoot>"
+	// where project+shoot ≤ 21), giving 30 + "-" + 8 + "-nodes" = 45 chars — within the IAM 64-char limit.
+	// A UUID has full entropy throughout, so 8 hex chars (32 bits) are sufficient to make collisions negligible.
+	name := ptr.Deref(c.state.Get(NameIAMRole), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID[:8]))
+	desired := c.newIAMRoleDesired(name)
+	current, err := c.client.GetIAMRole(ctx, name)
 	if err != nil {
 		return err
 	}
-
 	if current != nil {
 		c.state.Set(NameIAMRole, current.RoleName)
 		c.state.Set(ARNIAMRole, current.ARN)
@@ -2366,22 +2356,42 @@ func (c *FlowContext) ensureIAMRole(ctx context.Context) error {
 		c.state.Set(NameIAMRole, created.RoleName)
 		c.state.Set(ARNIAMRole, created.ARN)
 	}
-
 	return nil
+}
+
+func (c *FlowContext) newIAMRoleDesired(roleName string) *awsclient.IAMRole {
+	return &awsclient.IAMRole{
+		RoleName: roleName,
+		Path:     "/",
+		AssumeRolePolicyDocument: `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}`,
+	}
 }
 
 func (c *FlowContext) ensureIAMInstanceProfile(ctx context.Context) error {
 	log := LogFromContext(ctx)
+	// Existing shoots retain their legacy name to avoid disruption.
+	// New shoots use a shoot-scoped name to prevent collisions when two shoots share the same namespace and credentials.
+	name := ptr.Deref(c.state.Get(NameIAMInstanceProfile), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID[:8]))
 	desired := &awsclient.IAMInstanceProfile{
-		InstanceProfileName: fmt.Sprintf("%s-nodes", c.namespace),
+		InstanceProfileName: name,
 		Path:                "/",
-		RoleName:            fmt.Sprintf("%s-nodes", c.namespace),
+		RoleName:            ptr.Deref(c.state.Get(NameIAMRole), name),
 	}
-	current, err := c.client.GetIAMInstanceProfile(ctx, desired.InstanceProfileName)
+	current, err := c.client.GetIAMInstanceProfile(ctx, name)
 	if err != nil {
 		return err
 	}
-
 	if current != nil {
 		c.state.Set(NameIAMInstanceProfile, current.InstanceProfileName)
 		if _, err := c.updater.UpdateIAMInstanceProfile(ctx, desired, current); err != nil {
@@ -2398,7 +2408,6 @@ func (c *FlowContext) ensureIAMInstanceProfile(ctx context.Context) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -2462,7 +2471,7 @@ func (c *FlowContext) ensureIAMRolePolicy(ctx context.Context) error {
 		return fmt.Errorf("executing policyDocument template failed: %s", err)
 	}
 
-	name := fmt.Sprintf("%s-nodes", c.namespace)
+	name := ptr.Deref(c.state.Get(NameIAMRole), fmt.Sprintf("%s-%s-nodes", c.namespace, c.shootUUID[:8]))
 	desired := &awsclient.IAMRolePolicy{
 		PolicyName:     name,
 		RoleName:       name,
