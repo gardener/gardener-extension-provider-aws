@@ -138,18 +138,22 @@ var _ = Describe("IAM role and instance profile", func() {
 
 		It("deletes the role named in state", func() {
 			c.state.Set(NameIAMRole, newRoleName)
+			c.state.Set(ARNIAMRole, "arn:aws:iam::123456789012:role/"+newRoleName)
 			client.EXPECT().DeleteIAMRole(ctx, newRoleName).Return(nil)
 
 			Expect(c.deleteIAMRole(ctx)).To(Succeed())
 			Expect(c.state.Get(NameIAMRole)).To(BeNil())
+			Expect(c.state.Get(ARNIAMRole)).To(BeNil())
 		})
 
 		It("deletes the legacy role named in state", func() {
 			c.state.Set(NameIAMRole, legacyRoleName)
+			c.state.Set(ARNIAMRole, "arn:aws:iam::123456789012:role/"+legacyRoleName)
 			client.EXPECT().DeleteIAMRole(ctx, legacyRoleName).Return(nil)
 
 			Expect(c.deleteIAMRole(ctx)).To(Succeed())
 			Expect(c.state.Get(NameIAMRole)).To(BeNil())
+			Expect(c.state.Get(ARNIAMRole)).To(BeNil())
 		})
 	})
 
