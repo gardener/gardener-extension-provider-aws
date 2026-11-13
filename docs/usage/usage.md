@@ -645,10 +645,10 @@ The `iamInstanceProfile` section allows to specify the IAM instance profile name
 If not specified, a dedicated IAM instance profile created by the infrastructure controller is used (see above).
 
 The `instanceMetadataOptions` controls access to the instance metadata service (IMDS) for members of the worker. You can do the following operations:
-- access IMDSv1 (default)
+- access IMDSv2 only, restrict access to IMDSv1 (default) - `httpPutResponseHopLimit = 2`, `httpTokens = "required"`
+- access IMDSv1 - `httpPutResponseHopLimit = 1`, `httpTokens = "optional"`
 - access IMDSv2 - `httpPutResponseHopLimit >= 2`
-- access IMDSv2 only (restrict access to IMDSv1) - `httpPutResponseHopLimit >=2`, `httpTokens = "required"`
-- disable access to IMDS - `httpTokens = "required"`
+- block pod access to IMDS (host network still has access) - `httpTokens = "required"`, `httpPutResponseHopLimit = 1`
 
 > [!NOTE]
 > The accessibility of IMDS discussed in the previous point is referenced from the point of view of containers  **NOT** running in the host network.
