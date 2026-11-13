@@ -13,14 +13,9 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/helper"
-	"github.com/gardener/gardener-extension-provider-aws/pkg/aws"
 )
 
-// Migrate deletes only the ConfigMaps and Secrets of the Terraformer.
-func (a *actuator) Migrate(ctx context.Context, log logr.Logger, infrastructure *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
-	tf, err := newTerraformer(log, a.restConfig, aws.TerraformerPurposeInfra, infrastructure)
-	if err != nil {
-		return err
-	}
-	return util.DetermineError(CleanupTerraformerResources(ctx, tf), helper.KnownCodes)
+// Migrate removes legacy Terraformer artifacts so that they cannot block deletion of the source shoot namespace.
+func (a *actuator) Migrate(ctx context.Context, _ logr.Logger, infra *extensionsv1alpha1.Infrastructure, _ *extensionscontroller.Cluster) error {
+	return util.DetermineError(a.cleanupTerraformerResources(ctx, infra), helper.KnownCodes)
 }

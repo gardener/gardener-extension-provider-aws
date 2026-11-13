@@ -5,7 +5,6 @@
 package helper
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -14,16 +13,13 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/util"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws"
 	"github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/install"
-	apiv1alpha1 "github.com/gardener/gardener-extension-provider-aws/pkg/apis/aws/v1alpha1"
 )
 
 var (
@@ -140,30 +136,6 @@ func WorkloadIdentityConfigFromBytes(config []byte) (*api.WorkloadIdentityConfig
 		return nil, err
 	}
 	return workloadIdentityConfig, nil
-}
-
-// HasFlowState returns true if the group version of the State field in the provided
-// `extensionsv1alpha1.InfrastructureStatus` is aws.provider.extensions.gardener.cloud/v1alpha1.
-func HasFlowState(status extensionsv1alpha1.InfrastructureStatus) (bool, error) {
-	if status.State == nil {
-		return true, nil
-	}
-
-	flowState := unstructured.Unstructured{}
-	stateJson, err := status.State.MarshalJSON()
-	if err != nil {
-		return false, err
-	}
-
-	if err := json.Unmarshal(stateJson, &flowState); err != nil {
-		return false, err
-	}
-
-	return flowState.GroupVersionKind() == schema.GroupVersionKind{
-		Group:   apiv1alpha1.SchemeGroupVersion.Group,
-		Version: apiv1alpha1.SchemeGroupVersion.Version,
-		Kind:    "InfrastructureState",
-	}, nil
 }
 
 // HasEFAWorkerPool returns true if any worker pool in the given list has at least one

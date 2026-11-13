@@ -916,7 +916,7 @@ boolean
 </td>
 <td>
 <em>(Optional)</em>
-<p>IgnoreTags allows to configure which resource tags on resources managed by Gardener should be ignored during<br />infrastructure reconciliation. By default, all tags that are added outside of Gardener's / terraform's<br />reconciliation will be removed during the next reconciliation. This field allows users and automation to add<br />custom tags on resources created and managed by Gardener without loosing them on the next reconciliation.<br />See https://registry.terraform.io/providers/hashicorp/aws/latest/docs/guides/resource-tagging#ignoring-changes-in-all-resources<br />for details of the underlying terraform implementation.</p>
+<p>IgnoreTags allows to configure which resource tags on resources managed by Gardener should be ignored during<br />infrastructure reconciliation. By default, all tags that are added outside of Gardener's<br />reconciliation will be removed during the next reconciliation. This field allows users and automation to add<br />custom tags on resources created and managed by Gardener without losing them on the next reconciliation.</p>
 </td>
 </tr>
 <tr>

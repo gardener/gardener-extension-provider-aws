@@ -141,10 +141,6 @@ const (
 	// ObjectZoneRouteTable is the object key used for caching the zone route table object
 	ObjectZoneRouteTable = "ZoneRouteTable"
 
-	// MarkerMigratedFromTerraform is the key for marking the state for successful state migration from Terraformer
-	MarkerMigratedFromTerraform = "MigratedFromTerraform"
-	// MarkerTerraformCleanedUp is the key for marking the state for successful cleanup of Terraformer resources.
-	MarkerTerraformCleanedUp = "TerraformCleanedUp"
 	// MarkerLoadBalancersAndSecurityGroupsDestroyed is the key for marking the state that orphan load balancers
 	// and security groups have already been destroyed
 	MarkerLoadBalancersAndSecurityGroupsDestroyed = "LoadBalancersAndSecurityGroupsDestroyed"

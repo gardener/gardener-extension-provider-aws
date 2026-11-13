@@ -63,8 +63,6 @@ const (
 
 	// MachineControllerManagerProviderAWSImageName is the name of the MachineController AWS image.
 	MachineControllerManagerProviderAWSImageName = "machine-controller-manager-provider-aws"
-	// TerraformerImageName is the name of the Terraformer image.
-	TerraformerImageName = "terraformer"
 	// ECRCredentialProviderImageName is the name of the image containing the ecr-credential-helper binary.
 	ECRCredentialProviderImageName = "ecr-credential-provider" // #nosec G101 -- No credential.
 
@@ -82,22 +80,6 @@ const (
 	DNSSecretAccessKey = "AWS_SECRET_ACCESS_KEY" // #nosec G101 -- No credential.
 	// DNSRegion is a constant for the key in a DNS secret that holds the AWS region.
 	DNSRegion = "AWS_REGION"
-	// TerraformerPurposeInfra is a constant for the complete Terraform setup with purpose 'infrastructure'.
-	TerraformerPurposeInfra = "infra"
-	// VPCIDKey is the vpc_id tf state key
-	VPCIDKey = "vpc_id"
-	// SubnetPublicPrefix is the prefix for the subnets
-	SubnetPublicPrefix = "subnet_public_utility_z"
-	// SubnetNodesPrefix is the prefix for the subnets
-	SubnetNodesPrefix = "subnet_nodes_z"
-	// SecurityGroupsNodes is the key for accessing nodes security groups from outputs in terraform
-	SecurityGroupsNodes = "security_group_nodes"
-	// SSHKeyName key for accessing SSH key name from outputs in terraform
-	SSHKeyName = "keyName"
-	// IAMInstanceProfileNodes key for accessing Nodes Instance profile from outputs in terraform
-	IAMInstanceProfileNodes = "iamInstanceProfileNodes"
-	// NodesRole role for nodes
-	NodesRole = "nodes_role_arn"
 
 	// DefaultDNSRegion is the default region to be used if a region is not specified in the DNS secret
 	// or in the DNSRecord resource.

@@ -12,7 +12,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// Restore takes the infrastructure state and deploys it as terraform state ConfigMap before calling the terraformer
+// Restore reconciles the infrastructure using the restored state.
 func (a *actuator) Restore(ctx context.Context, log logr.Logger, infra *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
 	return a.Reconcile(ctx, log, infra, cluster)
 }

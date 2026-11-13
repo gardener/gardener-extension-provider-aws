@@ -49,14 +49,8 @@ func (a *actuator) delete(ctx context.Context, log logr.Logger, infra *extension
 	if err != nil {
 		return fmt.Errorf("failed to create flow context: %w", err)
 	}
-	err = fctx.Delete(ctx)
-	if err != nil {
+	if err := a.cleanupTerraformerResources(ctx, infra); err != nil {
 		return err
 	}
-
-	tf, err := newTerraformer(log, a.restConfig, aws.TerraformerPurposeInfra, infra)
-	if err != nil {
-		return err
-	}
-	return CleanupTerraformerResources(ctx, tf)
+	return fctx.Delete(ctx)
 }
