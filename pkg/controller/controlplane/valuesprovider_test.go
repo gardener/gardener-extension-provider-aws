@@ -685,7 +685,7 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"volumesnapshots":                 map[string]interface{}{"enabled": true},
-				aws.AWSLoadBalancerControllerName: map[string]interface{}{"enabled": false, "gatewayAPIEnabled": false},
+				aws.AWSLoadBalancerControllerName: map[string]interface{}{"enabled": false},
 			}))
 		})
 
@@ -695,17 +695,7 @@ var _ = Describe("ValuesProvider", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{
 				"volumesnapshots":                 map[string]interface{}{"enabled": true},
-				aws.AWSLoadBalancerControllerName: map[string]interface{}{"enabled": true, "gatewayAPIEnabled": false},
-			}))
-		})
-
-		It("should return correct control plane shoot CRDs if ALB and Gateway API are enabled", func() {
-			setLoadBalancerControllerEnabled(cp, nil, true)
-			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, cluster)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(values).To(Equal(map[string]interface{}{
-				"volumesnapshots":                 map[string]interface{}{"enabled": true},
-				aws.AWSLoadBalancerControllerName: map[string]interface{}{"enabled": true, "gatewayAPIEnabled": true},
+				aws.AWSLoadBalancerControllerName: map[string]interface{}{"enabled": true},
 			}))
 		})
 	})

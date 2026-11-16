@@ -469,8 +469,7 @@ func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 			"enabled": true,
 		},
 		"aws-load-balancer-controller": map[string]interface{}{
-			"enabled":           isLoadBalancerControllerEnabled(cpConfig),
-			"gatewayAPIEnabled": isLoadBalancerControllerEnabled(cpConfig) && cpConfig.LoadBalancerController.GatewayAPIEnabled,
+			"enabled": isLoadBalancerControllerEnabled(cpConfig),
 		},
 	}, nil
 }
