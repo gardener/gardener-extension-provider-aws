@@ -559,7 +559,7 @@ For more details see [AWS Load Balancer Documentation - Ingress Specification](h
 To enable Gateway API support in the AWS Load Balancer Controller, set both `loadBalancerController.enabled` and `loadBalancerController.gatewayAPIEnabled` to `true`.
 
 > [!WARNING]
-> The standard [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) CRDs (`gateway.networking.k8s.io` group — `GatewayClass`, `Gateway`, `HTTPRoute`, etc.) must be installed on the shoot cluster **before** enabling this option. The AWS LBC will crash-loop if those CRDs are absent. They can be installed via a Gardener Gateway API extension, Istio, or directly from the [upstream release](https://github.com/kubernetes-sigs/gateway-api/releases). The LBC v3.x requires Gateway API **v1.2+**.
+> The standard [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) CRDs (`gateway.networking.k8s.io` group — `GatewayClass`, `Gateway`, `HTTPRoute`, etc.) must be installed on the shoot cluster **before** enabling this option. The AWS LBC will crash-loop if those CRDs are absent. They can be installed via a Gardener Gateway API extension, Istio, or directly from the [upstream release](https://github.com/kubernetes-sigs/gateway-api/releases). ALB Gateway API support requires Gateway API **v1.1+**; NLB Gateway API support requires **v1.6+** (`TCPRoute`, `TLSRoute`, and `UDPRoute` were only promoted to `v1` in v1.6).
 >
 > Newer AWS LBC versions may use Gateway API features that require a more recent CRD schema. The `gateway.networking.k8s.io/v1` API is backwards-compatible (no breaking changes), but new fields introduced in later Gateway API releases will not be available until the CRDs are upgraded. Keep the Gateway API CRDs on the shoot aligned with the LBC version in use.
 
