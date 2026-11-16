@@ -979,7 +979,7 @@ providerConfig:
   - sg-0fedcba9876543210
 ```
 
-Each entry must be a valid AWS security group ID (`sg-` followed by lowercase alphanumeric characters). The order of entries does not matter.
+Each entry must be a valid AWS security group ID (`sg-` followed by lowercase alphanumeric characters). The order of entries does not matter for Kubernetes 1.34 and above. On older versions the raw `providerConfig` JSON is used for pool hashing, so reordering the list changes the hash and can trigger a worker rollout.
 
 > [!Note]
 > These security groups are attached in addition to the nodes security group — they do not replace it. Make sure the referenced security groups exist in the same VPC as the shoot cluster.
