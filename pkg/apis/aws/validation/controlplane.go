@@ -25,5 +25,13 @@ func ValidateControlPlaneConfig(cpConfig *apisaws.ControlPlaneConfig, version st
 		allErrs = append(allErrs, validateK8sResourceName(ingressClassName, ingressPath)...)
 	}
 
+	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.GatewayAPIEnabled && !cpConfig.LoadBalancerController.Enabled {
+		allErrs = append(allErrs, field.Invalid(
+			fldPath.Child("loadBalancerController", "gatewayAPIEnabled"),
+			cpConfig.LoadBalancerController.GatewayAPIEnabled,
+			"gatewayAPIEnabled can only be true when enabled is also true",
+		))
+	}
+
 	return allErrs
 }

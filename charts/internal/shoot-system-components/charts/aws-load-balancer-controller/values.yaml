@@ -322,3 +322,7 @@ clusterSecretsPermissions:
 # ingressClassConfig contains configurations specific to the ingress class
 ingressClassConfig:
   default: false
+
+# gatewayAPIEnabled controls if the AWS Load Balancer Controller should reconcile Gateway API resources.
+# When enabled, the controller will install additional CRDs and RBAC rules for the gateway.k8s.aws API group.
+gatewayAPIEnabled: false

@@ -60,6 +60,10 @@ spec:
   # cloudControllerManager:
   #   featureGates:
   #     SomeKubernetesFeature: true
+  # loadBalancerController:
+  #   enabled: true
+  #   ingressClassName: alb
+  #   gatewayAPIEnabled: false
     storage:
       managedDefaultClass: false
   infrastructureProviderStatus:
