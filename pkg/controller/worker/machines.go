@@ -771,6 +771,11 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 		hashData = append(hashData, workerConfig.InstanceMarketOptions.MarketType)
 	}
 
+	if len(workerConfig.AdditionalSecurityGroupIDs) > 0 {
+		sorted := slices.Sorted(slices.Values(workerConfig.AdditionalSecurityGroupIDs))
+		hashData = append(hashData, sorted...)
+	}
+
 	for _, ni := range workerConfig.NetworkInterfaces {
 		if ni.Type != nil && *ni.Type != "" {
 			hashData = append(hashData, *ni.Type)
@@ -814,15 +819,16 @@ func appendHashDataForWorkerConfig(hashData []string, workerConfig *awsapi.Worke
 // If WorkerConfig specifies custom network interfaces, they are expanded (ranges -> explicit entries).
 // Otherwise, falls back to a single interface using the infrastructure subnet and security group.
 func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubnetID, defaultSecurityGroupID string) ([]awsmachineapi.AWSNetworkInterfaceSpec, error) {
+	securityGroupIDs := append([]string{defaultSecurityGroupID}, workerConfig.AdditionalSecurityGroupIDs...)
+
 	if len(workerConfig.NetworkInterfaces) == 0 {
 		return []awsmachineapi.AWSNetworkInterfaceSpec{
 			{
 				SubnetID:         defaultSubnetID,
-				SecurityGroupIDs: []string{defaultSecurityGroupID},
+				SecurityGroupIDs: securityGroupIDs,
 			},
 		}, nil
 	}
-
 	var result []awsmachineapi.AWSNetworkInterfaceSpec
 	for _, ni := range workerConfig.NetworkInterfaces {
 		if ni.NetworkCardIndexRange != nil {
@@ -833,7 +839,7 @@ func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubne
 						gardencorev1beta1.ErrorConfigurationProblem,
 					)
 				}
-				result = append(result, buildSingleNI(ni, cardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
+				result = append(result, buildSingleNI(ni, cardIndex, ni.DeviceIndex, defaultSubnetID, securityGroupIDs))
 			}
 		} else {
 			if len(result) >= awsvalidation.MaxNetworkInterfaces {
@@ -846,13 +852,13 @@ func buildNetworkInterfacesTyped(workerConfig *awsapi.WorkerConfig, defaultSubne
 			if ni.NetworkCardIndex != nil {
 				networkCardIndex = *ni.NetworkCardIndex
 			}
-			result = append(result, buildSingleNI(ni, networkCardIndex, ni.DeviceIndex, defaultSubnetID, defaultSecurityGroupID))
+			result = append(result, buildSingleNI(ni, networkCardIndex, ni.DeviceIndex, defaultSubnetID, securityGroupIDs))
 		}
 	}
 	return result, nil
 }
 
-func buildSingleNI(ni awsapi.NetworkInterface, networkCardIndex, deviceIndex int64, defaultSubnetID, defaultSecurityGroupID string) awsmachineapi.AWSNetworkInterfaceSpec {
+func buildSingleNI(ni awsapi.NetworkInterface, networkCardIndex, deviceIndex int64, defaultSubnetID string, securityGroupIDs []string) awsmachineapi.AWSNetworkInterfaceSpec {
 	spec := awsmachineapi.AWSNetworkInterfaceSpec{
 		DeviceIndex:      ptr.To(int32(deviceIndex)),      // #nosec: G115 -- validated to be <= math.MaxInt32
 		NetworkCardIndex: ptr.To(int32(networkCardIndex)), // #nosec: G115 -- validated to be <= math.MaxInt32
@@ -864,7 +870,7 @@ func buildSingleNI(ni awsapi.NetworkInterface, networkCardIndex, deviceIndex int
 		spec.SubnetID = defaultSubnetID
 	}
 
-	spec.SecurityGroupIDs = []string{defaultSecurityGroupID}
+	spec.SecurityGroupIDs = slices.Clone(securityGroupIDs)
 
 	if ni.Type != nil && *ni.Type != "" {
 		spec.InterfaceType = ni.Type

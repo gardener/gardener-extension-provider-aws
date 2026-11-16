@@ -811,6 +811,58 @@ var _ = Describe("ValidateWorkerConfig", func() {
 				Expect(validate(wc)).To(BeEmpty())
 			})
 		})
+
+		Context("AdditionalSecurityGroupIDs validation", func() {
+			validate := func(wc *apisaws.WorkerConfig) field.ErrorList {
+				return ValidateWorkerConfig(wc, nil, nil, fldPath)
+			}
+
+			It("should accept valid security group IDs", func() {
+				wc := &apisaws.WorkerConfig{AdditionalSecurityGroupIDs: []string{"sg-0123456789abcdef0", "sg-abcdef1234567890"}}
+				Expect(validate(wc)).To(BeEmpty())
+			})
+
+			It("should reject an ID that does not match the sg- prefix", func() {
+				wc := &apisaws.WorkerConfig{AdditionalSecurityGroupIDs: []string{"vpc-0123456789abcdef0"}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("config.additionalSecurityGroupIDs[0]"),
+				}))))
+			})
+
+			It("should reject an ID with uppercase characters", func() {
+				wc := &apisaws.WorkerConfig{AdditionalSecurityGroupIDs: []string{"sg-ABCDEF123456"}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeInvalid),
+					"Field": Equal("config.additionalSecurityGroupIDs[0]"),
+				}))))
+			})
+
+			It("should reject an empty string", func() {
+				wc := &apisaws.WorkerConfig{AdditionalSecurityGroupIDs: []string{""}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("config.additionalSecurityGroupIDs[0]"),
+				}))))
+			})
+
+			It("should reject duplicate security group IDs", func() {
+				wc := &apisaws.WorkerConfig{AdditionalSecurityGroupIDs: []string{"sg-0123456789abcdef0", "sg-0123456789abcdef0"}}
+				Expect(validate(wc)).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeDuplicate),
+					"Field": Equal("config.additionalSecurityGroupIDs[1]"),
+				}))))
+			})
+
+			It("should report both a format error and a duplicate when an invalid ID appears twice", func() {
+				wc := &apisaws.WorkerConfig{AdditionalSecurityGroupIDs: []string{"bad-id", "bad-id"}}
+				Expect(validate(wc)).To(ContainElements(
+					PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.additionalSecurityGroupIDs[0]")})),
+					PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeInvalid), "Field": Equal("config.additionalSecurityGroupIDs[1]")})),
+					PointTo(MatchFields(IgnoreExtras, Fields{"Type": Equal(field.ErrorTypeDuplicate), "Field": Equal("config.additionalSecurityGroupIDs[1]")})),
+				))
+			})
+		})
 	})
 })
 
