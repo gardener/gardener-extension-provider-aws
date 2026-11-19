@@ -114,7 +114,9 @@ func ipPermissionsEqual(a ec2types.IpPermission, b ec2types.IpPermission) bool {
 func getIpRangeCidrs(ipRanges []ec2types.IpRange) sets.Set[string] {
 	result := sets.New[string]()
 	for _, ipRange := range ipRanges {
-		result.Insert(*ipRange.CidrIp)
+		if ipRange.CidrIp != nil {
+			result.Insert(*ipRange.CidrIp)
+		}
 	}
 	return result
 }
@@ -122,7 +124,9 @@ func getIpRangeCidrs(ipRanges []ec2types.IpRange) sets.Set[string] {
 func getIpv6RangeCidrs(ipRanges []ec2types.Ipv6Range) sets.Set[string] {
 	result := sets.New[string]()
 	for _, ipRange := range ipRanges {
-		result.Insert(*ipRange.CidrIpv6)
+		if ipRange.CidrIpv6 != nil {
+			result.Insert(*ipRange.CidrIpv6)
+		}
 	}
 	return result
 }
@@ -130,9 +134,54 @@ func getIpv6RangeCidrs(ipRanges []ec2types.Ipv6Range) sets.Set[string] {
 func getSecurityGroupIDs(userGroupPairs []ec2types.UserIdGroupPair) sets.Set[string] {
 	result := sets.New[string]()
 	for _, pair := range userGroupPairs {
-		result.Insert(*pair.GroupId)
+		if pair.GroupId != nil {
+			result.Insert(*pair.GroupId)
+		}
 	}
 	return result
+}
+
+// staleIngressPermissions returns the subset of current permissions whose IPv4/IPv6
+// CIDRs are not present in the desired permission. Only permissions that share the
+// same port range and protocol as desired are considered; unrelated rules are left
+// untouched.
+func staleIngressPermissions(current []ec2types.IpPermission, desired ec2types.IpPermission) []ec2types.IpPermission {
+	desiredIPv4 := getIpRangeCidrs(desired.IpRanges)
+	desiredIPv6 := getIpv6RangeCidrs(desired.Ipv6Ranges)
+
+	var stale []ec2types.IpPermission
+	for _, perm := range current {
+		if !equality.Semantic.DeepEqual(perm.FromPort, desired.FromPort) ||
+			!equality.Semantic.DeepEqual(perm.ToPort, desired.ToPort) ||
+			!equality.Semantic.DeepEqual(perm.IpProtocol, desired.IpProtocol) {
+			continue
+		}
+
+		var staleIPv4 []ec2types.IpRange
+		for _, r := range perm.IpRanges {
+			if r.CidrIp != nil && !desiredIPv4.Has(*r.CidrIp) {
+				staleIPv4 = append(staleIPv4, r)
+			}
+		}
+
+		var staleIPv6 []ec2types.Ipv6Range
+		for _, r := range perm.Ipv6Ranges {
+			if r.CidrIpv6 != nil && !desiredIPv6.Has(*r.CidrIpv6) {
+				staleIPv6 = append(staleIPv6, r)
+			}
+		}
+
+		if len(staleIPv4) > 0 || len(staleIPv6) > 0 {
+			stale = append(stale, ec2types.IpPermission{
+				FromPort:   perm.FromPort,
+				ToPort:     perm.ToPort,
+				IpProtocol: perm.IpProtocol,
+				IpRanges:   staleIPv4,
+				Ipv6Ranges: staleIPv6,
+			})
+		}
+	}
+	return stale
 }
 
 // workerSecurityGroupPermission returns the set of permissions that need to be added
