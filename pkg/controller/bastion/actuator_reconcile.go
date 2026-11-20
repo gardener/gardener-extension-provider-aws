@@ -129,7 +129,8 @@ func createSecurityGroup(ctx context.Context, awsClient *awsclient.Client, opt B
 }
 
 // authorizeIngress reconciles ingress rules on the security group to match exactly
-// bastion.Spec.Ingress. New CIDRs are authorized first; stale CIDRs are revoked
+// bastion.Spec.Ingress. Only missing CIDRs are authorized (avoiding
+// InvalidPermission.Duplicate for already-present CIDRs); stale CIDRs are revoked
 // only after the authorize succeeds so that a transient API failure never leaves
 // the bastion unreachable.
 func authorizeIngress(ctx context.Context, awsClient *awsclient.Client, bastion *extensionsv1alpha1.Bastion, group *ec2types.SecurityGroup) error {
@@ -140,12 +141,12 @@ func authorizeIngress(ctx context.Context, awsClient *awsclient.Client, bastion 
 
 	log := shared.LogFromContext(ctx)
 
-	if !securityGroupHasPermissions(group.IpPermissions, *ingressPermission) {
+	if missing := missingIngressPermissions(group.IpPermissions, *ingressPermission); missing != nil {
 		log.Info("Authorizing ingress bastion security group", "name", group.GroupId)
 
 		_, err = awsClient.EC2.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       group.GroupId,
-			IpPermissions: []ec2types.IpPermission{*ingressPermission},
+			IpPermissions: []ec2types.IpPermission{*missing},
 		})
 		if err != nil {
 			return fmt.Errorf("failed to authorize ingress: %w", err)

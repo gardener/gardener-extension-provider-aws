@@ -141,6 +141,50 @@ func getSecurityGroupIDs(userGroupPairs []ec2types.UserIdGroupPair) sets.Set[str
 	return result
 }
 
+// missingIngressPermissions returns an IpPermission containing only the IPv4/IPv6
+// CIDRs from desired that are not yet present in current. Returns nil when all
+// desired CIDRs are already authorized.
+func missingIngressPermissions(current []ec2types.IpPermission, desired ec2types.IpPermission) *ec2types.IpPermission {
+	currentIPv4 := sets.New[string]()
+	currentIPv6 := sets.New[string]()
+
+	for _, perm := range current {
+		if !equality.Semantic.DeepEqual(perm.FromPort, desired.FromPort) ||
+			!equality.Semantic.DeepEqual(perm.ToPort, desired.ToPort) ||
+			!equality.Semantic.DeepEqual(perm.IpProtocol, desired.IpProtocol) {
+			continue
+		}
+		currentIPv4 = currentIPv4.Union(getIpRangeCidrs(perm.IpRanges))
+		currentIPv6 = currentIPv6.Union(getIpv6RangeCidrs(perm.Ipv6Ranges))
+	}
+
+	var missingIPv4 []ec2types.IpRange
+	for _, r := range desired.IpRanges {
+		if r.CidrIp != nil && !currentIPv4.Has(*r.CidrIp) {
+			missingIPv4 = append(missingIPv4, r)
+		}
+	}
+
+	var missingIPv6 []ec2types.Ipv6Range
+	for _, r := range desired.Ipv6Ranges {
+		if r.CidrIpv6 != nil && !currentIPv6.Has(*r.CidrIpv6) {
+			missingIPv6 = append(missingIPv6, r)
+		}
+	}
+
+	if len(missingIPv4) == 0 && len(missingIPv6) == 0 {
+		return nil
+	}
+
+	return &ec2types.IpPermission{
+		FromPort:   desired.FromPort,
+		ToPort:     desired.ToPort,
+		IpProtocol: desired.IpProtocol,
+		IpRanges:   missingIPv4,
+		Ipv6Ranges: missingIPv6,
+	}
+}
+
 // staleIngressPermissions returns the subset of current permissions whose IPv4/IPv6
 // CIDRs are not present in the desired permission. Only permissions that share the
 // same port range and protocol as desired are considered; unrelated rules are left
