@@ -90,21 +90,21 @@ func (a *actuator) reconcile(ctx context.Context, backupbucketConfig *apisaws.Ba
 		switch apiErrCode {
 		case awsclient.NoSuchBucket:
 			// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
-			return util.DetermineError(a.createBucketWithConfig(ctx, awsClient, bb.Name, bb.Spec.Region, expectedBucketOwner, isObjectLockRequired, action), helper.KnownCodes)
+			return a.createBucketWithConfig(ctx, awsClient, bb.Name, bb.Spec.Region, expectedBucketOwner, isObjectLockRequired, action)
 		case awsclient.PermanentRedirect:
-			return util.DetermineError(fmt.Errorf("bucket exists in different region %v", err), helper.KnownCodes)
+			return fmt.Errorf("bucket exists in different region %v", err)
 		default:
-			return util.DetermineError(fmt.Errorf("unable to check bucket versioning status: %v", err), helper.KnownCodes)
+			return fmt.Errorf("unable to check bucket versioning status: %v", err)
 		}
 	}
 
 	// versioning is found to be enabled on bucket
 	if bucketVersioningStatus != nil && bucketVersioningStatus.Status == s3types.BucketVersioningStatusEnabled {
 		if isObjectLockConfigNeedToBeRemoved(ctx, awsClient, bb.Name, expectedBucketOwner, backupbucketConfig) {
-			return util.DetermineError(awsClient.RemoveObjectLockConfiguration(ctx, bb.Name, expectedBucketOwner), helper.KnownCodes)
+			return awsClient.RemoveObjectLockConfiguration(ctx, bb.Name, expectedBucketOwner)
 		} else if isBucketUpdateRequired(ctx, awsClient, bb.Name, expectedBucketOwner, backupbucketConfig) {
 			// take action: update the bucket with object lock settings.
-			return util.DetermineError(action(ctx, false), helper.KnownCodes)
+			return action(ctx, false)
 		}
 		// do nothing if bucket configurations isn't required to be updated.
 		return nil
@@ -113,7 +113,7 @@ func (a *actuator) reconcile(ctx context.Context, backupbucketConfig *apisaws.Ba
 	if isObjectLockRequired {
 		// take action: enable object lock on the bucket.
 		// Note: Enable versioning on the bucket as a prerequisite for enabling object lock.
-		return util.DetermineError(action(ctx, true), helper.KnownCodes)
+		return action(ctx, true)
 	}
 	return nil
 }
