@@ -63,7 +63,7 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 	// If immutability settings are provided then "isObjectLockRequired" will get set to `true`.
 	isObjectLockRequired := (backupbucketConfig != nil && backupbucketConfig.Immutability != nil)
 
-	a.action = actionFunc(func(ctx context.Context, enableVersioning bool) error {
+	action := func(ctx context.Context, enableVersioning bool) error {
 		// Enable versioning on the bucket as a prerequisite for enabling object lock.
 		if enableVersioning {
 			// enable the versioning on the bucket,
@@ -78,19 +78,19 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 			return awsClient.UpdateObjectLockConfiguration(ctx, bb.Name, expectedBucketOwner, backupbucketConfig.Immutability.Mode, int32(backupbucketConfig.Immutability.RetentionPeriod.Duration/(24*time.Hour)))
 		}
 		return nil
-	})
+	}
 
-	return util.DetermineError(a.reconcile(ctx, backupbucketConfig, awsClient, bb, expectedBucketOwner, isObjectLockRequired), helper.KnownCodes)
+	return util.DetermineError(a.reconcile(ctx, backupbucketConfig, awsClient, bb, expectedBucketOwner, isObjectLockRequired, action), helper.KnownCodes)
 }
 
-func (a *actuator) reconcile(ctx context.Context, backupbucketConfig *apisaws.BackupBucketConfig, awsClient awsclient.Interface, bb *extensionsv1alpha1.BackupBucket, expectedBucketOwner string, isObjectLockRequired bool) error {
+func (a *actuator) reconcile(ctx context.Context, backupbucketConfig *apisaws.BackupBucketConfig, awsClient awsclient.Interface, bb *extensionsv1alpha1.BackupBucket, expectedBucketOwner string, isObjectLockRequired bool, action func(context.Context, bool) error) error {
 	bucketVersioningStatus, err := awsClient.GetBucketVersioningStatus(ctx, bb.Name, expectedBucketOwner)
 	if err != nil {
 		apiErrCode := awsclient.GetAWSAPIErrorCode(err)
 		switch apiErrCode {
 		case awsclient.NoSuchBucket:
 			// bucket doesn't exist, create the bucket with buckupbucket config (if provided)
-			return util.DetermineError(a.createBucketWithConfig(ctx, awsClient, bb.Name, bb.Spec.Region, expectedBucketOwner, isObjectLockRequired), helper.KnownCodes)
+			return util.DetermineError(a.createBucketWithConfig(ctx, awsClient, bb.Name, bb.Spec.Region, expectedBucketOwner, isObjectLockRequired, action), helper.KnownCodes)
 		case awsclient.PermanentRedirect:
 			return util.DetermineError(fmt.Errorf("bucket exists in different region %v", err), helper.KnownCodes)
 		default:
@@ -104,7 +104,7 @@ func (a *actuator) reconcile(ctx context.Context, backupbucketConfig *apisaws.Ba
 			return util.DetermineError(awsClient.RemoveObjectLockConfiguration(ctx, bb.Name, expectedBucketOwner), helper.KnownCodes)
 		} else if isBucketUpdateRequired(ctx, awsClient, bb.Name, expectedBucketOwner, backupbucketConfig) {
 			// take action: update the bucket with object lock settings.
-			return util.DetermineError(a.action.Do(ctx, false), helper.KnownCodes)
+			return util.DetermineError(action(ctx, false), helper.KnownCodes)
 		}
 		// do nothing if bucket configurations isn't required to be updated.
 		return nil
@@ -113,12 +113,12 @@ func (a *actuator) reconcile(ctx context.Context, backupbucketConfig *apisaws.Ba
 	if isObjectLockRequired {
 		// take action: enable object lock on the bucket.
 		// Note: Enable versioning on the bucket as a prerequisite for enabling object lock.
-		return util.DetermineError(a.action.Do(ctx, true), helper.KnownCodes)
+		return util.DetermineError(action(ctx, true), helper.KnownCodes)
 	}
 	return nil
 }
 
-func (a *actuator) createBucketWithConfig(ctx context.Context, awsClient awsclient.Interface, bucketName, region, expectedBucketOwner string, isObjectLockRequired bool) error {
+func (a *actuator) createBucketWithConfig(ctx context.Context, awsClient awsclient.Interface, bucketName, region, expectedBucketOwner string, isObjectLockRequired bool, action func(context.Context, bool) error) error {
 	// create the bucket in a given region
 	if err := awsClient.CreateBucket(ctx, bucketName, region, expectedBucketOwner, isObjectLockRequired); err != nil {
 		return err
@@ -126,7 +126,7 @@ func (a *actuator) createBucketWithConfig(ctx context.Context, awsClient awsclie
 
 	if isObjectLockRequired {
 		// take action: update the bucket with object lock settings.
-		return a.action.Do(ctx, false)
+		return action(ctx, false)
 	}
 	return nil
 }
