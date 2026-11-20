@@ -61,7 +61,7 @@ func (a *actuator) Reconcile(ctx context.Context, logger logr.Logger, bb *extens
 	}
 
 	// If immutability settings are provided then "isObjectLockRequired" will get set to `true`.
-	isObjectLockRequired := (backupbucketConfig != nil && backupbucketConfig.Immutability != nil)
+	isObjectLockRequired := backupbucketConfig != nil && backupbucketConfig.Immutability != nil
 
 	action := func(ctx context.Context, enableVersioning bool) error {
 		// Enable versioning on the bucket as a prerequisite for enabling object lock.
