@@ -631,19 +631,17 @@ func ComputeInstanceMetadataOptions(workerConfig *awsapi.WorkerConfig, networkin
 		instanceMetadataOptions.HTTPProtocolIPv6 = string(ec2types.InstanceMetadataProtocolStateEnabled)
 	}
 
-	if workerConfig == nil || workerConfig.InstanceMetadataOptions == nil {
-		instanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To[int32](2)
-		instanceMetadataOptions.HTTPTokens = string(awsapi.HTTPTokensRequired)
+	// Apply secure defaults unconditionally; override only when the caller explicitly sets a field.
+	instanceMetadataOptions.HTTPPutResponseHopLimit = ptr.To[int32](2)
+	instanceMetadataOptions.HTTPTokens = string(awsapi.HTTPTokensRequired)
 
-		return instanceMetadataOptions, nil
-	}
-
-	if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
-		instanceMetadataOptions.HTTPPutResponseHopLimit = workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit
-	}
-
-	if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
-		instanceMetadataOptions.HTTPTokens = string(*workerConfig.InstanceMetadataOptions.HTTPTokens)
+	if workerConfig != nil && workerConfig.InstanceMetadataOptions != nil {
+		if workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit != nil {
+			instanceMetadataOptions.HTTPPutResponseHopLimit = workerConfig.InstanceMetadataOptions.HTTPPutResponseHopLimit
+		}
+		if workerConfig.InstanceMetadataOptions.HTTPTokens != nil {
+			instanceMetadataOptions.HTTPTokens = string(*workerConfig.InstanceMetadataOptions.HTTPTokens)
+		}
 	}
 
 	return instanceMetadataOptions, nil
