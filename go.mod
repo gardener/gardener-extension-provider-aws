@@ -20,9 +20,9 @@ require (
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/gardener/etcd-druid/api v0.39.2
 	github.com/gardener/external-dns-management v0.51.1
-	github.com/gardener/gardener v1.155.1
-	github.com/gardener/gardener/hack/tools v1.155.1
-	github.com/gardener/gardener/pkg/apis v1.155.1
+	github.com/gardener/gardener v1.155.2
+	github.com/gardener/gardener/hack/tools v1.155.2
+	github.com/gardener/gardener/pkg/apis v1.155.2
 	github.com/gardener/machine-controller-manager v0.63.1
 	github.com/gardener/machine-controller-manager-provider-aws v0.28.2
 	github.com/gardener/pvc-autoscaler v0.3.3
