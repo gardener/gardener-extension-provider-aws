@@ -6,16 +6,16 @@ go 1.26.8
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/aws/aws-sdk-go-v2 v1.48.0
-	github.com/aws/aws-sdk-go-v2/config v1.33.20
-	github.com/aws/aws-sdk-go-v2/credentials v1.21.2
+	github.com/aws/aws-sdk-go-v2/config v1.33.21
+	github.com/aws/aws-sdk-go-v2/credentials v1.21.3
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.349.0
 	github.com/aws/aws-sdk-go-v2/service/efs v1.51.6
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.42.0
-	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.64.1
-	github.com/aws/aws-sdk-go-v2/service/iam v1.67.0
-	github.com/aws/aws-sdk-go-v2/service/route53 v1.71.0
+	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.65.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.68.0
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.72.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.116.0
-	github.com/aws/aws-sdk-go-v2/service/sts v1.52.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.53.0
 	github.com/aws/smithy-go v1.28.9
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/gardener/etcd-druid/api v0.39.2
