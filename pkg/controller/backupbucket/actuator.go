@@ -5,8 +5,6 @@
 package backupbucket
 
 import (
-	"context"
-
 	"github.com/gardener/gardener/extensions/pkg/controller/backupbucket"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -19,21 +17,6 @@ var _ backupbucket.Actuator = (*actuator)(nil)
 type actuator struct {
 	client           client.Client
 	awsClientFactory awsclient.Factory
-	action           Action
-}
-
-// Action is a context-aware action.
-type Action interface {
-	// Do performs an action.
-	Do(context.Context, bool) error
-}
-
-// actionFunc is a function that implements Action.
-type actionFunc func(context.Context, bool) error
-
-// Do performs an action.
-func (f actionFunc) Do(ctx context.Context, enabled bool) error {
-	return f(ctx, enabled)
 }
 
 // NewActuator creates a new Actuator that creates/updates backup-bucket.
