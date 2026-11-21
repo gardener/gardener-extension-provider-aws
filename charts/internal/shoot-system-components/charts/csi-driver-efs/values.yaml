@@ -88,7 +88,7 @@ controller:
   # Enable if you want the controller to also delete the
   # path on efs when deleting an access point
   deleteAccessPointRootDir: false
-  hostNetwork: false
+  hostNetwork: true
   priorityClassName: system-cluster-critical
   dnsPolicy: ClusterFirst
   dnsConfig: {}

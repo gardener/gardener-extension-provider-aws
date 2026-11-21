@@ -690,7 +690,7 @@ var _ = Describe("Machines", func() {
 							},
 						},
 						InstanceMetadataOptions: &awsmachineapi.InstanceMetadataOptions{
-							HTTPPutResponseHopLimit: ptr.To[int32](2),
+							HTTPPutResponseHopLimit: ptr.To[int32](1),
 							HTTPTokens:              "required",
 						},
 						CapacityReservationTarget: capacityReservations,
@@ -1621,7 +1621,7 @@ var _ = Describe("Machines", func() {
 				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(res).NotTo(BeNil())
-				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(2))))
+				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(1))))
 				Expect(res.HTTPTokens).To(Equal("required"))
 			})
 
