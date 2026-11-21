@@ -2329,6 +2329,18 @@ WorkerConfig contains configuration settings for the worker nodes.
 <p>InstanceMarketOptions configures the instance market type.<br />If not specified, on-demand instances are launched.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>additionalSecurityGroupIDs</code></br>
+<em>
+string array
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AdditionalSecurityGroupIDs is a list of additional security group IDs to attach to all network interfaces<br />of the worker VMs in this pool. The nodes security group managed by the infrastructure controller is always<br />attached; the IDs listed here are appended to it.</p>
+</td>
+</tr>
 
 </tbody>
 </table>

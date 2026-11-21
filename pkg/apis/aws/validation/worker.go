@@ -156,6 +156,17 @@ func ValidateWorkerConfig(workerConfig *apisaws.WorkerConfig, volume *core.Volum
 	allErrs = append(allErrs, validatePlacement(workerConfig.Placement, fldPath.Child("placement"))...)
 	allErrs = append(allErrs, validateInstanceMarketOptions(workerConfig.InstanceMarketOptions, fldPath.Child("instanceMarketOptions"))...)
 
+	sgPath := fldPath.Child("additionalSecurityGroupIDs")
+	seen := sets.New[string]()
+	for i, sgID := range workerConfig.AdditionalSecurityGroupIDs {
+		allErrs = append(allErrs, validateSecurityGroupID(sgID, sgPath.Index(i))...)
+		if seen.Has(sgID) {
+			allErrs = append(allErrs, field.Duplicate(sgPath.Index(i), sgID))
+		} else {
+			seen.Insert(sgID)
+		}
+	}
+
 	return allErrs
 }
 

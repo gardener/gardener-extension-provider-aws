@@ -966,6 +966,24 @@ For more details on EFA, see the [AWS EFA documentation](https://docs.aws.amazon
 When at least one worker pool has an EFA-enabled network interface (`type: efa` or `type: efa-only`), the infrastructure controller automatically adds a self-referencing egress rule (`protocol: -1`, source/destination = the worker security group itself) to the shoot's worker security group. This is required because EFA traffic uses the Scalable Reliable Datagram (SRD) protocol, which is not authorized by CIDR-based rules. AWS evaluates CIDR rules and security-group-id rules at different layers, and EFA traffic is only matched by the latter, even though the security group already allows `egress 0.0.0.0/0`. See AWS's [Get started with EFA, Step 1: Prepare an EFA-enabled security group](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-start.html#efa-start-security) for details.
 
 
+## Additional Security Groups
+
+The `additionalSecurityGroupIDs` field of `WorkerConfig` lets you attach extra security groups to every network interface of the worker VMs in a pool. The nodes security group managed by the infrastructure controller is always present; the IDs listed here are appended to it.
+
+```yaml
+providerConfig:
+  apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+  kind: WorkerConfig
+  additionalSecurityGroupIDs:
+  - sg-0123456789abcdef0
+  - sg-0fedcba9876543210
+```
+
+Each entry must be a valid AWS security group ID (`sg-` followed by lowercase alphanumeric characters). The order of entries does not matter for Kubernetes 1.34 and above. On older versions the raw `providerConfig` JSON is used for pool hashing, so reordering the list changes the hash and can trigger a worker rollout.
+
+> [!Note]
+> These security groups are attached in addition to the nodes security group — they do not replace it. Make sure the referenced security groups exist in the same VPC as the shoot cluster.
+
 ## Placement
 
 The `placement` field configures EC2 instance placement options: placement groups (for low-latency clustering), tenancy, and dedicated hosts.

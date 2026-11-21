@@ -38,6 +38,10 @@ type WorkerConfig struct {
 	// InstanceMarketOptions configures the instance market type.
 	// If not specified, on-demand instances are launched.
 	InstanceMarketOptions *InstanceMarketOptions
+	// AdditionalSecurityGroupIDs is a list of additional security group IDs to attach to all network interfaces
+	// of the worker VMs in this pool. The nodes security group managed by the infrastructure controller is always
+	// attached; the IDs listed here are appended to it.
+	AdditionalSecurityGroupIDs []string
 }
 
 // Volume contains configuration for the root disks attached to VMs.
