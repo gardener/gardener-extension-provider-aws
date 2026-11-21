@@ -1236,6 +1236,18 @@ string
 <p>IngressClassName is the name of the ingress class the ALB controller will target. Default value is 'alb'.<br />If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>gatewayAPIEnabled</code></br>
+<em>
+boolean
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GatewayAPIEnabled controls if the AWS Load Balancer Controller should reconcile Gateway API resources.</p>
+</td>
+</tr>
 
 </tbody>
 </table>

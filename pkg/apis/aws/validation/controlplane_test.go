@@ -67,6 +67,27 @@ var _ = Describe("ControlPlaneConfig validation", func() {
 					"Detail": Equal("does not match expected regex ^[a-z0-9.-]+$"),
 				}))))
 			})
+
+			It("should pass when gatewayAPIEnabled is true and enabled is true", func() {
+				controlPlane.LoadBalancerController = &apisaws.LoadBalancerControllerConfig{
+					Enabled:           true,
+					GatewayAPIEnabled: true,
+				}
+				Expect(ValidateControlPlaneConfig(controlPlane, "", fldPath)).To(BeEmpty())
+			})
+
+			It("should fail when gatewayAPIEnabled is true but enabled is false", func() {
+				controlPlane.LoadBalancerController = &apisaws.LoadBalancerControllerConfig{
+					Enabled:           false,
+					GatewayAPIEnabled: true,
+				}
+				errorList := ValidateControlPlaneConfig(controlPlane, "", fldPath)
+				Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("loadBalancerController.gatewayAPIEnabled"),
+					"Detail": ContainSubstring("gatewayAPIEnabled can only be true when enabled is also true"),
+				}))))
+			})
 		})
 	})
 })
