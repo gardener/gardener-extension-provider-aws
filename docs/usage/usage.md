@@ -241,7 +241,8 @@ Please make sure that the provided credentials have the correct privileges. You 
           "shield:GetSubscriptionState",
           "shield:DescribeProtection",
           "shield:CreateProtection",
-          "shield:DeleteProtection"
+          "shield:DeleteProtection",
+          "ec2:ValidateSecurityGroupQuotasForInterface"
         ],
         "Resource": "*"
       }
