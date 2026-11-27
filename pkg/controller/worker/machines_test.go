@@ -1761,6 +1761,56 @@ var _ = Describe("Machines", func() {
 	)
 })
 
+var _ = Describe("buildNetworkInterfacesTyped", func() {
+	const (
+		defaultSubnet = "subnet-default"
+		defaultSG     = "sg-default"
+		extraSG1      = "sg-extra1"
+		extraSG2      = "sg-extra2"
+	)
+
+	It("should include additionalSecurityGroupIDs in the default (no custom NIs) path", func() {
+		wc := &api.WorkerConfig{AdditionalSecurityGroupIDs: []string{extraSG1, extraSG2}}
+		nis, err := BuildNetworkInterfacesTyped(wc, defaultSubnet, defaultSG)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(nis).To(HaveLen(1))
+		Expect(nis[0].SubnetID).To(Equal(defaultSubnet))
+		Expect(nis[0].SecurityGroupIDs).To(ConsistOf(defaultSG, extraSG1, extraSG2))
+	})
+
+	It("should include additionalSecurityGroupIDs on each NI when networkInterfaces are configured", func() {
+		wc := &api.WorkerConfig{
+			AdditionalSecurityGroupIDs: []string{extraSG1, extraSG2},
+			NetworkInterfaces: []api.NetworkInterface{
+				{DeviceIndex: 0},
+				{DeviceIndex: 1},
+			},
+		}
+		nis, err := BuildNetworkInterfacesTyped(wc, defaultSubnet, defaultSG)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(nis).To(HaveLen(2))
+		for _, ni := range nis {
+			Expect(ni.SecurityGroupIDs).To(ConsistOf(defaultSG, extraSG1, extraSG2))
+		}
+	})
+
+	It("should give each NI an independent SecurityGroupIDs slice", func() {
+		wc := &api.WorkerConfig{
+			AdditionalSecurityGroupIDs: []string{extraSG1},
+			NetworkInterfaces: []api.NetworkInterface{
+				{DeviceIndex: 0},
+				{DeviceIndex: 1},
+			},
+		}
+		nis, err := BuildNetworkInterfacesTyped(wc, defaultSubnet, defaultSG)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(nis).To(HaveLen(2))
+		// mutating one NI's slice must not affect the other
+		nis[0].SecurityGroupIDs[0] = "sg-mutated"
+		Expect(nis[1].SecurityGroupIDs).To(ConsistOf(defaultSG, extraSG1))
+	})
+})
+
 func encode(obj interface{}) []byte {
 	data, _ := json.Marshal(obj)
 	return data

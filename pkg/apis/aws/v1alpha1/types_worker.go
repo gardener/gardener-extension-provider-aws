@@ -46,6 +46,11 @@ type WorkerConfig struct {
 	// If not specified, on-demand instances are launched.
 	// +optional
 	InstanceMarketOptions *InstanceMarketOptions `json:"instanceMarketOptions,omitempty"`
+	// AdditionalSecurityGroupIDs is a list of additional security group IDs to attach to all network interfaces
+	// of the worker VMs in this pool. The nodes security group managed by the infrastructure controller is always
+	// attached; the IDs listed here are appended to it.
+	// +optional
+	AdditionalSecurityGroupIDs []string `json:"additionalSecurityGroupIDs,omitempty"`
 }
 
 // Volume contains configuration for the root disks attached to VMs.

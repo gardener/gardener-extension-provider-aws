@@ -129,3 +129,5 @@ spec:
   #     coreCount: 2 # default for m4.xlarge
   #     threadsPerCore: 2 # default for m4.xlarge
   #     amdSevSnp: enabled
+  #   additionalSecurityGroupIDs: # optional: extra security groups appended to the nodes security group on every NIC
+  #   - sg-0123456789abcdef0

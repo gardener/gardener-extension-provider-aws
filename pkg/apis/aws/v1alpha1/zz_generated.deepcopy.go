@@ -1105,6 +1105,11 @@ func (in *WorkerConfig) DeepCopyInto(out *WorkerConfig) {
 		*out = new(InstanceMarketOptions)
 		**out = **in
 	}
+	if in.AdditionalSecurityGroupIDs != nil {
+		in, out := &in.AdditionalSecurityGroupIDs, &out.AdditionalSecurityGroupIDs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

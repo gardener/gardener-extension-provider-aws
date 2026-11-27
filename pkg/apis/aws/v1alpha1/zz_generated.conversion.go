@@ -1291,6 +1291,7 @@ func autoConvert_v1alpha1_WorkerConfig_To_aws_WorkerConfig(in *WorkerConfig, out
 	out.NetworkInterfaces = *(*[]aws.NetworkInterface)(unsafe.Pointer(&in.NetworkInterfaces))
 	out.Placement = (*aws.Placement)(unsafe.Pointer(in.Placement))
 	out.InstanceMarketOptions = (*aws.InstanceMarketOptions)(unsafe.Pointer(in.InstanceMarketOptions))
+	out.AdditionalSecurityGroupIDs = *(*[]string)(unsafe.Pointer(&in.AdditionalSecurityGroupIDs))
 	return nil
 }
 
@@ -1310,6 +1311,7 @@ func autoConvert_aws_WorkerConfig_To_v1alpha1_WorkerConfig(in *aws.WorkerConfig,
 	out.NetworkInterfaces = *(*[]NetworkInterface)(unsafe.Pointer(&in.NetworkInterfaces))
 	out.Placement = (*Placement)(unsafe.Pointer(in.Placement))
 	out.InstanceMarketOptions = (*InstanceMarketOptions)(unsafe.Pointer(in.InstanceMarketOptions))
+	out.AdditionalSecurityGroupIDs = *(*[]string)(unsafe.Pointer(&in.AdditionalSecurityGroupIDs))
 	return nil
 }
 
