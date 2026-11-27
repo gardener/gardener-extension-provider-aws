@@ -1638,6 +1638,30 @@ var _ = Describe("Machines", func() {
 				Expect(res.HTTPTokens).To(Equal("required"))
 			})
 
+			It("should apply secure defaults when only httpPutResponseHopLimit is set", func() {
+				workerConfig.InstanceMetadataOptions = &api.InstanceMetadataOptions{
+					HTTPPutResponseHopLimit: ptr.To(int32(2)),
+				}
+
+				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).NotTo(BeNil())
+				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(2))))
+				Expect(res.HTTPTokens).To(Equal("required"))
+			})
+
+			It("should inject default hop limit when only HTTPTokens is set", func() {
+				workerConfig.InstanceMetadataOptions = &api.InstanceMetadataOptions{
+					HTTPTokens: ptr.To(api.HTTPTokensOptional),
+				}
+
+				res, err := ComputeInstanceMetadataOptions(workerConfig, networking)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).NotTo(BeNil())
+				Expect(res.HTTPPutResponseHopLimit).To(PointTo(Equal(int32(2))))
+				Expect(res.HTTPTokens).To(Equal("optional"))
+			})
+
 			It("should calculate correct IMDS in an IPv6 only cluster", func() {
 				networking.IPFamilies = []gardencorev1beta1.IPFamily{gardencorev1beta1.IPFamilyIPv6}
 
