@@ -12,6 +12,180 @@ import (
 )
 
 var _ = Describe("AWSUtilities", func() {
+	staleValidator := func(current []ec2types.IpPermission, desired ec2types.IpPermission, expected []ec2types.IpPermission) {
+		Expect(staleIngressPermissions(current, desired)).To(Equal(expected))
+	}
+
+	DescribeTable("staleIngressPermissions", staleValidator,
+		Entry("empty current — nothing to revoke",
+			[]ec2types.IpPermission{},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+			nil,
+		),
+
+		Entry("current matches desired exactly — nothing to revoke",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+			nil,
+		),
+
+		Entry("old broad CIDR not in desired — must be revoked",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
+			}},
+		),
+
+		Entry("IP rotation: old /32 not in desired — must be revoked",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.1.1.1/32")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("2.2.2.2/32")}}},
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.1.1.1/32")}},
+			}},
+		),
+
+		Entry("current is superset — only stale CIDR revoked, desired retained",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{
+					{CidrIp: aws.String("1.1.1.1/32")},
+					{CidrIp: aws.String("2.2.2.2/32")},
+				},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("2.2.2.2/32")}}},
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.1.1.1/32")}},
+			}},
+		),
+
+		Entry("unrelated port rule is not touched",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(443), ToPort: aws.Int32(443), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("0.0.0.0/0")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+			nil,
+		),
+
+		Entry("stale IPv6 CIDR is revoked",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				Ipv6Ranges: []ec2types.Ipv6Range{{CidrIpv6: aws.String("2001:db8::/32")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				Ipv6Ranges: []ec2types.Ipv6Range{{CidrIpv6: aws.String("2001:db8::1/128")}}},
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				Ipv6Ranges: []ec2types.Ipv6Range{{CidrIpv6: aws.String("2001:db8::/32")}},
+			}},
+		),
+
+		Entry("desired IPv6 CIDR already present — nothing to revoke",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				Ipv6Ranges: []ec2types.Ipv6Range{{CidrIpv6: aws.String("2001:db8::1/128")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				Ipv6Ranges: []ec2types.Ipv6Range{{CidrIpv6: aws.String("2001:db8::1/128")}}},
+			nil,
+		),
+	)
+
+	missingValidator := func(current []ec2types.IpPermission, desired ec2types.IpPermission, expected *ec2types.IpPermission) {
+		Expect(missingIngressPermissions(current, desired)).To(Equal(expected))
+	}
+
+	DescribeTable("missingIngressPermissions", missingValidator,
+		Entry("empty current — all desired CIDRs are missing",
+			[]ec2types.IpPermission{},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+			&ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+		),
+
+		Entry("current matches desired exactly — nothing missing",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+			nil,
+		),
+
+		Entry("current is superset — nothing missing",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{
+					{CidrIp: aws.String("1.1.1.1/32")},
+					{CidrIp: aws.String("2.2.2.2/32")},
+				},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.1.1.1/32")}}},
+			nil,
+		),
+
+		Entry("one retained one added — only the new CIDR is returned",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.1.1.1/32")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{
+					{CidrIp: aws.String("1.1.1.1/32")},
+					{CidrIp: aws.String("2.2.2.2/32")},
+				}},
+			&ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("2.2.2.2/32")}}},
+		),
+
+		Entry("unrelated port rule does not satisfy desired",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(443), ToPort: aws.Int32(443), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+			&ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				IpRanges: []ec2types.IpRange{{CidrIp: aws.String("1.2.3.4/32")}}},
+		),
+
+		Entry("missing IPv6 CIDR is returned",
+			[]ec2types.IpPermission{{
+				FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				Ipv6Ranges: []ec2types.Ipv6Range{{CidrIpv6: aws.String("2001:db8::1/128")}},
+			}},
+			ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				Ipv6Ranges: []ec2types.Ipv6Range{
+					{CidrIpv6: aws.String("2001:db8::1/128")},
+					{CidrIpv6: aws.String("2001:db8::2/128")},
+				}},
+			&ec2types.IpPermission{FromPort: aws.Int32(22), ToPort: aws.Int32(22), IpProtocol: aws.String("tcp"),
+				Ipv6Ranges: []ec2types.Ipv6Range{{CidrIpv6: aws.String("2001:db8::2/128")}}},
+		),
+	)
+
 	validator := func(current []ec2types.IpPermission, desired ec2types.IpPermission, expected bool) {
 		Expect(securityGroupHasPermissions(current, desired)).To(Equal(expected))
 	}

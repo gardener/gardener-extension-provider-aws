@@ -128,25 +128,40 @@ func createSecurityGroup(ctx context.Context, awsClient *awsclient.Client, opt B
 	return getSecurityGroup(ctx, awsClient, opt.VpcID, opt.BastionSecurityGroupName)
 }
 
-// authorizeIngress adds ingress rules to the security group.
+// authorizeIngress reconciles ingress rules on the security group to match exactly
+// bastion.Spec.Ingress. Only missing CIDRs are authorized (avoiding
+// InvalidPermission.Duplicate for already-present CIDRs); stale CIDRs are revoked
+// only after the authorize succeeds so that a transient API failure never leaves
+// the bastion unreachable.
 func authorizeIngress(ctx context.Context, awsClient *awsclient.Client, bastion *extensionsv1alpha1.Bastion, group *ec2types.SecurityGroup) error {
-	// prepare rules
 	ingressPermission, err := ingressPermissions(ctx, bastion)
 	if err != nil {
 		return fmt.Errorf("invalid ingress rules configured for bastion: %w", err)
 	}
 
-	hasIngressPermissions := securityGroupHasPermissions(group.IpPermissions, *ingressPermission)
+	log := shared.LogFromContext(ctx)
 
-	if !hasIngressPermissions {
-		shared.LogFromContext(ctx).Info("Authorizing ingress bastion security group", "name", group.GroupId)
+	if missing := missingIngressPermissions(group.IpPermissions, *ingressPermission); missing != nil {
+		log.Info("Authorizing ingress bastion security group", "name", group.GroupId)
 
 		_, err = awsClient.EC2.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId:       group.GroupId,
-			IpPermissions: []ec2types.IpPermission{*ingressPermission},
+			IpPermissions: []ec2types.IpPermission{*missing},
 		})
 		if err != nil {
 			return fmt.Errorf("failed to authorize ingress: %w", err)
+		}
+	}
+
+	if stale := staleIngressPermissions(group.IpPermissions, *ingressPermission); len(stale) > 0 {
+		log.Info("Revoking stale ingress rules from bastion security group", "name", group.GroupId)
+
+		_, err = awsClient.EC2.RevokeSecurityGroupIngress(ctx, &ec2.RevokeSecurityGroupIngressInput{
+			GroupId:       group.GroupId,
+			IpPermissions: stale,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to revoke stale ingress: %w", err)
 		}
 	}
 
