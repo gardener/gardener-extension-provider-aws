@@ -83,6 +83,32 @@ rules:
 - apiGroups: ["gateway.networking.k8s.io"]
   resources: [referencegrants]
   verbs: [get, list, patch, watch]
+{{- if .Values.gatewayAPIEnabled }}
+- apiGroups: ["gateway.k8s.aws"]
+  resources: [listenerruleconfigurations, loadbalancerconfigurations, targetgroupconfigurations]
+  verbs: [get, list, patch, watch]
+- apiGroups: ["gateway.k8s.aws"]
+  resources: [listenerruleconfigurations/finalizers, loadbalancerconfigurations/finalizers, targetgroupconfigurations/finalizers]
+  verbs: [patch, update]
+- apiGroups: ["gateway.k8s.aws"]
+  resources: [listenerruleconfigurations/status, loadbalancerconfigurations/status, targetgroupconfigurations/status]
+  verbs: [get, patch, update]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: [gatewayclasses, gateways]
+  verbs: [get, list, patch, watch]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: [gatewayclasses/finalizers, gateways/finalizers]
+  verbs: [patch, update]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: [gatewayclasses/status, gateways/status, grpcroutes/status, httproutes/status, listenersets/status, tcproutes/status, tlsroutes/status, udproutes/status]
+  verbs: [get, patch, update]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: [grpcroutes, httproutes, listenersets, tcproutes, tlsroutes, udproutes]
+  verbs: [get, list, watch]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: [grpcroutes/finalizers, httproutes/finalizers, listenersets/finalizers, tcproutes/finalizers, tlsroutes/finalizers, udproutes/finalizers]
+  verbs: [update]
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

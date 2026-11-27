@@ -87,7 +87,7 @@ var _ = Describe("ValuesProvider", func() {
 				}),
 			}
 		}
-		setLoadBalancerControllerEnabled = func(cp *extensionsv1alpha1.ControlPlane, ingressClassName *string) {
+		setLoadBalancerControllerEnabled = func(cp *extensionsv1alpha1.ControlPlane, ingressClassName *string, gatewayAPIEnabled bool) {
 			cp.Spec.ProviderConfig = &runtime.RawExtension{
 				Raw: encode(&apisawsv1alpha1.ControlPlaneConfig{
 					CloudControllerManager: &apisawsv1alpha1.CloudControllerManagerConfig{
@@ -96,8 +96,9 @@ var _ = Describe("ValuesProvider", func() {
 						},
 					},
 					LoadBalancerController: &apisawsv1alpha1.LoadBalancerControllerConfig{
-						Enabled:          true,
-						IngressClassName: ingressClassName,
+						Enabled:           true,
+						IngressClassName:  ingressClassName,
+						GatewayAPIEnabled: gatewayAPIEnabled,
 					},
 				}),
 			}
@@ -392,7 +393,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct control plane chart values and ALB enabled", func() {
-			setLoadBalancerControllerEnabled(cp, nil)
+			setLoadBalancerControllerEnabled(cp, nil, false)
 			albChartValues["replicaCount"] = 1 // chart is always deployed, but with 0 replicas when disabled
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
 			Expect(err).NotTo(HaveOccurred())
@@ -421,7 +422,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct control plane chart values and ALB enabled with ingress class name", func() {
-			setLoadBalancerControllerEnabled(cp, ptr.To("my-alb"))
+			setLoadBalancerControllerEnabled(cp, ptr.To("my-alb"), false)
 			albChartValues["replicaCount"] = 1 // chart is always deployed, but with 0 replicas when disabled
 			albChartValues["ingressClass"] = "my-alb"
 			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
@@ -447,6 +448,20 @@ var _ = Describe("ValuesProvider", func() {
 					},
 					"useWorkloadIdentity": false,
 				}),
+			}))
+		})
+
+		It("should return correct control plane chart values and Gateway API enabled", func() {
+			setLoadBalancerControllerEnabled(cp, nil, true)
+			values, err := vp.GetControlPlaneChartValues(ctx, cp, cluster, fakeSecretsManager, checksums, false)
+			Expect(err).NotTo(HaveOccurred())
+			albValues := values[aws.AWSLoadBalancerControllerName].(map[string]interface{})
+			Expect(albValues).To(HaveKeyWithValue("gatewayAPIEnabled", true))
+			Expect(albValues).To(HaveKeyWithValue("controllerConfig", map[string]interface{}{
+				"featureGates": map[string]interface{}{
+					"ALBGatewayAPI": true,
+					"NLBGatewayAPI": true,
+				},
 			}))
 		})
 
@@ -573,7 +588,7 @@ var _ = Describe("ValuesProvider", func() {
 
 		Context("shoot control plane chart values and ALB enabled", func() {
 			It("should return correct shoot control plane chart when ca is secret found", func() {
-				setLoadBalancerControllerEnabled(cp, nil)
+				setLoadBalancerControllerEnabled(cp, nil, false)
 				albChartValues := map[string]interface{}{
 					"region":                "eu-west-1",
 					"enabled":               true,
@@ -605,6 +620,22 @@ var _ = Describe("ValuesProvider", func() {
 					}),
 					aws.CSIEfsNodeName:                 enabledFalse,
 					"calico-mutating-admission-policy": enabledFalse,
+				}))
+			})
+		})
+
+		Context("shoot control plane chart values and Gateway API enabled", func() {
+			It("should return correct shoot control plane chart with gatewayAPIEnabled true", func() {
+				setLoadBalancerControllerEnabled(cp, nil, true)
+				values, err := vp.GetControlPlaneShootChartValues(ctx, cp, cluster, fakeSecretsManager, nil)
+				Expect(err).NotTo(HaveOccurred())
+				albValues := values[aws.AWSLoadBalancerControllerName].(map[string]interface{})
+				Expect(albValues).To(HaveKeyWithValue("gatewayAPIEnabled", true))
+				Expect(albValues).To(HaveKeyWithValue("controllerConfig", map[string]interface{}{
+					"featureGates": map[string]interface{}{
+						"ALBGatewayAPI": true,
+						"NLBGatewayAPI": true,
+					},
 				}))
 			})
 		})
@@ -659,7 +690,7 @@ var _ = Describe("ValuesProvider", func() {
 		})
 
 		It("should return correct control plane shoot CRDs if ALB is enabled", func() {
-			setLoadBalancerControllerEnabled(cp, nil)
+			setLoadBalancerControllerEnabled(cp, nil, false)
 			values, err := vp.GetControlPlaneShootCRDsChartValues(ctx, cp, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(values).To(Equal(map[string]interface{}{

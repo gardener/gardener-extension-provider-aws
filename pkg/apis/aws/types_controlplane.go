@@ -41,6 +41,8 @@ type LoadBalancerControllerConfig struct {
 	// IngressClassName is the name of the ingress class the ALB controller will target. Default value is 'alb'.
 	// If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb
 	IngressClassName *string
+	// GatewayAPIEnabled controls if the AWS Load Balancer Controller should reconcile Gateway API resources.
+	GatewayAPIEnabled bool
 }
 
 // IPAMControllerConfig contains configuration settings for the optional aws-ipam-controller.

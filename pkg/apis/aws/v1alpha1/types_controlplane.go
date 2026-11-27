@@ -49,6 +49,10 @@ type LoadBalancerControllerConfig struct {
 	// If empty string is specified, it will match all ingresses without ingress class annotation and ingresses of type alb
 	// +optional
 	IngressClassName *string `json:"ingressClassName,omitempty"`
+
+	// GatewayAPIEnabled controls if the AWS Load Balancer Controller should reconcile Gateway API resources.
+	// +optional
+	GatewayAPIEnabled bool `json:"gatewayAPIEnabled,omitempty"`
 }
 
 // Storage contains configuration for storage in the cluster.

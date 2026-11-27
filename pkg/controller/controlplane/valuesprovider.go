@@ -337,6 +337,9 @@ var (
 				Objects: []*chart.Object{
 					{Type: &apiextensionsv1.CustomResourceDefinition{}, Name: "ingressclassparams.elbv2.k8s.aws"},
 					{Type: &apiextensionsv1.CustomResourceDefinition{}, Name: "targetgroupbindings.elbv2.k8s.aws"},
+					{Type: &apiextensionsv1.CustomResourceDefinition{}, Name: "listenerruleconfigurations.gateway.k8s.aws"},
+					{Type: &apiextensionsv1.CustomResourceDefinition{}, Name: "loadbalancerconfigurations.gateway.k8s.aws"},
+					{Type: &apiextensionsv1.CustomResourceDefinition{}, Name: "targetgroupconfigurations.gateway.k8s.aws"},
 				},
 			},
 		},
@@ -827,6 +830,15 @@ func getALBChartValues(
 	}
 	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.IngressClassName != nil {
 		values["ingressClass"] = *cpConfig.LoadBalancerController.IngressClassName
+	}
+	if cpConfig.LoadBalancerController != nil && cpConfig.LoadBalancerController.GatewayAPIEnabled {
+		values["gatewayAPIEnabled"] = true
+		values["controllerConfig"] = map[string]interface{}{
+			"featureGates": map[string]interface{}{
+				"ALBGatewayAPI": true,
+				"NLBGatewayAPI": true,
+			},
+		}
 	}
 
 	if len(checksums) > 0 {

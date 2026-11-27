@@ -415,6 +415,7 @@ cloudControllerManager:
 # loadBalancerController:
 #   enabled: true
 #   ingressClassName: alb
+#   gatewayAPIEnabled: false
 # ipamController:
 #   enabled: true
 storage:
@@ -550,6 +551,73 @@ spec:
 ```
 
 For more details see [AWS Load Balancer Documentation - Ingress Specification](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/spec/).
+
+### ALB/NLB via Gateway API
+
+> [!NOTE]
+> AWS LBC maintainers have frozen new Ingress feature development. All new ALB/NLB capabilities are Gateway API-only going forward. This includes features like WAF integration — attaching an AWS WAF v2 Web ACL to an ALB to block malicious traffic (SQL injection, XSS, bad bots) before it reaches your pods. With Ingress this required an annotation with an unvalidated ARN string; with Gateway API it is a typed field in `LoadBalancerConfiguration`, which is schema-validated and self-documenting.
+
+To enable Gateway API support in the AWS Load Balancer Controller, set both `loadBalancerController.enabled` and `loadBalancerController.gatewayAPIEnabled` to `true`.
+
+> [!WARNING]
+> The standard [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) CRDs (`gateway.networking.k8s.io` group — `GatewayClass`, `Gateway`, `HTTPRoute`, etc.) must be installed on the shoot cluster **before** enabling this option. The AWS LBC will crash-loop if those CRDs are absent. They can be installed via a Gardener Gateway API extension, Istio, or directly from the [upstream release](https://github.com/kubernetes-sigs/gateway-api/releases). ALB Gateway API support requires Gateway API **v1.1+**; NLB Gateway API support requires **v1.6+** (`TCPRoute`, `TLSRoute`, and `UDPRoute` were only promoted to `v1` in v1.6).
+>
+> Newer AWS LBC versions may use Gateway API features that require a more recent CRD schema. The `gateway.networking.k8s.io/v1` API is backwards-compatible (no breaking changes), but new fields introduced in later Gateway API releases will not be available until the CRDs are upgraded. Keep the Gateway API CRDs on the shoot aligned with the LBC version in use.
+
+```yaml
+apiVersion: aws.provider.extensions.gardener.cloud/v1alpha1
+kind: ControlPlaneConfig
+loadBalancerController:
+  enabled: true
+  gatewayAPIEnabled: true
+```
+
+When `gatewayAPIEnabled` is `true`, Gardener will:
+- Install the `gateway.k8s.aws` CRDs (`LoadBalancerConfiguration`, `TargetGroupConfiguration`, `ListenerRuleConfiguration`) on the shoot
+- Grant the LBC service account RBAC permissions for those CRDs and for `gateways`, `httproutes`, `grpcroutes`, and related Gateway API resources
+- Enable the `ALBGatewayAPI` and `NLBGatewayAPI` feature gates on the controller
+
+You also need to install a `GatewayClass` that references the AWS LBC controller:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: aws-alb
+spec:
+  controllerName: gateway.k8s.aws/alb
+```
+
+Then create a `Gateway` and an `HTTPRoute` to provision an ALB:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: my-gateway
+  namespace: default
+spec:
+  gatewayClassName: aws-alb
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: my-route
+  namespace: default
+spec:
+  parentRefs:
+    - name: my-gateway
+  rules:
+    - backendRefs:
+        - name: my-service
+          port: 8080
+```
+
+For more details see [AWS Load Balancer Controller - Gateway API](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/gateway/gateway_api/).
 
 ## `WorkerConfig`
 
