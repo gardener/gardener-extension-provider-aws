@@ -250,6 +250,17 @@ You can find an example [here](dual-stack-ingress.md#creating-an-ipv4ipv6-dual-s
 A mutating webhook will automatically add the required annotations for new LoadBalancer services. For existing services, the annotation `extensions.gardener.cloud/ignore-load-balancer: "true"` is automatically added to preserve current behavior. To enable dual-stack for an existing service, simply remove this annotation.
 
 > [!WARNING]
+> **Internal load balancers on dual-stack shoots:**
+> AWS does not support internal dual-stack NLBs. An NLB can only receive an IPv6 address when it is internet-facing. The mutating webhook therefore always stamps `aws-load-balancer-scheme: internet-facing` unless it detects internal intent.
+>
+> The webhook recognizes internal intent via **exactly** these annotations:
+> - `service.beta.kubernetes.io/aws-load-balancer-scheme: internal`
+> - `service.beta.kubernetes.io/aws-load-balancer-internal: "true"`
+> - `extensions.gardener.cloud/ignore-load-balancer: "true"`
+>
+> The legacy annotation `service.beta.kubernetes.io/aws-load-balancer-internal` is only recognized when its value is exactly `"true"`. Other historically documented values such as `"0.0.0.0/0"` are **not** recognized by the webhook and will result in a public internet-facing NLB with both a public IPv4 and public IPv6 address. Use `service.beta.kubernetes.io/aws-load-balancer-scheme: internal` to request an internal load balancer — this is the authoritative annotation for the AWS Load Balancer Controller and is always honored.
+
+> [!WARNING]
 > **Elastic IPs and Load Balancer Recreation:**
 > If you have attached Elastic IPs (EIPs) to a LoadBalancer service using the annotation `service.beta.kubernetes.io/aws-load-balancer-eip-allocations`, you must manually detach the EIPs or delete the old load balancer before a new load balancer can be created. Otherwise, the new load balancer creation will fail due to EIP allocation conflicts.
 
